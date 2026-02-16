@@ -218,7 +218,7 @@ export const UserService = {
     const client = getBubbleClient();
 
     // Step 1: Call Bubble workflow to authenticate
-    console.log("[loginWithGoogle] Step 1: POST /wf/login_google", { email, name, givenName, familyName });
+    console.log("[loginWithGoogle] Step 1: POST /wf/login_google", { email, name });
     const wfResponse = await client.post<Record<string, unknown>>("/wf/login_google", {
       id_token: idToken,
       email,
@@ -226,66 +226,78 @@ export const UserService = {
       given_name: givenName,
       family_name: familyName,
     });
-    console.log("[loginWithGoogle] Step 1 RESPONSE (full JSON):", JSON.stringify(wfResponse, null, 2));
+    console.log("[loginWithGoogle] Step 1 RESPONSE:", JSON.stringify(wfResponse, null, 2));
 
-    // Step 2: Extract user ID from workflow response (handle multiple formats)
-    let userId: string | null = null;
+    // Step 2: Extract user + company from workflow response
+    // The workflow returns full objects (bypasses Bubble privacy rules),
+    // while GET /obj/user/{id} may be restricted by privacy rules.
     const resp = (wfResponse as Record<string, unknown>).response as Record<string, unknown> | undefined;
-    console.log("[loginWithGoogle] Step 2: Extracting userId. resp =", JSON.stringify(resp, null, 2));
-    console.log("[loginWithGoogle] Step 2: wfResponse keys =", Object.keys(wfResponse || {}));
-    if (resp) console.log("[loginWithGoogle] Step 2: resp keys =", Object.keys(resp));
-
-    // Try: { response: { user: { _id } } }
-    if (resp?.user && typeof resp.user === "object") {
-      const wfUser = resp.user as Record<string, unknown>;
-      console.log("[loginWithGoogle] Step 2: Found resp.user, keys =", Object.keys(wfUser));
-      userId = (wfUser._id as string) || (wfUser.id as string) || null;
-    }
-    // Try: { response: { user_id } }
-    if (!userId && resp?.user_id) {
-      console.log("[loginWithGoogle] Step 2: Found resp.user_id =", resp.user_id);
-      userId = resp.user_id as string;
-    }
-    // Try: { response: { _id } } (user at root of response)
-    if (!userId && resp?._id) {
-      console.log("[loginWithGoogle] Step 2: Found resp._id =", resp._id);
-      userId = resp._id as string;
+    if (!resp) {
+      throw new Error("No response object from login workflow");
     }
 
-    console.log("[loginWithGoogle] Step 2 RESULT: userId =", userId);
-
+    // Extract user ID
+    const wfUser = resp.user as Record<string, unknown> | undefined;
+    const userId = (wfUser?._id as string) || (resp.user_id as string) || null;
     if (!userId) {
-      console.error("[loginWithGoogle] FAILED: No user ID found in response. Full response:", JSON.stringify(wfResponse, null, 2));
       throw new Error("No user ID returned from login workflow");
     }
+    console.log("[loginWithGoogle] Step 2: userId =", userId);
 
-    // Step 3: Fetch full user from Data API (reliable format, matches iOS fetchUserFromAPI)
-    const userUrl = `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`;
-    console.log("[loginWithGoogle] Step 3: GET", userUrl);
-    const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(userUrl);
-    console.log("[loginWithGoogle] Step 3 RESPONSE (full JSON):", JSON.stringify(userResponse, null, 2));
-    const userDto = userResponse.response;
-    console.log("[loginWithGoogle] Step 3: userDto.company =", userDto.company, "userDto.employeeType =", userDto.employeeType);
+    // Extract company ID from workflow response (workflow has it even though Data API may not)
+    const wfCompany = resp.company as Record<string, unknown> | undefined;
+    const wfCompanyId = wfCompany?._id as string | undefined;
+    console.log("[loginWithGoogle] Step 2: wfCompanyId =", wfCompanyId);
 
-    // Step 4: Fetch company from Data API if user has one (matches iOS fetchCompanyData)
+    // Step 3: Try to fetch full company from Data API (for adminIds, subscription, etc.)
     let company: import("../../types/models").Company | null = null;
     let adminIds: string[] = [];
 
-    if (userDto.company) {
-      const companyUrl = `/obj/${BubbleTypes.company.toLowerCase()}/${userDto.company}`;
-      console.log("[loginWithGoogle] Step 4: GET", companyUrl);
+    if (wfCompanyId) {
+      const companyUrl = `/obj/${BubbleTypes.company.toLowerCase()}/${wfCompanyId}`;
+      console.log("[loginWithGoogle] Step 3: GET", companyUrl);
       try {
         const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(companyUrl);
-        console.log("[loginWithGoogle] Step 4 RESPONSE (full JSON):", JSON.stringify(companyResponse, null, 2));
+        console.log("[loginWithGoogle] Step 3 company RESPONSE:", JSON.stringify(companyResponse, null, 2));
         company = companyDtoToModel(companyResponse.response);
         adminIds = company.adminIds ?? [];
-        console.log("[loginWithGoogle] Step 4: company.name =", company.name, "adminIds =", adminIds);
+        console.log("[loginWithGoogle] Step 3: company.name =", company.name, "adminIds =", adminIds);
       } catch (err) {
-        console.error("[loginWithGoogle] Step 4 FAILED: Company fetch error:", err);
+        console.warn("[loginWithGoogle] Step 3: Data API company fetch failed, using workflow data:", err);
+        // Fall back to workflow company data (limited but has id + name)
+        company = companyDtoToModel(wfCompany as unknown as import("../../types/dto").CompanyDTO);
+        console.log("[loginWithGoogle] Step 3: Fallback company =", company.name);
       }
-    } else {
-      console.warn("[loginWithGoogle] Step 4: SKIPPED - userDto.company is empty/null");
     }
+
+    // Step 4: Build user DTO from Data API + workflow data merge
+    // Data API may be restricted by privacy rules, so merge both sources
+    let userDto: UserDTO;
+    try {
+      const userUrl = `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`;
+      console.log("[loginWithGoogle] Step 4: GET", userUrl);
+      const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(userUrl);
+      userDto = userResponse.response;
+      console.log("[loginWithGoogle] Step 4 user RESPONSE keys:", Object.keys(userDto));
+    } catch {
+      // Fall back to workflow user data
+      userDto = { _id: userId } as UserDTO;
+    }
+
+    // Merge: inject fields from workflow that Data API privacy rules may have hidden
+    if (!userDto.company && wfCompanyId) {
+      userDto.company = wfCompanyId;
+    }
+    if (!userDto.nameFirst && wfUser?.nameFirst) {
+      userDto.nameFirst = wfUser.nameFirst as string;
+    }
+    if (!userDto.nameLast && wfUser?.nameLast) {
+      userDto.nameLast = wfUser.nameLast as string;
+    }
+    if (!userDto.email && email) {
+      userDto.email = email;
+    }
+    console.log("[loginWithGoogle] Step 4 merged userDto: company =", userDto.company, "employeeType =", userDto.employeeType, "email =", userDto.email);
 
     // Step 5: Convert user with correct admin IDs for role detection
     const user = userDtoToModel(userDto, adminIds);
