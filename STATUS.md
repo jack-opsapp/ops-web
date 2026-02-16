@@ -1,6 +1,6 @@
 # OPS Web - Project Status
 
-> Last updated: 2026-02-15 (v3 ground-up redesign)
+> Last updated: 2026-02-16
 
 ## Overview
 
@@ -14,26 +14,50 @@ Deployed on Vercel at **app.opsapp.co**.
 
 | Metric | Count |
 |---|---|
-| Source Files | 127 |
+| Source Files | ~130 |
 | Test Files | 6 |
-| Total Files | 133 |
-| Lines of Code | ~27,300 |
+| Total Files | ~136 |
+| Lines of Code | ~28,000 |
 | Routes | 22 |
 | TypeScript Errors | 0 |
-| Lint Warnings | 0 |
+| Lint Warnings | console.log only (debug, will clean up) |
 | Build Status | PASSING |
+
+## API & Auth Status
+
+### Bubble.io Integration
+- **Base URL**: `https://opsapp.co/api/1.1` (LIVE — NOT version-test)
+- **Proxy**: Server-side API route (`/api/bubble/[...path]/route.ts`) sets Authorization header server-side
+- **Auth token**: Set server-side only (never exposed to browser)
+- **Rate limiting**: 500ms minimum between requests + retry with exponential backoff
+
+### Auth Flow (Google Sign-In)
+1. Firebase popup → get idToken
+2. `POST /wf/login_google` → Bubble workflow authenticates, returns user + company objects
+3. `GET /obj/company/{id}` → Data API for additional company fields (adminIds, subscription)
+4. `GET /obj/user/{id}` → Data API for additional user fields
+5. Merge workflow + Data API data (workflow takes priority for privacy-restricted fields)
+6. Role detection: company.adminIds FIRST → employeeType → default Field Crew
+7. Store user + company in Zustand (persisted to localStorage)
+8. AuthProvider skips API call if login page already handled it (prevents duplicate calls)
+
+### Data Fetching
+- All list hooks auto-paginate past Bubble's 100-item limit
+- Projects, clients, tasks, team members all use `fetchAll*` methods
+- Sub-clients and project tasks also auto-paginate
+- TanStack Query with optimistic updates on mutations
 
 ## Page Status
 
 ### Fully Wired to API Hooks
 | Page | Route | Status |
 |---|---|---|
-| Projects List | `/projects` | Real hooks + bulk operations + modal creation |
+| Projects List | `/projects` | Real hooks + bulk ops + modal creation + client name resolution |
 | Project Detail | `/projects/[id]` | Real hooks + tasks CRUD |
 | New Project | `/projects/new` | React Hook Form + Zod + mutation (also available as modal) |
 | Dashboard | `/dashboard` | Real hooks (projects, tasks, clients, calendar, team) + typewriter |
 | Calendar | `/calendar` | `useCalendarEventsForRange` with date range computation |
-| Clients List | `/clients` | `useClients` hook, filtered + mapped + modal creation |
+| Clients List | `/clients` | `useClients` + `useProjects` for project counts + modal creation |
 | Client Detail | `/clients/[id]` | `useClient` + `useSubClients` + `useProjects` + mutations |
 | New Client | `/clients/new` | `useCreateClient` mutation + toast feedback (also available as modal) |
 | Team | `/team` | `useTeamMembers` hook |
@@ -63,16 +87,21 @@ Deployed on Vercel at **app.opsapp.co**.
 - [x] Next.js 15 App Router with TypeScript
 - [x] Tailwind CSS with full OPS design system (dark theme, iOS-matched tokens)
 - [x] 54 UI components (shadcn/ui pattern + OPS-specific)
-- [x] Bubble.io API client with rate limiting, retry, error types
+- [x] Server-side Bubble API proxy route (auth header set server-side, no CORS issues)
 - [x] 10 entity types with full DTO conversions (byte-perfect BubbleFields)
+- [x] BubbleReference resolution for all relationship fields (company, client, admin, etc.)
+- [x] Auto-pagination on all list hooks (fetches ALL data, not just first 100)
 - [x] 9 TanStack Query hook files with optimistic updates
 - [x] 8 API services (project, task, client, user, company, calendar, image, task-type)
+- [x] Project-client cross-referencing (client names on project cards, project counts on client cards)
 - [x] Unified Zustand auth store (OPS User model + Firebase auth sync)
 - [x] Zustand stores (sidebar, setup, selection, page-actions)
 - [x] Firebase Web App registered + all env vars configured
 - [x] Firebase auth integration (Google Sign-In, email/password)
 - [x] Bubble workflow auth endpoints (`/wf/login_google`, `/wf/generate-api-token`)
+- [x] Workflow data extraction + Data API merge (handles Bubble privacy rules)
 - [x] Auth middleware (route protection, redirects)
+- [x] Duplicate auth call prevention (AuthProvider checks if login page already handled)
 - [x] Command palette (Cmd+K) with navigation, actions, search
 - [x] Keyboard shortcuts (1-9 nav, Cmd+Shift+P/C)
 - [x] Bulk operations with floating action bar + CSV export
@@ -106,65 +135,36 @@ Deployed on Vercel at **app.opsapp.co**.
 - [ ] Email sending (estimates/invoices)
 - [ ] Accessibility audit (WCAG 2.1 AA)
 - [ ] Performance optimization (code splitting beyond Next.js defaults)
+- [ ] Role detection may need Bubble-side fix (admin field + employeeType hidden by privacy rules — diagnostic logging in place)
+- [ ] Remove debug console.log statements from auth flow (after role issue confirmed fixed)
 
-## Recent Changes (Feb 15 v3.1)
+## Recent Changes (Feb 16)
 
-### UI Polish & Production Readiness (v3.1)
-- **Single title pattern**: Removed duplicate titles — top-bar owns the page title, all in-page h1 elements removed
-- **SegmentedPicker**: New sliding underline tab component (no fill/border) — replaces filled toggle buttons on Projects, Clients, Calendar, Settings, and Project Detail pages
-- **Ultrathinmaterial popovers**: DropdownMenu, Select, Tooltip components now use `rgba(13,13,13,0.6)` + blur + white @ 20% border (was solid bg-background-panel)
-- **Live sync indicator**: Wired to TanStack Query `useIsFetching()` / `useIsMutating()` — shows Synced/Syncing/Pending/Offline in real-time
-- **Connectivity monitoring**: `useConnectivity` hook with online/offline toast notifications
-- **401 auto-logout**: Global error handler detects `BubbleUnauthorizedError` → clears auth → redirects to login
-- **Team invite API**: Wired to Bubble `/wf/send_invite` endpoint (was TODO placeholder)
-- **TaskType hooks**: Full CRUD hook layer (useTaskTypes, useCreateTaskType, useUpdateTaskType, useDeleteTaskType, useCreateDefaultTaskTypes)
+### Critical API & Auth Fixes
+- **Base URL fixed**: Changed from `version-test/api/1.1` (test environment) to `api/1.1` (live) — this was the root cause of missing fields, wrong data, and privacy rule issues
+- **Server-side API proxy**: Replaced Next.js `rewrites()` with a proper API route handler (`/api/bubble/[...path]/route.ts`) that sets the Authorization header server-side — eliminates header forwarding issues and keeps API token off the client
+- **CORS fix**: Browser requests go to same-origin `/api/bubble/*`, proxy forwards to Bubble server-side
+- **Auth flow robustness**: `loginWithGoogle` now extracts ALL available fields from workflow response (which bypasses Bubble privacy rules) and merges with Data API response
+- **Duplicate call prevention**: AuthProvider checks if login page already set the user in store before calling loginWithGoogle again
 
-## Previous Changes (Feb 15 v3)
+### Data Layer Fixes
+- **Auto-pagination**: All list hooks (projects, clients, tasks, team members) now auto-paginate past Bubble's 100-item limit using `fetchAll*` methods — was only fetching first 100
+- **Project-client linkage**: Fixed `ProjectDTO.client` type from `string` to `BubbleReference` and use `resolveBubbleReference()` — projects now correctly linked to clients
+- **Client names on project cards**: Projects page fetches clients, builds lookup map, enriches project objects with client relationship data
+- **Project counts on client cards**: Clients page fetches projects, counts per clientId, displays real counts instead of "--"
+- **Sub-client auto-pagination**: `fetchSubClients` now auto-paginates (was hardcoded to 100)
+- **Project task auto-pagination**: `fetchProjectTasks` now auto-paginates (was hardcoded to 100)
 
-### Design System Fix (iOS OPSStyle Parity)
-All design tokens now match the iOS OPSStyle.swift source of truth exactly:
-- **Background**: Pure black `#000000` (was `#0B0D11` charcoal)
-- **Panel**: `#0A0A0A`, **Card**: `#191919`, **Elevated**: `#1A1A1A`
-- **Card Material**: `rgba(13,13,13,0.6)` + `backdrop-blur(20px)` + `white @ 20%` border
-- **Text**: `#E5E5E5` (was `#E2E4E9`), `#A7A7A7` (was `#8B8F9A`), `#777777` (was `#5C6070`)
-- **Borders**: white @ 20% default (was 6%), 40% for button borders, 15% for separators
-- **Cards**: `rounded-[5px]` with `bg-[rgba(13,13,13,0.6)]` + blur + 20% white border
-- **Buttons**: ALL CAPS text, correct border opacities, `active:scale-[0.98]`
-- **No glow effects anywhere** — subtle elevation shadows only
-
-### ALL CAPS Treatment
-Applied `uppercase` to all:
-- Page titles in top bar
-- Sidebar nav labels
-- Section headers
-- Card titles (where appropriate)
-- Button text (via button component)
-- Badge text
-- Tab/column headers
-
-### Architectural Changes
-1. **Modal Creation Dialogs**: Project and client creation now use modal dialogs
-   - `CreateProjectModal` — extracted from projects/new/page.tsx
-   - `CreateClientModal` — extracted from clients/new/page.tsx
-   - Triggered from top bar action buttons, list page buttons, and empty states
-2. **Top Bar Rewrite**: Now shows page title (ALL CAPS) + contextual action buttons per route
-   - `/projects` → "NEW PROJECT" button
-   - `/clients` → "NEW CLIENT" button
-   - `/pipeline` → "NEW LEAD" button
-   - Uses `usePageActionsStore` (zustand) for page-specific actions
-3. **Pipeline Expanded Cards**: Cards always show full details (client, address, contact, actions)
-   - No click-to-expand — all info visible immediately
-   - Drag-over: column border highlights with accent color
-   - Card background: ultrathinmaterial (frosted glass)
-
-### Typewriter Animation Restored
-- Dashboard greeting has typewriter animation with blinking caret
-- CSS keyframes for `typewriter` and `blink-caret` added back to globals.css
-
-### Bug Fixes Preserved
-- **Sign-out → blank screen**: Cookie cleared synchronously before navigation
-- **User data not loading**: `setLoading(false)` always called (in `finally` + else branch)
-- **Auth layout**: Grid background + glow blobs remain removed
+### Git Commits (Feb 16)
+1. `196cf67` — CORS proxy fix (Next.js rewrites)
+2. `ec0f836` — Auth fix: fetch user/company from Data API after workflow
+3. `a408c93` — Debug logging for auth flow diagnosis
+4. `4f70aac` — Auth fix: merge workflow + Data API data
+5. `58cd14f` — Server-side API proxy route + comprehensive workflow extraction + duplicate call prevention
+6. `e40f311` — Fix base URL: live API instead of version-test
+7. `1f79725` — Auto-pagination on all data hooks
+8. `ad60c9b` — Fix project-client BubbleReference linkage
+9. `62b6554` — Wire project-client display (client names + project counts)
 
 ## Tech Stack
 
@@ -178,7 +178,7 @@ Applied `uppercase` to all:
 | State (client) | Zustand v5 |
 | Forms | React Hook Form + Zod |
 | Auth | Firebase + Bubble workflow endpoints |
-| API | Axios (Bubble.io REST) |
+| API | Axios (Bubble.io REST) via server-side proxy |
 | Maps | Leaflet + react-leaflet |
 | DnD | Native HTML5 drag-and-drop |
 | Testing | Vitest + RTL + MSW + Playwright |
@@ -207,8 +207,10 @@ Applied `uppercase` to all:
 
 ## Known Issues
 
+- Role detection may default to "Field Crew" if Bubble privacy rules hide `admin` and `employeeType` fields — diagnostic logging in place, may need Bubble-side fix
 - Address autocomplete is stubbed (Google Places API TODO)
 - Project images not wired into project form (component exists)
 - No inline task creation during project creation
 - Revenue/Accounting pages need financial data model
-- Some test mocks may need updating after auth flow change
+- Some test mocks may need updating after auth flow changes and base URL change
+- Debug console.log statements in auth flow should be cleaned up after role issue is confirmed fixed
