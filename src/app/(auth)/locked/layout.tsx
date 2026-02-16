@@ -1,7 +1,5 @@
 "use client";
 
-import { AuthProvider } from "@/components/providers/auth-provider";
-
 /**
  * Layout override for the /locked route.
  *

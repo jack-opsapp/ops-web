@@ -4,14 +4,18 @@
  * Wraps the application with:
  * - TanStack Query for server state management
  * - Auth state hydration
+ * - Global 401 auto-logout
  */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { getQueryClient } from "@/lib/api/query-client";
+import { getQueryClient, setOnUnauthorized } from "@/lib/api/query-client";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { signOut } from "@/lib/firebase/auth";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -20,6 +24,18 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   // Create a stable query client instance per component lifecycle
   const [queryClient] = useState(() => getQueryClient());
+  const router = useRouter();
+  const logout = useAuthStore((s) => s.logout);
+
+  // Register global 401 handler — forces logout + redirect on auth failure
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      document.cookie = "ops-auth-token=; path=/; max-age=0";
+      logout();
+      signOut().catch(() => {});
+      router.push("/login");
+    });
+  }, [router, logout]);
 
   return (
     <QueryClientProvider client={queryClient}>

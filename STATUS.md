@@ -14,13 +14,13 @@ Deployed on Vercel at **app.opsapp.co**.
 
 | Metric | Count |
 |---|---|
-| Source Files | 123 |
+| Source Files | 127 |
 | Test Files | 6 |
-| Total Files | 129 |
-| Lines of Code | ~29,000 |
-| Routes | 21 |
-| Tests Passing | 262 |
+| Total Files | 133 |
+| Lines of Code | ~27,300 |
+| Routes | 22 |
 | TypeScript Errors | 0 |
+| Lint Warnings | 0 |
 | Build Status | PASSING |
 
 ## Page Status
@@ -65,7 +65,7 @@ Deployed on Vercel at **app.opsapp.co**.
 - [x] 54 UI components (shadcn/ui pattern + OPS-specific)
 - [x] Bubble.io API client with rate limiting, retry, error types
 - [x] 10 entity types with full DTO conversions (byte-perfect BubbleFields)
-- [x] 7 TanStack Query hooks with optimistic updates
+- [x] 9 TanStack Query hook files with optimistic updates
 - [x] 8 API services (project, task, client, user, company, calendar, image, task-type)
 - [x] Unified Zustand auth store (OPS User model + Firebase auth sync)
 - [x] Zustand stores (sidebar, setup, selection, page-actions)
@@ -90,17 +90,36 @@ Deployed on Vercel at **app.opsapp.co**.
 - [x] Deployed on Vercel at app.opsapp.co
 - [x] Modal creation dialogs (projects + clients)
 - [x] Page-specific action buttons in top bar
+- [x] Live sync indicator (TanStack Query isFetching/isMutating)
+- [x] Connectivity monitoring (online/offline with toast notifications)
+- [x] Global 401 auto-logout (BubbleUnauthorizedError triggers redirect)
+- [x] Team invite API wired (Bubble /wf/send_invite endpoint)
+- [x] TaskType CRUD hooks (full service + hook layer)
+- [x] SegmentedPicker component (sliding underline, no fill/border)
+- [x] Single page title pattern (top-bar owns title, no in-page h1)
+- [x] Ultrathinmaterial on all popovers/dropdowns/tooltips/selects
 
 ### Not Yet Done
 - [ ] Sentry error tracking
 - [ ] Vercel Analytics
-- [ ] Stripe payment integration
+- [ ] Stripe payment integration (hooks exist but UI flow incomplete)
 - [ ] Email sending (estimates/invoices)
-- [ ] Real-time sync / polling
 - [ ] Accessibility audit (WCAG 2.1 AA)
 - [ ] Performance optimization (code splitting beyond Next.js defaults)
 
-## Recent Changes (Feb 15 v3)
+## Recent Changes (Feb 15 v3.1)
+
+### UI Polish & Production Readiness (v3.1)
+- **Single title pattern**: Removed duplicate titles — top-bar owns the page title, all in-page h1 elements removed
+- **SegmentedPicker**: New sliding underline tab component (no fill/border) — replaces filled toggle buttons on Projects, Clients, Calendar, Settings, and Project Detail pages
+- **Ultrathinmaterial popovers**: DropdownMenu, Select, Tooltip components now use `rgba(13,13,13,0.6)` + blur + white @ 20% border (was solid bg-background-panel)
+- **Live sync indicator**: Wired to TanStack Query `useIsFetching()` / `useIsMutating()` — shows Synced/Syncing/Pending/Offline in real-time
+- **Connectivity monitoring**: `useConnectivity` hook with online/offline toast notifications
+- **401 auto-logout**: Global error handler detects `BubbleUnauthorizedError` → clears auth → redirects to login
+- **Team invite API**: Wired to Bubble `/wf/send_invite` endpoint (was TODO placeholder)
+- **TaskType hooks**: Full CRUD hook layer (useTaskTypes, useCreateTaskType, useUpdateTaskType, useDeleteTaskType, useCreateDefaultTaskTypes)
+
+## Previous Changes (Feb 15 v3)
 
 ### Design System Fix (iOS OPSStyle Parity)
 All design tokens now match the iOS OPSStyle.swift source of truth exactly:

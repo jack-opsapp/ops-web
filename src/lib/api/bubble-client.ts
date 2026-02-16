@@ -182,7 +182,7 @@ class BubbleClient {
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         if (this.enableLogging) {
-          console.log(
+          console.warn(
             `[BubbleClient] ${config.method?.toUpperCase()} ${config.url}`,
             config.params ? `params: ${JSON.stringify(config.params)}` : ""
           );
@@ -204,7 +204,7 @@ class BubbleClient {
           const resultCount =
             response.data?.response?.results?.length ??
             (response.data?.response ? 1 : 0);
-          console.log(
+          console.warn(
             `[BubbleClient] Response ${response.status}`,
             resultCount > 0 ? `(${resultCount} results)` : ""
           );

@@ -92,6 +92,7 @@ export function ImageUpload({
       >
         {displayPreview ? (
           <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={displayPreview}
               alt=""
@@ -198,6 +199,7 @@ export function MultiImageUpload({
             key={`${url}-${i}`}
             className="relative w-[80px] h-[80px] rounded-lg overflow-hidden border border-border group"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt="" className="w-full h-full object-cover" />
             <button
               onClick={() => removeImage(i)}

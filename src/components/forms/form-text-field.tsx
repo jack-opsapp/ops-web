@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useFormContext, type FieldPath, type FieldValues } from "react-hook-form";
-import { Input, type InputProps } from "@/components/ui/input";
+import { type InputProps } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 

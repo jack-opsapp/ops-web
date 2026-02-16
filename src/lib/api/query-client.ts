@@ -93,6 +93,20 @@ export const queryKeys = {
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
 
+// Global 401 handler — triggers logout on auth errors.
+// Set by the QueryProvider after auth store is available.
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(handler: () => void) {
+  onUnauthorized = handler;
+}
+
+function handleGlobalError(error: unknown) {
+  if (error instanceof BubbleUnauthorizedError && onUnauthorized) {
+    onUnauthorized();
+  }
+}
+
 function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
@@ -137,6 +151,7 @@ function createQueryClient(): QueryClient {
       mutations: {
         // Don't retry mutations by default
         retry: false,
+        onError: handleGlobalError,
       },
     },
   });

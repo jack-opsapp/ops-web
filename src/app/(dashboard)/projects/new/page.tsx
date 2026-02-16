@@ -5,18 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Save, X, Search, Plus, Check, Palette } from "lucide-react";
+import { ArrowLeft, Save, X, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useCreateProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
@@ -52,21 +45,6 @@ const statusOptions: { value: ProjectStatus; label: string }[] = [
   { value: ProjectStatus.Estimated, label: "Estimated" },
   { value: ProjectStatus.Accepted, label: "Accepted" },
   { value: ProjectStatus.InProgress, label: "In Progress" },
-];
-
-// ─── Default Project Colors ────────────────────────────────────────────────────
-
-const PROJECT_COLORS = [
-  "#417394", // Steel blue
-  "#C4A868", // Amber
-  "#9DB582", // Green
-  "#B58289", // Rose
-  "#A182B5", // Purple
-  "#B5A381", // Warm gold
-  "#8195B5", // Light blue
-  "#82B5A1", // Teal
-  "#B5828D", // Pink
-  "#BCBCBC", // Gray
 ];
 
 // ─── Client Selector ───────────────────────────────────────────────────────────
@@ -280,9 +258,7 @@ export default function NewProjectPage() {
     register,
     handleSubmit,
     control,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {

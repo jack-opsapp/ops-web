@@ -172,6 +172,7 @@ export function Sidebar() {
           {/* Avatar */}
           <div className="shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
             {currentUser?.profileImageURL ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={currentUser.profileImageURL}
                 alt={currentUser.firstName || "User"}

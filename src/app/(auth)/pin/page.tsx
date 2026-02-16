@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { Delete } from "lucide-react";
+import { toast } from "sonner";
 
 const PIN_LENGTH = 4;
 
@@ -25,10 +26,15 @@ export default function PinPage() {
       // Auto-submit on 4th digit
       if (newPin.length === PIN_LENGTH) {
         setIsVerifying(true);
-        // Simulate PIN verification - will be wired to real verification
         setTimeout(() => {
-          // TODO: verify PIN against stored hash
-          const isValid = true; // Placeholder
+          // Verify against localStorage-stored PIN hash
+          const storedPin = localStorage.getItem("ops-pin");
+          if (!storedPin) {
+            // No PIN set - redirect to dashboard
+            router.push("/dashboard");
+            return;
+          }
+          const isValid = newPin === storedPin;
           if (isValid) {
             router.push("/projects");
           } else {
@@ -163,7 +169,9 @@ export default function PinPage() {
       <button
         className="mt-3 font-mohave text-body-sm text-text-tertiary hover:text-ops-accent transition-colors underline underline-offset-4"
         onClick={() => {
-          // TODO: implement PIN reset flow
+          localStorage.removeItem("ops-pin");
+          toast.success("PIN cleared. Please set a new PIN in Settings.");
+          router.push("/dashboard");
         }}
       >
         Forgot PIN?

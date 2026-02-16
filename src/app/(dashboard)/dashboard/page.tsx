@@ -35,7 +35,6 @@ import {
 } from "@/lib/hooks";
 import {
   type Project,
-  type ProjectTask,
   type CalendarEvent,
   type User,
   ProjectStatus,
@@ -185,7 +184,7 @@ function StatCard({
 // Mini Calendar Widget - wired to useCalendarEventsForRange
 // ---------------------------------------------------------------------------
 function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoading: boolean }) {
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthNames = [
     "January",
@@ -620,9 +619,9 @@ export default function DashboardPage() {
   const { currentUser } = useAuthStore();
   const firstName = currentUser?.firstName || "there";
 
-  const today = new Date();
-  const weekStartDate = useMemo(() => startOfWeek(today, { weekStartsOn: 0 }), []);
-  const weekEndDate = useMemo(() => endOfWeek(today, { weekStartsOn: 0 }), []);
+  const today = useMemo(() => new Date(), []);
+  const weekStartDate = useMemo(() => startOfWeek(today, { weekStartsOn: 0 }), [today]);
+  const weekEndDate = useMemo(() => endOfWeek(today, { weekStartsOn: 0 }), [today]);
 
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: tasksData, isLoading: tasksLoading } = useTasks();
@@ -633,11 +632,11 @@ export default function DashboardPage() {
     weekEndDate
   );
 
-  const projects = projectsData?.projects ?? [];
-  const tasks = tasksData?.tasks ?? [];
-  const clients = clientsData?.clients ?? [];
+  const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
+  const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData]);
+  const clients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
   const teamMembers = teamData?.users ?? [];
-  const weekEvents = calendarEvents ?? [];
+  const weekEvents = useMemo(() => calendarEvents ?? [], [calendarEvents]);
 
   const activeProjectCount = useMemo(
     () => projects.filter((p) => isActiveProjectStatus(p.status) && !p.deletedAt).length,
@@ -690,13 +689,13 @@ export default function DashboardPage() {
     >
       {/* Header with greeting - typewriter animation */}
       <div className="animate-fade-in">
-        <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
+        <p className="font-mohave text-body-lg text-text-secondary tracking-wide">
           <span className={mounted ? "typewriter" : ""} onAnimationEnd={(e) => {
             (e.target as HTMLElement).classList.add("typewriter-done");
           }}>
             {getGreeting()}, {firstName}
           </span>
-        </h1>
+        </p>
         <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase">
           Here&apos;s your operational overview for today.
         </p>

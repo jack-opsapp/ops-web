@@ -13,7 +13,6 @@ import {
   Users,
   Plus,
   ExternalLink,
-  Building2,
   StickyNote,
   Copy,
   Check,

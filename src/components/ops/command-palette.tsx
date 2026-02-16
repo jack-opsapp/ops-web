@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   FolderKanban,
   CalendarDays,
@@ -17,10 +19,11 @@ import {
   Receipt,
   Calculator,
   LogOut,
-  Moon,
   Keyboard,
   RefreshCw,
 } from "lucide-react";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { signOut } from "@/lib/firebase/auth";
 import {
   CommandDialog,
   CommandInput,
@@ -44,6 +47,7 @@ interface CommandAction {
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Toggle with Cmd+K / Ctrl+K
   useEffect(() => {
@@ -177,7 +181,8 @@ export function CommandPalette() {
       icon: RefreshCw,
       onSelect: () => {
         setOpen(false);
-        // TODO: trigger manual sync
+        queryClient.invalidateQueries();
+        toast.success("Syncing all data...");
       },
       keywords: ["refresh", "update", "fetch"],
     },
@@ -191,19 +196,12 @@ export function CommandPalette() {
       shortcut: "?",
       onSelect: () => {
         setOpen(false);
-        // TODO: open shortcuts modal
+        toast.info("Keyboard Shortcuts", {
+          description: "1-9: Navigate pages \u2022 \u2318K: Search \u2022 \u2318\u21E7P: New Project \u2022 \u2318\u21E7C: New Client \u2022 Esc: Close",
+          duration: 8000,
+        });
       },
       keywords: ["help", "keys", "hotkeys"],
-    },
-    {
-      id: "system-theme",
-      label: "Toggle Theme",
-      icon: Moon,
-      onSelect: () => {
-        setOpen(false);
-        // TODO: toggle theme
-      },
-      keywords: ["dark", "light", "mode"],
     },
     {
       id: "system-logout",
@@ -211,6 +209,9 @@ export function CommandPalette() {
       icon: LogOut,
       onSelect: () => {
         setOpen(false);
+        document.cookie = "ops-auth-token=; path=/; max-age=0";
+        useAuthStore.getState().logout();
+        signOut().catch(() => {});
         router.push("/login");
       },
       keywords: ["logout", "exit"],

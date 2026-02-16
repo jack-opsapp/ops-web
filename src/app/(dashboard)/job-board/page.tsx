@@ -37,6 +37,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { CreateProjectModal } from "@/components/ops/create-project-modal";
 
 import {
   useProjects,
@@ -164,7 +165,7 @@ function calculateDaysInStage(project: Project): number {
 // ---------------------------------------------------------------------------
 function SortableKanbanCard({
   card,
-  columnColor,
+  columnColor: _columnColor,
   isDraggingOverlay,
 }: {
   card: JobCard;
@@ -305,10 +306,12 @@ function SortableKanbanCard({
 // ---------------------------------------------------------------------------
 function KanbanColumn({
   column,
-  activeCardId,
+  activeCardId: _activeCardId,
+  onAddProject,
 }: {
   column: Column;
   activeCardId: string | null;
+  onAddProject?: () => void;
 }) {
   const totalValue = column.cards.reduce((sum, c) => sum + c.value, 0);
   const avgDays =
@@ -339,7 +342,10 @@ function KanbanColumn({
               {column.cards.length}
             </span>
           </div>
-          <button className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors">
+          <button
+            onClick={onAddProject}
+            className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors"
+          >
             <Plus className="w-[14px] h-[14px]" />
           </button>
         </div>
@@ -407,6 +413,7 @@ function FilterBar({
   setShowFilters,
   totalProjects,
   totalValue,
+  onNewProject,
 }: {
   searchQuery: string;
   setSearchQuery: (v: string) => void;
@@ -417,15 +424,13 @@ function FilterBar({
   setShowFilters: (v: boolean) => void;
   totalProjects: number;
   totalValue: number;
+  onNewProject?: () => void;
 }) {
   return (
     <div className="shrink-0 space-y-1">
       {/* Top bar */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-            JOB BOARD
-          </h1>
           <div className="flex items-center gap-2">
             <p className="font-kosugi text-caption-sm text-text-tertiary">
               Drag and drop to update project status
@@ -466,7 +471,7 @@ function FilterBar({
             <ListFilter className="w-[14px] h-[14px]" />
             Filter
           </Button>
-          <Button variant="default" size="sm" className="gap-[6px]">
+          <Button variant="default" size="sm" className="gap-[6px]" onClick={onNewProject}>
             <Plus className="w-[14px] h-[14px]" />
             New Project
           </Button>
@@ -553,6 +558,7 @@ export default function JobBoardPage() {
   const [clientFilter, setClientFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // Track optimistic DnD overrides: map of projectId -> target ColumnId
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
@@ -809,6 +815,7 @@ export default function JobBoardPage() {
         setShowFilters={setShowFilters}
         totalProjects={totalProjects}
         totalValue={totalValue}
+        onNewProject={() => setCreateModalOpen(true)}
       />
 
       {/* Kanban Board with DnD */}
@@ -825,6 +832,7 @@ export default function JobBoardPage() {
                 key={column.id}
                 column={column}
                 activeCardId={activeCardId}
+                onAddProject={() => setCreateModalOpen(true)}
               />
             ))}
           </div>
@@ -869,6 +877,12 @@ export default function JobBoardPage() {
           Drag cards between columns to update status
         </span>
       </div>
+
+      <CreateProjectModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        defaultStatus={ProjectStatus.RFQ}
+      />
     </div>
   );
 }

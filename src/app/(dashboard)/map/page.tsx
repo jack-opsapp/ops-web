@@ -4,13 +4,10 @@ import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   MapPin,
-  Navigation,
   Search,
-  Filter,
   ExternalLink,
   ChevronRight,
   Loader2,
-  Layers,
   List,
   X,
 } from "lucide-react";
@@ -141,7 +138,7 @@ export default function MapPage() {
   const [showSidebar, setShowSidebar] = useState(true);
 
   const { data, isLoading } = useProjects();
-  const projects = data?.projects ?? [];
+  const projects = useMemo(() => data?.projects ?? [], [data]);
 
   // Filter projects
   const filteredProjects = useMemo(() => {
@@ -190,7 +187,7 @@ export default function MapPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[6px]">
               <MapPin className="w-[16px] h-[16px] text-ops-accent" />
-              <h2 className="font-mohave text-heading text-text-primary">MAP</h2>
+              <span className="font-mohave text-body font-medium text-text-primary uppercase tracking-wider">Projects</span>
             </div>
             <div className="flex items-center gap-[6px]">
               <span className="font-mono text-[10px] text-text-disabled">

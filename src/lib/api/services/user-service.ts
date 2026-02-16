@@ -355,6 +355,39 @@ export const UserService = {
       company_code: companyCode,
     });
   },
+
+  /**
+   * Send team invites via Bubble workflow (matches iOS OnboardingService.sendInvites).
+   * POST /wf/send_invite with emails array + company ID.
+   */
+  async sendInvite(
+    emails: string[],
+    companyId: string
+  ): Promise<{ success: boolean; invitesSent?: number; errorMessage?: string }> {
+    const client = getBubbleClient();
+
+    const response = await client.post<{
+      response?: {
+        success?: boolean;
+        invites_sent?: number;
+        error_message?: string;
+      };
+      success?: boolean;
+      invites_sent?: number;
+      error_message?: string;
+    }>("/wf/send_invite", {
+      emails,
+      company: companyId,
+    });
+
+    const data = response.response ?? response;
+
+    return {
+      success: data.success ?? true,
+      invitesSent: data.invites_sent,
+      errorMessage: data.error_message,
+    };
+  },
 };
 
 export default UserService;

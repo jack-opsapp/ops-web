@@ -16,16 +16,13 @@ import {
 } from "../../constants/bubble-fields";
 import {
   type TaskDTO,
-  type CalendarEventDTO,
   type BubbleListResponse,
   type BubbleObjectResponse,
   type BubbleCreationResponse,
   taskDtoToModel,
   taskModelToDto,
-  calendarEventDtoToModel,
-  calendarEventModelToDto,
 } from "../../types/dto";
-import type { ProjectTask, CalendarEvent, TaskStatus } from "../../types/models";
+import type { ProjectTask, TaskStatus } from "../../types/models";
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 

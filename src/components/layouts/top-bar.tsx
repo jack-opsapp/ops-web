@@ -12,12 +12,15 @@ import {
   LogOut,
   User,
   Settings,
+  WifiOff,
 } from "lucide-react";
+import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
 import { Button } from "@/components/ui/button";
 import { usePageActionsStore } from "@/stores/page-actions-store";
+import { useConnectivity } from "@/lib/hooks/use-connectivity";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -70,21 +73,24 @@ function getPageTitle(pathname: string): string | null {
   return null;
 }
 
-type SyncStatus = "synced" | "syncing" | "pending";
+type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
 function SyncIndicator({ status }: { status: SyncStatus }) {
   return (
     <div
       className={cn(
         "flex items-center gap-[6px] px-1 py-[6px] rounded",
-        "font-mono text-[11px] tracking-wider text-text-tertiary"
+        "font-mono text-[11px] tracking-wider",
+        status === "offline" ? "text-ops-error" : "text-text-tertiary"
       )}
       title={
         status === "synced"
           ? "All data synced"
           : status === "syncing"
             ? "Syncing data..."
-            : "Changes pending sync"
+            : status === "offline"
+              ? "No internet connection"
+              : "Changes pending sync"
       }
     >
       {status === "synced" && (
@@ -103,6 +109,12 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
         <>
           <Clock className="w-[14px] h-[14px]" />
           <span className="hidden xl:inline uppercase">Pending</span>
+        </>
+      )}
+      {status === "offline" && (
+        <>
+          <WifiOff className="w-[14px] h-[14px]" />
+          <span className="hidden xl:inline uppercase">Offline</span>
         </>
       )}
     </div>
@@ -126,8 +138,11 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
   const breadcrumbs = useMemo(() => getBreadcrumbs(pathname), [pathname]);
   const pageTitle = useMemo(() => getPageTitle(pathname), [pathname]);
 
-  // For now, sync status is static. Will be wired to real sync later.
-  const syncStatus: SyncStatus = "synced";
+  // Live sync status from TanStack Query + connectivity
+  const isOnline = useConnectivity();
+  const isFetching = useIsFetching();
+  const isMutating = useIsMutating();
+  const syncStatus: SyncStatus = !isOnline ? "offline" : isMutating > 0 ? "pending" : isFetching > 0 ? "syncing" : "synced";
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -140,17 +155,7 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Cmd+K search shortcut
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        // TODO: open command palette
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Cmd+K is handled by CommandPalette component directly
 
   const handleSignOut = useCallback(async () => {
     setUserMenuOpen(false);
@@ -168,45 +173,37 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
         "relative"
       )}
     >
-      {/* Left: Breadcrumbs + Page Title */}
+      {/* Left: Page Title + Breadcrumbs (detail pages only) */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-[6px]">
-          {breadcrumbs.map((crumb, index) => (
-            <div key={index} className="flex items-center gap-[6px]">
-              {index > 0 && (
-                <ChevronRight className="w-[14px] h-[14px] text-text-disabled shrink-0" />
-              )}
-              {crumb.href ? (
-                <button
-                  onClick={() => router.push(crumb.href!)}
-                  className={cn(
-                    "font-mohave text-body-sm truncate",
-                    index === breadcrumbs.length - 1
-                      ? "text-text-primary"
-                      : "text-text-tertiary hover:text-text-secondary transition-colors"
-                  )}
-                >
-                  {crumb.label}
-                </button>
-              ) : (
-                <span className="font-mohave text-body-sm text-text-primary truncate">
-                  {crumb.label}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Page Title - ALL CAPS */}
-        {pageTitle && breadcrumbs.length <= 1 && (
-          <>
-            <div className="w-px h-[20px] bg-[rgba(255,255,255,0.15)]" />
-            <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider truncate">
-              {pageTitle}
-            </h1>
-          </>
-        )}
+        {breadcrumbs.length > 1 ? (
+          /* Detail pages: show breadcrumbs */
+          <div className="flex items-center gap-[6px]">
+            {breadcrumbs.map((crumb, index) => (
+              <div key={index} className="flex items-center gap-[6px]">
+                {index > 0 && (
+                  <ChevronRight className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+                )}
+                {crumb.href && index < breadcrumbs.length - 1 ? (
+                  <button
+                    onClick={() => router.push(crumb.href!)}
+                    className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors truncate"
+                  >
+                    {crumb.label}
+                  </button>
+                ) : (
+                  <span className="font-mohave text-body-sm text-text-primary truncate uppercase tracking-wider">
+                    {crumb.label}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : pageTitle ? (
+          /* Top-level pages: single title only */
+          <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider truncate">
+            {pageTitle}
+          </h1>
+        ) : null}
       </div>
 
       {/* Right: Page Actions + Global Actions */}
@@ -233,8 +230,9 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
         <button
           className="flex items-center gap-[6px] px-1 py-[6px] rounded text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-all"
           title="Search (Cmd+K)"
+          aria-label="Open search"
           onClick={() => {
-            // TODO: open command palette
+            window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
           }}
         >
           <Search className="w-[18px] h-[18px]" />
@@ -247,10 +245,9 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
         <button
           className="relative p-[10px] rounded text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-all"
           title="Notifications"
+          aria-label="Notifications"
         >
           <Bell className="w-[18px] h-[18px]" />
-          {/* Unread badge - subtle white dot */}
-          <span className="absolute top-[6px] right-[6px] w-[6px] h-[6px] rounded-full bg-[rgba(255,255,255,0.4)]" />
         </button>
 
         {/* User menu */}
@@ -258,9 +255,11 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center gap-1 p-[6px] rounded hover:bg-[rgba(255,255,255,0.04)] transition-all"
+            aria-label="User menu"
           >
             <div className="w-[28px] h-[28px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
               {currentUser?.profileImageURL ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={currentUser.profileImageURL}
                   alt=""

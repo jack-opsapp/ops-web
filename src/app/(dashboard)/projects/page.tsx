@@ -12,7 +12,6 @@ import {
   AlertCircle,
   RefreshCw,
   Trash2,
-  UserPlus,
   Download,
   ArrowRight,
   CheckSquare,
@@ -22,15 +21,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { StatusBadge } from "@/components/ops/status-badge";
+import { StatusBadge, type ProjectStatus as StatusBadgeProjectStatus } from "@/components/ops/status-badge";
 import { EmptyState } from "@/components/ops/empty-state";
-import { UserAvatar } from "@/components/ops/user-avatar";
 import { BulkActionBar, type BulkAction } from "@/components/ops/bulk-action-bar";
 import { SelectableRow } from "@/components/ops/selectable-row";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { exportToCSV } from "@/lib/utils/csv-export";
 import {
@@ -45,7 +44,6 @@ import {
   type Project,
   ProjectStatus,
   isActiveProjectStatus,
-  isCompletedProjectStatus,
   getUserFullName,
   getInitials,
 } from "@/lib/types/models";
@@ -73,7 +71,7 @@ const ALL_PROJECT_STATUSES = [
 /**
  * Map a ProjectStatus enum value to the kebab-case key used by StatusBadge.
  */
-function statusToKey(status: ProjectStatus): string {
+function statusToKey(status: ProjectStatus): StatusBadgeProjectStatus {
   switch (status) {
     case ProjectStatus.RFQ:
       return "rfq";
@@ -156,7 +154,7 @@ function ProjectCardContent({ project, onClick }: { project: Project; onClick: (
           </h3>
           <p className="font-kosugi text-caption-sm text-text-tertiary">{clientName}</p>
         </div>
-        <StatusBadge status={statusToKey(project.status) as any} />
+        <StatusBadge status={statusToKey(project.status) } />
       </div>
 
       {project.address && (
@@ -190,41 +188,6 @@ function ProjectCardContent({ project, onClick }: { project: Project; onClick: (
         </div>
       </div>
     </Card>
-  );
-}
-
-function ProjectTableRowContent({ project, onClick }: { project: Project; onClick: () => void }) {
-  const clientName = project.client?.name ?? "No Client";
-
-  return (
-    <tr
-      onClick={onClick}
-      className="border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors"
-    >
-      <td className="px-1.5 py-1">
-        <span className="font-mohave text-body text-text-primary">{project.title}</span>
-      </td>
-      <td className="px-1.5 py-1">
-        <span className="font-mohave text-body-sm text-text-secondary">{clientName}</span>
-      </td>
-      <td className="px-1.5 py-1">
-        <StatusBadge status={statusToKey(project.status) as any} />
-      </td>
-      <td className="px-1.5 py-1">
-        <TeamAvatars project={project} />
-      </td>
-      <td className="px-1.5 py-1">
-        <span className="font-mono text-data-sm text-text-tertiary">
-          {project.startDate
-            ? new Date(project.startDate).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : "--"}
-        </span>
-      </td>
-    </tr>
   );
 }
 
@@ -317,7 +280,7 @@ export default function ProjectsPage() {
   const updateStatus = useUpdateProjectStatus();
   const deleteProject = useDeleteProject();
 
-  const projects = data?.projects ?? [];
+  const projects = useMemo(() => data?.projects ?? [], [data]);
 
   const filteredProjects = useMemo(() => {
     let filtered = [...projects];
@@ -477,16 +440,11 @@ export default function ProjectsPage() {
     <div className="space-y-3 max-w-[1400px]">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-            PROJECTS
-          </h1>
-          <p className="font-kosugi text-caption-sm text-text-tertiary">
-            {isLoading
-              ? "Loading projects..."
-              : `${projects.length} total project${projects.length !== 1 ? "s" : ""}`}
-          </p>
-        </div>
+        <p className="font-kosugi text-caption-sm text-text-tertiary">
+          {isLoading
+            ? "Loading projects..."
+            : `${projects.length} total project${projects.length !== 1 ? "s" : ""}`}
+        </p>
         <div className="flex items-center gap-1">
           {/* Select mode toggle */}
           {filteredProjects.length > 0 && !isLoading && (
@@ -497,7 +455,6 @@ export default function ProjectsPage() {
                 if (isSelecting) {
                   clearSelection();
                 } else {
-                  // Enter selection mode by selecting first item
                   toggleSelection(filteredIds[0]);
                 }
               }}
@@ -527,50 +484,22 @@ export default function ProjectsPage() {
 
         <div className="flex items-center gap-1">
           {/* Status tabs */}
-          <div className="flex items-center bg-background-card border border-border rounded overflow-hidden">
-            {filterTabs.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setStatusFilter(tab.value)}
-                className={cn(
-                  "px-1.5 py-[8px] font-mohave text-body-sm transition-all",
-                  statusFilter === tab.value
-                    ? "bg-ops-accent-muted text-ops-accent"
-                    : "text-text-tertiary hover:text-text-secondary"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedPicker
+            options={filterTabs.map((t) => ({ value: t.value, label: t.label }))}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
 
           {/* View toggle */}
-          <div className="flex items-center border border-border rounded overflow-hidden">
-            <button
-              onClick={() => setViewMode("cards")}
-              className={cn(
-                "p-[8px] transition-all",
-                viewMode === "cards"
-                  ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-tertiary hover:text-text-secondary"
-              )}
-              title="Card view"
-            >
-              <LayoutGrid className="w-[16px] h-[16px]" />
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={cn(
-                "p-[8px] transition-all",
-                viewMode === "table"
-                  ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-tertiary hover:text-text-secondary"
-              )}
-              title="Table view"
-            >
-              <List className="w-[16px] h-[16px]" />
-            </button>
-          </div>
+          <SegmentedPicker
+            options={[
+              { value: "cards" as ViewMode, label: "Cards", icon: LayoutGrid },
+              { value: "table" as ViewMode, label: "Table", icon: List },
+            ]}
+            value={viewMode}
+            onChange={setViewMode}
+            iconOnly
+          />
         </div>
       </div>
 
@@ -728,7 +657,7 @@ export default function ProjectsPage() {
                       </span>
                     </td>
                     <td className="px-1.5 py-1">
-                      <StatusBadge status={statusToKey(project.status) as any} />
+                      <StatusBadge status={statusToKey(project.status) } />
                     </td>
                     <td className="px-1.5 py-1">
                       <TeamAvatars project={project} />
@@ -783,7 +712,7 @@ export default function ProjectsPage() {
                 handleBulkStatusChange(Array.from(selectedIds), status)
               }
             >
-              <StatusBadge status={statusToKey(status) as any} />
+              <StatusBadge status={statusToKey(status) } />
               <span className="ml-1">{status}</span>
             </DropdownMenuItem>
           ))}

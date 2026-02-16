@@ -190,7 +190,7 @@ export function useUpdateSubClient() {
     mutationFn: ({
       id,
       data,
-      clientId,
+      clientId: _clientId,
     }: {
       id: string;
       data: Partial<SubClient>;
@@ -214,7 +214,7 @@ export function useDeleteSubClient() {
   return useMutation({
     mutationFn: ({
       id,
-      clientId,
+      clientId: _clientId,
     }: {
       id: string;
       clientId: string;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth";
+import { UserService } from "@/lib/api/services/user-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -53,6 +54,15 @@ export default function RegisterPage() {
       // Update display name after creation
       const { updateProfile } = await import("firebase/auth");
       await updateProfile(user, { displayName: fullName.trim() });
+
+      // Create user record in Bubble backend
+      try {
+        await UserService.signup(email, password, "Employee");
+      } catch (bubbleError) {
+        console.error("[Register] Bubble signup failed:", bubbleError);
+        // Continue anyway - the auth provider will try to reconcile on next login
+      }
+
       router.push("/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";

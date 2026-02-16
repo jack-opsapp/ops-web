@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   User,
   Building2,
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   useCurrentUser,
@@ -24,6 +25,7 @@ import {
   useCompany,
   useUpdateCompany,
   useUpdateDefaultProjectColor,
+  useImageUpload,
 } from "@/lib/hooks";
 import {
   getUserFullName,
@@ -50,6 +52,19 @@ function ProfileTab() {
 
   // Use fresh query data if available, fall back to auth store
   const user = freshUser ?? currentUser;
+
+  const imageUpload = useImageUpload({
+    onSuccess: (url) => {
+      if (user) {
+        updateUser.mutate(
+          { id: user.id, data: { profileImageURL: url } },
+          { onSuccess: () => toast.success("Profile photo updated") }
+        );
+      }
+    },
+    onError: () => toast.error("Failed to upload photo"),
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -110,6 +125,7 @@ function ProfileTab() {
           <div className="relative">
             <div className="w-[72px] h-[72px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
               {user?.profileImageURL ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={user.profileImageURL}
                   alt=""
@@ -122,9 +138,22 @@ function ProfileTab() {
                 </span>
               )}
             </div>
-            <button className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-ops-accent flex items-center justify-center hover:bg-ops-accent-hover transition-colors">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-ops-accent flex items-center justify-center hover:bg-ops-accent-hover transition-colors"
+            >
               <Camera className="w-[14px] h-[14px] text-white" />
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) imageUpload.selectFile(file);
+              }}
+            />
           </div>
           <div>
             <h3 className="font-mohave text-card-title text-text-primary">{name || "Your Name"}</h3>
@@ -174,6 +203,19 @@ function CompanyTab() {
   const { data: company, isLoading: isCompanyLoading } = useCompany();
   const updateCompany = useUpdateCompany();
   const updateDefaultColor = useUpdateDefaultProjectColor();
+
+  const logoUpload = useImageUpload({
+    onSuccess: (url) => {
+      if (company) {
+        updateCompany.mutate(
+          { id: company.id, data: { logoURL: url } },
+          { onSuccess: () => toast.success("Company logo updated") }
+        );
+      }
+    },
+    onError: () => toast.error("Failed to upload logo"),
+  });
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [companyName, setCompanyName] = useState("");
   const [companyAddress, setCompanyAddress] = useState("");
@@ -251,6 +293,7 @@ function CompanyTab() {
             <div className="flex items-center gap-1.5">
               <div className="w-[56px] h-[56px] rounded-lg bg-background-elevated border border-border flex items-center justify-center overflow-hidden">
                 {company?.logoURL ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={company.logoURL}
                     alt="Company logo"
@@ -260,10 +303,20 @@ function CompanyTab() {
                   <Building2 className="w-[24px] h-[24px] text-text-disabled" />
                 )}
               </div>
-              <Button variant="secondary" size="sm" className="gap-[6px]">
+              <Button variant="secondary" size="sm" className="gap-[6px]" onClick={() => logoInputRef.current?.click()}>
                 <Upload className="w-[14px] h-[14px]" />
                 Upload
               </Button>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) logoUpload.selectFile(file);
+                }}
+              />
             </div>
           </div>
 
@@ -407,7 +460,7 @@ function SubscriptionTab() {
               </div>
             ))}
           </div>
-          <Button variant="accent" className="mt-2 w-full">
+          <Button variant="accent" className="mt-2 w-full" onClick={() => toast.info("Contact support to upgrade your plan", { description: "Email support@opsapp.co for subscription changes." })}>
             Upgrade Plan
           </Button>
         </CardContent>
@@ -418,6 +471,12 @@ function SubscriptionTab() {
 
 function PreferencesTab() {
   const [dashboardLayout, setDashboardLayout] = useState<"default" | "compact" | "data-dense">("default");
+  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>({
+    "Task assignments": true,
+    "Project updates": true,
+    "Team activity": true,
+    "Sync alerts": false,
+  });
 
   const layouts = [
     { id: "default" as const, label: "Default", description: "Balanced overview with cards" },
@@ -464,16 +523,26 @@ function PreferencesTab() {
           <CardTitle>Notifications</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
-          {["Task assignments", "Project updates", "Team activity", "Sync alerts"].map((item) => (
+          {Object.entries(notificationPrefs).map(([item, enabled]) => (
             <div key={item} className="flex items-center justify-between py-[6px]">
               <span className="font-mohave text-body text-text-secondary">{item}</span>
               <button
+                onClick={() => {
+                  const newValue = !enabled;
+                  setNotificationPrefs((prev) => ({ ...prev, [item]: newValue }));
+                  toast.success(`${item} notifications ${newValue ? "enabled" : "disabled"}`);
+                }}
                 className={cn(
                   "w-[40px] h-[22px] rounded-full transition-colors relative",
-                  "bg-ops-accent"
+                  enabled ? "bg-ops-accent" : "bg-background-elevated"
                 )}
               >
-                <span className="absolute right-[2px] top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-transform" />
+                <span
+                  className={cn(
+                    "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
+                    enabled ? "right-[2px]" : "left-[2px]"
+                  )}
+                />
               </button>
             </div>
           ))}
@@ -488,27 +557,15 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-3 max-w-[1000px]">
-      <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">SETTINGS</h1>
+      {/* Title handled by top-bar */}
 
       {/* Tabs */}
-      <div className="border-b border-border">
-        <div className="flex items-center gap-0">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-[6px] px-2 py-1 border-b-2 transition-all font-mohave text-body",
-                activeTab === tab.id
-                  ? "border-b-ops-accent text-ops-accent"
-                  : "border-b-transparent text-text-tertiary hover:text-text-secondary"
-              )}
-            >
-              <tab.icon className="w-[16px] h-[16px]" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="border-b border-[rgba(255,255,255,0.15)]">
+        <SegmentedPicker
+          options={tabs.map((t) => ({ value: t.id, label: t.label, icon: t.icon }))}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
       {/* Tab Content */}

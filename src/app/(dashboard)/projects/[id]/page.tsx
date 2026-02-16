@@ -15,16 +15,17 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ops/status-badge";
+import { StatusBadge, type ProjectStatus as StatusBadgeProjectStatus } from "@/components/ops/status-badge";
 import { EmptyState } from "@/components/ops/empty-state";
 import { SectionHeader } from "@/components/ops/section-header";
 import { InfoRow } from "@/components/ops/info-row";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { TaskList } from "@/components/ops/task-list";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import {
   Select,
   SelectContent,
@@ -57,7 +58,7 @@ const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
 /**
  * Map ProjectStatus enum to the kebab-case key used by StatusBadge component.
  */
-function statusToKey(status: ProjectStatus): string {
+function statusToKey(status: ProjectStatus): StatusBadgeProjectStatus {
   switch (status) {
     case ProjectStatus.RFQ:
       return "rfq";
@@ -126,7 +127,7 @@ function DetailError({ message, onRetry, onBack }: { message: string; onRetry: (
         <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="w-[20px] h-[20px]" />
         </Button>
-        <h1 className="font-mohave text-display text-text-primary tracking-wide">PROJECT</h1>
+        <span className="font-mohave text-body text-text-tertiary uppercase tracking-wider">Project</span>
       </div>
       <div className="flex flex-col items-center justify-center py-8 text-center">
         <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
@@ -149,6 +150,7 @@ function DetailError({ message, onRetry, onBack }: { message: string; onRetry: (
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ project }: { project: Project }) {
+  const router = useRouter();
   const { data: client } = useClient(project.clientId ?? undefined);
   const resolvedClient = project.client ?? client;
 
@@ -234,10 +236,16 @@ function OverviewTab({ project }: { project: Project }) {
                   Open in Google Maps
                 </a>
               )}
-              {/* Map placeholder */}
-              <div className="mt-1.5 h-[120px] bg-background-elevated border border-border-subtle rounded flex items-center justify-center">
-                <span className="font-kosugi text-caption-sm text-text-disabled">Map Preview</span>
-              </div>
+              {/* Map link */}
+              {project.address && (
+                <button
+                  onClick={() => router.push("/map")}
+                  className="w-full mt-1.5 h-[120px] bg-background-elevated rounded flex items-center justify-center gap-1 text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  <MapPin className="w-[16px] h-[16px]" />
+                  <span className="font-mohave text-body-sm">View on Map</span>
+                </button>
+              )}
             </>
           ) : (
             <p className="font-mohave text-body-sm text-text-tertiary">No address set</p>
@@ -274,7 +282,7 @@ function OverviewTab({ project }: { project: Project }) {
             </div>
           ) : project.teamMemberIds.length > 0 ? (
             <div className="space-y-1">
-              {project.teamMemberIds.map((id, i) => (
+              {project.teamMemberIds.map((id, _i) => (
                 <div key={id} className="flex items-center gap-1">
                   <div className="w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center">
                     <span className="font-mohave text-body-sm text-ops-accent">
@@ -453,7 +461,6 @@ export default function ProjectDetailPage() {
 
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showStatusSelect, setShowStatusSelect] = useState(false);
 
   // Data hooks
   const {
@@ -471,10 +478,7 @@ export default function ProjectDetailPage() {
   function handleStatusChange(newStatus: string) {
     if (!project) return;
     updateStatusMutation.mutate(
-      { id: project.id, status: newStatus as ProjectStatus },
-      {
-        onSuccess: () => setShowStatusSelect(false),
-      }
+      { id: project.id, status: newStatus as ProjectStatus }
     );
   }
 
@@ -527,7 +531,7 @@ export default function ProjectDetailPage() {
             <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
               {project.title}
             </h1>
-            <StatusBadge status={statusToKey(project.status) as any} />
+            <StatusBadge status={statusToKey(project.status) } />
           </div>
           <p className="font-kosugi text-caption text-text-tertiary mt-[2px]">
             {project.client?.name ?? "No Client"}
@@ -557,7 +561,10 @@ export default function ProjectDetailPage() {
             variant="secondary"
             size="sm"
             className="gap-[6px]"
-            onClick={() => router.push(`/projects/${project.id}/edit`)}
+            onClick={() => {
+              toast.info("Use the fields below to edit project details");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <Edit3 className="w-[14px] h-[14px]" />
             Edit
@@ -573,24 +580,12 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-border">
-        <div className="flex items-center gap-0">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-[6px] px-2 py-1 border-b-2 transition-all font-mohave text-body-sm",
-                activeTab === tab.id
-                  ? "border-b-ops-accent text-ops-accent"
-                  : "border-b-transparent text-text-tertiary hover:text-text-secondary"
-              )}
-            >
-              <tab.icon className="w-[16px] h-[16px]" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="border-b border-[rgba(255,255,255,0.15)]">
+        <SegmentedPicker
+          options={tabs.map((t) => ({ value: t.id, label: t.label, icon: t.icon }))}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
       {/* Tab Content */}

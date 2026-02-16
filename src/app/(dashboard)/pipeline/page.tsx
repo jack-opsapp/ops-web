@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -163,12 +164,18 @@ function formatShortDate(date: Date | string | null): string {
 // ---------------------------------------------------------------------------
 function PipelineCardComponent({
   card,
-  columnColor,
+  columnColor: _columnColor,
   isDragOverlay,
+  onCall,
+  onNote,
+  onAdvance,
 }: {
   card: PipelineCard;
   columnColor: string;
   isDragOverlay?: boolean;
+  onCall?: (phone: string) => void;
+  onNote?: (projectId: string) => void;
+  onAdvance?: (projectId: string) => void;
 }) {
   const { project, client } = card;
   const clientName = client?.name || "No Client";
@@ -291,6 +298,7 @@ function PipelineCardComponent({
               variant="secondary"
               size="sm"
               className="text-[10px] h-[28px] px-1"
+              onClick={() => onCall?.(clientPhone!)}
             >
               <Phone className="w-[10px] h-[10px]" />
               Call
@@ -300,6 +308,7 @@ function PipelineCardComponent({
             variant="secondary"
             size="sm"
             className="text-[10px] h-[28px] px-1"
+            onClick={() => onNote?.(project.id)}
           >
             <MessageSquare className="w-[10px] h-[10px]" />
             Note
@@ -308,6 +317,7 @@ function PipelineCardComponent({
             variant="default"
             size="sm"
             className="text-[10px] h-[28px] px-1"
+            onClick={() => onAdvance?.(project.id)}
           >
             <ArrowRight className="w-[10px] h-[10px]" />
             Advance
@@ -323,8 +333,16 @@ function PipelineCardComponent({
 // ---------------------------------------------------------------------------
 function PipelineColumnComponent({
   column,
+  onCall,
+  onNote,
+  onAdvance,
+  onAddProject,
 }: {
   column: PipelineColumn;
+  onCall?: (phone: string) => void;
+  onNote?: (projectId: string) => void;
+  onAdvance?: (projectId: string) => void;
+  onAddProject?: () => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -371,7 +389,10 @@ function PipelineColumnComponent({
               {column.cards.length}
             </span>
           </div>
-          <button className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors">
+          <button
+            onClick={onAddProject}
+            className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors"
+          >
             <Plus className="w-[14px] h-[14px]" />
           </button>
         </div>
@@ -401,6 +422,9 @@ function PipelineColumnComponent({
             key={card.id}
             card={card}
             columnColor={column.color}
+            onCall={onCall}
+            onNote={onNote}
+            onAdvance={onAdvance}
           />
         ))}
 
@@ -432,9 +456,6 @@ function PipelineSkeleton() {
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-              PIPELINE
-            </h1>
             <p className="font-kosugi text-caption-sm text-text-tertiary">
               Loading projects...
             </p>
@@ -527,6 +548,7 @@ export default function PipelinePage() {
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const updateStatusMutation = useUpdateProjectStatus();
+  const router = useRouter();
 
   const isLoading = projectsLoading || clientsLoading;
 
@@ -615,6 +637,38 @@ export default function PipelinePage() {
     return Array.from(statuses).sort();
   }, [activeProjects]);
 
+  // Card action handlers
+  const handleCall = useCallback((phone: string) => {
+    window.open(`tel:${phone}`);
+  }, []);
+
+  const handleNote = useCallback((projectId: string) => {
+    router.push(`/projects/${projectId}`);
+  }, [router]);
+
+  const handleAdvance = useCallback((projectId: string) => {
+    const project = activeProjects.find((p) => p.id === projectId);
+    if (!project) return;
+    const currentStageId = getStageForStatus(project.status);
+    const currentIndex = PIPELINE_STAGES.findIndex((s) => s.id === currentStageId);
+    if (currentIndex < 0 || currentIndex >= PIPELINE_STAGES.length - 1) return;
+    const nextStage = PIPELINE_STAGES[currentIndex + 1];
+    const newStatus = nextStage.statuses[0];
+    updateStatusMutation.mutate(
+      { id: projectId, status: newStatus },
+      {
+        onSuccess: () => {
+          toast.success(`Project advanced to ${nextStage.label}`);
+        },
+        onError: (error) => {
+          toast.error("Failed to advance project", {
+            description: error instanceof Error ? error.message : "Please try again.",
+          });
+        },
+      }
+    );
+  }, [activeProjects, updateStatusMutation]);
+
   // Handle drop on a column
   const handleBoardDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
@@ -674,9 +728,6 @@ export default function PipelinePage() {
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-              PIPELINE
-            </h1>
             <div className="flex items-center gap-2">
               <p className="font-kosugi text-caption-sm text-text-tertiary">
                 Drag projects between stages to update status
@@ -858,6 +909,10 @@ export default function PipelinePage() {
             <PipelineColumnComponent
               key={column.id}
               column={column}
+              onCall={handleCall}
+              onNote={handleNote}
+              onAdvance={handleAdvance}
+              onAddProject={() => setCreateModalOpen(true)}
             />
           ))}
         </div>

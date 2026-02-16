@@ -29,6 +29,7 @@ import {
   useTeamMembers,
   useUpdateUserRole,
   useRemoveSeatedEmployee,
+  useSendInvite,
 } from "@/lib/hooks";
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
 import { UserRole, getUserFullName } from "@/lib/types/models";
@@ -200,7 +201,7 @@ function RoleSelector({
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-background-panel border border-border rounded shadow-floating z-50 animate-scale-in overflow-hidden">
+      <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
             Change Role
@@ -350,7 +351,7 @@ function TeamMemberCard({
                     className="fixed inset-0 z-40"
                     onClick={() => setMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-[4px] w-[180px] bg-background-panel border border-border rounded shadow-floating z-50 animate-scale-in overflow-hidden">
+                  <div className="absolute right-0 top-full mt-[4px] w-[180px] bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
                     <button
                       onClick={() => {
                         setShowRoleSelector(true);
@@ -438,7 +439,7 @@ function InviteForm({
 }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
+  const sendInvite = useSendInvite();
 
   async function handleInvite() {
     if (!email.trim()) {
@@ -450,13 +451,20 @@ function InviteForm({
       return;
     }
     setError(null);
-    setIsSending(true);
 
-    // TODO: API call to send invite
-    await new Promise((r) => setTimeout(r, 600));
-    onInvite(email);
-    setIsSending(false);
-    setEmail("");
+    sendInvite.mutate([email.trim()], {
+      onSuccess: (result) => {
+        if (result.success) {
+          onInvite(email);
+          setEmail("");
+        } else {
+          setError(result.errorMessage ?? "Failed to send invite");
+        }
+      },
+      onError: (err) => {
+        setError(err instanceof Error ? err.message : "Failed to send invite");
+      },
+    });
   }
 
   return (
@@ -497,7 +505,7 @@ function InviteForm({
         </div>
         <Button
           onClick={handleInvite}
-          loading={isSending}
+          loading={sendInvite.isPending}
           className="gap-[6px] shrink-0"
         >
           <Send className="w-[14px] h-[14px]" />
@@ -632,9 +640,6 @@ export default function TeamPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-            TEAM
-          </h1>
           <div className="flex items-center gap-2 mt-[4px] flex-wrap">
             <span className="font-kosugi text-caption-sm text-text-tertiary">
               {team.length} members

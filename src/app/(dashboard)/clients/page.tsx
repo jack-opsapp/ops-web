@@ -16,7 +16,6 @@ import {
   ChevronRight,
   Building2,
 } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -26,6 +25,7 @@ import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { CreateClientModal } from "@/components/ops/create-client-modal";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 
 type ViewMode = "cards" | "table";
 type FilterMode = "all" | "with-projects" | "no-projects";
@@ -367,19 +367,14 @@ export default function ClientsPage() {
     <div className="space-y-3 max-w-[1400px]">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-            CLIENTS
-          </h1>
-          <div className="flex items-center gap-2 mt-[2px]">
-            <span className="font-kosugi text-caption-sm text-text-tertiary">
-              {totalCount} clients
-            </span>
-            <span className="text-text-disabled font-mono text-[10px]">|</span>
-            <span className="font-kosugi text-caption-sm text-text-tertiary">
-              {totalSubClients} sub-contacts
-            </span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="font-kosugi text-caption-sm text-text-tertiary">
+            {totalCount} clients
+          </span>
+          <span className="text-text-disabled font-mono text-[10px]">|</span>
+          <span className="font-kosugi text-caption-sm text-text-tertiary">
+            {totalSubClients} sub-contacts
+          </span>
         </div>
         <Button className="gap-[6px]" onClick={() => setCreateModalOpen(true)}>
           <Plus className="w-[16px] h-[16px]" />
@@ -400,50 +395,22 @@ export default function ClientsPage() {
 
         <div className="flex items-center gap-1">
           {/* Filter tabs */}
-          <div className="flex items-center bg-background-card border border-border rounded overflow-hidden">
-            {filterOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setFilterMode(opt.value)}
-                className={cn(
-                  "px-1.5 py-[8px] font-mohave text-body-sm transition-all",
-                  filterMode === opt.value
-                    ? "bg-ops-accent-muted text-ops-accent"
-                    : "text-text-tertiary hover:text-text-secondary"
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedPicker
+            options={filterOptions.map((o) => ({ value: o.value, label: o.label }))}
+            value={filterMode}
+            onChange={setFilterMode}
+          />
 
           {/* View toggle */}
-          <div className="flex items-center border border-border rounded overflow-hidden">
-            <button
-              onClick={() => setViewMode("cards")}
-              className={cn(
-                "p-[8px] transition-all",
-                viewMode === "cards"
-                  ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-tertiary hover:text-text-secondary"
-              )}
-              title="Card view"
-            >
-              <LayoutGrid className="w-[16px] h-[16px]" />
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={cn(
-                "p-[8px] transition-all",
-                viewMode === "table"
-                  ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-tertiary hover:text-text-secondary"
-              )}
-              title="Table view"
-            >
-              <List className="w-[16px] h-[16px]" />
-            </button>
-          </div>
+          <SegmentedPicker
+            options={[
+              { value: "cards" as ViewMode, label: "Cards", icon: LayoutGrid },
+              { value: "table" as ViewMode, label: "Table", icon: List },
+            ]}
+            value={viewMode}
+            onChange={setViewMode}
+            iconOnly
+          />
         </div>
       </div>
 

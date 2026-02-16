@@ -47,6 +47,7 @@ export {
   useUpdateUser,
   useUpdateUserRole,
   useMarkTutorialCompleted,
+  useSendInvite,
   useLogin,
   useSignup,
   useResetPassword,
@@ -76,5 +77,18 @@ export {
   useDeleteCalendarEvent,
 } from "./use-calendar";
 
+// Task Types
+export {
+  useTaskTypes,
+  useTaskType,
+  useCreateTaskType,
+  useUpdateTaskType,
+  useDeleteTaskType,
+  useCreateDefaultTaskTypes,
+} from "./use-task-types";
+
 // Image Upload
 export { useImageUpload, useMultiImageUpload } from "./use-image-upload";
+
+// Connectivity
+export { useConnectivity } from "./use-connectivity";

@@ -179,6 +179,26 @@ export function useMarkTutorialCompleted() {
   });
 }
 
+/**
+ * Send team invite email(s).
+ */
+export function useSendInvite() {
+  const { company } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (emails: string[]) =>
+      UserService.sendInvite(emails, company!.id),
+
+    onSuccess: () => {
+      // Refresh team list after invite
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.users.lists(),
+      });
+    },
+  });
+}
+
 // ─── Auth Mutations ───────────────────────────────────────────────────────────
 
 /**

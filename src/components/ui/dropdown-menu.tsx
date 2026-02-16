@@ -41,7 +41,7 @@ const DropdownMenuSubContent = React.forwardRef<
     ref={ref}
     className={cn(
       "z-50 min-w-[180px] overflow-hidden",
-      "bg-background-panel border border-border rounded shadow-floating",
+      "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
       "p-0.5",
       "data-[state=open]:animate-scale-in",
       className
@@ -61,7 +61,7 @@ const DropdownMenuContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "z-50 min-w-[180px] overflow-hidden",
-        "bg-background-panel border border-border rounded shadow-floating",
+        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
         "p-0.5",
         "data-[state=open]:animate-scale-in",
         className

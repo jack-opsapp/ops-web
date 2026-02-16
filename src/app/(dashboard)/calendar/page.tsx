@@ -44,6 +44,7 @@ import {
 } from "date-fns";
 import { useCalendarEventsForRange } from "@/lib/hooks";
 import type { CalendarEvent as ApiCalendarEvent } from "@/lib/types/models";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -800,7 +801,7 @@ function DayView({
 
 // ─── Mini Stats Bar ───────────────────────────────────────────────────────────
 
-function MiniStatsBar({ events, currentDate, view }: { events: InternalCalendarEvent[]; currentDate: Date; view: CalendarView }) {
+function MiniStatsBar({ events, currentDate: _currentDate, view: _view }: { events: InternalCalendarEvent[]; currentDate: Date; view: CalendarView }) {
   const stats = useMemo(() => {
     const today = new Date();
     const todayEvents = events.filter((e) => isSameDay(e.startDate, today));
@@ -1004,10 +1005,7 @@ export default function CalendarPage() {
         {/* Left: Title + Today */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <CalendarIcon className="w-[22px] h-[22px] text-ops-accent" />
-            <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-              CALENDAR
-            </h1>
+            <CalendarIcon className="w-[18px] h-[18px] text-ops-accent" />
           </div>
           <Button variant="secondary" size="sm" onClick={goToToday}>
             Today
@@ -1039,25 +1037,15 @@ export default function CalendarPage() {
 
         {/* Right: View toggle */}
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center bg-background-card border border-border rounded overflow-hidden">
-            {(["month", "week", "day"] as CalendarView[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={cn(
-                  "px-2 py-[7px] font-mohave text-body-sm capitalize transition-all duration-150 relative",
-                  view === v
-                    ? "bg-ops-accent text-white shadow-glow-accent"
-                    : "text-text-tertiary hover:text-text-primary hover:bg-background-elevated/50"
-                )}
-              >
-                {v}
-                {view === v && (
-                  <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-white/30 rounded-full" />
-                )}
-              </button>
-            ))}
-          </div>
+          <SegmentedPicker
+            options={[
+              { value: "month" as CalendarView, label: "Month" },
+              { value: "week" as CalendarView, label: "Week" },
+              { value: "day" as CalendarView, label: "Day" },
+            ]}
+            value={view}
+            onChange={setView}
+          />
           {/* Keyboard hints */}
           <div className="hidden xl:flex items-center gap-[3px] ml-[4px]">
             <kbd className="font-mono text-[9px] text-text-disabled bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">

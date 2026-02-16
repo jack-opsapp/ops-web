@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { onAuthStateChanged, getIdToken } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
+import { toast } from "sonner";
 
 /**
  * Set a cookie so the Next.js middleware can check auth status server-side.
@@ -64,6 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (err) {
           console.error("[AuthProvider] Failed to fetch OPS user via Bubble workflow:", err);
+          toast.error("Failed to load user data", {
+            description: "Please try signing out and back in.",
+          });
         } finally {
           fetchingRef.current = false;
           setLoading(false);
