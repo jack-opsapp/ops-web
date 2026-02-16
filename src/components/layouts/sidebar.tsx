@@ -85,17 +85,17 @@ function NavItemButton({
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { isCollapsed, toggle } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const logout = useAuthStore((s) => s.logout);
 
   const handleSignOut = useCallback(async () => {
     document.cookie = "ops-auth-token=; path=/; max-age=0";
+    document.cookie = "__session=; path=/; max-age=0";
     logout();
     try { await signOut(); } catch {}
-    router.push("/login");
-  }, [router, logout]);
+    window.location.href = "/login";
+  }, [logout]);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";

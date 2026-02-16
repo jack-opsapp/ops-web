@@ -210,9 +210,10 @@ export function CommandPalette() {
       onSelect: () => {
         setOpen(false);
         document.cookie = "ops-auth-token=; path=/; max-age=0";
+        document.cookie = "__session=; path=/; max-age=0";
         useAuthStore.getState().logout();
         signOut().catch(() => {});
-        router.push("/login");
+        window.location.href = "/login";
       },
       keywords: ["logout", "exit"],
     },

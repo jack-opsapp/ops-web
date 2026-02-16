@@ -160,10 +160,11 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
   const handleSignOut = useCallback(async () => {
     setUserMenuOpen(false);
     document.cookie = "ops-auth-token=; path=/; max-age=0";
+    document.cookie = "__session=; path=/; max-age=0";
     logout();
     try { await signOut(); } catch {}
-    router.push("/login");
-  }, [router, logout]);
+    window.location.href = "/login";
+  }, [logout]);
 
   return (
     <header
