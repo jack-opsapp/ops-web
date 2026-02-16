@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BUBBLE_BASE =
   process.env.NEXT_PUBLIC_BUBBLE_API_URL ||
-  "https://opsapp.co/version-test/api/1.1";
+  "https://opsapp.co/api/1.1";
 const BUBBLE_TOKEN = process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN || "";
 
 async function proxyToBubble(

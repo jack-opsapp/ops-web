@@ -28,7 +28,7 @@ import {
 } from "../utils/test-utils";
 import { QueryClient, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-const BASE_URL = "https://opsapp.co/version-test/api/1.1";
+const BASE_URL = "https://opsapp.co/api/1.1";
 
 // ─── Minimal Project List Component for Testing ─────────────────────────────
 // This acts as a stand-in for the real ProjectList component.

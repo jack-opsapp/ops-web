@@ -24,7 +24,7 @@ import {
   wrapBubbleSingle,
 } from "./data";
 
-const BASE_URL = "https://opsapp.co/version-test/api/1.1";
+const BASE_URL = "https://opsapp.co/api/1.1";
 
 // ─── Project Handlers ───────────────────────────────────────────────────────
 

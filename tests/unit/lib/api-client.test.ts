@@ -14,7 +14,7 @@ import { http, HttpResponse, delay } from "msw";
 import { server } from "../../mocks/server";
 import { mockProjects, wrapBubbleList } from "../../mocks/data";
 
-const BASE_URL = "https://opsapp.co/version-test/api/1.1";
+const BASE_URL = "https://opsapp.co/api/1.1";
 const API_TOKEN = "f81e9da85b7a12e996ac53e970a52299";
 
 // ─── Inline API Client Implementation (specification for real module) ────────

@@ -1,6 +1,6 @@
 # OPS Web — API Reference
 
-> All requests go to `https://opsapp.co/version-test/api/1.1/`
+> All requests go to `https://opsapp.co/api/1.1/`
 > Auth: Bearer token via `Authorization` header (API token from `/wf/generate-api-token`)
 > All deletes are soft deletes (PATCH with `deletedAt` timestamp)
 

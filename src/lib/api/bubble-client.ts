@@ -166,7 +166,7 @@ class BubbleClient {
       (isBrowser
         ? "/api/bubble"
         : process.env.NEXT_PUBLIC_BUBBLE_API_URL ||
-          "https://opsapp.co/version-test/api/1.1");
+          "https://opsapp.co/api/1.1");
 
     // Only set auth token for server-side requests (browser requests go through API route proxy)
     const apiToken = isBrowser

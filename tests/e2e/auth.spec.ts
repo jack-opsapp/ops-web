@@ -71,7 +71,7 @@ async function mockFirebaseAuth(page: Page) {
 
 async function mockBubbleApi(page: Page) {
   // Intercept all Bubble.io API calls
-  await page.route("**/version-test/api/1.1/**", async (route) => {
+  await page.route("**/api/1.1/**", async (route) => {
     const url = route.request().url();
     const method = route.request().method();
 

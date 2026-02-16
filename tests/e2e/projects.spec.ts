@@ -107,7 +107,7 @@ async function setupMocks(page: Page) {
   const apiCalls: { method: string; url: string; body?: any }[] = [];
   (page as any).__apiCalls = apiCalls;
 
-  await page.route("**/version-test/api/1.1/**", async (route) => {
+  await page.route("**/api/1.1/**", async (route) => {
     const url = route.request().url();
     const method = route.request().method();
     let body: any = null;
@@ -524,7 +524,7 @@ test.describe("Project CRUD E2E", () => {
 
   test("project list handles empty state gracefully", async ({ page }) => {
     // Override to return empty projects
-    await page.route("**/version-test/api/1.1/obj/project*", async (route) => {
+    await page.route("**/api/1.1/obj/project*", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,

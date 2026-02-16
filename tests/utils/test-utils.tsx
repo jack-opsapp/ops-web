@@ -262,7 +262,7 @@ export async function expectLoadingThenContent(
  * import { http, HttpResponse } from "msw";
  *
  * server.use(
- *   http.get("https://opsapp.co/version-test/api/1.1/obj/project", () => {
+ *   http.get("https://opsapp.co/api/1.1/obj/project", () => {
  *     return HttpResponse.json({ response: { results: [], cursor: 0, remaining: 0, count: 0 } });
  *   })
  * );

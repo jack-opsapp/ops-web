@@ -19,7 +19,7 @@ import { useAuthStore, type AuthState } from "@/lib/store/auth-store";
 import { UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 
-const BASE_URL = "https://opsapp.co/version-test/api/1.1";
+const BASE_URL = "https://opsapp.co/api/1.1";
 
 // ─── Mock Firebase Auth Module ──────────────────────────────────────────────
 
