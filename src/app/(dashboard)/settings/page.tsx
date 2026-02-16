@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Building2,
@@ -11,13 +11,28 @@ import {
   Upload,
   Shield,
   Check,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  useCurrentUser,
+  useUpdateUser,
+  useCompany,
+  useUpdateCompany,
+  useUpdateDefaultProjectColor,
+} from "@/lib/hooks";
+import {
+  getUserFullName,
+  SUBSCRIPTION_PLAN_INFO,
+  getDaysRemainingInTrial,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from "@/lib/types/models";
+import { toast } from "sonner";
 
 type SettingsTab = "profile" | "company" | "subscription" | "preferences";
 
@@ -29,16 +44,62 @@ const tabs: { id: SettingsTab; label: string; icon: React.ComponentType<{ classN
 ];
 
 function ProfileTab() {
-  const user = useAuthStore((s) => s.user);
-  const [name, setName] = useState(user?.displayName || "");
-  const [email] = useState(user?.email || "");
+  const { currentUser } = useAuthStore();
+  const { data: freshUser, isLoading: isUserLoading } = useCurrentUser();
+  const updateUser = useUpdateUser();
+
+  // Use fresh query data if available, fall back to auth store
+  const user = freshUser ?? currentUser;
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync form state when user data loads
+  useEffect(() => {
+    if (user) {
+      setName(getUserFullName(user));
+      setEmail(user.email ?? "");
+      setPhone(user.phone ?? "");
+    }
+  }, [user]);
 
   async function handleSave() {
-    setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setIsSaving(false);
+    if (!user) return;
+
+    const trimmedName = name.trim();
+    const parts = trimmedName.split(/\s+/);
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ") || "";
+
+    updateUser.mutate(
+      {
+        id: user.id,
+        data: {
+          firstName,
+          lastName,
+          phone: phone.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Profile updated successfully");
+        },
+        onError: (error) => {
+          toast.error("Failed to update profile", {
+            description: error instanceof Error ? error.message : "Please try again.",
+          });
+        },
+      }
+    );
+  }
+
+  if (isUserLoading && !user) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -48,9 +109,9 @@ function ProfileTab() {
         <CardContent className="flex items-center gap-2 p-2">
           <div className="relative">
             <div className="w-[72px] h-[72px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
-              {user?.photoURL ? (
+              {user?.profileImageURL ? (
                 <img
-                  src={user.photoURL}
+                  src={user.profileImageURL}
                   alt=""
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
@@ -98,7 +159,7 @@ function ProfileTab() {
             placeholder="(555) 123-4567"
           />
           <div className="pt-1">
-            <Button onClick={handleSave} loading={isSaving} className="gap-[6px]">
+            <Button onClick={handleSave} loading={updateUser.isPending} className="gap-[6px]">
               <Save className="w-[16px] h-[16px]" />
               Save Changes
             </Button>
@@ -110,14 +171,69 @@ function ProfileTab() {
 }
 
 function CompanyTab() {
-  const [companyName, setCompanyName] = useState("Smith Contracting LLC");
-  const [companyAddress, setCompanyAddress] = useState("456 Business Blvd, Springfield, IL 62701");
-  const [isSaving, setIsSaving] = useState(false);
+  const { data: company, isLoading: isCompanyLoading } = useCompany();
+  const updateCompany = useUpdateCompany();
+  const updateDefaultColor = useUpdateDefaultProjectColor();
+
+  const [companyName, setCompanyName] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+
+  const colorOptions = ["#417394", "#C4A868", "#9DB582", "#8195B5", "#B58289", "#7B68A6"];
+
+  // Sync form state when company data loads
+  useEffect(() => {
+    if (company) {
+      setCompanyName(company.name ?? "");
+      setCompanyAddress(company.address ?? "");
+      setSelectedColor(company.defaultProjectColor ?? "#417394");
+    }
+  }, [company]);
 
   async function handleSave() {
-    setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setIsSaving(false);
+    if (!company) return;
+
+    updateCompany.mutate(
+      {
+        id: company.id,
+        data: {
+          name: companyName.trim(),
+          address: companyAddress.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Company details updated successfully");
+        },
+        onError: (error) => {
+          toast.error("Failed to update company", {
+            description: error instanceof Error ? error.message : "Please try again.",
+          });
+        },
+      }
+    );
+  }
+
+  function handleColorSelect(color: string) {
+    setSelectedColor(color);
+    updateDefaultColor.mutate(color, {
+      onSuccess: () => {
+        toast.success("Default project color updated");
+      },
+      onError: (error) => {
+        toast.error("Failed to update color", {
+          description: error instanceof Error ? error.message : "Please try again.",
+        });
+      },
+    });
+  }
+
+  if (isCompanyLoading && !company) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -133,8 +249,16 @@ function CompanyTab() {
               Company Logo
             </label>
             <div className="flex items-center gap-1.5">
-              <div className="w-[56px] h-[56px] rounded-lg bg-background-elevated border border-border flex items-center justify-center">
-                <Building2 className="w-[24px] h-[24px] text-text-disabled" />
+              <div className="w-[56px] h-[56px] rounded-lg bg-background-elevated border border-border flex items-center justify-center overflow-hidden">
+                {company?.logoURL ? (
+                  <img
+                    src={company.logoURL}
+                    alt="Company logo"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Building2 className="w-[24px] h-[24px] text-text-disabled" />
+                )}
               </div>
               <Button variant="secondary" size="sm" className="gap-[6px]">
                 <Upload className="w-[14px] h-[14px]" />
@@ -160,10 +284,16 @@ function CompanyTab() {
               Default Project Color
             </label>
             <div className="flex items-center gap-1">
-              {["#417394", "#C4A868", "#9DB582", "#8195B5", "#B58289", "#7B68A6"].map((color) => (
+              {colorOptions.map((color) => (
                 <button
                   key={color}
-                  className="w-[32px] h-[32px] rounded border border-border hover:scale-110 transition-transform"
+                  onClick={() => handleColorSelect(color)}
+                  className={cn(
+                    "w-[32px] h-[32px] rounded border transition-transform hover:scale-110",
+                    selectedColor === color
+                      ? "border-white ring-1 ring-white scale-110"
+                      : "border-border"
+                  )}
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -171,7 +301,7 @@ function CompanyTab() {
           </div>
 
           <div className="pt-1">
-            <Button onClick={handleSave} loading={isSaving} className="gap-[6px]">
+            <Button onClick={handleSave} loading={updateCompany.isPending} className="gap-[6px]">
               <Save className="w-[16px] h-[16px]" />
               Save Changes
             </Button>
@@ -183,6 +313,42 @@ function CompanyTab() {
 }
 
 function SubscriptionTab() {
+  const { data: company, isLoading: isCompanyLoading } = useCompany();
+
+  if (isCompanyLoading && !company) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+      </div>
+    );
+  }
+
+  const plan = company?.subscriptionPlan ?? SubscriptionPlan.Trial;
+  const planInfo = SUBSCRIPTION_PLAN_INFO[plan];
+  const seatedCount = company?.seatedEmployeeIds?.length ?? 0;
+  const maxSeats = company?.maxSeats ?? planInfo.maxSeats;
+  const seatPercentage = maxSeats > 0 ? Math.min(100, Math.round((seatedCount / maxSeats) * 100)) : 0;
+  const seatsRemaining = Math.max(0, maxSeats - seatedCount);
+
+  const isTrial = company?.subscriptionStatus === SubscriptionStatus.Trial || plan === SubscriptionPlan.Trial;
+  const trialDaysRemaining = company ? getDaysRemainingInTrial(company) : 0;
+
+  // Build features list from plan info
+  const features = [
+    "Unlimited projects",
+    `${maxSeats} team seat${maxSeats !== 1 ? "s" : ""}`,
+    "Calendar & scheduling",
+    "Client management",
+    ...(plan === SubscriptionPlan.Team || plan === SubscriptionPlan.Business
+      ? ["Priority support"]
+      : []),
+    ...(plan === SubscriptionPlan.Business ? ["API access"] : []),
+  ];
+
+  const priceDisplay = planInfo.monthlyPrice === 0
+    ? "Free"
+    : `$${planInfo.monthlyPrice}/month`;
+
   return (
     <div className="space-y-3 max-w-[600px]">
       {/* Current Plan */}
@@ -193,8 +359,13 @@ function SubscriptionTab() {
               <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
                 Current Plan
               </span>
-              <h3 className="font-mohave text-heading text-text-primary">Pro</h3>
-              <p className="font-mono text-data text-ops-accent">$49/month</p>
+              <h3 className="font-mohave text-heading text-text-primary">{planInfo.displayName}</h3>
+              <p className="font-mono text-data text-ops-accent">{priceDisplay}</p>
+              {isTrial && trialDaysRemaining > 0 && (
+                <p className="font-kosugi text-[11px] text-ops-amber mt-[4px]">
+                  {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""} remaining in trial
+                </p>
+              )}
             </div>
             <div className="w-[48px] h-[48px] rounded-lg bg-ops-accent-muted flex items-center justify-center">
               <Shield className="w-[24px] h-[24px] text-ops-accent" />
@@ -211,13 +382,13 @@ function SubscriptionTab() {
         <CardContent>
           <div className="flex items-center justify-between mb-1">
             <span className="font-mohave text-body text-text-secondary">Active Members</span>
-            <span className="font-mono text-data text-text-primary">4 / 10</span>
+            <span className="font-mono text-data text-text-primary">{seatedCount} / {maxSeats}</span>
           </div>
           <div className="h-[6px] bg-background-elevated rounded-full overflow-hidden">
-            <div className="h-full bg-ops-accent rounded-full" style={{ width: "40%" }} />
+            <div className="h-full bg-ops-accent rounded-full" style={{ width: `${seatPercentage}%` }} />
           </div>
           <p className="font-kosugi text-[11px] text-text-tertiary mt-[6px]">
-            6 seats remaining on your plan
+            {seatsRemaining} seat{seatsRemaining !== 1 ? "s" : ""} remaining on your plan
           </p>
         </CardContent>
       </Card>
@@ -229,14 +400,7 @@ function SubscriptionTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-[8px]">
-            {[
-              "Unlimited projects",
-              "10 team seats",
-              "Calendar & scheduling",
-              "Client management",
-              "Invoice generation",
-              "Priority support",
-            ].map((feature) => (
+            {features.map((feature) => (
               <div key={feature} className="flex items-center gap-1">
                 <Check className="w-[16px] h-[16px] text-ops-accent shrink-0" />
                 <span className="font-mohave text-body-sm text-text-secondary">{feature}</span>

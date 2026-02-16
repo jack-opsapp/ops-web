@@ -8,7 +8,9 @@
 import React, { type ReactElement, type ReactNode } from "react";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { UserRole } from "@/lib/types/models";
+import type { User } from "@/lib/types/models";
 
 // Re-export everything from Testing Library
 export * from "@testing-library/react";
@@ -174,45 +176,43 @@ export function mockAuthStore(user?: MockAuthUser): void {
   };
 
   const mockUser = user || defaultUser;
+  const [firstName, ...lastParts] = mockUser.displayName.split(" ");
 
-  // Create a minimal Firebase User-like object
-  const firebaseUser = {
-    uid: mockUser.uid,
+  // Create an OPS User model object
+  const opsUser: User = {
+    id: mockUser.uid,
     email: mockUser.email,
-    displayName: mockUser.displayName,
-    photoURL: mockUser.photoURL || null,
-    emailVerified: mockUser.emailVerified ?? true,
-    isAnonymous: false,
-    metadata: {},
-    providerData: [],
-    refreshToken: "mock-refresh-token",
-    tenantId: null,
-    delete: async () => {},
-    getIdToken: async () => "mock-id-token-abc123",
-    getIdTokenResult: async () => ({
-      token: "mock-id-token-abc123",
-      authTime: new Date().toISOString(),
-      issuedAtTime: new Date().toISOString(),
-      expirationTime: new Date(Date.now() + 3600000).toISOString(),
-      signInProvider: "google.com",
-      signInSecondFactor: null,
-      claims: {},
-    }),
-    reload: async () => {},
-    toJSON: () => ({
-      uid: mockUser.uid,
-      email: mockUser.email,
-      displayName: mockUser.displayName,
-    }),
-    phoneNumber: null,
-    providerId: "firebase",
+    firstName: firstName || "",
+    lastName: lastParts.join(" ") || "",
+    role: UserRole.Admin,
+    isCompanyAdmin: true,
+    isActive: true,
+    profileImageURL: mockUser.photoURL || null,
+    phone: null,
+    userColor: "#417394",
+    locationName: null,
+    latitude: null,
+    longitude: null,
+    homeAddress: null,
+    clientId: null,
+    companyId: "mock-company-id",
+    userType: null,
+    devPermission: false,
+    hasCompletedAppOnboarding: true,
+    hasCompletedAppTutorial: true,
+    stripeCustomerId: null,
+    deviceToken: null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: null,
   };
 
   useAuthStore.setState({
-    user: firebaseUser as any,
+    currentUser: opsUser,
     isAuthenticated: true,
     isLoading: false,
-    error: null,
+    role: UserRole.Admin,
+    token: "mock-token",
   });
 }
 
@@ -220,7 +220,14 @@ export function mockAuthStore(user?: MockAuthUser): void {
  * Reset the auth store to its unauthenticated initial state.
  */
 export function resetAuthStore(): void {
-  useAuthStore.getState().reset();
+  useAuthStore.setState({
+    currentUser: null,
+    company: null,
+    token: null,
+    isAuthenticated: false,
+    isLoading: false,
+    role: UserRole.FieldCrew,
+  });
 }
 
 // ─── Assertion Helpers ──────────────────────────────────────────────────────

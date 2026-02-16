@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -12,6 +12,7 @@ import {
   X,
   ListFilter,
   LayoutGrid,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,20 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { format } from "date-fns";
+import { toast } from "sonner";
+
+import {
+  useProjects,
+  useUpdateProjectStatus,
+  useTeamMembers,
+  useClients,
+} from "@/lib/hooks";
+import {
+  type Project,
+  ProjectStatus,
+  getUserFullName,
+} from "@/lib/types/models";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,53 +78,15 @@ interface Column {
 }
 
 // ---------------------------------------------------------------------------
-// Placeholder Data
+// Column / Status Mapping
 // ---------------------------------------------------------------------------
-const initialColumns: Column[] = [
+const COLUMN_DEFINITIONS: Omit<Column, "cards">[] = [
   {
     id: "rfq",
     label: "RFQ",
     color: "text-status-rfq",
     borderColor: "border-t-status-rfq",
     bgAccent: "bg-status-rfq",
-    cards: [
-      {
-        id: "j1",
-        name: "Deck Repair & Staining",
-        client: "Bob Johnson",
-        teamMembers: ["Mike D"],
-        date: "Mar 1",
-        endDate: "Mar 15",
-        taskCount: 4,
-        completedTasks: 0,
-        value: 3200,
-        daysInStage: 3,
-      },
-      {
-        id: "j2",
-        name: "Fence Installation",
-        client: "Tom Clark",
-        teamMembers: [],
-        date: "Mar 5",
-        endDate: "Mar 12",
-        taskCount: 3,
-        completedTasks: 0,
-        value: 4800,
-        daysInStage: 1,
-      },
-      {
-        id: "j13",
-        name: "Patio Concrete Pour",
-        client: "Nancy Green",
-        teamMembers: ["Tom B"],
-        date: "Mar 10",
-        endDate: "Mar 18",
-        taskCount: 5,
-        completedTasks: 0,
-        value: 6200,
-        daysInStage: 2,
-      },
-    ],
   },
   {
     id: "estimated",
@@ -117,56 +94,6 @@ const initialColumns: Column[] = [
     color: "text-status-estimated",
     borderColor: "border-t-status-estimated",
     bgAccent: "bg-status-estimated",
-    cards: [
-      {
-        id: "j3",
-        name: "Bathroom Remodel",
-        client: "Jane Doe",
-        teamMembers: ["Tom B"],
-        date: "Feb 10",
-        endDate: "Apr 15",
-        taskCount: 12,
-        completedTasks: 0,
-        value: 18500,
-        daysInStage: 5,
-      },
-      {
-        id: "j7",
-        name: "Garage Conversion",
-        client: "Phil Morris",
-        teamMembers: ["Mike D", "Tom B"],
-        date: "Mar 20",
-        endDate: "May 1",
-        taskCount: 9,
-        completedTasks: 0,
-        value: 22000,
-        daysInStage: 7,
-      },
-      {
-        id: "j8",
-        name: "Roof Repair",
-        client: "Linda Chen",
-        teamMembers: ["Chris P"],
-        date: "Mar 8",
-        endDate: "Mar 14",
-        taskCount: 4,
-        completedTasks: 0,
-        value: 5600,
-        daysInStage: 4,
-      },
-      {
-        id: "j14",
-        name: "Window Replacement",
-        client: "David Kim",
-        teamMembers: ["Sarah L"],
-        date: "Mar 15",
-        endDate: "Mar 22",
-        taskCount: 6,
-        completedTasks: 0,
-        value: 8900,
-        daysInStage: 2,
-      },
-    ],
   },
   {
     id: "accepted",
@@ -174,44 +101,6 @@ const initialColumns: Column[] = [
     color: "text-status-accepted",
     borderColor: "border-t-status-accepted",
     bgAccent: "bg-status-accepted",
-    cards: [
-      {
-        id: "j4",
-        name: "Deck Installation",
-        client: "Bob Johnson",
-        teamMembers: ["Mike D", "Chris P"],
-        date: "Mar 1",
-        endDate: "Mar 20",
-        taskCount: 8,
-        completedTasks: 2,
-        value: 12500,
-        daysInStage: 4,
-      },
-      {
-        id: "j9",
-        name: "Driveway Resurface",
-        client: "Mark Spencer",
-        teamMembers: ["Tom B", "Sarah L"],
-        date: "Mar 3",
-        endDate: "Mar 10",
-        taskCount: 5,
-        completedTasks: 1,
-        value: 7800,
-        daysInStage: 2,
-      },
-      {
-        id: "j15",
-        name: "Basement Waterproofing",
-        client: "Rachel Adams",
-        teamMembers: ["Mike D"],
-        date: "Mar 12",
-        endDate: "Mar 25",
-        taskCount: 7,
-        completedTasks: 0,
-        value: 9400,
-        daysInStage: 1,
-      },
-    ],
   },
   {
     id: "in-progress",
@@ -219,56 +108,6 @@ const initialColumns: Column[] = [
     color: "text-status-in-progress",
     borderColor: "border-t-status-in-progress",
     bgAccent: "bg-status-in-progress",
-    cards: [
-      {
-        id: "j5",
-        name: "Kitchen Renovation",
-        client: "John Smith",
-        teamMembers: ["Mike D", "Sarah L"],
-        date: "Feb 1",
-        endDate: "Mar 30",
-        taskCount: 15,
-        completedTasks: 9,
-        value: 34000,
-        daysInStage: 12,
-      },
-      {
-        id: "j10",
-        name: "Office Buildout",
-        client: "Tech Solutions Inc",
-        teamMembers: ["Chris P", "Mike D", "Tom B"],
-        date: "Feb 15",
-        endDate: "Apr 10",
-        taskCount: 18,
-        completedTasks: 7,
-        value: 45000,
-        daysInStage: 8,
-      },
-      {
-        id: "j11",
-        name: "Landscape Hardscape",
-        client: "Susan Roberts",
-        teamMembers: ["Tom B", "Sarah L"],
-        date: "Feb 20",
-        endDate: "Mar 15",
-        taskCount: 10,
-        completedTasks: 6,
-        value: 15200,
-        daysInStage: 5,
-      },
-      {
-        id: "j16",
-        name: "HVAC Ductwork",
-        client: "Martin Properties LLC",
-        teamMembers: ["Chris P"],
-        date: "Mar 1",
-        endDate: "Mar 18",
-        taskCount: 6,
-        completedTasks: 2,
-        value: 11300,
-        daysInStage: 3,
-      },
-    ],
   },
   {
     id: "completed",
@@ -276,46 +115,49 @@ const initialColumns: Column[] = [
     color: "text-status-completed",
     borderColor: "border-t-status-completed",
     bgAccent: "bg-status-completed",
-    cards: [
-      {
-        id: "j6",
-        name: "Plumbing Repair",
-        client: "Alice Williams",
-        teamMembers: ["Tom B"],
-        date: "Jan 18",
-        endDate: "Jan 25",
-        taskCount: 3,
-        completedTasks: 3,
-        value: 2400,
-        daysInStage: 0,
-      },
-      {
-        id: "j12",
-        name: "Exterior Painting",
-        client: "Greg Martinez",
-        teamMembers: ["Sarah L", "Chris P"],
-        date: "Jan 10",
-        endDate: "Feb 5",
-        taskCount: 6,
-        completedTasks: 6,
-        value: 8900,
-        daysInStage: 0,
-      },
-      {
-        id: "j17",
-        name: "Flooring Install",
-        client: "Kate Wilson",
-        teamMembers: ["Mike D", "Tom B"],
-        date: "Jan 28",
-        endDate: "Feb 12",
-        taskCount: 5,
-        completedTasks: 5,
-        value: 6700,
-        daysInStage: 0,
-      },
-    ],
   },
 ];
+
+const COLUMN_ID_TO_STATUS: Record<ColumnId, ProjectStatus> = {
+  rfq: ProjectStatus.RFQ,
+  estimated: ProjectStatus.Estimated,
+  accepted: ProjectStatus.Accepted,
+  "in-progress": ProjectStatus.InProgress,
+  completed: ProjectStatus.Completed,
+};
+
+const STATUS_TO_COLUMN_ID: Partial<Record<ProjectStatus, ColumnId>> = {
+  [ProjectStatus.RFQ]: "rfq",
+  [ProjectStatus.Estimated]: "estimated",
+  [ProjectStatus.Accepted]: "accepted",
+  [ProjectStatus.InProgress]: "in-progress",
+  [ProjectStatus.Completed]: "completed",
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function formatDate(date: Date | string | null | undefined): string | undefined {
+  if (!date) return undefined;
+  try {
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return undefined;
+    return format(d, "MMM d");
+  } catch {
+    return undefined;
+  }
+}
+
+function calculateDaysInStage(project: Project): number {
+  // Use startDate as a rough proxy; in a real system this would track
+  // when the status was last changed.
+  if (!project.startDate) return 0;
+  const start = typeof project.startDate === "string" ? new Date(project.startDate) : project.startDate;
+  if (isNaN(start.getTime())) return 0;
+  const diffMs = Date.now() - start.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, days);
+}
 
 // ---------------------------------------------------------------------------
 // Sortable Kanban Card
@@ -710,8 +552,105 @@ export default function JobBoardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [clientFilter, setClientFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [columns, setColumns] = useState<Column[]>(initialColumns);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+
+  // Track optimistic DnD overrides: map of projectId -> target ColumnId
+  const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
+
+  // ─── Data Hooks ──────────────────────────────────────────────────────────
+  const { data: projectsData, isLoading: projectsLoading, dataUpdatedAt } = useProjects();
+  const { data: teamData, isLoading: teamLoading } = useTeamMembers();
+  const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const updateStatusMutation = useUpdateProjectStatus();
+
+  const isLoading = projectsLoading || teamLoading || clientsLoading;
+
+  // Build lookup maps
+  const teamMemberMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (teamData?.users) {
+      for (const user of teamData.users) {
+        map.set(user.id, getUserFullName(user));
+      }
+    }
+    return map;
+  }, [teamData]);
+
+  const clientMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (clientsData?.clients) {
+      for (const client of clientsData.clients) {
+        map.set(client.id, client.name || "Unknown Client");
+      }
+    }
+    return map;
+  }, [clientsData]);
+
+  // Clear DnD overrides when server data refetches
+  const prevDataUpdatedAt = useRef(dataUpdatedAt);
+  useEffect(() => {
+    if (dataUpdatedAt !== prevDataUpdatedAt.current) {
+      prevDataUpdatedAt.current = dataUpdatedAt;
+      setDndOverrides({});
+    }
+  }, [dataUpdatedAt]);
+
+  // ─── Map Projects to JobCards and group into Columns ──────────────────────
+  const projectToCard = useCallback(
+    (project: Project): JobCard => {
+      const memberNames = (project.teamMemberIds ?? []).map(
+        (id) => teamMemberMap.get(id) ?? "Unknown"
+      );
+      const clientName = project.clientId
+        ? clientMap.get(project.clientId) ?? "No Client"
+        : "No Client";
+
+      return {
+        id: project.id,
+        name: project.title,
+        client: clientName,
+        teamMembers: memberNames,
+        date: formatDate(project.startDate),
+        endDate: formatDate(project.endDate),
+        taskCount: 0,
+        completedTasks: 0,
+        value: 0,
+        daysInStage: calculateDaysInStage(project),
+      };
+    },
+    [teamMemberMap, clientMap]
+  );
+
+  const columns = useMemo<Column[]>(() => {
+    const projects = projectsData?.projects ?? [];
+
+    // Filter out deleted projects
+    const activeProjects = projects.filter((p) => !p.deletedAt);
+
+    // Group projects by status, applying DnD overrides
+    const grouped: Record<ColumnId, JobCard[]> = {
+      rfq: [],
+      estimated: [],
+      accepted: [],
+      "in-progress": [],
+      completed: [],
+    };
+
+    for (const project of activeProjects) {
+      // If there is an optimistic override for this project, use that column
+      const overrideColumnId = dndOverrides[project.id];
+      const columnId = overrideColumnId ?? STATUS_TO_COLUMN_ID[project.status];
+      if (columnId && grouped[columnId]) {
+        grouped[columnId].push(projectToCard(project));
+      }
+      // Projects with statuses not on the board (Closed, Archived) are skipped
+    }
+
+    return COLUMN_DEFINITIONS.map((def) => ({
+      ...def,
+      cards: grouped[def.id],
+    }));
+  }, [projectsData, dndOverrides, projectToCard]);
 
   // Pointer sensor with small activation distance so clicks still work
   const sensors = useSensors(
@@ -771,7 +710,7 @@ export default function JobBoardPage() {
     setActiveCardId(event.active.id as string);
   }, []);
 
-  // Drag end handler - move card between columns
+  // Drag end handler - move card between columns and call API
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -782,75 +721,80 @@ export default function JobBoardPage() {
       const activeId = active.id as string;
       const overId = over.id as string;
 
-      // Find source column and card
-      let sourceColIndex = -1;
-      let sourceCardIndex = -1;
-      for (let i = 0; i < columns.length; i++) {
-        const cardIdx = columns[i].cards.findIndex((c) => c.id === activeId);
-        if (cardIdx !== -1) {
-          sourceColIndex = i;
-          sourceCardIndex = cardIdx;
+      // Find source column
+      let sourceColId: ColumnId | null = null;
+      for (const col of columns) {
+        if (col.cards.find((c) => c.id === activeId)) {
+          sourceColId = col.id;
           break;
         }
       }
 
-      if (sourceColIndex === -1) return;
+      if (!sourceColId) return;
 
-      // Determine destination: overId could be a card or column id
-      let destColIndex = columns.findIndex((col) => col.id === overId);
-      let destCardIndex = -1;
+      // Determine destination column: overId could be a card or column id
+      let destColId: ColumnId | null = null;
 
-      if (destColIndex === -1) {
+      // Check if overId is a column id
+      if (COLUMN_DEFINITIONS.some((def) => def.id === overId)) {
+        destColId = overId as ColumnId;
+      } else {
         // overId is a card, find its column
-        for (let i = 0; i < columns.length; i++) {
-          const cardIdx = columns[i].cards.findIndex((c) => c.id === overId);
-          if (cardIdx !== -1) {
-            destColIndex = i;
-            destCardIndex = cardIdx;
+        for (const col of columns) {
+          if (col.cards.find((c) => c.id === overId)) {
+            destColId = col.id;
             break;
           }
         }
       }
 
-      if (destColIndex === -1) return;
+      if (!destColId) return;
 
-      // Same column, same position
-      if (sourceColIndex === destColIndex && destCardIndex === -1) return;
-      if (
-        sourceColIndex === destColIndex &&
-        sourceCardIndex === destCardIndex
-      )
-        return;
+      // Same column - nothing to do for status change
+      if (sourceColId === destColId) return;
 
-      setColumns((prev) => {
-        const newColumns = prev.map((col) => ({
-          ...col,
-          cards: [...col.cards],
-        }));
+      // Apply optimistic override
+      setDndOverrides((prev) => ({
+        ...prev,
+        [activeId]: destColId,
+      }));
 
-        // Remove from source
-        const [movedCard] = newColumns[sourceColIndex].cards.splice(sourceCardIndex, 1);
-
-        // Update daysInStage when moving between columns
-        if (sourceColIndex !== destColIndex) {
-          movedCard.daysInStage = 0;
+      // Call the API mutation
+      const newStatus = COLUMN_ID_TO_STATUS[destColId];
+      updateStatusMutation.mutate(
+        { id: activeId, status: newStatus },
+        {
+          onSuccess: () => {
+            toast.success("Project status updated", {
+              description: `Moved to ${COLUMN_DEFINITIONS.find((d) => d.id === destColId)?.label ?? destColId}`,
+            });
+          },
+          onError: (error) => {
+            // Revert optimistic override on error
+            setDndOverrides((prev) => {
+              const next = { ...prev };
+              delete next[activeId];
+              return next;
+            });
+            toast.error("Failed to update status", {
+              description: error instanceof Error ? error.message : "Please try again",
+            });
+          },
         }
-
-        // Insert at destination
-        if (destCardIndex === -1) {
-          newColumns[destColIndex].cards.push(movedCard);
-        } else {
-          newColumns[destColIndex].cards.splice(destCardIndex, 0, movedCard);
-        }
-
-        return newColumns;
-      });
-
-      // In production, this would call the API:
-      // await updateProjectStatus(activeId, columns[destColIndex].id);
+      );
     },
-    [columns]
+    [columns, updateStatusMutation]
   );
+
+  // ─── Loading State ───────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 text-ops-accent animate-spin" />
+        <span className="font-mohave text-body text-text-tertiary">Loading job board...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full space-y-2">

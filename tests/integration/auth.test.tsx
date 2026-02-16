@@ -7,18 +7,17 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import React, { useEffect } from "react";
-import { screen, waitFor, act } from "@testing-library/react";
+import React from "react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
-import { server } from "../mocks/server";
-import { mockUser, mockCompany, wrapBubbleSingle } from "../mocks/data";
 import {
   renderWithProviders,
   mockAuthStore,
   resetAuthStore,
 } from "../utils/test-utils";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore, type AuthState } from "@/lib/store/auth-store";
+import { UserRole } from "@/lib/types/models";
+import type { User } from "@/lib/types/models";
 
 const BASE_URL = "https://opsapp.co/version-test/api/1.1";
 
@@ -43,45 +42,98 @@ import {
   getCurrentUser,
 } from "@/lib/firebase/auth";
 
+// ─── Helper: Create OPS User ────────────────────────────────────────────────
+
+function createMockOpsUser(overrides: Partial<User> = {}): User {
+  return {
+    id: "firebase-uid-123",
+    email: "marcus@opsapp.co",
+    firstName: "Marcus",
+    lastName: "Johnson",
+    role: UserRole.Admin,
+    isCompanyAdmin: true,
+    isActive: true,
+    profileImageURL: "https://example.com/avatar.png",
+    phone: null,
+    userColor: "#417394",
+    locationName: null,
+    latitude: null,
+    longitude: null,
+    homeAddress: null,
+    clientId: null,
+    companyId: "mock-company-id",
+    userType: null,
+    devPermission: false,
+    hasCompletedAppOnboarding: true,
+    hasCompletedAppTutorial: true,
+    stripeCustomerId: null,
+    deviceToken: null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
 // ─── Test Components ────────────────────────────────────────────────────────
 
 function LoginTestComponent() {
-  const { user, isAuthenticated, isLoading, error, setUser, setError, setLoading } = useAuthStore();
+  const { currentUser, isAuthenticated, isLoading } = useAuthStore();
+  const [error, setError] = React.useState<string | null>(null);
 
   const handleEmailLogin = async (email: string, password: string) => {
-    setLoading(true);
+    useAuthStore.getState().setLoading(true);
     try {
-      const firebaseUser = await (signInWithEmail as ReturnType<typeof vi.fn>)(email, password);
-      setUser(firebaseUser);
+      await (signInWithEmail as ReturnType<typeof vi.fn>)(email, password);
+      // Simulate what AuthProvider + login flow would do
+      const mockUser = createMockOpsUser({ email });
+      useAuthStore.setState({
+        currentUser: mockUser,
+        isAuthenticated: true,
+        isLoading: false,
+        role: UserRole.Admin,
+      });
     } catch (err) {
       setError((err as Error).message);
+      useAuthStore.getState().setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
+    useAuthStore.getState().setLoading(true);
     try {
-      const firebaseUser = await (signInWithGoogle as ReturnType<typeof vi.fn>)();
-      setUser(firebaseUser);
+      const result = await (signInWithGoogle as ReturnType<typeof vi.fn>)();
+      const mockUser = createMockOpsUser({
+        email: result.email,
+        firstName: result.displayName?.split(" ")[0] || "User",
+        lastName: result.displayName?.split(" ").slice(1).join(" ") || "",
+      });
+      useAuthStore.setState({
+        currentUser: mockUser,
+        isAuthenticated: true,
+        isLoading: false,
+        role: UserRole.Admin,
+      });
     } catch (err) {
       setError((err as Error).message);
+      useAuthStore.getState().setLoading(false);
     }
   };
 
   const handleLogout = async () => {
     await (signOut as ReturnType<typeof vi.fn>)();
-    useAuthStore.getState().reset();
+    useAuthStore.getState().logout();
   };
 
   if (isLoading) {
     return <div data-testid="loading">Loading...</div>;
   }
 
-  if (isAuthenticated && user) {
+  if (isAuthenticated && currentUser) {
     return (
       <div data-testid="authenticated">
-        <p data-testid="user-email">{user.email}</p>
-        <p data-testid="user-name">{user.displayName}</p>
+        <p data-testid="user-email">{currentUser.email}</p>
+        <p data-testid="user-name">{`${currentUser.firstName} ${currentUser.lastName}`.trim()}</p>
         <button data-testid="logout-btn" onClick={handleLogout}>
           Sign Out
         </button>
@@ -115,9 +167,8 @@ function RoleDetectionTestComponent({ userId, companyAdminIds }: {
   userId: string;
   companyAdminIds: string[];
 }) {
-  // Simulate role detection logic
-  const employeeType = useAuthStore((state) => {
-    // In real app, this comes from Bubble user data
+  // Simulate role detection logic (mirrors iOS priority: adminIds first)
+  const employeeType = useAuthStore((state: AuthState) => {
     return "Field Crew"; // default
   });
 
@@ -192,26 +243,6 @@ function ProtectedRouteTestComponent() {
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
 describe("Authentication Integration Tests", () => {
-  const mockFirebaseUser = {
-    uid: "firebase-uid-123",
-    email: "marcus@opsapp.co",
-    displayName: "Marcus Johnson",
-    photoURL: "https://example.com/avatar.png",
-    emailVerified: true,
-    isAnonymous: false,
-    metadata: {},
-    providerData: [],
-    refreshToken: "mock-refresh",
-    tenantId: null,
-    delete: vi.fn(),
-    getIdToken: vi.fn().mockResolvedValue("mock-id-token"),
-    getIdTokenResult: vi.fn(),
-    reload: vi.fn(),
-    toJSON: vi.fn(),
-    phoneNumber: null,
-    providerId: "firebase",
-  };
-
   beforeEach(() => {
     resetAuthStore();
     vi.clearAllMocks();
@@ -226,7 +257,10 @@ describe("Authentication Integration Tests", () => {
   describe("Login with email/password", () => {
     it("authenticates user with valid credentials", async () => {
       const user = userEvent.setup();
-      (signInWithEmail as ReturnType<typeof vi.fn>).mockResolvedValue(mockFirebaseUser);
+      (signInWithEmail as ReturnType<typeof vi.fn>).mockResolvedValue({
+        email: "marcus@opsapp.co",
+        displayName: "Marcus Johnson",
+      });
 
       renderWithProviders(<LoginTestComponent />);
 
@@ -288,7 +322,7 @@ describe("Authentication Integration Tests", () => {
       });
 
       // Resolve login
-      resolveLogin!(mockFirebaseUser);
+      resolveLogin!({ email: "test@test.com", displayName: "Test User" });
 
       // Should show authenticated
       await waitFor(() => {
@@ -303,7 +337,6 @@ describe("Authentication Integration Tests", () => {
     it("authenticates user via Google sign-in", async () => {
       const user = userEvent.setup();
       (signInWithGoogle as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ...mockFirebaseUser,
         email: "marcus.google@opsapp.co",
         displayName: "Marcus G Johnson",
       });
@@ -367,9 +400,8 @@ describe("Authentication Integration Tests", () => {
 
       // Verify store state is cleared
       const state = useAuthStore.getState();
-      expect(state.user).toBeNull();
+      expect(state.currentUser).toBeNull();
       expect(state.isAuthenticated).toBe(false);
-      expect(state.error).toBeNull();
     });
 
     it("calls Firebase signOut", async () => {
@@ -480,10 +512,9 @@ describe("Authentication Integration Tests", () => {
   describe("Redirect when not authenticated", () => {
     it("shows redirect message when user is not authenticated", () => {
       useAuthStore.setState({
-        user: null,
+        currentUser: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null,
       });
 
       renderWithProviders(<ProtectedRouteTestComponent />);
@@ -503,10 +534,9 @@ describe("Authentication Integration Tests", () => {
 
     it("shows loading state while auth is being checked", () => {
       useAuthStore.setState({
-        user: null,
+        currentUser: null,
         isAuthenticated: false,
         isLoading: true,
-        error: null,
       });
 
       renderWithProviders(<ProtectedRouteTestComponent />);

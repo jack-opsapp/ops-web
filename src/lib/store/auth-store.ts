@@ -31,6 +31,7 @@ export interface AuthState {
   setCompany: (company: Company) => void;
   setToken: (token: string) => void;
   setLoading: (loading: boolean) => void;
+  setFirebaseAuth: (authenticated: boolean) => void;
   updateRole: () => void;
   hydrate: () => void;
 }
@@ -97,6 +98,24 @@ export const useAuthStore = create<AuthState>()(
       // Set loading state
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
+      },
+
+      // Handle Firebase auth state changes (from AuthProvider)
+      setFirebaseAuth: (authenticated: boolean) => {
+        if (authenticated) {
+          set({ isAuthenticated: true, isLoading: false });
+        } else {
+          // User signed out of Firebase - clear everything
+          getBubbleClient().clearAuthToken();
+          set({
+            currentUser: null,
+            company: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+            role: UserRole.FieldCrew,
+          });
+        }
       },
 
       // Re-evaluate role using iOS priority logic:

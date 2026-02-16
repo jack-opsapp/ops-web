@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
 
 interface NavItem {
@@ -104,7 +104,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebarStore();
-  const user = useAuthStore((s) => s.user);
+  const currentUser = useAuthStore((s) => s.currentUser);
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -195,16 +195,16 @@ export function Sidebar() {
         >
           {/* Avatar */}
           <div className="shrink-0 w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
-            {user?.photoURL ? (
+            {currentUser?.profileImageURL ? (
               <img
-                src={user.photoURL}
-                alt={user.displayName || "User"}
+                src={currentUser.profileImageURL}
+                alt={currentUser.firstName || "User"}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />
             ) : (
               <span className="font-mohave text-body-sm text-ops-accent">
-                {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
+                {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
               </span>
             )}
           </div>
@@ -212,7 +212,7 @@ export function Sidebar() {
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="font-mohave text-body-sm text-text-primary truncate">
-                {user?.displayName || user?.email || "User"}
+                {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : "User"}
               </p>
               <span className="inline-block font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-[6px] py-[1px] rounded-sm uppercase tracking-wider">
                 Admin

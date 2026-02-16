@@ -21,17 +21,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useClients } from "@/lib/hooks";
+import { getInitials } from "@/lib/types/models";
+import type { Client, SubClient } from "@/lib/types/models";
 
 type ViewMode = "cards" | "table";
 type FilterMode = "all" | "with-projects" | "no-projects";
-
-interface SubClientData {
-  id: string;
-  name: string;
-  title: string | null;
-  phone: string | null;
-  email: string | null;
-}
 
 interface ClientListItem {
   id: string;
@@ -40,90 +35,36 @@ interface ClientListItem {
   email: string | null;
   phone: string | null;
   address: string | null;
-  projectCount: number;
-  subClients: SubClientData[];
+  projectCount: string;
+  subClients: { id: string; name: string; title: string | null; phone: string | null; email: string | null }[];
   lastActivity: string;
 }
 
-// Realistic placeholder data
-const placeholderClients: ClientListItem[] = [
-  {
-    id: "c1",
-    name: "John Smith",
-    company: "Smith & Associates",
-    email: "john@smithassociates.com",
-    phone: "(555) 123-4567",
-    address: "123 Main St, Springfield, IL 62701",
-    projectCount: 3,
-    subClients: [
-      { id: "sc1", name: "Sarah Smith", title: "Spouse", phone: "(555) 123-4568", email: "sarah@smithassociates.com" },
-    ],
-    lastActivity: "2026-02-12",
-  },
-  {
-    id: "c2",
-    name: "Meridian Properties LLC",
-    company: "Meridian Properties",
-    email: "contact@meridianprops.com",
-    phone: "(555) 234-5678",
-    address: "456 Oak Ave, Shelbyville, IL 62565",
-    projectCount: 5,
-    subClients: [
-      { id: "sc2", name: "Jane Doe", title: "Property Manager", phone: "(555) 234-5679", email: "jane@meridianprops.com" },
-      { id: "sc3", name: "Carlos Ruiz", title: "Maintenance Lead", phone: "(555) 234-5680", email: null },
-    ],
-    lastActivity: "2026-02-14",
-  },
-  {
-    id: "c3",
-    name: "Bob Johnson",
+function mapClientToListItem(client: Client): ClientListItem {
+  const subClients: ClientListItem["subClients"] = (client.subClients ?? [])
+    .filter((sc) => !sc.deletedAt)
+    .map((sc: SubClient) => ({
+      id: sc.id,
+      name: sc.name,
+      title: sc.title ?? null,
+      phone: sc.phoneNumber ?? null,
+      email: sc.email ?? null,
+    }));
+
+  return {
+    id: client.id,
+    name: client.name,
     company: null,
-    email: "bob@johnson.com",
-    phone: "(555) 345-6789",
-    address: "789 Pine Rd, Capital City, IL 62702",
-    projectCount: 2,
-    subClients: [
-      { id: "sc4", name: "Linda Johnson", title: "Wife", phone: "(555) 345-6790", email: null },
-    ],
-    lastActivity: "2026-02-10",
-  },
-  {
-    id: "c4",
-    name: "Alice Williams",
-    company: "Williams Interior Design",
-    email: "alice@williamsdesign.com",
-    phone: "(555) 456-7890",
-    address: "321 Elm St, Riverside, IL 62707",
-    projectCount: 1,
-    subClients: [],
-    lastActivity: "2026-02-08",
-  },
-  {
-    id: "c5",
-    name: "Davis Construction Group",
-    company: "Davis Construction",
-    email: "info@davisconstruction.com",
-    phone: "(555) 567-8901",
-    address: "555 Industrial Blvd, Commerce City, IL 62703",
-    projectCount: 0,
-    subClients: [],
-    lastActivity: "2026-01-28",
-  },
-  {
-    id: "c6",
-    name: "Patricia Chen",
-    company: null,
-    email: "patricia.chen@email.com",
-    phone: "(555) 678-9012",
-    address: null,
-    projectCount: 4,
-    subClients: [
-      { id: "sc5", name: "David Chen", title: "Husband", phone: "(555) 678-9013", email: "david.chen@email.com" },
-      { id: "sc6", name: "Lisa Chen", title: "Daughter", phone: null, email: "lisa.chen@email.com" },
-    ],
-    lastActivity: "2026-02-15",
-  },
-];
+    email: client.email ?? null,
+    phone: client.phoneNumber ?? null,
+    address: client.address ?? null,
+    projectCount: "--",
+    subClients,
+    lastActivity: client.createdAt
+      ? new Date(client.createdAt).toISOString().slice(0, 10)
+      : "",
+  };
+}
 
 const filterOptions: { value: FilterMode; label: string }[] = [
   { value: "all", label: "All" },
@@ -143,11 +84,7 @@ function ClientCard({ client, onClick }: { client: ClientListItem; onClick: () =
         <div className="flex items-center gap-1.5">
           <div className="w-[44px] h-[44px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
             <span className="font-mohave text-body-lg text-ops-accent">
-              {client.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)}
+              {getInitials(client.name) || "?"}
             </span>
           </div>
           <div className="min-w-0 flex-1">
@@ -193,7 +130,7 @@ function ClientCard({ client, onClick }: { client: ClientListItem; onClick: () =
             <div className="flex items-center gap-[4px] text-text-tertiary">
               <FolderKanban className="w-[13px] h-[13px]" />
               <span className="font-mono text-[11px]">
-                {client.projectCount} {client.projectCount === 1 ? "project" : "projects"}
+                {client.projectCount} {client.projectCount === "1" ? "project" : "projects"}
               </span>
             </div>
           </div>
@@ -270,11 +207,7 @@ function ClientTableRow({
         <div className="flex items-center gap-1">
           <div className="w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
             <span className="font-mohave text-body-sm text-ops-accent">
-              {client.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)}
+              {getInitials(client.name) || "?"}
             </span>
           </div>
           <div className="min-w-0">
@@ -376,11 +309,17 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [isLoading] = useState(false);
 
-  // TODO: Replace with useClients() hook when API is connected
-  const clients = placeholderClients;
-  const totalCount = clients.length;
+  const { data, isLoading } = useClients();
+
+  const clients: ClientListItem[] = useMemo(() => {
+    const rawClients = data?.clients ?? [];
+    return rawClients
+      .filter((c) => !c.deletedAt)
+      .map(mapClientToListItem);
+  }, [data]);
+
+  const totalCount = data?.count ?? clients.length;
   const totalSubClients = clients.reduce((sum, c) => sum + c.subClients.length, 0);
 
   const filteredClients = useMemo(() => {
@@ -400,11 +339,12 @@ export default function ClientsPage() {
       );
     }
 
-    // Status filter
+    // Status filter - since we don't have projectCount from the API,
+    // we disable these filters when data is from API (projectCount is "--")
     if (filterMode === "with-projects") {
-      filtered = filtered.filter((c) => c.projectCount > 0);
+      filtered = filtered.filter((c) => c.projectCount !== "0" && c.projectCount !== "--");
     } else if (filterMode === "no-projects") {
-      filtered = filtered.filter((c) => c.projectCount === 0);
+      filtered = filtered.filter((c) => c.projectCount === "0" || c.projectCount === "--");
     }
 
     return filtered;

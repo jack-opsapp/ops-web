@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { onAuthStateChanged } from "@/lib/firebase/auth";
 
 /**
@@ -9,16 +9,16 @@ import { onAuthStateChanged } from "@/lib/firebase/auth";
  * Wrap this around any part of the tree that needs auth awareness.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const setUser = useAuthStore((s) => s.setUser);
+  const setFirebaseAuth = useAuthStore((s) => s.setFirebaseAuth);
   const setLoading = useAuthStore((s) => s.setLoading);
 
   useEffect(() => {
     setLoading(true);
     const unsubscribe = onAuthStateChanged((user) => {
-      setUser(user);
+      setFirebaseAuth(!!user);
     });
     return () => unsubscribe();
-  }, [setUser, setLoading]);
+  }, [setFirebaseAuth, setLoading]);
 
   return <>{children}</>;
 }

@@ -18,12 +18,21 @@ import {
   X,
   Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import {
+  useTeamMembers,
+  useUpdateUserRole,
+  useRemoveSeatedEmployee,
+} from "@/lib/hooks";
+import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
+import { UserRole, getUserFullName } from "@/lib/types/models";
+import type { User } from "@/lib/types/models";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +49,62 @@ interface TeamMember {
   status: MemberStatus;
   lastActive: string;
   userColor?: string;
+}
+
+// ─── Role Mapping Helpers ────────────────────────────────────────────────────
+
+/** Map UserRole enum to the internal lowercase dash format used by the page */
+function userRoleToDisplayRole(role: UserRole): Role {
+  switch (role) {
+    case UserRole.Admin:
+      return "admin";
+    case UserRole.OfficeCrew:
+      return "office-crew";
+    case UserRole.FieldCrew:
+      return "field-crew";
+    default:
+      return "field-crew";
+  }
+}
+
+/** Map internal lowercase dash format back to UserRole enum */
+function displayRoleToUserRole(role: Role): UserRole {
+  switch (role) {
+    case "admin":
+      return UserRole.Admin;
+    case "office-crew":
+      return UserRole.OfficeCrew;
+    case "field-crew":
+      return UserRole.FieldCrew;
+    default:
+      return UserRole.FieldCrew;
+  }
+}
+
+/** Map a User model to the TeamMember display format */
+function userToTeamMember(user: User): TeamMember {
+  const lastSynced = user.lastSyncedAt;
+  let lastActive: string;
+  if (lastSynced) {
+    lastActive =
+      typeof lastSynced === "string"
+        ? lastSynced
+        : (lastSynced as Date).toISOString();
+  } else {
+    lastActive = new Date(0).toISOString();
+  }
+
+  return {
+    id: user.id,
+    name: getUserFullName(user),
+    email: user.email ?? "",
+    phone: user.phone ?? undefined,
+    role: userRoleToDisplayRole(user.role),
+    avatar: user.profileImageURL ?? undefined,
+    status: user.isActive ? "active" : "inactive",
+    lastActive,
+    userColor: user.userColor ?? undefined,
+  };
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -78,72 +143,6 @@ const roleConfig: Record<
 };
 
 const roleOptions: Role[] = ["admin", "office-crew", "field-crew"];
-
-// ─── Placeholder Data ────────────────────────────────────────────────────────
-
-const placeholderTeam: TeamMember[] = [
-  {
-    id: "m1",
-    name: "Mike Davis",
-    email: "mike@ops.co",
-    phone: "(555) 111-2222",
-    role: "admin",
-    status: "active",
-    lastActive: "2026-02-15T09:30:00",
-    userColor: "#C4A868",
-  },
-  {
-    id: "m2",
-    name: "Sarah Lee",
-    email: "sarah@ops.co",
-    phone: "(555) 222-3333",
-    role: "office-crew",
-    status: "active",
-    lastActive: "2026-02-15T08:45:00",
-    userColor: "#417394",
-  },
-  {
-    id: "m3",
-    name: "Tom Brown",
-    email: "tom@ops.co",
-    phone: "(555) 333-4444",
-    role: "field-crew",
-    status: "active",
-    lastActive: "2026-02-15T07:00:00",
-    userColor: "#9DB582",
-  },
-  {
-    id: "m4",
-    name: "Chris Parker",
-    email: "chris@ops.co",
-    phone: "(555) 444-5555",
-    role: "field-crew",
-    status: "active",
-    lastActive: "2026-02-14T16:30:00",
-    userColor: "#B58289",
-  },
-  {
-    id: "m5",
-    name: "Jessica Martinez",
-    email: "jessica@ops.co",
-    phone: "(555) 555-6666",
-    role: "field-crew",
-    status: "active",
-    lastActive: "2026-02-14T15:00:00",
-    userColor: "#A182B5",
-  },
-  {
-    id: "m6",
-    name: "Alex Turner",
-    email: "alex@ops.co",
-    role: "field-crew",
-    status: "inactive",
-    lastActive: "2026-01-20T12:00:00",
-    userColor: "#8195B5",
-  },
-];
-
-const maxSeats = 10;
 
 // ─── Role Badge ──────────────────────────────────────────────────────────────
 
@@ -222,7 +221,7 @@ function RoleSelector({
                 "flex items-center gap-1 w-full px-1.5 py-[8px] transition-colors font-mohave text-body-sm",
                 isActive
                   ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                  : "text-text-secondary hover:text-text-secondary hover:bg-background-elevated"
               )}
             >
               <Icon className="w-[14px] h-[14px]" />
@@ -257,6 +256,7 @@ function TeamMemberCard({
 
   function formatLastActive(dateStr: string): string {
     const date = new Date(dateStr);
+    if (isNaN(date.getTime()) || date.getTime() === 0) return "Never";
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -538,16 +538,26 @@ function LoadingSkeleton() {
 export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showInviteForm, setShowInviteForm] = useState(false);
-  const [isLoading] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
-  const [isRemoving, setIsRemoving] = useState(false);
-  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
-  // TODO: Replace with useTeamMembers() hook
-  const team = placeholderTeam;
+  // ─── Data hooks ──────────────────────────────────────────────────────────
+  const { data: teamData, isLoading } = useTeamMembers();
+  const updateRoleMutation = useUpdateUserRole();
+  const removeEmployeeMutation = useRemoveSeatedEmployee();
 
-  // Assume current user is admin for demo purposes
-  const isCurrentUserAdmin = true;
+  // ─── Auth store ──────────────────────────────────────────────────────────
+  const { company } = useAuthStore();
+  const isCurrentUserAdmin = useAuthStore(selectIsAdmin);
+
+  // ─── Map API users to display format ─────────────────────────────────────
+  const team: TeamMember[] = useMemo(() => {
+    const users = teamData?.users ?? [];
+    return users
+      .filter((u) => !u.deletedAt)
+      .map(userToTeamMember);
+  }, [teamData]);
+
+  const maxSeats = company?.maxSeats ?? 10;
 
   const activeCount = team.filter((m) => m.status === "active").length;
   const adminCount = team.filter((m) => m.role === "admin").length;
@@ -572,24 +582,47 @@ export default function TeamPage() {
   const fieldCrew = filteredTeam.filter((m) => m.role === "field-crew");
 
   function handleChangeRole(memberId: string, newRole: Role) {
-    // TODO: call useUpdateUserRole mutation
-    console.log(`Change role: ${memberId} -> ${newRole}`);
+    const userRole = displayRoleToUserRole(newRole);
+    const member = team.find((m) => m.id === memberId);
+    updateRoleMutation.mutate(
+      { id: memberId, role: userRole },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${member?.name ?? "Member"} role updated to ${roleConfig[newRole].label}`
+          );
+        },
+        onError: (error) => {
+          toast.error(
+            `Failed to update role: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
+        },
+      }
+    );
   }
 
   function handleRemoveMember() {
     if (!removeTarget) return;
-    setIsRemoving(true);
-    // TODO: call remove mutation
-    setTimeout(() => {
-      setIsRemoving(false);
-      setRemoveTarget(null);
-    }, 600);
+    const member = team.find((m) => m.id === removeTarget);
+    removeEmployeeMutation.mutate(removeTarget, {
+      onSuccess: () => {
+        toast.success(
+          `${member?.name ?? "Member"} has been removed from the team`
+        );
+        setRemoveTarget(null);
+      },
+      onError: (error) => {
+        toast.error(
+          `Failed to remove member: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+        setRemoveTarget(null);
+      },
+    });
   }
 
   function handleInvite(email: string) {
     setShowInviteForm(false);
-    setInviteSuccess(email);
-    setTimeout(() => setInviteSuccess(null), 4000);
+    toast.success(`Invitation sent to ${email}`);
   }
 
   const memberForRemoval = team.find((m) => m.id === removeTarget);
@@ -664,16 +697,6 @@ export default function TeamPage() {
           onInvite={handleInvite}
           onClose={() => setShowInviteForm(false)}
         />
-      )}
-
-      {/* Invite success toast */}
-      {inviteSuccess && (
-        <div className="flex items-center gap-1.5 bg-status-success/10 border border-status-success/30 rounded px-1.5 py-1 animate-slide-up">
-          <Check className="w-[16px] h-[16px] text-status-success shrink-0" />
-          <p className="font-mohave text-body-sm text-status-success">
-            Invitation sent to {inviteSuccess}
-          </p>
-        </div>
       )}
 
       {/* Search */}
@@ -807,7 +830,7 @@ export default function TeamPage() {
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={handleRemoveMember}
-        loading={isRemoving}
+        loading={removeEmployeeMutation.isPending}
       />
     </div>
   );

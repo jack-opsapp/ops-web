@@ -5,220 +5,84 @@ import {
   Search,
   Plus,
   Clock,
-  DollarSign,
   X,
   ListFilter,
-  User,
   Phone,
-  Globe,
-  DoorOpen,
   Users,
   TrendingUp,
-  ChevronDown,
-  ChevronUp,
   Calendar,
   MessageSquare,
   Target,
   ArrowRight,
+  Loader2,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/toast";
+import { useProjects, useClients, useUpdateProjectStatus } from "@/lib/hooks";
+import {
+  type Project,
+  type Client,
+  ProjectStatus,
+  PROJECT_STATUS_COLORS,
+} from "@/lib/types/models";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type PipelineStage = "lead" | "contacted" | "quote-sent" | "negotiating" | "won" | "lost";
+type PipelineStageId =
+  | "new-lead"
+  | "quoted"
+  | "negotiating"
+  | "won"
+  | "lost";
 
-type LeadSource = "referral" | "website" | "door-knock" | "social-media" | "cold-call" | "repeat-client";
-
-interface PipelineLead {
-  id: string;
-  clientName: string;
-  estimatedValue: number;
-  source: LeadSource;
-  daysInStage: number;
-  assignedTo: string;
-  lastActivityDate: string;
-  email?: string;
-  phone?: string;
-  notes?: string;
-  projectType?: string;
-}
-
-interface PipelineColumn {
-  id: PipelineStage;
+interface PipelineStageConfig {
+  id: PipelineStageId;
   label: string;
   color: string;
   borderColor: string;
   bgAccent: string;
   textColor: string;
-  cards: PipelineLead[];
+  /** Which ProjectStatus values map to this pipeline stage */
+  statuses: ProjectStatus[];
+}
+
+interface PipelineCard {
+  id: string;
+  project: Project;
+  client: Client | null;
+}
+
+interface PipelineColumn extends PipelineStageConfig {
+  cards: PipelineCard[];
 }
 
 // ---------------------------------------------------------------------------
-// Constants
+// Pipeline Stage Configuration
 // ---------------------------------------------------------------------------
-const SOURCE_LABELS: Record<LeadSource, string> = {
-  referral: "Referral",
-  website: "Website",
-  "door-knock": "Door Knock",
-  "social-media": "Social Media",
-  "cold-call": "Cold Call",
-  "repeat-client": "Repeat Client",
-};
-
-const SOURCE_ICONS: Record<LeadSource, React.ReactNode> = {
-  referral: <Users className="w-[10px] h-[10px]" />,
-  website: <Globe className="w-[10px] h-[10px]" />,
-  "door-knock": <DoorOpen className="w-[10px] h-[10px]" />,
-  "social-media": <MessageSquare className="w-[10px] h-[10px]" />,
-  "cold-call": <Phone className="w-[10px] h-[10px]" />,
-  "repeat-client": <User className="w-[10px] h-[10px]" />,
-};
-
-// ---------------------------------------------------------------------------
-// Placeholder Data
-// ---------------------------------------------------------------------------
-const initialColumns: PipelineColumn[] = [
+const PIPELINE_STAGES: PipelineStageConfig[] = [
   {
-    id: "lead",
-    label: "Lead",
-    color: "text-[#6B7280]",
-    borderColor: "border-t-[#6B7280]",
-    bgAccent: "bg-[#6B7280]",
-    textColor: "#6B7280",
-    cards: [
-      {
-        id: "l1",
-        clientName: "Marcus Rivera",
-        estimatedValue: 8500,
-        source: "website",
-        daysInStage: 1,
-        assignedTo: "Sarah L",
-        lastActivityDate: "Feb 14",
-        projectType: "Kitchen Remodel",
-        notes: "Submitted inquiry form, wants quote within the week",
-      },
-      {
-        id: "l2",
-        clientName: "Jennifer Park",
-        estimatedValue: 3200,
-        source: "referral",
-        daysInStage: 0,
-        assignedTo: "Unassigned",
-        lastActivityDate: "Feb 15",
-        projectType: "Deck Installation",
-        notes: "Referred by Bob Johnson",
-      },
-      {
-        id: "l3",
-        clientName: "Tony Vasquez",
-        estimatedValue: 15000,
-        source: "door-knock",
-        daysInStage: 2,
-        assignedTo: "Mike D",
-        lastActivityDate: "Feb 13",
-        projectType: "Full Bathroom Reno",
-      },
-      {
-        id: "l14",
-        clientName: "Diane Foster",
-        estimatedValue: 4200,
-        source: "social-media",
-        daysInStage: 1,
-        assignedTo: "Unassigned",
-        lastActivityDate: "Feb 14",
-        projectType: "Fence Repair",
-      },
-    ],
+    id: "new-lead",
+    label: "New Lead",
+    color: "text-[#BCBCBC]",
+    borderColor: "border-t-[#BCBCBC]",
+    bgAccent: "bg-[#BCBCBC]",
+    textColor: "#BCBCBC",
+    statuses: [ProjectStatus.RFQ],
   },
   {
-    id: "contacted",
-    label: "Contacted",
-    color: "text-[#D97706]",
-    borderColor: "border-t-[#D97706]",
-    bgAccent: "bg-[#D97706]",
-    textColor: "#D97706",
-    cards: [
-      {
-        id: "l4",
-        clientName: "Rachel Adams",
-        estimatedValue: 12000,
-        source: "referral",
-        daysInStage: 3,
-        assignedTo: "Sarah L",
-        lastActivityDate: "Feb 12",
-        projectType: "Basement Finishing",
-        phone: "(555) 234-5678",
-        notes: "Called twice, scheduled site visit for next week",
-      },
-      {
-        id: "l5",
-        clientName: "David Kim",
-        estimatedValue: 6800,
-        source: "website",
-        daysInStage: 5,
-        assignedTo: "Mike D",
-        lastActivityDate: "Feb 10",
-        projectType: "Window Replacement",
-        email: "david.kim@email.com",
-      },
-      {
-        id: "l15",
-        clientName: "Paul Henderson",
-        estimatedValue: 9500,
-        source: "cold-call",
-        daysInStage: 2,
-        assignedTo: "Chris P",
-        lastActivityDate: "Feb 13",
-        projectType: "Roof Repair",
-      },
-    ],
-  },
-  {
-    id: "quote-sent",
-    label: "Quote Sent",
+    id: "quoted",
+    label: "Quoted",
     color: "text-ops-accent",
     borderColor: "border-t-ops-accent",
     bgAccent: "bg-ops-accent",
     textColor: "#417394",
-    cards: [
-      {
-        id: "l6",
-        clientName: "Linda Chen",
-        estimatedValue: 22500,
-        source: "repeat-client",
-        daysInStage: 4,
-        assignedTo: "Sarah L",
-        lastActivityDate: "Feb 11",
-        projectType: "Office Buildout",
-        notes: "Sent detailed quote with 3 tier options",
-      },
-      {
-        id: "l7",
-        clientName: "Greg Martinez",
-        estimatedValue: 5600,
-        source: "referral",
-        daysInStage: 7,
-        assignedTo: "Mike D",
-        lastActivityDate: "Feb 8",
-        projectType: "Exterior Painting",
-        notes: "Following up on Monday",
-      },
-      {
-        id: "l16",
-        clientName: "Anna Brooks",
-        estimatedValue: 18000,
-        source: "website",
-        daysInStage: 3,
-        assignedTo: "Sarah L",
-        lastActivityDate: "Feb 12",
-        projectType: "Kitchen Renovation",
-      },
-    ],
+    statuses: [ProjectStatus.Estimated],
   },
   {
     id: "negotiating",
@@ -227,30 +91,7 @@ const initialColumns: PipelineColumn[] = [
     borderColor: "border-t-ops-amber",
     bgAccent: "bg-ops-amber",
     textColor: "#C4A868",
-    cards: [
-      {
-        id: "l8",
-        clientName: "Tech Solutions Inc",
-        estimatedValue: 45000,
-        source: "cold-call",
-        daysInStage: 6,
-        assignedTo: "Sarah L",
-        lastActivityDate: "Feb 9",
-        projectType: "Commercial Buildout",
-        notes: "Negotiating payment terms, wants 30% upfront instead of 50%",
-      },
-      {
-        id: "l9",
-        clientName: "Susan Roberts",
-        estimatedValue: 14200,
-        source: "referral",
-        daysInStage: 3,
-        assignedTo: "Chris P",
-        lastActivityDate: "Feb 12",
-        projectType: "Landscape Hardscape",
-        notes: "Wants to reduce scope slightly",
-      },
-    ],
+    statuses: [ProjectStatus.Accepted],
   },
   {
     id: "won",
@@ -259,39 +100,7 @@ const initialColumns: PipelineColumn[] = [
     borderColor: "border-t-status-success",
     bgAccent: "bg-status-success",
     textColor: "#4ADE80",
-    cards: [
-      {
-        id: "l10",
-        clientName: "Bob Johnson",
-        estimatedValue: 12500,
-        source: "repeat-client",
-        daysInStage: 0,
-        assignedTo: "Mike D",
-        lastActivityDate: "Feb 14",
-        projectType: "Deck Installation",
-        notes: "Contract signed, deposit received",
-      },
-      {
-        id: "l11",
-        clientName: "Martin Properties LLC",
-        estimatedValue: 34000,
-        source: "referral",
-        daysInStage: 0,
-        assignedTo: "Sarah L",
-        lastActivityDate: "Feb 13",
-        projectType: "HVAC + Ductwork",
-      },
-      {
-        id: "l17",
-        clientName: "Kate Wilson",
-        estimatedValue: 6700,
-        source: "website",
-        daysInStage: 0,
-        assignedTo: "Tom B",
-        lastActivityDate: "Feb 12",
-        projectType: "Flooring Install",
-      },
-    ],
+    statuses: [ProjectStatus.InProgress, ProjectStatus.Completed],
   },
   {
     id: "lost",
@@ -300,54 +109,80 @@ const initialColumns: PipelineColumn[] = [
     borderColor: "border-t-ops-error",
     bgAccent: "bg-ops-error",
     textColor: "#93321A",
-    cards: [
-      {
-        id: "l12",
-        clientName: "Phil Morris",
-        estimatedValue: 22000,
-        source: "website",
-        daysInStage: 0,
-        assignedTo: "Mike D",
-        lastActivityDate: "Feb 7",
-        projectType: "Garage Conversion",
-        notes: "Went with competitor - lower price",
-      },
-      {
-        id: "l13",
-        clientName: "Nancy Green",
-        estimatedValue: 6200,
-        source: "door-knock",
-        daysInStage: 0,
-        assignedTo: "Chris P",
-        lastActivityDate: "Feb 5",
-        projectType: "Patio Concrete Pour",
-        notes: "Project postponed indefinitely",
-      },
-    ],
+    statuses: [ProjectStatus.Closed, ProjectStatus.Archived],
   },
 ];
+
+/**
+ * Given a pipeline stage ID, return the first ProjectStatus in that stage.
+ * Used when dropping a card into a new column.
+ */
+function getTargetStatusForStage(stageId: PipelineStageId): ProjectStatus {
+  const stage = PIPELINE_STAGES.find((s) => s.id === stageId);
+  return stage?.statuses[0] ?? ProjectStatus.RFQ;
+}
+
+/**
+ * Find which pipeline stage a project status belongs to.
+ */
+function getStageForStatus(status: ProjectStatus): PipelineStageId {
+  for (const stage of PIPELINE_STAGES) {
+    if (stage.statuses.includes(status)) {
+      return stage.id;
+    }
+  }
+  return "new-lead";
+}
+
+/**
+ * Compute days since a date (for "days in stage" approximation using startDate).
+ */
+function daysSince(date: Date | string | null): number {
+  if (!date) return 0;
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return 0;
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+/**
+ * Format a date for display.
+ */
+function formatShortDate(date: Date | string | null): string {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 // ---------------------------------------------------------------------------
 // Draggable Pipeline Card
 // ---------------------------------------------------------------------------
-function PipelineCard({
+function PipelineCardComponent({
   card,
   columnColor,
   isDragOverlay,
   onExpand,
   isExpanded,
 }: {
-  card: PipelineLead;
+  card: PipelineCard;
   columnColor: string;
   isDragOverlay?: boolean;
   onExpand: (id: string | null) => void;
   isExpanded: boolean;
 }) {
+  const { project, client } = card;
+  const clientName = client?.name || "No Client";
+  const clientEmail = client?.email || undefined;
+  const clientPhone = client?.phoneNumber || undefined;
+  const daysInStage = daysSince(project.startDate);
+
   return (
     <div
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", card.id);
+        e.dataTransfer.setData("text/plain", project.id);
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
@@ -359,101 +194,137 @@ function PipelineCard({
         !isDragOverlay &&
           "hover:border-ops-accent/50 hover:shadow-glow-accent"
       )}
-      onClick={() => onExpand(isExpanded ? null : card.id)}
+      onClick={() => onExpand(isExpanded ? null : project.id)}
     >
-      {/* Top row: name + value */}
+      {/* Top row: client name + status badge */}
       <div className="flex items-start gap-[6px]">
         <div className="flex-1 min-w-0">
           <h4 className="font-mohave text-body-sm text-text-primary truncate">
-            {card.clientName}
+            {clientName}
           </h4>
-          {card.projectType && (
-            <p className="font-kosugi text-[10px] text-text-tertiary truncate">
-              {card.projectType}
-            </p>
-          )}
+          <p className="font-kosugi text-[10px] text-text-tertiary truncate">
+            {project.title}
+          </p>
         </div>
-        <span className="font-mono text-[11px] text-ops-amber shrink-0 font-medium">
-          ${card.estimatedValue.toLocaleString()}
+        <span
+          className="shrink-0 font-mono text-[9px] px-[5px] py-[1px] rounded-sm border"
+          style={{
+            color: PROJECT_STATUS_COLORS[project.status],
+            borderColor: PROJECT_STATUS_COLORS[project.status] + "40",
+            backgroundColor: PROJECT_STATUS_COLORS[project.status] + "15",
+          }}
+        >
+          {project.status}
         </span>
       </div>
 
-      {/* Source + Assignee row */}
+      {/* Address row */}
+      {project.address && (
+        <p className="font-kosugi text-[9px] text-text-disabled truncate mt-0.5">
+          {project.address}
+        </p>
+      )}
+
+      {/* Days in stage + date row */}
       <div className="flex items-center justify-between mt-1">
-        <div className="flex items-center gap-[4px] text-text-disabled">
-          {SOURCE_ICONS[card.source]}
-          <span className="font-kosugi text-[9px]">
-            {SOURCE_LABELS[card.source]}
-          </span>
-        </div>
         <div className="flex items-center gap-[6px]">
-          {card.daysInStage > 0 && (
+          {daysInStage > 0 && (
             <div
               className="flex items-center gap-[2px]"
-              title={`${card.daysInStage} days in this stage`}
+              title={`${daysInStage} days since start`}
             >
               <Clock className="w-[10px] h-[10px] text-text-disabled" />
               <span className="font-mono text-[9px] text-text-disabled">
-                {card.daysInStage}d
+                {daysInStage}d
+              </span>
+            </div>
+          )}
+          {project.teamMemberIds.length > 0 && (
+            <div className="flex items-center gap-[2px]">
+              <Users className="w-[10px] h-[10px] text-text-disabled" />
+              <span className="font-mono text-[9px] text-text-disabled">
+                {project.teamMemberIds.length}
               </span>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Assignee + Last activity */}
-      <div className="flex items-center justify-between mt-1">
-        <div className="flex items-center gap-[4px]">
-          {card.assignedTo !== "Unassigned" ? (
-            <div className="w-[18px] h-[18px] rounded-full bg-ops-accent-muted border border-background-card-dark flex items-center justify-center">
-              <span className="font-mohave text-[8px] text-ops-accent">
-                {card.assignedTo.charAt(0)}
-              </span>
-            </div>
-          ) : null}
-          <span className="font-kosugi text-[9px] text-text-disabled">
-            {card.assignedTo}
-          </span>
-        </div>
-        <div className="flex items-center gap-[3px] text-text-disabled">
-          <Calendar className="w-[10px] h-[10px]" />
-          <span className="font-mono text-[9px]">{card.lastActivityDate}</span>
-        </div>
+        {project.startDate && (
+          <div className="flex items-center gap-[3px] text-text-disabled">
+            <Calendar className="w-[10px] h-[10px]" />
+            <span className="font-mono text-[9px]">
+              {formatShortDate(project.startDate)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Expanded detail */}
       {isExpanded && (
         <div className="mt-1.5 pt-1.5 border-t border-border-subtle space-y-1 animate-slide-up">
-          {card.email && (
+          {clientEmail && (
             <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">Email</span>
-              <span className="font-mono text-[10px] text-ops-accent">{card.email}</span>
+              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">
+                Email
+              </span>
+              <span className="font-mono text-[10px] text-ops-accent">
+                {clientEmail}
+              </span>
             </div>
           )}
-          {card.phone && (
+          {clientPhone && (
             <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">Phone</span>
-              <span className="font-mono text-[10px] text-text-secondary">{card.phone}</span>
+              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">
+                Phone
+              </span>
+              <span className="font-mono text-[10px] text-text-secondary">
+                {clientPhone}
+              </span>
             </div>
           )}
-          {card.notes && (
+          {project.notes && (
             <div className="mt-0.5">
-              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px]">Notes</span>
+              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px]">
+                Notes
+              </span>
               <p className="font-mohave text-[11px] text-text-secondary leading-tight">
-                {card.notes}
+                {project.notes}
               </p>
             </div>
           )}
+          {project.endDate && (
+            <div className="flex items-center gap-[6px]">
+              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">
+                End
+              </span>
+              <span className="font-mono text-[10px] text-text-secondary">
+                {formatShortDate(project.endDate)}
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-1 mt-1">
-            <Button variant="secondary" size="sm" className="text-[10px] h-[28px] px-1">
-              <Phone className="w-[10px] h-[10px]" />
-              Call
-            </Button>
-            <Button variant="secondary" size="sm" className="text-[10px] h-[28px] px-1">
+            {clientPhone && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="text-[10px] h-[28px] px-1"
+              >
+                <Phone className="w-[10px] h-[10px]" />
+                Call
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="text-[10px] h-[28px] px-1"
+            >
               <MessageSquare className="w-[10px] h-[10px]" />
               Note
             </Button>
-            <Button variant="default" size="sm" className="text-[10px] h-[28px] px-1">
+            <Button
+              variant="default"
+              size="sm"
+              className="text-[10px] h-[28px] px-1"
+            >
               <ArrowRight className="w-[10px] h-[10px]" />
               Advance
             </Button>
@@ -477,14 +348,6 @@ function PipelineColumnComponent({
   onExpandCard: (id: string | null) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const totalValue = column.cards.reduce((sum, c) => sum + c.estimatedValue, 0);
-  const avgDays =
-    column.cards.length > 0
-      ? Math.round(
-          column.cards.reduce((sum, c) => sum + c.daysInStage, 0) /
-            column.cards.length
-        )
-      : 0;
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -537,19 +400,11 @@ function PipelineColumnComponent({
         {/* Column stats */}
         <div className="flex items-center gap-2 mt-[4px]">
           <div className="flex items-center gap-[3px]">
-            <DollarSign className="w-[10px] h-[10px] text-text-disabled" />
-            <span className="font-mono text-[10px] text-ops-amber">
-              ${(totalValue / 1000).toFixed(1)}k
+            <FolderOpen className="w-[10px] h-[10px] text-text-disabled" />
+            <span className="font-mono text-[10px] text-text-disabled">
+              {column.cards.length} project{column.cards.length !== 1 ? "s" : ""}
             </span>
           </div>
-          {avgDays > 0 && (
-            <div className="flex items-center gap-[3px]">
-              <Clock className="w-[10px] h-[10px] text-text-disabled" />
-              <span className="font-mono text-[10px] text-text-disabled">
-                avg {avgDays}d
-              </span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -563,7 +418,7 @@ function PipelineColumnComponent({
         )}
       >
         {column.cards.map((card) => (
-          <PipelineCard
+          <PipelineCardComponent
             key={card.id}
             card={card}
             columnColor={column.color}
@@ -578,7 +433,7 @@ function PipelineColumnComponent({
               <Target className="w-[14px] h-[14px] text-text-disabled" />
             </div>
             <span className="font-kosugi text-[11px] text-text-disabled">
-              No leads in this stage
+              No projects in this stage
             </span>
             <span className="font-kosugi text-[9px] text-text-disabled">
               Drop here to move
@@ -591,109 +446,240 @@ function PipelineColumnComponent({
 }
 
 // ---------------------------------------------------------------------------
+// Loading Skeleton
+// ---------------------------------------------------------------------------
+function PipelineSkeleton() {
+  return (
+    <div className="flex flex-col h-full space-y-2">
+      {/* Header skeleton */}
+      <div className="shrink-0 space-y-1">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
+              PIPELINE
+            </h1>
+            <p className="font-kosugi text-caption-sm text-text-tertiary">
+              Loading projects...
+            </p>
+          </div>
+        </div>
+
+        {/* Metrics skeleton */}
+        <div className="flex items-center gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="flex-1 p-1 flex items-center gap-1.5">
+              <div className="w-[32px] h-[32px] rounded bg-background-elevated animate-pulse" />
+              <div className="space-y-1">
+                <div className="h-[10px] w-[60px] bg-background-elevated rounded animate-pulse" />
+                <div className="h-[14px] w-[40px] bg-background-elevated rounded animate-pulse" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Board skeleton */}
+      <div className="flex-1 overflow-x-auto pb-2">
+        <div className="flex gap-2 min-w-min">
+          {PIPELINE_STAGES.map((stage) => (
+            <div
+              key={stage.id}
+              className="flex flex-col min-w-[260px] max-w-[300px] w-full"
+            >
+              <div
+                className={cn(
+                  "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0",
+                  stage.borderColor
+                )}
+              >
+                <div className="flex items-center gap-1">
+                  <h3
+                    className={cn(
+                      "font-mohave text-body font-medium uppercase tracking-wider",
+                      stage.color
+                    )}
+                  >
+                    {stage.label}
+                  </h3>
+                  <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
+                    --
+                  </span>
+                </div>
+              </div>
+              <div className="flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] bg-background-panel/50">
+                {[1, 2].map((j) => (
+                  <div
+                    key={j}
+                    className="bg-background-card-dark border border-border rounded p-1.5 space-y-1.5 animate-pulse"
+                  >
+                    <div className="h-[14px] w-3/4 bg-background-elevated rounded" />
+                    <div className="h-[10px] w-1/2 bg-background-elevated rounded" />
+                    <div className="h-[10px] w-1/3 bg-background-elevated rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline Page
 // ---------------------------------------------------------------------------
 export default function PipelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<string>("");
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("");
-  const [columns, setColumns] = useState<PipelineColumn[]>(initialColumns);
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
-  // Collect unique values for filters
-  const allSources = useMemo(() => {
-    const sources = new Set<LeadSource>();
-    columns.forEach((col) => col.cards.forEach((c) => sources.add(c.source)));
-    return Array.from(sources).sort();
-  }, [columns]);
+  // Fetch real data
+  const { data: projectsData, isLoading: projectsLoading } = useProjects();
+  const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const updateStatusMutation = useUpdateProjectStatus();
 
-  const allAssignees = useMemo(() => {
-    const assignees = new Set<string>();
-    columns.forEach((col) => col.cards.forEach((c) => assignees.add(c.assignedTo)));
-    return Array.from(assignees).sort();
-  }, [columns]);
+  const isLoading = projectsLoading || clientsLoading;
 
-  // Filter cards
+  // Build client lookup map
+  const clientMap = useMemo(() => {
+    const map = new Map<string, Client>();
+    if (clientsData?.clients) {
+      for (const client of clientsData.clients) {
+        map.set(client.id, client);
+      }
+    }
+    return map;
+  }, [clientsData]);
+
+  // Filter out deleted projects and build pipeline columns
+  const activeProjects = useMemo(() => {
+    if (!projectsData?.projects) return [];
+    return projectsData.projects.filter((p) => !p.deletedAt);
+  }, [projectsData]);
+
+  // Build pipeline columns from real data
+  const columns: PipelineColumn[] = useMemo(() => {
+    return PIPELINE_STAGES.map((stage) => {
+      const stageProjects = activeProjects.filter((p) =>
+        stage.statuses.includes(p.status)
+      );
+
+      const cards: PipelineCard[] = stageProjects.map((project) => ({
+        id: project.id,
+        project,
+        client: project.clientId ? clientMap.get(project.clientId) ?? null : null,
+      }));
+
+      return {
+        ...stage,
+        cards,
+      };
+    });
+  }, [activeProjects, clientMap]);
+
+  // Filter cards by search and status filter
   const filteredColumns = useMemo(() => {
     return columns.map((col) => ({
       ...col,
       cards: col.cards.filter((card) => {
+        const clientName = card.client?.name || "";
+        const projectTitle = card.project.title || "";
+        const address = card.project.address || "";
+
         const matchesSearch =
           !searchQuery.trim() ||
-          card.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (card.projectType || "").toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesSource = !sourceFilter || card.source === sourceFilter;
-        const matchesAssignee = !assigneeFilter || card.assignedTo === assigneeFilter;
-        return matchesSearch && matchesSource && matchesAssignee;
+          clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          projectTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          address.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesStatus =
+          !statusFilter || card.project.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
       }),
     }));
-  }, [columns, searchQuery, sourceFilter, assigneeFilter]);
+  }, [columns, searchQuery, statusFilter]);
 
-  // Totals
-  const totalLeads = columns.reduce((sum, col) => sum + col.cards.length, 0);
-  const totalPipelineValue = columns.reduce(
-    (sum, col) => sum + col.cards.reduce((s, c) => s + c.estimatedValue, 0),
-    0
-  );
-  const wonValue = columns
+  // Compute statistics from real data
+  const totalProjects = activeProjects.length;
+
+  const wonProjects = columns
     .find((c) => c.id === "won")
-    ?.cards.reduce((s, c) => s + c.estimatedValue, 0) || 0;
-  const lostValue = columns
+    ?.cards.length ?? 0;
+
+  const lostProjects = columns
     .find((c) => c.id === "lost")
-    ?.cards.reduce((s, c) => s + c.estimatedValue, 0) || 0;
-  const activeValue = totalPipelineValue - wonValue - lostValue;
+    ?.cards.length ?? 0;
+
+  const activeInPipeline = totalProjects - wonProjects - lostProjects;
+
   const conversionRate =
-    wonValue + lostValue > 0
-      ? Math.round((wonValue / (wonValue + lostValue)) * 100)
+    wonProjects + lostProjects > 0
+      ? Math.round((wonProjects / (wonProjects + lostProjects)) * 100)
       : 0;
+
+  // Collect unique statuses for filter dropdown
+  const allStatuses = useMemo(() => {
+    const statuses = new Set<ProjectStatus>();
+    activeProjects.forEach((p) => statuses.add(p.status));
+    return Array.from(statuses).sort();
+  }, [activeProjects]);
 
   // Handle drop on a column
   const handleBoardDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
-      const cardId = e.dataTransfer.getData("text/plain");
-      if (!cardId) return;
+      const projectId = e.dataTransfer.getData("text/plain");
+      if (!projectId) return;
 
       // Find the target column from the drop point
       const target = (e.target as HTMLElement).closest("[data-column-id]");
       if (!target) return;
-      const destColumnId = target.getAttribute("data-column-id") as PipelineStage;
-      if (!destColumnId) return;
+      const destStageId = target.getAttribute("data-column-id") as PipelineStageId;
+      if (!destStageId) return;
 
-      setColumns((prev) => {
-        // Find source
-        let sourceColIdx = -1;
-        let sourceCardIdx = -1;
-        for (let i = 0; i < prev.length; i++) {
-          const idx = prev[i].cards.findIndex((c) => c.id === cardId);
-          if (idx !== -1) {
-            sourceColIdx = i;
-            sourceCardIdx = idx;
-            break;
-          }
+      // Find the project's current stage
+      const project = activeProjects.find((p) => p.id === projectId);
+      if (!project) return;
+
+      const currentStageId = getStageForStatus(project.status);
+      if (currentStageId === destStageId) return;
+
+      // Get the target status for the destination stage
+      const newStatus = getTargetStatusForStage(destStageId);
+
+      // Perform the mutation
+      updateStatusMutation.mutate(
+        { id: projectId, status: newStatus },
+        {
+          onSuccess: () => {
+            const stageName =
+              PIPELINE_STAGES.find((s) => s.id === destStageId)?.label ?? destStageId;
+            toast.success(`Project moved to ${stageName}`, {
+              description: `Status updated to ${newStatus}`,
+            });
+          },
+          onError: (error) => {
+            toast.error("Failed to update project status", {
+              description:
+                error instanceof Error
+                  ? error.message
+                  : "An unexpected error occurred",
+            });
+          },
         }
-        if (sourceColIdx === -1) return prev;
-
-        const destColIdx = prev.findIndex((c) => c.id === destColumnId);
-        if (destColIdx === -1) return prev;
-        if (sourceColIdx === destColIdx) return prev;
-
-        const newColumns = prev.map((col) => ({
-          ...col,
-          cards: [...col.cards],
-        }));
-
-        const [movedCard] = newColumns[sourceColIdx].cards.splice(sourceCardIdx, 1);
-        movedCard.daysInStage = 0;
-        newColumns[destColIdx].cards.push(movedCard);
-
-        return newColumns;
-      });
+      );
     },
-    []
+    [activeProjects, updateStatusMutation]
   );
+
+  // Show loading skeleton
+  if (isLoading) {
+    return <PipelineSkeleton />;
+  }
 
   return (
     <div className="flex flex-col h-full space-y-2">
@@ -706,17 +692,17 @@ export default function PipelinePage() {
             </h1>
             <div className="flex items-center gap-2">
               <p className="font-kosugi text-caption-sm text-text-tertiary">
-                Drag leads between stages to update status
+                Drag projects between stages to update status
               </p>
               <span className="font-mono text-[11px] text-text-disabled">
-                {totalLeads} leads
+                {totalProjects} project{totalProjects !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <div className="max-w-[250px]">
               <Input
-                placeholder="Search leads..."
+                placeholder="Search projects..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -752,14 +738,14 @@ export default function PipelinePage() {
         <div className="flex items-center gap-2">
           <Card className="flex-1 p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-ops-accent-muted flex items-center justify-center shrink-0">
-              <DollarSign className="w-[16px] h-[16px] text-ops-accent" />
+              <FolderOpen className="w-[16px] h-[16px] text-ops-accent" />
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
                 Active Pipeline
               </span>
               <span className="font-mono text-data text-ops-amber">
-                ${(activeValue / 1000).toFixed(1)}k
+                {activeInPipeline}
               </span>
             </div>
           </Card>
@@ -772,7 +758,7 @@ export default function PipelinePage() {
                 Won
               </span>
               <span className="font-mono text-data text-status-success">
-                ${(wonValue / 1000).toFixed(1)}k
+                {wonProjects}
               </span>
             </div>
           </Card>
@@ -785,7 +771,7 @@ export default function PipelinePage() {
                 Lost
               </span>
               <span className="font-mono text-data text-ops-error">
-                ${(lostValue / 1000).toFixed(1)}k
+                {lostProjects}
               </span>
             </div>
           </Card>
@@ -810,11 +796,11 @@ export default function PipelinePage() {
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1">
                 <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                  Source
+                  Status
                 </span>
                 <select
-                  value={sourceFilter}
-                  onChange={(e) => setSourceFilter(e.target.value)}
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                   className={cn(
                     "bg-background-input text-text-primary font-mohave text-body-sm",
                     "px-1.5 py-[6px] rounded border border-border",
@@ -822,46 +808,22 @@ export default function PipelinePage() {
                     "cursor-pointer"
                   )}
                 >
-                  <option value="">All Sources</option>
-                  {allSources.map((source) => (
-                    <option key={source} value={source}>
-                      {SOURCE_LABELS[source]}
+                  <option value="">All Statuses</option>
+                  {allStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex items-center gap-1">
-                <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                  Assignee
-                </span>
-                <select
-                  value={assigneeFilter}
-                  onChange={(e) => setAssigneeFilter(e.target.value)}
-                  className={cn(
-                    "bg-background-input text-text-primary font-mohave text-body-sm",
-                    "px-1.5 py-[6px] rounded border border-border",
-                    "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
-                    "cursor-pointer"
-                  )}
-                >
-                  <option value="">All Assignees</option>
-                  {allAssignees.map((assignee) => (
-                    <option key={assignee} value={assignee}>
-                      {assignee}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {(sourceFilter || assigneeFilter || searchQuery) && (
+              {(statusFilter || searchQuery) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="gap-[4px] text-ops-error"
                   onClick={() => {
-                    setSourceFilter("");
-                    setAssigneeFilter("");
+                    setStatusFilter("");
                     setSearchQuery("");
                   }}
                 >
@@ -871,22 +833,11 @@ export default function PipelinePage() {
               )}
 
               {/* Active filter badges */}
-              {sourceFilter && (
+              {statusFilter && (
                 <Badge variant="info" className="gap-[4px]">
-                  Source: {SOURCE_LABELS[sourceFilter as LeadSource]}
+                  Status: {statusFilter}
                   <button
-                    onClick={() => setSourceFilter("")}
-                    className="hover:text-white cursor-pointer"
-                  >
-                    <X className="w-[10px] h-[10px]" />
-                  </button>
-                </Badge>
-              )}
-              {assigneeFilter && (
-                <Badge variant="info" className="gap-[4px]">
-                  Assignee: {assigneeFilter}
-                  <button
-                    onClick={() => setAssigneeFilter("")}
+                    onClick={() => setStatusFilter("")}
                     className="hover:text-white cursor-pointer"
                   >
                     <X className="w-[10px] h-[10px]" />
@@ -897,6 +848,16 @@ export default function PipelinePage() {
           </Card>
         )}
       </div>
+
+      {/* Mutation loading indicator */}
+      {updateStatusMutation.isPending && (
+        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-ops-accent-muted border border-ops-accent/30">
+          <Loader2 className="w-[14px] h-[14px] text-ops-accent animate-spin" />
+          <span className="font-kosugi text-[11px] text-ops-accent">
+            Updating project status...
+          </span>
+        </div>
+      )}
 
       {/* Pipeline Board */}
       <div

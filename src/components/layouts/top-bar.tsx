@@ -14,7 +14,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
 
 const routeTitles: Record<string, string> = {
@@ -109,7 +109,7 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
 export function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -228,16 +228,16 @@ export function TopBar() {
             className="flex items-center gap-1 p-[6px] rounded hover:bg-background-elevated transition-all"
           >
             <div className="w-[28px] h-[28px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
-              {user?.photoURL ? (
+              {currentUser?.profileImageURL ? (
                 <img
-                  src={user.photoURL}
+                  src={currentUser.profileImageURL}
                   alt=""
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               ) : (
                 <span className="font-mohave text-body-sm text-ops-accent">
-                  {user?.displayName?.charAt(0)?.toUpperCase() || "U"}
+                  {currentUser?.firstName?.charAt(0)?.toUpperCase() || "U"}
                 </span>
               )}
             </div>
@@ -248,10 +248,10 @@ export function TopBar() {
             <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-background-panel border border-border rounded shadow-floating z-50 animate-scale-in overflow-hidden">
               <div className="px-1.5 py-1 border-b border-border-subtle">
                 <p className="font-mohave text-body-sm text-text-primary truncate">
-                  {user?.displayName || "User"}
+                  {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || "User" : "User"}
                 </p>
                 <p className="font-mono text-[11px] text-text-tertiary truncate">
-                  {user?.email}
+                  {currentUser?.email}
                 </p>
               </div>
               <div className="py-[4px]">

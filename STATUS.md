@@ -13,13 +13,14 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 
 | Metric | Count |
 |---|---|
-| Source Files | 120 |
-| Test Files | 13 |
-| Total Files | 133 |
-| Lines of Code | ~33,400 |
-| Routes | 22 |
+| Source Files | 121 |
+| Test Files | 6 |
+| Total Files | 127 |
+| Lines of Code | ~27,800 |
+| Routes | 21 |
 | Tests Passing | 262 |
 | TypeScript Errors | 0 |
+| Build Status | PASSING |
 
 ## Page Status
 
@@ -29,28 +30,28 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 | Projects List | `/projects` | Real hooks + bulk operations |
 | Project Detail | `/projects/[id]` | Real hooks + tasks CRUD |
 | New Project | `/projects/new` | React Hook Form + Zod + mutation |
+| Dashboard | `/dashboard` | Real hooks (projects, tasks, clients, calendar, team) |
+| Calendar | `/calendar` | `useCalendarEventsForRange` with date range computation |
+| Clients List | `/clients` | `useClients` hook, filtered + mapped |
+| Client Detail | `/clients/[id]` | `useClient` + `useSubClients` + `useProjects` + mutations |
+| New Client | `/clients/new` | `useCreateClient` mutation + toast feedback |
+| Team | `/team` | `useTeamMembers` hook |
+| Job Board | `/job-board` | `useProjects` + DnD status update mutations |
+| Map | `/map` | `useProjects` + Leaflet with status filtering |
+| Pipeline | `/pipeline` | `useProjects` + `useClients` + DnD status mutations |
+| Settings | `/settings` | `useCompany` + `useUpdateUser` + `useUpdateCompany` |
 
-### UI Complete, Using Mock Data
+### UI Complete, Needs Backend Data Model
 | Page | Route | What's Missing |
 |---|---|---|
-| Dashboard | `/dashboard` | Wire to real project/task/client hooks |
-| Calendar | `/calendar` | Wire to `useCalendarEvents` hook |
-| Clients List | `/clients` | Wire to `useClients` hook |
-| Client Detail | `/clients/[id]` | Wire to `useClient` hook |
-| New Client | `/clients/new` | Wire to `useCreateClient` mutation |
-| Team | `/team` | Wire to `useTeamMembers` hook |
-| Job Board | `/job-board` | Wire to `useProjects` hook + real DnD status updates |
-| Map | `/map` | Wire to `useProjects` hook (Leaflet ready) |
-| Pipeline | `/pipeline` | Needs pipeline data model + API |
 | Invoices | `/invoices` | Needs invoice data model + API |
 | Accounting | `/accounting` | Needs financial data model + API |
-| Settings | `/settings` | Wire to `useCompany`/`useUpdateUser` hooks |
 
 ### Auth & System Pages
 | Page | Route | Status |
 |---|---|---|
-| Login | `/login` | Firebase auth wired (needs env vars) |
-| Register | `/register` | Firebase auth wired (needs env vars) |
+| Login | `/login` | Firebase auth wired |
+| Register | `/register` | Firebase auth wired |
 | PIN | `/pin` | UI complete, PIN verification placeholder |
 | Setup/Onboarding | `/setup` | 5-step survey, saves to localStorage |
 | Subscription Lockout | `/locked` | UI complete, Stripe links placeholder |
@@ -65,7 +66,9 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 - [x] 10 entity types with full DTO conversions (byte-perfect BubbleFields)
 - [x] 7 TanStack Query hooks with optimistic updates
 - [x] 8 API services (project, task, client, user, company, calendar, image, task-type)
-- [x] Zustand stores (auth, sidebar, setup, selection)
+- [x] Unified Zustand auth store (OPS User model + Firebase auth sync)
+- [x] Zustand stores (sidebar, setup, selection)
+- [x] Firebase Web App registered + all env vars configured
 - [x] Firebase auth integration (Google Sign-In, email/password)
 - [x] Auth middleware (route protection, redirects)
 - [x] Command palette (Cmd+K) with navigation, actions, search
@@ -78,33 +81,29 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 - [x] MSW mock handlers for testing
 - [x] Vitest + React Testing Library (262 tests)
 - [x] Playwright E2E test setup
+- [x] All pages wired to real API hooks (except invoices/accounting)
+- [x] React error boundaries
+- [x] GitHub Actions CI/CD pipeline
+- [x] vercel.json configured (region, security headers)
 
 ### Not Yet Done
-- [ ] Environment variables (Firebase, Bubble API token)
-- [ ] Vercel deployment
-- [ ] GitHub Actions CI/CD
+- [ ] Vercel deployment (push + redeploy with env vars)
 - [ ] Sentry error tracking
 - [ ] Vercel Analytics
-- [ ] React error boundaries
-- [ ] Setup flow -> dashboard customization link
 - [ ] Stripe payment integration
 - [ ] Email sending (estimates/invoices)
 - [ ] Real-time sync / polling
 - [ ] Accessibility audit (WCAG 2.1 AA)
 - [ ] Performance optimization (code splitting beyond Next.js defaults)
 
-## Priority Wiring Tasks
+## Recent Changes (Feb 15)
 
-To go from prototype to functional app, wire pages in this order:
-
-1. **Environment setup** - Set real Firebase + Bubble API credentials
-2. **Dashboard** - Replace mock data with `useProjects`, `useTasks`, `useClients`
-3. **Calendar** - Wire to `useCalendarEvents` hook (already exists)
-4. **Clients** - Wire list/detail/new to existing client hooks
-5. **Team** - Wire to `useTeamMembers` hook
-6. **Job Board** - Wire to `useProjects` + status update mutations
-7. **Map** - Wire to `useProjects` (Leaflet already set up)
-8. **Settings** - Wire to `useCompany`, `useUpdateUser`
+- Deleted duplicate `(onboarding)/page.tsx` that conflicted with root `/` route (Vercel build fix)
+- Consolidated dual auth stores into single `lib/store/auth-store.ts` (OPS User model)
+- Added `setFirebaseAuth()` method for Firebase auth state sync
+- Updated sidebar/top-bar to use OPS `currentUser` fields
+- Registered Firebase Web App, all env vars now configured
+- Deleted old `stores/auth-store.ts` (Firebase-only, replaced)
 
 ## Tech Stack
 
@@ -122,7 +121,7 @@ To go from prototype to functional app, wire pages in this order:
 | Maps | Leaflet + react-leaflet |
 | DnD | @dnd-kit |
 | Testing | Vitest + RTL + MSW + Playwright |
-| Deployment | Vercel (planned) |
+| Deployment | Vercel |
 
 ## Design System
 

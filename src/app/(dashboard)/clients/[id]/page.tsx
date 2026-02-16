@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -20,6 +20,7 @@ import {
   X,
   Save,
   Navigation,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -28,85 +29,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
-
-// ─── Placeholder Data ────────────────────────────────────────────────────────
-
-const clientsDatabase: Record<
-  string,
-  {
-    id: string;
-    name: string;
-    company: string | null;
-    email: string | null;
-    phone: string | null;
-    address: string | null;
-    notes: string | null;
-    profileImageURL: string | null;
-    createdAt: string;
-  }
-> = {
-  c1: {
-    id: "c1",
-    name: "John Smith",
-    company: "Smith & Associates",
-    email: "john@smithassociates.com",
-    phone: "(555) 123-4567",
-    address: "123 Main St, Springfield, IL 62701",
-    notes:
-      "Prefers morning appointments between 8-10am. Dog in backyard - use front entrance. Has a gate code: 4521.",
-    profileImageURL: null,
-    createdAt: "2025-09-15",
-  },
-  c2: {
-    id: "c2",
-    name: "Meridian Properties LLC",
-    company: "Meridian Properties",
-    email: "contact@meridianprops.com",
-    phone: "(555) 234-5678",
-    address: "456 Oak Ave, Shelbyville, IL 62565",
-    notes: "Commercial property management company. Net-30 payment terms. Invoice to accounting@meridianprops.com.",
-    profileImageURL: null,
-    createdAt: "2025-11-02",
-  },
-};
-
-const clientProjectsData: Record<
-  string,
-  { id: string; name: string; status: string; startDate: string; teamCount: number }[]
-> = {
-  c1: [
-    { id: "p1", name: "Kitchen Renovation", status: "in-progress", startDate: "2026-02-01", teamCount: 3 },
-    { id: "p2", name: "Bathroom Remodel", status: "completed", startDate: "2025-12-10", teamCount: 2 },
-    { id: "p3", name: "Deck Repair", status: "rfq", startDate: "2026-03-01", teamCount: 0 },
-  ],
-  c2: [
-    { id: "p4", name: "Office HVAC Replacement", status: "in-progress", startDate: "2026-01-15", teamCount: 4 },
-    { id: "p5", name: "Parking Lot Resurfacing", status: "accepted", startDate: "2026-03-01", teamCount: 2 },
-    { id: "p6", name: "Lobby Renovation", status: "estimated", startDate: "2026-04-01", teamCount: 0 },
-    { id: "p7", name: "Plumbing Upgrade - Bldg B", status: "completed", startDate: "2025-10-01", teamCount: 3 },
-    { id: "p8", name: "Roof Inspection", status: "rfq", startDate: "2026-03-15", teamCount: 0 },
-  ],
-};
-
-const subClientsData: Record<
-  string,
-  { id: string; name: string; title: string | null; phone: string | null; email: string | null }[]
-> = {
-  c1: [
-    { id: "sc1", name: "Sarah Smith", title: "Spouse", phone: "(555) 123-4568", email: "sarah@smithassociates.com" },
-  ],
-  c2: [
-    { id: "sc2", name: "Jane Doe", title: "Property Manager", phone: "(555) 234-5679", email: "jane@meridianprops.com" },
-    { id: "sc3", name: "Carlos Ruiz", title: "Maintenance Lead", phone: "(555) 234-5680", email: null },
-  ],
-};
+import { toast } from "sonner";
+import {
+  useClient,
+  useSubClients,
+  useProjects,
+  useUpdateClient,
+  useDeleteClient,
+  useCreateSubClient,
+  useDeleteSubClient,
+} from "@/lib/hooks";
+import { getInitials } from "@/lib/types/models";
+import type { Project } from "@/lib/types/models";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  rfq: { label: "RFQ", color: "text-status-rfq", bg: "bg-status-rfq/15" },
-  estimated: { label: "ESTIMATED", color: "text-status-estimated", bg: "bg-status-estimated/15" },
-  accepted: { label: "ACCEPTED", color: "text-status-accepted", bg: "bg-status-accepted/15" },
-  "in-progress": { label: "IN PROGRESS", color: "text-status-in-progress", bg: "bg-status-in-progress/15" },
-  completed: { label: "COMPLETED", color: "text-status-completed", bg: "bg-status-completed/15" },
+  RFQ: { label: "RFQ", color: "text-status-rfq", bg: "bg-status-rfq/15" },
+  Estimated: { label: "ESTIMATED", color: "text-status-estimated", bg: "bg-status-estimated/15" },
+  Accepted: { label: "ACCEPTED", color: "text-status-accepted", bg: "bg-status-accepted/15" },
+  "In Progress": { label: "IN PROGRESS", color: "text-status-in-progress", bg: "bg-status-in-progress/15" },
+  Completed: { label: "COMPLETED", color: "text-status-completed", bg: "bg-status-completed/15" },
+  Closed: { label: "CLOSED", color: "text-status-completed", bg: "bg-status-completed/15" },
+  Archived: { label: "ARCHIVED", color: "text-status-completed", bg: "bg-status-completed/15" },
 };
 
 // ─── Sub-Client Inline Form ──────────────────────────────────────────────────
@@ -114,9 +57,11 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 function AddSubClientForm({
   onSave,
   onCancel,
+  isSaving,
 }: {
   onSave: (data: { name: string; title: string; phone: string; email: string }) => void;
   onCancel: () => void;
+  isSaving?: boolean;
 }) {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -131,10 +76,6 @@ function AddSubClientForm({
     }
     setError(null);
     onSave({ name: name.trim(), title: title.trim(), phone: phone.trim(), email: email.trim() });
-    setName("");
-    setTitle("");
-    setPhone("");
-    setEmail("");
   }
 
   return (
@@ -169,10 +110,10 @@ function AddSubClientForm({
         />
       </div>
       <div className="flex items-center justify-end gap-1">
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving}>
           Cancel
         </Button>
-        <Button size="sm" onClick={handleSubmit} className="gap-[4px]">
+        <Button size="sm" onClick={handleSubmit} className="gap-[4px]" loading={isSaving}>
           <Save className="w-[13px] h-[13px]" />
           Add
         </Button>
@@ -207,6 +148,37 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+// ─── Loading Skeleton ────────────────────────────────────────────────────────
+
+function DetailLoadingSkeleton() {
+  return (
+    <div className="space-y-3 max-w-[1000px] animate-pulse">
+      <div className="flex items-start gap-2">
+        <div className="w-[40px] h-[40px] rounded bg-background-elevated shrink-0" />
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <div className="w-[52px] h-[52px] rounded-full bg-background-elevated" />
+            <div className="space-y-1 flex-1">
+              <div className="h-[24px] bg-background-elevated rounded w-1/3" />
+              <div className="h-[14px] bg-background-elevated rounded w-1/4" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+        <div className="space-y-2">
+          <div className="h-[200px] bg-background-card border border-border rounded-lg" />
+          <div className="h-[120px] bg-background-card border border-border rounded-lg" />
+          <div className="h-[150px] bg-background-card border border-border rounded-lg" />
+        </div>
+        <div className="lg:col-span-2">
+          <div className="h-[300px] bg-background-card border border-border rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ClientDetailPage() {
@@ -214,64 +186,161 @@ export default function ClientDetailPage() {
   const params = useParams();
   const clientId = params.id as string;
 
-  // TODO: Replace with useClient(clientId) when API connected
-  const clientData = clientsDatabase[clientId] || clientsDatabase.c1;
-  const clientProjects = clientProjectsData[clientId] || clientProjectsData.c1 || [];
-  const subClients = subClientsData[clientId] || subClientsData.c1 || [];
+  // Data hooks
+  const { data: clientData, isLoading: clientLoading } = useClient(clientId);
+  const { data: subClientsData, isLoading: subClientsLoading } = useSubClients(clientId);
+  const { data: projectsData, isLoading: projectsLoading } = useProjects({ clientId });
+
+  // Mutation hooks
+  const updateClient = useUpdateClient();
+  const deleteClient = useDeleteClient();
+  const createSubClient = useCreateSubClient();
+  const deleteSubClient = useDeleteSubClient();
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAddSubClient, setShowAddSubClient] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Editable fields
-  const [editName, setEditName] = useState(clientData.name);
-  const [editCompany, setEditCompany] = useState(clientData.company || "");
-  const [editEmail, setEditEmail] = useState(clientData.email || "");
-  const [editPhone, setEditPhone] = useState(clientData.phone || "");
-  const [editAddress, setEditAddress] = useState(clientData.address || "");
-  const [editNotes, setEditNotes] = useState(clientData.notes || "");
+  const [editName, setEditName] = useState("");
+  const [editCompany, setEditCompany] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
-  function handleSaveEdit() {
-    // TODO: call useUpdateClient mutation
-    setIsEditing(false);
+  // Sync edit fields when clientData loads
+  useEffect(() => {
+    if (clientData) {
+      setEditName(clientData.name ?? "");
+      setEditCompany("");
+      setEditEmail(clientData.email ?? "");
+      setEditPhone(clientData.phoneNumber ?? "");
+      setEditAddress(clientData.address ?? "");
+      setEditNotes(clientData.notes ?? "");
+    }
+  }, [clientData]);
+
+  // Loading state
+  if (clientLoading) {
+    return <DetailLoadingSkeleton />;
   }
 
-  function handleCancelEdit() {
-    setEditName(clientData.name);
-    setEditCompany(clientData.company || "");
-    setEditEmail(clientData.email || "");
-    setEditPhone(clientData.phone || "");
-    setEditAddress(clientData.address || "");
-    setEditNotes(clientData.notes || "");
-    setIsEditing(false);
+  // Not found
+  if (!clientData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <h2 className="font-mohave text-display text-text-primary">Client Not Found</h2>
+        <p className="font-kosugi text-caption text-text-tertiary mt-1">
+          This client may have been deleted or doesn&apos;t exist.
+        </p>
+        <Button className="mt-3" onClick={() => router.push("/clients")}>
+          Back to Clients
+        </Button>
+      </div>
+    );
   }
 
-  function handleDelete() {
-    setIsDeleting(true);
-    // TODO: call useDeleteClient mutation
-    setTimeout(() => {
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-      router.push("/clients");
-    }, 800);
-  }
-
-  function handleAddSubClient(data: { name: string; title: string; phone: string; email: string }) {
-    // TODO: call useCreateSubClient mutation
-    setShowAddSubClient(false);
-  }
-
+  // Derived data
+  const subClients = (subClientsData ?? clientData.subClients ?? []).filter(
+    (sc) => !sc.deletedAt
+  );
+  const clientProjects: Project[] = (projectsData?.projects ?? []).filter(
+    (p) => !p.deletedAt
+  );
   const activeProjects = clientProjects.filter(
-    (p) => p.status !== "completed" && p.status !== "archived"
+    (p) =>
+      p.status !== "Completed" && p.status !== "Closed" && p.status !== "Archived"
   );
   const completedProjects = clientProjects.filter(
-    (p) => p.status === "completed" || p.status === "archived"
+    (p) => p.status === "Completed" || p.status === "Closed" || p.status === "Archived"
   );
 
   const mapUrl = clientData.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clientData.address)}`
     : null;
+
+  function handleSaveEdit() {
+    updateClient.mutate(
+      {
+        id: clientId,
+        data: {
+          name: editName.trim() || clientData!.name,
+          email: editEmail.trim() || null,
+          phoneNumber: editPhone.trim() || null,
+          address: editAddress.trim() || null,
+          notes: editNotes.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Client updated successfully");
+          setIsEditing(false);
+        },
+        onError: () => {
+          toast.error("Failed to update client");
+        },
+      }
+    );
+  }
+
+  function handleCancelEdit() {
+    setEditName(clientData!.name ?? "");
+    setEditCompany("");
+    setEditEmail(clientData!.email ?? "");
+    setEditPhone(clientData!.phoneNumber ?? "");
+    setEditAddress(clientData!.address ?? "");
+    setEditNotes(clientData!.notes ?? "");
+    setIsEditing(false);
+  }
+
+  function handleDelete() {
+    deleteClient.mutate(clientId, {
+      onSuccess: () => {
+        toast.success("Client deleted");
+        router.push("/clients");
+      },
+      onError: () => {
+        toast.error("Failed to delete client");
+        setShowDeleteDialog(false);
+      },
+    });
+  }
+
+  function handleAddSubClient(data: { name: string; title: string; phone: string; email: string }) {
+    createSubClient.mutate(
+      {
+        name: data.name,
+        title: data.title || null,
+        phoneNumber: data.phone || null,
+        email: data.email || null,
+        clientId,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Sub-client added");
+          setShowAddSubClient(false);
+        },
+        onError: () => {
+          toast.error("Failed to add sub-client");
+        },
+      }
+    );
+  }
+
+  function handleDeleteSubClient(subClientId: string) {
+    deleteSubClient.mutate(
+      { id: subClientId, clientId },
+      {
+        onSuccess: () => {
+          toast.success("Sub-client removed");
+        },
+        onError: () => {
+          toast.error("Failed to remove sub-client");
+        },
+      }
+    );
+  }
 
   return (
     <div className="space-y-3 max-w-[1000px]">
@@ -289,11 +358,7 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-1.5">
             <div className="w-[52px] h-[52px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
               <span className="font-mohave text-display text-ops-accent">
-                {clientData.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)}
+                {getInitials(clientData.name) || "?"}
               </span>
             </div>
             <div>
@@ -308,14 +373,6 @@ export default function ClientDetailPage() {
                   {clientData.name}
                 </h1>
               )}
-              {clientData.company && !isEditing && (
-                <div className="flex items-center gap-[4px] mt-[2px]">
-                  <Building2 className="w-[13px] h-[13px] text-text-disabled" />
-                  <p className="font-kosugi text-caption-sm text-text-tertiary">
-                    {clientData.company}
-                  </p>
-                </div>
-              )}
               {isEditing && (
                 <Input
                   value={editCompany}
@@ -326,11 +383,16 @@ export default function ClientDetailPage() {
               )}
               {!isEditing && (
                 <p className="font-kosugi text-caption-sm text-text-tertiary mt-[2px]">
-                  {clientProjects.length} projects | Client since{" "}
-                  {new Date(clientData.createdAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {clientProjects.length} projects
+                  {clientData.createdAt && (
+                    <>
+                      {" "}| Client since{" "}
+                      {new Date(clientData.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -341,10 +403,10 @@ export default function ClientDetailPage() {
         <div className="flex items-center gap-1 shrink-0">
           {isEditing ? (
             <>
-              <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
+              <Button variant="ghost" size="sm" onClick={handleCancelEdit} disabled={updateClient.isPending}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSaveEdit} className="gap-[4px]">
+              <Button size="sm" onClick={handleSaveEdit} className="gap-[4px]" loading={updateClient.isPending}>
                 <Save className="w-[14px] h-[14px]" />
                 Save
               </Button>
@@ -409,7 +471,7 @@ export default function ClientDetailPage() {
               )}
 
               {/* Phone */}
-              {(clientData.phone || isEditing) && (
+              {(clientData.phoneNumber || isEditing) && (
                 <div className="flex items-center gap-1 py-1.5 border-b border-border-subtle">
                   <Phone className="w-[16px] h-[16px] text-ops-accent shrink-0" />
                   {isEditing ? (
@@ -423,12 +485,12 @@ export default function ClientDetailPage() {
                   ) : (
                     <div className="flex items-center gap-1 flex-1 min-w-0">
                       <a
-                        href={`tel:${clientData.phone}`}
+                        href={`tel:${clientData.phoneNumber}`}
                         className="font-mono text-data-sm text-text-primary hover:text-ops-accent transition-colors"
                       >
-                        {clientData.phone}
+                        {clientData.phoneNumber}
                       </a>
-                      <CopyButton text={clientData.phone!} />
+                      <CopyButton text={clientData.phoneNumber!} />
                     </div>
                   )}
                 </div>
@@ -511,6 +573,9 @@ export default function ClientDetailPage() {
                       {subClients.length}
                     </Badge>
                   )}
+                  {subClientsLoading && (
+                    <Loader2 className="w-[12px] h-[12px] text-text-disabled animate-spin" />
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -539,6 +604,7 @@ export default function ClientDetailPage() {
                   <AddSubClientForm
                     onSave={handleAddSubClient}
                     onCancel={() => setShowAddSubClient(false)}
+                    isSaving={createSubClient.isPending}
                   />
                 </div>
               )}
@@ -552,16 +618,13 @@ export default function ClientDetailPage() {
                   {subClients.map((sc) => (
                     <div
                       key={sc.id}
-                      className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0"
+                      className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0 group"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
                           <div className="w-[28px] h-[28px] rounded-full bg-background-elevated flex items-center justify-center shrink-0">
                             <span className="font-mohave text-[11px] text-text-secondary">
-                              {sc.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
+                              {getInitials(sc.name)}
                             </span>
                           </div>
                           <div className="min-w-0">
@@ -576,23 +639,32 @@ export default function ClientDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-[2px] shrink-0 ml-1">
-                        {sc.phone && (
-                          <a
-                            href={`tel:${sc.phone}`}
-                            className="font-mono text-[10px] text-text-tertiary hover:text-ops-accent transition-colors"
-                          >
-                            {sc.phone}
-                          </a>
-                        )}
-                        {sc.email && (
-                          <a
-                            href={`mailto:${sc.email}`}
-                            className="font-mono text-[10px] text-ops-accent hover:underline truncate max-w-[140px]"
-                          >
-                            {sc.email}
-                          </a>
-                        )}
+                      <div className="flex items-center gap-1 shrink-0 ml-1">
+                        <div className="flex flex-col items-end gap-[2px]">
+                          {sc.phoneNumber && (
+                            <a
+                              href={`tel:${sc.phoneNumber}`}
+                              className="font-mono text-[10px] text-text-tertiary hover:text-ops-accent transition-colors"
+                            >
+                              {sc.phoneNumber}
+                            </a>
+                          )}
+                          {sc.email && (
+                            <a
+                              href={`mailto:${sc.email}`}
+                              className="font-mono text-[10px] text-ops-accent hover:underline truncate max-w-[140px]"
+                            >
+                              {sc.email}
+                            </a>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteSubClient(sc.id)}
+                          className="p-[3px] rounded text-text-disabled opacity-0 group-hover:opacity-100 hover:text-ops-error transition-all"
+                          title="Remove sub-client"
+                        >
+                          <Trash2 className="w-[12px] h-[12px]" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -616,6 +688,9 @@ export default function ClientDetailPage() {
                       {activeProjects.length}
                     </Badge>
                   )}
+                  {projectsLoading && (
+                    <Loader2 className="w-[12px] h-[12px] text-text-disabled animate-spin" />
+                  )}
                 </div>
                 <Button
                   size="sm"
@@ -628,7 +703,7 @@ export default function ClientDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {activeProjects.length === 0 ? (
+              {!projectsLoading && activeProjects.length === 0 ? (
                 <div className="text-center py-4">
                   <FolderKanban className="w-[36px] h-[36px] text-text-disabled mx-auto mb-1" />
                   <p className="font-mohave text-body text-text-tertiary">
@@ -641,7 +716,7 @@ export default function ClientDetailPage() {
               ) : (
                 <div className="space-y-[4px]">
                   {activeProjects.map((project) => {
-                    const status = statusConfig[project.status] || statusConfig.rfq;
+                    const status = statusConfig[project.status] || statusConfig.RFQ;
                     return (
                       <div
                         key={project.id}
@@ -651,21 +726,23 @@ export default function ClientDetailPage() {
                         <div className="flex items-center gap-1 min-w-0">
                           <FolderKanban className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
                           <span className="font-mohave text-body text-text-primary truncate">
-                            {project.name}
+                            {project.title}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {project.teamCount > 0 && (
+                          {project.teamMemberIds && project.teamMemberIds.length > 0 && (
                             <span className="font-mono text-[10px] text-text-disabled">
-                              {project.teamCount} crew
+                              {project.teamMemberIds.length} crew
                             </span>
                           )}
-                          <span className="font-mono text-[10px] text-text-disabled">
-                            {new Date(project.startDate).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
+                          {project.startDate && (
+                            <span className="font-mono text-[10px] text-text-disabled">
+                              {new Date(project.startDate).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          )}
                           <span className={cn("ops-badge", status.color, status.bg)}>
                             {status.label}
                           </span>
@@ -694,7 +771,7 @@ export default function ClientDetailPage() {
               <CardContent>
                 <div className="space-y-[4px]">
                   {completedProjects.map((project) => {
-                    const status = statusConfig[project.status] || statusConfig.completed;
+                    const status = statusConfig[project.status] || statusConfig.Completed;
                     return (
                       <div
                         key={project.id}
@@ -704,7 +781,7 @@ export default function ClientDetailPage() {
                         <div className="flex items-center gap-1 min-w-0">
                           <FolderKanban className="w-[16px] h-[16px] text-text-disabled shrink-0" />
                           <span className="font-mohave text-body text-text-tertiary truncate">
-                            {project.name}
+                            {project.title}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -731,7 +808,7 @@ export default function ClientDetailPage() {
         confirmLabel="Delete Client"
         variant="destructive"
         onConfirm={handleDelete}
-        loading={isDeleting}
+        loading={deleteClient.isPending}
       />
     </div>
   );

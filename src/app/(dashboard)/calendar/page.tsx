@@ -8,6 +8,7 @@ import {
   Clock,
   User,
   MapPin,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
+  startOfDay,
+  endOfDay,
   eachDayOfInterval,
   format,
   isSameMonth,
@@ -39,12 +42,14 @@ import {
   getHours,
   getMinutes,
 } from "date-fns";
+import { useCalendarEventsForRange } from "@/lib/hooks";
+import type { CalendarEvent as ApiCalendarEvent } from "@/lib/types/models";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CalendarView = "month" | "week" | "day";
 
-interface CalendarEvent {
+interface InternalCalendarEvent {
   id: string;
   title: string;
   startDate: Date;
@@ -95,119 +100,56 @@ function getEventColors(taskType: string) {
   return TASK_TYPE_COLORS[taskType] ?? TASK_TYPE_COLORS.quote;
 }
 
-// ─── Placeholder Events ──────────────────────────────────────────────────────
+// ─── Map API Event to Internal Format ───────────────────────────────────────
 
-const placeholderEvents: CalendarEvent[] = [
-  {
-    id: "e1",
-    title: "Kitchen Demo - Smith",
-    startDate: new Date(2026, 1, 15, 9, 0),
-    endDate: new Date(2026, 1, 15, 12, 0),
-    color: "#931A32",
-    taskType: "installation",
-    teamMember: "Mike D.",
-    project: "Smith Kitchen Reno",
-    location: "142 Oak Ave",
-  },
-  {
-    id: "e2",
-    title: "Material Pickup",
-    startDate: new Date(2026, 1, 16, 7, 0),
-    endDate: new Date(2026, 1, 16, 8, 30),
-    color: "#C4A868",
-    taskType: "material",
-    teamMember: "Sarah L.",
-    project: "Smith Kitchen Reno",
-    location: "HD Supply Warehouse",
-  },
-  {
-    id: "e3",
-    title: "Estimate: Doe Property",
-    startDate: new Date(2026, 1, 18, 10, 0),
-    endDate: new Date(2026, 1, 18, 11, 30),
-    color: "#A5B368",
-    taskType: "estimate",
-    teamMember: "Mike D.",
-    project: "Doe Bathroom",
-    location: "88 Elm St",
-  },
-  {
-    id: "e4",
-    title: "Site Survey - Park Ave",
-    startDate: new Date(2026, 1, 18, 14, 0),
-    endDate: new Date(2026, 1, 18, 15, 0),
-    color: "#59779F",
-    taskType: "quote",
-    teamMember: "Sarah L.",
-    project: "Park Ave Office",
-    location: "310 Park Ave",
-  },
-  {
-    id: "e5",
-    title: "Inspection - Johnson",
-    startDate: new Date(2026, 1, 20, 8, 0),
-    endDate: new Date(2026, 1, 20, 9, 30),
-    color: "#7B68A6",
-    taskType: "inspection",
-    teamMember: "Sarah L.",
-    project: "Johnson Deck",
-    location: "56 Maple Dr",
-  },
-  {
-    id: "e6",
-    title: "Cabinet Install - Day 1",
-    startDate: new Date(2026, 1, 21, 8, 0),
-    endDate: new Date(2026, 1, 21, 17, 0),
-    color: "#931A32",
-    taskType: "installation",
-    teamMember: "Mike D.",
-    project: "Smith Kitchen Reno",
-    location: "142 Oak Ave",
-  },
-  {
-    id: "e7",
-    title: "Cabinet Install - Day 2",
-    startDate: new Date(2026, 1, 22, 8, 0),
-    endDate: new Date(2026, 1, 22, 17, 0),
-    color: "#931A32",
-    taskType: "installation",
-    teamMember: "Mike D.",
-    project: "Smith Kitchen Reno",
-    location: "142 Oak Ave",
-  },
-  {
-    id: "e8",
-    title: "Flooring Delivery",
-    startDate: new Date(2026, 1, 15, 14, 0),
-    endDate: new Date(2026, 1, 15, 15, 30),
-    color: "#C4A868",
-    taskType: "material",
-    teamMember: "Sarah L.",
-    project: "Johnson Deck",
-  },
-  {
-    id: "e9",
-    title: "Final Walkthrough",
-    startDate: new Date(2026, 1, 25, 10, 0),
-    endDate: new Date(2026, 1, 25, 11, 0),
-    color: "#4A4A4A",
-    taskType: "completion",
-    teamMember: "Mike D.",
-    project: "Park Ave Office",
-    location: "310 Park Ave",
-  },
-  {
-    id: "e10",
-    title: "Plumbing Quote",
-    startDate: new Date(2026, 1, 24, 13, 0),
-    endDate: new Date(2026, 1, 24, 14, 30),
-    color: "#59779F",
-    taskType: "quote",
-    teamMember: "Sarah L.",
-    project: "New Build - Harris",
-    location: "221 River Rd",
-  },
-];
+function deriveTaskType(title: string, color: string): string {
+  const lower = title.toLowerCase();
+  if (lower.includes("install") || lower.includes("demo")) return "installation";
+  if (lower.includes("material") || lower.includes("pickup") || lower.includes("delivery")) return "material";
+  if (lower.includes("estimate")) return "estimate";
+  if (lower.includes("inspect")) return "inspection";
+  if (lower.includes("quote") || lower.includes("survey")) return "quote";
+  if (lower.includes("walkthrough") || lower.includes("completion") || lower.includes("final")) return "completion";
+
+  // Fallback: try to match by color
+  const colorMap: Record<string, string> = {
+    "#931A32": "installation",
+    "#C4A868": "material",
+    "#A5B368": "estimate",
+    "#7B68A6": "inspection",
+    "#59779F": "quote",
+    "#4A4A4A": "completion",
+  };
+  return colorMap[color] ?? "task";
+}
+
+function mapApiEventToInternal(event: ApiCalendarEvent): InternalCalendarEvent | null {
+  // Filter out events with no startDate
+  if (!event.startDate) return null;
+
+  const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+
+  // If endDate is null, default to startDate + duration (in minutes) or + 1 hour
+  let endDate: Date;
+  if (event.endDate) {
+    endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+  } else if (event.duration > 0) {
+    endDate = new Date(startDate.getTime() + event.duration * 60 * 1000);
+  } else {
+    endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // default 1 hour
+  }
+
+  return {
+    id: event.id,
+    title: event.title,
+    startDate,
+    endDate,
+    color: event.color,
+    taskType: deriveTaskType(event.title, event.color),
+    teamMember: event.teamMemberIds.length > 0 ? "Team" : undefined,
+    project: event.project?.title ?? undefined,
+  };
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -246,13 +188,13 @@ function getCurrentTimeOffset(): number {
   return ((hours - 6) * HOUR_HEIGHT) + (minutes / 60) * HOUR_HEIGHT;
 }
 
-function getEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
+function getEventsForDay(events: InternalCalendarEvent[], day: Date): InternalCalendarEvent[] {
   return events.filter((e) => isSameDay(e.startDate, day));
 }
 
 // ─── Event Tooltip ────────────────────────────────────────────────────────────
 
-function EventTooltipContent({ event }: { event: CalendarEvent }) {
+function EventTooltipContent({ event }: { event: InternalCalendarEvent }) {
   const colors = getEventColors(event.taskType);
   return (
     <div className="min-w-[200px] space-y-[6px]">
@@ -343,6 +285,36 @@ function CurrentTimeIndicator() {
   );
 }
 
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+function CalendarEmptyState({ view }: { view: CalendarView }) {
+  const label = view === "month" ? "this month" : view === "week" ? "this week" : "today";
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
+      <CalendarIcon className="w-[40px] h-[40px] text-text-disabled" />
+      <p className="font-mohave text-body text-text-tertiary">
+        No events scheduled for {label}
+      </p>
+      <p className="font-kosugi text-caption-sm text-text-disabled">
+        Events will appear here once scheduled
+      </p>
+    </div>
+  );
+}
+
+// ─── Loading Spinner ──────────────────────────────────────────────────────────
+
+function CalendarLoadingOverlay() {
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
+      <Loader2 className="w-[32px] h-[32px] text-ops-accent animate-spin" />
+      <p className="font-mohave text-body-sm text-text-tertiary">
+        Loading events...
+      </p>
+    </div>
+  );
+}
+
 // ─── Month View ───────────────────────────────────────────────────────────────
 
 function MonthView({
@@ -351,7 +323,7 @@ function MonthView({
   onSelectDate,
 }: {
   currentDate: Date;
-  events: CalendarEvent[];
+  events: InternalCalendarEvent[];
   onSelectDate: (date: Date) => void;
 }) {
   const monthStart = startOfMonth(currentDate);
@@ -480,7 +452,7 @@ function TimeGridColumn({
   showFullDetail,
 }: {
   day: Date;
-  events: CalendarEvent[];
+  events: InternalCalendarEvent[];
   isToday: boolean;
   showFullDetail?: boolean;
 }) {
@@ -632,7 +604,7 @@ function WeekView({
   onSelectDate,
 }: {
   currentDate: Date;
-  events: CalendarEvent[];
+  events: InternalCalendarEvent[];
   onSelectDate: (date: Date) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -739,7 +711,7 @@ function DayView({
   events,
 }: {
   currentDate: Date;
-  events: CalendarEvent[];
+  events: InternalCalendarEvent[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dayEvents = getEventsForDay(events, currentDate);
@@ -791,32 +763,36 @@ function DayView({
 
       {/* Scrollable time grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-        <div className="grid grid-cols-[56px_1fr]">
-          {/* Time gutter */}
-          <div className="relative border-r border-border-subtle" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="absolute left-0 right-0 flex items-start justify-end pr-[6px]"
-                style={{ top: `${(hour - 6) * HOUR_HEIGHT}px` }}
-              >
-                <span className="font-mono text-[11px] text-text-disabled -mt-[6px] select-none">
-                  {formatHour(hour)}
-                </span>
-              </div>
-            ))}
-          </div>
+        {dayEvents.length === 0 ? (
+          <CalendarEmptyState view="day" />
+        ) : (
+          <div className="grid grid-cols-[56px_1fr]">
+            {/* Time gutter */}
+            <div className="relative border-r border-border-subtle" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
+              {HOURS.map((hour) => (
+                <div
+                  key={hour}
+                  className="absolute left-0 right-0 flex items-start justify-end pr-[6px]"
+                  style={{ top: `${(hour - 6) * HOUR_HEIGHT}px` }}
+                >
+                  <span className="font-mono text-[11px] text-text-disabled -mt-[6px] select-none">
+                    {formatHour(hour)}
+                  </span>
+                </div>
+              ))}
+            </div>
 
-          {/* Single day column */}
-          <div>
-            <TimeGridColumn
-              day={currentDate}
-              events={events}
-              isToday={dayIsToday}
-              showFullDetail
-            />
+            {/* Single day column */}
+            <div>
+              <TimeGridColumn
+                day={currentDate}
+                events={events}
+                isToday={dayIsToday}
+                showFullDetail
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -824,14 +800,14 @@ function DayView({
 
 // ─── Mini Stats Bar ───────────────────────────────────────────────────────────
 
-function MiniStatsBar({ events, currentDate, view }: { events: CalendarEvent[]; currentDate: Date; view: CalendarView }) {
+function MiniStatsBar({ events, currentDate, view }: { events: InternalCalendarEvent[]; currentDate: Date; view: CalendarView }) {
   const stats = useMemo(() => {
     const today = new Date();
     const todayEvents = events.filter((e) => isSameDay(e.startDate, today));
-    const weekStart = startOfWeek(today);
-    const weekEnd = endOfWeek(today);
+    const weekStartDate = startOfWeek(today);
+    const weekEndDate = endOfWeek(today);
     const weekEvents = events.filter(
-      (e) => !isBefore(e.startDate, weekStart) && !isAfter(e.startDate, weekEnd)
+      (e) => !isBefore(e.startDate, weekStartDate) && !isAfter(e.startDate, weekEndDate)
     );
 
     const taskTypeCounts: Record<string, number> = {};
@@ -898,6 +874,35 @@ function MiniStatsBar({ events, currentDate, view }: { events: CalendarEvent[]; 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>("month");
+
+  // Compute the visible date range based on currentDate and view
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    switch (view) {
+      case "month": {
+        const ms = startOfMonth(currentDate);
+        const me = endOfMonth(currentDate);
+        // Expand to include partial weeks visible in the month grid
+        return { rangeStart: startOfWeek(ms), rangeEnd: endOfWeek(me) };
+      }
+      case "week": {
+        return { rangeStart: startOfWeek(currentDate), rangeEnd: endOfWeek(currentDate) };
+      }
+      case "day": {
+        return { rangeStart: startOfDay(currentDate), rangeEnd: endOfDay(currentDate) };
+      }
+    }
+  }, [currentDate, view]);
+
+  // Fetch real calendar events for the computed range
+  const { data: apiEvents, isLoading } = useCalendarEventsForRange(rangeStart, rangeEnd);
+
+  // Map API events to internal format, filtering out events with null startDate
+  const events: InternalCalendarEvent[] = useMemo(() => {
+    if (!apiEvents) return [];
+    return apiEvents
+      .map(mapApiEventToInternal)
+      .filter((e): e is InternalCalendarEvent => e !== null);
+  }, [apiEvents]);
 
   const navigate = useCallback(
     (direction: "prev" | "next") => {
@@ -1069,7 +1074,7 @@ export default function CalendarPage() {
       </div>
 
       {/* ── Stats Bar ── */}
-      <MiniStatsBar events={placeholderEvents} currentDate={currentDate} view={view} />
+      <MiniStatsBar events={events} currentDate={currentDate} view={view} />
 
       {/* ── Calendar Content ── */}
       <div
@@ -1082,22 +1087,23 @@ export default function CalendarPage() {
           backgroundSize: "24px 24px",
         }}
       >
-        {view === "month" && (
+        {isLoading && <CalendarLoadingOverlay />}
+        {!isLoading && view === "month" && (
           <MonthView
             currentDate={currentDate}
-            events={placeholderEvents}
+            events={events}
             onSelectDate={handleSelectDate}
           />
         )}
-        {view === "week" && (
+        {!isLoading && view === "week" && (
           <WeekView
             currentDate={currentDate}
-            events={placeholderEvents}
+            events={events}
             onSelectDate={handleSelectDate}
           />
         )}
-        {view === "day" && (
-          <DayView currentDate={currentDate} events={placeholderEvents} />
+        {!isLoading && view === "day" && (
+          <DayView currentDate={currentDate} events={events} />
         )}
       </div>
     </div>

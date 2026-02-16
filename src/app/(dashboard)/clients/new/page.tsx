@@ -20,6 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { useCreateClient } from "@/lib/hooks";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 // ─── Validation Schema ───────────────────────────────────────────────────────
 
@@ -77,13 +80,15 @@ function formatPhoneInput(value: string): string {
 
 export default function NewClientPage() {
   const router = useRouter();
-  const [isSaving, setIsSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const { company } = useAuthStore();
+  const createClient = useCreateClient();
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid, isDirty },
+    formState: { errors, isDirty },
     setValue,
     watch,
   } = useForm<NewClientFormValues>({
@@ -109,28 +114,27 @@ export default function NewClientPage() {
 
   async function onSubmit(data: NewClientFormValues) {
     setServerError(null);
-    setIsSaving(true);
 
-    try {
-      // TODO: Replace with useCreateClient mutation
-      // const createClient = useCreateClient();
-      // const newId = await createClient.mutateAsync({
-      //   name: data.name,
-      //   email: data.email || null,
-      //   phoneNumber: data.phone || null,
-      //   address: data.address || null,
-      //   notes: data.notes || null,
-      //   companyId: company?.id ?? "",
-      // });
-      await new Promise((r) => setTimeout(r, 800));
-
-      // Redirect to the new client detail page (or list for now)
-      router.push("/clients");
-    } catch {
-      setServerError("Failed to create client. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
+    createClient.mutate(
+      {
+        name: data.name,
+        email: data.email || null,
+        phoneNumber: data.phone || null,
+        address: data.address || null,
+        notes: data.notes || null,
+        companyId: company?.id ?? "",
+      },
+      {
+        onSuccess: (newClientId) => {
+          toast.success("Client created successfully");
+          router.push(`/clients/${newClientId}`);
+        },
+        onError: () => {
+          setServerError("Failed to create client. Please try again.");
+          toast.error("Failed to create client");
+        },
+      }
+    );
   }
 
   // Preview initials
@@ -266,13 +270,13 @@ export default function NewClientPage() {
               type="button"
               variant="ghost"
               onClick={() => router.push("/clients")}
-              disabled={isSaving}
+              disabled={createClient.isPending}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              loading={isSaving}
+              loading={createClient.isPending}
               className="gap-[6px]"
               disabled={!isDirty}
             >
