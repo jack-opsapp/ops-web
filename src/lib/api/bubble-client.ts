@@ -157,18 +157,23 @@ class BubbleClient {
   private enableLogging: boolean;
 
   constructor(config: BubbleClientConfig = {}) {
-    // In the browser, use the Next.js rewrite proxy (/api/bubble/*) to avoid CORS.
-    // Server-side (SSR/API routes) can call Bubble directly.
+    // In the browser, use the Next.js API route proxy (/api/bubble/*) to avoid CORS.
+    // The API route sets the Authorization header server-side, so we don't need it client-side.
+    // Server-side (SSR/API routes) calls Bubble directly with the token.
+    const isBrowser = typeof window !== "undefined";
     const baseUrl =
       config.baseUrl ||
-      (typeof window !== "undefined"
+      (isBrowser
         ? "/api/bubble"
         : process.env.NEXT_PUBLIC_BUBBLE_API_URL ||
           "https://opsapp.co/version-test/api/1.1");
-    const apiToken =
-      config.apiToken ||
-      process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ||
-      "";
+
+    // Only set auth token for server-side requests (browser requests go through API route proxy)
+    const apiToken = isBrowser
+      ? ""
+      : config.apiToken ||
+        process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ||
+        "";
 
     this.enableLogging = config.enableLogging ?? process.env.NODE_ENV === "development";
     this.rateLimiter = new RateLimiter(config.rateLimitMs ?? 500);

@@ -22,16 +22,8 @@ const nextConfig: NextConfig = {
       "date-fns",
     ],
   },
-  // Proxy Bubble API calls through Next.js to avoid CORS issues.
-  // Browser requests /api/bubble/* (same origin) → Next.js forwards to Bubble (server-side).
-  async rewrites() {
-    return [
-      {
-        source: "/api/bubble/:path*",
-        destination: "https://opsapp.co/version-test/api/1.1/:path*",
-      },
-    ];
-  },
+  // Bubble API calls are proxied through /api/bubble/[...path] API route.
+  // The API route sets the Authorization header server-side (more reliable than rewrites).
 };
 
 export default nextConfig;
