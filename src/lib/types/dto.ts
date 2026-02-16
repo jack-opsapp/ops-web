@@ -111,7 +111,7 @@ export interface ProjectDTO {
   _id: string; // CodingKey: "_id"
   address?: BubbleAddress | null; // CodingKey: "address"
   allDay?: boolean | null; // CodingKey: "allDay"
-  client?: string | null; // CodingKey: "client" - string ID
+  client?: BubbleReference | null; // CodingKey: "client" - Bubble reference to Client
   company?: BubbleReference | null; // CodingKey: "company"
   completion?: string | null; // CodingKey: "completion" - ISO date
   description?: string | null; // CodingKey: "description"
@@ -155,7 +155,7 @@ export function projectDtoToModel(dto: ProjectDTO): Project {
     status: finalStatus,
     notes: dto.teamNotes ?? null,
     companyId: resolveBubbleReference(dto.company) ?? "",
-    clientId: dto.client ?? null,
+    clientId: resolveBubbleReference(dto.client),
     allDay: dto.allDay ?? false,
     // NOTE: teamMemberIds is computed from tasks, NOT from Bubble legacy field
     teamMemberIds: [],
