@@ -296,7 +296,7 @@ export default function MapPage() {
         <div className="px-1.5 py-1 border-t border-border flex items-center justify-between">
           <div className="flex items-center gap-1">
             <div className="flex items-center gap-[3px]">
-              <span className="w-[6px] h-[6px] rounded-full bg-ops-live animate-pulse-live" />
+              <span className="w-[6px] h-[6px] rounded-full bg-status-success animate-pulse-live" />
               <span className="font-mono text-[9px] text-text-disabled">LIVE</span>
             </div>
           </div>

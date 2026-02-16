@@ -697,7 +697,7 @@ export default function DashboardPage() {
 
   // Auth store for current user
   const { currentUser } = useAuthStore();
-  const firstName = currentUser?.firstName || "Commander";
+  const firstName = currentUser?.firstName || "there";
 
   // Date range for current week
   const today = new Date();
@@ -778,22 +778,14 @@ export default function DashboardPage() {
         mounted ? "opacity-100" : "opacity-0"
       )}
     >
-      {/* Header with greeting + Command Center status */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-            {getGreeting()}, {firstName}
-          </h1>
-          <p className="font-kosugi text-caption-sm text-text-tertiary">
-            Here&apos;s your operational overview for today.
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-lg bg-background-card border border-border">
-          <LiveIndicator size="sm" />
-          <span className="font-mohave text-caption-sm text-ops-live uppercase tracking-wider">
-            Command Center Online
-          </span>
-        </div>
+      {/* Header with greeting */}
+      <div>
+        <h1 className="font-mohave text-display-lg text-text-primary tracking-wide typewriter inline-block">
+          {getGreeting()}, {firstName}
+        </h1>
+        <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5">
+          Here&apos;s your operational overview for today.
+        </p>
       </div>
 
       {/* Stats Grid - animated counters */}

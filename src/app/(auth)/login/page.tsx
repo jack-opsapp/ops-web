@@ -2,10 +2,12 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
 import { signInWithGoogle, signInWithEmail } from "@/lib/firebase/auth";
+import { UserService } from "@/lib/api/services/user-service";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -28,11 +30,31 @@ function LoginForm() {
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
 
+  const setUser = useAuthStore((s) => s.setUser);
+  const setCompany = useAuthStore((s) => s.setCompany);
+  const login = useAuthStore((s) => s.login);
+
   async function handleGoogleSignIn() {
     setError(null);
     setIsLoadingGoogle(true);
     try {
-      await signInWithGoogle();
+      // 1. Firebase popup -> get user
+      const firebaseUser = await signInWithGoogle();
+      // 2. Get ID token
+      const idToken = await firebaseUser.getIdToken();
+      // 3. Call Bubble /wf/login_google (matches iOS)
+      const result = await UserService.loginWithGoogle(
+        idToken,
+        firebaseUser.email || "",
+        firebaseUser.displayName || "",
+        firebaseUser.displayName?.split(" ")[0] || "",
+        firebaseUser.displayName?.split(" ").slice(1).join(" ") || ""
+      );
+      // 4. Store user + company in auth store
+      setUser(result.user);
+      if (result.company) {
+        setCompany(result.company);
+      }
       router.push(redirectTo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Google sign-in failed";
@@ -51,18 +73,25 @@ function LoginForm() {
     setError(null);
     setIsLoadingEmail(true);
     try {
-      await signInWithEmail(email, password);
+      // 1. Call Bubble /wf/generate-api-token (matches iOS)
+      const result = await UserService.loginWithToken(email, password);
+      // 2. Store in auth store with token
+      login(result.user, result.token);
+      if (result.company) {
+        setCompany(result.company);
+      }
+      // 3. Also sign into Firebase for session persistence
+      try {
+        await signInWithEmail(email, password);
+      } catch {
+        // Firebase sign-in is optional - Bubble auth is primary
+      }
       router.push(redirectTo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign-in failed";
-      // Clean up Firebase error messages
-      if (message.includes("auth/invalid-credential")) {
+      if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid")) {
         setError("Invalid email or password");
-      } else if (message.includes("auth/user-not-found")) {
-        setError("No account found with this email");
-      } else if (message.includes("auth/wrong-password")) {
-        setError("Invalid password");
-      } else if (message.includes("auth/too-many-requests")) {
+      } else if (message.includes("too-many-requests") || message.includes("429")) {
         setError("Too many attempts. Please try again later.");
       } else {
         setError(message);
@@ -74,18 +103,20 @@ function LoginForm() {
 
   return (
     <div className="flex flex-col items-center">
-      {/* Logo & Title */}
+      {/* Logo */}
       <div className="text-center mb-4">
-        <h1 className="font-bebas text-[56px] tracking-[0.2em] text-ops-accent leading-none">
-          OPS
-        </h1>
-        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.3em] mt-1">
-          Command Center
-        </p>
+        <Image
+          src="/images/ops-logo-white.png"
+          alt="OPS"
+          width={160}
+          height={64}
+          className="mx-auto"
+          priority
+        />
       </div>
 
       {/* Card */}
-      <div className="w-full bg-background-panel border border-border rounded-lg p-3 space-y-3">
+      <div className="w-full ultrathin-material-dark rounded-md p-3 space-y-3">
         {/* Error */}
         {error && (
           <div className="bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">

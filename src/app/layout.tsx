@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: {
-    default: "OPS | Command Center",
+    default: "OPS",
     template: "%s | OPS",
   },
   description:

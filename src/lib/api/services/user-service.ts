@@ -18,6 +18,7 @@ import {
   type BubbleObjectResponse,
   userDtoToModel,
   userModelToDto,
+  companyDtoToModel,
 } from "../../types/dto";
 import type { User, UserRole } from "../../types/models";
 
@@ -202,7 +203,94 @@ export const UserService = {
   // ─── Auth Workflows ─────────────────────────────────────────────────────
 
   /**
-   * Login via workflow API.
+   * Login with Google via Bubble workflow (matches iOS AuthManager.swift).
+   * POST /wf/login_google with Firebase ID token + profile info.
+   * Returns user + company directly from Bubble.
+   */
+  async loginWithGoogle(
+    idToken: string,
+    email: string,
+    name: string,
+    givenName: string,
+    familyName: string
+  ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
+    const client = getBubbleClient();
+
+    const response = await client.post<{
+      status: string;
+      response: {
+        user: UserDTO;
+        company?: import("../../types/dto").CompanyDTO;
+      };
+    }>("/wf/login_google", {
+      id_token: idToken,
+      email,
+      name,
+      given_name: givenName,
+      family_name: familyName,
+    });
+
+    const adminIds = response.response.company
+      ? (companyDtoToModel(response.response.company).adminIds ?? [])
+      : [];
+    const user = userDtoToModel(response.response.user, adminIds);
+    const company = response.response.company
+      ? companyDtoToModel(response.response.company)
+      : null;
+
+    return { user, company };
+  },
+
+  /**
+   * Login with email/password via Bubble workflow (matches iOS generate-api-token).
+   * POST /wf/generate-api-token with email + password.
+   * Returns token + user_id, then fetches user + company objects.
+   */
+  async loginWithToken(
+    email: string,
+    password: string
+  ): Promise<{ token: string; userId: string; user: User; company: import("../../types/models").Company | null }> {
+    const client = getBubbleClient();
+
+    const tokenResponse = await client.post<{
+      status: string;
+      response: {
+        token: string;
+        user_id: string;
+        expires: number;
+      };
+    }>("/wf/generate-api-token", { email, password });
+
+    const { token, user_id } = tokenResponse.response;
+
+    // Fetch the user object
+    const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
+      `/obj/${BubbleTypes.user.toLowerCase()}/${user_id}`
+    );
+    const userDto = userResponse.response;
+
+    // Fetch the company if user has one
+    let company: import("../../types/models").Company | null = null;
+    let adminIds: string[] = [];
+    if (userDto.company) {
+      try {
+        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
+          `/obj/${BubbleTypes.company.toLowerCase()}/${userDto.company}`
+        );
+        company = companyDtoToModel(companyResponse.response);
+        adminIds = company.adminIds ?? [];
+      } catch {
+        // Company fetch failed - continue with user only
+      }
+    }
+
+    const user = userDtoToModel(userDto, adminIds);
+
+    return { token, userId: user_id, user, company };
+  },
+
+  /**
+   * Legacy login via workflow API.
    */
   async login(
     email: string,

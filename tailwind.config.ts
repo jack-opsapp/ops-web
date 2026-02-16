@@ -26,12 +26,7 @@ const config: Config = {
             muted: "rgba(196, 168, 104, 0.15)",
             glow: "rgba(196, 168, 104, 0.4)",
           },
-          // Terminal green for live data indicators
-          live: {
-            DEFAULT: "#00FF41",
-            muted: "rgba(0, 255, 65, 0.15)",
-            glow: "rgba(0, 255, 65, 0.3)",
-          },
+          // (live/terminal green removed - use accent for indicators)
           // Error - Deep Brick Red
           error: {
             DEFAULT: "#93321A",
@@ -44,6 +39,7 @@ const config: Config = {
         // === Background System ===
         background: {
           DEFAULT: "#000000",
+          dark: "#090C15",
           panel: "#0A0A0A",
           card: "#191919",
           "card-dark": "#0D0D0D",
@@ -54,7 +50,7 @@ const config: Config = {
         // === Text System ===
         text: {
           primary: "#E5E5E5",
-          secondary: "#AAAAAA",
+          secondary: "#A7A7A7",
           tertiary: "#777777",
           disabled: "#555555",
           inverse: "#000000",
@@ -68,18 +64,18 @@ const config: Config = {
           strong: "rgba(255, 255, 255, 0.4)",
         },
 
-        // === Status Colors ===
+        // === Status Colors (from iOS OPSStyle) ===
         status: {
-          rfq: "#6B7280",
-          estimated: "#D97706",
+          rfq: "#BCBCBC",
+          estimated: "#B5A381",
           accepted: "#9DB582",
           "in-progress": "#8195B5",
           completed: "#B58289",
-          closed: "#4B5563",
-          archived: "#374151",
+          closed: "#E9E9E9",
+          archived: "#A182B5",
           booked: "#9DB582",
           cancelled: "#93321A",
-          success: "#4ADE80",
+          success: "#A5B368",
           warning: "#C4A868",
           error: "#93321A",
         },
@@ -144,10 +140,10 @@ const config: Config = {
         "8": "64px",
       },
 
-      // === Border Radius ===
+      // === Border Radius (iOS OPSStyle) ===
       borderRadius: {
-        sm: "2px",
-        DEFAULT: "4px",
+        sm: "2.5px",
+        DEFAULT: "5px",
         md: "5px",
         lg: "8px",
         xl: "12px",
@@ -158,7 +154,6 @@ const config: Config = {
         "glow-accent": "0 0 12px rgba(65, 115, 148, 0.3)",
         "glow-accent-lg": "0 0 24px rgba(65, 115, 148, 0.4)",
         "glow-amber": "0 0 12px rgba(196, 168, 104, 0.3)",
-        "glow-live": "0 0 8px rgba(0, 255, 65, 0.3)",
         "glow-error": "0 0 12px rgba(147, 50, 26, 0.4)",
         "card": "0 2px 4px rgba(0, 0, 0, 0.1)",
         "elevated": "0 4px 8px rgba(0, 0, 0, 0.2)",

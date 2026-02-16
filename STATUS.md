@@ -6,8 +6,9 @@
 
 OPS Web is a Jobber-competing field service management platform for trade businesses.
 Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
+Deployed on Vercel at **app.opsapp.co**.
 
-**Target**: Replace Jobber ($300+/month) at $90-190/month with command center aesthetic.
+**Target**: Replace Jobber ($300+/month) at $90-190/month with clean, professional aesthetic.
 
 ## Build Stats
 
@@ -50,7 +51,7 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 ### Auth & System Pages
 | Page | Route | Status |
 |---|---|---|
-| Login | `/login` | Firebase auth wired |
+| Login | `/login` | Firebase + Bubble `/wf/login_google` and `/wf/generate-api-token` |
 | Register | `/register` | Firebase auth wired |
 | PIN | `/pin` | UI complete, PIN verification placeholder |
 | Setup/Onboarding | `/setup` | 5-step survey, saves to localStorage |
@@ -60,7 +61,7 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 
 ### Complete & Working
 - [x] Next.js 15 App Router with TypeScript
-- [x] Tailwind CSS with full OPS design system (dark theme, custom tokens)
+- [x] Tailwind CSS with full OPS design system (dark theme, iOS-matched tokens)
 - [x] 52 UI components (shadcn/ui pattern + OPS-specific)
 - [x] Bubble.io API client with rate limiting, retry, error types
 - [x] 10 entity types with full DTO conversions (byte-perfect BubbleFields)
@@ -70,6 +71,7 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 - [x] Zustand stores (sidebar, setup, selection)
 - [x] Firebase Web App registered + all env vars configured
 - [x] Firebase auth integration (Google Sign-In, email/password)
+- [x] Bubble workflow auth endpoints (`/wf/login_google`, `/wf/generate-api-token`)
 - [x] Auth middleware (route protection, redirects)
 - [x] Command palette (Cmd+K) with navigation, actions, search
 - [x] Keyboard shortcuts (1-9 nav, Cmd+Shift+P/C)
@@ -85,9 +87,9 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 - [x] React error boundaries
 - [x] GitHub Actions CI/CD pipeline
 - [x] vercel.json configured (region, security headers)
+- [x] Deployed on Vercel at app.opsapp.co
 
 ### Not Yet Done
-- [ ] Vercel deployment (push + redeploy with env vars)
 - [ ] Sentry error tracking
 - [ ] Vercel Analytics
 - [ ] Stripe payment integration
@@ -98,12 +100,29 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 
 ## Recent Changes (Feb 15)
 
-- Deleted duplicate `(onboarding)/page.tsx` that conflicted with root `/` route (Vercel build fix)
-- Consolidated dual auth stores into single `lib/store/auth-store.ts` (OPS User model)
-- Added `setFirebaseAuth()` method for Firebase auth state sync
-- Updated sidebar/top-bar to use OPS `currentUser` fields
-- Registered Firebase Web App, all env vars now configured
-- Deleted old `stores/auth-store.ts` (Firebase-only, replaced)
+### Auth Flow Rewrite
+- Added `loginWithGoogle()` to UserService - calls Bubble `/wf/login_google` with Firebase ID token (matches iOS AuthManager.swift)
+- Added `loginWithToken()` to UserService - calls Bubble `/wf/generate-api-token` for email/password auth (matches iOS)
+- Rewrote AuthProvider to use Bubble workflow endpoints instead of searching by email
+- Updated login page: Google sign-in gets ID token then calls Bubble, email sign-in uses generate-api-token
+
+### UI Overhaul (iOS OPSStyle Parity)
+- Replaced text "OPS" + "Command Center" with actual OPS logo image (`public/images/ops-logo-white.png`)
+- Removed terminal green (#00FF41) - replaced with muted success color (#A5B368)
+- Fixed status colors to match iOS: RFQ (#BCBCBC), Estimated (#B5A381), Closed (#E9E9E9), Archived (#A182B5)
+- Added `ultrathin-material-dark` CSS class (iOS `ultrathinmaterialdark` equivalent)
+- Applied backdrop-blur to sidebar, top bar, dropdown menus
+- Removed grid-overlay background from all layouts
+- Removed all `.live-dot`, `.live-dot-sm`, `.glow-live` CSS classes
+- Fixed corner radii: sm=2.5px, DEFAULT=5px (was 2px, 4px)
+- Added typewriter CSS animation for dashboard greeting
+- Added `background.dark` (#090C15) color token
+- Fixed text.secondary from #AAAAAA to #A7A7A7
+
+### Other
+- Consolidated auth stores, registered Firebase Web App
+- Fixed sidebar/top-bar to use OPS `currentUser` fields
+- Removed cliche "Command Center" text from sidebar and dashboard
 
 ## Tech Stack
 
@@ -116,7 +135,7 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 | State (server) | TanStack Query v5 |
 | State (client) | Zustand v5 |
 | Forms | React Hook Form + Zod |
-| Auth | Firebase (Google, Email/Password) |
+| Auth | Firebase + Bubble workflow endpoints |
 | API | Axios (Bubble.io REST) |
 | Maps | Leaflet + react-leaflet |
 | DnD | @dnd-kit |
@@ -126,11 +145,21 @@ Built with Next.js 15, TypeScript, Tailwind CSS, TanStack Query, Zustand.
 ## Design System
 
 - **Background**: #000000 (pure black)
-- **Accent**: #417394 (steel blue)
-- **Secondary**: #C4A868 (amber/gold)
-- **Text**: #E5E5E5 (primary), not pure white
+- **Accent**: #417394 (steel blue) - < 10% of UI
+- **Secondary**: #C4A868 (amber/gold) - active/selected state only
+- **Text**: #E5E5E5 (primary), #A7A7A7 (secondary)
 - **Error**: #93321A (deep brick red)
-- **Live**: #00FF41 (terminal green)
+- **Success**: #A5B368 (muted olive green)
+- **Cards**: `ultrathin-material-dark` (rgba(13,13,13,0.6) + blur(20px))
 - **Fonts**: Mohave (primary), Kosugi (captions), JetBrains Mono (data)
-- **Corners**: 2-4px (sharp, command center aesthetic)
+- **Corners**: 5px standard (iOS-matched)
 - **Spacing**: 8-point grid
+- **Borders**: white at 8% opacity
+
+## Known Issues
+
+- Address autocomplete is stubbed (Google Places API TODO)
+- Project images not wired into project form (component exists)
+- No inline task creation during project creation
+- Revenue/Accounting pages need financial data model
+- Some test mocks may need updating after auth flow change

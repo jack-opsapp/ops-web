@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback } from "react";
+import Image from "next/image";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -28,17 +29,16 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   shortcut?: string;
-  hasLiveData?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, shortcut: "1", hasLiveData: true },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, shortcut: "1" },
   { label: "Projects", href: "/projects", icon: FolderKanban, shortcut: "2" },
   { label: "Calendar", href: "/calendar", icon: CalendarDays, shortcut: "3" },
   { label: "Clients", href: "/clients", icon: Users, shortcut: "4" },
-  { label: "Job Board", href: "/job-board", icon: Columns3, shortcut: "5", hasLiveData: true },
+  { label: "Job Board", href: "/job-board", icon: Columns3, shortcut: "5" },
   { label: "Team", href: "/team", icon: UserCog, shortcut: "6" },
-  { label: "Map", href: "/map", icon: MapPin, shortcut: "7", hasLiveData: true },
+  { label: "Map", href: "/map", icon: MapPin, shortcut: "7" },
   { label: "Pipeline", href: "/pipeline", icon: GitBranch, shortcut: "8" },
   { label: "Invoices", href: "/invoices", icon: Receipt, shortcut: "9" },
   { label: "Accounting", href: "/accounting", icon: Calculator },
@@ -67,7 +67,6 @@ function NavItemButton({
         isActive && [
           "text-text-primary bg-ops-accent-muted",
           "border-l-2 border-l-ops-accent",
-          "shadow-glow-accent",
         ],
         !isActive && "border-l-2 border-l-transparent"
       )}
@@ -82,9 +81,6 @@ function NavItemButton({
         <>
           <span className="font-mohave text-body-sm truncate">{item.label}</span>
           <span className="ml-auto flex items-center gap-1">
-            {item.hasLiveData && (
-              <span className="live-dot-sm" />
-            )}
             {item.shortcut && (
               <kbd className="hidden lg:inline-block font-mono text-[10px] text-text-disabled bg-background-panel px-[6px] py-[2px] rounded-sm border border-border-subtle">
                 {item.shortcut}
@@ -92,9 +88,6 @@ function NavItemButton({
             )}
           </span>
         </>
-      )}
-      {isCollapsed && item.hasLiveData && (
-        <span className="absolute top-1 right-1.5 live-dot-sm" />
       )}
     </button>
   );
@@ -120,17 +113,10 @@ export function Sidebar() {
     <aside
       className={cn(
         "fixed left-0 top-0 h-screen z-40",
-        "bg-background-panel border-r border-border",
+        "ultrathin-material-dark border-r border-border",
         "flex flex-col transition-all duration-200 ease-out",
         isCollapsed ? "w-[72px]" : "w-[256px]"
       )}
-      style={{
-        backgroundImage: [
-          "linear-gradient(rgba(65, 115, 148, 0.02) 1px, transparent 1px)",
-          "linear-gradient(90deg, rgba(65, 115, 148, 0.02) 1px, transparent 1px)",
-        ].join(", "),
-        backgroundSize: "32px 32px",
-      }}
     >
       {/* Logo Section */}
       <div
@@ -139,14 +125,14 @@ export function Sidebar() {
           isCollapsed ? "justify-center px-1" : "px-2 gap-1"
         )}
       >
-        <span className="font-bebas text-[28px] tracking-[0.15em] text-ops-accent leading-none select-none">
-          OPS
-        </span>
-        {!isCollapsed && (
-          <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest mt-[2px]">
-            Command Center
-          </span>
-        )}
+        <Image
+          src="/images/ops-logo-white.png"
+          alt="OPS"
+          width={isCollapsed ? 36 : 80}
+          height={isCollapsed ? 14 : 32}
+          className="select-none"
+          priority
+        />
       </div>
 
       {/* Navigation */}

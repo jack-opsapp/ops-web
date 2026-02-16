@@ -169,8 +169,8 @@ function StatusIndicator({ status }: { status: MemberStatus }) {
   if (status === "active") {
     return (
       <div className="flex items-center gap-[4px]">
-        <span className="h-[6px] w-[6px] rounded-full bg-ops-live animate-pulse-live" />
-        <span className="font-kosugi text-[10px] text-ops-live uppercase tracking-wider">
+        <span className="h-[6px] w-[6px] rounded-full bg-status-success animate-pulse-live" />
+        <span className="font-kosugi text-[10px] text-status-success uppercase tracking-wider">
           Active
         </span>
       </div>
@@ -311,7 +311,7 @@ function TeamMemberCard({
             </div>
             {/* Online indicator */}
             {member.status === "active" && (
-              <span className="absolute -bottom-[1px] -right-[1px] h-[10px] w-[10px] rounded-full bg-ops-live border-2 border-background-card animate-pulse-live" />
+              <span className="absolute -bottom-[1px] -right-[1px] h-[10px] w-[10px] rounded-full bg-status-success border-2 border-background-card animate-pulse-live" />
             )}
           </div>
 

@@ -71,7 +71,7 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
       className={cn(
         "flex items-center gap-[6px] px-1 py-[6px] rounded",
         "font-mono text-[11px] uppercase tracking-wider",
-        status === "synced" && "text-ops-live",
+        status === "synced" && "text-status-success",
         status === "syncing" && "text-ops-accent",
         status === "pending" && "text-ops-amber"
       )}
@@ -87,7 +87,6 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
         <>
           <Check className="w-[14px] h-[14px]" />
           <span className="hidden xl:inline">SYNCED</span>
-          <span className="w-[6px] h-[6px] rounded-full bg-ops-live animate-pulse-live" />
         </>
       )}
       {status === "syncing" && (
@@ -151,13 +150,10 @@ export function TopBar() {
   return (
     <header
       className={cn(
-        "h-[56px] bg-background-panel border-b border-border",
+        "h-[56px] ultrathin-material-dark border-b border-border",
         "flex items-center justify-between px-3 shrink-0",
         "relative"
       )}
-      style={{
-        boxShadow: "0 1px 8px rgba(65, 115, 148, 0.08)",
-      }}
     >
       {/* Left: Breadcrumbs */}
       <div className="flex items-center gap-[6px] min-w-0">
@@ -245,7 +241,7 @@ export function TopBar() {
 
           {/* Dropdown */}
           {userMenuOpen && (
-            <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-background-panel border border-border rounded shadow-floating z-50 animate-scale-in overflow-hidden">
+            <div className="absolute right-0 top-full mt-[4px] w-[200px] ultrathin-material-dark rounded shadow-floating z-50 animate-scale-in overflow-hidden">
               <div className="px-1.5 py-1 border-b border-border-subtle">
                 <p className="font-mohave text-body-sm text-text-primary truncate">
                   {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || "User" : "User"}
