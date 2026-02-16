@@ -41,16 +41,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (authenticated && firebaseUser && !fetchingRef.current) {
         fetchingRef.current = true;
+        console.log("[AuthProvider] Firebase user authenticated:", firebaseUser.email, firebaseUser.displayName);
         try {
           // Get Firebase ID token
           const idToken = await getIdToken();
+          console.log("[AuthProvider] Got idToken:", idToken ? `${idToken.substring(0, 20)}...` : "NULL");
           if (!idToken || !firebaseUser.email) {
+            console.warn("[AuthProvider] Missing idToken or email, aborting");
             fetchingRef.current = false;
             setLoading(false);
             return;
           }
 
           // Call Bubble /wf/login_google (matches iOS flow)
+          console.log("[AuthProvider] Calling UserService.loginWithGoogle...");
           const result = await UserService.loginWithGoogle(
             idToken,
             firebaseUser.email,
@@ -59,20 +63,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             firebaseUser.displayName?.split(" ").slice(1).join(" ") || ""
           );
 
+          console.log("[AuthProvider] loginWithGoogle result:", {
+            userId: result.user.id,
+            userName: `${result.user.firstName} ${result.user.lastName}`,
+            userRole: result.user.role,
+            userCompanyId: result.user.companyId,
+            companyName: result.company?.name ?? "null",
+            companyId: result.company?.id ?? "null",
+            adminIds: result.company?.adminIds ?? [],
+          });
+
           setUser(result.user);
           if (result.company) {
             setCompany(result.company);
+            console.log("[AuthProvider] Company set in auth store:", result.company.id);
+          } else {
+            console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
           }
         } catch (err) {
-          console.error("[AuthProvider] Failed to fetch OPS user via Bubble workflow:", err);
+          console.error("[AuthProvider] FAILED:", err);
           toast.error("Failed to load user data", {
             description: "Please try signing out and back in.",
           });
         } finally {
           fetchingRef.current = false;
           setLoading(false);
+          console.log("[AuthProvider] Done. Loading set to false.");
         }
       } else {
+        if (!authenticated) console.log("[AuthProvider] Not authenticated");
+        else if (fetchingRef.current) console.log("[AuthProvider] Already fetching, skipping");
         setLoading(false);
       }
     });

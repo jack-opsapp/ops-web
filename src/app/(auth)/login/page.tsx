@@ -39,10 +39,14 @@ function LoginForm() {
     setIsLoadingGoogle(true);
     try {
       // 1. Firebase popup -> get user
+      console.log("[LoginPage] Step 1: Firebase signInWithGoogle popup...");
       const firebaseUser = await signInWithGoogle();
+      console.log("[LoginPage] Step 1 DONE:", firebaseUser.email, firebaseUser.displayName);
       // 2. Get ID token
       const idToken = await firebaseUser.getIdToken();
+      console.log("[LoginPage] Step 2: Got idToken:", idToken ? `${idToken.substring(0, 20)}...` : "NULL");
       // 3. Call Bubble /wf/login_google (matches iOS)
+      console.log("[LoginPage] Step 3: Calling UserService.loginWithGoogle...");
       const result = await UserService.loginWithGoogle(
         idToken,
         firebaseUser.email || "",
@@ -50,13 +54,21 @@ function LoginForm() {
         firebaseUser.displayName?.split(" ")[0] || "",
         firebaseUser.displayName?.split(" ").slice(1).join(" ") || ""
       );
+      console.log("[LoginPage] Step 3 DONE:", {
+        userId: result.user.id,
+        userRole: result.user.role,
+        companyId: result.company?.id ?? "null",
+        companyName: result.company?.name ?? "null",
+      });
       // 4. Store user + company in auth store
       setUser(result.user);
       if (result.company) {
         setCompany(result.company);
       }
+      console.log("[LoginPage] Step 4: Auth store updated, navigating to", redirectTo);
       router.push(redirectTo);
     } catch (err: unknown) {
+      console.error("[LoginPage] Google sign-in FAILED:", err);
       const message = err instanceof Error ? err.message : "Google sign-in failed";
       setError(message);
     } finally {
