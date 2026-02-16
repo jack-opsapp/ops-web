@@ -32,32 +32,38 @@ const config: Config = {
           },
         },
 
-        // === Background System (charcoal with blue undertones) ===
+        // === Background System (pure black base — OPSStyle) ===
         background: {
-          DEFAULT: "#0B0D11",
+          DEFAULT: "#000000",
           dark: "#090C15",
-          panel: "#10131A",
-          card: "#161A22",
-          "card-dark": "#0D1017",
-          elevated: "#1C2028",
-          input: "#0E1117",
+          panel: "#0A0A0A",
+          card: "#191919",
+          "card-dark": "#0D0D0D",
+          elevated: "#1A1A1A",
+          input: "#111111",
+          status: "#1D1D1D",
         },
 
-        // === Text System (blue-grey, not pure grey) ===
+        // === Text System (pure grey — OPSStyle) ===
         text: {
-          primary: "#E2E4E9",
-          secondary: "#8B8F9A",
-          tertiary: "#5C6070",
-          disabled: "#3D4150",
-          inverse: "#0B0D11",
+          primary: "#E5E5E5",
+          secondary: "#A7A7A7",
+          tertiary: "#777777",
+          disabled: "#555555",
+          inactive: "#878787",
+          placeholder: "#999999",
+          inverse: "#000000",
         },
 
-        // === Border System (subtle) ===
+        // === Border System (iOS uses 20% default — OPSStyle) ===
         border: {
-          DEFAULT: "rgba(255, 255, 255, 0.06)",
-          subtle: "rgba(255, 255, 255, 0.03)",
-          medium: "rgba(255, 255, 255, 0.1)",
-          strong: "rgba(255, 255, 255, 0.2)",
+          DEFAULT: "rgba(255, 255, 255, 0.2)",
+          subtle: "rgba(255, 255, 255, 0.05)",
+          medium: "rgba(255, 255, 255, 0.2)",
+          strong: "rgba(255, 255, 255, 0.3)",
+          button: "rgba(255, 255, 255, 0.4)",
+          separator: "rgba(255, 255, 255, 0.15)",
+          input: "rgba(255, 255, 255, 0.2)",
         },
 
         // === Status Colors (from iOS OPSStyle) ===
@@ -186,6 +192,14 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        typewriter: {
+          from: { width: "0" },
+          to: { width: "100%" },
+        },
+        "blink-caret": {
+          "0%, 100%": { borderColor: "transparent" },
+          "50%": { borderColor: "rgba(255,255,255,0.3)" },
+        },
       },
       animation: {
         "pulse-live": "pulse-live 3s ease-in-out infinite",
@@ -196,6 +210,8 @@ const config: Config = {
         "scale-in": "scale-in 0.15s ease-out",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        typewriter: "typewriter 1.5s steps(30) forwards",
+        "blink-caret": "blink-caret 0.75s step-end infinite",
       },
 
       // === Backdrop Blur ===

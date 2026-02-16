@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef, type DragEvent } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
 import {
   Search,
   Plus,
@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
+import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useProjects, useClients, useUpdateProjectStatus } from "@/lib/hooks";
 import {
   type Project,
@@ -163,14 +165,10 @@ function PipelineCardComponent({
   card,
   columnColor,
   isDragOverlay,
-  onExpand,
-  isExpanded,
 }: {
   card: PipelineCard;
   columnColor: string;
   isDragOverlay?: boolean;
-  onExpand: (id: string | null) => void;
-  isExpanded: boolean;
 }) {
   const { project, client } = card;
   const clientName = client?.name || "No Client";
@@ -186,20 +184,17 @@ function PipelineCardComponent({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "bg-background-card-dark border border-border rounded p-1.5",
+        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5",
         "cursor-grab active:cursor-grabbing transition-all duration-150",
         "group",
-        isDragOverlay &&
-          "shadow-glow-accent-lg border-ops-accent/60 scale-[1.02] rotate-[1deg]",
-        !isDragOverlay &&
-          "hover:border-ops-accent/50 hover:shadow-glow-accent"
+        isDragOverlay && "shadow-elevated border-ops-accent scale-[1.02] rotate-[1deg]",
+        !isDragOverlay && "hover:border-[rgba(255,255,255,0.3)]"
       )}
-      onClick={() => onExpand(isExpanded ? null : project.id)}
     >
       {/* Top row: client name + status badge */}
       <div className="flex items-start gap-[6px]">
         <div className="flex-1 min-w-0">
-          <h4 className="font-mohave text-body-sm text-text-primary truncate">
+          <h4 className="font-mohave text-body-sm text-text-primary truncate uppercase">
             {clientName}
           </h4>
           <p className="font-kosugi text-[10px] text-text-tertiary truncate">
@@ -207,7 +202,7 @@ function PipelineCardComponent({
           </p>
         </div>
         <span
-          className="shrink-0 font-mono text-[9px] px-[5px] py-[1px] rounded-sm border"
+          className="shrink-0 font-mono text-[9px] px-[5px] py-[1px] rounded-sm border uppercase"
           style={{
             color: PROJECT_STATUS_COLORS[project.status],
             borderColor: PROJECT_STATUS_COLORS[project.status] + "40",
@@ -258,79 +253,67 @@ function PipelineCardComponent({
         )}
       </div>
 
-      {/* Expanded detail */}
-      {isExpanded && (
-        <div className="mt-1.5 pt-1.5 border-t border-border-subtle space-y-1 animate-slide-up">
-          {clientEmail && (
-            <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">
-                Email
-              </span>
-              <span className="font-mono text-[10px] text-ops-accent">
-                {clientEmail}
-              </span>
-            </div>
-          )}
+      {/* Always-expanded detail section */}
+      <div className="mt-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.1)] space-y-1">
+        {clientEmail && (
+          <div className="flex items-center gap-[6px]">
+            <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
+              Email
+            </span>
+            <span className="font-mono text-[10px] text-ops-accent truncate">
+              {clientEmail}
+            </span>
+          </div>
+        )}
+        {clientPhone && (
+          <div className="flex items-center gap-[6px]">
+            <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
+              Phone
+            </span>
+            <span className="font-mono text-[10px] text-text-secondary">
+              {clientPhone}
+            </span>
+          </div>
+        )}
+        {project.notes && (
+          <div className="mt-0.5">
+            <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px] uppercase">
+              Notes
+            </span>
+            <p className="font-mohave text-[11px] text-text-secondary leading-tight truncate-2">
+              {project.notes}
+            </p>
+          </div>
+        )}
+        <div className="flex items-center gap-1 mt-1">
           {clientPhone && (
-            <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">
-                Phone
-              </span>
-              <span className="font-mono text-[10px] text-text-secondary">
-                {clientPhone}
-              </span>
-            </div>
-          )}
-          {project.notes && (
-            <div className="mt-0.5">
-              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px]">
-                Notes
-              </span>
-              <p className="font-mohave text-[11px] text-text-secondary leading-tight">
-                {project.notes}
-              </p>
-            </div>
-          )}
-          {project.endDate && (
-            <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px]">
-                End
-              </span>
-              <span className="font-mono text-[10px] text-text-secondary">
-                {formatShortDate(project.endDate)}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 mt-1">
-            {clientPhone && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="text-[10px] h-[28px] px-1"
-              >
-                <Phone className="w-[10px] h-[10px]" />
-                Call
-              </Button>
-            )}
             <Button
               variant="secondary"
               size="sm"
               className="text-[10px] h-[28px] px-1"
             >
-              <MessageSquare className="w-[10px] h-[10px]" />
-              Note
+              <Phone className="w-[10px] h-[10px]" />
+              Call
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="text-[10px] h-[28px] px-1"
-            >
-              <ArrowRight className="w-[10px] h-[10px]" />
-              Advance
-            </Button>
-          </div>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="text-[10px] h-[28px] px-1"
+          >
+            <MessageSquare className="w-[10px] h-[10px]" />
+            Note
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            className="text-[10px] h-[28px] px-1"
+          >
+            <ArrowRight className="w-[10px] h-[10px]" />
+            Advance
+          </Button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -340,12 +323,8 @@ function PipelineCardComponent({
 // ---------------------------------------------------------------------------
 function PipelineColumnComponent({
   column,
-  expandedCardId,
-  onExpandCard,
 }: {
   column: PipelineColumn;
-  expandedCardId: string | null;
-  onExpandCard: (id: string | null) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -413,8 +392,8 @@ function PipelineColumnComponent({
         className={cn(
           "flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] transition-colors duration-150",
           isDragOver
-            ? "bg-ops-accent-muted border-ops-accent/30"
-            : "bg-background-panel/50"
+            ? "bg-ops-accent-muted border-ops-accent"
+            : "bg-[rgba(10,10,10,0.5)]"
         )}
       >
         {column.cards.map((card) => (
@@ -422,8 +401,6 @@ function PipelineColumnComponent({
             key={card.id}
             card={card}
             columnColor={column.color}
-            onExpand={onExpandCard}
-            isExpanded={expandedCardId === card.id}
           />
         ))}
 
@@ -533,8 +510,18 @@ export default function PipelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
+
+  // Set page actions in top bar
+  const setActions = usePageActionsStore((s) => s.setActions);
+  const clearActions = usePageActionsStore((s) => s.clearActions);
+  useEffect(() => {
+    setActions([
+      { label: "New Lead", icon: Plus, onClick: () => setCreateModalOpen(true) },
+    ]);
+    return () => clearActions();
+  }, [setActions, clearActions]);
 
   // Fetch real data
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
@@ -727,7 +714,7 @@ export default function PipelinePage() {
               <ListFilter className="w-[14px] h-[14px]" />
               Filter
             </Button>
-            <Button variant="default" size="sm" className="gap-[6px]">
+            <Button variant="default" size="sm" className="gap-[6px]" onClick={() => setCreateModalOpen(true)}>
               <Plus className="w-[14px] h-[14px]" />
               New Lead
             </Button>
@@ -804,7 +791,7 @@ export default function PipelinePage() {
                   className={cn(
                     "bg-background-input text-text-primary font-mohave text-body-sm",
                     "px-1.5 py-[6px] rounded border border-border",
-                    "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
+                    "focus:border-ops-accent focus:outline-none",
                     "cursor-pointer"
                   )}
                 >
@@ -871,8 +858,6 @@ export default function PipelinePage() {
             <PipelineColumnComponent
               key={column.id}
               column={column}
-              expandedCardId={expandedCardId}
-              onExpandCard={setExpandedCardId}
             />
           ))}
         </div>
@@ -893,10 +878,16 @@ export default function PipelinePage() {
             </div>
           ))}
         </div>
-        <span className="font-kosugi text-[10px] text-text-disabled">
+        <span className="font-kosugi text-[10px] text-text-disabled uppercase">
           Drag cards between columns to update stage
         </span>
       </div>
+
+      <CreateProjectModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        defaultStatus={ProjectStatus.RFQ}
+      />
     </div>
   );
 }

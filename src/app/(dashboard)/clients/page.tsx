@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { useClients } from "@/lib/hooks";
 import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
+import { usePageActionsStore } from "@/stores/page-actions-store";
+import { CreateClientModal } from "@/components/ops/create-client-modal";
 
 type ViewMode = "cards" | "table";
 type FilterMode = "all" | "with-projects" | "no-projects";
@@ -309,6 +311,17 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Set page actions in top bar
+  const setActions = usePageActionsStore((s) => s.setActions);
+  const clearActions = usePageActionsStore((s) => s.clearActions);
+  useEffect(() => {
+    setActions([
+      { label: "New Client", icon: Plus, onClick: () => setCreateModalOpen(true) },
+    ]);
+    return () => clearActions();
+  }, [setActions, clearActions]);
 
   const { data, isLoading } = useClients();
 
@@ -368,7 +381,7 @@ export default function ClientsPage() {
             </span>
           </div>
         </div>
-        <Button className="gap-[6px]" onClick={() => router.push("/clients/new")}>
+        <Button className="gap-[6px]" onClick={() => setCreateModalOpen(true)}>
           <Plus className="w-[16px] h-[16px]" />
           New Client
         </Button>
@@ -451,7 +464,7 @@ export default function ClientsPage() {
           </p>
           <Button
             className="mt-3 gap-[6px]"
-            onClick={() => router.push("/clients/new")}
+            onClick={() => setCreateModalOpen(true)}
           >
             <Plus className="w-[16px] h-[16px]" />
             Add First Client
@@ -517,6 +530,11 @@ export default function ClientsPage() {
           </table>
         </div>
       )}
+
+      <CreateClientModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+      />
     </div>
   );
 }

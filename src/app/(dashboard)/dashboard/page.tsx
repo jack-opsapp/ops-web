@@ -130,13 +130,13 @@ function StatCard({
     <Card className="p-2">
       <div className="flex items-start justify-between">
         <div>
-          <span className="font-kosugi text-caption-sm text-[#5C6070] uppercase tracking-widest">
+          <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
             {label}
           </span>
           {isLoading ? (
             <div className="flex items-center gap-1 mt-[4px]">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-body-sm text-text-disabled">Loading...</span>
+              <span className="font-mono text-body-sm text-text-disabled uppercase">Loading...</span>
             </div>
           ) : (
             <>
@@ -146,13 +146,13 @@ function StatCard({
                 {displaySuffix}
               </p>
               {subValue && (
-                <p className="font-mono text-[11px] text-[#5C6070] mt-[2px]">{subValue}</p>
+                <p className="font-mono text-[11px] text-text-tertiary mt-[2px]">{subValue}</p>
               )}
             </>
           )}
         </div>
         <div className="w-[40px] h-[40px] rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center">
-          <Icon className="w-[20px] h-[20px] text-[#8B8F9A]" />
+          <Icon className="w-[20px] h-[20px] text-text-secondary" />
         </div>
       </div>
       {trend && trendValue && !isLoading && (
@@ -162,7 +162,7 @@ function StatCard({
               "w-[14px] h-[14px]",
               trend === "up" && "text-status-success",
               trend === "down" && "text-ops-error rotate-180",
-              trend === "neutral" && "text-[#5C6070]"
+              trend === "neutral" && "text-text-tertiary"
             )}
           />
           <span
@@ -170,7 +170,7 @@ function StatCard({
               "font-mono text-[11px]",
               trend === "up" && "text-status-success",
               trend === "down" && "text-ops-error",
-              trend === "neutral" && "text-[#5C6070]"
+              trend === "neutral" && "text-text-tertiary"
             )}
           >
             {trendValue}
@@ -247,7 +247,7 @@ function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoadin
           <CardTitle className="text-card-subtitle">
             {monthNames[today.getMonth()]} {today.getFullYear()}
           </CardTitle>
-          <span className="font-mono text-[11px] text-[#5C6070]">Today</span>
+          <span className="font-mono text-[11px] text-text-tertiary">Today</span>
         </div>
       </CardHeader>
       <CardContent className="py-0">
@@ -295,7 +295,7 @@ function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoadin
 
         {/* Today's events */}
         <div className="border-t border-border pt-1.5 space-y-[4px]">
-          <span className="font-kosugi text-[10px] text-[#5C6070] uppercase tracking-widest">
+          <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
             Today&apos;s Schedule
           </span>
           {isLoading ? (
@@ -354,7 +354,7 @@ function CrewStatus({
       <CardHeader className="pb-1.5">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">Crew Status</CardTitle>
-          <span className="font-mono text-[11px] text-[#5C6070]">
+          <span className="font-mono text-[11px] text-text-tertiary">
             {activeCount} active
           </span>
         </div>
@@ -404,7 +404,7 @@ function CrewStatus({
                         {statusLabel}
                       </span>
                     </div>
-                    <p className="font-kosugi text-[10px] text-[#5C6070] truncate">
+                    <p className="font-kosugi text-[10px] text-text-tertiary truncate">
                       {member.role}
                     </p>
                   </div>
@@ -468,7 +468,7 @@ function PipelineMiniView({
       <CardHeader className="pb-1.5">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
-          <span className="font-mono text-[11px] text-[#5C6070]">
+          <span className="font-mono text-[11px] text-text-tertiary">
             {isLoading ? "..." : `${totalProjects} active`}
           </span>
         </div>
@@ -583,15 +583,15 @@ function RevenueChart() {
         {/* Summary line */}
         <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border">
           <div>
-            <span className="font-kosugi text-[10px] text-[#5C6070]">MTD Revenue</span>
+            <span className="font-kosugi text-[10px] text-text-tertiary">MTD Revenue</span>
             <p className="font-mono text-body text-text-disabled">--</p>
           </div>
           <div className="text-right">
-            <span className="font-kosugi text-[10px] text-[#5C6070]">Monthly Target</span>
+            <span className="font-kosugi text-[10px] text-text-tertiary">Monthly Target</span>
             <p className="font-mono text-body text-text-disabled">--</p>
           </div>
           <div className="text-right">
-            <span className="font-kosugi text-[10px] text-[#5C6070]">Progress</span>
+            <span className="font-kosugi text-[10px] text-text-tertiary">Progress</span>
             <p className="font-mono text-body text-text-disabled">--</p>
           </div>
         </div>
@@ -688,12 +688,16 @@ export default function DashboardPage() {
         mounted ? "opacity-100" : "opacity-0"
       )}
     >
-      {/* Header with greeting - simple fade-in, no typewriter */}
+      {/* Header with greeting - typewriter animation */}
       <div className="animate-fade-in">
         <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">
-          {getGreeting()}, {firstName}
+          <span className={mounted ? "typewriter" : ""} onAnimationEnd={(e) => {
+            (e.target as HTMLElement).classList.add("typewriter-done");
+          }}>
+            {getGreeting()}, {firstName}
+          </span>
         </h1>
-        <p className="font-kosugi text-caption-sm text-[#5C6070] mt-0.5">
+        <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase">
           Here&apos;s your operational overview for today.
         </p>
       </div>
@@ -733,15 +737,15 @@ export default function DashboardPage() {
 
       {/* Quick Actions - minimal horizontal ghost buttons */}
       <div>
-        <span className="font-kosugi text-caption-sm text-[#5C6070] uppercase tracking-widest mb-1 block">
+        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest mb-1 block">
           Quick Actions
         </span>
         <div className="flex flex-wrap gap-1.5">
-          <Button variant="ghost" className="gap-1.5" onClick={() => router.push("/projects/new")}>
+          <Button variant="ghost" className="gap-1.5" onClick={() => router.push("/projects")}>
             <Plus className="w-[16px] h-[16px]" />
             New Project
           </Button>
-          <Button variant="ghost" className="gap-1.5" onClick={() => router.push("/clients/new")}>
+          <Button variant="ghost" className="gap-1.5" onClick={() => router.push("/clients")}>
             <UserPlus className="w-[16px] h-[16px]" />
             New Client
           </Button>
@@ -770,7 +774,7 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-card-subtitle">Upcoming Tasks</CardTitle>
-                <span className="font-mono text-[11px] text-[#5C6070]">Today + 7 days</span>
+                <span className="font-mono text-[11px] text-text-tertiary">Today + 7 days</span>
               </div>
             </CardHeader>
             <CardContent>
@@ -805,7 +809,7 @@ export default function DashboardPage() {
                         className="flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group"
                       >
                         {isInProgress ? (
-                          <Clock className="w-[16px] h-[16px] text-[#8B8F9A] shrink-0" />
+                          <Clock className="w-[16px] h-[16px] text-text-secondary shrink-0" />
                         ) : (
                           <CheckCircle2 className="w-[16px] h-[16px] text-text-disabled shrink-0" />
                         )}
@@ -818,7 +822,7 @@ export default function DashboardPage() {
                             {displayTitle}
                           </p>
                         </div>
-                        <span className="font-mono text-[11px] text-[#5C6070] shrink-0">
+                        <span className="font-mono text-[11px] text-text-tertiary shrink-0">
                           {timeDisplay}
                         </span>
                         <ChevronRight className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -883,10 +887,10 @@ export default function DashboardPage() {
         <CardContent className="p-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-[20px] h-[20px] text-[#8B8F9A] shrink-0" />
+              <AlertTriangle className="w-[20px] h-[20px] text-text-secondary shrink-0" />
               <div>
                 <p className="font-mohave text-body text-text-primary">System alerts</p>
-                <p className="font-kosugi text-[11px] text-[#5C6070]">
+                <p className="font-kosugi text-[11px] text-text-tertiary">
                   {isDataLoading
                     ? "Loading your data..."
                     : `${activeProjectCount} active projects, ${weekEventCount} events this week, ${teamMembers.length} team members`}

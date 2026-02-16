@@ -61,7 +61,7 @@ function NavItemButton({
       title={isCollapsed ? item.label : undefined}
       className={cn(
         "group relative flex items-center w-full rounded transition-all duration-150",
-        "text-[#5C6070] hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
+        "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
         isCollapsed ? "justify-center px-0 py-1.5 mx-auto" : "gap-1.5 px-1.5 py-1",
         isActive && [
           "text-text-primary bg-[rgba(255,255,255,0.06)]",
@@ -73,11 +73,11 @@ function NavItemButton({
       <item.icon
         className={cn(
           "shrink-0 w-[20px] h-[20px] transition-colors",
-          isActive ? "text-text-primary" : "text-[#5C6070] group-hover:text-[#8B8F9A]"
+          isActive ? "text-text-primary" : "text-text-tertiary group-hover:text-text-secondary"
         )}
       />
       {!isCollapsed && (
-        <span className="font-mohave text-body-sm truncate">{item.label}</span>
+        <span className="font-mohave text-body-sm truncate uppercase">{item.label}</span>
       )}
     </button>
   );
@@ -147,7 +147,7 @@ export function Sidebar() {
           onClick={toggle}
           className={cn(
             "flex items-center w-full rounded transition-all duration-150",
-            "text-[#5C6070] hover:text-[#8B8F9A] hover:bg-[rgba(255,255,255,0.04)]",
+            "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)]",
             isCollapsed ? "justify-center py-1" : "gap-1.5 px-1.5 py-1"
           )}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -157,7 +157,7 @@ export function Sidebar() {
           ) : (
             <>
               <PanelLeftClose className="w-[18px] h-[18px]" />
-              <span className="font-mohave text-body-sm">Collapse</span>
+              <span className="font-mohave text-body-sm uppercase">Collapse</span>
             </>
           )}
         </button>
@@ -196,7 +196,7 @@ export function Sidebar() {
           {!isCollapsed && (
             <button
               onClick={handleSignOut}
-              className="shrink-0 p-[6px] rounded text-[#5C6070] hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="shrink-0 p-[6px] rounded text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
               title="Sign out"
             >
               <LogOut className="w-[16px] h-[16px]" />

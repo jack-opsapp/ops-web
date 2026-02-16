@@ -2,17 +2,17 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils/cn";
 
-const cardVariants = cva("rounded-lg border p-2 transition-all duration-150", {
+const cardVariants = cva("rounded-[5px] border p-2 transition-all duration-150", {
   variants: {
     variant: {
-      default: "bg-[rgba(255,255,255,0.03)] backdrop-blur-md border-[rgba(255,255,255,0.06)]",
-      dark: "border-border bg-[rgba(13,16,23,0.8)]",
-      elevated: "bg-background-card border-border-medium shadow-elevated",
+      default: "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)]",
+      dark: "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)]",
+      elevated: "bg-background-card border-[rgba(255,255,255,0.2)] shadow-elevated",
       interactive: [
-        "bg-[rgba(255,255,255,0.03)] backdrop-blur-md border-[rgba(255,255,255,0.06)] cursor-pointer",
-        "hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.05)]",
+        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)] cursor-pointer",
+        "hover:border-[rgba(255,255,255,0.3)] hover:bg-[rgba(255,255,255,0.05)]",
       ],
-      accent: "bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.06)] border-l-4 border-l-ops-accent",
+      accent: "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)] border-l-4 border-l-ops-accent",
     },
   },
   defaultVariants: {

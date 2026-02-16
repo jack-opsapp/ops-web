@@ -1,6 +1,6 @@
 # OPS Web - Project Status
 
-> Last updated: 2026-02-15 (v2 redesign)
+> Last updated: 2026-02-15 (v3 ground-up redesign)
 
 ## Overview
 
@@ -14,10 +14,10 @@ Deployed on Vercel at **app.opsapp.co**.
 
 | Metric | Count |
 |---|---|
-| Source Files | 121 |
+| Source Files | 123 |
 | Test Files | 6 |
-| Total Files | 127 |
-| Lines of Code | ~27,800 |
+| Total Files | 129 |
+| Lines of Code | ~29,000 |
 | Routes | 21 |
 | Tests Passing | 262 |
 | TypeScript Errors | 0 |
@@ -28,18 +28,18 @@ Deployed on Vercel at **app.opsapp.co**.
 ### Fully Wired to API Hooks
 | Page | Route | Status |
 |---|---|---|
-| Projects List | `/projects` | Real hooks + bulk operations |
+| Projects List | `/projects` | Real hooks + bulk operations + modal creation |
 | Project Detail | `/projects/[id]` | Real hooks + tasks CRUD |
-| New Project | `/projects/new` | React Hook Form + Zod + mutation |
-| Dashboard | `/dashboard` | Real hooks (projects, tasks, clients, calendar, team) |
+| New Project | `/projects/new` | React Hook Form + Zod + mutation (also available as modal) |
+| Dashboard | `/dashboard` | Real hooks (projects, tasks, clients, calendar, team) + typewriter |
 | Calendar | `/calendar` | `useCalendarEventsForRange` with date range computation |
-| Clients List | `/clients` | `useClients` hook, filtered + mapped |
+| Clients List | `/clients` | `useClients` hook, filtered + mapped + modal creation |
 | Client Detail | `/clients/[id]` | `useClient` + `useSubClients` + `useProjects` + mutations |
-| New Client | `/clients/new` | `useCreateClient` mutation + toast feedback |
+| New Client | `/clients/new` | `useCreateClient` mutation + toast feedback (also available as modal) |
 | Team | `/team` | `useTeamMembers` hook |
 | Job Board | `/job-board` | `useProjects` + DnD status update mutations |
 | Map | `/map` | `useProjects` + Leaflet with status filtering |
-| Pipeline | `/pipeline` | `useProjects` + `useClients` + DnD status mutations |
+| Pipeline | `/pipeline` | `useProjects` + `useClients` + DnD status mutations + expanded cards |
 | Settings | `/settings` | `useCompany` + `useUpdateUser` + `useUpdateCompany` |
 
 ### UI Complete, Needs Backend Data Model
@@ -62,13 +62,13 @@ Deployed on Vercel at **app.opsapp.co**.
 ### Complete & Working
 - [x] Next.js 15 App Router with TypeScript
 - [x] Tailwind CSS with full OPS design system (dark theme, iOS-matched tokens)
-- [x] 52 UI components (shadcn/ui pattern + OPS-specific)
+- [x] 54 UI components (shadcn/ui pattern + OPS-specific)
 - [x] Bubble.io API client with rate limiting, retry, error types
 - [x] 10 entity types with full DTO conversions (byte-perfect BubbleFields)
 - [x] 7 TanStack Query hooks with optimistic updates
 - [x] 8 API services (project, task, client, user, company, calendar, image, task-type)
 - [x] Unified Zustand auth store (OPS User model + Firebase auth sync)
-- [x] Zustand stores (sidebar, setup, selection)
+- [x] Zustand stores (sidebar, setup, selection, page-actions)
 - [x] Firebase Web App registered + all env vars configured
 - [x] Firebase auth integration (Google Sign-In, email/password)
 - [x] Bubble workflow auth endpoints (`/wf/login_google`, `/wf/generate-api-token`)
@@ -88,6 +88,8 @@ Deployed on Vercel at **app.opsapp.co**.
 - [x] GitHub Actions CI/CD pipeline
 - [x] vercel.json configured (region, security headers)
 - [x] Deployed on Vercel at app.opsapp.co
+- [x] Modal creation dialogs (projects + clients)
+- [x] Page-specific action buttons in top bar
 
 ### Not Yet Done
 - [ ] Sentry error tracking
@@ -98,31 +100,52 @@ Deployed on Vercel at **app.opsapp.co**.
 - [ ] Accessibility audit (WCAG 2.1 AA)
 - [ ] Performance optimization (code splitting beyond Next.js defaults)
 
-## Recent Changes (Feb 15)
+## Recent Changes (Feb 15 v3)
 
-### Auth Flow Rewrite
-- Added `loginWithGoogle()` to UserService - calls Bubble `/wf/login_google` with Firebase ID token (matches iOS AuthManager.swift)
-- Added `loginWithToken()` to UserService - calls Bubble `/wf/generate-api-token` for email/password auth (matches iOS)
-- Rewrote AuthProvider to use Bubble workflow endpoints instead of searching by email
-- Updated login page: Google sign-in gets ID token then calls Bubble, email sign-in uses generate-api-token
+### Design System Fix (iOS OPSStyle Parity)
+All design tokens now match the iOS OPSStyle.swift source of truth exactly:
+- **Background**: Pure black `#000000` (was `#0B0D11` charcoal)
+- **Panel**: `#0A0A0A`, **Card**: `#191919`, **Elevated**: `#1A1A1A`
+- **Card Material**: `rgba(13,13,13,0.6)` + `backdrop-blur(20px)` + `white @ 20%` border
+- **Text**: `#E5E5E5` (was `#E2E4E9`), `#A7A7A7` (was `#8B8F9A`), `#777777` (was `#5C6070`)
+- **Borders**: white @ 20% default (was 6%), 40% for button borders, 15% for separators
+- **Cards**: `rounded-[5px]` with `bg-[rgba(13,13,13,0.6)]` + blur + 20% white border
+- **Buttons**: ALL CAPS text, correct border opacities, `active:scale-[0.98]`
+- **No glow effects anywhere** — subtle elevation shadows only
 
-### UI Overhaul (iOS OPSStyle Parity)
-- Replaced text "OPS" + "Command Center" with actual OPS logo image (`public/images/ops-logo-white.png`)
-- Removed terminal green (#00FF41) - replaced with muted success color (#A5B368)
-- Fixed status colors to match iOS: RFQ (#BCBCBC), Estimated (#B5A381), Closed (#E9E9E9), Archived (#A182B5)
-- Added `ultrathin-material-dark` CSS class (iOS `ultrathinmaterialdark` equivalent)
-- Applied backdrop-blur to sidebar, top bar, dropdown menus
-- Removed grid-overlay background from all layouts
-- Removed all `.live-dot`, `.live-dot-sm`, `.glow-live` CSS classes
-- Fixed corner radii: sm=2.5px, DEFAULT=5px (was 2px, 4px)
-- Added typewriter CSS animation for dashboard greeting
-- Added `background.dark` (#090C15) color token
-- Fixed text.secondary from #AAAAAA to #A7A7A7
+### ALL CAPS Treatment
+Applied `uppercase` to all:
+- Page titles in top bar
+- Sidebar nav labels
+- Section headers
+- Card titles (where appropriate)
+- Button text (via button component)
+- Badge text
+- Tab/column headers
 
-### Other
-- Consolidated auth stores, registered Firebase Web App
-- Fixed sidebar/top-bar to use OPS `currentUser` fields
-- Removed cliche "Command Center" text from sidebar and dashboard
+### Architectural Changes
+1. **Modal Creation Dialogs**: Project and client creation now use modal dialogs
+   - `CreateProjectModal` — extracted from projects/new/page.tsx
+   - `CreateClientModal` — extracted from clients/new/page.tsx
+   - Triggered from top bar action buttons, list page buttons, and empty states
+2. **Top Bar Rewrite**: Now shows page title (ALL CAPS) + contextual action buttons per route
+   - `/projects` → "NEW PROJECT" button
+   - `/clients` → "NEW CLIENT" button
+   - `/pipeline` → "NEW LEAD" button
+   - Uses `usePageActionsStore` (zustand) for page-specific actions
+3. **Pipeline Expanded Cards**: Cards always show full details (client, address, contact, actions)
+   - No click-to-expand — all info visible immediately
+   - Drag-over: column border highlights with accent color
+   - Card background: ultrathinmaterial (frosted glass)
+
+### Typewriter Animation Restored
+- Dashboard greeting has typewriter animation with blinking caret
+- CSS keyframes for `typewriter` and `blink-caret` added back to globals.css
+
+### Bug Fixes Preserved
+- **Sign-out → blank screen**: Cookie cleared synchronously before navigation
+- **User data not loading**: `setLoading(false)` always called (in `finally` + else branch)
+- **Auth layout**: Grid background + glow blobs remain removed
 
 ## Tech Stack
 
@@ -138,48 +161,30 @@ Deployed on Vercel at **app.opsapp.co**.
 | Auth | Firebase + Bubble workflow endpoints |
 | API | Axios (Bubble.io REST) |
 | Maps | Leaflet + react-leaflet |
-| DnD | @dnd-kit |
+| DnD | Native HTML5 drag-and-drop |
 | Testing | Vitest + RTL + MSW + Playwright |
 | Deployment | Vercel |
 
-## Design System (v2 - Defense-tech aesthetic)
+## Design System (v3 - iOS OPSStyle Parity)
 
-- **Background**: #0B0D11 (dark charcoal with blue undertones, NOT pure black)
-- **Panel**: #10131A, **Card**: #161A22, **Elevated**: #1C2028
-- **Accent**: #417394 (steel blue) - near-invisible in resting state
-- **Secondary**: #C4A868 (amber/gold) - active/selected state only
-- **Text**: #E2E4E9 (primary), #8B8F9A (secondary), #5C6070 (tertiary)
-- **Error**: #93321A (deep brick red)
-- **Success**: #A5B368 (muted olive green)
-- **Cards**: frosted glass - rgba(255,255,255,0.03) + backdrop-blur-md + 6% border
-- **Material**: ultrathin-material-dark = rgba(14,17,23,0.7) + blur(16px)
+- **Background**: `#000000` (pure black, matches iOS)
+- **Panel**: `#0A0A0A`, **Card**: `#191919`, **Elevated**: `#1A1A1A`
+- **Card-dark**: `#0D0D0D` (used in card material @ 60% opacity)
+- **Accent**: `#417394` (steel blue) - used sparingly
+- **Secondary**: `#C4A868` (amber/gold) - active/selected state only
+- **Text**: `#E5E5E5` (primary), `#A7A7A7` (secondary), `#777777` (tertiary), `#555555` (disabled)
+- **Error**: `#93321A` (deep brick red)
+- **Success**: `#A5B368` (muted olive green)
+- **Cards**: `rgba(13,13,13,0.6)` + `backdrop-blur(20px)` + `rgba(255,255,255,0.2)` border
+- **Material**: ultrathin-material-dark = `rgba(13,13,13,0.6)` + `blur(20px)` + white @ 20% border
 - **Fonts**: Mohave (primary), Kosugi (captions), JetBrains Mono (data)
 - **Corners**: 5px standard (iOS-matched)
 - **Spacing**: 8-point grid
-- **Borders**: white at 6% opacity (extremely subtle)
+- **Borders**: white at 20% default, 40% for buttons, 5% subtle, 15% separators
 - **Shadows**: No glow effects. Subtle elevation only (card/elevated/floating)
+- **Text**: ALL CAPS on titles, nav labels, buttons, badges, section headers
 - **Live indicator**: sage green (#6B8F71), 4px dot, 3s pulse
-- **Active nav**: white left border at 20% + white bg at 6%, NOT blue
-
-## Recent Changes (Feb 15 v2)
-
-### Complete UI Redesign (Defense-tech aesthetic)
-- **Backgrounds**: Pure black -> dark charcoal (#0B0D11) with blue undertones
-- **Text**: Pure grey -> blue-grey tones (#E2E4E9, #8B8F9A, #5C6070)
-- **Borders**: 10% opacity -> 6% opacity (much subtler)
-- **Cards**: Frosted glass (rgba white 3% + backdrop-blur), no grid patterns
-- **Buttons**: Ghost-like default (white 7%), removed all glow/scale effects
-- **Sidebar**: Smaller logo (56px), neutral active states (white not blue), no kbd badges
-- **Top bar**: Removed centered page title (breadcrumbs only), muted sync indicator
-- **Dashboard**: Removed typewriter animation (simple fade-in), neutral stat icons, ghost quick actions
-- **Live indicators**: Sage green (#6B8F71), smaller dots (4px), slower pulse (3s)
-- **Notification badge**: Subtle white dot, not amber
-- **Removed**: All glow shadows, grid backgrounds, scan-line animations, typewriter effect
-
-### Bug Fixes
-- **Sign-out -> blank screen**: Fixed by clearing auth cookie synchronously before navigation
-- **User data not loading**: Fixed `setLoading(false)` always called (in `finally` + else branch)
-- **Auth layout grid/glow**: Removed grid background and ambient glow blobs from login
+- **Active nav**: white left border @ 20% + white bg @ 6%, NOT blue
 
 ## Known Issues
 
@@ -188,4 +193,3 @@ Deployed on Vercel at **app.opsapp.co**.
 - No inline task creation during project creation
 - Revenue/Accounting pages need financial data model
 - Some test mocks may need updating after auth flow change
-- Some pages still reference `shadow-glow-*` classes (harmless no-ops, no visual effect)

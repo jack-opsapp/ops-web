@@ -335,7 +335,7 @@ export default function MapPage() {
         <div
           className={cn(
             "absolute bottom-10 left-2 z-[1000]",
-            "bg-background-panel/90 backdrop-blur border border-border rounded-lg",
+            "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded-[5px]",
             "p-1 shadow-floating"
           )}
         >

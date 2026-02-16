@@ -29,6 +29,8 @@ import { BulkActionBar, type BulkAction } from "@/components/ops/bulk-action-bar
 import { SelectableRow } from "@/components/ops/selectable-row";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useSelectionStore } from "@/stores/selection-store";
+import { usePageActionsStore } from "@/stores/page-actions-store";
+import { CreateProjectModal } from "@/components/ops/create-project-modal";
 import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { exportToCSV } from "@/lib/utils/csv-export";
 import {
@@ -284,6 +286,17 @@ export default function ProjectsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Set page actions in top bar
+  const setActions = usePageActionsStore((s) => s.setActions);
+  const clearActions = usePageActionsStore((s) => s.clearActions);
+  useEffect(() => {
+    setActions([
+      { label: "New Project", icon: Plus, onClick: () => setCreateModalOpen(true) },
+    ]);
+    return () => clearActions();
+  }, [setActions, clearActions]);
 
   const {
     selectedIds,
@@ -494,7 +507,7 @@ export default function ProjectsPage() {
               {isSelecting ? "Cancel" : "Select"}
             </Button>
           )}
-          <Button className="gap-[6px]" onClick={() => router.push("/projects/new")}>
+          <Button className="gap-[6px]" onClick={() => setCreateModalOpen(true)}>
             <Plus className="w-[16px] h-[16px]" />
             New Project
           </Button>
@@ -604,7 +617,7 @@ export default function ProjectsPage() {
           description="Create your first project to start tracking work, schedules, and team assignments."
           action={{
             label: "New Project",
-            onClick: () => router.push("/projects/new"),
+            onClick: () => setCreateModalOpen(true),
           }}
         />
       ) : filteredProjects.length === 0 ? (
@@ -787,6 +800,11 @@ export default function ProjectsPage() {
         variant="destructive"
         onConfirm={confirmBulkDelete}
         loading={deleteProject.isPending}
+      />
+
+      <CreateProjectModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
       />
     </div>
   );

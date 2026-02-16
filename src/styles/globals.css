@@ -57,30 +57,30 @@
 
 @layer base {
   :root {
-    --background: 220 18% 4%;
-    --foreground: 220 12% 90%;
-    --card: 220 14% 11%;
-    --card-foreground: 220 12% 90%;
-    --popover: 220 18% 6%;
-    --popover-foreground: 220 12% 90%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 90%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 90%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 90%;
     --primary: 203 39% 42%;
     --primary-foreground: 0 0% 100%;
     --secondary: 42 40% 59%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 220 14% 14%;
-    --muted-foreground: 220 8% 55%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 47%;
     --accent: 203 39% 42%;
     --accent-foreground: 0 0% 100%;
     --destructive: 12 70% 34%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 100% / 0.06;
-    --input: 220 18% 5%;
+    --border: 0 0% 100% / 0.2;
+    --input: 0 0% 7%;
     --ring: 203 39% 42%;
     --radius: 5px;
   }
 
   * {
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   html {
@@ -88,7 +88,7 @@
   }
 
   body {
-    background-color: #0B0D11;
+    background-color: #000000;
     @apply text-text-primary font-mohave antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -113,7 +113,7 @@
   /* Selection color */
   ::selection {
     background: rgba(65, 115, 148, 0.3);
-    color: #E2E4E9;
+    color: #E5E5E5;
   }
 
   /* Focus ring */
@@ -124,12 +124,12 @@
 }
 
 @layer components {
-  /* === ultrathinmaterialdark (frosted glass) === */
+  /* === ultrathinmaterialdark (iOS: cardBackgroundDark @ 60% + blur) === */
   .ultrathin-material-dark {
-    background: rgba(14, 17, 23, 0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(13, 13, 13, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   /* === Panel Styling === */
@@ -137,13 +137,16 @@
     @apply bg-background-panel rounded border border-border;
   }
 
-  /* === Card Styles === */
+  /* === Card Styles (cardBackgroundDark @ 60% + white @ 20% border) === */
   .ops-card {
-    @apply bg-background-card rounded border border-border p-2;
+    background: rgba(13, 13, 13, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    @apply p-2;
   }
   .ops-card-dark {
     @apply rounded border border-border p-2;
-    background: rgba(13, 16, 23, 0.8);
+    background: rgba(13, 13, 13, 0.6);
   }
   .ops-card-elevated {
     @apply bg-background-card rounded border border-border-medium p-2 shadow-elevated;
@@ -152,7 +155,7 @@
     @apply ops-card transition-all duration-150 cursor-pointer;
   }
   .ops-card-interactive:hover {
-    @apply border-border-medium;
+    border-color: rgba(255, 255, 255, 0.3);
     background: rgba(255, 255, 255, 0.05);
   }
   .ops-card-interactive:active {
@@ -173,9 +176,9 @@
   .ops-input {
     @apply w-full bg-background-input text-text-primary font-mohave text-body
            px-1.5 py-1.5 rounded
-           border border-border
+           border border-border-input
            transition-all duration-150
-           placeholder:text-text-tertiary;
+           placeholder:text-text-placeholder;
   }
   .ops-input:focus {
     @apply border-border-medium outline-none;
@@ -202,7 +205,29 @@
   .separator-label::after {
     content: "";
     @apply flex-1 h-px;
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  /* === Typewriter Animation === */
+  .typewriter {
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+    animation: typewriter 1.5s steps(30) forwards, blink-caret 0.75s step-end infinite;
+    border-right: 2px solid rgba(255, 255, 255, 0.3);
+  }
+  .typewriter-done {
+    border-right: none;
+    animation: none;
+    width: auto;
+  }
+  @keyframes typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+  @keyframes blink-caret {
+    0%, 100% { border-color: transparent; }
+    50% { border-color: rgba(255, 255, 255, 0.3); }
   }
 }
 
