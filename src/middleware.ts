@@ -34,10 +34,11 @@ export function middleware(request: NextRequest) {
 
   const isAuthenticated = !!authToken;
 
-  // If user is on an auth route and is authenticated, redirect to projects
+  // If user is on an auth route and is authenticated, redirect to destination
   if (authRoutes.some((route) => pathname === route)) {
     if (isAuthenticated) {
-      return NextResponse.redirect(new URL("/projects", request.url));
+      const redirect = request.nextUrl.searchParams.get("redirect") || "/projects";
+      return NextResponse.redirect(new URL(redirect, request.url));
     }
     return NextResponse.next();
   }
