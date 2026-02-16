@@ -169,8 +169,8 @@ function StatusIndicator({ status }: { status: MemberStatus }) {
   if (status === "active") {
     return (
       <div className="flex items-center gap-[4px]">
-        <span className="h-[6px] w-[6px] rounded-full bg-status-success animate-pulse-live" />
-        <span className="font-kosugi text-[10px] text-status-success uppercase tracking-wider">
+        <span className="h-[4px] w-[4px] rounded-full bg-[#6B8F71]" />
+        <span className="font-kosugi text-[10px] text-[#6B8F71] uppercase tracking-wider">
           Active
         </span>
       </div>
@@ -178,7 +178,7 @@ function StatusIndicator({ status }: { status: MemberStatus }) {
   }
   return (
     <div className="flex items-center gap-[4px]">
-      <span className="h-[6px] w-[6px] rounded-full bg-text-disabled" />
+      <span className="h-[4px] w-[4px] rounded-full bg-text-disabled" />
       <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
         Inactive
       </span>
@@ -311,7 +311,7 @@ function TeamMemberCard({
             </div>
             {/* Online indicator */}
             {member.status === "active" && (
-              <span className="absolute -bottom-[1px] -right-[1px] h-[10px] w-[10px] rounded-full bg-status-success border-2 border-background-card animate-pulse-live" />
+              <span className="absolute -bottom-[1px] -right-[1px] h-[8px] w-[8px] rounded-full bg-[#6B8F71] border-2 border-background-card" />
             )}
           </div>
 

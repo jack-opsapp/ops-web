@@ -28,8 +28,6 @@ const badgeVariants = cva(
         warning: "bg-status-warning/20 text-status-warning border border-status-warning/30",
         error: "bg-ops-error-muted text-ops-error border border-ops-error/30",
         info: "bg-ops-accent-muted text-ops-accent border border-ops-accent/30",
-        // Live indicator (uses success/accent color instead of terminal green)
-        live: "bg-status-success/15 text-status-success border border-status-success/30",
       },
     },
     defaultVariants: {
@@ -46,7 +44,7 @@ export interface BadgeProps
 
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant, pulse = false, children, ...props }, ref) => {
-    const showPulse = pulse || variant === "live";
+    const showPulse = pulse;
 
     return (
       <span ref={ref} className={cn(badgeVariants({ variant }), className)} {...props}>

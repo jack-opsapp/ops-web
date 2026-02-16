@@ -12,15 +12,15 @@ const LiveIndicator = React.forwardRef<HTMLDivElement, LiveIndicatorProps>(
     <div ref={ref} className={cn("inline-flex items-center gap-0.5", className)}>
       <span
         className={cn(
-          "rounded-full bg-status-success animate-pulse-live",
-          size === "sm" ? "h-[6px] w-[6px]" : "h-1 w-1"
+          "rounded-full bg-[#6B8F71] animate-pulse-live",
+          size === "sm" ? "h-[4px] w-[4px]" : "h-[6px] w-[6px]"
         )}
         aria-hidden="true"
       />
       {label && (
         <span
           className={cn(
-            "font-mohave uppercase tracking-wider text-status-success",
+            "font-mohave uppercase tracking-wider text-[#5C6070]",
             size === "sm" ? "text-caption-sm" : "text-caption"
           )}
         >

@@ -94,10 +94,7 @@ function ProjectListItem({
       <div className="flex items-start gap-1">
         <div
           className="mt-[3px] w-[8px] h-[8px] rounded-full shrink-0"
-          style={{
-            backgroundColor: statusColor,
-            boxShadow: `0 0 4px ${statusColor}60`,
-          }}
+          style={{ backgroundColor: statusColor }}
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
@@ -215,7 +212,7 @@ export default function MapPage() {
                 "bg-background-input border border-border",
                 "font-mohave text-body-sm text-text-primary",
                 "placeholder:text-text-disabled",
-                "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent"
+                "focus:border-border-medium focus:outline-none"
               )}
             />
             {searchQuery && (
@@ -296,8 +293,8 @@ export default function MapPage() {
         <div className="px-1.5 py-1 border-t border-border flex items-center justify-between">
           <div className="flex items-center gap-1">
             <div className="flex items-center gap-[3px]">
-              <span className="w-[6px] h-[6px] rounded-full bg-status-success animate-pulse-live" />
-              <span className="font-mono text-[9px] text-text-disabled">LIVE</span>
+              <span className="w-[4px] h-[4px] rounded-full bg-[#6B8F71]" />
+              <span className="font-mono text-[9px] text-text-disabled">Live</span>
             </div>
           </div>
           <span className="font-mono text-[9px] text-text-disabled">
@@ -356,10 +353,7 @@ export default function MapPage() {
               <div key={status} className="flex items-center gap-[6px]">
                 <span
                   className="w-[6px] h-[6px] rounded-full"
-                  style={{
-                    backgroundColor: PROJECT_STATUS_COLORS[status],
-                    boxShadow: `0 0 3px ${PROJECT_STATUS_COLORS[status]}60`,
-                  }}
+                  style={{ backgroundColor: PROJECT_STATUS_COLORS[status] }}
                 />
                 <span className="font-mono text-[9px] text-text-tertiary">{status}</span>
               </div>

@@ -12,56 +12,52 @@ const config: Config = {
       colors: {
         // === OPS Brand Colors ===
         ops: {
-          // Primary accent - Steel Blue
+          // Primary accent - Steel Blue (used sparingly)
           accent: {
             DEFAULT: "#417394",
             hover: "#4d83a6",
             muted: "rgba(65, 115, 148, 0.15)",
-            glow: "rgba(65, 115, 148, 0.4)",
           },
           // Secondary accent - Amber/Gold (active state ONLY)
           amber: {
             DEFAULT: "#C4A868",
             hover: "#d4b878",
             muted: "rgba(196, 168, 104, 0.15)",
-            glow: "rgba(196, 168, 104, 0.4)",
           },
-          // (live/terminal green removed - use accent for indicators)
           // Error - Deep Brick Red
           error: {
             DEFAULT: "#93321A",
             hover: "#a63d20",
             muted: "rgba(147, 50, 26, 0.15)",
-            glow: "rgba(147, 50, 26, 0.4)",
           },
         },
 
-        // === Background System ===
+        // === Background System (charcoal with blue undertones) ===
         background: {
-          DEFAULT: "#000000",
+          DEFAULT: "#0B0D11",
           dark: "#090C15",
-          panel: "#0A0A0A",
-          card: "#191919",
-          "card-dark": "#0D0D0D",
-          elevated: "#1A1A1A",
-          input: "#111111",
+          panel: "#10131A",
+          card: "#161A22",
+          "card-dark": "#0D1017",
+          elevated: "#1C2028",
+          input: "#0E1117",
         },
 
-        // === Text System ===
+        // === Text System (blue-grey, not pure grey) ===
         text: {
-          primary: "#E5E5E5",
-          secondary: "#A7A7A7",
-          tertiary: "#777777",
-          disabled: "#555555",
-          inverse: "#000000",
+          primary: "#E2E4E9",
+          secondary: "#8B8F9A",
+          tertiary: "#5C6070",
+          disabled: "#3D4150",
+          inverse: "#0B0D11",
         },
 
-        // === Border System ===
+        // === Border System (subtle) ===
         border: {
-          DEFAULT: "rgba(255, 255, 255, 0.1)",
-          subtle: "rgba(255, 255, 255, 0.05)",
-          medium: "rgba(255, 255, 255, 0.2)",
-          strong: "rgba(255, 255, 255, 0.4)",
+          DEFAULT: "rgba(255, 255, 255, 0.06)",
+          subtle: "rgba(255, 255, 255, 0.03)",
+          medium: "rgba(255, 255, 255, 0.1)",
+          strong: "rgba(255, 255, 255, 0.2)",
         },
 
         // === Status Colors (from iOS OPSStyle) ===
@@ -149,15 +145,11 @@ const config: Config = {
         xl: "12px",
       },
 
-      // === Box Shadow (Command Center Glows) ===
+      // === Box Shadow (subtle elevation, no glows) ===
       boxShadow: {
-        "glow-accent": "0 0 12px rgba(65, 115, 148, 0.3)",
-        "glow-accent-lg": "0 0 24px rgba(65, 115, 148, 0.4)",
-        "glow-amber": "0 0 12px rgba(196, 168, 104, 0.3)",
-        "glow-error": "0 0 12px rgba(147, 50, 26, 0.4)",
-        "card": "0 2px 4px rgba(0, 0, 0, 0.1)",
-        "elevated": "0 4px 8px rgba(0, 0, 0, 0.2)",
-        "floating": "0 6px 12px rgba(0, 0, 0, 0.3)",
+        "card": "0 1px 3px rgba(0, 0, 0, 0.3)",
+        "elevated": "0 4px 12px rgba(0, 0, 0, 0.4)",
+        "floating": "0 8px 24px rgba(0, 0, 0, 0.5)",
       },
 
       // === Animations ===
@@ -165,10 +157,6 @@ const config: Config = {
         "pulse-live": {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.4" },
-        },
-        "scan-line": {
-          "0%": { transform: "translateY(-100%)" },
-          "100%": { transform: "translateY(100%)" },
         },
         "fade-in": {
           from: { opacity: "0" },
@@ -198,14 +186,9 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "scan-line-x": {
-          "0%": { transform: "translateX(-100%)" },
-          "100%": { transform: "translateX(400%)" },
-        },
       },
       animation: {
-        "pulse-live": "pulse-live 2s ease-in-out infinite",
-        "scan-line": "scan-line 3s linear infinite",
+        "pulse-live": "pulse-live 3s ease-in-out infinite",
         "fade-in": "fade-in 0.2s ease-out",
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "slide-in-left": "slide-in-left 0.3s ease-out",

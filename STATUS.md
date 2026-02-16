@@ -1,6 +1,6 @@
 # OPS Web - Project Status
 
-> Last updated: 2026-02-15
+> Last updated: 2026-02-15 (v2 redesign)
 
 ## Overview
 
@@ -142,19 +142,44 @@ Deployed on Vercel at **app.opsapp.co**.
 | Testing | Vitest + RTL + MSW + Playwright |
 | Deployment | Vercel |
 
-## Design System
+## Design System (v2 - Defense-tech aesthetic)
 
-- **Background**: #000000 (pure black)
-- **Accent**: #417394 (steel blue) - < 10% of UI
+- **Background**: #0B0D11 (dark charcoal with blue undertones, NOT pure black)
+- **Panel**: #10131A, **Card**: #161A22, **Elevated**: #1C2028
+- **Accent**: #417394 (steel blue) - near-invisible in resting state
 - **Secondary**: #C4A868 (amber/gold) - active/selected state only
-- **Text**: #E5E5E5 (primary), #A7A7A7 (secondary)
+- **Text**: #E2E4E9 (primary), #8B8F9A (secondary), #5C6070 (tertiary)
 - **Error**: #93321A (deep brick red)
 - **Success**: #A5B368 (muted olive green)
-- **Cards**: `ultrathin-material-dark` (rgba(13,13,13,0.6) + blur(20px))
+- **Cards**: frosted glass - rgba(255,255,255,0.03) + backdrop-blur-md + 6% border
+- **Material**: ultrathin-material-dark = rgba(14,17,23,0.7) + blur(16px)
 - **Fonts**: Mohave (primary), Kosugi (captions), JetBrains Mono (data)
 - **Corners**: 5px standard (iOS-matched)
 - **Spacing**: 8-point grid
-- **Borders**: white at 8% opacity
+- **Borders**: white at 6% opacity (extremely subtle)
+- **Shadows**: No glow effects. Subtle elevation only (card/elevated/floating)
+- **Live indicator**: sage green (#6B8F71), 4px dot, 3s pulse
+- **Active nav**: white left border at 20% + white bg at 6%, NOT blue
+
+## Recent Changes (Feb 15 v2)
+
+### Complete UI Redesign (Defense-tech aesthetic)
+- **Backgrounds**: Pure black -> dark charcoal (#0B0D11) with blue undertones
+- **Text**: Pure grey -> blue-grey tones (#E2E4E9, #8B8F9A, #5C6070)
+- **Borders**: 10% opacity -> 6% opacity (much subtler)
+- **Cards**: Frosted glass (rgba white 3% + backdrop-blur), no grid patterns
+- **Buttons**: Ghost-like default (white 7%), removed all glow/scale effects
+- **Sidebar**: Smaller logo (56px), neutral active states (white not blue), no kbd badges
+- **Top bar**: Removed centered page title (breadcrumbs only), muted sync indicator
+- **Dashboard**: Removed typewriter animation (simple fade-in), neutral stat icons, ghost quick actions
+- **Live indicators**: Sage green (#6B8F71), smaller dots (4px), slower pulse (3s)
+- **Notification badge**: Subtle white dot, not amber
+- **Removed**: All glow shadows, grid backgrounds, scan-line animations, typewriter effect
+
+### Bug Fixes
+- **Sign-out -> blank screen**: Fixed by clearing auth cookie synchronously before navigation
+- **User data not loading**: Fixed `setLoading(false)` always called (in `finally` + else branch)
+- **Auth layout grid/glow**: Removed grid background and ambient glow blobs from login
 
 ## Known Issues
 
@@ -163,3 +188,4 @@ Deployed on Vercel at **app.opsapp.co**.
 - No inline task creation during project creation
 - Revenue/Accounting pages need financial data model
 - Some test mocks may need updating after auth flow change
+- Some pages still reference `shadow-glow-*` classes (harmless no-ops, no visual effect)

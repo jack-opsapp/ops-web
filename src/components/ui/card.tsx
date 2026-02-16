@@ -5,15 +5,14 @@ import { cn } from "@/lib/utils/cn";
 const cardVariants = cva("rounded-lg border p-2 transition-all duration-150", {
   variants: {
     variant: {
-      default: "bg-background-card border-border",
-      dark: "border-border bg-[rgba(13,13,13,0.8)]",
+      default: "bg-[rgba(255,255,255,0.03)] backdrop-blur-md border-[rgba(255,255,255,0.06)]",
+      dark: "border-border bg-[rgba(13,16,23,0.8)]",
       elevated: "bg-background-card border-border-medium shadow-elevated",
       interactive: [
-        "bg-background-card border-border cursor-pointer",
-        "hover:border-ops-accent hover:shadow-glow-accent",
-        "active:scale-[0.99]",
+        "bg-[rgba(255,255,255,0.03)] backdrop-blur-md border-[rgba(255,255,255,0.06)] cursor-pointer",
+        "hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.05)]",
       ],
-      accent: "bg-background-card border-border border-l-4 border-l-ops-accent",
+      accent: "bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.06)] border-l-4 border-l-ops-accent",
     },
   },
   defaultVariants: {
@@ -23,28 +22,14 @@ const cardVariants = cva("rounded-lg border p-2 transition-all duration-150", {
 
 export interface CardProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {
-  withGrid?: boolean;
-}
+    VariantProps<typeof cardVariants> {}
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant, withGrid = false, style, ...props }, ref) => {
-    const gridStyle: React.CSSProperties | undefined = withGrid
-      ? {
-          ...style,
-          backgroundImage: [
-            "linear-gradient(rgba(65, 115, 148, 0.03) 1px, transparent 1px)",
-            "linear-gradient(90deg, rgba(65, 115, 148, 0.03) 1px, transparent 1px)",
-          ].join(", "),
-          backgroundSize: "24px 24px",
-        }
-      : style;
-
+  ({ className, variant, ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(cardVariants({ variant }), className)}
-        style={gridStyle}
         {...props}
       />
     );

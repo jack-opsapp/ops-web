@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const idToken = await getIdToken();
           if (!idToken || !firebaseUser.email) {
             fetchingRef.current = false;
+            setLoading(false);
             return;
           }
 
@@ -65,7 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("[AuthProvider] Failed to fetch OPS user via Bubble workflow:", err);
         } finally {
           fetchingRef.current = false;
+          setLoading(false);
         }
+      } else {
+        setLoading(false);
       }
     });
     return () => unsubscribe();

@@ -28,19 +28,18 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  shortcut?: string;
 }
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, shortcut: "1" },
-  { label: "Projects", href: "/projects", icon: FolderKanban, shortcut: "2" },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays, shortcut: "3" },
-  { label: "Clients", href: "/clients", icon: Users, shortcut: "4" },
-  { label: "Job Board", href: "/job-board", icon: Columns3, shortcut: "5" },
-  { label: "Team", href: "/team", icon: UserCog, shortcut: "6" },
-  { label: "Map", href: "/map", icon: MapPin, shortcut: "7" },
-  { label: "Pipeline", href: "/pipeline", icon: GitBranch, shortcut: "8" },
-  { label: "Invoices", href: "/invoices", icon: Receipt, shortcut: "9" },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Projects", href: "/projects", icon: FolderKanban },
+  { label: "Calendar", href: "/calendar", icon: CalendarDays },
+  { label: "Clients", href: "/clients", icon: Users },
+  { label: "Job Board", href: "/job-board", icon: Columns3 },
+  { label: "Team", href: "/team", icon: UserCog },
+  { label: "Map", href: "/map", icon: MapPin },
+  { label: "Pipeline", href: "/pipeline", icon: GitBranch },
+  { label: "Invoices", href: "/invoices", icon: Receipt },
   { label: "Accounting", href: "/accounting", icon: Calculator },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
@@ -62,11 +61,11 @@ function NavItemButton({
       title={isCollapsed ? item.label : undefined}
       className={cn(
         "group relative flex items-center w-full rounded transition-all duration-150",
-        "text-text-secondary hover:text-text-primary hover:bg-background-elevated",
+        "text-[#5C6070] hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
         isCollapsed ? "justify-center px-0 py-1.5 mx-auto" : "gap-1.5 px-1.5 py-1",
         isActive && [
-          "text-text-primary bg-ops-accent-muted",
-          "border-l-2 border-l-ops-accent",
+          "text-text-primary bg-[rgba(255,255,255,0.06)]",
+          "border-l-2 border-l-[rgba(255,255,255,0.2)]",
         ],
         !isActive && "border-l-2 border-l-transparent"
       )}
@@ -74,20 +73,11 @@ function NavItemButton({
       <item.icon
         className={cn(
           "shrink-0 w-[20px] h-[20px] transition-colors",
-          isActive ? "text-ops-accent" : "text-text-tertiary group-hover:text-text-secondary"
+          isActive ? "text-text-primary" : "text-[#5C6070] group-hover:text-[#8B8F9A]"
         )}
       />
       {!isCollapsed && (
-        <>
-          <span className="font-mohave text-body-sm truncate">{item.label}</span>
-          <span className="ml-auto flex items-center gap-1">
-            {item.shortcut && (
-              <kbd className="hidden lg:inline-block font-mono text-[10px] text-text-disabled bg-background-panel px-[6px] py-[2px] rounded-sm border border-border-subtle">
-                {item.shortcut}
-              </kbd>
-            )}
-          </span>
-        </>
+        <span className="font-mohave text-body-sm truncate">{item.label}</span>
       )}
     </button>
   );
@@ -98,11 +88,14 @@ export function Sidebar() {
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
+  const logout = useAuthStore((s) => s.logout);
 
   const handleSignOut = useCallback(async () => {
-    await signOut();
+    document.cookie = "ops-auth-token=; path=/; max-age=0";
+    logout();
+    try { await signOut(); } catch {}
     router.push("/login");
-  }, [router]);
+  }, [router, logout]);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -128,8 +121,8 @@ export function Sidebar() {
         <Image
           src="/images/ops-logo-white.png"
           alt="OPS"
-          width={isCollapsed ? 36 : 80}
-          height={isCollapsed ? 14 : 32}
+          width={isCollapsed ? 24 : 56}
+          height={isCollapsed ? 10 : 22}
           className="select-none"
           priority
         />
@@ -154,7 +147,7 @@ export function Sidebar() {
           onClick={toggle}
           className={cn(
             "flex items-center w-full rounded transition-all duration-150",
-            "text-text-tertiary hover:text-text-secondary hover:bg-background-elevated",
+            "text-[#5C6070] hover:text-[#8B8F9A] hover:bg-[rgba(255,255,255,0.04)]",
             isCollapsed ? "justify-center py-1" : "gap-1.5 px-1.5 py-1"
           )}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -165,22 +158,19 @@ export function Sidebar() {
             <>
               <PanelLeftClose className="w-[18px] h-[18px]" />
               <span className="font-mohave text-body-sm">Collapse</span>
-              <kbd className="ml-auto hidden lg:inline-block font-mono text-[10px] text-text-disabled bg-background-panel px-[6px] py-[2px] rounded-sm border border-border-subtle">
-                {"\u2318"}B
-              </kbd>
             </>
           )}
         </button>
 
-        {/* User section */}
+        {/* User section - just avatar + name + sign out */}
         <div
           className={cn(
-            "flex items-center rounded bg-background-card-dark p-1",
+            "flex items-center rounded bg-[rgba(255,255,255,0.03)] p-1",
             isCollapsed ? "justify-center" : "gap-1.5"
           )}
         >
           {/* Avatar */}
-          <div className="shrink-0 w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
+          <div className="shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
             {currentUser?.profileImageURL ? (
               <img
                 src={currentUser.profileImageURL}
@@ -189,7 +179,7 @@ export function Sidebar() {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <span className="font-mohave text-body-sm text-ops-accent">
+              <span className="font-mohave text-body-sm text-text-secondary">
                 {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
               </span>
             )}
@@ -200,16 +190,13 @@ export function Sidebar() {
               <p className="font-mohave text-body-sm text-text-primary truncate">
                 {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : "User"}
               </p>
-              <span className="inline-block font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-[6px] py-[1px] rounded-sm uppercase tracking-wider">
-                Admin
-              </span>
             </div>
           )}
 
           {!isCollapsed && (
             <button
               onClick={handleSignOut}
-              className="shrink-0 p-[6px] rounded text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="shrink-0 p-[6px] rounded text-[#5C6070] hover:text-ops-error hover:bg-ops-error-muted transition-colors"
               title="Sign out"
             >
               <LogOut className="w-[16px] h-[16px]" />

@@ -34,7 +34,6 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
       <Card
         ref={ref}
         variant="default"
-        withGrid
         className={cn("flex flex-col gap-1.5 p-2", className)}
       >
         {/* Header row: label + icon */}

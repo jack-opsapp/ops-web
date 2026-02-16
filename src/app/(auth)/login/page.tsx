@@ -108,8 +108,8 @@ function LoginForm() {
         <Image
           src="/images/ops-logo-white.png"
           alt="OPS"
-          width={160}
-          height={64}
+          width={100}
+          height={40}
           className="mx-auto"
           priority
         />

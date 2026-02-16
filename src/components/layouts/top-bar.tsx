@@ -18,17 +18,17 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
 
 const routeTitles: Record<string, string> = {
-  "/dashboard": "DASHBOARD",
-  "/projects": "PROJECTS",
-  "/calendar": "CALENDAR",
-  "/clients": "CLIENTS",
-  "/job-board": "JOB BOARD",
-  "/team": "TEAM",
-  "/map": "MAP",
-  "/pipeline": "PIPELINE",
-  "/invoices": "INVOICES",
-  "/accounting": "ACCOUNTING",
-  "/settings": "SETTINGS",
+  "/dashboard": "Dashboard",
+  "/projects": "Projects",
+  "/calendar": "Calendar",
+  "/clients": "Clients",
+  "/job-board": "Job Board",
+  "/team": "Team",
+  "/map": "Map",
+  "/pipeline": "Pipeline",
+  "/invoices": "Invoices",
+  "/accounting": "Accounting",
+  "/settings": "Settings",
 };
 
 function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
@@ -42,25 +42,13 @@ function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
     if (title) {
       crumbs.push({ label: title, href: currentPath });
     } else if (segment === "new") {
-      crumbs.push({ label: "NEW" });
+      crumbs.push({ label: "New" });
     } else if (segment.match(/^[a-zA-Z0-9_-]+$/)) {
-      crumbs.push({ label: segment.toUpperCase() });
+      crumbs.push({ label: segment });
     }
   }
 
   return crumbs;
-}
-
-function getPageTitle(pathname: string): string {
-  // Check exact match first
-  if (routeTitles[pathname]) return routeTitles[pathname];
-
-  // Check prefix match (e.g., /projects/new -> PROJECTS)
-  for (const [route, title] of Object.entries(routeTitles)) {
-    if (pathname.startsWith(route)) return title;
-  }
-
-  return "OPS";
 }
 
 type SyncStatus = "synced" | "syncing" | "pending";
@@ -70,10 +58,7 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
     <div
       className={cn(
         "flex items-center gap-[6px] px-1 py-[6px] rounded",
-        "font-mono text-[11px] uppercase tracking-wider",
-        status === "synced" && "text-status-success",
-        status === "syncing" && "text-ops-accent",
-        status === "pending" && "text-ops-amber"
+        "font-mono text-[11px] tracking-wider text-[#5C6070]"
       )}
       title={
         status === "synced"
@@ -86,19 +71,19 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
       {status === "synced" && (
         <>
           <Check className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline">SYNCED</span>
+          <span className="hidden xl:inline">Synced</span>
         </>
       )}
       {status === "syncing" && (
         <>
           <RefreshCw className="w-[14px] h-[14px] animate-spin" />
-          <span className="hidden xl:inline">SYNCING</span>
+          <span className="hidden xl:inline">Syncing</span>
         </>
       )}
       {status === "pending" && (
         <>
           <Clock className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline">PENDING</span>
+          <span className="hidden xl:inline">Pending</span>
         </>
       )}
     </div>
@@ -109,11 +94,11 @@ export function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.currentUser);
+  const logout = useAuthStore((s) => s.logout);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const breadcrumbs = useMemo(() => getBreadcrumbs(pathname), [pathname]);
-  const pageTitle = useMemo(() => getPageTitle(pathname), [pathname]);
 
   // For now, sync status is static. Will be wired to real sync later.
   const syncStatus: SyncStatus = "synced";
@@ -143,9 +128,11 @@ export function TopBar() {
 
   const handleSignOut = useCallback(async () => {
     setUserMenuOpen(false);
-    await signOut();
+    document.cookie = "ops-auth-token=; path=/; max-age=0";
+    logout();
+    try { await signOut(); } catch {}
     router.push("/login");
-  }, [router]);
+  }, [router, logout]);
 
   return (
     <header
@@ -155,7 +142,7 @@ export function TopBar() {
         "relative"
       )}
     >
-      {/* Left: Breadcrumbs */}
+      {/* Left: Breadcrumbs only */}
       <div className="flex items-center gap-[6px] min-w-0">
         {breadcrumbs.map((crumb, index) => (
           <div key={index} className="flex items-center gap-[6px]">
@@ -166,16 +153,16 @@ export function TopBar() {
               <button
                 onClick={() => router.push(crumb.href!)}
                 className={cn(
-                  "font-kosugi text-caption-sm uppercase tracking-widest truncate",
+                  "font-mohave text-body-sm truncate",
                   index === breadcrumbs.length - 1
                     ? "text-text-primary"
-                    : "text-text-tertiary hover:text-text-secondary transition-colors"
+                    : "text-[#5C6070] hover:text-[#8B8F9A] transition-colors"
                 )}
               >
                 {crumb.label}
               </button>
             ) : (
-              <span className="font-kosugi text-caption-sm text-text-primary uppercase tracking-widest truncate">
+              <span className="font-mohave text-body-sm text-text-primary truncate">
                 {crumb.label}
               </span>
             )}
@@ -183,25 +170,17 @@ export function TopBar() {
         ))}
       </div>
 
-      {/* Center: Page title */}
-      <h1 className="absolute left-1/2 -translate-x-1/2 font-mohave text-heading text-text-primary tracking-wider hidden md:block">
-        {pageTitle}
-      </h1>
-
       {/* Right: Actions */}
       <div className="flex items-center gap-1">
         {/* Search trigger */}
         <button
-          className="flex items-center gap-[6px] px-1 py-[6px] rounded text-text-tertiary hover:text-text-secondary hover:bg-background-elevated transition-all"
+          className="flex items-center gap-[6px] px-1 py-[6px] rounded text-[#5C6070] hover:text-[#8B8F9A] hover:bg-[rgba(255,255,255,0.04)] transition-all"
           title="Search (Cmd+K)"
           onClick={() => {
             // TODO: open command palette
           }}
         >
           <Search className="w-[18px] h-[18px]" />
-          <kbd className="hidden lg:inline-block font-mono text-[10px] text-text-disabled bg-background px-[6px] py-[2px] rounded-sm border border-border-subtle">
-            {"\u2318"}K
-          </kbd>
         </button>
 
         {/* Sync status */}
@@ -209,21 +188,21 @@ export function TopBar() {
 
         {/* Notifications */}
         <button
-          className="relative p-[10px] rounded text-text-tertiary hover:text-text-secondary hover:bg-background-elevated transition-all"
+          className="relative p-[10px] rounded text-[#5C6070] hover:text-[#8B8F9A] hover:bg-[rgba(255,255,255,0.04)] transition-all"
           title="Notifications"
         >
           <Bell className="w-[18px] h-[18px]" />
-          {/* Unread badge */}
-          <span className="absolute top-[6px] right-[6px] w-[8px] h-[8px] rounded-full bg-ops-amber border-2 border-background-panel" />
+          {/* Unread badge - subtle white dot */}
+          <span className="absolute top-[6px] right-[6px] w-[6px] h-[6px] rounded-full bg-[rgba(255,255,255,0.4)]" />
         </button>
 
         {/* User menu */}
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-1 p-[6px] rounded hover:bg-background-elevated transition-all"
+            className="flex items-center gap-1 p-[6px] rounded hover:bg-[rgba(255,255,255,0.04)] transition-all"
           >
-            <div className="w-[28px] h-[28px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
+            <div className="w-[28px] h-[28px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
               {currentUser?.profileImageURL ? (
                 <img
                   src={currentUser.profileImageURL}
@@ -232,21 +211,21 @@ export function TopBar() {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span className="font-mohave text-body-sm text-ops-accent">
+                <span className="font-mohave text-body-sm text-text-secondary">
                   {currentUser?.firstName?.charAt(0)?.toUpperCase() || "U"}
                 </span>
               )}
             </div>
           </button>
 
-          {/* Dropdown */}
+          {/* Dropdown - frosted glass */}
           {userMenuOpen && (
             <div className="absolute right-0 top-full mt-[4px] w-[200px] ultrathin-material-dark rounded shadow-floating z-50 animate-scale-in overflow-hidden">
-              <div className="px-1.5 py-1 border-b border-border-subtle">
+              <div className="px-1.5 py-1 border-b border-[rgba(255,255,255,0.06)]">
                 <p className="font-mohave text-body-sm text-text-primary truncate">
                   {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || "User" : "User"}
                 </p>
-                <p className="font-mono text-[11px] text-text-tertiary truncate">
+                <p className="font-mono text-[11px] text-[#5C6070] truncate">
                   {currentUser?.email}
                 </p>
               </div>
@@ -256,7 +235,7 @@ export function TopBar() {
                     setUserMenuOpen(false);
                     router.push("/settings");
                   }}
-                  className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors"
+                  className="flex items-center gap-1 w-full px-1.5 py-[8px] text-[#8B8F9A] hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
                   <User className="w-[16px] h-[16px]" />
                   <span className="font-mohave text-body-sm">Profile</span>
@@ -266,12 +245,12 @@ export function TopBar() {
                     setUserMenuOpen(false);
                     router.push("/settings");
                   }}
-                  className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors"
+                  className="flex items-center gap-1 w-full px-1.5 py-[8px] text-[#8B8F9A] hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
                   <Settings className="w-[16px] h-[16px]" />
                   <span className="font-mohave text-body-sm">Settings</span>
                 </button>
-                <div className="border-t border-border-subtle my-[4px]" />
+                <div className="border-t border-[rgba(255,255,255,0.06)] my-[4px]" />
                 <button
                   onClick={handleSignOut}
                   className="flex items-center gap-1 w-full px-1.5 py-[8px] text-ops-error hover:bg-ops-error-muted transition-colors"

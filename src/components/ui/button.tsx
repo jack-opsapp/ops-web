@@ -9,7 +9,7 @@ const buttonVariants = cva(
     "inline-flex items-center justify-center gap-1",
     "font-mohave text-button whitespace-nowrap",
     "rounded transition-all duration-150",
-    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:shadow-glow-accent",
+    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(255,255,255,0.2)]",
     "disabled:pointer-events-none disabled:opacity-40",
     "no-select cursor-pointer",
   ],
@@ -17,29 +17,28 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: [
+          "bg-[rgba(255,255,255,0.07)] text-text-primary",
+          "hover:bg-[rgba(255,255,255,0.12)]",
+        ],
+        primary: [
           "bg-ops-accent text-white",
-          "hover:bg-ops-accent-hover hover:shadow-glow-accent",
-          "active:scale-[0.98]",
+          "hover:bg-ops-accent-hover",
         ],
         accent: [
           "bg-ops-amber text-text-inverse",
-          "hover:bg-ops-amber-hover hover:shadow-glow-amber",
-          "active:scale-[0.98]",
+          "hover:bg-ops-amber-hover",
         ],
         secondary: [
-          "bg-transparent text-ops-accent border border-ops-accent",
-          "hover:bg-ops-accent-muted hover:shadow-glow-accent",
-          "active:scale-[0.98]",
+          "bg-transparent text-text-secondary border border-[rgba(255,255,255,0.1)]",
+          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text-primary",
         ],
         destructive: [
           "bg-ops-error text-white",
-          "hover:bg-ops-error-hover hover:shadow-glow-error",
-          "active:scale-[0.98]",
+          "hover:bg-ops-error-hover",
         ],
         ghost: [
           "bg-transparent text-text-secondary",
-          "hover:bg-background-elevated hover:text-text-primary",
-          "active:scale-[0.98]",
+          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text-primary",
         ],
         link: [
           "bg-transparent text-ops-accent underline-offset-4",

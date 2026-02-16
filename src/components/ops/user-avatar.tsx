@@ -67,9 +67,9 @@ const UserAvatar = React.forwardRef<HTMLDivElement, UserAvatarProps>(
           <span
             className={cn(
               "absolute -top-[1px] -right-[1px]",
-              "h-[8px] w-[8px] rounded-full",
-              "bg-status-success animate-pulse-live",
-              "border-2 border-background"
+              "h-[6px] w-[6px] rounded-full",
+              "bg-[#6B8F71]",
+              "border-[1.5px] border-background"
             )}
             aria-label="Online"
           />

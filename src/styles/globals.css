@@ -57,30 +57,30 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 90%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 90%;
-    --popover: 0 0% 4%;
-    --popover-foreground: 0 0% 90%;
+    --background: 220 18% 4%;
+    --foreground: 220 12% 90%;
+    --card: 220 14% 11%;
+    --card-foreground: 220 12% 90%;
+    --popover: 220 18% 6%;
+    --popover-foreground: 220 12% 90%;
     --primary: 203 39% 42%;
     --primary-foreground: 0 0% 100%;
     --secondary: 42 40% 59%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 67%;
+    --muted: 220 14% 14%;
+    --muted-foreground: 220 8% 55%;
     --accent: 203 39% 42%;
     --accent-foreground: 0 0% 100%;
     --destructive: 12 70% 34%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 100% / 0.1;
-    --input: 0 0% 7%;
+    --border: 0 0% 100% / 0.06;
+    --input: 220 18% 5%;
     --ring: 203 39% 42%;
     --radius: 5px;
   }
 
   * {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.06);
   }
 
   html {
@@ -88,7 +88,7 @@
   }
 
   body {
-    background-color: #000000;
+    background-color: #0B0D11;
     @apply text-text-primary font-mohave antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -103,34 +103,33 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(65, 115, 148, 0.3);
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(65, 115, 148, 0.5);
+    background: rgba(255, 255, 255, 0.14);
   }
 
   /* Selection color */
   ::selection {
-    background: rgba(65, 115, 148, 0.4);
-    color: #E5E5E5;
+    background: rgba(65, 115, 148, 0.3);
+    color: #E2E4E9;
   }
 
   /* Focus ring */
   *:focus-visible {
-    outline: 1px solid #417394;
+    outline: 1px solid rgba(255, 255, 255, 0.2);
     outline-offset: 2px;
-    box-shadow: 0 0 8px rgba(65, 115, 148, 0.3);
   }
 }
 
 @layer components {
-  /* === ultrathinmaterialdark (iOS-style translucent material) === */
+  /* === ultrathinmaterialdark (frosted glass) === */
   .ultrathin-material-dark {
-    background: rgba(13, 13, 13, 0.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(14, 17, 23, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   /* === Panel Styling === */
@@ -144,7 +143,7 @@
   }
   .ops-card-dark {
     @apply rounded border border-border p-2;
-    background: rgba(13, 13, 13, 0.8);
+    background: rgba(13, 16, 23, 0.8);
   }
   .ops-card-elevated {
     @apply bg-background-card rounded border border-border-medium p-2 shadow-elevated;
@@ -153,50 +152,16 @@
     @apply ops-card transition-all duration-150 cursor-pointer;
   }
   .ops-card-interactive:hover {
-    @apply border-ops-accent shadow-glow-accent;
+    @apply border-border-medium;
+    background: rgba(255, 255, 255, 0.05);
   }
   .ops-card-interactive:active {
-    transform: scale(0.99);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   /* === Accent Border Card === */
   .ops-card-accent {
     @apply ops-card border-l-4 border-l-ops-accent;
-  }
-
-  /* === Glow Effects === */
-  .glow-accent {
-    box-shadow: 0 0 12px rgba(65, 115, 148, 0.3);
-  }
-  .glow-accent-hover:hover {
-    box-shadow: 0 0 16px rgba(65, 115, 148, 0.4);
-  }
-  .glow-amber {
-    box-shadow: 0 0 12px rgba(196, 168, 104, 0.3);
-  }
-  .glow-error {
-    box-shadow: 0 0 12px rgba(147, 50, 26, 0.4);
-  }
-
-  /* === Scan Line Effect (loading) === */
-  .scan-line {
-    position: relative;
-    overflow: hidden;
-  }
-  .scan-line::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(65, 115, 148, 0.6),
-      transparent
-    );
-    animation: scan-line 3s linear infinite;
   }
 
   /* === Status Badge === */
@@ -213,7 +178,7 @@
            placeholder:text-text-tertiary;
   }
   .ops-input:focus {
-    @apply border-ops-accent outline-none shadow-glow-accent;
+    @apply border-border-medium outline-none;
   }
 
   /* === Monospace Data Display === */
@@ -237,7 +202,7 @@
   .separator-label::after {
     content: "";
     @apply flex-1 h-px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -260,23 +225,5 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }
-
-  /* === Typewriter animation === */
-  .typewriter {
-    overflow: hidden;
-    border-right: 2px solid rgba(65, 115, 148, 0.6);
-    white-space: nowrap;
-    animation:
-      typewriter-expand 1.5s steps(30, end) forwards,
-      typewriter-blink 0.75s step-end 4;
-  }
-  @keyframes typewriter-expand {
-    from { width: 0; }
-    to { width: 100%; }
-  }
-  @keyframes typewriter-blink {
-    from, to { border-color: transparent; }
-    50% { border-color: rgba(65, 115, 148, 0.6); }
   }
 }
