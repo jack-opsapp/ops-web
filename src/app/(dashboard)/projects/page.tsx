@@ -31,6 +31,7 @@ import { usePageActionsStore } from "@/stores/page-actions-store";
 import { CreateProjectModal } from "@/components/ops/create-project-modal";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
+import { useClients } from "@/lib/hooks/use-clients";
 import { exportToCSV } from "@/lib/utils/csv-export";
 import {
   DropdownMenu,
@@ -277,10 +278,33 @@ export default function ProjectsPage() {
     refetch,
   } = useProjects();
 
+  const { data: clientsData } = useClients();
+
   const updateStatus = useUpdateProjectStatus();
   const deleteProject = useDeleteProject();
 
-  const projects = useMemo(() => data?.projects ?? [], [data]);
+  // Build client lookup map (clientId → Client) to resolve client names on project cards
+  const clientMap = useMemo(() => {
+    const map = new Map<string, { name: string }>();
+    for (const client of clientsData?.clients ?? []) {
+      map.set(client.id, { name: client.name });
+    }
+    return map;
+  }, [clientsData]);
+
+  // Enrich projects with client relationship data
+  const projects = useMemo(() => {
+    const raw = data?.projects ?? [];
+    return raw.map((p) => {
+      if (p.clientId && !p.client) {
+        const client = clientMap.get(p.clientId);
+        if (client) {
+          return { ...p, client: { ...client, id: p.clientId } as Project["client"] };
+        }
+      }
+      return p;
+    });
+  }, [data, clientMap]);
 
   const filteredProjects = useMemo(() => {
     let filtered = [...projects];

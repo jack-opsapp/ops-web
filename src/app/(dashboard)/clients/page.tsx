@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useClients } from "@/lib/hooks";
+import { useProjects } from "@/lib/hooks/use-projects";
 import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
 import { usePageActionsStore } from "@/stores/page-actions-store";
@@ -42,7 +43,7 @@ interface ClientListItem {
   lastActivity: string;
 }
 
-function mapClientToListItem(client: Client): ClientListItem {
+function mapClientToListItem(client: Client, projectCount: number): ClientListItem {
   const subClients: ClientListItem["subClients"] = (client.subClients ?? [])
     .filter((sc) => !sc.deletedAt)
     .map((sc: SubClient) => ({
@@ -60,7 +61,7 @@ function mapClientToListItem(client: Client): ClientListItem {
     email: client.email ?? null,
     phone: client.phoneNumber ?? null,
     address: client.address ?? null,
-    projectCount: "--",
+    projectCount: String(projectCount),
     subClients,
     lastActivity: client.createdAt
       ? new Date(client.createdAt).toISOString().slice(0, 10)
@@ -324,13 +325,25 @@ export default function ClientsPage() {
   }, [setActions, clearActions]);
 
   const { data, isLoading } = useClients();
+  const { data: projectsData } = useProjects();
+
+  // Build project count per client from projects data
+  const projectCountByClient = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const project of projectsData?.projects ?? []) {
+      if (project.clientId) {
+        counts.set(project.clientId, (counts.get(project.clientId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [projectsData]);
 
   const clients: ClientListItem[] = useMemo(() => {
     const rawClients = data?.clients ?? [];
     return rawClients
       .filter((c) => !c.deletedAt)
-      .map(mapClientToListItem);
-  }, [data]);
+      .map((c) => mapClientToListItem(c, projectCountByClient.get(c.id) ?? 0));
+  }, [data, projectCountByClient]);
 
   const totalCount = data?.count ?? clients.length;
   const totalSubClients = clients.reduce((sum, c) => sum + c.subClients.length, 0);
