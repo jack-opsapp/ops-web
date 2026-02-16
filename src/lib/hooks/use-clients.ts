@@ -18,7 +18,7 @@ import { useAuthStore } from "../store/auth-store";
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /**
- * Fetch all clients for the current company.
+ * Fetch all clients for the current company (auto-paginates past 100).
  */
 export function useClients(
   options?: FetchClientsOptions,
@@ -29,7 +29,10 @@ export function useClients(
 
   return useQuery({
     queryKey: queryKeys.clients.list(companyId, options as Record<string, unknown>),
-    queryFn: () => ClientService.fetchClients(companyId, options),
+    queryFn: async () => {
+      const clients = await ClientService.fetchAllClients(companyId, options);
+      return { clients, remaining: 0, count: clients.length };
+    },
     enabled: !!companyId,
     ...queryOptions,
   });

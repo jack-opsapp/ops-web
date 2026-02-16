@@ -133,35 +133,45 @@ export const TaskService = {
   },
 
   /**
-   * Fetch tasks for a specific project.
+   * Fetch all tasks for a specific project (auto-paginates past 100).
    */
   async fetchProjectTasks(projectId: string): Promise<ProjectTask[]> {
     const client = getBubbleClient();
+    const allTasks: ProjectTask[] = [];
+    let cursor = 0;
+    let remaining = 1;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleTaskFields.projectId,
-        constraint_type: BubbleConstraintType.equals,
-        value: projectId,
-      },
-      {
-        key: BubbleTaskFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    while (remaining > 0) {
+      const constraints: BubbleConstraint[] = [
+        {
+          key: BubbleTaskFields.projectId,
+          constraint_type: BubbleConstraintType.equals,
+          value: projectId,
+        },
+        {
+          key: BubbleTaskFields.deletedAt,
+          constraint_type: BubbleConstraintType.isEmpty,
+        },
+      ];
 
-    const params = {
-      constraints: JSON.stringify(constraints),
-      limit: 100,
-      cursor: 0,
-    };
+      const params = {
+        constraints: JSON.stringify(constraints),
+        limit: 100,
+        cursor,
+      };
 
-    const response = await client.get<BubbleListResponse<TaskDTO>>(
-      `/obj/${BubbleTypes.task.toLowerCase()}`,
-      { params }
-    );
+      const response = await client.get<BubbleListResponse<TaskDTO>>(
+        `/obj/${BubbleTypes.task.toLowerCase()}`,
+        { params }
+      );
 
-    return response.response.results.map((dto) => taskDtoToModel(dto));
+      const tasks = response.response.results.map((dto) => taskDtoToModel(dto));
+      allTasks.push(...tasks);
+      remaining = response.response.remaining;
+      cursor += tasks.length;
+    }
+
+    return allTasks;
   },
 
   /**

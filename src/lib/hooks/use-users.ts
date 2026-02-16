@@ -19,7 +19,7 @@ import { useAuthStore } from "../store/auth-store";
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /**
- * Fetch all team members for the current company.
+ * Fetch all team members for the current company (auto-paginates past 100).
  * Automatically applies admin role detection using company.adminIds.
  */
 export function useTeamMembers(
@@ -32,7 +32,10 @@ export function useTeamMembers(
 
   return useQuery({
     queryKey: queryKeys.users.list(companyId, options as Record<string, unknown>),
-    queryFn: () => UserService.fetchUsers(companyId, adminIds, options),
+    queryFn: async () => {
+      const users = await UserService.fetchAllUsers(companyId, adminIds, options);
+      return { users, remaining: 0, count: users.length };
+    },
     enabled: !!companyId,
     ...queryOptions,
   });

@@ -194,36 +194,46 @@ export const ClientService = {
   // ─── Sub-Client Operations ────────────────────────────────────────────────
 
   /**
-   * Fetch sub-clients for a specific client.
+   * Fetch all sub-clients for a specific client (auto-paginates past 100).
    */
   async fetchSubClients(clientId: string): Promise<SubClient[]> {
     const apiClient = getBubbleClient();
+    const allSubClients: SubClient[] = [];
+    let cursor = 0;
+    let remaining = 1;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleSubClientFields.parentClient,
-        constraint_type: BubbleConstraintType.equals,
-        value: clientId,
-      },
-      {
-        key: BubbleSubClientFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    while (remaining > 0) {
+      const constraints: BubbleConstraint[] = [
+        {
+          key: BubbleSubClientFields.parentClient,
+          constraint_type: BubbleConstraintType.equals,
+          value: clientId,
+        },
+        {
+          key: BubbleSubClientFields.deletedAt,
+          constraint_type: BubbleConstraintType.isEmpty,
+        },
+      ];
 
-    const params = {
-      constraints: JSON.stringify(constraints),
-      limit: 100,
-      cursor: 0,
-    };
+      const params = {
+        constraints: JSON.stringify(constraints),
+        limit: 100,
+        cursor,
+      };
 
-    // Note: Bubble uses "Sub Client" with a space, but the API endpoint is lowercase
-    const response = await apiClient.get<BubbleListResponse<SubClientDTO>>(
-      `/obj/subclient`,
-      { params }
-    );
+      // Note: Bubble uses "Sub Client" with a space, but the API endpoint is lowercase
+      const response = await apiClient.get<BubbleListResponse<SubClientDTO>>(
+        `/obj/subclient`,
+        { params }
+      );
 
-    return response.response.results.map(subClientDtoToModel);
+      const subClients = response.response.results.map(subClientDtoToModel);
+      allSubClients.push(...subClients);
+      remaining = response.response.remaining;
+      cursor += subClients.length;
+    }
+
+    return allSubClients;
   },
 
   /**

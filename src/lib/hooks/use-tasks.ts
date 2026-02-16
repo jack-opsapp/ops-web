@@ -22,7 +22,7 @@ import { useAuthStore } from "../store/auth-store";
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /**
- * Fetch all tasks for the current company.
+ * Fetch all tasks for the current company (auto-paginates past 100).
  */
 export function useTasks(
   options?: FetchTasksOptions,
@@ -33,14 +33,17 @@ export function useTasks(
 
   return useQuery({
     queryKey: queryKeys.tasks.list(companyId, options as Record<string, unknown>),
-    queryFn: () => TaskService.fetchTasks(companyId, options),
+    queryFn: async () => {
+      const tasks = await TaskService.fetchAllTasks(companyId, options);
+      return { tasks, remaining: 0, count: tasks.length };
+    },
     enabled: !!companyId,
     ...queryOptions,
   });
 }
 
 /**
- * Fetch tasks for a specific project.
+ * Fetch all tasks for a specific project (auto-paginates past 100).
  */
 export function useProjectTasks(
   projectId: string | undefined,

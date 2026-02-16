@@ -18,7 +18,7 @@ import { useAuthStore } from "../store/auth-store";
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /**
- * Fetch all projects for the current company.
+ * Fetch all projects for the current company (auto-paginates past 100).
  */
 export function useProjects(
   options?: FetchProjectsOptions,
@@ -29,7 +29,10 @@ export function useProjects(
 
   return useQuery({
     queryKey: queryKeys.projects.list(companyId, options as Record<string, unknown>),
-    queryFn: () => ProjectService.fetchProjects(companyId, options),
+    queryFn: async () => {
+      const projects = await ProjectService.fetchAllProjects(companyId, options);
+      return { projects, remaining: 0, count: projects.length };
+    },
     enabled: !!companyId,
     ...queryOptions,
   });
@@ -37,6 +40,7 @@ export function useProjects(
 
 /**
  * Fetch projects assigned to the current user (field crew view).
+ * Auto-paginates to get all assigned projects.
  */
 export function useUserProjects(
   options?: Omit<FetchProjectsOptions, "clientId">,
@@ -48,8 +52,23 @@ export function useUserProjects(
 
   return useQuery({
     queryKey: queryKeys.projects.userList(userId, companyId),
-    queryFn: () =>
-      ProjectService.fetchUserProjects(userId, companyId, options),
+    queryFn: async () => {
+      // Auto-paginate user projects
+      const allProjects: Project[] = [];
+      let cursor = 0;
+      let remaining = 1;
+      while (remaining > 0) {
+        const result = await ProjectService.fetchUserProjects(userId, companyId, {
+          ...options,
+          limit: 100,
+          cursor,
+        });
+        allProjects.push(...result.projects);
+        remaining = result.remaining;
+        cursor += result.projects.length;
+      }
+      return { projects: allProjects, remaining: 0, count: allProjects.length };
+    },
     enabled: !!userId && !!companyId,
     ...queryOptions,
   });
