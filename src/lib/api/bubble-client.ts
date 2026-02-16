@@ -157,10 +157,14 @@ class BubbleClient {
   private enableLogging: boolean;
 
   constructor(config: BubbleClientConfig = {}) {
+    // In the browser, use the Next.js rewrite proxy (/api/bubble/*) to avoid CORS.
+    // Server-side (SSR/API routes) can call Bubble directly.
     const baseUrl =
       config.baseUrl ||
-      process.env.NEXT_PUBLIC_BUBBLE_API_URL ||
-      "https://opsapp.co/version-test/api/1.1";
+      (typeof window !== "undefined"
+        ? "/api/bubble"
+        : process.env.NEXT_PUBLIC_BUBBLE_API_URL ||
+          "https://opsapp.co/version-test/api/1.1");
     const apiToken =
       config.apiToken ||
       process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ||
