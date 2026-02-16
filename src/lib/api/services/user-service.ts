@@ -203,9 +203,10 @@ export const UserService = {
   // ─── Auth Workflows ─────────────────────────────────────────────────────
 
   /**
-   * Login with Google via Bubble workflow (matches iOS AuthManager.swift).
-   * POST /wf/login_google with Firebase ID token + profile info.
-   * Returns user + company directly from Bubble.
+   * Login with Google via Bubble workflow (matches iOS AuthManager + DataController flow).
+   * 1. POST /wf/login_google → authenticate and get user ID
+   * 2. GET /obj/user/{id} → fetch full user (reliable Data API format)
+   * 3. GET /obj/company/{id} → fetch company with adminIds for role detection
    */
   async loginWithGoogle(
     idToken: string,
@@ -216,13 +217,8 @@ export const UserService = {
   ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
     const client = getBubbleClient();
 
-    const response = await client.post<{
-      status: string;
-      response: {
-        user: UserDTO;
-        company?: import("../../types/dto").CompanyDTO;
-      };
-    }>("/wf/login_google", {
+    // Step 1: Call Bubble workflow to authenticate
+    const wfResponse = await client.post<Record<string, unknown>>("/wf/login_google", {
       id_token: idToken,
       email,
       name,
@@ -230,13 +226,52 @@ export const UserService = {
       family_name: familyName,
     });
 
-    const adminIds = response.response.company
-      ? (companyDtoToModel(response.response.company).adminIds ?? [])
-      : [];
-    const user = userDtoToModel(response.response.user, adminIds);
-    const company = response.response.company
-      ? companyDtoToModel(response.response.company)
-      : null;
+    // Step 2: Extract user ID from workflow response (handle multiple formats)
+    let userId: string | null = null;
+    const resp = (wfResponse as Record<string, unknown>).response as Record<string, unknown> | undefined;
+
+    // Try: { response: { user: { _id } } }
+    if (resp?.user && typeof resp.user === "object") {
+      const wfUser = resp.user as Record<string, unknown>;
+      userId = (wfUser._id as string) || (wfUser.id as string) || null;
+    }
+    // Try: { response: { user_id } }
+    if (!userId && resp?.user_id) {
+      userId = resp.user_id as string;
+    }
+    // Try: { response: { _id } } (user at root of response)
+    if (!userId && resp?._id) {
+      userId = resp._id as string;
+    }
+
+    if (!userId) {
+      throw new Error("No user ID returned from login workflow");
+    }
+
+    // Step 3: Fetch full user from Data API (reliable format, matches iOS fetchUserFromAPI)
+    const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
+      `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`
+    );
+    const userDto = userResponse.response;
+
+    // Step 4: Fetch company from Data API if user has one (matches iOS fetchCompanyData)
+    let company: import("../../types/models").Company | null = null;
+    let adminIds: string[] = [];
+
+    if (userDto.company) {
+      try {
+        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
+          `/obj/${BubbleTypes.company.toLowerCase()}/${userDto.company}`
+        );
+        company = companyDtoToModel(companyResponse.response);
+        adminIds = company.adminIds ?? [];
+      } catch (err) {
+        console.warn("[UserService] Failed to fetch company after login:", err);
+      }
+    }
+
+    // Step 5: Convert user with correct admin IDs for role detection
+    const user = userDtoToModel(userDto, adminIds);
 
     return { user, company };
   },
