@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { AccountingService } from "../api/services";
-import type { AccountingProvider } from "../types/models";
+import type { AccountingProvider } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
 export function useAccountingConnections() {

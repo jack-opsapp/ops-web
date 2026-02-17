@@ -1,111 +1,134 @@
 /**
  * OPS Web - Product Service
  *
- * CRUD operations for the Products/Services catalog.
+ * CRUD operations for the Products/Services catalog using Supabase.
+ * Database columns use snake_case; TypeScript uses camelCase.
  */
 
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleFinancialTypes,
-  BubbleProductFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
-} from "../../constants/bubble-fields";
-import {
-  type ProductDTO,
-  type BubbleListResponse,
-  type BubbleObjectResponse,
-  type BubbleCreationResponse,
-  productDtoToModel,
-  productModelToDto,
-} from "../../types/dto";
-import type { Product } from "../../types/models";
+import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
+import type {
+  Product,
+  CreateProduct,
+  UpdateProduct,
+} from "@/lib/types/pipeline";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapProductFromDb(row: Record<string, unknown>): Product {
+  return {
+    id: row.id as string,
+    companyId: row.company_id as string,
+    name: row.name as string,
+    description: (row.description as string) ?? null,
+    defaultPrice: Number(row.default_price ?? 0),
+    unitCost: row.unit_cost != null ? Number(row.unit_cost) : null,
+    unit: (row.unit as string) ?? "each",
+    category: (row.category as string) ?? null,
+    isTaxable: (row.is_taxable as boolean) ?? false,
+    isActive: (row.is_active as boolean) ?? true,
+    createdAt: parseDate(row.created_at),
+    updatedAt: parseDate(row.updated_at),
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapProductToDb(
+  data: Partial<CreateProduct>
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.name !== undefined) row.name = data.name;
+  if (data.description !== undefined) row.description = data.description;
+  if (data.defaultPrice !== undefined) row.default_price = data.defaultPrice;
+  if (data.unitCost !== undefined) row.unit_cost = data.unitCost;
+  if (data.unit !== undefined) row.unit = data.unit;
+  if (data.category !== undefined) row.category = data.category;
+  if (data.isTaxable !== undefined) row.is_taxable = data.isTaxable;
+  if (data.isActive !== undefined) row.is_active = data.isActive;
+
+  return row;
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
 
 export const ProductService = {
   async fetchProducts(
     companyId: string,
     activeOnly: boolean = true
   ): Promise<Product[]> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleProductFields.company,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleProductFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("products")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (activeOnly) {
-      constraints.push({
-        key: BubbleProductFields.active,
-        constraint_type: BubbleConstraintType.equals,
-        value: true,
-      });
+      query = query.eq("is_active", true);
     }
 
-    const allProducts: Product[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    query = query.order("name");
 
-    while (remaining > 0) {
-      const response = await client.get<BubbleListResponse<ProductDTO>>(
-        `/obj/${BubbleFinancialTypes.product.toLowerCase()}`,
-        {
-          params: {
-            constraints: JSON.stringify(constraints),
-            limit: 100,
-            cursor,
-          },
-        }
-      );
-
-      allProducts.push(...response.response.results.map(productDtoToModel));
-      remaining = response.response.remaining;
-      cursor += response.response.results.length;
-    }
-
-    return allProducts;
+    const { data, error } = await query;
+    if (error) throw new Error(`Failed to fetch products: ${error.message}`);
+    return (data ?? []).map(mapProductFromDb);
   },
 
   async fetchProduct(id: string): Promise<Product> {
-    const client = getBubbleClient();
-    const response = await client.get<BubbleObjectResponse<ProductDTO>>(
-      `/obj/${BubbleFinancialTypes.product.toLowerCase()}/${id}`
-    );
-    return productDtoToModel(response.response);
+    const supabase = requireSupabase();
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) throw new Error(`Failed to fetch product: ${error.message}`);
+    return mapProductFromDb(data);
   },
 
-  async createProduct(
-    data: Partial<Product> & { name: string; companyId: string }
-  ): Promise<string> {
-    const client = getBubbleClient();
-    const dto = productModelToDto(data);
-    const response = await client.post<BubbleCreationResponse>(
-      `/obj/${BubbleFinancialTypes.product.toLowerCase()}`,
-      dto
-    );
-    return response.id;
+  async createProduct(data: CreateProduct): Promise<Product> {
+    const supabase = requireSupabase();
+    const row = mapProductToDb(data);
+
+    const { data: created, error } = await supabase
+      .from("products")
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create product: ${error.message}`);
+    return mapProductFromDb(created);
   },
 
-  async updateProduct(id: string, data: Partial<Product>): Promise<void> {
-    const client = getBubbleClient();
-    const dto = productModelToDto(data);
-    await client.patch(
-      `/obj/${BubbleFinancialTypes.product.toLowerCase()}/${id}`,
-      dto
-    );
+  async updateProduct(
+    id: string,
+    data: Partial<CreateProduct>
+  ): Promise<Product> {
+    const supabase = requireSupabase();
+    const row = mapProductToDb(data);
+
+    const { data: updated, error } = await supabase
+      .from("products")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to update product: ${error.message}`);
+    return mapProductFromDb(updated);
   },
 
   async deleteProduct(id: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.patch(
-      `/obj/${BubbleFinancialTypes.product.toLowerCase()}/${id}`,
-      { [BubbleProductFields.deletedAt]: new Date().toISOString() }
-    );
+    const supabase = requireSupabase();
+
+    const { error } = await supabase
+      .from("products")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to delete product: ${error.message}`);
   },
 };

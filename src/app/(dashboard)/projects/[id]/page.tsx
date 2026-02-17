@@ -46,16 +46,18 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import {
   type Project,
+  ProjectStatus,
+  getUserFullName,
+} from "@/lib/types/models";
+import {
   type Estimate,
   type Invoice,
-  ProjectStatus,
   EstimateStatus,
   InvoiceStatus,
   ESTIMATE_STATUS_COLORS,
   INVOICE_STATUS_COLORS,
-  getUserFullName,
   formatCurrency,
-} from "@/lib/types/models";
+} from "@/lib/types/pipeline";
 
 type TabId = "overview" | "tasks" | "financial" | "photos" | "notes";
 
@@ -479,10 +481,10 @@ function FinancialTab({ project }: { project: Project }) {
       .filter(
         (i) =>
           i.status === InvoiceStatus.Sent ||
-          i.status === InvoiceStatus.Partial ||
-          i.status === InvoiceStatus.Overdue
+          i.status === InvoiceStatus.PartiallyPaid ||
+          i.status === InvoiceStatus.PastDue
       )
-      .reduce((sum, i) => sum + i.balance, 0),
+      .reduce((sum, i) => sum + i.balanceDue, 0),
   };
 
   return (
@@ -565,9 +567,9 @@ function FinancialTab({ project }: { project: Project }) {
                     <span className="font-mono text-data-sm text-text-primary">
                       {formatCurrency(est.total)}
                     </span>
-                    {est.date && (
+                    {est.issueDate && (
                       <span className="font-mono text-[10px] text-text-disabled">
-                        {new Date(est.date).toLocaleDateString("en-US", {
+                        {new Date(est.issueDate).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                         })}
@@ -624,9 +626,9 @@ function FinancialTab({ project }: { project: Project }) {
                       <span className="font-mono text-data-sm text-text-primary block">
                         {formatCurrency(inv.total)}
                       </span>
-                      {inv.balance > 0 && inv.balance !== inv.total && (
+                      {inv.balanceDue > 0 && inv.balanceDue !== inv.total && (
                         <span className="font-mono text-[10px] text-ops-amber">
-                          {formatCurrency(inv.balance)} due
+                          {formatCurrency(inv.balanceDue)} due
                         </span>
                       )}
                     </div>

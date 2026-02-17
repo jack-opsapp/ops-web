@@ -44,15 +44,23 @@ import {
   InvoiceStatus,
   INVOICE_STATUS_COLORS,
   formatCurrency,
+  calculateLineTotal,
   PAYMENT_TERMS_OPTIONS,
-  calculateDueDate,
   PaymentMethod,
-  SyncStatus,
-} from "@/lib/types/models";
-import type { Invoice } from "@/lib/types/models";
+} from "@/lib/types/pipeline";
+import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
+
+/** Local helper — replaces the old models.calculateDueDate import */
+function calculateDueDate(issueDate: Date, terms: string): Date {
+  const d = new Date(issueDate);
+  if (terms === "Due on Receipt") return d;
+  const match = terms.match(/Net\s+(\d+)/);
+  if (match) d.setDate(d.getDate() + parseInt(match[1]));
+  return d;
+}
 
 type FilterStatus = "all" | InvoiceStatus;
 
@@ -60,9 +68,9 @@ const statusFilters: { value: FilterStatus; label: string }[] = [
   { value: "all", label: "All" },
   { value: InvoiceStatus.Draft, label: "Draft" },
   { value: InvoiceStatus.Sent, label: "Sent" },
-  { value: InvoiceStatus.Partial, label: "Partial" },
+  { value: InvoiceStatus.PartiallyPaid, label: "Partial" },
   { value: InvoiceStatus.Paid, label: "Paid" },
-  { value: InvoiceStatus.Overdue, label: "Overdue" },
+  { value: InvoiceStatus.PastDue, label: "Past Due" },
 ];
 
 function StatusBadgeInvoice({ status }: { status: InvoiceStatus }) {
@@ -87,7 +95,10 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   [PaymentMethod.Cash]: "Cash",
   [PaymentMethod.Check]: "Check",
   [PaymentMethod.CreditCard]: "Credit Card",
+  [PaymentMethod.DebitCard]: "Debit Card",
+  [PaymentMethod.Ach]: "ACH",
   [PaymentMethod.BankTransfer]: "Bank Transfer",
+  [PaymentMethod.Stripe]: "Stripe",
   [PaymentMethod.Other]: "Other",
 };
 
@@ -155,10 +166,10 @@ export default function InvoicesPage() {
   const metrics = useMemo(() => {
     const outstanding = invoices
       .filter((i) => i.status !== InvoiceStatus.Paid && i.status !== InvoiceStatus.Void)
-      .reduce((sum, i) => sum + i.balance, 0);
+      .reduce((sum, i) => sum + i.balanceDue, 0);
     const overdue = invoices
-      .filter((i) => i.status === InvoiceStatus.Overdue)
-      .reduce((sum, i) => sum + i.balance, 0);
+      .filter((i) => i.status === InvoiceStatus.PastDue)
+      .reduce((sum, i) => sum + i.balanceDue, 0);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const paidThisMonth = invoices
@@ -277,12 +288,12 @@ export default function InvoicesPage() {
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
-                    <span className="font-mono text-data-sm text-text-tertiary">{formatDate(invoice.date)}</span>
+                    <span className="font-mono text-data-sm text-text-tertiary">{formatDate(invoice.issueDate)}</span>
                   </td>
                   <td className="px-1.5 py-1 hidden lg:table-cell">
                     <span className={cn(
                       "font-mono text-data-sm",
-                      invoice.status === InvoiceStatus.Overdue ? "text-ops-error" : "text-text-tertiary"
+                      invoice.status === InvoiceStatus.PastDue ? "text-ops-error" : "text-text-tertiary"
                     )}>
                       {formatDate(invoice.dueDate)}
                     </span>
@@ -298,9 +309,9 @@ export default function InvoicesPage() {
                   <td className="px-1.5 py-1 text-right">
                     <span className={cn(
                       "font-mono text-data",
-                      invoice.balance > 0 ? "text-text-primary" : "text-status-success"
+                      invoice.balanceDue > 0 ? "text-text-primary" : "text-status-success"
                     )}>
-                      {formatCurrency(invoice.balance)}
+                      {formatCurrency(invoice.balanceDue)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 text-center">
@@ -400,36 +411,38 @@ function InvoiceFormModal({
   invoice: Invoice | null;
   clients: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; title: string }>;
-  products: Array<import("@/lib/types/models").Product>;
+  products: Array<Product>;
   companyId: string;
-  onCreate: (data: Partial<Invoice> & { companyId: string }, lineItems: Array<Partial<import("@/lib/types/models").LineItem>>) => void;
-  onUpdate: (id: string, data: Partial<Invoice> & { companyId: string }, lineItems: Array<Partial<import("@/lib/types/models").LineItem>>) => void;
+  onCreate: (data: Partial<CreateInvoice> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
+  onUpdate: (id: string, data: Partial<CreateInvoice> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
 }) {
   const isEditing = !!invoice;
 
   const [clientId, setClientId] = useState(invoice?.clientId ?? "");
   const [projectId, setProjectId] = useState(invoice?.projectId ?? "");
   const [date, setDate] = useState(
-    invoice?.date ? new Date(invoice.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
+    invoice?.issueDate ? new Date(invoice.issueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
   );
   const [paymentTerms, setPaymentTerms] = useState(invoice?.paymentTerms ?? "Net 30");
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : ""
   );
-  const [depositAmount, setDepositAmount] = useState(invoice?.depositAmount ?? 0);
-  const [notes, setNotes] = useState(invoice?.notes ?? "");
+  const [depositAmount, setDepositAmount] = useState(invoice?.depositApplied ?? 0);
+  const [notes, setNotes] = useState(invoice?.clientMessage ?? "");
   const [internalNotes, setInternalNotes] = useState(invoice?.internalNotes ?? "");
   const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
     if (invoice?.lineItems && invoice.lineItems.length > 0) {
       return invoice.lineItems.map((li) => ({
         id: li.id,
-        description: li.description,
+        name: li.name,
         quantity: li.quantity,
         unitPrice: li.unitPrice,
-        taxRate: li.taxRate,
+        isTaxable: li.isTaxable,
         discountPercent: li.discountPercent,
         productId: li.productId,
-        type: li.type,
+        unit: li.unit,
+        isOptional: li.isOptional,
+        isSelected: li.isSelected,
       }));
     }
     return [createEmptyLineItem()];
@@ -447,17 +460,17 @@ function InvoiceFormModal({
     if (invoice) {
       setClientId(invoice.clientId ?? "");
       setProjectId(invoice.projectId ?? "");
-      setDate(invoice.date ? new Date(invoice.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setDate(invoice.issueDate ? new Date(invoice.issueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
       setPaymentTerms(invoice.paymentTerms ?? "Net 30");
       setDueDate(invoice.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : "");
-      setDepositAmount(invoice.depositAmount ?? 0);
-      setNotes(invoice.notes ?? "");
+      setDepositAmount(invoice.depositApplied ?? 0);
+      setNotes(invoice.clientMessage ?? "");
       setInternalNotes(invoice.internalNotes ?? "");
       if (invoice.lineItems && invoice.lineItems.length > 0) {
         setLineItems(invoice.lineItems.map((li) => ({
-          id: li.id, description: li.description, quantity: li.quantity,
-          unitPrice: li.unitPrice, taxRate: li.taxRate, discountPercent: li.discountPercent,
-          productId: li.productId, type: li.type,
+          id: li.id, name: li.name, quantity: li.quantity,
+          unitPrice: li.unitPrice, isTaxable: li.isTaxable, discountPercent: li.discountPercent,
+          productId: li.productId, unit: li.unit, isOptional: li.isOptional, isSelected: li.isSelected,
         })));
       }
     } else {
@@ -471,38 +484,40 @@ function InvoiceFormModal({
     const mappedLineItems = lineItems.map((li, index) => {
       const amt = computeAmount(li);
       return {
-        description: li.description, quantity: li.quantity, unitPrice: li.unitPrice,
-        amount: amt.base, taxRate: li.taxRate, taxAmount: amt.tax,
-        discountPercent: li.discountPercent, discountAmount: amt.discount,
-        sortOrder: index, productId: li.productId, type: li.type,
+        companyId,
+        name: li.name, quantity: li.quantity, unitPrice: li.unitPrice,
+        isTaxable: li.isTaxable, discountPercent: li.discountPercent,
+        sortOrder: index, productId: li.productId,
+        unit: li.unit, isOptional: li.isOptional, isSelected: li.isSelected,
         estimateId: null, invoiceId: null,
+        description: null, unitCost: null, taxRateId: null,
+        category: null, serviceDate: null,
       };
     });
 
     const totals = mappedLineItems.reduce(
-      (acc, li) => ({ subtotal: acc.subtotal + li.amount, taxTotal: acc.taxTotal + li.taxAmount, discountTotal: acc.discountTotal + li.discountAmount }),
-      { subtotal: 0, taxTotal: 0, discountTotal: 0 }
+      (acc, li) => {
+        const lineTotal = calculateLineTotal(li.quantity, li.unitPrice, li.discountPercent);
+        return { subtotal: acc.subtotal + lineTotal, taxAmount: acc.taxAmount, discountAmount: acc.discountAmount };
+      },
+      { subtotal: 0, taxAmount: 0, discountAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxTotal - totals.discountTotal;
+    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
 
-    const formData: Partial<Invoice> & { companyId: string } = {
+    const formData: Partial<CreateInvoice> & { companyId: string } = {
       companyId,
-      clientId: clientId || null,
+      clientId: clientId || "",
       projectId: projectId || null,
-      date: date ? new Date(date) : new Date(),
-      dueDate: dueDate ? new Date(dueDate) : null,
+      issueDate: date ? new Date(date) : new Date(),
+      dueDate: dueDate ? new Date(dueDate) : new Date(),
       paymentTerms,
-      depositAmount,
-      notes: notes || null,
+      clientMessage: notes || null,
       internalNotes: internalNotes || null,
       subtotal: totals.subtotal,
-      taxTotal: totals.taxTotal,
-      discountTotal: totals.discountTotal,
+      taxAmount: totals.taxAmount,
+      discountAmount: totals.discountAmount,
       total,
-      balance: total - (invoice?.amountPaid ?? 0),
-      amountPaid: invoice?.amountPaid ?? 0,
       status: invoice?.status ?? InvoiceStatus.Draft,
-      syncStatus: SyncStatus.Pending,
     };
 
     if (isEditing && invoice) {
@@ -606,9 +621,9 @@ function RecordPaymentModal({
   onClose: () => void;
   invoice: Invoice | null;
   companyId: string;
-  onSubmit: (data: { invoiceId: string; companyId: string; amount: number; date: Date; method: PaymentMethod; referenceNumber: string | null; notes: string | null }) => void;
+  onSubmit: (data: CreatePayment) => void;
 }) {
-  const [amount, setAmount] = useState(invoice?.balance ?? 0);
+  const [amount, setAmount] = useState(invoice?.balanceDue ?? 0);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Other);
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -616,7 +631,7 @@ function RecordPaymentModal({
 
   useEffect(() => {
     if (invoice) {
-      setAmount(invoice.balance);
+      setAmount(invoice.balanceDue);
       setDate(new Date().toISOString().slice(0, 10));
       setMethod(PaymentMethod.Other);
       setReferenceNumber("");
@@ -647,7 +662,7 @@ function RecordPaymentModal({
             </div>
             <div className="flex justify-between">
               <span className="font-kosugi text-caption text-text-tertiary">Balance Due</span>
-              <span className="font-mono text-data text-ops-error">{formatCurrency(invoice.balance)}</span>
+              <span className="font-mono text-data text-ops-error">{formatCurrency(invoice.balanceDue)}</span>
             </div>
           </div>
 
@@ -655,7 +670,7 @@ function RecordPaymentModal({
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Amount</label>
             <div className="flex gap-1">
               <Input type="number" min={0.01} step={0.01} value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} className="flex-1" />
-              <Button variant="secondary" size="sm" onClick={() => setAmount(invoice.balance)}>Pay in Full</Button>
+              <Button variant="secondary" size="sm" onClick={() => setAmount(invoice.balanceDue)}>Pay in Full</Button>
             </div>
           </div>
 
@@ -691,11 +706,14 @@ function RecordPaymentModal({
                 onSubmit({
                   invoiceId: invoice.id,
                   companyId,
+                  clientId: invoice.clientId,
                   amount,
-                  date: new Date(date),
-                  method,
+                  paymentDate: new Date(date),
+                  paymentMethod: method,
                   referenceNumber: referenceNumber || null,
                   notes: notes || null,
+                  stripePaymentIntent: null,
+                  createdBy: null,
                 });
               }}
               disabled={amount <= 0}

@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { EstimateService, type FetchEstimatesOptions } from "../api/services";
-import type { Estimate, LineItem } from "../types/models";
+import type { CreateEstimate, CreateLineItem } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
 export function useEstimates(options?: FetchEstimatesOptions) {
@@ -20,7 +20,7 @@ export function useEstimates(options?: FetchEstimatesOptions) {
 
   return useQuery({
     queryKey: queryKeys.estimates.list(companyId, options as Record<string, unknown>),
-    queryFn: () => EstimateService.fetchAllEstimates(companyId, options),
+    queryFn: () => EstimateService.fetchEstimates(companyId, options),
     enabled: !!companyId,
   });
 }
@@ -52,8 +52,8 @@ export function useCreateEstimate() {
       data,
       lineItems,
     }: {
-      data: Partial<Estimate> & { companyId: string };
-      lineItems: Partial<LineItem>[];
+      data: Partial<CreateEstimate> & { companyId: string; clientId: string };
+      lineItems: Partial<CreateLineItem>[];
     }) => EstimateService.createEstimate(data, lineItems),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.estimates.lists() });
@@ -71,8 +71,8 @@ export function useUpdateEstimate() {
       lineItems,
     }: {
       id: string;
-      data: Partial<Estimate>;
-      lineItems?: Partial<LineItem>[];
+      data: Partial<CreateEstimate>;
+      lineItems?: Partial<CreateLineItem>[];
     }) => EstimateService.updateEstimate(id, data, lineItems),
     onSettled: (_data, _error, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.estimates.detail(id) });
@@ -108,7 +108,8 @@ export function useConvertEstimateToInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (estimateId: string) => EstimateService.convertToInvoice(estimateId),
+    mutationFn: ({ estimateId, dueDate }: { estimateId: string; dueDate?: string }) =>
+      EstimateService.convertToInvoice(estimateId, dueDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.estimates.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all });

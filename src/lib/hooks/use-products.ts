@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { ProductService } from "../api/services";
-import type { Product } from "../types/models";
+import type { CreateProduct } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
 export function useProducts(activeOnly: boolean = true) {
@@ -37,7 +37,7 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Product> & { name: string; companyId: string }) =>
+    mutationFn: (data: CreateProduct) =>
       ProductService.createProduct(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.products.lists() });
@@ -49,7 +49,7 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Product> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateProduct> }) =>
       ProductService.updateProduct(id, data),
     onSettled: (_data, _error, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.products.detail(id) });

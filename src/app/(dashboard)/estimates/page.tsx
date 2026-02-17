@@ -46,10 +46,8 @@ import {
   EstimateStatus,
   ESTIMATE_STATUS_COLORS,
   formatCurrency,
-  LineItemType,
-  SyncStatus,
-} from "@/lib/types/models";
-import type { Estimate } from "@/lib/types/models";
+} from "@/lib/types/pipeline";
+import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
@@ -60,8 +58,8 @@ const statusFilters: { value: FilterStatus; label: string }[] = [
   { value: "all", label: "All" },
   { value: EstimateStatus.Draft, label: "Draft" },
   { value: EstimateStatus.Sent, label: "Sent" },
-  { value: EstimateStatus.Accepted, label: "Accepted" },
-  { value: EstimateStatus.Rejected, label: "Rejected" },
+  { value: EstimateStatus.Approved, label: "Approved" },
+  { value: EstimateStatus.Declined, label: "Declined" },
 ];
 
 function StatusBadgeEstimate({ status }: { status: EstimateStatus }) {
@@ -157,7 +155,7 @@ export default function EstimatesPage() {
   const metrics = useMemo(() => {
     const draft = estimates.filter((e) => e.status === EstimateStatus.Draft).length;
     const sent = estimates.filter((e) => e.status === EstimateStatus.Sent).length;
-    const accepted = estimates.filter((e) => e.status === EstimateStatus.Accepted);
+    const accepted = estimates.filter((e) => e.status === EstimateStatus.Approved);
     const acceptedTotal = accepted.reduce((sum, e) => sum + e.total, 0);
     const total = estimates.reduce((sum, e) => sum + e.total, 0);
     return { draft, sent, acceptedCount: accepted.length, acceptedTotal, total };
@@ -280,12 +278,12 @@ export default function EstimatesPage() {
                   </td>
                   <td className="px-1.5 py-1 hidden md:table-cell">
                     <span className="font-mohave text-body-sm text-text-tertiary truncate block max-w-[160px]">
-                      {estimate.projectId ? projectMap.get(estimate.projectId) ?? "--" : "--"}
+                      {estimate.opportunityId ? projectMap.get(estimate.opportunityId) ?? "--" : "--"}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
                     <span className="font-mono text-data-sm text-text-tertiary">
-                      {formatDate(estimate.date)}
+                      {formatDate(estimate.issueDate)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden lg:table-cell">
@@ -312,9 +310,9 @@ export default function EstimatesPage() {
                           <Send className="w-[14px] h-[14px]" />
                         </button>
                       )}
-                      {(estimate.status === EstimateStatus.Accepted || estimate.status === EstimateStatus.Sent) && (
+                      {(estimate.status === EstimateStatus.Approved || estimate.status === EstimateStatus.Sent) && (
                         <button
-                          onClick={() => convertToInvoice.mutate(estimate.id)}
+                          onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
                           className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
                           title="Convert to Invoice"
                         >
@@ -374,7 +372,7 @@ export default function EstimatesPage() {
   );
 }
 
-// ─── Estimate Form Modal ──────────────────────────────────────────────────────
+// --- Estimate Form Modal ----------------------------------------------------
 
 function EstimateFormModal({
   open,
@@ -392,18 +390,18 @@ function EstimateFormModal({
   estimate: Estimate | null;
   clients: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; title: string }>;
-  products: Array<import("@/lib/types/models").Product>;
+  products: Array<Product>;
   companyId: string;
-  onCreate: (data: Partial<Estimate> & { companyId: string }, lineItems: Array<Partial<import("@/lib/types/models").LineItem>>) => void;
-  onUpdate: (id: string, data: Partial<Estimate> & { companyId: string }, lineItems: Array<Partial<import("@/lib/types/models").LineItem>>) => void;
+  onCreate: (data: Partial<CreateEstimate> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
+  onUpdate: (id: string, data: Partial<CreateEstimate> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
 }) {
   const isEditing = !!estimate;
 
   const [clientId, setClientId] = useState(estimate?.clientId ?? "");
-  const [projectId, setProjectId] = useState(estimate?.projectId ?? "");
+  const [projectId, setProjectId] = useState(estimate?.opportunityId ?? "");
   const [date, setDate] = useState(
-    estimate?.date
-      ? new Date(estimate.date).toISOString().slice(0, 10)
+    estimate?.issueDate
+      ? new Date(estimate.issueDate).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10)
   );
   const [expirationDate, setExpirationDate] = useState(
@@ -411,20 +409,22 @@ function EstimateFormModal({
       ? new Date(estimate.expirationDate).toISOString().slice(0, 10)
       : ""
   );
-  const [notes, setNotes] = useState(estimate?.notes ?? "");
+  const [notes, setNotes] = useState(estimate?.clientMessage ?? "");
   const [internalNotes, setInternalNotes] = useState(estimate?.internalNotes ?? "");
-  const [termsAndConditions, setTermsAndConditions] = useState(estimate?.termsAndConditions ?? "");
+  const [termsAndConditions, setTermsAndConditions] = useState(estimate?.terms ?? "");
   const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
     if (estimate?.lineItems && estimate.lineItems.length > 0) {
       return estimate.lineItems.map((li) => ({
         id: li.id,
-        description: li.description,
+        name: li.name,
         quantity: li.quantity,
         unitPrice: li.unitPrice,
-        taxRate: li.taxRate,
+        isTaxable: li.isTaxable,
         discountPercent: li.discountPercent,
         productId: li.productId,
-        type: li.type,
+        unit: li.unit,
+        isOptional: li.isOptional,
+        isSelected: li.isSelected,
       }));
     }
     return [createEmptyLineItem()];
@@ -434,22 +434,24 @@ function EstimateFormModal({
   useEffect(() => {
     if (estimate) {
       setClientId(estimate.clientId ?? "");
-      setProjectId(estimate.projectId ?? "");
-      setDate(estimate.date ? new Date(estimate.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setProjectId(estimate.opportunityId ?? "");
+      setDate(estimate.issueDate ? new Date(estimate.issueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
       setExpirationDate(estimate.expirationDate ? new Date(estimate.expirationDate).toISOString().slice(0, 10) : "");
-      setNotes(estimate.notes ?? "");
+      setNotes(estimate.clientMessage ?? "");
       setInternalNotes(estimate.internalNotes ?? "");
-      setTermsAndConditions(estimate.termsAndConditions ?? "");
+      setTermsAndConditions(estimate.terms ?? "");
       if (estimate.lineItems && estimate.lineItems.length > 0) {
         setLineItems(estimate.lineItems.map((li) => ({
           id: li.id,
-          description: li.description,
+          name: li.name,
           quantity: li.quantity,
           unitPrice: li.unitPrice,
-          taxRate: li.taxRate,
+          isTaxable: li.isTaxable,
           discountPercent: li.discountPercent,
           productId: li.productId,
-          type: li.type,
+          unit: li.unit,
+          isOptional: li.isOptional,
+          isSelected: li.isSelected,
         })));
       }
     } else {
@@ -465,50 +467,51 @@ function EstimateFormModal({
   }, [estimate]);
 
   const handleSubmit = () => {
-    const mappedLineItems = lineItems.map((li, index) => {
-      const amt = computeAmount(li);
+    const mappedLineItems: Partial<CreateLineItem>[] = lineItems.map((li, index) => {
       return {
-        description: li.description,
+        name: li.name,
         quantity: li.quantity,
         unitPrice: li.unitPrice,
-        amount: amt.base,
-        taxRate: li.taxRate,
-        taxAmount: amt.tax,
         discountPercent: li.discountPercent,
-        discountAmount: amt.discount,
-        sortOrder: index,
         productId: li.productId,
-        type: li.type,
+        sortOrder: index,
         estimateId: null,
         invoiceId: null,
+        isTaxable: li.isTaxable,
+        unit: li.unit,
+        isOptional: li.isOptional,
+        isSelected: li.isSelected,
+        companyId,
       };
     });
 
-    const totals = mappedLineItems.reduce(
-      (acc, li) => ({
-        subtotal: acc.subtotal + li.amount,
-        taxTotal: acc.taxTotal + li.taxAmount,
-        discountTotal: acc.discountTotal + li.discountAmount,
-      }),
-      { subtotal: 0, taxTotal: 0, discountTotal: 0 }
+    const totals = lineItems.reduce(
+      (acc, li) => {
+        const amt = computeAmount(li);
+        return {
+          subtotal: acc.subtotal + amt.lineTotal,
+          taxAmount: acc.taxAmount + amt.tax,
+          discountAmount: acc.discountAmount + (li.discountPercent > 0 ? (li.quantity * li.unitPrice * li.discountPercent / 100) : 0),
+        };
+      },
+      { subtotal: 0, taxAmount: 0, discountAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxTotal - totals.discountTotal;
+    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
 
-    const formData: Partial<Estimate> & { companyId: string } = {
+    const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
       clientId: clientId || null,
-      projectId: projectId || null,
-      date: date ? new Date(date) : new Date(),
+      opportunityId: projectId || null,
+      issueDate: date ? new Date(date) : new Date(),
       expirationDate: expirationDate ? new Date(expirationDate) : null,
-      notes: notes || null,
+      clientMessage: notes || null,
       internalNotes: internalNotes || null,
-      termsAndConditions: termsAndConditions || null,
+      terms: termsAndConditions || null,
       subtotal: totals.subtotal,
-      taxTotal: totals.taxTotal,
-      discountTotal: totals.discountTotal,
+      taxAmount: totals.taxAmount,
+      discountAmount: totals.discountAmount,
       total,
       status: estimate?.status ?? EstimateStatus.Draft,
-      syncStatus: SyncStatus.Pending,
     };
 
     if (isEditing && estimate) {

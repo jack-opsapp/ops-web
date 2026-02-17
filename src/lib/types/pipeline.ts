@@ -113,6 +113,12 @@ export enum PaymentMethod {
   Other = "other",
 }
 
+/** Accounting provider */
+export enum AccountingProvider {
+  QuickBooks = "quickbooks",
+  Sage = "sage",
+}
+
 /** Opportunity priority level */
 export enum OpportunityPriority {
   Low = "low",
@@ -600,6 +606,23 @@ export interface PaymentMilestone {
   invoice?: Invoice | null;
 }
 
+/** Accounting provider connection */
+export interface AccountingConnection {
+  id: string;
+  companyId: string;
+  provider: AccountingProvider;
+  accessToken: string | null;
+  refreshToken: string | null;
+  tokenExpiresAt: Date | null;
+  realmId: string | null;
+  isConnected: boolean;
+  lastSyncAt: Date | null;
+  syncEnabled: boolean;
+  webhookVerifierToken: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
 /** Communication / event log entry */
 export interface Activity {
   id: string;
@@ -993,6 +1016,13 @@ export type CreatePipelineStageConfig = Omit<
   PipelineStageConfig,
   "id" | "createdAt" | "deletedAt"
 >;
+
+export type CreateAccountingConnection = Omit<
+  AccountingConnection,
+  "id" | "createdAt" | "updatedAt"
+>;
+
+export type UpdateAccountingConnection = Partial<CreateAccountingConnection> & { id: string };
 
 /** Update type - all fields optional except id */
 export type UpdateOpportunity = Partial<CreateOpportunity> & { id: string };

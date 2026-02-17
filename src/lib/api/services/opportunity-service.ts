@@ -9,8 +9,7 @@
  * happens at the mapping layer in this file.
  */
 
-import { getSupabaseClient } from "@/lib/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
 import type {
   Opportunity,
   CreateOpportunity,
@@ -26,18 +25,6 @@ import {
   FollowUpStatus,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
-
-// ─── Supabase Guard ──────────────────────────────────────────────────────────
-
-function requireSupabase(): SupabaseClient {
-  const client = getSupabaseClient();
-  if (!client) {
-    throw new Error(
-      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
-    );
-  }
-  return client;
-}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -59,24 +46,6 @@ export interface FetchOpportunitiesOptions {
 }
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
-
-/**
- * Parse a value from the database into a Date or null.
- * Supabase returns dates as ISO-8601 strings.
- */
-function parseDate(value: unknown): Date | null {
-  if (value == null) return null;
-  const d = new Date(value as string);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-/**
- * Parse a value from the database into a required Date.
- * Falls back to the current time if the value is missing or invalid.
- */
-function parseDateRequired(value: unknown): Date {
-  return parseDate(value) ?? new Date();
-}
 
 /**
  * Convert a snake_case database row into a camelCase Opportunity object.

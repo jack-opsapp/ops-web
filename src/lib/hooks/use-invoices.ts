@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { InvoiceService, type FetchInvoicesOptions } from "../api/services";
-import type { Invoice, LineItem, Payment } from "../types/models";
+import type { CreateInvoice, CreateLineItem, CreatePayment } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
 export function useInvoices(options?: FetchInvoicesOptions) {
@@ -52,8 +52,8 @@ export function useCreateInvoice() {
       data,
       lineItems,
     }: {
-      data: Partial<Invoice> & { companyId: string };
-      lineItems: Partial<LineItem>[];
+      data: Partial<CreateInvoice> & { companyId: string; clientId: string };
+      lineItems: Partial<CreateLineItem>[];
     }) => InvoiceService.createInvoice(data, lineItems),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.lists() });
@@ -71,8 +71,8 @@ export function useUpdateInvoice() {
       lineItems,
     }: {
       id: string;
-      data: Partial<Invoice>;
-      lineItems?: Partial<LineItem>[];
+      data: Partial<CreateInvoice>;
+      lineItems?: Partial<CreateLineItem>[];
     }) => InvoiceService.updateInvoice(id, data, lineItems),
     onSettled: (_data, _error, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(id) });
@@ -120,7 +120,7 @@ export function useRecordPayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Payment> & { invoiceId: string; companyId: string; amount: number }) =>
+    mutationFn: (data: CreatePayment) =>
       InvoiceService.recordPayment(data),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -134,12 +134,19 @@ export function useRecordPayment() {
   });
 }
 
-export function useDeletePayment() {
+export function useVoidPayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ paymentId, invoiceId }: { paymentId: string; invoiceId: string }) =>
-      InvoiceService.deletePayment(paymentId),
+    mutationFn: ({
+      paymentId,
+      invoiceId,
+      userId,
+    }: {
+      paymentId: string;
+      invoiceId: string;
+      userId: string;
+    }) => InvoiceService.voidPayment(paymentId, userId),
     onSuccess: (_data, { invoiceId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.invoices.detail(invoiceId),

@@ -29,8 +29,8 @@ import {
   AccountingProvider,
   InvoiceStatus,
   formatCurrency,
-} from "@/lib/types/models";
-import type { AccountingConnection, Invoice } from "@/lib/types/models";
+} from "@/lib/types/pipeline";
+import type { AccountingConnection, Invoice } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -75,7 +75,7 @@ function calculateAgingBuckets(invoices: Invoice[]) {
       inv.status === InvoiceStatus.Paid
     ) continue;
 
-    const balance = inv.balance;
+    const balance = inv.balanceDue;
     if (balance <= 0) continue;
 
     if (!inv.dueDate) {
@@ -352,14 +352,14 @@ export default function AccountingPage() {
 
       if (
         inv.status === InvoiceStatus.Sent ||
-        inv.status === InvoiceStatus.Partial ||
-        inv.status === InvoiceStatus.Overdue
+        inv.status === InvoiceStatus.PartiallyPaid ||
+        inv.status === InvoiceStatus.PastDue
       ) {
-        outstanding += inv.balance;
+        outstanding += inv.balanceDue;
       }
 
-      if (inv.status === InvoiceStatus.Overdue) {
-        overdue += inv.balance;
+      if (inv.status === InvoiceStatus.PastDue) {
+        overdue += inv.balanceDue;
       }
 
       if (inv.paidAt && new Date(inv.paidAt) >= monthStart) {

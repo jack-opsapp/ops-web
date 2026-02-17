@@ -5,7 +5,6 @@ import {
   Plus,
   Search,
   Package,
-  Wrench,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -18,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { EmptyState } from "@/components/ops/empty-state";
 import {
   useProducts,
@@ -27,21 +25,14 @@ import {
   useDeleteProduct,
 } from "@/lib/hooks";
 import {
-  ProductType,
   formatCurrency,
-} from "@/lib/types/models";
-import type { Product } from "@/lib/types/models";
+  calculateMargin,
+  UNIT_OPTIONS,
+} from "@/lib/types/pipeline";
+import type { Product, CreateProduct } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
-
-type FilterType = "all" | ProductType;
-
-const typeFilters: { value: FilterType; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: ProductType.Service, label: "Services" },
-  { value: ProductType.Product, label: "Products" },
-];
 
 export default function ProductsPage() {
   const { company } = useAuthStore();
@@ -53,7 +44,6 @@ export default function ProductsPage() {
   const deleteProduct = useDeleteProduct();
 
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<FilterType>("all");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
@@ -74,29 +64,25 @@ export default function ProductsPage() {
   const filtered = useMemo(() => {
     let result = products.filter((p) => !p.deletedAt);
 
-    if (filterType !== "all") {
-      result = result.filter((p) => p.type === filterType);
-    }
-
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           (p.description ?? "").toLowerCase().includes(q) ||
-          (p.sku ?? "").toLowerCase().includes(q)
+          (p.category ?? "").toLowerCase().includes(q)
       );
     }
 
     return result;
-  }, [products, filterType, search]);
+  }, [products, search]);
 
   const stats = useMemo(() => {
     const active = products.filter((p) => !p.deletedAt);
     return {
       total: active.length,
-      services: active.filter((p) => p.type === ProductType.Service).length,
-      products: active.filter((p) => p.type === ProductType.Product).length,
+      active: active.filter((p) => p.isActive).length,
+      inactive: active.filter((p) => !p.isActive).length,
     };
   }, [products]);
 
@@ -109,7 +95,7 @@ export default function ProductsPage() {
             Products & Services
           </h1>
           <p className="font-mohave text-body-sm text-text-tertiary">
-            {stats.total} items — {stats.services} services, {stats.products} products
+            {stats.total} items — {stats.active} active, {stats.inactive} inactive
           </p>
         </div>
         <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
@@ -129,11 +115,6 @@ export default function ProductsPage() {
             className="pl-7"
           />
         </div>
-        <SegmentedPicker
-          options={typeFilters.map((f) => ({ value: f.value, label: f.label }))}
-          value={filterType}
-          onChange={setFilterType}
-        />
       </div>
 
       {/* Table */}
@@ -161,7 +142,10 @@ export default function ProductsPage() {
                   Name
                 </th>
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
-                  Type
+                  Unit
+                </th>
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
+                  Category
                 </th>
                 <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
                   Price
@@ -171,9 +155,6 @@ export default function ProductsPage() {
                 </th>
                 <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
                   Taxable
-                </th>
-                <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
-                  SKU
                 </th>
                 <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest w-[80px]">
                   Actions
@@ -200,31 +181,31 @@ export default function ProductsPage() {
                     </div>
                   </td>
 
-                  {/* Type */}
+                  {/* Unit */}
                   <td className="px-2 py-1.5 hidden sm:table-cell">
-                    <div className="flex items-center gap-1">
-                      {product.type === ProductType.Service ? (
-                        <Wrench className="w-[12px] h-[12px] text-[#8195B5]" />
-                      ) : (
-                        <Package className="w-[12px] h-[12px] text-[#C4A868]" />
-                      )}
-                      <span className="font-kosugi text-caption-sm text-text-secondary uppercase">
-                        {product.type}
-                      </span>
-                    </div>
+                    <span className="font-kosugi text-caption-sm text-text-secondary uppercase">
+                      {product.unit}
+                    </span>
+                  </td>
+
+                  {/* Category */}
+                  <td className="px-2 py-1.5 hidden md:table-cell">
+                    <span className="font-kosugi text-caption-sm text-text-tertiary">
+                      {product.category || "—"}
+                    </span>
                   </td>
 
                   {/* Price */}
                   <td className="px-2 py-1.5 text-right">
                     <span className="font-mono text-data-sm text-text-primary">
-                      {formatCurrency(product.unitPrice)}
+                      {formatCurrency(product.defaultPrice)}
                     </span>
                   </td>
 
                   {/* Cost */}
                   <td className="px-2 py-1.5 text-right hidden md:table-cell">
                     <span className="font-mono text-data-sm text-text-tertiary">
-                      {product.costPrice != null ? formatCurrency(product.costPrice) : "—"}
+                      {product.unitCost != null ? formatCurrency(product.unitCost) : "—"}
                     </span>
                   </td>
 
@@ -233,19 +214,12 @@ export default function ProductsPage() {
                     <span
                       className={cn(
                         "font-kosugi text-[10px] uppercase tracking-wider px-1 py-0.5 rounded",
-                        product.taxable
+                        product.isTaxable
                           ? "bg-[rgba(157,181,130,0.15)] text-status-success"
                           : "bg-[rgba(156,163,175,0.1)] text-text-disabled"
                       )}
                     >
-                      {product.taxable ? "Yes" : "No"}
-                    </span>
-                  </td>
-
-                  {/* SKU */}
-                  <td className="px-2 py-1.5 text-center hidden md:table-cell">
-                    <span className="font-mono text-[10px] text-text-disabled">
-                      {product.sku || "—"}
+                      {product.isTaxable ? "Yes" : "No"}
                     </span>
                   </td>
 
@@ -316,40 +290,40 @@ function ProductFormModal({
   onClose: () => void;
   product: Product | null;
   companyId: string;
-  onCreate: (data: Partial<Product> & { name: string; companyId: string }) => void;
-  onUpdate: (id: string, data: Partial<Product>) => void;
+  onCreate: (data: CreateProduct) => void;
+  onUpdate: (id: string, data: Partial<CreateProduct>) => void;
 }) {
   const isEditing = !!product;
 
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
-  const [type, setType] = useState<ProductType>(product?.type ?? ProductType.Service);
-  const [unitPrice, setUnitPrice] = useState(product?.unitPrice ?? 0);
-  const [costPrice, setCostPrice] = useState(product?.costPrice ?? 0);
-  const [taxable, setTaxable] = useState(product?.taxable ?? true);
-  const [sku, setSku] = useState(product?.sku ?? "");
-  const [active, setActive] = useState(product?.active ?? true);
+  const [defaultPrice, setDefaultPrice] = useState(product?.defaultPrice ?? 0);
+  const [unitCost, setUnitCost] = useState(product?.unitCost ?? 0);
+  const [unit, setUnit] = useState(product?.unit ?? "each");
+  const [category, setCategory] = useState(product?.category ?? "");
+  const [isTaxable, setIsTaxable] = useState(product?.isTaxable ?? true);
+  const [isActive, setIsActive] = useState(product?.isActive ?? true);
 
   // Reset form when product changes
   useEffect(() => {
     if (product) {
       setName(product.name);
       setDescription(product.description ?? "");
-      setType(product.type);
-      setUnitPrice(product.unitPrice);
-      setCostPrice(product.costPrice ?? 0);
-      setTaxable(product.taxable);
-      setSku(product.sku ?? "");
-      setActive(product.active);
+      setDefaultPrice(product.defaultPrice);
+      setUnitCost(product.unitCost ?? 0);
+      setUnit(product.unit ?? "each");
+      setCategory(product.category ?? "");
+      setIsTaxable(product.isTaxable);
+      setIsActive(product.isActive);
     } else {
       setName("");
       setDescription("");
-      setType(ProductType.Service);
-      setUnitPrice(0);
-      setCostPrice(0);
-      setTaxable(true);
-      setSku("");
-      setActive(true);
+      setDefaultPrice(0);
+      setUnitCost(0);
+      setUnit("each");
+      setCategory("");
+      setIsTaxable(true);
+      setIsActive(true);
     }
   }, [product]);
 
@@ -359,12 +333,12 @@ function ProductFormModal({
     const data = {
       name: name.trim(),
       description: description.trim() || null,
-      type,
-      unitPrice,
-      costPrice: costPrice || null,
-      taxable,
-      sku: sku.trim() || null,
-      active,
+      defaultPrice,
+      unitCost: unitCost || null,
+      unit,
+      category: category.trim() || null,
+      isTaxable,
+      isActive,
     };
 
     if (isEditing && product) {
@@ -373,11 +347,11 @@ function ProductFormModal({
       onCreate({
         ...data,
         companyId,
-        externalQboId: null,
-        externalSageId: null,
       });
     }
   };
+
+  const margin = calculateMargin(defaultPrice, unitCost || null);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -389,21 +363,6 @@ function ProductFormModal({
         </DialogHeader>
 
         <div className="space-y-3 mt-2">
-          {/* Type picker */}
-          <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Type
-            </label>
-            <SegmentedPicker
-              options={[
-                { value: ProductType.Service, label: "Service", icon: Wrench },
-                { value: ProductType.Product, label: "Product", icon: Package },
-              ]}
-              value={type}
-              onChange={setType}
-            />
-          </div>
-
           {/* Name */}
           <div className="space-y-0.5">
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
@@ -412,7 +371,7 @@ function ProductFormModal({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={type === ProductType.Service ? "e.g. HVAC Installation" : "e.g. Copper Pipe 3/4\""}
+              placeholder="e.g. HVAC Installation"
             />
           </div>
 
@@ -433,40 +392,56 @@ function ProductFormModal({
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Unit Price *
+                Default Price *
               </label>
               <Input
                 type="number"
                 min={0}
                 step={0.01}
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)}
+                value={defaultPrice}
+                onChange={(e) => setDefaultPrice(parseFloat(e.target.value) || 0)}
               />
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Cost Price
+                Unit Cost
               </label>
               <Input
                 type="number"
                 min={0}
                 step={0.01}
-                value={costPrice}
-                onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)}
+                value={unitCost}
+                onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
               />
             </div>
           </div>
 
-          {/* SKU */}
-          <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              SKU
-            </label>
-            <Input
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
-              placeholder="Optional SKU or part number"
-            />
+          {/* Unit / Category */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                Unit
+              </label>
+              <select
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+              >
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-0.5">
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                Category
+              </label>
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="e.g. Labor, Materials"
+              />
+            </div>
           </div>
 
           {/* Toggles */}
@@ -474,8 +449,8 @@ function ProductFormModal({
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
-                checked={taxable}
-                onChange={(e) => setTaxable(e.target.checked)}
+                checked={isTaxable}
+                onChange={(e) => setIsTaxable(e.target.checked)}
                 className="rounded border-border"
               />
               <span className="font-kosugi text-caption text-text-secondary">Taxable</span>
@@ -483,8 +458,8 @@ function ProductFormModal({
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
-                checked={active}
-                onChange={(e) => setActive(e.target.checked)}
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded border-border"
               />
               <span className="font-kosugi text-caption text-text-secondary">Active</span>
@@ -492,13 +467,13 @@ function ProductFormModal({
           </div>
 
           {/* Margin display */}
-          {costPrice > 0 && unitPrice > 0 && (
+          {margin !== null && (
             <div className="bg-[rgba(255,255,255,0.02)] border border-border rounded p-1.5">
               <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
                 Margin:{" "}
               </span>
               <span className="font-mono text-data-sm text-status-success">
-                {formatCurrency(unitPrice - costPrice)} ({((1 - costPrice / unitPrice) * 100).toFixed(1)}%)
+                {formatCurrency(defaultPrice - (unitCost || 0))} ({margin.toFixed(1)}%)
               </span>
             </div>
           )}
