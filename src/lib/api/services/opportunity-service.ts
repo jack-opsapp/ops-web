@@ -10,6 +10,7 @@
  */
 
 import { getSupabaseClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Opportunity,
   CreateOpportunity,
@@ -25,6 +26,18 @@ import {
   FollowUpStatus,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
+
+// ─── Supabase Guard ──────────────────────────────────────────────────────────
+
+function requireSupabase(): SupabaseClient {
+  const client = getSupabaseClient();
+  if (!client) {
+    throw new Error(
+      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
+    );
+  }
+  return client;
+}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -303,7 +316,7 @@ export const OpportunityService = {
     companyId: string,
     options: FetchOpportunitiesOptions = {}
   ): Promise<Opportunity[]> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     let query = supabase
       .from("opportunities")
@@ -355,7 +368,7 @@ export const OpportunityService = {
    * Fetch a single opportunity by ID.
    */
   async fetchOpportunity(id: string): Promise<Opportunity> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("opportunities")
@@ -375,7 +388,7 @@ export const OpportunityService = {
    * Returns the newly created opportunity.
    */
   async createOpportunity(data: CreateOpportunity): Promise<Opportunity> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const row = mapOpportunityToDb(data);
 
@@ -400,7 +413,7 @@ export const OpportunityService = {
     id: string,
     data: Partial<UpdateOpportunity>
   ): Promise<Opportunity> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     // Strip the id field if present – it should not be sent as a column update
     const { id: _id, ...rest } = data as Record<string, unknown>;
@@ -437,7 +450,7 @@ export const OpportunityService = {
     newStage: OpportunityStage,
     userId?: string
   ): Promise<Opportunity> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     // 1. Fetch current opportunity
     const current = await OpportunityService.fetchOpportunity(id);
@@ -502,7 +515,7 @@ export const OpportunityService = {
    * Sets deleted_at timestamp rather than physically deleting.
    */
   async deleteOpportunity(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const { error } = await supabase
       .from("opportunities")
@@ -521,7 +534,7 @@ export const OpportunityService = {
    * Returns most recent activities first.
    */
   async fetchActivities(opportunityId: string): Promise<Activity[]> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("activities")
@@ -544,7 +557,7 @@ export const OpportunityService = {
    * Create a new activity record.
    */
   async createActivity(data: CreateActivity): Promise<Activity> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const row = mapActivityToDb(data);
 
@@ -568,7 +581,7 @@ export const OpportunityService = {
    * Returns soonest-due follow-ups first.
    */
   async fetchFollowUps(opportunityId: string): Promise<FollowUp[]> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("follow_ups")
@@ -591,7 +604,7 @@ export const OpportunityService = {
    * Create a new follow-up.
    */
   async createFollowUp(data: CreateFollowUp): Promise<FollowUp> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const row = mapFollowUpToDb(data);
 
@@ -613,7 +626,7 @@ export const OpportunityService = {
    * Sets status to Completed, records the completion timestamp and optional notes.
    */
   async completeFollowUp(id: string, notes?: string): Promise<FollowUp> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const updateData: Record<string, unknown> = {
       status: FollowUpStatus.Completed,
@@ -647,7 +660,7 @@ export const OpportunityService = {
   async fetchStageTransitions(
     opportunityId: string
   ): Promise<StageTransition[]> {
-    const supabase = getSupabaseClient();
+    const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("stage_transitions")
