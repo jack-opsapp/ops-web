@@ -1,23 +1,16 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
   Clock,
   X,
   ListFilter,
-  Phone,
-  Users,
   TrendingUp,
-  Calendar,
-  MessageSquare,
   Target,
-  ArrowRight,
   Loader2,
   FolderOpen,
-  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -25,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
-import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { useWindowStore } from "@/stores/window-store";
 import { ProjectDetailModal } from "@/components/ops/project-detail-modal";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useProjects, useClients, useUpdateProjectStatus } from "@/lib/hooks";
@@ -42,8 +35,7 @@ import {
 type PipelineStageId =
   | "new-lead"
   | "quoted"
-  | "negotiating"
-  | "won"
+  | "converted"
   | "lost";
 
 interface PipelineStageConfig {
@@ -90,22 +82,13 @@ const PIPELINE_STAGES: PipelineStageConfig[] = [
     statuses: [ProjectStatus.Estimated],
   },
   {
-    id: "negotiating",
-    label: "Negotiating",
-    color: "text-ops-amber",
-    borderColor: "border-t-ops-amber",
-    bgAccent: "bg-ops-amber",
-    textColor: "#C4A868",
-    statuses: [ProjectStatus.Accepted],
-  },
-  {
-    id: "won",
+    id: "converted",
     label: "Converted",
     color: "text-status-success",
     borderColor: "border-t-status-success",
     bgAccent: "bg-status-success",
     textColor: "#4ADE80",
-    statuses: [ProjectStatus.InProgress, ProjectStatus.Completed, ProjectStatus.Closed],
+    statuses: [ProjectStatus.Accepted, ProjectStatus.InProgress, ProjectStatus.Completed, ProjectStatus.Closed],
   },
   {
     id: "lost",
@@ -151,41 +134,20 @@ function daysSince(date: Date | string | null): number {
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }
 
-/**
- * Format a date for display.
- */
-function formatShortDate(date: Date | string | null): string {
-  if (!date) return "";
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
 // ---------------------------------------------------------------------------
-// Draggable Pipeline Card
+// Draggable Pipeline Card (Minimal)
 // ---------------------------------------------------------------------------
 function PipelineCardComponent({
   card,
-  columnColor: _columnColor,
   isDragOverlay,
-  onCall,
-  onNote,
-  onAdvance,
   onViewDetail,
 }: {
   card: PipelineCard;
-  columnColor: string;
   isDragOverlay?: boolean;
-  onCall?: (phone: string) => void;
-  onNote?: (projectId: string) => void;
-  onAdvance?: (projectId: string) => void;
   onViewDetail?: (project: Project) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const { project, client } = card;
   const clientName = client?.name || "No Client";
-  const clientEmail = client?.email || undefined;
-  const clientPhone = client?.phoneNumber || undefined;
   const daysInStage = daysSince(project.startDate);
 
   return (
@@ -203,7 +165,7 @@ function PipelineCardComponent({
         !isDragOverlay && "hover:border-[rgba(255,255,255,0.3)]"
       )}
     >
-      {/* Top row: client name + status badge */}
+      {/* Client name + status badge */}
       <div className="flex items-start gap-[6px]">
         <div className="flex-1 min-w-0">
           <h4 className="font-mohave text-body-sm text-text-primary truncate uppercase">
@@ -225,150 +187,27 @@ function PipelineCardComponent({
         </span>
       </div>
 
-      {/* Address row */}
-      {project.address && (
-        <p className="font-kosugi text-[9px] text-text-disabled truncate mt-0.5">
-          {project.address}
-        </p>
-      )}
-
-      {/* Days in stage + date row */}
+      {/* Days in stage + view project */}
       <div className="flex items-center justify-between mt-1">
-        <div className="flex items-center gap-[6px]">
-          {daysInStage > 0 && (
-            <div
-              className="flex items-center gap-[2px]"
-              title={`${daysInStage} days since start`}
-            >
-              <Clock className="w-[10px] h-[10px] text-text-disabled" />
-              <span className="font-mono text-[9px] text-text-disabled">
-                {daysInStage}d
-              </span>
-            </div>
-          )}
-          {project.teamMemberIds.length > 0 && (
-            <div className="flex items-center gap-[2px]">
-              <Users className="w-[10px] h-[10px] text-text-disabled" />
-              <span className="font-mono text-[9px] text-text-disabled">
-                {project.teamMemberIds.length}
-              </span>
-            </div>
-          )}
-        </div>
-        {project.startDate && (
-          <div className="flex items-center gap-[3px] text-text-disabled">
-            <Calendar className="w-[10px] h-[10px]" />
-            <span className="font-mono text-[9px]">
-              {formatShortDate(project.startDate)}
-            </span>
+        {daysInStage > 0 ? (
+          <div className="flex items-center gap-[2px]" title={`${daysInStage} days since start`}>
+            <Clock className="w-[10px] h-[10px] text-text-disabled" />
+            <span className="font-mono text-[9px] text-text-disabled">{daysInStage}d</span>
           </div>
+        ) : (
+          <div />
         )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDetail?.(project);
+          }}
+          className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+          title="View Project"
+        >
+          <FolderOpen className="w-[12px] h-[12px]" />
+        </button>
       </div>
-
-      {/* Show Details toggle */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsExpanded(!isExpanded);
-        }}
-        className="flex items-center gap-[4px] mt-1 text-text-disabled hover:text-text-tertiary transition-colors w-full"
-      >
-        <ChevronDown
-          className={cn(
-            "w-[12px] h-[12px] transition-transform duration-150",
-            isExpanded && "rotate-180"
-          )}
-        />
-        <span className="font-kosugi text-[9px] uppercase tracking-wider">
-          {isExpanded ? "Hide Details" : "Show Details"}
-        </span>
-      </button>
-
-      {/* Expandable detail section */}
-      {isExpanded && (
-        <div className="mt-1 pt-1 border-t border-[rgba(255,255,255,0.1)] space-y-1 animate-slide-up">
-          {clientEmail && (
-            <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
-                Email
-              </span>
-              <span className="font-mono text-[10px] text-ops-accent truncate">
-                {clientEmail}
-              </span>
-            </div>
-          )}
-          {clientPhone && (
-            <div className="flex items-center gap-[6px]">
-              <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
-                Phone
-              </span>
-              <span className="font-mono text-[10px] text-text-secondary">
-                {clientPhone}
-              </span>
-            </div>
-          )}
-          {project.projectDescription && (
-            <div className="mt-0.5">
-              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px] uppercase">
-                Description
-              </span>
-              <p className="font-mohave text-[11px] text-text-secondary leading-tight truncate-2">
-                {project.projectDescription}
-              </p>
-            </div>
-          )}
-          {project.notes && (
-            <div className="mt-0.5">
-              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px] uppercase">
-                Notes
-              </span>
-              <p className="font-mohave text-[11px] text-text-secondary leading-tight truncate-2">
-                {project.notes}
-              </p>
-            </div>
-          )}
-          <div className="flex items-center gap-1 mt-1">
-            {clientPhone && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="text-[10px] h-[28px] px-1"
-                onClick={() => onCall?.(clientPhone!)}
-              >
-                <Phone className="w-[10px] h-[10px]" />
-                Call
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="text-[10px] h-[28px] px-1"
-              onClick={() => onNote?.(project.id)}
-            >
-              <MessageSquare className="w-[10px] h-[10px]" />
-              Note
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="text-[10px] h-[28px] px-1"
-              onClick={() => onAdvance?.(project.id)}
-            >
-              <ArrowRight className="w-[10px] h-[10px]" />
-              Advance
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="text-[10px] h-[28px] px-1"
-              onClick={() => onViewDetail?.(project)}
-            >
-              <FolderOpen className="w-[10px] h-[10px]" />
-              View Project
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -378,16 +217,10 @@ function PipelineCardComponent({
 // ---------------------------------------------------------------------------
 function PipelineColumnComponent({
   column,
-  onCall,
-  onNote,
-  onAdvance,
   onAddProject,
   onViewDetail,
 }: {
   column: PipelineColumn;
-  onCall?: (phone: string) => void;
-  onNote?: (projectId: string) => void;
-  onAdvance?: (projectId: string) => void;
   onAddProject?: () => void;
   onViewDetail?: (project: Project) => void;
 }) {
@@ -468,10 +301,6 @@ function PipelineColumnComponent({
           <PipelineCardComponent
             key={card.id}
             card={card}
-            columnColor={column.color}
-            onCall={onCall}
-            onNote={onNote}
-            onAdvance={onAdvance}
             onViewDetail={onViewDetail}
           />
         ))}
@@ -579,25 +408,26 @@ export default function PipelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  const openWindow = useWindowStore((s) => s.openWindow);
+  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
 
   // Set page actions in top bar
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Lead", icon: Plus, onClick: () => setCreateModalOpen(true) },
+      { label: "New Lead", icon: Plus, onClick: openCreateProject, shortcut: "\u2318\u21E7P" },
     ]);
     return () => clearActions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setActions, clearActions]);
 
   // Fetch real data
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const updateStatusMutation = useUpdateProjectStatus();
-  const router = useRouter();
 
   const isLoading = projectsLoading || clientsLoading;
 
@@ -665,7 +495,7 @@ export default function PipelinePage() {
   const totalProjects = activeProjects.length;
 
   const wonProjects = columns
-    .find((c) => c.id === "won")
+    .find((c) => c.id === "converted")
     ?.cards.length ?? 0;
 
   const lostProjects = columns
@@ -685,38 +515,6 @@ export default function PipelinePage() {
     activeProjects.forEach((p) => statuses.add(p.status));
     return Array.from(statuses).sort();
   }, [activeProjects]);
-
-  // Card action handlers
-  const handleCall = useCallback((phone: string) => {
-    window.open(`tel:${phone}`);
-  }, []);
-
-  const handleNote = useCallback((projectId: string) => {
-    router.push(`/projects/${projectId}`);
-  }, [router]);
-
-  const handleAdvance = useCallback((projectId: string) => {
-    const project = activeProjects.find((p) => p.id === projectId);
-    if (!project) return;
-    const currentStageId = getStageForStatus(project.status);
-    const currentIndex = PIPELINE_STAGES.findIndex((s) => s.id === currentStageId);
-    if (currentIndex < 0 || currentIndex >= PIPELINE_STAGES.length - 1) return;
-    const nextStage = PIPELINE_STAGES[currentIndex + 1];
-    const newStatus = nextStage.statuses[0];
-    updateStatusMutation.mutate(
-      { id: projectId, status: newStatus },
-      {
-        onSuccess: () => {
-          toast.success(`Project advanced to ${nextStage.label}`);
-        },
-        onError: (error) => {
-          toast.error("Failed to advance project", {
-            description: error instanceof Error ? error.message : "Please try again.",
-          });
-        },
-      }
-    );
-  }, [activeProjects, updateStatusMutation]);
 
   // Handle drop on a column
   const handleBoardDrop = useCallback(
@@ -814,7 +612,7 @@ export default function PipelinePage() {
               <ListFilter className="w-[14px] h-[14px]" />
               Filter
             </Button>
-            <Button variant="default" size="sm" className="gap-[6px]" onClick={() => setCreateModalOpen(true)}>
+            <Button variant="default" size="sm" className="gap-[6px]" onClick={() => openCreateProject()}>
               <Plus className="w-[14px] h-[14px]" />
               New Lead
             </Button>
@@ -958,10 +756,7 @@ export default function PipelinePage() {
             <PipelineColumnComponent
               key={column.id}
               column={column}
-              onCall={handleCall}
-              onNote={handleNote}
-              onAdvance={handleAdvance}
-              onAddProject={() => setCreateModalOpen(true)}
+              onAddProject={() => openCreateProject()}
               onViewDetail={setDetailProject}
             />
           ))}
@@ -987,12 +782,6 @@ export default function PipelinePage() {
           Drag cards between columns to update stage
         </span>
       </div>
-
-      <CreateProjectModal
-        open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-        defaultStatus={ProjectStatus.RFQ}
-      />
 
       <ProjectDetailModal
         project={detailProject}

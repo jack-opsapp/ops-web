@@ -15,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { useCreateProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
@@ -244,19 +243,19 @@ function TeamMemberSelector({
   );
 }
 
-// ─── Modal Component ──────────────────────────────────────────────────────────
+// ─── Extracted Form Component ─────────────────────────────────────────────────
 
-interface CreateProjectModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface CreateProjectFormProps {
   defaultStatus?: ProjectStatus;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export function CreateProjectModal({
-  open,
-  onOpenChange,
+export function CreateProjectForm({
   defaultStatus = ProjectStatus.RFQ,
-}: CreateProjectModalProps) {
+  onSuccess,
+  onCancel,
+}: CreateProjectFormProps) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
 
@@ -319,7 +318,7 @@ export function CreateProjectModal({
         onSuccess: () => {
           toast.success("Project created successfully");
           reset();
-          onOpenChange(false);
+          onSuccess?.();
         },
         onError: (err) => {
           setServerError(
@@ -334,146 +333,167 @@ export function CreateProjectModal({
 
   const isSaving = createProjectMutation.isPending;
 
-  function handleClose() {
-    if (!isSaving) {
-      reset();
-      setServerError(null);
-      onOpenChange(false);
-    }
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <>
+      {serverError && (
+        <div className="bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
+          <p className="font-mohave text-body-sm text-ops-error">{serverError}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+        <Input
+          label="Project Name"
+          placeholder="e.g., Kitchen Renovation - Smith"
+          {...register("title")}
+          error={errors.title?.message}
+        />
+
+        <Controller
+          name="clientId"
+          control={control}
+          render={({ field }) => (
+            <ClientSelector
+              value={field.value}
+              onChange={field.onChange}
+              clients={clients}
+              isLoadingClients={isLoadingClients}
+            />
+          )}
+        />
+
+        <Input
+          label="Address"
+          placeholder="123 Main Street, City, State ZIP"
+          {...register("address")}
+          error={errors.address?.message}
+        />
+
+        <Controller
+          name="status"
+          control={control}
+          render={({ field }) => (
+            <div className="flex flex-col gap-0.5">
+              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                Status
+              </label>
+              <div className="flex items-center gap-1">
+                {statusOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => field.onChange(opt.value)}
+                    className={cn(
+                      "px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all uppercase",
+                      field.value === opt.value
+                        ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
+                        : "bg-background-input border-[rgba(255,255,255,0.2)] text-text-tertiary hover:text-text-secondary"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Input
+            label="Start Date"
+            type="date"
+            {...register("startDate")}
+            error={errors.startDate?.message}
+          />
+          <Input
+            label="End Date"
+            type="date"
+            {...register("endDate")}
+            error={errors.endDate?.message}
+          />
+        </div>
+
+        <Controller
+          name="teamMemberIds"
+          control={control}
+          render={({ field }) => (
+            <TeamMemberSelector
+              selectedIds={field.value}
+              onChange={field.onChange}
+              members={teamMembers}
+              isLoading={isLoadingTeam}
+            />
+          )}
+        />
+
+        <Textarea
+          label="Description"
+          placeholder="Project description..."
+          {...register("projectDescription")}
+          error={errors.projectDescription?.message}
+        />
+
+        <Textarea
+          label="Notes"
+          placeholder="Project notes, special instructions..."
+          {...register("notes")}
+          error={errors.notes?.message}
+        />
+
+        <div className="flex items-center justify-end gap-1 pt-1">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                reset();
+                setServerError(null);
+                onCancel();
+              }}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button
+            type="submit"
+            loading={isSaving}
+            className="gap-[6px]"
+          >
+            <Save className="w-[16px] h-[16px]" />
+            Create Project
+          </Button>
+        </div>
+      </form>
+    </>
+  );
+}
+
+// ─── Modal Component (thin wrapper) ──────────────────────────────────────────
+
+interface CreateProjectModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  defaultStatus?: ProjectStatus;
+}
+
+export function CreateProjectModal({
+  open,
+  onOpenChange,
+  defaultStatus = ProjectStatus.RFQ,
+}: CreateProjectModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="uppercase tracking-wider">New Project</DialogTitle>
           <DialogDescription>Create a new project for your team.</DialogDescription>
         </DialogHeader>
-
-        {serverError && (
-          <div className="bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
-            <p className="font-mohave text-body-sm text-ops-error">{serverError}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-          <Input
-            label="Project Name"
-            placeholder="e.g., Kitchen Renovation - Smith"
-            {...register("title")}
-            error={errors.title?.message}
-          />
-
-          <Controller
-            name="clientId"
-            control={control}
-            render={({ field }) => (
-              <ClientSelector
-                value={field.value}
-                onChange={field.onChange}
-                clients={clients}
-                isLoadingClients={isLoadingClients}
-              />
-            )}
-          />
-
-          <Input
-            label="Address"
-            placeholder="123 Main Street, City, State ZIP"
-            {...register("address")}
-            error={errors.address?.message}
-          />
-
-          <Controller
-            name="status"
-            control={control}
-            render={({ field }) => (
-              <div className="flex flex-col gap-0.5">
-                <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-                  Status
-                </label>
-                <div className="flex items-center gap-1">
-                  {statusOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => field.onChange(opt.value)}
-                      className={cn(
-                        "px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all uppercase",
-                        field.value === opt.value
-                          ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                          : "bg-background-input border-[rgba(255,255,255,0.2)] text-text-tertiary hover:text-text-secondary"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Input
-              label="Start Date"
-              type="date"
-              {...register("startDate")}
-              error={errors.startDate?.message}
-            />
-            <Input
-              label="End Date"
-              type="date"
-              {...register("endDate")}
-              error={errors.endDate?.message}
-            />
-          </div>
-
-          <Controller
-            name="teamMemberIds"
-            control={control}
-            render={({ field }) => (
-              <TeamMemberSelector
-                selectedIds={field.value}
-                onChange={field.onChange}
-                members={teamMembers}
-                isLoading={isLoadingTeam}
-              />
-            )}
-          />
-
-          <Textarea
-            label="Description"
-            placeholder="Project description..."
-            {...register("projectDescription")}
-            error={errors.projectDescription?.message}
-          />
-
-          <Textarea
-            label="Notes"
-            placeholder="Project notes, special instructions..."
-            {...register("notes")}
-            error={errors.notes?.message}
-          />
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleClose}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              loading={isSaving}
-              className="gap-[6px]"
-            >
-              <Save className="w-[16px] h-[16px]" />
-              Create Project
-            </Button>
-          </DialogFooter>
-        </form>
+        <CreateProjectForm
+          defaultStatus={defaultStatus}
+          onSuccess={() => onOpenChange(false)}
+          onCancel={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );

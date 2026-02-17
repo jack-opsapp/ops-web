@@ -37,7 +37,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { useWindowStore } from "@/stores/window-store";
 
 import {
   useProjects,
@@ -558,7 +558,8 @@ export default function JobBoardPage() {
   const [clientFilter, setClientFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const openWindow = useWindowStore((s) => s.openWindow);
+  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
 
   // Track optimistic DnD overrides: map of projectId -> target ColumnId
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
@@ -815,7 +816,7 @@ export default function JobBoardPage() {
         setShowFilters={setShowFilters}
         totalProjects={totalProjects}
         totalValue={totalValue}
-        onNewProject={() => setCreateModalOpen(true)}
+        onNewProject={() => openCreateProject()}
       />
 
       {/* Kanban Board with DnD */}
@@ -832,7 +833,7 @@ export default function JobBoardPage() {
                 key={column.id}
                 column={column}
                 activeCardId={activeCardId}
-                onAddProject={() => setCreateModalOpen(true)}
+                onAddProject={() => openCreateProject()}
               />
             ))}
           </div>
@@ -878,11 +879,6 @@ export default function JobBoardPage() {
         </span>
       </div>
 
-      <CreateProjectModal
-        open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-        defaultStatus={ProjectStatus.RFQ}
-      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ interface PageAction {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   onClick: () => void;
+  shortcut?: string;
 }
 
 interface PageActionsState {

@@ -22,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useCreateClient } from "@/lib/hooks";
@@ -70,14 +69,14 @@ function formatPhoneInput(value: string): string {
   return value;
 }
 
-// ─── Modal Component ─────────────────────────────────────────────────────────
+// ─── Extracted Form Component ───────────────────────────────────────────────
 
-interface CreateClientModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface CreateClientFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps) {
+export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const { company } = useAuthStore();
   const createClient = useCreateClient();
@@ -125,7 +124,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
         onSuccess: () => {
           toast.success("Client created successfully");
           reset();
-          onOpenChange(false);
+          onSuccess?.();
         },
         onError: () => {
           setServerError("Failed to create client. Please try again.");
@@ -135,108 +134,123 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
     );
   }
 
-  function handleClose() {
-    if (!createClient.isPending) {
-      reset();
-      setServerError(null);
-      onOpenChange(false);
-    }
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <>
+      {serverError && (
+        <div className="flex items-center gap-1.5 bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
+          <AlertCircle className="w-[16px] h-[16px] text-ops-error shrink-0" />
+          <p className="font-mohave text-body-sm text-ops-error">{serverError}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+        {/* Basic Info */}
+        <div className="space-y-2">
+          <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            Basic Info
+          </span>
+          <Input
+            label="Client Name *"
+            placeholder="Full name or company name"
+            prefixIcon={<User className="w-[16px] h-[16px]" />}
+            error={errors.name?.message}
+            {...register("name")}
+          />
+          <Input
+            label="Company"
+            placeholder="Company or business name (optional)"
+            prefixIcon={<Building2 className="w-[16px] h-[16px]" />}
+            {...register("company")}
+          />
+        </div>
+
+        {/* Contact Details */}
+        <div className="space-y-2 pt-1 border-t border-[rgba(255,255,255,0.15)]">
+          <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            Contact Details
+          </span>
+          <Input
+            label="Email"
+            type="email"
+            placeholder="client@email.com"
+            prefixIcon={<Mail className="w-[16px] h-[16px]" />}
+            error={errors.email?.message}
+            {...register("email")}
+          />
+          <Input
+            label="Phone"
+            type="tel"
+            placeholder="(555) 123-4567"
+            prefixIcon={<Phone className="w-[16px] h-[16px]" />}
+            value={phoneValue || ""}
+            onChange={handlePhoneChange}
+          />
+          <Input
+            label="Address"
+            placeholder="123 Main Street, City, State ZIP"
+            prefixIcon={<MapPin className="w-[16px] h-[16px]" />}
+            {...register("address")}
+          />
+        </div>
+
+        {/* Notes */}
+        <div className="pt-1 border-t border-[rgba(255,255,255,0.15)]">
+          <Textarea
+            label="Notes"
+            placeholder="Any notes about this client..."
+            {...register("notes")}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-1 pt-1">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                reset();
+                setServerError(null);
+                onCancel();
+              }}
+              disabled={createClient.isPending}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button
+            type="submit"
+            loading={createClient.isPending}
+            className="gap-[6px]"
+            disabled={!isDirty}
+          >
+            <Save className="w-[16px] h-[16px]" />
+            Create Client
+          </Button>
+        </div>
+      </form>
+    </>
+  );
+}
+
+// ─── Modal Component (thin wrapper) ─────────────────────────────────────────
+
+interface CreateClientModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="uppercase tracking-wider">New Client</DialogTitle>
           <DialogDescription>Add a new client or company to your contacts.</DialogDescription>
         </DialogHeader>
-
-        {serverError && (
-          <div className="flex items-center gap-1.5 bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
-            <AlertCircle className="w-[16px] h-[16px] text-ops-error shrink-0" />
-            <p className="font-mohave text-body-sm text-ops-error">{serverError}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-          {/* Basic Info */}
-          <div className="space-y-2">
-            <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-              Basic Info
-            </span>
-            <Input
-              label="Client Name *"
-              placeholder="Full name or company name"
-              prefixIcon={<User className="w-[16px] h-[16px]" />}
-              error={errors.name?.message}
-              {...register("name")}
-            />
-            <Input
-              label="Company"
-              placeholder="Company or business name (optional)"
-              prefixIcon={<Building2 className="w-[16px] h-[16px]" />}
-              {...register("company")}
-            />
-          </div>
-
-          {/* Contact Details */}
-          <div className="space-y-2 pt-1 border-t border-[rgba(255,255,255,0.15)]">
-            <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-              Contact Details
-            </span>
-            <Input
-              label="Email"
-              type="email"
-              placeholder="client@email.com"
-              prefixIcon={<Mail className="w-[16px] h-[16px]" />}
-              error={errors.email?.message}
-              {...register("email")}
-            />
-            <Input
-              label="Phone"
-              type="tel"
-              placeholder="(555) 123-4567"
-              prefixIcon={<Phone className="w-[16px] h-[16px]" />}
-              value={phoneValue || ""}
-              onChange={handlePhoneChange}
-            />
-            <Input
-              label="Address"
-              placeholder="123 Main Street, City, State ZIP"
-              prefixIcon={<MapPin className="w-[16px] h-[16px]" />}
-              {...register("address")}
-            />
-          </div>
-
-          {/* Notes */}
-          <div className="pt-1 border-t border-[rgba(255,255,255,0.15)]">
-            <Textarea
-              label="Notes"
-              placeholder="Any notes about this client..."
-              {...register("notes")}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleClose}
-              disabled={createClient.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              loading={createClient.isPending}
-              className="gap-[6px]"
-              disabled={!isDirty}
-            >
-              <Save className="w-[16px] h-[16px]" />
-              Create Client
-            </Button>
-          </DialogFooter>
-        </form>
+        <CreateClientForm
+          onSuccess={() => onOpenChange(false)}
+          onCancel={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );

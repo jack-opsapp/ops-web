@@ -28,7 +28,7 @@ import { SelectableRow } from "@/components/ops/selectable-row";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
-import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { useWindowStore } from "@/stores/window-store";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
@@ -250,16 +250,18 @@ export default function ProjectsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const openWindow = useWindowStore((s) => s.openWindow);
+  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
 
   // Set page actions in top bar
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Project", icon: Plus, onClick: () => setCreateModalOpen(true) },
+      { label: "New Project", icon: Plus, onClick: openCreateProject, shortcut: "\u2318\u21E7P" },
     ]);
     return () => clearActions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setActions, clearActions]);
 
   const {
@@ -488,7 +490,7 @@ export default function ProjectsPage() {
               {isSelecting ? "Cancel" : "Select"}
             </Button>
           )}
-          <Button className="gap-[6px]" onClick={() => setCreateModalOpen(true)}>
+          <Button className="gap-[6px]" onClick={() => openCreateProject()}>
             <Plus className="w-[16px] h-[16px]" />
             New Project
           </Button>
@@ -570,7 +572,7 @@ export default function ProjectsPage() {
           description="Create your first project to start tracking work, schedules, and team assignments."
           action={{
             label: "New Project",
-            onClick: () => setCreateModalOpen(true),
+            onClick: () => openCreateProject(),
           }}
         />
       ) : filteredProjects.length === 0 ? (
@@ -755,10 +757,6 @@ export default function ProjectsPage() {
         loading={deleteProject.isPending}
       />
 
-      <CreateProjectModal
-        open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-      />
     </div>
   );
 }
