@@ -20,7 +20,7 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
       ref={ref}
       className={cn(
         "flex flex-col items-center justify-center gap-2 py-6 px-3",
-        "text-center",
+        "text-left",
         className
       )}
     >
@@ -29,7 +29,7 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
           {icon}
         </div>
       )}
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col items-start gap-0.5">
         <h3 className="font-mohave text-body-lg text-text-secondary">{title}</h3>
         {description && (
           <p className="font-mohave text-body-sm text-text-tertiary max-w-[360px]">

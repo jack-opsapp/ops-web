@@ -8,14 +8,14 @@ export default function InvoicesPage() {
       <div className="w-[64px] h-[64px] rounded-2xl bg-ops-accent-muted flex items-center justify-center">
         <Receipt className="w-[32px] h-[32px] text-ops-accent" />
       </div>
-      <div className="text-center max-w-[400px]">
+      <div className="text-left max-w-[400px]">
         <h2 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
           Invoices
         </h2>
         <p className="font-mohave text-body text-text-secondary mt-1">
           Create, send, and track invoices for your projects. Automatic payment reminders and PDF generation.
         </p>
-        <div className="mt-3 flex flex-wrap justify-center gap-1">
+        <div className="mt-3 flex flex-wrap justify-start gap-1">
           {["Invoice Creation", "PDF Export", "Payment Tracking", "Email Delivery", "Overdue Reminders"].map((feature) => (
             <span
               key={feature}

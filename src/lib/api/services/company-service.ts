@@ -62,21 +62,6 @@ export const CompanyService = {
     await client.post("/wf/update_company", data);
   },
 
-  /**
-   * Update the default project color for the company.
-   */
-  async updateDefaultProjectColor(
-    id: string,
-    color: string
-  ): Promise<void> {
-    const client = getBubbleClient();
-
-    await client.patch(
-      `/obj/${BubbleTypes.company.toLowerCase()}/${id}`,
-      { [BubbleCompanyFields.defaultProjectColor]: color }
-    );
-  },
-
   // ─── Subscription Management ──────────────────────────────────────────────
 
   /**

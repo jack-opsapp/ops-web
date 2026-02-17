@@ -60,7 +60,6 @@ export {
   useCompanyById,
   useSubscriptionInfo,
   useUpdateCompany,
-  useUpdateDefaultProjectColor,
   useCompleteSubscription,
   useCancelSubscription,
   useAddSeatedEmployee,

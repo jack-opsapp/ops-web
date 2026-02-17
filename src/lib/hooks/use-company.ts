@@ -121,27 +121,6 @@ export function useUpdateCompany() {
   });
 }
 
-/**
- * Update default project color for the company.
- */
-export function useUpdateDefaultProjectColor() {
-  const queryClient = useQueryClient();
-  const { company } = useAuthStore();
-
-  return useMutation({
-    mutationFn: (color: string) =>
-      CompanyService.updateDefaultProjectColor(company!.id, color),
-
-    onSuccess: () => {
-      if (company) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.company.detail(company.id),
-        });
-      }
-    },
-  });
-}
-
 // ─── Subscription Mutations ───────────────────────────────────────────────────
 
 /**

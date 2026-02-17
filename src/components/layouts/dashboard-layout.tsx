@@ -9,19 +9,7 @@ import { KeyboardShortcuts } from "@/components/ops/keyboard-shortcuts";
 import { useSidebarStore } from "@/stores/sidebar-store";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isCollapsed, toggle, setCollapsed } = useSidebarStore();
-
-  // Keyboard shortcut: Cmd+B to toggle sidebar
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
-        e.preventDefault();
-        toggle();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggle]);
+  const { isCollapsed, setCollapsed } = useSidebarStore();
 
   // Auto-collapse on small screens
   useEffect(() => {
@@ -45,7 +33,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <TopBar />
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3">
           {children}
         </div>
       </main>

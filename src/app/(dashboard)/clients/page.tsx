@@ -432,7 +432,7 @@ export default function ClientsPage() {
         <LoadingSkeleton viewMode={viewMode} />
       ) : filteredClients.length === 0 && !searchQuery && filterMode === "all" ? (
         /* Empty state - no clients at all */
-        <div className="flex flex-col items-center justify-center py-8 text-center">
+        <div className="flex flex-col items-center justify-center py-8">
           <div className="w-[64px] h-[64px] rounded-lg bg-ops-accent-muted flex items-center justify-center mb-2">
             <Users className="w-[32px] h-[32px] text-ops-accent" />
           </div>
@@ -452,7 +452,7 @@ export default function ClientsPage() {
         </div>
       ) : filteredClients.length === 0 ? (
         /* Empty state - filtered/searched with no results */
-        <div className="flex flex-col items-center justify-center py-6 text-center">
+        <div className="flex flex-col items-center justify-center py-6">
           <Search className="w-[40px] h-[40px] text-text-disabled mb-2" />
           <h3 className="font-mohave text-heading text-text-primary">
             No matching clients

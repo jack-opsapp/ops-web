@@ -226,7 +226,7 @@ function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
+    <div className="flex flex-col items-center justify-center py-8">
       <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
         <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
       </div>
@@ -574,7 +574,7 @@ export default function ProjectsPage() {
           }}
         />
       ) : filteredProjects.length === 0 ? (
-        <div className="text-center py-6">
+        <div className="text-left py-6">
           <p className="font-mohave text-body text-text-tertiary">
             No projects match your search
           </p>

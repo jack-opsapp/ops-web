@@ -718,7 +718,7 @@ export default function TeamPage() {
       {isLoading ? (
         <LoadingSkeleton />
       ) : filteredTeam.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
+        <div className="flex flex-col items-center justify-center py-8">
           <Users className="w-[48px] h-[48px] text-text-disabled mb-2" />
           <h3 className="font-mohave text-heading text-text-primary">
             {searchQuery ? "No team members found" : "No team members yet"}

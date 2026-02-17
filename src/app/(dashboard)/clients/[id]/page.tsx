@@ -228,7 +228,7 @@ export default function ClientDetailPage() {
   // Not found
   if (!clientData) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="flex flex-col items-center justify-center py-12">
         <h2 className="font-mohave text-display text-text-primary">Client Not Found</h2>
         <p className="font-kosugi text-caption text-text-tertiary mt-1">
           This client may have been deleted or doesn&apos;t exist.
@@ -703,7 +703,7 @@ export default function ClientDetailPage() {
             </CardHeader>
             <CardContent>
               {!projectsLoading && activeProjects.length === 0 ? (
-                <div className="text-center py-4">
+                <div className="text-left py-4">
                   <FolderKanban className="w-[36px] h-[36px] text-text-disabled mx-auto mb-1" />
                   <p className="font-mohave text-body text-text-tertiary">
                     No active projects

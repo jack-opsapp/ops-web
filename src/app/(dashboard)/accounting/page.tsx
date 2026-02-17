@@ -8,14 +8,14 @@ export default function AccountingPage() {
       <div className="w-[64px] h-[64px] rounded-2xl bg-ops-amber-muted flex items-center justify-center">
         <Calculator className="w-[32px] h-[32px] text-ops-amber" />
       </div>
-      <div className="text-center max-w-[400px]">
+      <div className="text-left max-w-[400px]">
         <h2 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
           Accounting
         </h2>
         <p className="font-mohave text-body text-text-secondary mt-1">
           Full financial overview with profit & loss, expense tracking, and tax reporting for your business.
         </p>
-        <div className="mt-3 flex flex-wrap justify-center gap-1">
+        <div className="mt-3 flex flex-wrap justify-start gap-1">
           {["Profit & Loss", "Expense Tracking", "Tax Reports", "Budget Planning", "QuickBooks Sync"].map((feature) => (
             <span
               key={feature}

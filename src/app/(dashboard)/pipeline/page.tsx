@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Loader2,
   FolderOpen,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -98,12 +99,12 @@ const PIPELINE_STAGES: PipelineStageConfig[] = [
   },
   {
     id: "won",
-    label: "Won",
+    label: "Converted",
     color: "text-status-success",
     borderColor: "border-t-status-success",
     bgAccent: "bg-status-success",
     textColor: "#4ADE80",
-    statuses: [ProjectStatus.InProgress, ProjectStatus.Completed],
+    statuses: [ProjectStatus.InProgress, ProjectStatus.Completed, ProjectStatus.Closed],
   },
   {
     id: "lost",
@@ -112,7 +113,7 @@ const PIPELINE_STAGES: PipelineStageConfig[] = [
     borderColor: "border-t-ops-error",
     bgAccent: "bg-ops-error",
     textColor: "#93321A",
-    statuses: [ProjectStatus.Closed, ProjectStatus.Archived],
+    statuses: [ProjectStatus.Archived],
   },
 ];
 
@@ -177,6 +178,7 @@ function PipelineCardComponent({
   onNote?: (projectId: string) => void;
   onAdvance?: (projectId: string) => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const { project, client } = card;
   const clientName = client?.name || "No Client";
   const clientEmail = client?.email || undefined;
@@ -260,70 +262,101 @@ function PipelineCardComponent({
         )}
       </div>
 
-      {/* Always-expanded detail section */}
-      <div className="mt-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.1)] space-y-1">
-        {clientEmail && (
-          <div className="flex items-center gap-[6px]">
-            <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
-              Email
-            </span>
-            <span className="font-mono text-[10px] text-ops-accent truncate">
-              {clientEmail}
-            </span>
-          </div>
-        )}
-        {clientPhone && (
-          <div className="flex items-center gap-[6px]">
-            <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
-              Phone
-            </span>
-            <span className="font-mono text-[10px] text-text-secondary">
-              {clientPhone}
-            </span>
-          </div>
-        )}
-        {project.notes && (
-          <div className="mt-0.5">
-            <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px] uppercase">
-              Notes
-            </span>
-            <p className="font-mohave text-[11px] text-text-secondary leading-tight truncate-2">
-              {project.notes}
-            </p>
-          </div>
-        )}
-        <div className="flex items-center gap-1 mt-1">
+      {/* Show Details toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsExpanded(!isExpanded);
+        }}
+        className="flex items-center gap-[4px] mt-1 text-text-disabled hover:text-text-tertiary transition-colors w-full"
+      >
+        <ChevronDown
+          className={cn(
+            "w-[12px] h-[12px] transition-transform duration-150",
+            isExpanded && "rotate-180"
+          )}
+        />
+        <span className="font-kosugi text-[9px] uppercase tracking-wider">
+          {isExpanded ? "Hide Details" : "Show Details"}
+        </span>
+      </button>
+
+      {/* Expandable detail section */}
+      {isExpanded && (
+        <div className="mt-1 pt-1 border-t border-[rgba(255,255,255,0.1)] space-y-1 animate-slide-up">
+          {clientEmail && (
+            <div className="flex items-center gap-[6px]">
+              <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
+                Email
+              </span>
+              <span className="font-mono text-[10px] text-ops-accent truncate">
+                {clientEmail}
+              </span>
+            </div>
+          )}
           {clientPhone && (
+            <div className="flex items-center gap-[6px]">
+              <span className="font-kosugi text-[9px] text-text-disabled w-[40px] uppercase">
+                Phone
+              </span>
+              <span className="font-mono text-[10px] text-text-secondary">
+                {clientPhone}
+              </span>
+            </div>
+          )}
+          {project.projectDescription && (
+            <div className="mt-0.5">
+              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px] uppercase">
+                Description
+              </span>
+              <p className="font-mohave text-[11px] text-text-secondary leading-tight truncate-2">
+                {project.projectDescription}
+              </p>
+            </div>
+          )}
+          {project.notes && (
+            <div className="mt-0.5">
+              <span className="font-kosugi text-[9px] text-text-disabled block mb-[2px] uppercase">
+                Notes
+              </span>
+              <p className="font-mohave text-[11px] text-text-secondary leading-tight truncate-2">
+                {project.notes}
+              </p>
+            </div>
+          )}
+          <div className="flex items-center gap-1 mt-1">
+            {clientPhone && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="text-[10px] h-[28px] px-1"
+                onClick={() => onCall?.(clientPhone!)}
+              >
+                <Phone className="w-[10px] h-[10px]" />
+                Call
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
               className="text-[10px] h-[28px] px-1"
-              onClick={() => onCall?.(clientPhone!)}
+              onClick={() => onNote?.(project.id)}
             >
-              <Phone className="w-[10px] h-[10px]" />
-              Call
+              <MessageSquare className="w-[10px] h-[10px]" />
+              Note
             </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="text-[10px] h-[28px] px-1"
-            onClick={() => onNote?.(project.id)}
-          >
-            <MessageSquare className="w-[10px] h-[10px]" />
-            Note
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            className="text-[10px] h-[28px] px-1"
-            onClick={() => onAdvance?.(project.id)}
-          >
-            <ArrowRight className="w-[10px] h-[10px]" />
-            Advance
-          </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="text-[10px] h-[28px] px-1"
+              onClick={() => onAdvance?.(project.id)}
+            >
+              <ArrowRight className="w-[10px] h-[10px]" />
+              Advance
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -793,7 +826,7 @@ export default function PipelinePage() {
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Won
+                Converted
               </span>
               <span className="font-mono text-data text-status-success">
                 {wonProjects}

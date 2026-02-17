@@ -6,16 +6,23 @@ import {
   Building2,
   CreditCard,
   SlidersHorizontal,
+  Keyboard,
   Camera,
   Save,
   Upload,
   Shield,
   Check,
   Loader2,
+  Mail,
+  Copy,
+  ExternalLink,
+  Inbox,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -24,7 +31,6 @@ import {
   useUpdateUser,
   useCompany,
   useUpdateCompany,
-  useUpdateDefaultProjectColor,
   useImageUpload,
 } from "@/lib/hooks";
 import {
@@ -36,13 +42,15 @@ import {
 } from "@/lib/types/models";
 import { toast } from "sonner";
 
-type SettingsTab = "profile" | "company" | "subscription" | "preferences";
+type SettingsTab = "profile" | "company" | "subscription" | "integrations" | "preferences" | "shortcuts";
 
 const tabs: { id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "company", label: "Company", icon: Building2 },
   { id: "subscription", label: "Subscription", icon: CreditCard },
+  { id: "integrations", label: "Integrations", icon: Mail },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
+  { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
 ];
 
 function ProfileTab() {
@@ -187,6 +195,12 @@ function ProfileTab() {
             onChange={(e) => setPhone(e.target.value)}
             placeholder="(555) 123-4567"
           />
+          <Input
+            label="Role"
+            value={useAuthStore.getState().role}
+            disabled
+            helperText="Role is managed by your company admin"
+          />
           <div className="pt-1">
             <Button onClick={handleSave} loading={updateUser.isPending} className="gap-[6px]">
               <Save className="w-[16px] h-[16px]" />
@@ -202,7 +216,6 @@ function ProfileTab() {
 function CompanyTab() {
   const { data: company, isLoading: isCompanyLoading } = useCompany();
   const updateCompany = useUpdateCompany();
-  const updateDefaultColor = useUpdateDefaultProjectColor();
 
   const logoUpload = useImageUpload({
     onSuccess: (url) => {
@@ -219,16 +232,24 @@ function CompanyTab() {
 
   const [companyName, setCompanyName] = useState("");
   const [companyAddress, setCompanyAddress] = useState("");
-  const [selectedColor, setSelectedColor] = useState("");
-
-  const colorOptions = ["#417394", "#C4A868", "#9DB582", "#8195B5", "#B58289", "#7B68A6"];
+  const [companyPhone, setCompanyPhone] = useState("");
+  const [companyEmail, setCompanyEmail] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
+  const [companyDescription, setCompanyDescription] = useState("");
+  const [openHour, setOpenHour] = useState("");
+  const [closeHour, setCloseHour] = useState("");
 
   // Sync form state when company data loads
   useEffect(() => {
     if (company) {
       setCompanyName(company.name ?? "");
       setCompanyAddress(company.address ?? "");
-      setSelectedColor(company.defaultProjectColor ?? "#417394");
+      setCompanyPhone(company.phone ?? "");
+      setCompanyEmail(company.email ?? "");
+      setCompanyWebsite(company.website ?? "");
+      setCompanyDescription(company.companyDescription ?? "");
+      setOpenHour(company.openHour ?? "");
+      setCloseHour(company.closeHour ?? "");
     }
   }, [company]);
 
@@ -241,6 +262,12 @@ function CompanyTab() {
         data: {
           name: companyName.trim(),
           address: companyAddress.trim() || null,
+          phone: companyPhone.trim() || null,
+          email: companyEmail.trim() || null,
+          website: companyWebsite.trim() || null,
+          companyDescription: companyDescription.trim() || null,
+          openHour: openHour.trim() || null,
+          closeHour: closeHour.trim() || null,
         },
       },
       {
@@ -254,20 +281,6 @@ function CompanyTab() {
         },
       }
     );
-  }
-
-  function handleColorSelect(color: string) {
-    setSelectedColor(color);
-    updateDefaultColor.mutate(color, {
-      onSuccess: () => {
-        toast.success("Default project color updated");
-      },
-      onError: (error) => {
-        toast.error("Failed to update color", {
-          description: error instanceof Error ? error.message : "Please try again.",
-        });
-      },
-    });
   }
 
   if (isCompanyLoading && !company) {
@@ -330,26 +343,56 @@ function CompanyTab() {
             value={companyAddress}
             onChange={(e) => setCompanyAddress(e.target.value)}
           />
-
-          {/* Default project color */}
+          <Input
+            label="Company Phone"
+            type="tel"
+            value={companyPhone}
+            onChange={(e) => setCompanyPhone(e.target.value)}
+            placeholder="(555) 123-4567"
+          />
+          <Input
+            label="Company Email"
+            type="email"
+            value={companyEmail}
+            onChange={(e) => setCompanyEmail(e.target.value)}
+            placeholder="info@company.com"
+          />
+          <Input
+            label="Website"
+            type="url"
+            value={companyWebsite}
+            onChange={(e) => setCompanyWebsite(e.target.value)}
+            placeholder="https://company.com"
+          />
           <div className="flex flex-col gap-0.5">
             <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-              Default Project Color
+              Company Description
             </label>
-            <div className="flex items-center gap-1">
-              {colorOptions.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => handleColorSelect(color)}
-                  className={cn(
-                    "w-[32px] h-[32px] rounded border transition-transform hover:scale-110",
-                    selectedColor === color
-                      ? "border-white ring-1 ring-white scale-110"
-                      : "border-border"
-                  )}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+            <Textarea
+              value={companyDescription}
+              onChange={(e) => setCompanyDescription(e.target.value)}
+              placeholder="Brief description of your company..."
+              rows={3}
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              Business Hours
+            </label>
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={openHour}
+                onChange={(e) => setOpenHour(e.target.value)}
+                placeholder="8:00 AM"
+                className="flex-1"
+              />
+              <span className="font-mohave text-body text-text-tertiary shrink-0">to</span>
+              <Input
+                value={closeHour}
+                onChange={(e) => setCloseHour(e.target.value)}
+                placeholder="5:00 PM"
+                className="flex-1"
+              />
             </div>
           </div>
 
@@ -552,8 +595,212 @@ function PreferencesTab() {
   );
 }
 
+const shortcutGroups = [
+  {
+    category: "Navigation",
+    shortcuts: [
+      { keys: ["1"], description: "Dashboard" },
+      { keys: ["2"], description: "Projects" },
+      { keys: ["3"], description: "Calendar" },
+      { keys: ["4"], description: "Clients" },
+      { keys: ["5"], description: "Job Board" },
+      { keys: ["6"], description: "Team" },
+      { keys: ["7"], description: "Map" },
+      { keys: ["8"], description: "Pipeline" },
+      { keys: ["9"], description: "Invoices" },
+      { keys: ["⌘", "K"], description: "Open command palette" },
+    ],
+  },
+  {
+    category: "Actions",
+    shortcuts: [
+      { keys: ["⌘", "⇧", "P"], description: "New project" },
+      { keys: ["⌘", "⇧", "C"], description: "New client" },
+    ],
+  },
+  {
+    category: "Interface",
+    shortcuts: [
+      { keys: ["⌘", "B"], description: "Toggle sidebar" },
+    ],
+  },
+];
+
+function ShortcutsTab() {
+  return (
+    <div className="space-y-3 max-w-[600px]">
+      {shortcutGroups.map((group) => (
+        <Card key={group.category}>
+          <CardHeader>
+            <CardTitle>{group.category}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-0">
+            {group.shortcuts.map((shortcut) => (
+              <div
+                key={shortcut.description}
+                className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+              >
+                <span className="font-mohave text-body text-text-secondary">
+                  {shortcut.description}
+                </span>
+                <div className="flex items-center gap-[4px]">
+                  {shortcut.keys.map((key, i) => (
+                    <kbd
+                      key={i}
+                      className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-[11px] text-text-tertiary"
+                    >
+                      {key}
+                    </kbd>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+      <p className="font-kosugi text-[11px] text-text-disabled">
+        On Windows/Linux, use Ctrl instead of ⌘
+      </p>
+    </div>
+  );
+}
+
+function IntegrationsTab() {
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Check URL params for connection status (after OAuth callback)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "integrations" && params.get("status") === "connected") {
+      setGmailConnected(true);
+      toast.success("Gmail connected successfully");
+      // Clean up URL params
+      window.history.replaceState({}, "", "/settings?tab=integrations");
+    }
+  }, []);
+
+  const forwardingAddress = companyId
+    ? `leads-${companyId.slice(0, 8)}@inbound.opsapp.co`
+    : "";
+
+  function handleConnectGmail() {
+    window.location.href = `/api/integrations/gmail?companyId=${companyId}`;
+  }
+
+  function handleCopyForwardingAddress() {
+    navigator.clipboard.writeText(forwardingAddress).then(() => {
+      setCopied(true);
+      toast.success("Forwarding address copied");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="space-y-3 max-w-[600px]">
+      {/* Gmail Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Gmail Integration</CardTitle>
+            {gmailConnected && (
+              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-[10px] uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
+                <Check className="w-[12px] h-[12px]" />
+                Connected
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          <p className="font-mohave text-body-sm text-text-secondary">
+            Connect your Gmail account to automatically import leads from incoming emails.
+          </p>
+          {gmailConnected ? (
+            <div className="flex items-center gap-1.5 px-1.5 py-1 bg-[rgba(107,143,113,0.08)] border border-[rgba(107,143,113,0.2)] rounded">
+              <Mail className="w-[16px] h-[16px] text-[#6B8F71]" />
+              <span className="font-mono text-data-sm text-[#6B8F71]">Gmail account connected</span>
+            </div>
+          ) : (
+            <Button onClick={handleConnectGmail} className="gap-[6px]">
+              <ExternalLink className="w-[14px] h-[14px]" />
+              Connect Gmail
+            </Button>
+          )}
+          <p className="font-kosugi text-[11px] text-text-disabled">
+            Requires a Google Workspace or Gmail account. Only reads incoming emails.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Email Forwarding */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Email Forwarding</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          <p className="font-mohave text-body-sm text-text-secondary">
+            Forward emails to your unique OPS address to automatically create leads in your pipeline.
+          </p>
+          <div className="flex items-center gap-1">
+            <div className="flex-1 bg-background-input border border-border rounded px-1.5 py-[8px]">
+              <div className="flex items-center gap-[6px]">
+                <Inbox className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+                <span className="font-mono text-data-sm text-ops-accent truncate">
+                  {forwardingAddress || "Loading..."}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-[4px] shrink-0"
+              onClick={handleCopyForwardingAddress}
+              disabled={!forwardingAddress}
+            >
+              <Copy className="w-[14px] h-[14px]" />
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          <p className="font-kosugi text-[11px] text-text-disabled">
+            Set this as a forwarding address in your email client to auto-create RFQ leads.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Follow-ups (placeholder) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Follow-up Monitoring</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-1.5 py-2">
+            <MessageCircle className="w-[24px] h-[24px] text-text-disabled" />
+            <div>
+              <p className="font-mohave text-body text-text-secondary">Coming Soon</p>
+              <p className="font-kosugi text-[11px] text-text-disabled">
+                Automatically track email threads with leads and get reminded about follow-ups.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+
+  // Read tab from URL params (e.g., /settings?tab=integrations)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") as SettingsTab | null;
+    if (tab && tabs.some((t) => t.id === tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
 
   return (
     <div className="space-y-3 max-w-[1000px]">
@@ -573,7 +820,9 @@ export default function SettingsPage() {
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "company" && <CompanyTab />}
         {activeTab === "subscription" && <SubscriptionTab />}
+        {activeTab === "integrations" && <IntegrationsTab />}
         {activeTab === "preferences" && <PreferencesTab />}
+        {activeTab === "shortcuts" && <ShortcutsTab />}
       </div>
     </div>
   );
