@@ -14,6 +14,8 @@ import {
   ExternalLink,
   AlertCircle,
   RefreshCw,
+  DollarSign,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,20 +40,29 @@ import {
   useUpdateProjectStatus,
   useDeleteProject,
 } from "@/lib/hooks/use-projects";
+import { useProjectEstimates, useProjectInvoices } from "@/lib/hooks";
 import { useClient } from "@/lib/hooks/use-clients";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import {
   type Project,
+  type Estimate,
+  type Invoice,
   ProjectStatus,
+  EstimateStatus,
+  InvoiceStatus,
+  ESTIMATE_STATUS_COLORS,
+  INVOICE_STATUS_COLORS,
   getUserFullName,
+  formatCurrency,
 } from "@/lib/types/models";
 
-type TabId = "overview" | "tasks" | "photos" | "notes";
+type TabId = "overview" | "tasks" | "financial" | "photos" | "notes";
 
 const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "overview", label: "Overview", icon: FileText },
   { id: "tasks", label: "Tasks", icon: CheckCircle2 },
+  { id: "financial", label: "Financial", icon: DollarSign },
   { id: "photos", label: "Photos", icon: Camera },
   { id: "notes", label: "Notes", icon: StickyNote },
 ];
@@ -451,6 +462,193 @@ function NotesTab({ project }: { project: Project }) {
   );
 }
 
+// ─── Financial Tab ──────────────────────────────────────────────────────────────
+
+function FinancialTab({ project }: { project: Project }) {
+  const router = useRouter();
+  const { data: estimates = [] } = useProjectEstimates(project.id);
+  const { data: invoices = [] } = useProjectInvoices(project.id);
+
+  const totals = {
+    estimated: estimates.reduce((sum, e) => sum + e.total, 0),
+    invoiced: invoices
+      .filter((i) => i.status !== InvoiceStatus.Void)
+      .reduce((sum, i) => sum + i.total, 0),
+    paid: invoices.reduce((sum, i) => sum + i.amountPaid, 0),
+    outstanding: invoices
+      .filter(
+        (i) =>
+          i.status === InvoiceStatus.Sent ||
+          i.status === InvoiceStatus.Partial ||
+          i.status === InvoiceStatus.Overdue
+      )
+      .reduce((sum, i) => sum + i.balance, 0),
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <Card className="p-2 space-y-0.5">
+          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+            Estimated
+          </span>
+          <span className="font-mono text-data-lg text-text-primary block">
+            {formatCurrency(totals.estimated)}
+          </span>
+        </Card>
+        <Card className="p-2 space-y-0.5">
+          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+            Invoiced
+          </span>
+          <span className="font-mono text-data-lg text-text-primary block">
+            {formatCurrency(totals.invoiced)}
+          </span>
+        </Card>
+        <Card className="p-2 space-y-0.5">
+          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+            Paid
+          </span>
+          <span className="font-mono text-data-lg text-status-success block">
+            {formatCurrency(totals.paid)}
+          </span>
+        </Card>
+        <Card className="p-2 space-y-0.5">
+          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+            Outstanding
+          </span>
+          <span className="font-mono text-data-lg text-ops-amber block">
+            {formatCurrency(totals.outstanding)}
+          </span>
+        </Card>
+      </div>
+
+      {/* Estimates Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Estimates</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/estimates")}
+            className="gap-1 text-text-tertiary"
+          >
+            <Plus className="w-[12px] h-[12px]" />
+            New Estimate
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {estimates.length === 0 ? (
+            <p className="font-mohave text-body-sm text-text-tertiary">No estimates for this project</p>
+          ) : (
+            <div className="space-y-1">
+              {estimates.map((est) => (
+                <div
+                  key={est.id}
+                  className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-data-sm text-text-primary">
+                      {est.estimateNumber}
+                    </span>
+                    <span
+                      className="font-kosugi text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: `${ESTIMATE_STATUS_COLORS[est.status]}20`,
+                        color: ESTIMATE_STATUS_COLORS[est.status],
+                      }}
+                    >
+                      {est.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-data-sm text-text-primary">
+                      {formatCurrency(est.total)}
+                    </span>
+                    {est.date && (
+                      <span className="font-mono text-[10px] text-text-disabled">
+                        {new Date(est.date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Invoices Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Invoices</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/invoices")}
+            className="gap-1 text-text-tertiary"
+          >
+            <Plus className="w-[12px] h-[12px]" />
+            New Invoice
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {invoices.length === 0 ? (
+            <p className="font-mohave text-body-sm text-text-tertiary">No invoices for this project</p>
+          ) : (
+            <div className="space-y-1">
+              {invoices.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-data-sm text-text-primary">
+                      {inv.invoiceNumber}
+                    </span>
+                    <span
+                      className="font-kosugi text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: `${INVOICE_STATUS_COLORS[inv.status]}20`,
+                        color: INVOICE_STATUS_COLORS[inv.status],
+                      }}
+                    >
+                      {inv.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <span className="font-mono text-data-sm text-text-primary block">
+                        {formatCurrency(inv.total)}
+                      </span>
+                      {inv.balance > 0 && inv.balance !== inv.total && (
+                        <span className="font-mono text-[10px] text-ops-amber">
+                          {formatCurrency(inv.balance)} due
+                        </span>
+                      )}
+                    </div>
+                    {inv.dueDate && (
+                      <span className="font-mono text-[10px] text-text-disabled">
+                        {new Date(inv.dueDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailPage() {
@@ -606,6 +804,7 @@ export default function ProjectDetailPage() {
             companyId={project.companyId || companyId}
           />
         )}
+        {activeTab === "financial" && <FinancialTab project={project} />}
         {activeTab === "photos" && <PhotosTab project={project} />}
         {activeTab === "notes" && <NotesTab project={project} />}
       </div>

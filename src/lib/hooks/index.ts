@@ -91,3 +91,63 @@ export { useImageUpload, useMultiImageUpload } from "./use-image-upload";
 
 // Connectivity
 export { useConnectivity } from "./use-connectivity";
+
+// Products
+export {
+  useProducts,
+  useProduct,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+} from "./use-products";
+
+// Estimates
+export {
+  useEstimates,
+  useProjectEstimates,
+  useEstimate,
+  useCreateEstimate,
+  useUpdateEstimate,
+  useDeleteEstimate,
+  useSendEstimate,
+  useConvertEstimateToInvoice,
+} from "./use-estimates";
+
+// Invoices
+export {
+  useInvoices,
+  useProjectInvoices,
+  useInvoice,
+  useCreateInvoice,
+  useUpdateInvoice,
+  useDeleteInvoice,
+  useSendInvoice,
+  useVoidInvoice,
+  useRecordPayment,
+  useDeletePayment,
+} from "./use-invoices";
+
+// Opportunities (Pipeline)
+export {
+  useOpportunities,
+  useOpportunity,
+  useCreateOpportunity,
+  useUpdateOpportunity,
+  useMoveOpportunityStage,
+  useDeleteOpportunity,
+  useOpportunityActivities,
+  useCreateActivity,
+  useOpportunityFollowUps,
+  useCreateFollowUp,
+  useCompleteFollowUp,
+  useStageTransitions,
+} from "./use-opportunities";
+
+// Accounting
+export {
+  useAccountingConnections,
+  useInitiateOAuth,
+  useDisconnectProvider,
+  useTriggerSync,
+  useSyncHistory,
+} from "./use-accounting";

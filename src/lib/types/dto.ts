@@ -26,6 +26,12 @@ import {
   type User,
   type Company,
   type OpsContact,
+  type Product,
+  type Estimate,
+  type Invoice,
+  type LineItem,
+  type Payment,
+  type AccountingConnection,
   ProjectStatus,
   TaskStatus,
   UserRole,
@@ -34,6 +40,13 @@ import {
   SubscriptionPlan,
   PaymentSchedule,
   OpsContactRole,
+  EstimateStatus,
+  InvoiceStatus,
+  LineItemType,
+  ProductType,
+  PaymentMethod,
+  AccountingProvider,
+  SyncStatus,
 } from "./models";
 import { normalizeTaskStatus, employeeTypeToRole } from "../constants/bubble-fields";
 
@@ -940,5 +953,422 @@ export function opsContactDtoToModel(dto: OpsContactDTO): OpsContact {
     display: dto.display ?? "",
     role,
     lastSynced: new Date(),
+  };
+}
+
+// ─── Product DTO ──────────────────────────────────────────────────────────────
+
+export interface ProductDTO {
+  _id: string;
+  company?: BubbleReference | null;
+  name?: string | null;
+  description?: string | null;
+  type?: string | null;
+  unitPrice?: number | null;
+  costPrice?: number | null;
+  taxable?: boolean | null;
+  sku?: string | null;
+  active?: boolean | null;
+  externalQboId?: string | null;
+  externalSageId?: string | null;
+  deletedAt?: string | null;
+  "Created Date"?: string | null;
+  "Modified Date"?: string | null;
+}
+
+export function productDtoToModel(dto: ProductDTO): Product {
+  const typeValue = dto.type?.toLowerCase();
+  const productType = typeValue === "product" ? ProductType.Product : ProductType.Service;
+
+  return {
+    id: dto._id,
+    companyId: resolveBubbleReference(dto.company) ?? "",
+    name: dto.name ?? "",
+    description: dto.description ?? null,
+    type: productType,
+    unitPrice: dto.unitPrice ?? 0,
+    costPrice: dto.costPrice ?? null,
+    taxable: dto.taxable ?? true,
+    sku: dto.sku ?? null,
+    active: dto.active ?? true,
+    externalQboId: dto.externalQboId ?? null,
+    externalSageId: dto.externalSageId ?? null,
+    deletedAt: dto.deletedAt ? parseBubbleDate(dto.deletedAt) : null,
+    createdAt: dto["Created Date"] ? parseBubbleDate(dto["Created Date"]) : null,
+    updatedAt: dto["Modified Date"] ? parseBubbleDate(dto["Modified Date"]) : null,
+  };
+}
+
+export function productModelToDto(product: Partial<Product>): Record<string, unknown> {
+  const dto: Record<string, unknown> = {};
+  if (product.companyId !== undefined) dto.company = product.companyId;
+  if (product.name !== undefined) dto.name = product.name;
+  if (product.description !== undefined) dto.description = product.description;
+  if (product.type !== undefined) dto.type = product.type;
+  if (product.unitPrice !== undefined) dto.unitPrice = product.unitPrice;
+  if (product.costPrice !== undefined) dto.costPrice = product.costPrice;
+  if (product.taxable !== undefined) dto.taxable = product.taxable;
+  if (product.sku !== undefined) dto.sku = product.sku;
+  if (product.active !== undefined) dto.active = product.active;
+  if (product.deletedAt !== undefined) dto.deletedAt = product.deletedAt?.toISOString() ?? null;
+  return dto;
+}
+
+// ─── LineItem DTO ─────────────────────────────────────────────────────────────
+
+export interface LineItemDTO {
+  _id: string;
+  estimateId?: string | null;
+  invoiceId?: string | null;
+  description?: string | null;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  amount?: number | null;
+  taxRate?: number | null;
+  taxAmount?: number | null;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
+  sortOrder?: number | null;
+  productId?: string | null;
+  type?: string | null;
+}
+
+export function lineItemDtoToModel(dto: LineItemDTO): LineItem {
+  const typeMap: Record<string, LineItemType> = {
+    service: LineItemType.Service,
+    product: LineItemType.Product,
+    description_only: LineItemType.DescriptionOnly,
+    subtotal: LineItemType.Subtotal,
+    discount: LineItemType.Discount,
+  };
+
+  return {
+    id: dto._id,
+    estimateId: dto.estimateId ?? null,
+    invoiceId: dto.invoiceId ?? null,
+    description: dto.description ?? "",
+    quantity: dto.quantity ?? 1,
+    unitPrice: dto.unitPrice ?? 0,
+    amount: dto.amount ?? 0,
+    taxRate: dto.taxRate ?? 0,
+    taxAmount: dto.taxAmount ?? 0,
+    discountPercent: dto.discountPercent ?? 0,
+    discountAmount: dto.discountAmount ?? 0,
+    sortOrder: dto.sortOrder ?? 0,
+    productId: dto.productId ?? null,
+    type: typeMap[dto.type ?? "service"] ?? LineItemType.Service,
+  };
+}
+
+export function lineItemModelToDto(item: Partial<LineItem>): Record<string, unknown> {
+  const dto: Record<string, unknown> = {};
+  if (item.estimateId !== undefined) dto.estimateId = item.estimateId;
+  if (item.invoiceId !== undefined) dto.invoiceId = item.invoiceId;
+  if (item.description !== undefined) dto.description = item.description;
+  if (item.quantity !== undefined) dto.quantity = item.quantity;
+  if (item.unitPrice !== undefined) dto.unitPrice = item.unitPrice;
+  if (item.amount !== undefined) dto.amount = item.amount;
+  if (item.taxRate !== undefined) dto.taxRate = item.taxRate;
+  if (item.taxAmount !== undefined) dto.taxAmount = item.taxAmount;
+  if (item.discountPercent !== undefined) dto.discountPercent = item.discountPercent;
+  if (item.discountAmount !== undefined) dto.discountAmount = item.discountAmount;
+  if (item.sortOrder !== undefined) dto.sortOrder = item.sortOrder;
+  if (item.productId !== undefined) dto.productId = item.productId;
+  if (item.type !== undefined) dto.type = item.type;
+  return dto;
+}
+
+// ─── Estimate DTO ─────────────────────────────────────────────────────────────
+
+export interface EstimateDTO {
+  _id: string;
+  company?: BubbleReference | null;
+  project?: BubbleReference | null;
+  client?: BubbleReference | null;
+  estimateNumber?: string | null;
+  status?: string | null;
+  date?: string | null;
+  expirationDate?: string | null;
+  subtotal?: number | null;
+  taxTotal?: number | null;
+  discountTotal?: number | null;
+  total?: number | null;
+  notes?: string | null;
+  internalNotes?: string | null;
+  termsAndConditions?: string | null;
+  acceptedBy?: string | null;
+  acceptedDate?: string | null;
+  sentAt?: string | null;
+  lineItems?: LineItemDTO[] | null;
+  externalQboId?: string | null;
+  externalSageId?: string | null;
+  lastSyncedAt?: string | null;
+  syncStatus?: string | null;
+  deletedAt?: string | null;
+  "Created Date"?: string | null;
+  "Modified Date"?: string | null;
+}
+
+export function estimateDtoToModel(dto: EstimateDTO): Estimate {
+  const statusValue = dto.status as EstimateStatus;
+  const validStatus = Object.values(EstimateStatus).includes(statusValue)
+    ? statusValue
+    : EstimateStatus.Draft;
+
+  const syncStatusValue = dto.syncStatus?.toLowerCase() as SyncStatus;
+  const validSyncStatus = Object.values(SyncStatus).includes(syncStatusValue)
+    ? syncStatusValue
+    : SyncStatus.Pending;
+
+  return {
+    id: dto._id,
+    companyId: resolveBubbleReference(dto.company) ?? "",
+    projectId: resolveBubbleReference(dto.project),
+    clientId: resolveBubbleReference(dto.client),
+    estimateNumber: dto.estimateNumber ?? "",
+    status: validStatus,
+    date: dto.date ? parseBubbleDate(dto.date) : null,
+    expirationDate: dto.expirationDate ? parseBubbleDate(dto.expirationDate) : null,
+    subtotal: dto.subtotal ?? 0,
+    taxTotal: dto.taxTotal ?? 0,
+    discountTotal: dto.discountTotal ?? 0,
+    total: dto.total ?? 0,
+    notes: dto.notes ?? null,
+    internalNotes: dto.internalNotes ?? null,
+    termsAndConditions: dto.termsAndConditions ?? null,
+    acceptedBy: dto.acceptedBy ?? null,
+    acceptedDate: dto.acceptedDate ? parseBubbleDate(dto.acceptedDate) : null,
+    sentAt: dto.sentAt ? parseBubbleDate(dto.sentAt) : null,
+    lineItems: dto.lineItems?.map(lineItemDtoToModel) ?? [],
+    externalQboId: dto.externalQboId ?? null,
+    externalSageId: dto.externalSageId ?? null,
+    lastSyncedAt: dto.lastSyncedAt ? parseBubbleDate(dto.lastSyncedAt) : null,
+    syncStatus: validSyncStatus,
+    deletedAt: dto.deletedAt ? parseBubbleDate(dto.deletedAt) : null,
+    createdAt: dto["Created Date"] ? parseBubbleDate(dto["Created Date"]) : null,
+    updatedAt: dto["Modified Date"] ? parseBubbleDate(dto["Modified Date"]) : null,
+  };
+}
+
+export function estimateModelToDto(estimate: Partial<Estimate>): Record<string, unknown> {
+  const dto: Record<string, unknown> = {};
+  if (estimate.companyId !== undefined) dto.company = estimate.companyId;
+  if (estimate.projectId !== undefined) dto.project = estimate.projectId;
+  if (estimate.clientId !== undefined) dto.client = estimate.clientId;
+  if (estimate.status !== undefined) dto.status = estimate.status;
+  if (estimate.date !== undefined) dto.date = estimate.date?.toISOString() ?? null;
+  if (estimate.expirationDate !== undefined) dto.expirationDate = estimate.expirationDate?.toISOString() ?? null;
+  if (estimate.subtotal !== undefined) dto.subtotal = estimate.subtotal;
+  if (estimate.taxTotal !== undefined) dto.taxTotal = estimate.taxTotal;
+  if (estimate.discountTotal !== undefined) dto.discountTotal = estimate.discountTotal;
+  if (estimate.total !== undefined) dto.total = estimate.total;
+  if (estimate.notes !== undefined) dto.notes = estimate.notes;
+  if (estimate.internalNotes !== undefined) dto.internalNotes = estimate.internalNotes;
+  if (estimate.termsAndConditions !== undefined) dto.termsAndConditions = estimate.termsAndConditions;
+  if (estimate.acceptedBy !== undefined) dto.acceptedBy = estimate.acceptedBy;
+  if (estimate.acceptedDate !== undefined) dto.acceptedDate = estimate.acceptedDate?.toISOString() ?? null;
+  if (estimate.sentAt !== undefined) dto.sentAt = estimate.sentAt?.toISOString() ?? null;
+  if (estimate.deletedAt !== undefined) dto.deletedAt = estimate.deletedAt?.toISOString() ?? null;
+  return dto;
+}
+
+// ─── Invoice DTO ──────────────────────────────────────────────────────────────
+
+export interface InvoiceDTO {
+  _id: string;
+  company?: BubbleReference | null;
+  project?: BubbleReference | null;
+  client?: BubbleReference | null;
+  estimate?: BubbleReference | null;
+  invoiceNumber?: string | null;
+  status?: string | null;
+  date?: string | null;
+  dueDate?: string | null;
+  subtotal?: number | null;
+  taxTotal?: number | null;
+  discountTotal?: number | null;
+  total?: number | null;
+  amountPaid?: number | null;
+  balance?: number | null;
+  depositAmount?: number | null;
+  notes?: string | null;
+  internalNotes?: string | null;
+  paymentTerms?: string | null;
+  sentAt?: string | null;
+  paidAt?: string | null;
+  lineItems?: LineItemDTO[] | null;
+  payments?: PaymentDTO[] | null;
+  externalQboId?: string | null;
+  externalSageId?: string | null;
+  lastSyncedAt?: string | null;
+  syncStatus?: string | null;
+  deletedAt?: string | null;
+  "Created Date"?: string | null;
+  "Modified Date"?: string | null;
+}
+
+export function invoiceDtoToModel(dto: InvoiceDTO): Invoice {
+  const statusValue = dto.status as InvoiceStatus;
+  const validStatus = Object.values(InvoiceStatus).includes(statusValue)
+    ? statusValue
+    : InvoiceStatus.Draft;
+
+  const syncStatusValue = dto.syncStatus?.toLowerCase() as SyncStatus;
+  const validSyncStatus = Object.values(SyncStatus).includes(syncStatusValue)
+    ? syncStatusValue
+    : SyncStatus.Pending;
+
+  return {
+    id: dto._id,
+    companyId: resolveBubbleReference(dto.company) ?? "",
+    projectId: resolveBubbleReference(dto.project),
+    clientId: resolveBubbleReference(dto.client),
+    estimateId: resolveBubbleReference(dto.estimate),
+    invoiceNumber: dto.invoiceNumber ?? "",
+    status: validStatus,
+    date: dto.date ? parseBubbleDate(dto.date) : null,
+    dueDate: dto.dueDate ? parseBubbleDate(dto.dueDate) : null,
+    subtotal: dto.subtotal ?? 0,
+    taxTotal: dto.taxTotal ?? 0,
+    discountTotal: dto.discountTotal ?? 0,
+    total: dto.total ?? 0,
+    amountPaid: dto.amountPaid ?? 0,
+    balance: dto.balance ?? 0,
+    depositAmount: dto.depositAmount ?? 0,
+    notes: dto.notes ?? null,
+    internalNotes: dto.internalNotes ?? null,
+    paymentTerms: dto.paymentTerms ?? "Net 30",
+    sentAt: dto.sentAt ? parseBubbleDate(dto.sentAt) : null,
+    paidAt: dto.paidAt ? parseBubbleDate(dto.paidAt) : null,
+    lineItems: dto.lineItems?.map(lineItemDtoToModel) ?? [],
+    payments: dto.payments?.map(paymentDtoToModel) ?? [],
+    externalQboId: dto.externalQboId ?? null,
+    externalSageId: dto.externalSageId ?? null,
+    lastSyncedAt: dto.lastSyncedAt ? parseBubbleDate(dto.lastSyncedAt) : null,
+    syncStatus: validSyncStatus,
+    deletedAt: dto.deletedAt ? parseBubbleDate(dto.deletedAt) : null,
+    createdAt: dto["Created Date"] ? parseBubbleDate(dto["Created Date"]) : null,
+    updatedAt: dto["Modified Date"] ? parseBubbleDate(dto["Modified Date"]) : null,
+  };
+}
+
+export function invoiceModelToDto(invoice: Partial<Invoice>): Record<string, unknown> {
+  const dto: Record<string, unknown> = {};
+  if (invoice.companyId !== undefined) dto.company = invoice.companyId;
+  if (invoice.projectId !== undefined) dto.project = invoice.projectId;
+  if (invoice.clientId !== undefined) dto.client = invoice.clientId;
+  if (invoice.estimateId !== undefined) dto.estimate = invoice.estimateId;
+  if (invoice.status !== undefined) dto.status = invoice.status;
+  if (invoice.date !== undefined) dto.date = invoice.date?.toISOString() ?? null;
+  if (invoice.dueDate !== undefined) dto.dueDate = invoice.dueDate?.toISOString() ?? null;
+  if (invoice.subtotal !== undefined) dto.subtotal = invoice.subtotal;
+  if (invoice.taxTotal !== undefined) dto.taxTotal = invoice.taxTotal;
+  if (invoice.discountTotal !== undefined) dto.discountTotal = invoice.discountTotal;
+  if (invoice.total !== undefined) dto.total = invoice.total;
+  if (invoice.amountPaid !== undefined) dto.amountPaid = invoice.amountPaid;
+  if (invoice.balance !== undefined) dto.balance = invoice.balance;
+  if (invoice.depositAmount !== undefined) dto.depositAmount = invoice.depositAmount;
+  if (invoice.notes !== undefined) dto.notes = invoice.notes;
+  if (invoice.internalNotes !== undefined) dto.internalNotes = invoice.internalNotes;
+  if (invoice.paymentTerms !== undefined) dto.paymentTerms = invoice.paymentTerms;
+  if (invoice.sentAt !== undefined) dto.sentAt = invoice.sentAt?.toISOString() ?? null;
+  if (invoice.paidAt !== undefined) dto.paidAt = invoice.paidAt?.toISOString() ?? null;
+  if (invoice.deletedAt !== undefined) dto.deletedAt = invoice.deletedAt?.toISOString() ?? null;
+  return dto;
+}
+
+// ─── Payment DTO ──────────────────────────────────────────────────────────────
+
+export interface PaymentDTO {
+  _id: string;
+  invoice?: BubbleReference | null;
+  company?: BubbleReference | null;
+  amount?: number | null;
+  date?: string | null;
+  method?: string | null;
+  referenceNumber?: string | null;
+  notes?: string | null;
+  externalQboId?: string | null;
+  externalSageId?: string | null;
+  deletedAt?: string | null;
+  "Created Date"?: string | null;
+  "Modified Date"?: string | null;
+}
+
+export function paymentDtoToModel(dto: PaymentDTO): Payment {
+  const methodMap: Record<string, PaymentMethod> = {
+    cash: PaymentMethod.Cash,
+    check: PaymentMethod.Check,
+    credit_card: PaymentMethod.CreditCard,
+    bank_transfer: PaymentMethod.BankTransfer,
+    other: PaymentMethod.Other,
+  };
+
+  return {
+    id: dto._id,
+    invoiceId: resolveBubbleReference(dto.invoice) ?? "",
+    companyId: resolveBubbleReference(dto.company) ?? "",
+    amount: dto.amount ?? 0,
+    date: dto.date ? parseBubbleDate(dto.date) : null,
+    method: methodMap[dto.method ?? "other"] ?? PaymentMethod.Other,
+    referenceNumber: dto.referenceNumber ?? null,
+    notes: dto.notes ?? null,
+    externalQboId: dto.externalQboId ?? null,
+    externalSageId: dto.externalSageId ?? null,
+    deletedAt: dto.deletedAt ? parseBubbleDate(dto.deletedAt) : null,
+    createdAt: dto["Created Date"] ? parseBubbleDate(dto["Created Date"]) : null,
+    updatedAt: dto["Modified Date"] ? parseBubbleDate(dto["Modified Date"]) : null,
+  };
+}
+
+export function paymentModelToDto(payment: Partial<Payment>): Record<string, unknown> {
+  const dto: Record<string, unknown> = {};
+  if (payment.invoiceId !== undefined) dto.invoice = payment.invoiceId;
+  if (payment.companyId !== undefined) dto.company = payment.companyId;
+  if (payment.amount !== undefined) dto.amount = payment.amount;
+  if (payment.date !== undefined) dto.date = payment.date?.toISOString() ?? null;
+  if (payment.method !== undefined) dto.method = payment.method;
+  if (payment.referenceNumber !== undefined) dto.referenceNumber = payment.referenceNumber;
+  if (payment.notes !== undefined) dto.notes = payment.notes;
+  if (payment.deletedAt !== undefined) dto.deletedAt = payment.deletedAt?.toISOString() ?? null;
+  return dto;
+}
+
+// ─── AccountingConnection DTO ─────────────────────────────────────────────────
+
+export interface AccountingConnectionDTO {
+  _id: string;
+  company?: BubbleReference | null;
+  provider?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  tokenExpiresAt?: string | null;
+  realmId?: string | null;
+  isConnected?: boolean | null;
+  lastSyncAt?: string | null;
+  syncEnabled?: boolean | null;
+  webhookVerifierToken?: string | null;
+  "Created Date"?: string | null;
+  "Modified Date"?: string | null;
+}
+
+export function accountingConnectionDtoToModel(dto: AccountingConnectionDTO): AccountingConnection {
+  const providerValue = dto.provider?.toLowerCase();
+  const provider = providerValue === "sage" ? AccountingProvider.Sage : AccountingProvider.QuickBooks;
+
+  return {
+    id: dto._id,
+    companyId: resolveBubbleReference(dto.company) ?? "",
+    provider,
+    accessToken: dto.accessToken ?? null,
+    refreshToken: dto.refreshToken ?? null,
+    tokenExpiresAt: dto.tokenExpiresAt ? parseBubbleDate(dto.tokenExpiresAt) : null,
+    realmId: dto.realmId ?? null,
+    isConnected: dto.isConnected ?? false,
+    lastSyncAt: dto.lastSyncAt ? parseBubbleDate(dto.lastSyncAt) : null,
+    syncEnabled: dto.syncEnabled ?? false,
+    webhookVerifierToken: dto.webhookVerifierToken ?? null,
+    createdAt: dto["Created Date"] ? parseBubbleDate(dto["Created Date"]) : null,
+    updatedAt: dto["Modified Date"] ? parseBubbleDate(dto["Modified Date"]) : null,
   };
 }

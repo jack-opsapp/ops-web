@@ -26,6 +26,22 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.projects.details(), id] as const,
   },
 
+  // Opportunities (Supabase pipeline)
+  opportunities: {
+    all: ["opportunities"] as const,
+    lists: () => [...queryKeys.opportunities.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.opportunities.lists(), companyId, filters] as const,
+    details: () => [...queryKeys.opportunities.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.opportunities.details(), id] as const,
+    activities: (opportunityId: string) =>
+      [...queryKeys.opportunities.all, "activities", opportunityId] as const,
+    followUps: (opportunityId: string) =>
+      [...queryKeys.opportunities.all, "followUps", opportunityId] as const,
+    stageTransitions: (opportunityId: string) =>
+      [...queryKeys.opportunities.all, "stageTransitions", opportunityId] as const,
+  },
+
   // Tasks
   tasks: {
     all: ["tasks"] as const,
@@ -88,6 +104,56 @@ export const queryKeys = {
       [...queryKeys.taskTypes.all, companyId] as const,
     detail: (id: string) =>
       [...queryKeys.taskTypes.all, "detail", id] as const,
+  },
+
+  // Products
+  products: {
+    all: ["products"] as const,
+    lists: () => [...queryKeys.products.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.products.lists(), companyId, filters] as const,
+    details: () => [...queryKeys.products.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.products.details(), id] as const,
+  },
+
+  // Estimates
+  estimates: {
+    all: ["estimates"] as const,
+    lists: () => [...queryKeys.estimates.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.estimates.lists(), companyId, filters] as const,
+    projectEstimates: (projectId: string) =>
+      [...queryKeys.estimates.lists(), "project", projectId] as const,
+    details: () => [...queryKeys.estimates.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.estimates.details(), id] as const,
+  },
+
+  // Invoices
+  invoices: {
+    all: ["invoices"] as const,
+    lists: () => [...queryKeys.invoices.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.invoices.lists(), companyId, filters] as const,
+    projectInvoices: (projectId: string) =>
+      [...queryKeys.invoices.lists(), "project", projectId] as const,
+    details: () => [...queryKeys.invoices.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.invoices.details(), id] as const,
+  },
+
+  // Payments
+  payments: {
+    all: ["payments"] as const,
+    invoicePayments: (invoiceId: string) =>
+      [...queryKeys.payments.all, "invoice", invoiceId] as const,
+  },
+
+  // Accounting
+  accounting: {
+    all: ["accounting"] as const,
+    connections: (companyId: string) =>
+      [...queryKeys.accounting.all, "connections", companyId] as const,
+    syncHistory: (companyId: string) =>
+      [...queryKeys.accounting.all, "syncHistory", companyId] as const,
   },
 } as const;
 

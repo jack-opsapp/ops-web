@@ -606,6 +606,247 @@ export const bubbleObjectResponseSchema = <T extends z.ZodType>(
     response: itemSchema,
   });
 
+// ─── Financial Enum Schemas ──────────────────────────────────────────────────
+
+export const estimateStatusSchema = z.enum([
+  "Draft", "Sent", "Accepted", "Rejected", "Expired", "Converted",
+]);
+
+export const invoiceStatusSchema = z.enum([
+  "Draft", "Sent", "Partial", "Paid", "Overdue", "Void",
+]);
+
+export const lineItemTypeSchema = z.enum([
+  "service", "product", "description_only", "subtotal", "discount",
+]);
+
+export const productTypeSchema = z.enum(["service", "product"]);
+
+export const paymentMethodSchema = z.enum([
+  "cash", "check", "credit_card", "bank_transfer", "other",
+]);
+
+export const accountingProviderSchema = z.enum(["quickbooks", "sage"]);
+
+export const syncStatusSchema = z.enum(["synced", "pending", "error"]);
+
+// ─── Financial Entity Schemas ────────────────────────────────────────────────
+
+export const productSchema = z.object({
+  id: z.string().min(1),
+  companyId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable(),
+  type: productTypeSchema,
+  unitPrice: z.number(),
+  costPrice: z.number().nullable(),
+  taxable: z.boolean(),
+  sku: z.string().nullable(),
+  active: z.boolean(),
+  externalQboId: z.string().nullable(),
+  externalSageId: z.string().nullable(),
+  deletedAt: z.date().nullable(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
+});
+
+export const lineItemSchema = z.object({
+  id: z.string().min(1),
+  estimateId: z.string().nullable(),
+  invoiceId: z.string().nullable(),
+  description: z.string(),
+  quantity: z.number().min(0),
+  unitPrice: z.number(),
+  amount: z.number(),
+  taxRate: z.number().min(0).max(100),
+  taxAmount: z.number(),
+  discountPercent: z.number().min(0).max(100),
+  discountAmount: z.number(),
+  sortOrder: z.number(),
+  productId: z.string().nullable(),
+  type: lineItemTypeSchema,
+});
+
+export const estimateSchema = z.object({
+  id: z.string().min(1),
+  companyId: z.string().min(1),
+  projectId: z.string().nullable(),
+  clientId: z.string().nullable(),
+  estimateNumber: z.string(),
+  status: estimateStatusSchema,
+  date: z.date().nullable(),
+  expirationDate: z.date().nullable(),
+  subtotal: z.number(),
+  taxTotal: z.number(),
+  discountTotal: z.number(),
+  total: z.number(),
+  notes: z.string().nullable(),
+  internalNotes: z.string().nullable(),
+  termsAndConditions: z.string().nullable(),
+  acceptedBy: z.string().nullable(),
+  acceptedDate: z.date().nullable(),
+  sentAt: z.date().nullable(),
+  externalQboId: z.string().nullable(),
+  externalSageId: z.string().nullable(),
+  lastSyncedAt: z.date().nullable(),
+  syncStatus: syncStatusSchema,
+  deletedAt: z.date().nullable(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
+});
+
+export const invoiceSchema = z.object({
+  id: z.string().min(1),
+  companyId: z.string().min(1),
+  projectId: z.string().nullable(),
+  clientId: z.string().nullable(),
+  estimateId: z.string().nullable(),
+  invoiceNumber: z.string(),
+  status: invoiceStatusSchema,
+  date: z.date().nullable(),
+  dueDate: z.date().nullable(),
+  subtotal: z.number(),
+  taxTotal: z.number(),
+  discountTotal: z.number(),
+  total: z.number(),
+  amountPaid: z.number(),
+  balance: z.number(),
+  depositAmount: z.number(),
+  notes: z.string().nullable(),
+  internalNotes: z.string().nullable(),
+  paymentTerms: z.string(),
+  sentAt: z.date().nullable(),
+  paidAt: z.date().nullable(),
+  externalQboId: z.string().nullable(),
+  externalSageId: z.string().nullable(),
+  lastSyncedAt: z.date().nullable(),
+  syncStatus: syncStatusSchema,
+  deletedAt: z.date().nullable(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
+});
+
+export const paymentSchema = z.object({
+  id: z.string().min(1),
+  invoiceId: z.string().min(1),
+  companyId: z.string().min(1),
+  amount: z.number().positive(),
+  date: z.date().nullable(),
+  method: paymentMethodSchema,
+  referenceNumber: z.string().nullable(),
+  notes: z.string().nullable(),
+  externalQboId: z.string().nullable(),
+  externalSageId: z.string().nullable(),
+  deletedAt: z.date().nullable(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
+});
+
+// ─── Financial Form Schemas ──────────────────────────────────────────────────
+
+/** Create product form */
+export const createProductSchema = z.object({
+  companyId: z.string().min(1, "Company is required"),
+  name: z.string().min(1, "Product name is required").max(200),
+  description: z.string().optional().nullable(),
+  type: productTypeSchema.default("service"),
+  unitPrice: z.number().min(0, "Price must be positive").default(0),
+  costPrice: z.number().min(0).optional().nullable(),
+  taxable: z.boolean().default(true),
+  sku: z.string().optional().nullable(),
+  active: z.boolean().default(true),
+});
+
+/** Update product form */
+export const updateProductSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().optional().nullable(),
+  type: productTypeSchema.optional(),
+  unitPrice: z.number().min(0).optional(),
+  costPrice: z.number().min(0).optional().nullable(),
+  taxable: z.boolean().optional(),
+  sku: z.string().optional().nullable(),
+  active: z.boolean().optional(),
+});
+
+/** Line item form (used within estimate/invoice forms) */
+export const lineItemFormSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.number().min(0.0001, "Quantity must be positive").default(1),
+  unitPrice: z.number().default(0),
+  taxRate: z.number().min(0).max(100).default(0),
+  discountPercent: z.number().min(0).max(100).default(0),
+  productId: z.string().optional().nullable(),
+  type: lineItemTypeSchema.default("service"),
+});
+
+/** Create estimate form */
+export const createEstimateSchema = z.object({
+  companyId: z.string().min(1, "Company is required"),
+  clientId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  date: z.date().default(() => new Date()),
+  expirationDate: z.date().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  termsAndConditions: z.string().optional().nullable(),
+  lineItems: z.array(lineItemFormSchema).min(1, "At least one line item is required"),
+});
+
+/** Update estimate form */
+export const updateEstimateSchema = z.object({
+  id: z.string().min(1),
+  clientId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  date: z.date().optional(),
+  expirationDate: z.date().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  termsAndConditions: z.string().optional().nullable(),
+  lineItems: z.array(lineItemFormSchema).optional(),
+});
+
+/** Create invoice form */
+export const createInvoiceSchema = z.object({
+  companyId: z.string().min(1, "Company is required"),
+  clientId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  estimateId: z.string().optional().nullable(),
+  date: z.date().default(() => new Date()),
+  dueDate: z.date().optional().nullable(),
+  paymentTerms: z.string().default("Net 30"),
+  depositAmount: z.number().min(0).default(0),
+  notes: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  lineItems: z.array(lineItemFormSchema).min(1, "At least one line item is required"),
+});
+
+/** Update invoice form */
+export const updateInvoiceSchema = z.object({
+  id: z.string().min(1),
+  clientId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  date: z.date().optional(),
+  dueDate: z.date().optional().nullable(),
+  paymentTerms: z.string().optional(),
+  depositAmount: z.number().min(0).optional(),
+  notes: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  lineItems: z.array(lineItemFormSchema).optional(),
+});
+
+/** Record payment form */
+export const recordPaymentSchema = z.object({
+  invoiceId: z.string().min(1),
+  companyId: z.string().min(1),
+  amount: z.number().positive("Amount must be positive"),
+  date: z.date().default(() => new Date()),
+  method: paymentMethodSchema.default("other"),
+  referenceNumber: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
 // ─── Inferred Types ───────────────────────────────────────────────────────────
 
 export type ProjectFormValues = z.infer<typeof createProjectSchema>;
@@ -620,3 +861,11 @@ export type TaskTypeFormValues = z.infer<typeof createTaskTypeSchema>;
 export type UpdateTaskTypeFormValues = z.infer<typeof updateTaskTypeSchema>;
 export type CalendarEventFormValues = z.infer<typeof createCalendarEventSchema>;
 export type UpdateCalendarEventFormValues = z.infer<typeof updateCalendarEventSchema>;
+export type ProductFormValues = z.infer<typeof createProductSchema>;
+export type UpdateProductFormValues = z.infer<typeof updateProductSchema>;
+export type LineItemFormValues = z.infer<typeof lineItemFormSchema>;
+export type EstimateFormValues = z.infer<typeof createEstimateSchema>;
+export type UpdateEstimateFormValues = z.infer<typeof updateEstimateSchema>;
+export type InvoiceFormValues = z.infer<typeof createInvoiceSchema>;
+export type UpdateInvoiceFormValues = z.infer<typeof updateInvoiceSchema>;
+export type RecordPaymentFormValues = z.infer<typeof recordPaymentSchema>;

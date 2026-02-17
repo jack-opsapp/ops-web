@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Search,
   Plus,
-  Clock,
   X,
   ListFilter,
   TrendingUp,
   Target,
   Loader2,
-  FolderOpen,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -18,325 +17,47 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
-import { useWindowStore } from "@/stores/window-store";
-import { ProjectDetailModal } from "@/components/ops/project-detail-modal";
 import { usePageActionsStore } from "@/stores/page-actions-store";
-import { useProjects, useClients, useUpdateProjectStatus } from "@/lib/hooks";
+import { useAuthStore } from "@/lib/store/auth-store";
 import {
-  type Project,
-  type Client,
-  ProjectStatus,
-  PROJECT_STATUS_COLORS,
-} from "@/lib/types/models";
+  useOpportunities,
+  useClients,
+  useMoveOpportunityStage,
+  useUpdateOpportunity,
+  useCreateOpportunity,
+} from "@/lib/hooks";
+import {
+  type Opportunity,
+  OpportunityStage,
+  getStageDisplayName,
+  getStageColor,
+  isActiveStage,
+  getAllStages,
+  formatCurrency,
+  nextOpportunityStage,
+  PIPELINE_STAGES_DEFAULT,
+} from "@/lib/types/pipeline";
+import type { Client } from "@/lib/types/models";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-type PipelineStageId =
-  | "new-lead"
-  | "quoted"
-  | "converted"
-  | "lost";
-
-interface PipelineStageConfig {
-  id: PipelineStageId;
-  label: string;
-  color: string;
-  borderColor: string;
-  bgAccent: string;
-  textColor: string;
-  /** Which ProjectStatus values map to this pipeline stage */
-  statuses: ProjectStatus[];
-}
-
-interface PipelineCard {
-  id: string;
-  project: Project;
-  client: Client | null;
-}
-
-interface PipelineColumn extends PipelineStageConfig {
-  cards: PipelineCard[];
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline Stage Configuration
-// ---------------------------------------------------------------------------
-const PIPELINE_STAGES: PipelineStageConfig[] = [
-  {
-    id: "new-lead",
-    label: "New Lead",
-    color: "text-[#BCBCBC]",
-    borderColor: "border-t-[#BCBCBC]",
-    bgAccent: "bg-[#BCBCBC]",
-    textColor: "#BCBCBC",
-    statuses: [ProjectStatus.RFQ],
-  },
-  {
-    id: "quoted",
-    label: "Quoted",
-    color: "text-ops-accent",
-    borderColor: "border-t-ops-accent",
-    bgAccent: "bg-ops-accent",
-    textColor: "#417394",
-    statuses: [ProjectStatus.Estimated],
-  },
-  {
-    id: "converted",
-    label: "Converted",
-    color: "text-status-success",
-    borderColor: "border-t-status-success",
-    bgAccent: "bg-status-success",
-    textColor: "#4ADE80",
-    statuses: [ProjectStatus.Accepted, ProjectStatus.InProgress, ProjectStatus.Completed, ProjectStatus.Closed],
-  },
-  {
-    id: "lost",
-    label: "Lost",
-    color: "text-ops-error",
-    borderColor: "border-t-ops-error",
-    bgAccent: "bg-ops-error",
-    textColor: "#93321A",
-    statuses: [ProjectStatus.Archived],
-  },
-];
-
-/**
- * Given a pipeline stage ID, return the first ProjectStatus in that stage.
- * Used when dropping a card into a new column.
- */
-function getTargetStatusForStage(stageId: PipelineStageId): ProjectStatus {
-  const stage = PIPELINE_STAGES.find((s) => s.id === stageId);
-  return stage?.statuses[0] ?? ProjectStatus.RFQ;
-}
-
-/**
- * Find which pipeline stage a project status belongs to.
- */
-function getStageForStatus(status: ProjectStatus): PipelineStageId {
-  for (const stage of PIPELINE_STAGES) {
-    if (stage.statuses.includes(status)) {
-      return stage.id;
-    }
-  }
-  return "new-lead";
-}
-
-/**
- * Compute days since a date (for "days in stage" approximation using startDate).
- */
-function daysSince(date: Date | string | null): number {
-  if (!date) return 0;
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return 0;
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-}
-
-// ---------------------------------------------------------------------------
-// Draggable Pipeline Card (Minimal)
-// ---------------------------------------------------------------------------
-function PipelineCardComponent({
-  card,
-  isDragOverlay,
-  onViewDetail,
-}: {
-  card: PipelineCard;
-  isDragOverlay?: boolean;
-  onViewDetail?: (project: Project) => void;
-}) {
-  const { project, client } = card;
-  const clientName = client?.name || "No Client";
-  const daysInStage = daysSince(project.startDate);
-
-  return (
-    <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", project.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      className={cn(
-        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5",
-        "cursor-grab active:cursor-grabbing transition-all duration-150",
-        "group",
-        isDragOverlay && "shadow-elevated border-ops-accent scale-[1.02] rotate-[1deg]",
-        !isDragOverlay && "hover:border-[rgba(255,255,255,0.3)]"
-      )}
-    >
-      {/* Client name + status badge */}
-      <div className="flex items-start gap-[6px]">
-        <div className="flex-1 min-w-0">
-          <h4 className="font-mohave text-body-sm text-text-primary truncate uppercase">
-            {clientName}
-          </h4>
-          <p className="font-kosugi text-[10px] text-text-tertiary truncate">
-            {project.title}
-          </p>
-        </div>
-        <span
-          className="shrink-0 font-mono text-[9px] px-[5px] py-[1px] rounded-sm border uppercase"
-          style={{
-            color: PROJECT_STATUS_COLORS[project.status],
-            borderColor: PROJECT_STATUS_COLORS[project.status] + "40",
-            backgroundColor: PROJECT_STATUS_COLORS[project.status] + "15",
-          }}
-        >
-          {project.status}
-        </span>
-      </div>
-
-      {/* Days in stage + view project */}
-      <div className="flex items-center justify-between mt-1">
-        {daysInStage > 0 ? (
-          <div className="flex items-center gap-[2px]" title={`${daysInStage} days since start`}>
-            <Clock className="w-[10px] h-[10px] text-text-disabled" />
-            <span className="font-mono text-[9px] text-text-disabled">{daysInStage}d</span>
-          </div>
-        ) : (
-          <div />
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetail?.(project);
-          }}
-          className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
-          title="View Project"
-        >
-          <FolderOpen className="w-[12px] h-[12px]" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Droppable Column
-// ---------------------------------------------------------------------------
-function PipelineColumnComponent({
-  column,
-  onAddProject,
-  onViewDetail,
-}: {
-  column: PipelineColumn;
-  onAddProject?: () => void;
-  onViewDetail?: (project: Project) => void;
-}) {
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setIsDragOver(false);
-  }, []);
-
-  return (
-    <div
-      className={cn("flex flex-col min-w-[260px] max-w-[300px] w-full")}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        // Drop is handled at the parent level via the onDrop prop
-      }}
-      data-column-id={column.id}
-    >
-      {/* Column header */}
-      <div
-        className={cn(
-          "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0",
-          column.borderColor
-        )}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <h3
-              className={cn(
-                "font-mohave text-body font-medium uppercase tracking-wider",
-                column.color
-              )}
-            >
-              {column.label}
-            </h3>
-            <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
-              {column.cards.length}
-            </span>
-          </div>
-          <button
-            onClick={onAddProject}
-            className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors"
-          >
-            <Plus className="w-[14px] h-[14px]" />
-          </button>
-        </div>
-
-        {/* Column stats */}
-        <div className="flex items-center gap-2 mt-[4px]">
-          <div className="flex items-center gap-[3px]">
-            <FolderOpen className="w-[10px] h-[10px] text-text-disabled" />
-            <span className="font-mono text-[10px] text-text-disabled">
-              {column.cards.length} project{column.cards.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Cards area */}
-      <div
-        className={cn(
-          "flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] transition-colors duration-150",
-          isDragOver
-            ? "bg-ops-accent-muted border-ops-accent"
-            : "bg-[rgba(10,10,10,0.5)]"
-        )}
-      >
-        {column.cards.map((card) => (
-          <PipelineCardComponent
-            key={card.id}
-            card={card}
-            onViewDetail={onViewDetail}
-          />
-        ))}
-
-        {column.cards.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-[120px] border border-dashed border-border-subtle rounded gap-1">
-            <div className="w-[32px] h-[32px] rounded-full bg-background-elevated flex items-center justify-center">
-              <Target className="w-[14px] h-[14px] text-text-disabled" />
-            </div>
-            <span className="font-kosugi text-[11px] text-text-disabled">
-              No projects in this stage
-            </span>
-            <span className="font-kosugi text-[9px] text-text-disabled">
-              Drop here to move
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { PipelineBoard } from "./_components/pipeline-board";
+import { DealDetailSheet } from "./_components/deal-detail-sheet";
+import { StageTransitionDialog } from "./_components/stage-transition-dialog";
+import { QuickAddForm } from "./_components/quick-add-form";
 
 // ---------------------------------------------------------------------------
 // Loading Skeleton
 // ---------------------------------------------------------------------------
 function PipelineSkeleton() {
+  const stages = PIPELINE_STAGES_DEFAULT;
+
   return (
     <div className="flex flex-col h-full space-y-2">
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="font-kosugi text-caption-sm text-text-tertiary">
-              Loading projects...
-            </p>
-          </div>
+          <p className="font-kosugi text-caption-sm text-text-tertiary">
+            Loading pipeline...
+          </p>
         </div>
 
         {/* Metrics skeleton */}
@@ -356,36 +77,32 @@ function PipelineSkeleton() {
       {/* Board skeleton */}
       <div className="flex-1 overflow-x-auto pb-2">
         <div className="flex gap-2 min-w-min">
-          {PIPELINE_STAGES.map((stage) => (
+          {stages.slice(0, 6).map((stage) => (
             <div
-              key={stage.id}
-              className="flex flex-col min-w-[260px] max-w-[300px] w-full"
+              key={stage.slug}
+              className="flex flex-col w-[280px] shrink-0"
             >
               <div
-                className={cn(
-                  "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0",
-                  stage.borderColor
-                )}
+                className="border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0"
+                style={{ borderTopColor: stage.color }}
               >
                 <div className="flex items-center gap-1">
                   <h3
-                    className={cn(
-                      "font-mohave text-body font-medium uppercase tracking-wider",
-                      stage.color
-                    )}
+                    className="font-mohave text-body font-medium uppercase tracking-wider"
+                    style={{ color: stage.color }}
                   >
-                    {stage.label}
+                    {stage.name}
                   </h3>
                   <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
                     --
                   </span>
                 </div>
               </div>
-              <div className="flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] bg-background-panel/50">
+              <div className="flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] bg-[rgba(10,10,10,0.5)]">
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="bg-background-card-dark border border-border rounded p-1.5 space-y-1.5 animate-pulse"
+                    className="bg-[rgba(13,13,13,0.6)] border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5 space-y-1.5 animate-pulse"
                   >
                     <div className="h-[14px] w-3/4 bg-background-elevated rounded" />
                     <div className="h-[10px] w-1/2 bg-background-elevated rounded" />
@@ -402,36 +119,62 @@ function PipelineSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline Page
+// Pipeline Page - Main Orchestrator
 // ---------------------------------------------------------------------------
 export default function PipelinePage() {
+  // ── State ──────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState<OpportunityStage | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [detailProject, setDetailProject] = useState<Project | null>(null);
-  const boardRef = useRef<HTMLDivElement>(null);
-  const openWindow = useWindowStore((s) => s.openWindow);
-  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
-  // Set page actions in top bar
+  // Detail sheet
+  const [selectedOpportunity, setSelectedOpportunity] =
+    useState<Opportunity | null>(null);
+
+  // Stage transition dialog
+  const [transitionType, setTransitionType] = useState<"won" | "lost" | null>(
+    null
+  );
+  const [transitionOpportunity, setTransitionOpportunity] =
+    useState<Opportunity | null>(null);
+  const [pendingStageMove, setPendingStageMove] = useState<{
+    id: string;
+    stage: OpportunityStage;
+  } | null>(null);
+
+  // ── Auth ───────────────────────────────────────────────────────────────
+  const { company, currentUser } = useAuthStore();
+
+  // ── Page actions ───────────────────────────────────────────────────────
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
+
   useEffect(() => {
     setActions([
-      { label: "New Lead", icon: Plus, onClick: openCreateProject, shortcut: "\u2318\u21E7P" },
+      {
+        label: "New Lead",
+        icon: Plus,
+        onClick: () => setShowQuickAdd(true),
+        shortcut: "\u2318\u21E7L",
+      },
     ]);
     return () => clearActions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setActions, clearActions]);
 
-  // Fetch real data
-  const { data: projectsData, isLoading: projectsLoading } = useProjects();
+  // ── Data fetching ──────────────────────────────────────────────────────
+  const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
-  const updateStatusMutation = useUpdateProjectStatus();
 
-  const isLoading = projectsLoading || clientsLoading;
+  const isLoading = oppsLoading || clientsLoading;
 
-  // Build client lookup map
+  // ── Mutations ──────────────────────────────────────────────────────────
+  const moveStage = useMoveOpportunityStage();
+  const updateOpportunity = useUpdateOpportunity();
+  const createOpportunity = useCreateOpportunity();
+
+  // ── Client map ─────────────────────────────────────────────────────────
   const clientMap = useMemo(() => {
     const map = new Map<string, Client>();
     if (clientsData?.clients) {
@@ -442,132 +185,248 @@ export default function PipelinePage() {
     return map;
   }, [clientsData]);
 
-  // Filter out deleted projects and build pipeline columns
-  const activeProjects = useMemo(() => {
-    if (!projectsData?.projects) return [];
-    return projectsData.projects.filter((p) => !p.deletedAt);
-  }, [projectsData]);
+  // ── Active (non-deleted) opportunities ─────────────────────────────────
+  const activeOpportunities = useMemo(() => {
+    if (!opportunities) return [];
+    return opportunities.filter((o) => !o.deletedAt);
+  }, [opportunities]);
 
-  // Build pipeline columns from real data
-  const columns: PipelineColumn[] = useMemo(() => {
-    return PIPELINE_STAGES.map((stage) => {
-      const stageProjects = activeProjects.filter((p) =>
-        stage.statuses.includes(p.status)
-      );
+  // ── Metrics ────────────────────────────────────────────────────────────
+  const metrics = useMemo(() => {
+    const active = activeOpportunities.filter((o) => isActiveStage(o.stage));
+    const won = activeOpportunities.filter(
+      (o) => o.stage === OpportunityStage.Won
+    );
+    const lost = activeOpportunities.filter(
+      (o) => o.stage === OpportunityStage.Lost
+    );
 
-      const cards: PipelineCard[] = stageProjects.map((project) => ({
-        id: project.id,
-        project,
-        client: project.clientId ? clientMap.get(project.clientId) ?? null : null,
-      }));
+    const pipelineValue = active.reduce(
+      (sum, o) => sum + (o.estimatedValue ?? 0),
+      0
+    );
+    const activeDeals = active.length;
+    const wonDeals = won.length;
+    const lostDeals = lost.length;
+    const conversionRate =
+      wonDeals + lostDeals > 0
+        ? Math.round((wonDeals / (wonDeals + lostDeals)) * 100)
+        : 0;
 
-      return {
-        ...stage,
-        cards,
-      };
-    });
-  }, [activeProjects, clientMap]);
+    return { pipelineValue, activeDeals, wonDeals, conversionRate };
+  }, [activeOpportunities]);
 
-  // Filter cards by search and status filter
-  const filteredColumns = useMemo(() => {
-    return columns.map((col) => ({
-      ...col,
-      cards: col.cards.filter((card) => {
-        const clientName = card.client?.name || "";
-        const projectTitle = card.project.title || "";
-        const address = card.project.address || "";
+  // ── Stage counts for bottom bar ────────────────────────────────────────
+  const stageCounts = useMemo(() => {
+    const counts = new Map<OpportunityStage, number>();
+    for (const stage of getAllStages()) {
+      counts.set(stage, 0);
+    }
+    // Apply same filters as the board to keep counts in sync
+    const query = searchQuery.toLowerCase().trim();
+    for (const opp of activeOpportunities) {
+      // Stage filter
+      if (stageFilter && opp.stage !== stageFilter) continue;
+      // Search filter
+      if (query) {
+        const clientName = opp.clientId
+          ? (clientMap.get(opp.clientId)?.name ?? "")
+          : "";
+        const contactName = opp.contactName ?? "";
+        const title = opp.title ?? "";
+        const matches =
+          clientName.toLowerCase().includes(query) ||
+          contactName.toLowerCase().includes(query) ||
+          title.toLowerCase().includes(query);
+        if (!matches) continue;
+      }
+      counts.set(opp.stage, (counts.get(opp.stage) ?? 0) + 1);
+    }
+    return counts;
+  }, [activeOpportunities, searchQuery, stageFilter, clientMap]);
 
-        const matchesSearch =
-          !searchQuery.trim() ||
-          clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          projectTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          address.toLowerCase().includes(searchQuery.toLowerCase());
+  // ── Handlers ───────────────────────────────────────────────────────────
 
-        const matchesStatus =
-          !statusFilter || card.project.status === statusFilter;
+  /** Handle stage move from drag-and-drop or advance button */
+  const handleMoveStage = useCallback(
+    (id: string, newStage: OpportunityStage) => {
+      const opp = activeOpportunities.find((o) => o.id === id);
+      if (!opp) return;
 
-        return matchesSearch && matchesStatus;
-      }),
-    }));
-  }, [columns, searchQuery, statusFilter]);
+      // Won / Lost need confirmation dialogs
+      if (newStage === OpportunityStage.Won) {
+        setTransitionOpportunity(opp);
+        setTransitionType("won");
+        setPendingStageMove({ id, stage: newStage });
+        return;
+      }
 
-  // Compute statistics from real data
-  const totalProjects = activeProjects.length;
+      if (newStage === OpportunityStage.Lost) {
+        setTransitionOpportunity(opp);
+        setTransitionType("lost");
+        setPendingStageMove({ id, stage: newStage });
+        return;
+      }
 
-  const wonProjects = columns
-    .find((c) => c.id === "converted")
-    ?.cards.length ?? 0;
-
-  const lostProjects = columns
-    .find((c) => c.id === "lost")
-    ?.cards.length ?? 0;
-
-  const activeInPipeline = totalProjects - wonProjects - lostProjects;
-
-  const conversionRate =
-    wonProjects + lostProjects > 0
-      ? Math.round((wonProjects / (wonProjects + lostProjects)) * 100)
-      : 0;
-
-  // Collect unique statuses for filter dropdown
-  const allStatuses = useMemo(() => {
-    const statuses = new Set<ProjectStatus>();
-    activeProjects.forEach((p) => statuses.add(p.status));
-    return Array.from(statuses).sort();
-  }, [activeProjects]);
-
-  // Handle drop on a column
-  const handleBoardDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const projectId = e.dataTransfer.getData("text/plain");
-      if (!projectId) return;
-
-      // Find the target column from the drop point
-      const target = (e.target as HTMLElement).closest("[data-column-id]");
-      if (!target) return;
-      const destStageId = target.getAttribute("data-column-id") as PipelineStageId;
-      if (!destStageId) return;
-
-      // Find the project's current stage
-      const project = activeProjects.find((p) => p.id === projectId);
-      if (!project) return;
-
-      const currentStageId = getStageForStatus(project.status);
-      if (currentStageId === destStageId) return;
-
-      // Get the target status for the destination stage
-      const newStatus = getTargetStatusForStage(destStageId);
-
-      // Perform the mutation
-      updateStatusMutation.mutate(
-        { id: projectId, status: newStatus },
+      // Normal stage move
+      moveStage.mutate(
+        { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            const stageName =
-              PIPELINE_STAGES.find((s) => s.id === destStageId)?.label ?? destStageId;
-            toast.success(`Project moved to ${stageName}`, {
-              description: `Status updated to ${newStatus}`,
+            toast.success(`Moved to ${getStageDisplayName(newStage)}`, {
+              description: opp.title,
             });
           },
           onError: (error) => {
-            toast.error("Failed to update project status", {
+            toast.error("Failed to move deal", {
               description:
-                error instanceof Error
-                  ? error.message
-                  : "An unexpected error occurred",
+                error instanceof Error ? error.message : "An error occurred",
             });
           },
         }
       );
     },
-    [activeProjects, updateStatusMutation]
+    [activeOpportunities, moveStage, currentUser]
   );
 
-  // Show loading skeleton
+  /** Handle quick advance: move to next stage */
+  const handleAdvanceStage = useCallback(
+    (opportunity: Opportunity) => {
+      const next = nextOpportunityStage(opportunity.stage);
+      if (!next) return;
+      handleMoveStage(opportunity.id, next);
+    },
+    [handleMoveStage]
+  );
+
+  /** Confirm Won/Lost transition */
+  const handleTransitionConfirm = useCallback(
+    (data: {
+      actualValue?: number;
+      lostReason?: string;
+      lostNotes?: string;
+    }) => {
+      if (!pendingStageMove || !transitionOpportunity) return;
+
+      const { id, stage } = pendingStageMove;
+
+      // Move stage
+      moveStage.mutate(
+        { id, stage, userId: currentUser?.id },
+        {
+          onSuccess: () => {
+            // Update opportunity with additional data
+            const updateData: Record<string, unknown> = {};
+            if (data.actualValue !== undefined) {
+              updateData.actualValue = data.actualValue;
+            }
+            if (data.lostReason) {
+              updateData.lostReason = data.lostReason;
+            }
+            if (data.lostNotes) {
+              updateData.lostNotes = data.lostNotes;
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              updateOpportunity.mutate({ id, data: updateData });
+            }
+
+            const action =
+              stage === OpportunityStage.Won ? "marked as Won" : "marked as Lost";
+            toast.success(`Deal ${action}`, {
+              description: transitionOpportunity.title,
+            });
+          },
+          onError: (error) => {
+            toast.error("Failed to update deal", {
+              description:
+                error instanceof Error ? error.message : "An error occurred",
+            });
+          },
+        }
+      );
+
+      // Clean up dialog state
+      setTransitionType(null);
+      setTransitionOpportunity(null);
+      setPendingStageMove(null);
+    },
+    [pendingStageMove, transitionOpportunity, moveStage, updateOpportunity, currentUser]
+  );
+
+  /** Cancel Won/Lost transition */
+  const handleTransitionCancel = useCallback(() => {
+    setTransitionType(null);
+    setTransitionOpportunity(null);
+    setPendingStageMove(null);
+  }, []);
+
+  /** Handle quick add form submission */
+  const handleQuickAdd = useCallback(
+    (data: {
+      title: string;
+      contactName: string;
+      estimatedValue?: number;
+    }) => {
+      if (!company) return;
+
+      createOpportunity.mutate(
+        {
+          companyId: company.id,
+          clientId: null,
+          title: data.title,
+          description: null,
+          contactName: data.contactName,
+          contactEmail: null,
+          contactPhone: null,
+          stage: OpportunityStage.NewLead,
+          source: null,
+          assignedTo: currentUser?.id ?? null,
+          priority: null,
+          estimatedValue: data.estimatedValue ?? null,
+          actualValue: null,
+          winProbability: 10,
+          expectedCloseDate: null,
+          actualCloseDate: null,
+          projectId: null,
+          lostReason: null,
+          lostNotes: null,
+          address: null,
+          tags: [],
+        },
+        {
+          onSuccess: () => {
+            toast.success("New lead created", {
+              description: data.title,
+            });
+            setShowQuickAdd(false);
+          },
+          onError: (error) => {
+            toast.error("Failed to create lead", {
+              description:
+                error instanceof Error ? error.message : "An error occurred",
+            });
+          },
+        }
+      );
+    },
+    [company, currentUser, createOpportunity]
+  );
+
+  /** Open detail sheet for an opportunity */
+  const handleSelectOpportunity = useCallback((opp: Opportunity) => {
+    setSelectedOpportunity(opp);
+  }, []);
+
+  // ── All stages for filter dropdown ─────────────────────────────────────
+  const allStages = getAllStages();
+
+  // ── Loading state ──────────────────────────────────────────────────────
   if (isLoading) {
     return <PipelineSkeleton />;
   }
+
+  const totalDeals = activeOpportunities.length;
 
   return (
     <div className="flex flex-col h-full space-y-2">
@@ -577,17 +436,17 @@ export default function PipelinePage() {
           <div>
             <div className="flex items-center gap-2">
               <p className="font-kosugi text-caption-sm text-text-tertiary">
-                Drag projects between stages to update status
+                Drag deals between stages
               </p>
               <span className="font-mono text-[11px] text-text-disabled">
-                {totalProjects} project{totalProjects !== 1 ? "s" : ""}
+                {totalDeals} deal{totalDeals !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <div className="max-w-[250px]">
               <Input
-                placeholder="Search projects..."
+                placeholder="Search deals..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -612,7 +471,12 @@ export default function PipelinePage() {
               <ListFilter className="w-[14px] h-[14px]" />
               Filter
             </Button>
-            <Button variant="default" size="sm" className="gap-[6px]" onClick={() => openCreateProject()}>
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-[6px]"
+              onClick={() => setShowQuickAdd(true)}
+            >
               <Plus className="w-[14px] h-[14px]" />
               New Lead
             </Button>
@@ -621,55 +485,62 @@ export default function PipelinePage() {
 
         {/* Metrics bar */}
         <div className="flex items-center gap-2">
+          {/* Pipeline Value */}
           <Card className="flex-1 p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-ops-accent-muted flex items-center justify-center shrink-0">
-              <FolderOpen className="w-[16px] h-[16px] text-ops-accent" />
+              <DollarSign className="w-[16px] h-[16px] text-ops-accent" />
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Active Pipeline
+                Pipeline Value
               </span>
-              <span className="font-mono text-data text-ops-amber">
-                {activeInPipeline}
-              </span>
-            </div>
-          </Card>
-          <Card className="flex-1 p-1 flex items-center gap-1.5">
-            <div className="w-[32px] h-[32px] rounded bg-status-success/15 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-[16px] h-[16px] text-status-success" />
-            </div>
-            <div>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Converted
-              </span>
-              <span className="font-mono text-data text-status-success">
-                {wonProjects}
+              <span className="font-mono text-data text-ops-accent">
+                {formatCurrency(metrics.pipelineValue)}
               </span>
             </div>
           </Card>
-          <Card className="flex-1 p-1 flex items-center gap-1.5">
-            <div className="w-[32px] h-[32px] rounded bg-ops-error-muted flex items-center justify-center shrink-0">
-              <X className="w-[16px] h-[16px] text-ops-error" />
-            </div>
-            <div>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Lost
-              </span>
-              <span className="font-mono text-data text-ops-error">
-                {lostProjects}
-              </span>
-            </div>
-          </Card>
+
+          {/* Active Deals */}
           <Card className="flex-1 p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-ops-amber-muted flex items-center justify-center shrink-0">
               <Target className="w-[16px] h-[16px] text-ops-amber" />
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
+                Active Deals
+              </span>
+              <span className="font-mono text-data text-ops-amber">
+                {metrics.activeDeals}
+              </span>
+            </div>
+          </Card>
+
+          {/* Won */}
+          <Card className="flex-1 p-1 flex items-center gap-1.5">
+            <div className="w-[32px] h-[32px] rounded bg-status-success/15 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-[16px] h-[16px] text-status-success" />
+            </div>
+            <div>
+              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
+                Won
+              </span>
+              <span className="font-mono text-data text-status-success">
+                {metrics.wonDeals}
+              </span>
+            </div>
+          </Card>
+
+          {/* Conversion Rate */}
+          <Card className="flex-1 p-1 flex items-center gap-1.5">
+            <div className="w-[32px] h-[32px] rounded bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0">
+              <TrendingUp className="w-[16px] h-[16px] text-text-secondary" />
+            </div>
+            <div>
+              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
                 Conversion
               </span>
               <span className="font-mono text-data text-text-primary">
-                {conversionRate}%
+                {metrics.conversionRate}%
               </span>
             </div>
           </Card>
@@ -681,11 +552,17 @@ export default function PipelinePage() {
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1">
                 <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                  Status
+                  Stage
                 </span>
                 <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  value={stageFilter ?? ""}
+                  onChange={(e) =>
+                    setStageFilter(
+                      e.target.value
+                        ? (e.target.value as OpportunityStage)
+                        : null
+                    )
+                  }
                   className={cn(
                     "bg-background-input text-text-primary font-mohave text-body-sm",
                     "px-1.5 py-[6px] rounded border border-border",
@@ -693,22 +570,22 @@ export default function PipelinePage() {
                     "cursor-pointer"
                   )}
                 >
-                  <option value="">All Statuses</option>
-                  {allStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
+                  <option value="">All Stages</option>
+                  {allStages.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {getStageDisplayName(stage)}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {(statusFilter || searchQuery) && (
+              {(stageFilter || searchQuery) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="gap-[4px] text-ops-error"
                   onClick={() => {
-                    setStatusFilter("");
+                    setStageFilter(null);
                     setSearchQuery("");
                   }}
                 >
@@ -717,12 +594,11 @@ export default function PipelinePage() {
                 </Button>
               )}
 
-              {/* Active filter badges */}
-              {statusFilter && (
+              {stageFilter && (
                 <Badge variant="info" className="gap-[4px]">
-                  Status: {statusFilter}
+                  Stage: {getStageDisplayName(stageFilter)}
                   <button
-                    onClick={() => setStatusFilter("")}
+                    onClick={() => setStageFilter(null)}
                     className="hover:text-white cursor-pointer"
                   >
                     <X className="w-[10px] h-[10px]" />
@@ -735,45 +611,52 @@ export default function PipelinePage() {
       </div>
 
       {/* Mutation loading indicator */}
-      {updateStatusMutation.isPending && (
+      {moveStage.isPending && (
         <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-ops-accent-muted border border-ops-accent/30">
           <Loader2 className="w-[14px] h-[14px] text-ops-accent animate-spin" />
           <span className="font-kosugi text-[11px] text-ops-accent">
-            Updating project status...
+            Updating pipeline...
           </span>
         </div>
       )}
 
-      {/* Pipeline Board */}
-      <div
-        ref={boardRef}
-        className="flex-1 overflow-x-auto pb-2"
-        onDrop={handleBoardDrop}
-        onDragOver={(e) => e.preventDefault()}
-      >
-        <div className="flex gap-2 min-w-min">
-          {filteredColumns.map((column) => (
-            <PipelineColumnComponent
-              key={column.id}
-              column={column}
-              onAddProject={() => openCreateProject()}
-              onViewDetail={setDetailProject}
+      {/* Quick Add Form (inline overlay at top) */}
+      {showQuickAdd && (
+        <div className="shrink-0">
+          <div className="max-w-[280px]">
+            <QuickAddForm
+              onSubmit={handleQuickAdd}
+              onCancel={() => setShowQuickAdd(false)}
             />
-          ))}
+          </div>
         </div>
+      )}
+
+      {/* Pipeline Board */}
+      <div className="flex-1 overflow-x-auto pb-2">
+        <PipelineBoard
+          opportunities={activeOpportunities}
+          clientMap={clientMap}
+          searchQuery={searchQuery}
+          stageFilter={stageFilter}
+          onMoveStage={handleMoveStage}
+          onAdvanceStage={handleAdvanceStage}
+          onSelectOpportunity={handleSelectOpportunity}
+          onAddLead={() => setShowQuickAdd(true)}
+        />
       </div>
 
       {/* Bottom summary bar */}
       <div className="shrink-0 flex items-center justify-between px-2 py-1 rounded bg-background-panel border border-border">
         <div className="flex items-center gap-3">
-          {filteredColumns.map((col) => (
-            <div key={col.id} className="flex items-center gap-[6px]">
+          {getAllStages().map((stage) => (
+            <div key={stage} className="flex items-center gap-[6px]">
               <span
                 className="w-[6px] h-[6px] rounded-full"
-                style={{ backgroundColor: col.textColor }}
+                style={{ backgroundColor: getStageColor(stage) }}
               />
               <span className="font-mono text-[10px] text-text-disabled">
-                {col.label}: {col.cards.length}
+                {getStageDisplayName(stage)}: {stageCounts.get(stage) ?? 0}
               </span>
             </div>
           ))}
@@ -783,10 +666,51 @@ export default function PipelinePage() {
         </span>
       </div>
 
-      <ProjectDetailModal
-        project={detailProject}
-        open={detailProject !== null}
-        onOpenChange={(open) => { if (!open) setDetailProject(null); }}
+      {/* Deal Detail Sheet */}
+      <DealDetailSheet
+        opportunity={selectedOpportunity}
+        open={selectedOpportunity !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedOpportunity(null);
+        }}
+        onAdvanceStage={
+          selectedOpportunity && isActiveStage(selectedOpportunity.stage)
+            ? () => {
+                handleAdvanceStage(selectedOpportunity);
+                setSelectedOpportunity(null);
+              }
+            : undefined
+        }
+        onMarkWon={
+          selectedOpportunity && isActiveStage(selectedOpportunity.stage)
+            ? () => {
+                handleMoveStage(
+                  selectedOpportunity.id,
+                  OpportunityStage.Won
+                );
+                setSelectedOpportunity(null);
+              }
+            : undefined
+        }
+        onMarkLost={
+          selectedOpportunity && isActiveStage(selectedOpportunity.stage)
+            ? () => {
+                handleMoveStage(
+                  selectedOpportunity.id,
+                  OpportunityStage.Lost
+                );
+                setSelectedOpportunity(null);
+              }
+            : undefined
+        }
+      />
+
+      {/* Stage Transition Dialog (Won/Lost prompts) */}
+      <StageTransitionDialog
+        type={transitionType}
+        opportunity={transitionOpportunity}
+        onConfirm={handleTransitionConfirm}
+        onCancel={handleTransitionCancel}
       />
     </div>
   );
