@@ -22,6 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -219,6 +220,14 @@ export default function ClientDetailPage() {
       setEditNotes(clientData.notes ?? "");
     }
   }, [clientData]);
+
+  // Set breadcrumb entity name
+  const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
+  const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
+  useEffect(() => {
+    if (clientData) setEntityName(clientData.name);
+    return () => clearEntityName();
+  }, [clientData, setEntityName, clearEntityName]);
 
   // Loading state
   if (clientLoading) {

@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Check,
   Clock,
-  ChevronRight,
   LogOut,
   User,
   Settings,
@@ -20,6 +19,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
 import { Button } from "@/components/ui/button";
 import { usePageActionsStore } from "@/stores/page-actions-store";
+import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useConnectivity } from "@/lib/hooks/use-connectivity";
 
 const routeTitles: Record<string, string> = {
@@ -43,9 +43,9 @@ interface PageAction {
   onClick: () => void;
 }
 
-function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
+function getBreadcrumbs(pathname: string): { label: string; href?: string; isEntity?: boolean }[] {
   const segments = pathname.split("/").filter(Boolean);
-  const crumbs: { label: string; href?: string }[] = [];
+  const crumbs: { label: string; href?: string; isEntity?: boolean }[] = [];
 
   let currentPath = "";
   for (const segment of segments) {
@@ -56,7 +56,7 @@ function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
     } else if (segment === "new") {
       crumbs.push({ label: "New" });
     } else if (segment.match(/^[a-zA-Z0-9_-]+$/)) {
-      crumbs.push({ label: segment });
+      crumbs.push({ label: segment, isEntity: true });
     }
   }
 
@@ -132,6 +132,7 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
   const logout = useAuthStore((s) => s.logout);
   const storeActions = usePageActionsStore((s) => s.actions);
   const pageActions = propActions ?? storeActions;
+  const entityName = useBreadcrumbStore((s) => s.entityName);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -177,27 +178,39 @@ export function TopBar({ pageActions: propActions }: TopBarProps) {
       {/* Left: Page Title + Breadcrumbs (detail pages only) */}
       <div className="flex items-center gap-2 min-w-0">
         {breadcrumbs.length > 1 ? (
-          /* Detail pages: show breadcrumbs */
+          /* Detail pages: folder-path breadcrumbs */
           <div className="flex items-center gap-[6px]">
-            {breadcrumbs.map((crumb, index) => (
-              <div key={index} className="flex items-center gap-[6px]">
-                {index > 0 && (
-                  <ChevronRight className="w-[14px] h-[14px] text-text-disabled shrink-0" />
-                )}
-                {crumb.href && index < breadcrumbs.length - 1 ? (
-                  <button
-                    onClick={() => router.push(crumb.href!)}
-                    className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors truncate"
-                  >
-                    {crumb.label}
-                  </button>
-                ) : (
-                  <span className="font-mohave text-body-sm text-text-primary truncate uppercase tracking-wider">
-                    {crumb.label}
-                  </span>
-                )}
-              </div>
-            ))}
+            {breadcrumbs.map((crumb, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              const displayLabel =
+                crumb.isEntity && entityName
+                  ? entityName
+                  : crumb.isEntity
+                    ? crumb.label.length > 16
+                      ? crumb.label.slice(0, 16) + "..."
+                      : crumb.label
+                    : crumb.label;
+
+              return (
+                <div key={index} className="flex items-center gap-[6px]">
+                  {index > 0 && (
+                    <span className="text-text-disabled font-mono text-body-sm">/</span>
+                  )}
+                  {crumb.href && !isLast ? (
+                    <button
+                      onClick={() => router.push(crumb.href!)}
+                      className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors truncate uppercase tracking-wider"
+                    >
+                      {displayLabel}
+                    </button>
+                  ) : (
+                    <span className="font-mohave text-body font-semibold text-text-primary truncate uppercase tracking-wider">
+                      {displayLabel}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : pageTitle ? (
           /* Top-level pages: single title only */

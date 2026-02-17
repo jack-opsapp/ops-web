@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -40,6 +40,7 @@ import {
 } from "@/lib/hooks/use-projects";
 import { useClient } from "@/lib/hooks/use-clients";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import {
   type Project,
   ProjectStatus,
@@ -473,6 +474,14 @@ export default function ProjectDetailPage() {
 
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
+
+  // Set breadcrumb entity name
+  const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
+  const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
+  useEffect(() => {
+    if (project) setEntityName(project.title);
+    return () => clearEntityName();
+  }, [project, setEntityName, clearEntityName]);
 
   // Handle status change
   function handleStatusChange(newStatus: string) {

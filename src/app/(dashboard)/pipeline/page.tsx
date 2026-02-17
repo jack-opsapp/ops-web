@@ -26,6 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { ProjectDetailModal } from "@/components/ops/project-detail-modal";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useProjects, useClients, useUpdateProjectStatus } from "@/lib/hooks";
 import {
@@ -170,6 +171,7 @@ function PipelineCardComponent({
   onCall,
   onNote,
   onAdvance,
+  onViewDetail,
 }: {
   card: PipelineCard;
   columnColor: string;
@@ -177,6 +179,7 @@ function PipelineCardComponent({
   onCall?: (phone: string) => void;
   onNote?: (projectId: string) => void;
   onAdvance?: (projectId: string) => void;
+  onViewDetail?: (project: Project) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { project, client } = card;
@@ -354,6 +357,15 @@ function PipelineCardComponent({
               <ArrowRight className="w-[10px] h-[10px]" />
               Advance
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="text-[10px] h-[28px] px-1"
+              onClick={() => onViewDetail?.(project)}
+            >
+              <FolderOpen className="w-[10px] h-[10px]" />
+              View Project
+            </Button>
           </div>
         </div>
       )}
@@ -370,12 +382,14 @@ function PipelineColumnComponent({
   onNote,
   onAdvance,
   onAddProject,
+  onViewDetail,
 }: {
   column: PipelineColumn;
   onCall?: (phone: string) => void;
   onNote?: (projectId: string) => void;
   onAdvance?: (projectId: string) => void;
   onAddProject?: () => void;
+  onViewDetail?: (project: Project) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -458,6 +472,7 @@ function PipelineColumnComponent({
             onCall={onCall}
             onNote={onNote}
             onAdvance={onAdvance}
+            onViewDetail={onViewDetail}
           />
         ))}
 
@@ -565,6 +580,7 @@ export default function PipelinePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [detailProject, setDetailProject] = useState<Project | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   // Set page actions in top bar
@@ -946,6 +962,7 @@ export default function PipelinePage() {
               onNote={handleNote}
               onAdvance={handleAdvance}
               onAddProject={() => setCreateModalOpen(true)}
+              onViewDetail={setDetailProject}
             />
           ))}
         </div>
@@ -975,6 +992,12 @@ export default function PipelinePage() {
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
         defaultStatus={ProjectStatus.RFQ}
+      />
+
+      <ProjectDetailModal
+        project={detailProject}
+        open={detailProject !== null}
+        onOpenChange={(open) => { if (!open) setDetailProject(null); }}
       />
     </div>
   );
