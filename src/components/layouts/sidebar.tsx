@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useCompany } from "@/lib/hooks";
 import { signOut } from "@/lib/firebase/auth";
 
 interface NavItem {
@@ -88,7 +89,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, toggle } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
-  const company = useAuthStore((s) => s.company);
+  const storeCompany = useAuthStore((s) => s.company);
+  const { data: freshCompany } = useCompany();
+  const company = freshCompany ?? storeCompany;
   const logout = useAuthStore((s) => s.logout);
 
   const handleSignOut = useCallback(async () => {
@@ -134,7 +137,7 @@ export function Sidebar() {
           )}
         </div>
         {!isCollapsed && (
-          <span className="font-mohave text-body text-text-primary truncate">
+          <span className="font-mohave text-body text-text-primary truncate uppercase">
             {company?.name || "My Company"}
           </span>
         )}
@@ -190,7 +193,7 @@ export function Sidebar() {
           />
           {!isCollapsed && (
             <span className="font-mono text-[10px] text-text-disabled select-none">
-              OPS &middot; Feb 2026
+              VERSION 02/16/2026
             </span>
           )}
         </div>
