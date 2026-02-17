@@ -15,9 +15,10 @@ import {
   Receipt,
   Calculator,
   Settings,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
@@ -87,6 +88,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, toggle } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
+  const company = useAuthStore((s) => s.company);
   const logout = useAuthStore((s) => s.logout);
 
   const handleSignOut = useCallback(async () => {
@@ -111,21 +113,31 @@ export function Sidebar() {
         isCollapsed ? "w-[72px]" : "w-[256px]"
       )}
     >
-      {/* Logo Section */}
+      {/* Company Branding */}
       <div
         className={cn(
           "flex items-center h-[56px] border-b border-border shrink-0",
-          isCollapsed ? "justify-center px-1" : "px-2 gap-1"
+          isCollapsed ? "justify-center px-1" : "px-2 gap-1.5"
         )}
       >
-        <Image
-          src="/images/ops-logo-white.png"
-          alt="OPS"
-          width={isCollapsed ? 24 : 56}
-          height={isCollapsed ? 10 : 22}
-          className="select-none"
-          priority
-        />
+        <div className="shrink-0 w-[24px] h-[24px] rounded bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
+          {company?.logoURL ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={company.logoURL}
+              alt={company.name || "Company"}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <Building2 className="w-[14px] h-[14px] text-text-tertiary" />
+          )}
+        </div>
+        {!isCollapsed && (
+          <span className="font-mohave text-body text-text-primary truncate">
+            {company?.name || "My Company"}
+          </span>
+        )}
       </div>
 
       {/* Navigation */}
@@ -140,27 +152,48 @@ export function Sidebar() {
         ))}
       </nav>
 
+      {/* Collapse Chevron — positioned on sidebar right edge */}
+      <button
+        onClick={toggle}
+        title={isCollapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
+        className={cn(
+          "absolute top-1/2 -translate-y-1/2 -right-[10px] z-50",
+          "w-[20px] h-[20px] rounded-full",
+          "bg-background-panel border border-border",
+          "flex items-center justify-center",
+          "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)]",
+          "transition-colors"
+        )}
+      >
+        {isCollapsed ? (
+          <ChevronRight className="w-[12px] h-[12px]" />
+        ) : (
+          <ChevronLeft className="w-[12px] h-[12px]" />
+        )}
+      </button>
+
       {/* Bottom Section */}
       <div className="border-t border-border p-1 space-y-1 shrink-0">
-        {/* Collapse toggle */}
-        <button
-          onClick={toggle}
+        {/* OPS Branding */}
+        <div
           className={cn(
-            "flex items-center w-full rounded transition-all duration-150",
-            "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)]",
-            isCollapsed ? "justify-center py-1" : "gap-1.5 px-1.5 py-1"
+            "flex items-center rounded px-1.5 py-1",
+            isCollapsed ? "justify-center" : "gap-1"
           )}
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {isCollapsed ? (
-            <PanelLeftOpen className="w-[18px] h-[18px]" />
-          ) : (
-            <>
-              <PanelLeftClose className="w-[18px] h-[18px]" />
-              <span className="font-mohave text-body-sm uppercase">Collapse</span>
-            </>
+          <Image
+            src="/images/ops-logo-white.png"
+            alt="OPS"
+            width={16}
+            height={6}
+            className="select-none shrink-0 opacity-40"
+          />
+          {!isCollapsed && (
+            <span className="font-mono text-[10px] text-text-disabled select-none">
+              OPS &middot; Feb 2026
+            </span>
           )}
-        </button>
+        </div>
 
         {/* User section - just avatar + name + sign out */}
         <div

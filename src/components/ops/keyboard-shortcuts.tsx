@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSidebarStore } from "@/stores/sidebar-store";
 
 /**
  * Global keyboard shortcuts handler.
@@ -40,6 +41,15 @@ export function KeyboardShortcuts() {
             e.preventDefault();
             router.push("/clients/new");
             return;
+        }
+      }
+
+      // Cmd/Ctrl shortcuts (no shift)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        if (e.key.toLowerCase() === "b") {
+          e.preventDefault();
+          useSidebarStore.getState().toggle();
+          return;
         }
       }
 
