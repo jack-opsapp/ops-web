@@ -19,8 +19,46 @@ const protectedPrefixes = [
   "/settings",
 ];
 
+// Portal routes that require a portal session cookie
+const portalProtectedPrefixes = [
+  "/portal/home",
+  "/portal/projects",
+  "/portal/estimates",
+  "/portal/invoices",
+  "/portal/messages",
+];
+
+// Portal routes that are publicly accessible (no session needed)
+const portalPublicPrefixes = ["/portal/verify", "/portal/auth"];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ─── Portal Routes ───────────────────────────────────────────────────────
+  if (pathname.startsWith("/portal")) {
+    // Public portal pages (verification flow)
+    if (portalPublicPrefixes.some((p) => pathname.startsWith(p))) {
+      return NextResponse.next();
+    }
+
+    // Magic link landing pages: /portal/[64-char-hex-token]
+    if (/^\/portal\/[a-f0-9]{64}$/.test(pathname)) {
+      return NextResponse.next();
+    }
+
+    // Protected portal pages: require ops-portal-session cookie
+    const portalSession = request.cookies.get("ops-portal-session")?.value;
+    if (
+      !portalSession &&
+      portalProtectedPrefixes.some((p) => pathname.startsWith(p))
+    ) {
+      return NextResponse.redirect(new URL("/portal/verify", request.url));
+    }
+
+    return NextResponse.next();
+  }
+
+  // ─── Dashboard Routes ────────────────────────────────────────────────────
 
   // Check for auth token in cookies
   // Firebase sets a session cookie; we also check for a custom token cookie

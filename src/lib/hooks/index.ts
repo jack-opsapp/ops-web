@@ -124,7 +124,7 @@ export {
   useSendInvoice,
   useVoidInvoice,
   useRecordPayment,
-  useDeletePayment,
+  useVoidPayment,
 } from "./use-invoices";
 
 // Opportunities (Pipeline)
@@ -151,3 +151,71 @@ export {
   useTriggerSync,
   useSyncHistory,
 } from "./use-accounting";
+
+// Task Templates
+export {
+  useTaskTemplates,
+  useCreateTaskTemplate,
+  useUpdateTaskTemplate,
+  useDeleteTaskTemplate,
+  useProposedTasks,
+} from "./use-task-templates";
+
+// Activity Comments
+export {
+  useActivityComments,
+  useCreateActivityComment,
+  useDeleteActivityComment,
+} from "./use-activity-comments";
+
+// Site Visits
+export {
+  useSiteVisits,
+  useSiteVisit,
+  useCreateSiteVisit,
+  useStartSiteVisit,
+  useCompleteSiteVisit,
+  useCancelSiteVisit,
+} from "./use-site-visits";
+
+// Project Photos
+export {
+  useProjectPhotos,
+  useCreateProjectPhoto,
+  useDeleteProjectPhoto,
+} from "./use-project-photos";
+
+// Company Settings
+export {
+  useCompanySettings,
+  useUpdateCompanySettings,
+} from "./use-company-settings";
+
+// Gmail Connections
+export {
+  useGmailConnections,
+  useUpdateGmailConnection,
+  useDeleteGmailConnection,
+  useTriggerGmailSync,
+} from "./use-gmail-connections";
+
+// Portal — Client-facing hooks (session cookie auth, no useAuthStore)
+export { portalKeys, portalFetch, usePortalData } from "./use-portal-data";
+export {
+  usePortalEstimate,
+  useApproveEstimate,
+  useDeclineEstimate,
+} from "./use-portal-estimate";
+export {
+  usePortalInvoice,
+  useCreatePaymentIntent,
+} from "./use-portal-invoice";
+export { usePortalProject } from "./use-portal-project";
+export {
+  usePortalMessages,
+  useSendPortalMessage,
+} from "./use-portal-messages";
+export {
+  usePortalQuestions,
+  useSubmitPortalAnswers,
+} from "./use-portal-questions";

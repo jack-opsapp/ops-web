@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/cn";
@@ -11,6 +11,7 @@ import {
   formatCurrency,
 } from "@/lib/types/pipeline";
 import type { Product } from "@/lib/types/pipeline";
+import type { LineItemQuestion } from "@/lib/types/portal";
 
 export interface LineItemRow {
   id: string;
@@ -31,6 +32,10 @@ interface LineItemEditorProps {
   products?: Product[];
   taxRate?: number;
   className?: string;
+  /** Questions grouped by line item ID — enables question badges */
+  questionsByLineItem?: Record<string, LineItemQuestion[]>;
+  /** Called when the user wants to edit questions for a line item */
+  onEditQuestions?: (lineItemId: string) => void;
 }
 
 let nextId = 1;
@@ -65,6 +70,8 @@ export function LineItemEditor({
   products = [],
   taxRate = 0,
   className,
+  questionsByLineItem,
+  onEditQuestions,
 }: LineItemEditorProps) {
   const updateItem = useCallback(
     (id: string, field: keyof LineItemRow, value: string | number | boolean | null) => {
@@ -218,8 +225,22 @@ export function LineItemEditor({
                 </span>
               </div>
 
-              {/* Delete */}
-              <div className="flex items-center justify-center h-[36px]">
+              {/* Actions */}
+              <div className="flex items-center justify-center h-[36px] gap-0.5">
+                {onEditQuestions && (
+                  <button
+                    onClick={() => onEditQuestions(item.id)}
+                    className="relative p-[4px] rounded text-text-disabled hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                    title="Edit questions"
+                  >
+                    <HelpCircle className="w-[14px] h-[14px]" />
+                    {questionsByLineItem?.[item.id]?.length ? (
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-ops-accent rounded-full text-[8px] text-white flex items-center justify-center leading-none">
+                        {questionsByLineItem[item.id].length}
+                      </span>
+                    ) : null}
+                  </button>
+                )}
                 <button
                   onClick={() => removeItem(item.id)}
                   disabled={items.length <= 1}
