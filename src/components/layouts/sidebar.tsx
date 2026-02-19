@@ -21,6 +21,7 @@ import {
   ChevronRight,
   LogOut,
   Building2,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { label: "Invoices", href: "/invoices", icon: Receipt },
   { label: "Products", href: "/products", icon: Package },
   { label: "Accounting", href: "/accounting", icon: Calculator },
+  { label: "Portal Inbox", href: "/portal-inbox", icon: MessageSquareText },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
