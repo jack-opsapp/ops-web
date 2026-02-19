@@ -11,17 +11,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { PortalAuthService } from "@/lib/api/services/portal-auth-service";
 import { PortalBrandingService } from "@/lib/api/services/portal-branding-service";
 import { sendMagicLink } from "@/lib/email/sendgrid";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify the request has a Firebase auth token (admin user)
-    const authHeader = req.headers.get("authorization");
-    const cookieToken = req.cookies.get("ops-auth-token")?.value
-      || req.cookies.get("__session")?.value;
+    // Verify the request has a valid Firebase auth token (admin user)
+    const admin = await verifyAdminAuth(req);
 
-    if (!authHeader && !cookieToken) {
+    if (!admin) {
       return NextResponse.json(
-        { error: "Unauthorized - admin authentication required" },
+        { error: "Unauthorized - valid admin authentication required" },
         { status: 401 }
       );
     }

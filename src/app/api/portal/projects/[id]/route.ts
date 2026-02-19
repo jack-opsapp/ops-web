@@ -2,7 +2,8 @@
  * GET /api/portal/projects/[id]
  *
  * Fetches a single project for the portal.
- * Verifies that the project belongs to the client's company.
+ * Verifies that the project belongs to the client's company AND
+ * is associated with this specific client (via estimates or invoices).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,6 +26,37 @@ export async function GET(
     const { id } = await params;
 
     const supabase = getServiceRoleClient();
+
+    // Verify the client has estimates or invoices linked to this project
+    // (prevents cross-client data leakage within the same company)
+    const { data: linkedDocs } = await supabase
+      .from("estimates")
+      .select("id")
+      .eq("client_id", session.clientId)
+      .eq("company_id", session.companyId)
+      .eq("project_id", id)
+      .is("deleted_at", null)
+      .limit(1);
+
+    const hasEstimate = (linkedDocs ?? []).length > 0;
+
+    if (!hasEstimate) {
+      const { data: linkedInvoices } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("client_id", session.clientId)
+        .eq("company_id", session.companyId)
+        .eq("project_id", id)
+        .is("deleted_at", null)
+        .limit(1);
+
+      if ((linkedInvoices ?? []).length === 0) {
+        return NextResponse.json(
+          { error: "Project not found" },
+          { status: 404 }
+        );
+      }
+    }
 
     const { data, error } = await supabase
       .from("projects")
