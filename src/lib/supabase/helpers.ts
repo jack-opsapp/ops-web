@@ -37,6 +37,46 @@ export function requireSupabase(): SupabaseClient {
 }
 
 /**
+ * Resolve a Bubble company ID to its Supabase UUID.
+ * Caches the result so the lookup only happens once per session.
+ * Uses the RLS-authenticated client (Firebase JWT → bubble_id lookup).
+ */
+let _cachedBubbleId: string | null = null;
+let _cachedUuid: string | null = null;
+
+export async function resolveCompanyUuid(bubbleId: string): Promise<string> {
+  // Return cached result if same Bubble ID
+  if (_cachedBubbleId === bubbleId && _cachedUuid) return _cachedUuid;
+
+  // If it's already a UUID format, return as-is
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bubbleId)) {
+    return bubbleId;
+  }
+
+  const client = getSupabaseClient();
+  if (!client) return bubbleId;
+
+  try {
+    // RLS policy allows reading own company via Firebase JWT
+    const { data } = await client
+      .from("companies")
+      .select("id")
+      .limit(1)
+      .single();
+
+    if (data?.id) {
+      _cachedBubbleId = bubbleId;
+      _cachedUuid = data.id as string;
+      return _cachedUuid;
+    }
+  } catch {
+    // Supabase not ready or no matching company — fall through
+  }
+
+  return bubbleId;
+}
+
+/**
  * Parse a value from the database into a Date or null.
  * Supabase returns dates as ISO-8601 strings.
  */

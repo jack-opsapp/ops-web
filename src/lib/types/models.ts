@@ -393,6 +393,8 @@ export interface User {
 /** Company entity - matches iOS Company model */
 export interface Company {
   id: string;
+  /** Original Bubble ID, kept for Bubble API calls during migration */
+  bubbleId?: string;
   name: string;
   logoURL: string | null;
   externalId: string | null;
