@@ -7,8 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const BUBBLE_API_URL = "https://opsapp.co/version-test/api/1.1";
-const BUBBLE_API_TOKEN = process.env.BUBBLE_API_TOKEN ?? "";
+const BUBBLE_API_URL = process.env.NEXT_PUBLIC_BUBBLE_API_URL ?? "https://opsapp.co/version-test/api/1.1";
+const BUBBLE_API_TOKEN = process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ?? "";
 
 interface InboundEmail {
   to: string;

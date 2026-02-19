@@ -7,11 +7,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-const BUBBLE_API_URL = "https://opsapp.co/version-test/api/1.1";
-const BUBBLE_API_TOKEN = process.env.BUBBLE_API_TOKEN ?? "";
+const BUBBLE_API_URL = process.env.NEXT_PUBLIC_BUBBLE_API_URL ?? "https://opsapp.co/version-test/api/1.1";
+const BUBBLE_API_TOKEN = process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ?? "";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
