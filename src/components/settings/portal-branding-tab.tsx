@@ -7,9 +7,6 @@ import {
   Save,
   Moon,
   Sun,
-  Palette,
-  Layout,
-  Type,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";

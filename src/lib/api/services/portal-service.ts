@@ -317,7 +317,7 @@ export const PortalService = {
 
     // Check which estimates have unanswered questions
     const estimateIds = estimates.map((e) => e.id);
-    let unansweredByEstimate: Record<string, boolean> = {};
+    const unansweredByEstimate: Record<string, boolean> = {};
 
     if (estimateIds.length > 0) {
       // Fetch questions for all estimates

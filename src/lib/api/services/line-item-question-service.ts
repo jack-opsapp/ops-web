@@ -9,7 +9,7 @@
  */
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { parseDate, parseDateRequired } from "@/lib/supabase/helpers";
+import { parseDateRequired } from "@/lib/supabase/helpers";
 import type {
   LineItemQuestion,
   CreateLineItemQuestion,

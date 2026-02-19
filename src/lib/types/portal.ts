@@ -5,8 +5,8 @@
  * line-item questions/answers, and messaging.
  */
 
-import type { Client, Project } from "./models";
-import type { Estimate, Invoice, LineItem } from "./pipeline";
+import type { Client } from "./models";
+import type { Estimate, LineItem } from "./pipeline";
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 

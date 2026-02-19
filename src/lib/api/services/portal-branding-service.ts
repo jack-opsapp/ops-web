@@ -6,7 +6,7 @@
  */
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { parseDate, parseDateRequired } from "@/lib/supabase/helpers";
+import { parseDateRequired } from "@/lib/supabase/helpers";
 import type {
   PortalBranding,
   CreatePortalBranding,
@@ -44,18 +44,6 @@ function mapBrandingToDb(data: Partial<CreatePortalBranding>): Record<string, un
 
   return row;
 }
-
-// ─── Default branding ────────────────────────────────────────────────────────
-
-const DEFAULT_BRANDING: Omit<PortalBranding, "id" | "createdAt" | "updatedAt"> = {
-  companyId: "",
-  logoUrl: null,
-  accentColor: "#417394",
-  template: "modern",
-  themeMode: "dark",
-  fontCombo: "modern",
-  welcomeMessage: null,
-};
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 

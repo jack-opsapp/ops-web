@@ -14,7 +14,9 @@ import {
 import { PortalService } from "@/lib/api/services/portal-service";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST(
   req: NextRequest,
@@ -53,7 +55,7 @@ export async function POST(
     }
 
     // Create Stripe PaymentIntent (amount in cents)
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: Math.round(body.amount * 100),
       currency: "usd",
       metadata: {
