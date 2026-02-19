@@ -31,7 +31,7 @@ export function useImageUpload(options: UseImageUploadOptions = {}) {
   const [preview, setPreview] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: uploadImage,
+    mutationFn: (file: File) => uploadImage(file),
     onSuccess: (url) => {
       options.onSuccess?.(url);
     },
@@ -79,7 +79,7 @@ export function useMultiImageUpload(
   const [previews, setPreviews] = useState<string[]>([]);
 
   const mutation = useMutation({
-    mutationFn: uploadMultipleImages,
+    mutationFn: (files: File[]) => uploadMultipleImages(files),
     onSuccess: (urls) => {
       options.onSuccess?.(urls);
     },

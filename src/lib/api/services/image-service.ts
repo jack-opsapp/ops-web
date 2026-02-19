@@ -1,11 +1,10 @@
 /**
  * OPS Web - Image Upload Service
  *
- * Handles image uploads to S3 via Bubble.io presigned URLs.
+ * Handles image uploads to S3 via direct presigned URLs from /api/uploads/presign.
+ * Replaces the old Bubble.io workflow-based presigned URL generation.
  * Includes client-side validation, compression, and multi-image support.
  */
-
-import { getBubbleClient } from "../bubble-client";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -14,11 +13,6 @@ const COMPRESS_THRESHOLD = 2 * 1024 * 1024; // 2MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface PresignedUrlResponse {
-  response?: { url: string };
-  url?: string;
-}
 
 export type ImageUploadErrorCode =
   | "INVALID_TYPE"
@@ -72,7 +66,10 @@ async function compressImage(file: File, maxWidth = 1920): Promise<Blob> {
 
 // ─── Single Image Upload ────────────────────────────────────────────────────
 
-export async function uploadImage(file: File): Promise<string> {
+export async function uploadImage(
+  file: File,
+  folder?: string
+): Promise<string> {
   // Validate type
   if (!ALLOWED_TYPES.includes(file.type)) {
     throw new ImageUploadError(
@@ -103,31 +100,45 @@ export async function uploadImage(file: File): Promise<string> {
   }
 
   try {
-    // Get presigned URL from Bubble
-    const client = getBubbleClient();
-    const data = await client.post<PresignedUrlResponse>(
-      "/wf/get_upload_url",
-      {
+    // Get presigned URL from our own API route (no Bubble dependency)
+    const presignResponse = await fetch("/api/uploads/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         filename: file.name,
-        content_type: contentType,
-      }
-    );
+        contentType,
+        folder,
+      }),
+    });
 
-    const presignedUrl = data.response?.url || data.url;
-    if (!presignedUrl) {
-      throw new ImageUploadError("Failed to get upload URL", "UPLOAD_FAILED");
+    if (!presignResponse.ok) {
+      const err = await presignResponse.json().catch(() => ({}));
+      throw new ImageUploadError(
+        (err as Record<string, string>).error || "Failed to get upload URL",
+        "UPLOAD_FAILED"
+      );
     }
 
-    // Upload directly to S3 (bypass bubbleClient -- this is a raw S3 PUT)
-    await fetch(presignedUrl, {
+    const { uploadUrl, publicUrl } = (await presignResponse.json()) as {
+      uploadUrl: string;
+      publicUrl: string;
+    };
+
+    // Upload directly to S3
+    const uploadResponse = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": contentType },
       body: uploadBlob,
     });
 
-    // Return the S3 URL (presigned URL without query params)
-    const s3Url = presignedUrl.split("?")[0];
-    return s3Url;
+    if (!uploadResponse.ok) {
+      throw new ImageUploadError(
+        `S3 upload failed with status ${uploadResponse.status}`,
+        "UPLOAD_FAILED"
+      );
+    }
+
+    return publicUrl;
   } catch (error) {
     if (error instanceof ImageUploadError) throw error;
     throw new ImageUploadError(
@@ -140,9 +151,12 @@ export async function uploadImage(file: File): Promise<string> {
 // ─── Multiple Image Upload ──────────────────────────────────────────────────
 
 export async function uploadMultipleImages(
-  files: File[]
+  files: File[],
+  folder?: string
 ): Promise<string[]> {
-  const results = await Promise.allSettled(files.map(uploadImage));
+  const results = await Promise.allSettled(
+    files.map((f) => uploadImage(f, folder))
+  );
   const urls: string[] = [];
   const errors: string[] = [];
 

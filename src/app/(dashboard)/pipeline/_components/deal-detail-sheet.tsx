@@ -47,9 +47,13 @@ import {
   useOpportunityActivities,
   useOpportunityFollowUps,
   useCreateActivity,
+  useSiteVisits,
 } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "@/components/ui/toast";
+import { CreateSiteVisitModal } from "@/components/ops/site-visit/create-site-visit-modal";
+import { SiteVisitDetail } from "@/components/ops/site-visit/site-visit-detail";
+import { ActivityCommentSection } from "@/components/ops/activity/activity-comment";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -256,7 +260,7 @@ function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
 // ---------------------------------------------------------------------------
 // Activity Timeline
 // ---------------------------------------------------------------------------
-function ActivityTimeline({ activities }: { activities: Activity[] }) {
+function ActivityTimeline({ activities, companyId }: { activities: Activity[]; companyId?: string }) {
   const sorted = useMemo(
     () =>
       [...activities].sort(
@@ -313,6 +317,13 @@ function ActivityTimeline({ activities }: { activities: Activity[] }) {
                 <p className="font-kosugi text-[10px] text-text-tertiary line-clamp-2 mt-[1px]">
                   {activity.content}
                 </p>
+              )}
+              {companyId && (
+                <ActivityCommentSection
+                  activityId={activity.id}
+                  companyId={companyId}
+                  defaultCollapsed
+                />
               )}
             </div>
           </div>
@@ -411,8 +422,12 @@ export function DealDetailSheet({
   onMarkWon,
   onMarkLost,
 }: DealDetailSheetProps) {
+  const { company } = useAuthStore();
   const { data: activities } = useOpportunityActivities(opportunity?.id);
   const { data: followUps } = useOpportunityFollowUps(opportunity?.id);
+  const { data: siteVisits } = useSiteVisits({ opportunityId: opportunity?.id ?? undefined });
+  const [showCreateSiteVisit, setShowCreateSiteVisit] = useState(false);
+  const [selectedSiteVisitId, setSelectedSiteVisitId] = useState<string | null>(null);
 
   if (!opportunity) {
     return (
@@ -499,6 +514,15 @@ export function DealDetailSheet({
                 Advance
               </Button>
             )}
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-[4px] flex-1"
+              onClick={() => setShowCreateSiteVisit(true)}
+            >
+              <MapPin className="w-[14px] h-[14px]" />
+              Visit
+            </Button>
             {onMarkWon && (
               <Button
                 variant="default"
@@ -538,17 +562,66 @@ export function DealDetailSheet({
           {/* Follow-ups */}
           {followUps && <FollowUpsSection followUps={followUps} />}
 
+          {/* Site Visits */}
+          {(siteVisits ?? []).length > 0 && (
+            <div className="space-y-1 pb-2 border-b border-border">
+              <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
+                Site Visits
+              </h4>
+              <div className="space-y-0.5">
+                {(siteVisits ?? []).map((sv) => (
+                  <button
+                    key={sv.id}
+                    onClick={() => setSelectedSiteVisitId(sv.id)}
+                    className="w-full flex items-center justify-between px-1 py-[4px] rounded hover:bg-[rgba(255,255,255,0.03)] transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                      <span className="font-kosugi text-[11px] text-text-secondary">
+                        {new Date(sv.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        "font-mono text-[9px] px-[4px] py-[1px] rounded-sm uppercase",
+                        sv.status === "completed" && "text-status-success bg-status-success/10",
+                        sv.status === "in_progress" && "text-ops-amber bg-ops-amber/10",
+                        sv.status === "scheduled" && "text-ops-accent bg-ops-accent/10",
+                        sv.status === "cancelled" && "text-text-disabled bg-background-elevated"
+                      )}
+                    >
+                      {sv.status.replace("_", " ")}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Activity timeline */}
           <div className="space-y-1">
             <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
               Activity
             </h4>
-            <ActivityTimeline activities={activities ?? []} />
+            <ActivityTimeline activities={activities ?? []} companyId={company?.id} />
           </div>
 
           {/* Add note */}
           <AddNoteForm opportunityId={opportunity.id} />
         </SheetBody>
+
+        {/* Site Visit Modals */}
+        <CreateSiteVisitModal
+          opportunityId={opportunity.id}
+          clientId={opportunity.clientId}
+          open={showCreateSiteVisit}
+          onOpenChange={setShowCreateSiteVisit}
+        />
+        <SiteVisitDetail
+          siteVisitId={selectedSiteVisitId}
+          open={!!selectedSiteVisitId}
+          onOpenChange={(o) => { if (!o) setSelectedSiteVisitId(null); }}
+        />
       </SheetContent>
     </Sheet>
   );

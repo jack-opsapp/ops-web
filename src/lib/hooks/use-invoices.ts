@@ -52,9 +52,9 @@ export function useCreateInvoice() {
       data,
       lineItems,
     }: {
-      data: Partial<CreateInvoice> & { companyId: string; clientId: string };
+      data: Partial<CreateInvoice> & { companyId: string; clientId?: string };
       lineItems: Partial<CreateLineItem>[];
-    }) => InvoiceService.createInvoice(data, lineItems),
+    }) => InvoiceService.createInvoice(data as Partial<CreateInvoice> & { companyId: string; clientId: string }, lineItems),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.lists() });
     },
@@ -140,7 +140,6 @@ export function useVoidPayment() {
   return useMutation({
     mutationFn: ({
       paymentId,
-      invoiceId,
       userId,
     }: {
       paymentId: string;

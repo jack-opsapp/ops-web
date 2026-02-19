@@ -1,27 +1,64 @@
 /**
- * OPS Web - Project Service
+ * OPS Web - Project Service (Supabase)
  *
- * Complete CRUD operations for Projects using the Bubble Data API.
- * All queries filter out soft-deleted items (deletedAt == null).
- * Project teamMembers is computed from tasks, NOT from Bubble legacy field.
+ * Complete CRUD operations for Projects stored in Supabase `projects` table.
+ * Project teamMembers is computed from tasks, NOT stored directly.
+ * Replaces the old Bubble.io-based implementation.
  */
 
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleTypes,
-  BubbleProjectFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
-} from "../../constants/bubble-fields";
-import {
-  type ProjectDTO,
-  type BubbleListResponse,
-  type BubbleObjectResponse,
-  type BubbleCreationResponse,
-  projectDtoToModel,
-  projectModelToDto,
-} from "../../types/dto";
+import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { Project, ProjectStatus } from "../../types/models";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapFromDb(row: Record<string, unknown>): Project {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    address: (row.address as string) ?? null,
+    latitude: (row.latitude as number) ?? null,
+    longitude: (row.longitude as number) ?? null,
+    startDate: parseDate(row.start_date),
+    endDate: parseDate(row.end_date),
+    duration: (row.duration as number) ?? null,
+    status: (row.status as ProjectStatus) ?? "RFQ",
+    notes: (row.notes as string) ?? null,
+    companyId: row.company_id as string,
+    clientId: (row.client_id as string) ?? null,
+    allDay: (row.all_day as boolean) ?? false,
+    teamMemberIds: (row.team_member_ids as string[]) ?? [],
+    projectDescription: (row.description as string) ?? null,
+    projectImages: (row.project_images as string[]) ?? [],
+    opportunityId: (row.opportunity_id as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    syncPriority: 0,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapToDb(data: Partial<Project>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.title !== undefined) row.title = data.title;
+  if (data.address !== undefined) row.address = data.address;
+  if (data.latitude !== undefined) row.latitude = data.latitude;
+  if (data.longitude !== undefined) row.longitude = data.longitude;
+  if (data.startDate !== undefined)
+    row.start_date = data.startDate?.toISOString() ?? null;
+  if (data.endDate !== undefined)
+    row.end_date = data.endDate?.toISOString() ?? null;
+  if (data.duration !== undefined) row.duration = data.duration;
+  if (data.status !== undefined) row.status = data.status;
+  if (data.notes !== undefined) row.notes = data.notes;
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.allDay !== undefined) row.all_day = data.allDay;
+  if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
+  if (data.projectDescription !== undefined) row.description = data.projectDescription;
+  if (data.projectImages !== undefined) row.project_images = data.projectImages;
+  if (data.opportunityId !== undefined) row.opportunity_id = data.opportunityId;
+  return row;
+}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -34,13 +71,13 @@ export interface FetchProjectsOptions {
   startDateFrom?: Date;
   /** Start date filter (projects starting on or before this date) */
   startDateTo?: Date;
-  /** Sort field */
+  /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction */
   descending?: boolean;
   /** Pagination limit (max 100) */
   limit?: number;
-  /** Pagination cursor (offset) */
+  /** Pagination offset */
   cursor?: number;
 }
 
@@ -48,250 +85,204 @@ export interface FetchProjectsOptions {
 
 export const ProjectService = {
   /**
-   * Fetch all projects for a company with optional filters.
-   * Automatically filters out soft-deleted items.
+   * Fetch projects for a company with optional filters and pagination.
    */
   async fetchProjects(
     companyId: string,
     options: FetchProjectsOptions = {}
   ): Promise<{ projects: Project[]; remaining: number; count: number }> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const limit = Math.min(options.limit ?? 100, 100);
+    const offset = options.cursor ?? 0;
 
-    // Build constraints
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleProjectFields.company,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleProjectFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("projects")
+      .select("*", { count: "exact" })
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
-    // Optional status filter
     if (options.status) {
-      constraints.push({
-        key: BubbleProjectFields.status,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.status,
-      });
+      query = query.eq("status", options.status);
     }
 
-    // Optional client filter
     if (options.clientId) {
-      constraints.push({
-        key: BubbleProjectFields.client,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.clientId,
-      });
+      query = query.eq("client_id", options.clientId);
     }
 
-    // Optional date range filter
     if (options.startDateFrom) {
-      constraints.push({
-        key: BubbleProjectFields.startDate,
-        constraint_type: BubbleConstraintType.greaterThan,
-        value: options.startDateFrom.toISOString(),
-      });
+      query = query.gte("start_date", options.startDateFrom.toISOString());
     }
 
     if (options.startDateTo) {
-      constraints.push({
-        key: BubbleProjectFields.startDate,
-        constraint_type: BubbleConstraintType.lessThan,
-        value: options.startDateTo.toISOString(),
-      });
+      query = query.lte("start_date", options.startDateTo.toISOString());
     }
-
-    // Build query params
-    const params: Record<string, string | number> = {
-      constraints: JSON.stringify(constraints),
-      limit: Math.min(options.limit ?? 100, 100),
-      cursor: options.cursor ?? 0,
-    };
 
     if (options.sortField) {
-      params.sort_field = options.sortField;
-      params.descending = options.descending ? "true" : "false";
+      query = query.order(options.sortField, { ascending: !options.descending });
+    } else {
+      query = query.order("created_at", { ascending: false });
     }
 
-    const response = await client.get<BubbleListResponse<ProjectDTO>>(
-      `/obj/${BubbleTypes.project.toLowerCase()}`,
-      { params }
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    const projects = response.response.results.map(projectDtoToModel);
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Failed to fetch projects: ${error.message}`);
 
-    return {
-      projects,
-      remaining: response.response.remaining,
-      count: response.response.count,
-    };
+    const total = count ?? 0;
+    const projects = (data ?? []).map(mapFromDb);
+    const remaining = Math.max(0, total - offset - projects.length);
+
+    return { projects, remaining, count: total };
   },
 
   /**
-   * Fetch all projects assigned to a specific user (for field crew view).
-   * Filters by teamMembers containing the user ID.
+   * Fetch projects assigned to a specific user (field crew view).
+   * Uses PostgreSQL array containment to match team_member_ids.
    */
   async fetchUserProjects(
     userId: string,
     companyId: string,
     options: Omit<FetchProjectsOptions, "clientId"> = {}
   ): Promise<{ projects: Project[]; remaining: number; count: number }> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const limit = Math.min(options.limit ?? 100, 100);
+    const offset = options.cursor ?? 0;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleProjectFields.company,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleProjectFields.teamMembers,
-        constraint_type: BubbleConstraintType.contains,
-        value: userId,
-      },
-      {
-        key: BubbleProjectFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("projects")
+      .select("*", { count: "exact" })
+      .eq("company_id", companyId)
+      .contains("team_member_ids", [userId])
+      .is("deleted_at", null);
 
     if (options.status) {
-      constraints.push({
-        key: BubbleProjectFields.status,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.status,
-      });
+      query = query.eq("status", options.status);
     }
 
-    const params: Record<string, string | number> = {
-      constraints: JSON.stringify(constraints),
-      limit: Math.min(options.limit ?? 100, 100),
-      cursor: options.cursor ?? 0,
-    };
+    if (options.startDateFrom) {
+      query = query.gte("start_date", options.startDateFrom.toISOString());
+    }
+
+    if (options.startDateTo) {
+      query = query.lte("start_date", options.startDateTo.toISOString());
+    }
 
     if (options.sortField) {
-      params.sort_field = options.sortField;
-      params.descending = options.descending ? "true" : "false";
+      query = query.order(options.sortField, { ascending: !options.descending });
+    } else {
+      query = query.order("created_at", { ascending: false });
     }
 
-    const response = await client.get<BubbleListResponse<ProjectDTO>>(
-      `/obj/${BubbleTypes.project.toLowerCase()}`,
-      { params }
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    const projects = response.response.results.map(projectDtoToModel);
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Failed to fetch user projects: ${error.message}`);
 
-    return {
-      projects,
-      remaining: response.response.remaining,
-      count: response.response.count,
-    };
+    const total = count ?? 0;
+    const projects = (data ?? []).map(mapFromDb);
+    const remaining = Math.max(0, total - offset - projects.length);
+
+    return { projects, remaining, count: total };
   },
 
   /**
    * Fetch a single project by ID.
    */
   async fetchProject(id: string): Promise<Project> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    const response = await client.get<BubbleObjectResponse<ProjectDTO>>(
-      `/obj/${BubbleTypes.project.toLowerCase()}/${id}`
-    );
-
-    return projectDtoToModel(response.response);
+    if (error) throw new Error(`Failed to fetch project: ${error.message}`);
+    return mapFromDb(data);
   },
 
   /**
    * Create a new project.
-   * Maps field names to exact Bubble field names.
    */
   async createProject(
     data: Partial<Project> & { title: string; companyId: string }
   ): Promise<string> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = projectModelToDto(data);
+    const { data: created, error } = await supabase
+      .from("projects")
+      .insert(row)
+      .select("id")
+      .single();
 
-    const response = await client.post<BubbleCreationResponse>(
-      `/obj/${BubbleTypes.project.toLowerCase()}`,
-      dto
-    );
-
-    return response.id;
+    if (error) throw new Error(`Failed to create project: ${error.message}`);
+    return created.id as string;
   },
 
   /**
    * Update an existing project.
-   * Only sends changed fields to minimize API calls.
    */
-  async updateProject(
-    id: string,
-    data: Partial<Project>
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async updateProject(id: string, data: Partial<Project>): Promise<void> {
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = projectModelToDto(data);
+    const { error } = await supabase
+      .from("projects")
+      .update(row)
+      .eq("id", id);
 
-    await client.patch(
-      `/obj/${BubbleTypes.project.toLowerCase()}/${id}`,
-      dto
-    );
+    if (error) throw new Error(`Failed to update project: ${error.message}`);
   },
 
   /**
-   * Update project status via workflow API.
-   * Some status transitions may trigger server-side logic.
+   * Update only the project status.
    */
-  async updateProjectStatus(
-    id: string,
-    status: ProjectStatus
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async updateProjectStatus(id: string, status: ProjectStatus): Promise<void> {
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.project.toLowerCase()}/${id}`,
-      { [BubbleProjectFields.status]: status }
-    );
+    const { error } = await supabase
+      .from("projects")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to update project status: ${error.message}`);
   },
 
   /**
    * Soft delete a project.
-   * Sets deletedAt timestamp rather than physically deleting.
    */
   async deleteProject(id: string): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.project.toLowerCase()}/${id}`,
-      { [BubbleProjectFields.deletedAt]: new Date().toISOString() }
-    );
+    const { error } = await supabase
+      .from("projects")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to delete project: ${error.message}`);
   },
 
   /**
-   * Fetch all projects with pagination support (auto-fetches all pages).
+   * Fetch all projects with auto-pagination.
    */
   async fetchAllProjects(
     companyId: string,
     options: Omit<FetchProjectsOptions, "limit" | "cursor"> = {}
   ): Promise<Project[]> {
     const allProjects: Project[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    let offset = 0;
+    let hasMore = true;
 
-    while (remaining > 0) {
+    while (hasMore) {
       const result = await ProjectService.fetchProjects(companyId, {
         ...options,
         limit: 100,
-        cursor,
+        cursor: offset,
       });
 
       allProjects.push(...result.projects);
-      remaining = result.remaining;
-      cursor += result.projects.length;
+      hasMore = result.remaining > 0;
+      offset += result.projects.length;
     }
 
     return allProjects;

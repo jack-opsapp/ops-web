@@ -31,7 +31,6 @@ import {
 
 const taskFormSchema = z.object({
   customTitle: z.string().min(1, "Title is required").max(200, "Title must be under 200 characters"),
-  taskNotes: z.string().max(5000, "Notes must be under 5000 characters").optional().default(""),
   status: z.nativeEnum(TaskStatus),
   taskTypeId: z.string().min(1, "Task type is required"),
   taskColor: z.string().optional().default("#59779F"),
@@ -92,7 +91,6 @@ function TaskForm({
   const defaultValues: TaskFormValues = useMemo(
     () => ({
       customTitle: task?.customTitle || task?.taskType?.display || "",
-      taskNotes: task?.taskNotes || "",
       status: task?.status || TaskStatus.Booked,
       taskTypeId: task?.taskTypeId || (taskTypes.length > 0 ? taskTypes[0].id : ""),
       taskColor: task?.taskColor || "#59779F",
@@ -245,15 +243,6 @@ function TaskForm({
           {...register("endDate")}
         />
       </div>
-
-      {/* Notes */}
-      <Textarea
-        label="Notes"
-        placeholder="Task notes, instructions, or details..."
-        className="min-h-[60px]"
-        {...register("taskNotes")}
-        error={errors.taskNotes?.message}
-      />
 
       {/* Team Members */}
       {teamMembers.length > 0 && (

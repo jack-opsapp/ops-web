@@ -1,50 +1,71 @@
 /**
- * OPS Web - Calendar Event Service
+ * OPS Web - Calendar Event Service (Supabase)
  *
- * Complete CRUD operations for CalendarEvents.
- * Note: CalendarEvent API type is lowercase "calendarevent" in Bubble.
- * All queries filter out soft-deleted items.
+ * Complete CRUD operations for CalendarEvents stored in Supabase `calendar_events` table.
+ * Replaces the old Bubble.io-based implementation.
  */
 
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleTypes,
-  BubbleCalendarEventFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
-} from "../../constants/bubble-fields";
-import {
-  type CalendarEventDTO,
-  type BubbleListResponse,
-  type BubbleObjectResponse,
-  type BubbleCreationResponse,
-  calendarEventDtoToModel,
-  calendarEventModelToDto,
-} from "../../types/dto";
+import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { CalendarEvent } from "../../types/models";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapFromDb(row: Record<string, unknown>): CalendarEvent {
+  return {
+    id: row.id as string,
+    color: (row.color as string) ?? "#417394",
+    companyId: row.company_id as string,
+    projectId: (row.project_id as string) ?? null,
+    taskId: null, // reverse lookup via project_tasks.calendar_event_id
+    duration: (row.duration as number) ?? 1,
+    endDate: parseDate(row.end_date),
+    startDate: parseDate(row.start_date),
+    title: row.title as string,
+    teamMemberIds: (row.team_member_ids as string[]) ?? [],
+    eventType: "task",
+    opportunityId: null,
+    siteVisitId: null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapToDb(data: Partial<CalendarEvent>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.color !== undefined) row.color = data.color;
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.projectId !== undefined) row.project_id = data.projectId;
+  if (data.title !== undefined) row.title = data.title;
+  if (data.startDate !== undefined)
+    row.start_date = data.startDate?.toISOString() ?? null;
+  if (data.endDate !== undefined)
+    row.end_date = data.endDate?.toISOString() ?? null;
+  if (data.duration !== undefined) row.duration = data.duration;
+  if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
+  return row;
+}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
 export interface FetchCalendarEventsOptions {
   /** Filter by project ID */
   projectId?: string;
-  /** Filter by task ID */
-  taskId?: string;
   /** Filter events starting on or after this date */
   startDateFrom?: Date;
   /** Filter events starting on or before this date */
   startDateTo?: Date;
   /** Filter events ending on or after this date */
   endDateFrom?: Date;
-  /** Filter by team member */
+  /** Filter by team member (array containment) */
   teamMemberId?: string;
-  /** Sort field */
+  /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction */
   descending?: boolean;
-  /** Pagination limit */
+  /** Pagination limit (max 100) */
   limit?: number;
-  /** Pagination cursor */
+  /** Pagination offset */
   cursor?: number;
 }
 
@@ -62,98 +83,52 @@ export const CalendarService = {
     remaining: number;
     count: number;
   }> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const limit = Math.min(options.limit ?? 100, 100);
+    const offset = options.cursor ?? 0;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleCalendarEventFields.companyId,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleCalendarEventFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("calendar_events")
+      .select("*", { count: "exact" })
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (options.projectId) {
-      constraints.push({
-        key: BubbleCalendarEventFields.projectId,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.projectId,
-      });
-    }
-
-    if (options.taskId) {
-      constraints.push({
-        key: BubbleCalendarEventFields.taskId,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.taskId,
-      });
+      query = query.eq("project_id", options.projectId);
     }
 
     if (options.startDateFrom) {
-      constraints.push({
-        key: BubbleCalendarEventFields.startDate,
-        constraint_type: BubbleConstraintType.greaterThan,
-        value: options.startDateFrom.toISOString(),
-      });
+      query = query.gte("start_date", options.startDateFrom.toISOString());
     }
 
     if (options.startDateTo) {
-      constraints.push({
-        key: BubbleCalendarEventFields.startDate,
-        constraint_type: BubbleConstraintType.lessThan,
-        value: options.startDateTo.toISOString(),
-      });
+      query = query.lte("start_date", options.startDateTo.toISOString());
     }
 
     if (options.endDateFrom) {
-      constraints.push({
-        key: BubbleCalendarEventFields.endDate,
-        constraint_type: BubbleConstraintType.greaterThan,
-        value: options.endDateFrom.toISOString(),
-      });
+      query = query.gte("end_date", options.endDateFrom.toISOString());
     }
 
     if (options.teamMemberId) {
-      constraints.push({
-        key: BubbleCalendarEventFields.teamMembers,
-        constraint_type: BubbleConstraintType.contains,
-        value: options.teamMemberId,
-      });
+      query = query.contains("team_member_ids", [options.teamMemberId]);
     }
-
-    const params: Record<string, string | number> = {
-      constraints: JSON.stringify(constraints),
-      limit: Math.min(options.limit ?? 100, 100),
-      cursor: options.cursor ?? 0,
-    };
 
     if (options.sortField) {
-      params.sort_field = options.sortField;
-      params.descending = options.descending ? "true" : "false";
+      query = query.order(options.sortField, { ascending: !options.descending });
     } else {
-      // Default sort by start date ascending
-      params.sort_field = BubbleCalendarEventFields.startDate;
-      params.descending = "false";
+      query = query.order("start_date", { ascending: true });
     }
 
-    // Note: BubbleTypes.calendarEvent is already lowercase "calendarevent"
-    const response = await client.get<BubbleListResponse<CalendarEventDTO>>(
-      `/obj/${BubbleTypes.calendarEvent}`,
-      { params }
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    const events = response.response.results
-      .map(calendarEventDtoToModel)
-      .filter((e): e is CalendarEvent => e !== null);
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Failed to fetch calendar events: ${error.message}`);
 
-    return {
-      events,
-      remaining: response.response.remaining,
-      count: response.response.count,
-    };
+    const total = count ?? 0;
+    const events = (data ?? []).map(mapFromDb);
+    const remaining = Math.max(0, total - offset - events.length);
+
+    return { events, remaining, count: total };
   },
 
   /**
@@ -164,27 +139,24 @@ export const CalendarService = {
     companyId: string,
     startDate: Date,
     endDate: Date,
-    options: Omit<
-      FetchCalendarEventsOptions,
-      "startDateFrom" | "startDateTo"
-    > = {}
+    options: Omit<FetchCalendarEventsOptions, "startDateFrom" | "startDateTo"> = {}
   ): Promise<CalendarEvent[]> {
     const allEvents: CalendarEvent[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    let offset = 0;
+    let hasMore = true;
 
-    while (remaining > 0) {
+    while (hasMore) {
       const result = await CalendarService.fetchCalendarEvents(companyId, {
         ...options,
         startDateFrom: startDate,
         startDateTo: endDate,
         limit: 100,
-        cursor,
+        cursor: offset,
       });
 
       allEvents.push(...result.events);
-      remaining = result.remaining;
-      cursor += result.events.length;
+      hasMore = result.remaining > 0;
+      offset += result.events.length;
     }
 
     return allEvents;
@@ -194,13 +166,18 @@ export const CalendarService = {
    * Fetch a single calendar event by ID.
    */
   async fetchCalendarEvent(id: string): Promise<CalendarEvent | null> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("calendar_events")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    const response = await client.get<BubbleObjectResponse<CalendarEventDTO>>(
-      `/obj/${BubbleTypes.calendarEvent}/${id}`
-    );
-
-    return calendarEventDtoToModel(response.response);
+    if (error) {
+      if (error.code === "PGRST116") return null; // not found
+      throw new Error(`Failed to fetch calendar event: ${error.message}`);
+    }
+    return mapFromDb(data);
   },
 
   /**
@@ -213,16 +190,17 @@ export const CalendarService = {
       title: string;
     }
   ): Promise<string> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = calendarEventModelToDto(data);
+    const { data: created, error } = await supabase
+      .from("calendar_events")
+      .insert(row)
+      .select("id")
+      .single();
 
-    const response = await client.post<BubbleCreationResponse>(
-      `/obj/${BubbleTypes.calendarEvent}`,
-      dto
-    );
-
-    return response.id;
+    if (error) throw new Error(`Failed to create calendar event: ${error.message}`);
+    return created.id as string;
   },
 
   /**
@@ -232,26 +210,29 @@ export const CalendarService = {
     id: string,
     data: Partial<CalendarEvent>
   ): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = calendarEventModelToDto(data);
+    const { error } = await supabase
+      .from("calendar_events")
+      .update(row)
+      .eq("id", id);
 
-    await client.patch(
-      `/obj/${BubbleTypes.calendarEvent}/${id}`,
-      dto
-    );
+    if (error) throw new Error(`Failed to update calendar event: ${error.message}`);
   },
 
   /**
    * Soft delete a calendar event.
    */
   async deleteCalendarEvent(id: string): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.calendarEvent}/${id}`,
-      { [BubbleCalendarEventFields.deletedAt]: new Date().toISOString() }
-    );
+    const { error } = await supabase
+      .from("calendar_events")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to delete calendar event: ${error.message}`);
   },
 
   /**
@@ -262,19 +243,19 @@ export const CalendarService = {
     options: Omit<FetchCalendarEventsOptions, "limit" | "cursor"> = {}
   ): Promise<CalendarEvent[]> {
     const allEvents: CalendarEvent[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    let offset = 0;
+    let hasMore = true;
 
-    while (remaining > 0) {
+    while (hasMore) {
       const result = await CalendarService.fetchCalendarEvents(companyId, {
         ...options,
         limit: 100,
-        cursor,
+        cursor: offset,
       });
 
       allEvents.push(...result.events);
-      remaining = result.remaining;
-      cursor += result.events.length;
+      hasMore = result.remaining > 0;
+      offset += result.events.length;
     }
 
     return allEvents;

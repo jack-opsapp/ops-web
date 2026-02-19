@@ -82,6 +82,8 @@ export enum ActivityType {
   Won = "won",
   Lost = "lost",
   System = "system",
+  SiteVisitScheduled = "site_visit_scheduled",
+  SiteVisit = "site_visit",
 }
 
 /** Scheduled follow-up type */
@@ -102,6 +104,23 @@ export enum FollowUpStatus {
 }
 
 /** Payment method */
+/** Line item / product type */
+export type LineItemType = "LABOR" | "MATERIAL";
+
+/** Site visit status */
+export enum SiteVisitStatus {
+  Scheduled = "scheduled",
+  InProgress = "in_progress",
+  Completed = "completed",
+  Cancelled = "cancelled",
+}
+
+/** Gmail connection type */
+export enum GmailConnectionType {
+  Company = "company",
+  Individual = "individual",
+}
+
 export enum PaymentMethod {
   CreditCard = "credit_card",
   DebitCard = "debit_card",
@@ -189,6 +208,8 @@ export const ACTIVITY_TYPE_COLORS: Record<ActivityType, string> = {
   [ActivityType.Won]: "#9DB582",
   [ActivityType.Lost]: "#B58289",
   [ActivityType.System]: "#6B7280",
+  [ActivityType.SiteVisitScheduled]: "#8195B5",
+  [ActivityType.SiteVisit]: "#8195B5",
 };
 
 export const FOLLOW_UP_TYPE_COLORS: Record<FollowUpType, string> = {
@@ -331,6 +352,9 @@ export interface Opportunity {
   // Address
   address: string | null;
 
+  // Email source
+  sourceEmailId: string | null;
+
   // Denormalized for performance
   lastActivityAt: Date | null;
   nextFollowUpAt: Date | null;
@@ -395,6 +419,8 @@ export interface Product {
   unitCost: number | null;
   unit: string;
   category: string | null;
+  type: LineItemType;
+  taskTypeId: string | null;
   isTaxable: boolean;
   isActive: boolean;
   createdAt: Date | null;
@@ -418,6 +444,7 @@ export interface Estimate {
   id: string;
   companyId: string;
   opportunityId: string | null;
+  projectId: string | null;
   clientId: string;
   estimateNumber: string;
   version: number;
@@ -538,6 +565,10 @@ export interface LineItem {
   // From catalog (optional reference)
   productId: string | null;
 
+  // Type & template linkage
+  type: LineItemType;
+  taskTypeId: string | null;
+
   // Content
   name: string;
   description: string | null;
@@ -631,6 +662,8 @@ export interface Activity {
   clientId: string | null;
   estimateId: string | null;
   invoiceId: string | null;
+  projectId: string | null;
+  siteVisitId: string | null;
 
   type: ActivityType;
   subject: string;
@@ -638,6 +671,11 @@ export interface Activity {
   outcome: string | null;
   direction: "inbound" | "outbound" | null;
   durationMinutes: number | null;
+  attachments: string[];
+  emailThreadId: string | null;
+  emailMessageId: string | null;
+  isRead: boolean;
+  fromEmail: string | null;
 
   createdBy: string | null;
   createdAt: Date;
@@ -946,7 +984,10 @@ export type CreateOpportunity = Omit<
   | "activities"
   | "followUps"
   | "stageTransitions"
->;
+  | "sourceEmailId"
+> & {
+  sourceEmailId?: string | null;
+};
 
 export type CreateEstimate = Omit<
   Estimate,
@@ -997,8 +1038,16 @@ export type CreatePaymentMilestone = Omit<
 
 export type CreateActivity = Omit<
   Activity,
-  "id" | "createdAt" | "opportunity" | "client"
->;
+  "id" | "createdAt" | "opportunity" | "client" | "projectId" | "siteVisitId" | "attachments" | "emailThreadId" | "emailMessageId" | "isRead" | "fromEmail"
+> & {
+  projectId?: string | null;
+  siteVisitId?: string | null;
+  attachments?: string[];
+  emailThreadId?: string | null;
+  emailMessageId?: string | null;
+  isRead?: boolean;
+  fromEmail?: string | null;
+};
 
 export type CreateFollowUp = Omit<
   FollowUp,
@@ -1007,8 +1056,11 @@ export type CreateFollowUp = Omit<
 
 export type CreateProduct = Omit<
   Product,
-  "id" | "createdAt" | "updatedAt" | "deletedAt"
->;
+  "id" | "createdAt" | "updatedAt" | "deletedAt" | "type" | "taskTypeId"
+> & {
+  type?: LineItemType;
+  taskTypeId?: string | null;
+};
 
 export type CreateTaxRate = Omit<TaxRate, "id" | "createdAt">;
 
@@ -1090,3 +1142,241 @@ export const UNIT_OPTIONS = [
   "day",
   "flat rate",
 ] as const;
+
+// ─── Project Notes ──────────────────────────────────────────────────────────
+
+export interface NoteAttachment {
+  url: string;
+  caption: string | null;
+  markedUpUrl: string | null;
+}
+
+export interface ProjectNote {
+  id: string;
+  projectId: string;
+  companyId: string;
+  authorId: string;
+  content: string;
+  attachments: NoteAttachment[];
+  mentionedUserIds: string[];
+  createdAt: Date;
+  updatedAt: Date | null;
+  deletedAt: Date | null;
+}
+
+export interface CreateProjectNote {
+  projectId: string;
+  companyId: string;
+  authorId: string;
+  content: string;
+  attachments?: NoteAttachment[];
+  mentionedUserIds?: string[];
+}
+
+export interface UpdateProjectNote {
+  id: string;
+  content?: string;
+  attachments?: NoteAttachment[];
+  mentionedUserIds?: string[];
+}
+
+// ─── Activity Comments ──────────────────────────────────────────────────────
+
+export interface ActivityComment {
+  id: string;
+  companyId: string;
+  activityId: string;
+  userId: string;
+  content: string;
+  isClientVisible: boolean;
+  createdAt: Date;
+  updatedAt: Date | null;
+  deletedAt: Date | null;
+}
+
+export interface CreateActivityComment {
+  companyId: string;
+  activityId: string;
+  userId: string;
+  content: string;
+  isClientVisible?: boolean;
+}
+
+// ─── Task Templates ─────────────────────────────────────────────────────────
+
+export interface TaskTemplate {
+  id: string;
+  companyId: string;
+  taskTypeId: string;
+  title: string;
+  description: string | null;
+  estimatedHours: number | null;
+  displayOrder: number;
+  defaultTeamMemberIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+export interface CreateTaskTemplate {
+  companyId: string;
+  taskTypeId: string;
+  title: string;
+  description?: string | null;
+  estimatedHours?: number | null;
+  displayOrder: number;
+  defaultTeamMemberIds?: string[];
+}
+
+export interface UpdateTaskTemplate {
+  id?: string;
+  title?: string;
+  description?: string | null;
+  estimatedHours?: number | null;
+  displayOrder?: number;
+  defaultTeamMemberIds?: string[];
+  taskTypeId?: string;
+}
+
+// ─── Project Photos ─────────────────────────────────────────────────────────
+
+export type PhotoSource = "site_visit" | "in_progress" | "completion" | "other";
+
+export interface ProjectPhoto {
+  id: string;
+  projectId: string;
+  companyId: string;
+  url: string;
+  thumbnailUrl: string | null;
+  source: PhotoSource;
+  siteVisitId: string | null;
+  uploadedBy: string;
+  takenAt: Date | null;
+  caption: string | null;
+  deletedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface CreateProjectPhoto {
+  projectId: string;
+  companyId: string;
+  url: string;
+  thumbnailUrl?: string | null;
+  source: PhotoSource;
+  siteVisitId?: string | null;
+  uploadedBy: string;
+  takenAt?: Date | null;
+  caption?: string | null;
+}
+
+// ─── Company Settings ───────────────────────────────────────────────────────
+
+export interface CompanySettings {
+  companyId: string;
+  autoGenerateTasks: boolean;
+  followUpReminderDays: number;
+  gmailAutoLogEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UpdateCompanySettings {
+  autoGenerateTasks?: boolean;
+  followUpReminderDays?: number;
+  gmailAutoLogEnabled?: boolean;
+}
+
+// ─── Site Visits ────────────────────────────────────────────────────────────
+
+export interface SiteVisit {
+  id: string;
+  companyId: string;
+  opportunityId: string | null;
+  projectId: string | null;
+  clientId: string | null;
+  scheduledAt: Date;
+  durationMinutes: number;
+  assigneeIds: string[];
+  status: SiteVisitStatus;
+  completedAt: Date | null;
+  notes: string | null;
+  internalNotes: string | null;
+  measurements: string | null;
+  photos: string[];
+  activityId: string | null;
+  calendarEventId: string | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+export interface CreateSiteVisit {
+  companyId: string;
+  opportunityId?: string | null;
+  projectId?: string | null;
+  clientId?: string | null;
+  scheduledAt: Date | string;
+  durationMinutes: number;
+  assigneeIds: string[];
+  status?: SiteVisitStatus;
+  notes?: string | null;
+  internalNotes?: string | null;
+  measurements?: string | null;
+  photos?: string[];
+  calendarEventId?: string | null;
+  createdBy: string;
+}
+
+export interface UpdateSiteVisit {
+  scheduledAt?: Date | string;
+  durationMinutes?: number;
+  assigneeIds?: string[];
+  status?: SiteVisitStatus;
+  completedAt?: Date | string | null;
+  notes?: string | null;
+  internalNotes?: string | null;
+  measurements?: string | null;
+  photos?: string[];
+  calendarEventId?: string | null;
+}
+
+// ─── Gmail Connections ──────────────────────────────────────────────────────
+
+export interface GmailConnection {
+  id: string;
+  companyId: string;
+  type: GmailConnectionType;
+  userId: string | null;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+  historyId: string | null;
+  syncEnabled: boolean;
+  lastSyncedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateGmailConnection {
+  companyId: string;
+  type: GmailConnectionType;
+  userId?: string | null;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date | string;
+  historyId?: string | null;
+  syncEnabled?: boolean;
+}
+
+export interface UpdateGmailConnection {
+  id?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: Date | string;
+  historyId?: string | null;
+  syncEnabled?: boolean;
+  lastSyncedAt?: Date | string;
+}

@@ -24,6 +24,7 @@ import type {
   StageTransition,
   OpportunityStage,
 } from "../types/pipeline";
+import { OpportunityStage as Stage } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -369,4 +370,90 @@ export function useCompleteFollowUp() {
       });
     },
   });
+}
+
+// ─── Stage Auto-Advance Helpers ───────────────────────────────────────────────
+
+/**
+ * After creating an estimate for an opportunity, auto-advance stage from
+ * new_lead or qualifying → quoting.
+ */
+export function useCreateEstimateForOpportunity() {
+  const moveStage = useMoveOpportunityStage();
+  const { currentUser: user } = useAuthStore();
+
+  return {
+    advanceToQuoting: (opportunityId: string, currentStage: OpportunityStage) => {
+      if (
+        currentStage === Stage.NewLead ||
+        currentStage === Stage.Qualifying
+      ) {
+        moveStage.mutate({
+          id: opportunityId,
+          stage: Stage.Quoting,
+          userId: user?.id,
+        });
+      }
+    },
+  };
+}
+
+/**
+ * After sending an estimate, auto-advance stage → quoted.
+ */
+export function useSendEstimateForOpportunity() {
+  const moveStage = useMoveOpportunityStage();
+  const { currentUser: user } = useAuthStore();
+
+  return {
+    advanceToQuoted: (opportunityId: string) => {
+      moveStage.mutate({
+        id: opportunityId,
+        stage: Stage.Quoted,
+        userId: user?.id,
+      });
+    },
+  };
+}
+
+/**
+ * After an estimate is approved, auto-advance stage → won.
+ */
+export function useApproveEstimateForOpportunity() {
+  const moveStage = useMoveOpportunityStage();
+  const { currentUser: user } = useAuthStore();
+
+  return {
+    advanceToWon: (opportunityId: string) => {
+      moveStage.mutate({
+        id: opportunityId,
+        stage: Stage.Won,
+        userId: user?.id,
+      });
+    },
+  };
+}
+
+/**
+ * After logging an inbound activity on a quoted/follow_up opportunity,
+ * auto-advance stage → negotiation to signal active engagement.
+ */
+export function useLogInboundActivity() {
+  const moveStage = useMoveOpportunityStage();
+  const { currentUser: user } = useAuthStore();
+
+  return {
+    advanceToNegotiation: (opportunityId: string, currentStage: OpportunityStage) => {
+      if (
+        currentStage === Stage.Quoted ||
+        currentStage === Stage.FollowUp
+      ) {
+        moveStage.mutate({
+          id: opportunityId,
+          stage: Stage.Negotiation,
+          userId: user?.id,
+        });
+      }
+    },
+  };
 }

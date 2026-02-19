@@ -37,6 +37,7 @@ function mapEstimateFromDb(row: Record<string, unknown>): Estimate {
     id: row.id as string,
     companyId: row.company_id as string,
     opportunityId: (row.opportunity_id as string) ?? null,
+    projectId: (row.project_id as string) ?? null,
     clientId: row.client_id as string,
     estimateNumber: row.estimate_number as string,
     version: Number(row.version ?? 1),
@@ -158,6 +159,10 @@ function mapLineItemFromDb(row: Record<string, unknown>): LineItem {
     estimateId: (row.estimate_id as string) ?? null,
     invoiceId: (row.invoice_id as string) ?? null,
     productId: (row.product_id as string) ?? null,
+
+    // Type & template linkage
+    type: (row.type as string as import("@/lib/types/pipeline").LineItemType) ?? "MATERIAL",
+    taskTypeId: (row.task_type_id as string) ?? null,
 
     // Content
     name: row.name as string,

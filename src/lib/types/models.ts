@@ -240,6 +240,7 @@ export interface Project {
   notes: string | null;
   companyId: string;
   clientId: string | null;
+  opportunityId: string | null;
   allDay: boolean;
   teamMemberIds: string[];
   projectDescription: string | null;
@@ -268,6 +269,8 @@ export interface ProjectTask {
   taskIndex: number | null;
   displayOrder: number;
   customTitle: string | null;
+  sourceLineItemId: string | null;
+  sourceEstimateId: string | null;
   teamMemberIds: string[];
   lastSyncedAt: Date | null;
   needsSync: boolean;
@@ -292,6 +295,9 @@ export interface CalendarEvent {
   startDate: Date | null;
   title: string;
   teamMemberIds: string[];
+  eventType: string;
+  opportunityId: string | null;
+  siteVisitId: string | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;
@@ -311,6 +317,7 @@ export interface TaskType {
   isDefault: boolean;
   companyId: string;
   displayOrder: number;
+  defaultTeamMemberIds: string[];
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;

@@ -52,9 +52,9 @@ export function useCreateEstimate() {
       data,
       lineItems,
     }: {
-      data: Partial<CreateEstimate> & { companyId: string; clientId: string };
+      data: Partial<CreateEstimate> & { companyId: string; clientId?: string };
       lineItems: Partial<CreateLineItem>[];
-    }) => EstimateService.createEstimate(data, lineItems),
+    }) => EstimateService.createEstimate(data as Partial<CreateEstimate> & { companyId: string; clientId: string }, lineItems),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.estimates.lists() });
     },

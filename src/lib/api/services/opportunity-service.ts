@@ -83,6 +83,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     projectId: (row.project_id as string) ?? null,
     lostReason: (row.lost_reason as string) ?? null,
     lostNotes: (row.lost_notes as string) ?? null,
+    sourceEmailId: (row.source_email_id as string) ?? null,
 
     // Address
     address: (row.address as string) ?? null,
@@ -149,6 +150,7 @@ function mapOpportunityToDb(
   if (data.projectId !== undefined) row.project_id = data.projectId;
   if (data.lostReason !== undefined) row.lost_reason = data.lostReason;
   if (data.lostNotes !== undefined) row.lost_notes = data.lostNotes;
+  if (data.sourceEmailId !== undefined) row.source_email_id = data.sourceEmailId;
 
   // Address
   if (data.address !== undefined) row.address = data.address;
@@ -170,6 +172,8 @@ function mapActivityFromDb(row: Record<string, unknown>): Activity {
     clientId: (row.client_id as string) ?? null,
     estimateId: (row.estimate_id as string) ?? null,
     invoiceId: (row.invoice_id as string) ?? null,
+    projectId: (row.project_id as string) ?? null,
+    siteVisitId: (row.site_visit_id as string) ?? null,
 
     type: row.type as Activity["type"],
     subject: row.subject as string,
@@ -177,6 +181,11 @@ function mapActivityFromDb(row: Record<string, unknown>): Activity {
     outcome: (row.outcome as string) ?? null,
     direction: (row.direction as Activity["direction"]) ?? null,
     durationMinutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
+    attachments: (row.attachments as string[]) ?? [],
+    emailThreadId: (row.email_thread_id as string) ?? null,
+    emailMessageId: (row.email_message_id as string) ?? null,
+    isRead: (row.is_read as boolean) ?? true,
+    fromEmail: (row.from_email as string) ?? null,
 
     createdBy: (row.created_by as string) ?? null,
     createdAt: parseDateRequired(row.created_at),
@@ -193,12 +202,19 @@ function mapActivityToDb(data: CreateActivity): Record<string, unknown> {
     client_id: data.clientId,
     estimate_id: data.estimateId,
     invoice_id: data.invoiceId,
+    project_id: data.projectId,
+    site_visit_id: data.siteVisitId,
     type: data.type,
     subject: data.subject,
     content: data.content,
     outcome: data.outcome,
     direction: data.direction,
     duration_minutes: data.durationMinutes,
+    attachments: data.attachments ?? [],
+    email_thread_id: data.emailThreadId,
+    email_message_id: data.emailMessageId,
+    is_read: data.isRead ?? true,
+    from_email: data.fromEmail,
     created_by: data.createdBy,
   };
 }
@@ -618,6 +634,64 @@ export const OpportunityService = {
     }
 
     return mapFollowUpFromDb(updated as Record<string, unknown>);
+  },
+
+  // ─── Lifecycle Attach Helpers ─────────────────────────────────────────────
+
+  /**
+   * Attach a client to an opportunity and update any linked estimates.
+   */
+  async attachClientToOpportunity(
+    opportunityId: string,
+    clientId: string
+  ): Promise<Opportunity> {
+    const supabase = requireSupabase();
+
+    // Update opportunity
+    const { data: updated, error } = await supabase
+      .from("opportunities")
+      .update({ client_id: clientId })
+      .eq("id", opportunityId)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to attach client to opportunity: ${error.message}`);
+
+    // Also update any estimates linked to this opportunity that lack a client
+    await supabase
+      .from("estimates")
+      .update({ client_id: clientId })
+      .eq("opportunity_id", opportunityId)
+      .is("client_id", null);
+
+    return mapOpportunityFromDb(updated as Record<string, unknown>);
+  },
+
+  /**
+   * Attach a project to an opportunity and sync the estimate's project_id.
+   */
+  async attachProjectToOpportunity(
+    opportunityId: string,
+    projectId: string
+  ): Promise<Opportunity> {
+    const supabase = requireSupabase();
+
+    const { data: updated, error } = await supabase
+      .from("opportunities")
+      .update({ project_id: projectId })
+      .eq("id", opportunityId)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to attach project to opportunity: ${error.message}`);
+
+    // Also update linked estimates
+    await supabase
+      .from("estimates")
+      .update({ project_id: projectId })
+      .eq("opportunity_id", opportunityId);
+
+    return mapOpportunityFromDb(updated as Record<string, unknown>);
   },
 
   // ─── Stage Transitions ────────────────────────────────────────────────────

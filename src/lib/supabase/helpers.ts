@@ -9,9 +9,24 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
+ * Server-side override for requireSupabase().
+ * When set (via setSupabaseOverride), all requireSupabase() calls return this
+ * client instead of the Firebase-auth-backed browser client.
+ * Used by API routes and cron jobs that have no Firebase user session.
+ */
+let _supabaseOverride: SupabaseClient | null = null;
+
+export function setSupabaseOverride(client: SupabaseClient | null): void {
+  _supabaseOverride = client;
+}
+
+/**
  * Returns a guaranteed Supabase client or throws if not configured.
+ * In server contexts, returns the override client if one was set.
  */
 export function requireSupabase(): SupabaseClient {
+  if (_supabaseOverride) return _supabaseOverride;
+
   const client = getSupabaseClient();
   if (!client) {
     throw new Error(

@@ -10,6 +10,7 @@ import {
   Target,
   Loader2,
   DollarSign,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
 import {
   type Opportunity,
   OpportunityStage,
+  OpportunitySource,
   getStageDisplayName,
   getStageColor,
   isActiveStage,
@@ -43,6 +45,7 @@ import { PipelineBoard } from "./_components/pipeline-board";
 import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { QuickAddForm } from "./_components/quick-add-form";
+import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
 
 // ---------------------------------------------------------------------------
 // Loading Skeleton
@@ -127,6 +130,7 @@ export default function PipelinePage() {
   const [stageFilter, setStageFilter] = useState<OpportunityStage | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showInboxLeads, setShowInboxLeads] = useState(false);
 
   // Detail sheet
   const [selectedOpportunity, setSelectedOpportunity] =
@@ -472,6 +476,15 @@ export default function PipelinePage() {
               Filter
             </Button>
             <Button
+              variant="secondary"
+              size="sm"
+              className="gap-[6px]"
+              onClick={() => setShowInboxLeads(!showInboxLeads)}
+            >
+              <Mail className="w-[14px] h-[14px]" />
+              Inbox
+            </Button>
+            <Button
               variant="default"
               size="sm"
               className="gap-[6px]"
@@ -704,6 +717,52 @@ export default function PipelinePage() {
             : undefined
         }
       />
+
+      {/* Inbox Leads */}
+      {showInboxLeads && (
+        <div className="shrink-0">
+          <InboxLeadsQueue
+            onCreateLead={(prefill) => {
+              setShowInboxLeads(false);
+              if (company) {
+                createOpportunity.mutate(
+                  {
+                    companyId: company.id,
+                    clientId: null,
+                    title: prefill.title,
+                    description: prefill.notes || null,
+                    contactName: null,
+                    contactEmail: prefill.sourceEmail || null,
+                    contactPhone: null,
+                    stage: OpportunityStage.NewLead,
+                    source: OpportunitySource.Email,
+                    assignedTo: currentUser?.id ?? null,
+                    priority: null,
+                    estimatedValue: null,
+                    actualValue: null,
+                    winProbability: 10,
+                    expectedCloseDate: null,
+                    actualCloseDate: null,
+                    projectId: null,
+                    lostReason: null,
+                    lostNotes: null,
+                    address: null,
+                    tags: [],
+                  },
+                  {
+                    onSuccess: () => {
+                      toast.success("Lead created from email", {
+                        description: prefill.title,
+                      });
+                    },
+                  }
+                );
+              }
+            }}
+            className="max-w-[600px]"
+          />
+        </div>
+      )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog

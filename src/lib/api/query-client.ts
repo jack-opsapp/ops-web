@@ -155,6 +155,63 @@ export const queryKeys = {
     syncHistory: (companyId: string) =>
       [...queryKeys.accounting.all, "syncHistory", companyId] as const,
   },
+
+  // Task Templates
+  taskTemplates: {
+    all: ["taskTemplates"] as const,
+    lists: () => [...queryKeys.taskTemplates.all, "list"] as const,
+    list: (companyId: string, taskTypeId?: string) =>
+      [...queryKeys.taskTemplates.lists(), companyId, taskTypeId] as const,
+    detail: (id: string) =>
+      [...queryKeys.taskTemplates.all, "detail", id] as const,
+    proposed: (estimateId: string) =>
+      [...queryKeys.taskTemplates.all, "proposed", estimateId] as const,
+  },
+
+  // Activity Comments
+  activityComments: {
+    all: ["activityComments"] as const,
+    byActivity: (activityId: string) =>
+      [...queryKeys.activityComments.all, activityId] as const,
+  },
+
+  // Site Visits
+  siteVisits: {
+    all: ["siteVisits"] as const,
+    lists: () => [...queryKeys.siteVisits.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.siteVisits.lists(), companyId, filters] as const,
+    detail: (id: string) =>
+      [...queryKeys.siteVisits.all, "detail", id] as const,
+  },
+
+  // Project Photos
+  projectPhotos: {
+    all: ["projectPhotos"] as const,
+    byProject: (projectId: string) =>
+      [...queryKeys.projectPhotos.all, projectId] as const,
+  },
+
+  // Project Notes
+  projectNotes: {
+    all: ["projectNotes"] as const,
+    byProject: (projectId: string) =>
+      [...queryKeys.projectNotes.all, projectId] as const,
+  },
+
+  // Company Settings
+  companySettings: {
+    all: ["companySettings"] as const,
+    detail: (companyId: string) =>
+      [...queryKeys.companySettings.all, companyId] as const,
+  },
+
+  // Gmail
+  gmailConnections: {
+    all: ["gmailConnections"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.gmailConnections.all, companyId] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

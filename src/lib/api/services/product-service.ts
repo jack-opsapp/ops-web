@@ -10,6 +10,7 @@ import type {
   Product,
   CreateProduct,
   UpdateProduct,
+  LineItemType,
 } from "@/lib/types/pipeline";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
@@ -26,6 +27,8 @@ function mapProductFromDb(row: Record<string, unknown>): Product {
     category: (row.category as string) ?? null,
     isTaxable: (row.is_taxable as boolean) ?? false,
     isActive: (row.is_active as boolean) ?? true,
+    type: ((row.type as string) ?? "LABOR") as LineItemType,
+    taskTypeId: (row.task_type_id as string) ?? null,
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
     deletedAt: parseDate(row.deleted_at),
@@ -46,6 +49,8 @@ function mapProductToDb(
   if (data.category !== undefined) row.category = data.category;
   if (data.isTaxable !== undefined) row.is_taxable = data.isTaxable;
   if (data.isActive !== undefined) row.is_active = data.isActive;
+  if (data.type !== undefined) row.type = data.type;
+  if (data.taskTypeId !== undefined) row.task_type_id = data.taskTypeId;
 
   return row;
 }

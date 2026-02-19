@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -28,6 +28,21 @@ import { UserAvatar } from "@/components/ops/user-avatar";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { TaskList } from "@/components/ops/task-list";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
+import { NotesList } from "@/components/ops/notes-list";
+import { NoteComposer } from "@/components/ops/note-composer";
+import {
+  useProjectNotes,
+  useCreateProjectNote,
+  useUpdateProjectNote,
+  useDeleteProjectNote,
+} from "@/lib/hooks/use-project-notes";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/query-client";
+import { ProjectNoteService } from "@/lib/api/services/project-note-service";
+import { NotificationService } from "@/lib/api/services/notification-service";
+import { useCreateProjectPhoto } from "@/lib/hooks/use-project-photos";
+import type { NoteAttachment, ProjectNote } from "@/lib/types/pipeline";
+import { ProjectPhotoGallery } from "@/components/ops/project-photo-gallery";
 import {
   Select,
   SelectContent,
@@ -420,46 +435,177 @@ function PhotosTab({ project }: { project: Project }) {
 // ─── Notes Tab ─────────────────────────────────────────────────────────────────
 
 function NotesTab({ project }: { project: Project }) {
-  const hasNotes = project.notes && project.notes.trim().length > 0;
-  const hasDescription = project.projectDescription && project.projectDescription.trim().length > 0;
+  const { currentUser, company } = useAuthStore();
+  const { data: notes = [], isLoading } = useProjectNotes(project.id);
+  const createNote = useCreateProjectNote();
+  const updateNote = useUpdateProjectNote();
+  const deleteNote = useDeleteProjectNote();
+  const createPhoto = useCreateProjectPhoto();
+  const queryClient = useQueryClient();
+  const users = project.teamMembers ?? [];
+  const migrated = useRef(false);
 
-  if (!hasNotes && !hasDescription) {
-    return (
-      <EmptyState
-        icon={<StickyNote className="w-[48px] h-[48px]" />}
-        title="No notes yet"
-        description="Add project notes to keep important details accessible for the team."
-      />
+  const [editingNote, setEditingNote] = useState<ProjectNote | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // Legacy migration: one-time convert Bubble teamNotes to project_notes
+  useEffect(() => {
+    if (
+      !migrated.current &&
+      project.notes &&
+      project.notes.trim() &&
+      currentUser &&
+      company &&
+      notes.length === 0 &&
+      !isLoading
+    ) {
+      migrated.current = true;
+      ProjectNoteService.migrateFromLegacy(
+        project.id,
+        company.id,
+        project.notes,
+        currentUser.id
+      ).then((result) => {
+        if (result) {
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.projectNotes.byProject(project.id),
+          });
+        }
+      });
+    }
+  }, [project.notes, project.id, notes.length, isLoading, currentUser, company, queryClient]);
+
+  function handleSubmit(
+    content: string,
+    mentionedUserIds: string[],
+    attachments: NoteAttachment[]
+  ) {
+    if (!currentUser || !company) return;
+    createNote.mutate(
+      {
+        projectId: project.id,
+        companyId: company.id,
+        authorId: currentUser.id,
+        content,
+        mentionedUserIds,
+        attachments,
+      },
+      {
+        onSuccess: (result) => {
+          toast.success("Note posted");
+          // Cross-post photos to project gallery
+          for (const att of attachments) {
+            createPhoto.mutate({
+              projectId: project.id,
+              companyId: company.id,
+              url: att.markedUpUrl ?? att.url,
+              thumbnailUrl: null,
+              source: "other",
+              siteVisitId: null,
+              uploadedBy: currentUser.id,
+              takenAt: null,
+              caption: att.caption,
+            });
+          }
+          // Send mention notifications
+          if (mentionedUserIds.length > 0 && currentUser) {
+            NotificationService.createMentionNotifications({
+              mentionedUserIds,
+              authorName: `${currentUser.firstName} ${currentUser.lastName}`,
+              projectId: project.id,
+              projectTitle: project.title,
+              noteId: result.id,
+              companyId: company.id,
+            });
+          }
+        },
+        onError: () => toast.error("Failed to post note"),
+      }
+    );
+  }
+
+  function handleEdit(note: ProjectNote) {
+    setEditingNote(note);
+  }
+
+  function handleCancelEdit() {
+    setEditingNote(null);
+  }
+
+  function handleUpdate(
+    content: string,
+    mentionedUserIds: string[],
+    attachments: NoteAttachment[]
+  ) {
+    if (!editingNote) return;
+    updateNote.mutate(
+      {
+        id: editingNote.id,
+        projectId: project.id,
+        content,
+        mentionedUserIds,
+        attachments,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Note updated");
+          setEditingNote(null);
+        },
+        onError: () => toast.error("Failed to update note"),
+      }
+    );
+  }
+
+  function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    deleteNote.mutate(
+      { id: deleteTarget, projectId: project.id },
+      {
+        onSuccess: () => {
+          toast.success("Note deleted");
+          setDeleteTarget(null);
+        },
+        onError: () => toast.error("Failed to delete note"),
+      }
     );
   }
 
   return (
-    <div className="space-y-2">
-      <SectionHeader title="Project Notes" />
-      {hasDescription && (
-        <Card>
-          <CardContent className="p-1.5">
-            <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Description
-            </span>
-            <p className="font-mohave text-body text-text-secondary mt-[4px]">
-              {project.projectDescription}
-            </p>
-          </CardContent>
-        </Card>
+    <div className="space-y-4">
+      {editingNote ? (
+        <NoteComposer
+          onSubmit={handleUpdate}
+          isSubmitting={updateNote.isPending}
+          users={users}
+          initialContent={editingNote.content}
+          initialAttachments={editingNote.attachments}
+          onCancel={handleCancelEdit}
+        />
+      ) : (
+        <NoteComposer
+          onSubmit={handleSubmit}
+          isSubmitting={createNote.isPending}
+          users={users}
+        />
       )}
-      {hasNotes && (
-        <Card>
-          <CardContent className="p-1.5">
-            <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Notes
-            </span>
-            <p className="font-mohave text-body text-text-secondary mt-[4px]">
-              {project.notes}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <NotesList
+        notes={notes}
+        users={users}
+        currentUserId={currentUser?.id ?? ""}
+        isLoading={isLoading}
+        onEdit={handleEdit}
+        onDelete={(id) => setDeleteTarget(id)}
+      />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(null)}
+        title="Delete Note"
+        description="Are you sure you want to delete this note? This cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteNote.isPending}
+      />
     </div>
   );
 }
@@ -807,7 +953,12 @@ export default function ProjectDetailPage() {
           />
         )}
         {activeTab === "financial" && <FinancialTab project={project} />}
-        {activeTab === "photos" && <PhotosTab project={project} />}
+        {activeTab === "photos" && (
+          <ProjectPhotoGallery
+            projectId={project.id}
+            legacyImages={project.projectImages ?? []}
+          />
+        )}
         {activeTab === "notes" && <NotesTab project={project} />}
       </div>
 

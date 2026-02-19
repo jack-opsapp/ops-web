@@ -1,28 +1,56 @@
 /**
- * OPS Web - Task Service
+ * OPS Web - Task Service (Supabase)
  *
- * Complete CRUD operations for Tasks using the Bubble Data API.
+ * Complete CRUD operations for ProjectTasks stored in Supabase `project_tasks` table.
  * Includes calendar event creation for task scheduling.
- * All queries filter out soft-deleted items.
+ * Replaces the old Bubble.io-based implementation.
  */
 
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleTypes,
-  BubbleTaskFields,
-  BubbleCalendarEventFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
-} from "../../constants/bubble-fields";
-import {
-  type TaskDTO,
-  type BubbleListResponse,
-  type BubbleObjectResponse,
-  type BubbleCreationResponse,
-  taskDtoToModel,
-  taskModelToDto,
-} from "../../types/dto";
+import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { ProjectTask, TaskStatus } from "../../types/models";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapFromDb(row: Record<string, unknown>): ProjectTask {
+  return {
+    id: row.id as string,
+    projectId: row.project_id as string,
+    calendarEventId: (row.calendar_event_id as string) ?? null,
+    companyId: row.company_id as string,
+    status: (row.status as TaskStatus) ?? "Booked",
+    taskColor: (row.task_color as string) ?? "#417394",
+    taskNotes: (row.task_notes as string) ?? null,
+    taskTypeId: (row.task_type_id as string) ?? "",
+    taskIndex: (row.display_order as number) ?? null,
+    displayOrder: (row.display_order as number) ?? 0,
+    customTitle: (row.custom_title as string) ?? null,
+    teamMemberIds: (row.team_member_ids as string[]) ?? [],
+    sourceLineItemId: (row.source_line_item_id as string) ?? null,
+    sourceEstimateId: (row.source_estimate_id as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.projectId !== undefined) row.project_id = data.projectId;
+  if (data.calendarEventId !== undefined) row.calendar_event_id = data.calendarEventId;
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.status !== undefined) row.status = data.status;
+  if (data.taskColor !== undefined) row.task_color = data.taskColor;
+  if (data.taskNotes !== undefined) row.task_notes = data.taskNotes;
+  if (data.taskTypeId !== undefined) row.task_type_id = data.taskTypeId;
+  if (data.customTitle !== undefined) row.custom_title = data.customTitle;
+  if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
+  if (data.sourceLineItemId !== undefined) row.source_line_item_id = data.sourceLineItemId;
+  if (data.sourceEstimateId !== undefined) row.source_estimate_id = data.sourceEstimateId;
+  // Map both taskIndex and displayOrder to display_order
+  if (data.displayOrder !== undefined) row.display_order = data.displayOrder;
+  else if (data.taskIndex !== undefined) row.display_order = data.taskIndex;
+  return row;
+}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -31,15 +59,15 @@ export interface FetchTasksOptions {
   projectId?: string;
   /** Filter by status */
   status?: TaskStatus;
-  /** Filter by team member */
+  /** Filter by team member (array containment) */
   teamMemberId?: string;
-  /** Sort field */
+  /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction */
   descending?: boolean;
-  /** Pagination limit */
+  /** Pagination limit (max 100) */
   limit?: number;
-  /** Pagination cursor */
+  /** Pagination offset */
   cursor?: number;
 }
 
@@ -63,128 +91,81 @@ export interface CreateTaskWithEventData {
 
 export const TaskService = {
   /**
-   * Fetch all tasks for a company with optional filters.
+   * Fetch tasks for a company with optional filters.
    */
   async fetchTasks(
     companyId: string,
     options: FetchTasksOptions = {}
   ): Promise<{ tasks: ProjectTask[]; remaining: number; count: number }> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const limit = Math.min(options.limit ?? 100, 100);
+    const offset = options.cursor ?? 0;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleTaskFields.companyId,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleTaskFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("project_tasks")
+      .select("*", { count: "exact" })
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (options.projectId) {
-      constraints.push({
-        key: BubbleTaskFields.projectId,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.projectId,
-      });
+      query = query.eq("project_id", options.projectId);
     }
 
     if (options.status) {
-      constraints.push({
-        key: BubbleTaskFields.status,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.status,
-      });
+      query = query.eq("status", options.status);
     }
 
     if (options.teamMemberId) {
-      constraints.push({
-        key: BubbleTaskFields.teamMembers,
-        constraint_type: BubbleConstraintType.contains,
-        value: options.teamMemberId,
-      });
+      query = query.contains("team_member_ids", [options.teamMemberId]);
     }
-
-    const params: Record<string, string | number> = {
-      constraints: JSON.stringify(constraints),
-      limit: Math.min(options.limit ?? 100, 100),
-      cursor: options.cursor ?? 0,
-    };
 
     if (options.sortField) {
-      params.sort_field = options.sortField;
-      params.descending = options.descending ? "true" : "false";
+      query = query.order(options.sortField, { ascending: !options.descending });
+    } else {
+      query = query.order("display_order");
     }
 
-    const response = await client.get<BubbleListResponse<TaskDTO>>(
-      `/obj/${BubbleTypes.task.toLowerCase()}`,
-      { params }
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    const tasks = response.response.results.map((dto) => taskDtoToModel(dto));
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Failed to fetch tasks: ${error.message}`);
 
-    return {
-      tasks,
-      remaining: response.response.remaining,
-      count: response.response.count,
-    };
+    const total = count ?? 0;
+    const tasks = (data ?? []).map(mapFromDb);
+    const remaining = Math.max(0, total - offset - tasks.length);
+
+    return { tasks, remaining, count: total };
   },
 
   /**
-   * Fetch all tasks for a specific project (auto-paginates past 100).
+   * Fetch all tasks for a specific project.
    */
   async fetchProjectTasks(projectId: string): Promise<ProjectTask[]> {
-    const client = getBubbleClient();
-    const allTasks: ProjectTask[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("project_tasks")
+      .select("*")
+      .eq("project_id", projectId)
+      .is("deleted_at", null)
+      .order("display_order");
 
-    while (remaining > 0) {
-      const constraints: BubbleConstraint[] = [
-        {
-          key: BubbleTaskFields.projectId,
-          constraint_type: BubbleConstraintType.equals,
-          value: projectId,
-        },
-        {
-          key: BubbleTaskFields.deletedAt,
-          constraint_type: BubbleConstraintType.isEmpty,
-        },
-      ];
-
-      const params = {
-        constraints: JSON.stringify(constraints),
-        limit: 100,
-        cursor,
-      };
-
-      const response = await client.get<BubbleListResponse<TaskDTO>>(
-        `/obj/${BubbleTypes.task.toLowerCase()}`,
-        { params }
-      );
-
-      const tasks = response.response.results.map((dto) => taskDtoToModel(dto));
-      allTasks.push(...tasks);
-      remaining = response.response.remaining;
-      cursor += tasks.length;
-    }
-
-    return allTasks;
+    if (error) throw new Error(`Failed to fetch project tasks: ${error.message}`);
+    return (data ?? []).map(mapFromDb);
   },
 
   /**
    * Fetch a single task by ID.
    */
   async fetchTask(id: string): Promise<ProjectTask> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("project_tasks")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    const response = await client.get<BubbleObjectResponse<TaskDTO>>(
-      `/obj/${BubbleTypes.task.toLowerCase()}/${id}`
-    );
-
-    return taskDtoToModel(response.response);
+    if (error) throw new Error(`Failed to fetch task: ${error.message}`);
+    return mapFromDb(data);
   },
 
   /**
@@ -197,187 +178,211 @@ export const TaskService = {
       taskTypeId: string;
     }
   ): Promise<string> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = taskModelToDto(data);
+    const { data: created, error } = await supabase
+      .from("project_tasks")
+      .insert(row)
+      .select("id")
+      .single();
 
-    const response = await client.post<BubbleCreationResponse>(
-      `/obj/${BubbleTypes.task.toLowerCase()}`,
-      dto
-    );
-
-    return response.id;
+    if (error) throw new Error(`Failed to create task: ${error.message}`);
+    return created.id as string;
   },
 
   /**
-   * Create a task with an associated calendar event (atomic operation).
+   * Create a task with an associated calendar event (atomic-ish operation).
    * Creates the calendar event first, then the task with a reference to it.
    */
   async createTaskWithEvent(
     data: CreateTaskWithEventData
   ): Promise<{ taskId: string; calendarEventId: string | null }> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
     let calendarEventId: string | null = null;
 
     // Step 1: Create calendar event if scheduling data is provided
     if (data.calendarEvent) {
-      const eventDto: Record<string, unknown> = {
-        [BubbleCalendarEventFields.title]: data.calendarEvent.title,
-        [BubbleCalendarEventFields.startDate]:
-          data.calendarEvent.startDate.toISOString(),
-        [BubbleCalendarEventFields.color]:
-          data.calendarEvent.color ?? data.task.taskColor ?? "#59779F",
-        [BubbleCalendarEventFields.duration]:
-          data.calendarEvent.duration ?? 1,
-        [BubbleCalendarEventFields.companyId]: data.task.companyId,
-        [BubbleCalendarEventFields.projectId]: data.task.projectId,
+      const eventRow: Record<string, unknown> = {
+        title: data.calendarEvent.title,
+        start_date: data.calendarEvent.startDate.toISOString(),
+        color: data.calendarEvent.color ?? data.task.taskColor ?? "#417394",
+        duration: data.calendarEvent.duration ?? 1,
+        company_id: data.task.companyId,
+        project_id: data.task.projectId,
       };
 
       if (data.calendarEvent.endDate) {
-        eventDto[BubbleCalendarEventFields.endDate] =
-          data.calendarEvent.endDate.toISOString();
+        eventRow.end_date = data.calendarEvent.endDate.toISOString();
       }
 
-      if (
-        data.calendarEvent.teamMemberIds &&
-        data.calendarEvent.teamMemberIds.length > 0
-      ) {
-        eventDto[BubbleCalendarEventFields.teamMembers] =
-          data.calendarEvent.teamMemberIds;
+      if (data.calendarEvent.teamMemberIds?.length) {
+        eventRow.team_member_ids = data.calendarEvent.teamMemberIds;
       }
 
-      const eventResponse = await client.post<BubbleCreationResponse>(
-        `/obj/${BubbleTypes.calendarEvent}`,
-        eventDto
-      );
+      const { data: created, error: eventError } = await supabase
+        .from("calendar_events")
+        .insert(eventRow)
+        .select("id")
+        .single();
 
-      calendarEventId = eventResponse.id;
+      if (eventError) throw new Error(`Failed to create calendar event: ${eventError.message}`);
+      calendarEventId = created.id as string;
     }
 
     // Step 2: Create the task with calendar event reference
-    const taskDto = taskModelToDto({
+    const taskRow = mapToDb({
       ...data.task,
       calendarEventId,
     });
 
-    const taskResponse = await client.post<BubbleCreationResponse>(
-      `/obj/${BubbleTypes.task.toLowerCase()}`,
-      taskDto
-    );
+    const { data: taskCreated, error: taskError } = await supabase
+      .from("project_tasks")
+      .insert(taskRow)
+      .select("id")
+      .single();
 
-    // Step 3: If we created a calendar event, update it with the task ID
-    if (calendarEventId) {
-      await client.patch(
-        `/obj/${BubbleTypes.calendarEvent}/${calendarEventId}`,
-        { [BubbleCalendarEventFields.taskId]: taskResponse.id }
-      );
-    }
+    if (taskError) throw new Error(`Failed to create task: ${taskError.message}`);
 
-    return { taskId: taskResponse.id, calendarEventId };
+    return { taskId: taskCreated.id as string, calendarEventId };
   },
 
   /**
    * Update an existing task.
    */
-  async updateTask(
-    id: string,
-    data: Partial<ProjectTask>
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async updateTask(id: string, data: Partial<ProjectTask>): Promise<void> {
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = taskModelToDto(data);
+    const { error } = await supabase
+      .from("project_tasks")
+      .update(row)
+      .eq("id", id);
 
-    await client.patch(
-      `/obj/${BubbleTypes.task.toLowerCase()}/${id}`,
-      dto
-    );
+    if (error) throw new Error(`Failed to update task: ${error.message}`);
   },
 
   /**
-   * Update task status.
+   * Update only the task status.
    */
-  async updateTaskStatus(
-    id: string,
-    status: TaskStatus
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async updateTaskStatus(id: string, status: TaskStatus): Promise<void> {
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.task.toLowerCase()}/${id}`,
-      { [BubbleTaskFields.status]: status }
-    );
+    const { error } = await supabase
+      .from("project_tasks")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to update task status: ${error.message}`);
   },
 
   /**
-   * Soft delete a task.
-   * Also soft deletes the associated calendar event if it exists.
+   * Soft delete a task and optionally its associated calendar event.
    */
-  async deleteTask(
-    id: string,
-    calendarEventId?: string | null
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async deleteTask(id: string, calendarEventId?: string | null): Promise<void> {
+    const supabase = requireSupabase();
     const now = new Date().toISOString();
 
-    // Soft delete the task
-    await client.patch(
-      `/obj/${BubbleTypes.task.toLowerCase()}/${id}`,
-      { [BubbleTaskFields.deletedAt]: now }
-    );
+    const { error: taskError } = await supabase
+      .from("project_tasks")
+      .update({ deleted_at: now })
+      .eq("id", id);
 
-    // Also soft delete the associated calendar event
+    if (taskError) throw new Error(`Failed to delete task: ${taskError.message}`);
+
     if (calendarEventId) {
-      await client.patch(
-        `/obj/${BubbleTypes.calendarEvent}/${calendarEventId}`,
-        { [BubbleCalendarEventFields.deletedAt]: now }
-      );
+      const { error: eventError } = await supabase
+        .from("calendar_events")
+        .update({ deleted_at: now })
+        .eq("id", calendarEventId);
+
+      if (eventError) throw new Error(`Failed to delete calendar event: ${eventError.message}`);
     }
   },
 
   /**
    * Reorder tasks within a project.
-   * Updates the taskIndex for each task.
+   * Updates display_order for each task.
    */
   async reorderTasks(
     tasks: Array<{ id: string; taskIndex: number }>
   ): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    // Update each task's index in parallel
     await Promise.all(
       tasks.map((task) =>
-        client.patch(
-          `/obj/${BubbleTypes.task.toLowerCase()}/${task.id}`,
-          { [BubbleTaskFields.taskIndex]: task.taskIndex }
-        )
+        supabase
+          .from("project_tasks")
+          .update({ display_order: task.taskIndex })
+          .eq("id", task.id)
       )
     );
   },
 
   /**
-   * Fetch all tasks with pagination support.
+   * Fetch all tasks with auto-pagination.
    */
   async fetchAllTasks(
     companyId: string,
     options: Omit<FetchTasksOptions, "limit" | "cursor"> = {}
   ): Promise<ProjectTask[]> {
     const allTasks: ProjectTask[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    let offset = 0;
+    let hasMore = true;
 
-    while (remaining > 0) {
+    while (hasMore) {
       const result = await TaskService.fetchTasks(companyId, {
         ...options,
         limit: 100,
-        cursor,
+        cursor: offset,
       });
 
       allTasks.push(...result.tasks);
-      remaining = result.remaining;
-      cursor += result.tasks.length;
+      hasMore = result.remaining > 0;
+      offset += result.tasks.length;
     }
 
     return allTasks;
+  },
+
+  /**
+   * Bulk-create ProjectTasks from approved task proposals.
+   * Called after the Review Tasks modal is confirmed.
+   */
+  async createTasksFromProposals(
+    proposals: Array<{
+      title: string;
+      taskTypeId: string;
+      defaultTeamMemberIds: string[];
+      lineItemId: string;
+      estimateId: string;
+      selected: boolean;
+    }>,
+    projectId: string,
+    companyId: string
+  ): Promise<string[]> {
+    const supabase = requireSupabase();
+    const selected = proposals.filter((p) => p.selected);
+
+    const rows = selected.map((proposal, idx) => ({
+      project_id: projectId,
+      company_id: companyId,
+      task_type_id: proposal.taskTypeId,
+      status: "Booked",
+      display_order: idx,
+      team_member_ids: proposal.defaultTeamMemberIds,
+      custom_title: proposal.title,
+      source_line_item_id: proposal.lineItemId,
+      source_estimate_id: proposal.estimateId,
+    }));
+
+    const { data, error } = await supabase
+      .from("project_tasks")
+      .insert(rows)
+      .select("id");
+
+    if (error) throw new Error(`Failed to create tasks from proposals: ${error.message}`);
+    return (data ?? []).map((r) => r.id as string);
   },
 };
 

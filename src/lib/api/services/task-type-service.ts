@@ -1,27 +1,43 @@
 /**
- * OPS Web - TaskType Service
+ * OPS Web - TaskType Service (Supabase)
  *
- * Complete CRUD operations for TaskTypes.
- * CRITICAL: TaskType DTO can return "id" or "_id", and "display" or "Display".
- * The DTO layer handles normalization.
+ * Complete CRUD operations for TaskTypes stored in Supabase `task_types_v2` table.
+ * Replaces the old Bubble.io-based implementation.
  */
 
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleTypes,
-  BubbleTaskTypeFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
-} from "../../constants/bubble-fields";
-import {
-  type TaskTypeDTO,
-  type BubbleListResponse,
-  type BubbleObjectResponse,
-  type BubbleCreationResponse,
-  taskTypeDtoToModel,
-  taskTypeModelToDto,
-} from "../../types/dto";
+import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { TaskType } from "../../types/models";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapFromDb(row: Record<string, unknown>): TaskType {
+  return {
+    id: row.id as string,
+    display: row.display as string,
+    color: row.color as string,
+    icon: (row.icon as string) ?? null,
+    isDefault: (row.is_default as boolean) ?? false,
+    companyId: row.company_id as string,
+    displayOrder: (row.display_order as number) ?? 0,
+    defaultTeamMemberIds: (row.default_team_member_ids as string[]) ?? [],
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapToDb(data: Partial<TaskType>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.display !== undefined) row.display = data.display;
+  if (data.color !== undefined) row.color = data.color;
+  if (data.icon !== undefined) row.icon = data.icon;
+  if (data.isDefault !== undefined) row.is_default = data.isDefault;
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.displayOrder !== undefined) row.display_order = data.displayOrder;
+  if (data.defaultTeamMemberIds !== undefined)
+    row.default_team_member_ids = data.defaultTeamMemberIds;
+  return row;
+}
 
 // ─── TaskType Service ─────────────────────────────────────────────────────────
 
@@ -30,47 +46,31 @@ export const TaskTypeService = {
    * Fetch all task types for a company.
    */
   async fetchTaskTypes(companyId: string): Promise<TaskType[]> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("task_types_v2")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("display_order");
 
-    // TaskType doesn't have a direct company field in BubbleFields,
-    // but the API returns them filtered by company context.
-    // We fetch all and let the caller filter if needed.
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleTaskTypeFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
-
-    const params = {
-      constraints: JSON.stringify(constraints),
-      limit: 100,
-      cursor: 0,
-    };
-
-    const response = await client.get<BubbleListResponse<TaskTypeDTO>>(
-      `/obj/${BubbleTypes.taskType.toLowerCase()}`,
-      { params }
-    );
-
-    return response.response.results.map((dto) => {
-      const model = taskTypeDtoToModel(dto);
-      model.companyId = companyId;
-      return model;
-    });
+    if (error) throw new Error(`Failed to fetch task types: ${error.message}`);
+    return (data ?? []).map(mapFromDb);
   },
 
   /**
    * Fetch a single task type by ID.
    */
   async fetchTaskType(id: string): Promise<TaskType> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("task_types_v2")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    const response = await client.get<BubbleObjectResponse<TaskTypeDTO>>(
-      `/obj/${BubbleTypes.taskType.toLowerCase()}/${id}`
-    );
-
-    return taskTypeDtoToModel(response.response);
+    if (error) throw new Error(`Failed to fetch task type: ${error.message}`);
+    return mapFromDb(data);
   },
 
   /**
@@ -79,45 +79,46 @@ export const TaskTypeService = {
   async createTaskType(
     data: Partial<TaskType> & { display: string; color: string }
   ): Promise<string> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = taskTypeModelToDto(data);
+    const { data: created, error } = await supabase
+      .from("task_types_v2")
+      .insert(row)
+      .select("id")
+      .single();
 
-    const response = await client.post<BubbleCreationResponse>(
-      `/obj/${BubbleTypes.taskType.toLowerCase()}`,
-      dto
-    );
-
-    return response.id;
+    if (error) throw new Error(`Failed to create task type: ${error.message}`);
+    return created.id as string;
   },
 
   /**
    * Update an existing task type.
    */
-  async updateTaskType(
-    id: string,
-    data: Partial<TaskType>
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async updateTaskType(id: string, data: Partial<TaskType>): Promise<void> {
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = taskTypeModelToDto(data);
+    const { error } = await supabase
+      .from("task_types_v2")
+      .update(row)
+      .eq("id", id);
 
-    await client.patch(
-      `/obj/${BubbleTypes.taskType.toLowerCase()}/${id}`,
-      dto
-    );
+    if (error) throw new Error(`Failed to update task type: ${error.message}`);
   },
 
   /**
    * Soft delete a task type.
    */
   async deleteTaskType(id: string): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.taskType.toLowerCase()}/${id}`,
-      { [BubbleTaskTypeFields.deletedAt]: new Date().toISOString() }
-    );
+    const { error } = await supabase
+      .from("task_types_v2")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to delete task type: ${error.message}`);
   },
 
   /**
@@ -125,26 +126,24 @@ export const TaskTypeService = {
    * Returns array of created IDs.
    */
   async createDefaultTaskTypes(companyId: string): Promise<string[]> {
-    const defaults = [
-      { display: "Quote", color: "#B5A381", isDefault: true },
-      { display: "Installation", color: "#8195B5", isDefault: true },
-      { display: "Repair", color: "#B58289", isDefault: true },
-      { display: "Inspection", color: "#9DB582", isDefault: true },
-      { display: "Consultation", color: "#A182B5", isDefault: true },
-      { display: "Follow-up", color: "#C4A868", isDefault: true },
+    const supabase = requireSupabase();
+
+    const rows = [
+      { company_id: companyId, display: "Quote", color: "#B5A381", is_default: true, display_order: 0 },
+      { company_id: companyId, display: "Installation", color: "#8195B5", is_default: true, display_order: 1 },
+      { company_id: companyId, display: "Repair", color: "#B58289", is_default: true, display_order: 2 },
+      { company_id: companyId, display: "Inspection", color: "#9DB582", is_default: true, display_order: 3 },
+      { company_id: companyId, display: "Consultation", color: "#A182B5", is_default: true, display_order: 4 },
+      { company_id: companyId, display: "Follow-up", color: "#C4A868", is_default: true, display_order: 5 },
     ];
 
-    const ids: string[] = [];
+    const { data, error } = await supabase
+      .from("task_types_v2")
+      .insert(rows)
+      .select("id");
 
-    for (const taskType of defaults) {
-      const id = await TaskTypeService.createTaskType({
-        ...taskType,
-        companyId,
-      });
-      ids.push(id);
-    }
-
-    return ids;
+    if (error) throw new Error(`Failed to create default task types: ${error.message}`);
+    return (data ?? []).map((r) => r.id as string);
   },
 };
 

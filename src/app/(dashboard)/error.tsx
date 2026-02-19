@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, RefreshCw, LayoutDashboard, ChevronDown } from "lucide-react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
 export default function DashboardError({
@@ -10,112 +14,100 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+  const [showDetails, setShowDetails] = useState(false);
+
   useEffect(() => {
     console.error("[OPS Dashboard] Route error:", error);
   }, [error]);
 
   return (
     <div
-      className={cn(
-        "flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center gap-6 p-8",
-        "bg-background text-text-primary"
-      )}
+      className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-3 py-6"
       role="alert"
     >
-      {/* Error icon */}
-      <div
-        className={cn(
-          "flex h-16 w-16 items-center justify-center rounded-full",
-          "border border-ops-error/40 bg-ops-error/10"
-        )}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-8 w-8 text-ops-error"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      </div>
+      <div className="flex flex-col items-center max-w-[440px] w-full">
+        {/* Icon */}
+        <div className="w-[56px] h-[56px] rounded-xl bg-ops-error-muted border border-ops-error/20 flex items-center justify-center mb-3">
+          <AlertCircle className="w-[28px] h-[28px] text-ops-error" />
+        </div>
 
-      {/* Message */}
-      <div className="flex flex-col items-center gap-2 text-center">
-        <h2 className="font-mohave text-heading-md text-text-primary">
-          Something went wrong
+        {/* Title */}
+        <h2 className="font-mohave text-display text-text-primary uppercase tracking-wider text-center">
+          Something broke
         </h2>
-        <p className="max-w-md font-mohave text-body-sm text-text-secondary">
-          An unexpected error occurred in the dashboard. You can try again or
-          navigate to a different page.
-        </p>
-      </div>
 
-      {/* Error details */}
-      <div
-        className={cn(
-          "w-full max-w-lg rounded-lg p-4",
-          "border border-border-primary bg-background-elevated"
-        )}
-      >
-        <p className="font-mono text-xs leading-relaxed text-text-tertiary break-all">
-          {error.message}
+        {/* Subtitle */}
+        <p className="font-mohave text-body-sm text-text-tertiary text-center mt-1 max-w-[360px]">
+          An unexpected error occurred. You can retry or head back to the dashboard.
         </p>
-        {error.digest && (
-          <p className="mt-2 font-mono text-xs text-text-disabled">
-            Digest: {error.digest}
-          </p>
-        )}
-      </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={reset}
-          className={cn(
-            "inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3",
-            "font-mohave text-body-md font-medium",
-            "bg-ops-accent text-white",
-            "transition-colors hover:bg-ops-accent/80",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          )}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4"
-            aria-hidden="true"
+        {/* Error detail card */}
+        <div className="w-full mt-3 ultrathin-material-dark rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-[rgba(255,255,255,0.03)] transition-colors"
           >
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
-          Try again
-        </button>
+            <span className="font-kosugi text-caption-sm text-text-disabled uppercase tracking-widest">
+              Error Details
+            </span>
+            <ChevronDown
+              className={cn(
+                "w-[14px] h-[14px] text-text-disabled transition-transform duration-200",
+                showDetails && "rotate-180"
+              )}
+            />
+          </button>
 
-        <a
-          href="/dashboard"
-          className={cn(
-            "inline-flex items-center justify-center rounded-lg px-6 py-3",
-            "font-mohave text-body-md font-medium",
-            "border border-border-primary text-text-secondary",
-            "transition-colors hover:bg-background-elevated hover:text-text-primary",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          {showDetails && (
+            <div className="px-2 pb-2 border-t border-border-subtle animate-fade-in">
+              <p className="font-mono text-data-sm text-text-tertiary mt-1.5 break-all leading-relaxed">
+                {error.message}
+              </p>
+              {error.digest && (
+                <p className="font-mono text-[10px] text-text-disabled mt-1">
+                  DIGEST: {error.digest}
+                </p>
+              )}
+            </div>
           )}
-        >
-          Go to Dashboard
-        </a>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 mt-3 w-full">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={reset}
+            className="flex-1 gap-1"
+          >
+            <RefreshCw className="w-[14px] h-[14px]" />
+            Retry
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="flex-1 gap-1"
+          >
+            <LayoutDashboard className="w-[14px] h-[14px]" />
+            Dashboard
+          </Button>
+        </div>
+
+        {/* Branding */}
+        <div className="mt-5 flex items-center gap-1 opacity-30">
+          <Image
+            src="/images/ops-logo-white.png"
+            alt="OPS"
+            width={24}
+            height={9}
+            className="select-none"
+          />
+          <span className="font-mono text-[10px] text-text-disabled select-none">
+            ERROR BOUNDARY
+          </span>
+        </div>
       </div>
     </div>
   );

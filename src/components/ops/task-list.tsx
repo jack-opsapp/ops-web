@@ -163,11 +163,6 @@ function TaskRow({
         >
           {title}
         </p>
-        {task.taskNotes && (
-          <p className="font-mohave text-caption text-text-tertiary truncate max-w-[300px]">
-            {task.taskNotes}
-          </p>
-        )}
       </div>
 
       {/* Assigned members (compact avatars) */}
@@ -441,7 +436,6 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               taskTypeId: values.taskTypeId,
               status: values.status,
               taskColor: values.taskColor || "#59779F",
-              taskNotes: values.taskNotes || null,
               customTitle: values.customTitle,
               teamMemberIds: values.teamMemberIds || [],
               displayOrder: activeTasks.length,
@@ -466,7 +460,6 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             taskTypeId: values.taskTypeId,
             status: values.status,
             taskColor: values.taskColor || "#59779F",
-            taskNotes: values.taskNotes || null,
             customTitle: values.customTitle,
             teamMemberIds: values.teamMemberIds || [],
             displayOrder: activeTasks.length,
@@ -491,7 +484,6 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             status: values.status,
             taskTypeId: values.taskTypeId,
             taskColor: values.taskColor || "#59779F",
-            taskNotes: values.taskNotes || null,
             customTitle: values.customTitle,
             teamMemberIds: values.teamMemberIds || [],
           },

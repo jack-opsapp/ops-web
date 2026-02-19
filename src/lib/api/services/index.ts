@@ -36,3 +36,17 @@ export { AccountingService } from "./accounting-service";
 
 export { OpportunityService } from "./opportunity-service";
 export type { FetchOpportunitiesOptions } from "./opportunity-service";
+
+export { TaskTemplateService } from "./task-template-service";
+export type { ProposedTask } from "./task-template-service";
+
+export { ActivityCommentService } from "./activity-comment-service";
+
+export { SiteVisitService } from "./site-visit-service";
+export type { FetchSiteVisitsOptions } from "./site-visit-service";
+
+export { ProjectPhotoService } from "./project-photo-service";
+
+export { CompanySettingsService } from "./company-settings-service";
+
+export { GmailService } from "./gmail-service";

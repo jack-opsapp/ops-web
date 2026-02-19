@@ -51,6 +51,8 @@ import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/ty
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
+import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
+import { ReviewTasksModal } from "@/components/ops/review-tasks-modal";
 
 type FilterStatus = "all" | EstimateStatus;
 
@@ -94,6 +96,8 @@ export default function EstimatesPage() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
+  const [sendingEstimate, setSendingEstimate] = useState<Estimate | null>(null);
+  const [reviewTasksEstimate, setReviewTasksEstimate] = useState<Estimate | null>(null);
 
   // Data
   const { data: estimates = [], isLoading } = useEstimates();
@@ -303,7 +307,7 @@ export default function EstimatesPage() {
                     <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                       {estimate.status === EstimateStatus.Draft && (
                         <button
-                          onClick={() => sendEstimate.mutate(estimate.id)}
+                          onClick={() => setSendingEstimate(estimate)}
                           className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
                           title="Send"
                         >
@@ -333,6 +337,30 @@ export default function EstimatesPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Send Estimate Flow */}
+      {sendingEstimate && (
+        <SendEstimateFlow
+          estimate={sendingEstimate}
+          opportunityId={sendingEstimate.opportunityId}
+          open={!!sendingEstimate}
+          onOpenChange={(open) => { if (!open) setSendingEstimate(null); }}
+          onSent={() => setSendingEstimate(null)}
+        />
+      )}
+
+      {/* Review Tasks Modal (after approval) */}
+      {reviewTasksEstimate && (
+        <ReviewTasksModal
+          estimateId={reviewTasksEstimate.id}
+          projectId={reviewTasksEstimate.opportunityId ?? ""}
+          projectTitle={reviewTasksEstimate.estimateNumber}
+          opportunityId={reviewTasksEstimate.opportunityId}
+          open={!!reviewTasksEstimate}
+          onOpenChange={(open) => { if (!open) setReviewTasksEstimate(null); }}
+          onComplete={() => setReviewTasksEstimate(null)}
+        />
       )}
 
       {/* Create/Edit Modal */}
@@ -500,7 +528,7 @@ function EstimateFormModal({
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
-      clientId: clientId || null,
+      clientId: clientId ?? undefined,
       opportunityId: projectId || null,
       issueDate: date ? new Date(date) : new Date(),
       expirationDate: expirationDate ? new Date(expirationDate) : null,

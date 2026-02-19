@@ -1,172 +1,231 @@
 /**
- * OPS Web - User Service
+ * OPS Web - User Service (Hybrid: Supabase + Bubble)
  *
- * Complete CRUD operations for Users including role management.
- * Role detection: company.adminIds FIRST, then employeeType, then default fieldCrew.
+ * Data CRUD → Supabase `users` table.
+ * Auth workflows (login, signup, password reset) → Bubble /wf/ endpoints
+ *   (until auth is migrated to Supabase Auth).
+ *
+ * Role detection: company.admin_ids FIRST, then role column, then default Field Crew.
  */
 
+import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { getBubbleClient } from "../bubble-client";
 import {
   BubbleTypes,
-  BubbleUserFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
 } from "../../constants/bubble-fields";
 import {
   type UserDTO,
-  type BubbleListResponse,
   type BubbleObjectResponse,
   userDtoToModel,
-  userModelToDto,
   companyDtoToModel,
 } from "../../types/dto";
-import { type User, type UserRole, UserRole as UserRoleEnum } from "../../types/models";
+import type { User, UserRole } from "../../types/models";
+import { UserRole as UserRoleEnum } from "../../types/models";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapFromDb(row: Record<string, unknown>): User {
+  return {
+    id: row.id as string,
+    firstName: row.first_name as string,
+    lastName: row.last_name as string,
+    email: (row.email as string) ?? null,
+    phone: (row.phone as string) ?? null,
+    profileImageURL: (row.profile_image_url as string) ?? null,
+    role: (row.role as UserRole) ?? UserRoleEnum.FieldCrew,
+    companyId: (row.company_id as string) ?? null,
+    userType: (row.user_type as User["userType"]) ?? null,
+    latitude: (row.latitude as number) ?? null,
+    longitude: (row.longitude as number) ?? null,
+    locationName: (row.location_name as string) ?? null,
+    homeAddress: (row.home_address as string) ?? null,
+    clientId: (row.client_id as string) ?? null,
+    isActive: (row.is_active as boolean) ?? true,
+    userColor: (row.user_color as string) ?? null,
+    devPermission: (row.dev_permission as boolean) ?? false,
+    hasCompletedAppOnboarding: (row.has_completed_onboarding as boolean) ?? false,
+    hasCompletedAppTutorial: (row.has_completed_tutorial as boolean) ?? false,
+    isCompanyAdmin: (row.is_company_admin as boolean) ?? false,
+    stripeCustomerId: (row.stripe_customer_id as string) ?? null,
+    deviceToken: (row.device_token as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapToDb(data: Partial<User>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.firstName !== undefined) row.first_name = data.firstName;
+  if (data.lastName !== undefined) row.last_name = data.lastName;
+  if (data.email !== undefined) row.email = data.email;
+  if (data.phone !== undefined) row.phone = data.phone;
+  if (data.profileImageURL !== undefined) row.profile_image_url = data.profileImageURL;
+  if (data.role !== undefined) row.role = data.role;
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.userType !== undefined) row.user_type = data.userType;
+  if (data.latitude !== undefined) row.latitude = data.latitude;
+  if (data.longitude !== undefined) row.longitude = data.longitude;
+  if (data.locationName !== undefined) row.location_name = data.locationName;
+  if (data.homeAddress !== undefined) row.home_address = data.homeAddress;
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  if (data.isActive !== undefined) row.is_active = data.isActive;
+  if (data.userColor !== undefined) row.user_color = data.userColor;
+  if (data.devPermission !== undefined) row.dev_permission = data.devPermission;
+  if (data.hasCompletedAppOnboarding !== undefined)
+    row.has_completed_onboarding = data.hasCompletedAppOnboarding;
+  if (data.hasCompletedAppTutorial !== undefined)
+    row.has_completed_tutorial = data.hasCompletedAppTutorial;
+  if (data.isCompanyAdmin !== undefined) row.is_company_admin = data.isCompanyAdmin;
+  if (data.stripeCustomerId !== undefined) row.stripe_customer_id = data.stripeCustomerId;
+  if (data.deviceToken !== undefined) row.device_token = data.deviceToken;
+  return row;
+}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
 export interface FetchUsersOptions {
-  /** Filter by role (employee type) */
+  /** Filter by role */
   role?: string;
-  /** Search by name */
+  /** Search by name (case-insensitive) */
   searchName?: string;
-  /** Sort field */
+  /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction */
   descending?: boolean;
-  /** Pagination limit */
+  /** Pagination limit (max 100) */
   limit?: number;
-  /** Pagination cursor */
+  /** Pagination offset */
   cursor?: number;
 }
 
 // ─── User Service ─────────────────────────────────────────────────────────────
 
 export const UserService = {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATA CRUD (Supabase)
+  // ═══════════════════════════════════════════════════════════════════════════
+
   /**
    * Fetch all users (team members) for a company.
-   * Uses company admin IDs list for proper role detection.
+   * companyAdminIds is kept in the signature for backward compatibility
+   * but is no longer needed — the DB stores is_company_admin directly.
    */
   async fetchUsers(
     companyId: string,
-    companyAdminIds: string[] = [],
+    _companyAdminIds: string[] = [],
     options: FetchUsersOptions = {}
   ): Promise<{ users: User[]; remaining: number; count: number }> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const limit = Math.min(options.limit ?? 100, 100);
+    const offset = options.cursor ?? 0;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleUserFields.company,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleUserFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("users")
+      .select("*", { count: "exact" })
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (options.role) {
-      constraints.push({
-        key: BubbleUserFields.employeeType,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.role,
-      });
+      query = query.eq("role", options.role);
     }
 
-    const params: Record<string, string | number> = {
-      constraints: JSON.stringify(constraints),
-      limit: Math.min(options.limit ?? 100, 100),
-      cursor: options.cursor ?? 0,
-    };
+    if (options.searchName) {
+      // Search across first_name and last_name
+      query = query.or(
+        `first_name.ilike.%${options.searchName}%,last_name.ilike.%${options.searchName}%`
+      );
+    }
 
     if (options.sortField) {
-      params.sort_field = options.sortField;
-      params.descending = options.descending ? "true" : "false";
+      query = query.order(options.sortField, { ascending: !options.descending });
+    } else {
+      query = query.order("first_name");
     }
 
-    const response = await client.get<BubbleListResponse<UserDTO>>(
-      `/obj/${BubbleTypes.user.toLowerCase()}`,
-      { params }
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    const users = response.response.results.map((dto) =>
-      userDtoToModel(dto, companyAdminIds)
-    );
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Failed to fetch users: ${error.message}`);
 
-    return {
-      users,
-      remaining: response.response.remaining,
-      count: response.response.count,
-    };
+    const total = count ?? 0;
+    const users = (data ?? []).map(mapFromDb);
+    const remaining = Math.max(0, total - offset - users.length);
+
+    return { users, remaining, count: total };
   },
 
   /**
    * Fetch a single user by ID.
+   * companyAdminIds is kept for backward compatibility but unused.
    */
-  async fetchUser(
-    id: string,
-    companyAdminIds: string[] = []
-  ): Promise<User> {
-    const client = getBubbleClient();
+  async fetchUser(id: string, _companyAdminIds: string[] = []): Promise<User> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    const response = await client.get<BubbleObjectResponse<UserDTO>>(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${id}`
-    );
-
-    return userDtoToModel(response.response, companyAdminIds);
+    if (error) throw new Error(`Failed to fetch user: ${error.message}`);
+    return mapFromDb(data);
   },
 
   /**
    * Update a user's profile information.
    */
   async updateUser(id: string, data: Partial<User>): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapToDb(data);
 
-    const dto = userModelToDto(data);
+    const { error } = await supabase
+      .from("users")
+      .update(row)
+      .eq("id", id);
 
-    await client.patch(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${id}`,
-      dto
-    );
+    if (error) throw new Error(`Failed to update user: ${error.message}`);
   },
 
   /**
-   * Update a user's employee type (role).
+   * Update a user's role.
    */
   async updateUserRole(id: string, role: UserRole): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${id}`,
-      { [BubbleUserFields.employeeType]: role }
-    );
+    const { error } = await supabase
+      .from("users")
+      .update({ role })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to update user role: ${error.message}`);
   },
 
   /**
    * Update a user's device token for push notifications.
    */
-  async updateDeviceToken(
-    id: string,
-    deviceToken: string
-  ): Promise<void> {
-    const client = getBubbleClient();
+  async updateDeviceToken(id: string, deviceToken: string): Promise<void> {
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${id}`,
-      { [BubbleUserFields.deviceToken]: deviceToken }
-    );
+    const { error } = await supabase
+      .from("users")
+      .update({ device_token: deviceToken })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to update device token: ${error.message}`);
   },
 
   /**
    * Mark user's app tutorial as completed.
    */
   async markTutorialCompleted(id: string): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await client.patch(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${id}`,
-      { [BubbleUserFields.hasCompletedAppTutorial]: true }
-    );
+    const { error } = await supabase
+      .from("users")
+      .update({ has_completed_tutorial: true })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to mark tutorial completed: ${error.message}`);
   },
 
   /**
@@ -178,41 +237,31 @@ export const UserService = {
     options: Omit<FetchUsersOptions, "limit" | "cursor"> = {}
   ): Promise<User[]> {
     const allUsers: User[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    let offset = 0;
+    let hasMore = true;
 
-    while (remaining > 0) {
-      const result = await UserService.fetchUsers(
-        companyId,
-        companyAdminIds,
-        {
-          ...options,
-          limit: 100,
-          cursor,
-        }
-      );
+    while (hasMore) {
+      const result = await UserService.fetchUsers(companyId, companyAdminIds, {
+        ...options,
+        limit: 100,
+        cursor: offset,
+      });
 
       allUsers.push(...result.users);
-      remaining = result.remaining;
-      cursor += result.users.length;
+      hasMore = result.remaining > 0;
+      offset += result.users.length;
     }
 
     return allUsers;
   },
 
-  // ─── Auth Workflows ─────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTH WORKFLOWS (Bubble — until migrated to Supabase Auth)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Login with Google via Bubble workflow (matches iOS AuthManager + DataController flow).
-   *
-   * Strategy: The workflow response bypasses Bubble privacy rules and returns
-   * full user/company objects. The Data API may hide fields (admin, employeeType).
-   * We use both sources and merge, preferring workflow data for restricted fields.
-   *
-   * 1. POST /wf/login_google → authenticate, get user + company (full data)
-   * 2. GET /obj/company/{id} → try Data API for additional company fields
-   * 3. GET /obj/user/{id} → try Data API for additional user fields
-   * 4. Merge workflow + Data API data, with workflow taking priority for restricted fields
+   * Login with Google via Bubble workflow.
+   * Returns user + company objects by merging workflow + Data API data.
    */
   async loginWithGoogle(
     idToken: string,
@@ -223,8 +272,7 @@ export const UserService = {
   ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
     const client = getBubbleClient();
 
-    // Step 1: Call Bubble workflow to authenticate
-    console.log("[loginWithGoogle] Step 1: POST /wf/login_google", { email, name });
+    // Step 1: Authenticate via Bubble workflow
     const wfResponse = await client.post<Record<string, unknown>>("/wf/login_google", {
       id_token: idToken,
       email,
@@ -232,38 +280,19 @@ export const UserService = {
       given_name: givenName,
       family_name: familyName,
     });
-    console.log("[loginWithGoogle] Step 1 RESPONSE:", JSON.stringify(wfResponse, null, 2));
 
-    // Step 2: Extract user + company from workflow response
     const resp = (wfResponse as Record<string, unknown>).response as Record<string, unknown> | undefined;
-    if (!resp) {
-      throw new Error("No response object from login workflow");
-    }
-    console.log("[loginWithGoogle] Step 2: Top-level response keys:", Object.keys(resp));
+    if (!resp) throw new Error("No response object from login workflow");
 
-    // Extract workflow user object
     const wfUser = resp.user as Record<string, unknown> | undefined;
     const userId = (wfUser?._id as string) || (resp.user_id as string) || null;
-    if (!userId) {
-      throw new Error("No user ID returned from login workflow");
-    }
-    if (wfUser) {
-      console.log("[loginWithGoogle] Step 2: wfUser ALL KEYS:", Object.keys(wfUser));
-      console.log("[loginWithGoogle] Step 2: wfUser FULL:", JSON.stringify(wfUser, null, 2));
-    }
+    if (!userId) throw new Error("No user ID returned from login workflow");
 
-    // Extract workflow company object
     const wfCompany = resp.company as Record<string, unknown> | undefined;
     const wfCompanyId = wfCompany?._id as string | undefined;
-    if (wfCompany) {
-      console.log("[loginWithGoogle] Step 2: wfCompany ALL KEYS:", Object.keys(wfCompany));
-      console.log("[loginWithGoogle] Step 2: wfCompany FULL:", JSON.stringify(wfCompany, null, 2));
-    }
 
-    // Step 3: Build admin IDs list from ALL available sources
+    // Step 2: Build admin IDs from workflow company
     let adminIds: string[] = [];
-
-    // Source A: Workflow company "admin" field (bypasses privacy rules)
     if (wfCompany) {
       const wfAdmin = wfCompany.admin ?? wfCompany.adminIds ?? wfCompany.admin_ids;
       if (Array.isArray(wfAdmin)) {
@@ -277,104 +306,67 @@ export const UserService = {
             return null;
           })
           .filter(Boolean) as string[];
-        console.log("[loginWithGoogle] Step 3: adminIds from WORKFLOW company:", adminIds);
       }
     }
 
-    // Source B: Data API company (may have admin field if privacy allows)
+    // Step 3: Fetch company from Data API
     let company: import("../../types/models").Company | null = null;
     if (wfCompanyId) {
-      const companyUrl = `/obj/${BubbleTypes.company.toLowerCase()}/${wfCompanyId}`;
-      console.log("[loginWithGoogle] Step 3: GET", companyUrl);
       try {
-        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(companyUrl);
-        console.log("[loginWithGoogle] Step 3: Data API company keys:", Object.keys(companyResponse.response));
-        console.log("[loginWithGoogle] Step 3: Data API company FULL:", JSON.stringify(companyResponse.response, null, 2));
+        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
+          `/obj/${BubbleTypes.company.toLowerCase()}/${wfCompanyId}`
+        );
         company = companyDtoToModel(companyResponse.response);
         if (adminIds.length === 0 && (company.adminIds?.length ?? 0) > 0) {
           adminIds = company.adminIds ?? [];
-          console.log("[loginWithGoogle] Step 3: adminIds from DATA API:", adminIds);
         }
-      } catch (err) {
-        console.warn("[loginWithGoogle] Step 3: Data API company fetch failed:", err);
+      } catch {
         company = companyDtoToModel(wfCompany as unknown as import("../../types/dto").CompanyDTO);
       }
     }
-    console.log("[loginWithGoogle] Step 3 FINAL: company =", company?.name ?? "null", "adminIds =", adminIds);
 
-    // Step 4: Build user DTO by merging Data API + workflow data
+    // Step 4: Fetch user from Data API and merge with workflow data
     let userDto: UserDTO;
     try {
-      const userUrl = `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`;
-      console.log("[loginWithGoogle] Step 4: GET", userUrl);
-      const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(userUrl);
+      const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
+        `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`
+      );
       userDto = userResponse.response;
-      console.log("[loginWithGoogle] Step 4: Data API user keys:", Object.keys(userDto));
-      console.log("[loginWithGoogle] Step 4: Data API user FULL:", JSON.stringify(userDto, null, 2));
     } catch {
       userDto = { _id: userId } as UserDTO;
-      console.warn("[loginWithGoogle] Step 4: Data API user fetch failed, using workflow data only");
     }
 
     // Merge: workflow data takes priority for fields hidden by privacy rules
-    if (!userDto.company && wfCompanyId) {
-      userDto.company = wfCompanyId;
-    }
-    if (!userDto.nameFirst) {
+    if (!userDto.company && wfCompanyId) userDto.company = wfCompanyId;
+    if (!userDto.nameFirst)
       userDto.nameFirst = (wfUser?.nameFirst ?? wfUser?.name_first ?? givenName) as string;
-    }
-    if (!userDto.nameLast) {
+    if (!userDto.nameLast)
       userDto.nameLast = (wfUser?.nameLast ?? wfUser?.name_last ?? familyName) as string;
-    }
-    if (!userDto.email) {
-      userDto.email = (wfUser?.email as string) || email;
-    }
-    // Merge employeeType from workflow (try multiple field name conventions)
+    if (!userDto.email) userDto.email = (wfUser?.email as string) || email;
     if (!userDto.employeeType) {
       const wfEmployeeType = (
-        wfUser?.employeeType ??
-        wfUser?.employee_type ??
-        wfUser?.employeetype ??
-        wfUser?.type ??
-        resp.employee_type ??
-        resp.employeeType
+        wfUser?.employeeType ?? wfUser?.employee_type ?? wfUser?.employeetype ??
+        wfUser?.type ?? resp.employee_type ?? resp.employeeType
       ) as string | undefined;
-      if (wfEmployeeType) {
-        userDto.employeeType = wfEmployeeType;
-        console.log("[loginWithGoogle] Step 4: Merged employeeType from workflow:", wfEmployeeType);
-      }
+      if (wfEmployeeType) userDto.employeeType = wfEmployeeType;
     }
-    // Merge avatar from workflow
-    if (!userDto.avatar && wfUser?.avatar) {
-      userDto.avatar = wfUser.avatar as string;
-    }
-    console.log("[loginWithGoogle] Step 4 MERGED: company =", userDto.company, "employeeType =", userDto.employeeType, "email =", userDto.email);
+    if (!userDto.avatar && wfUser?.avatar) userDto.avatar = wfUser.avatar as string;
 
-    // Step 5: Convert user with role detection
     const user = userDtoToModel(userDto, adminIds);
 
-    // Diagnostic: if role is still FieldCrew and we have no role data, log clearly
     if (user.role === UserRoleEnum.FieldCrew && adminIds.length === 0 && !userDto.employeeType) {
       console.warn(
-        "[loginWithGoogle] ⚠️ ROLE DETECTION FAILED - defaulted to fieldCrew.",
-        "\n  adminIds: [] (admin field missing from both workflow and Data API)",
-        "\n  employeeType:", userDto.employeeType ?? "null",
-        "\n  userId:", userId,
-        "\n  Fix: In Bubble editor, ensure the /wf/login_google workflow returns",
-        "the company's 'admin' list OR the user's 'employeeType' field.",
-        "\n  Or update Bubble Data API privacy rules to expose these fields."
+        "[loginWithGoogle] Role detection defaulted to FieldCrew.",
+        "adminIds: [], employeeType:", userDto.employeeType ?? "null",
+        "userId:", userId
       );
     }
-
-    console.log("[loginWithGoogle] Step 5 FINAL: user.id =", user.id, "user.role =", user.role, "user.companyId =", user.companyId, "company =", company?.name ?? "null");
 
     return { user, company };
   },
 
   /**
-   * Login with email/password via Bubble workflow (matches iOS generate-api-token).
-   * POST /wf/generate-api-token with email + password.
-   * Returns token + user_id, then fetches user + company objects.
+   * Login with email/password via Bubble workflow.
    */
   async loginWithToken(
     email: string,
@@ -384,22 +376,16 @@ export const UserService = {
 
     const tokenResponse = await client.post<{
       status: string;
-      response: {
-        token: string;
-        user_id: string;
-        expires: number;
-      };
+      response: { token: string; user_id: string; expires: number };
     }>("/wf/generate-api-token", { email, password });
 
     const { token, user_id } = tokenResponse.response;
 
-    // Fetch the user object
     const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
       `/obj/${BubbleTypes.user.toLowerCase()}/${user_id}`
     );
     const userDto = userResponse.response;
 
-    // Fetch the company if user has one
     let company: import("../../types/models").Company | null = null;
     let adminIds: string[] = [];
     if (userDto.company) {
@@ -410,34 +396,27 @@ export const UserService = {
         company = companyDtoToModel(companyResponse.response);
         adminIds = company.adminIds ?? [];
       } catch {
-        // Company fetch failed - continue with user only
+        // Company fetch failed — continue with user only
       }
     }
 
     const user = userDtoToModel(userDto, adminIds);
-
     return { token, userId: user_id, user, company };
   },
 
   /**
-   * Legacy login via workflow API.
+   * Legacy login via Bubble workflow API.
    */
   async login(
     email: string,
     password: string
   ): Promise<{ token: string; userId: string; user: User }> {
     const client = getBubbleClient();
-
     const response = await client.post<{
-      response: {
-        token: string;
-        user_id: string;
-        user: UserDTO;
-      };
+      response: { token: string; user_id: string; user: UserDTO };
     }>("/wf/login", { email, password });
 
     const user = userDtoToModel(response.response.user);
-
     return {
       token: response.response.token,
       userId: response.response.user_id,
@@ -446,7 +425,7 @@ export const UserService = {
   },
 
   /**
-   * Signup via workflow API.
+   * Signup via Bubble workflow API.
    */
   async signup(
     email: string,
@@ -454,32 +433,25 @@ export const UserService = {
     userType: string = "Employee"
   ): Promise<{ userId: string }> {
     const client = getBubbleClient();
-
     const response = await client.post<{
       response: { user_id: string };
     }>("/wf/signup", { email, password, userType });
-
     return { userId: response.response.user_id };
   },
 
   /**
-   * Reset password via workflow API.
+   * Reset password via Bubble workflow API.
    */
   async resetPassword(email: string): Promise<void> {
     const client = getBubbleClient();
-
     await client.post("/wf/reset_pw", { email });
   },
 
   /**
-   * Join a company via company code (workflow API).
+   * Join a company via company code (Bubble workflow API).
    */
-  async joinCompany(
-    userId: string,
-    companyCode: string
-  ): Promise<void> {
+  async joinCompany(userId: string, companyCode: string): Promise<void> {
     const client = getBubbleClient();
-
     await client.post("/wf/join_company", {
       user_id: userId,
       company_code: companyCode,
@@ -487,31 +459,21 @@ export const UserService = {
   },
 
   /**
-   * Send team invites via Bubble workflow (matches iOS OnboardingService.sendInvites).
-   * POST /wf/send_invite with emails array + company ID.
+   * Send team invites via Bubble workflow.
    */
   async sendInvite(
     emails: string[],
     companyId: string
   ): Promise<{ success: boolean; invitesSent?: number; errorMessage?: string }> {
     const client = getBubbleClient();
-
     const response = await client.post<{
-      response?: {
-        success?: boolean;
-        invites_sent?: number;
-        error_message?: string;
-      };
+      response?: { success?: boolean; invites_sent?: number; error_message?: string };
       success?: boolean;
       invites_sent?: number;
       error_message?: string;
-    }>("/wf/send_invite", {
-      emails,
-      company: companyId,
-    });
+    }>("/wf/send_invite", { emails, company: companyId });
 
     const data = response.response ?? response;
-
     return {
       success: data.success ?? true,
       invitesSent: data.invites_sent,
