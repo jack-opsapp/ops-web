@@ -200,17 +200,10 @@ export function PortalPaymentForm({
           )}
         </div>
 
-        {/* TODO: Integrate Stripe Elements here.
-            This requires @stripe/react-stripe-js and @stripe/stripe-js packages.
-            The flow would be:
-            1. Load Stripe with Elements provider using publishable key
-            2. Use CardElement or PaymentElement inside this form
-            3. After the API call returns a clientSecret, use stripe.confirmPayment()
-            4. Handle 3D Secure and other redirect flows
-            For now, the API call is wired up and the form structure is ready. */}
-
+        {/* Stripe Elements integration pending — disable payment to prevent
+            orphaned PaymentIntents and misleading success messages. */}
         <div
-          className="p-4 rounded-lg text-center"
+          className="p-6 rounded-lg text-center"
           style={{
             backgroundColor: "var(--portal-bg-secondary)",
             border: "1px dashed var(--portal-border)",
@@ -221,8 +214,11 @@ export function PortalPaymentForm({
             className="w-8 h-8 mx-auto mb-2"
             style={{ color: "var(--portal-text-tertiary)" }}
           />
+          <p className="text-sm font-medium mb-1" style={{ color: "var(--portal-text-secondary)" }}>
+            Online payments coming soon
+          </p>
           <p className="text-xs" style={{ color: "var(--portal-text-tertiary)" }}>
-            Card details will be collected securely via Stripe
+            Contact your service provider for payment instructions.
           </p>
         </div>
 
@@ -242,30 +238,19 @@ export function PortalPaymentForm({
           </div>
         )}
 
-        {/* Submit button */}
+        {/* Submit button — disabled until Stripe Elements integration */}
         <button
-          type="submit"
-          disabled={!isValidAmount || payMutation.isPending}
+          type="button"
+          disabled
           className="w-full py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
           style={{
-            backgroundColor: isValidAmount && !payMutation.isPending
-              ? "var(--portal-accent)"
-              : "var(--portal-bg-secondary)",
-            color: isValidAmount && !payMutation.isPending
-              ? "var(--portal-accent-text)"
-              : "var(--portal-text-tertiary)",
+            backgroundColor: "var(--portal-bg-secondary)",
+            color: "var(--portal-text-tertiary)",
             borderRadius: "var(--portal-radius)",
-            cursor: isValidAmount && !payMutation.isPending ? "pointer" : "not-allowed",
+            cursor: "not-allowed",
           }}
         >
-          {payMutation.isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Processing payment...
-            </>
-          ) : (
-            <>Pay {isValidAmount ? formatCurrency(parsedAmount) : ""}</>
-          )}
+          Pay {isValidAmount ? formatCurrency(parsedAmount) : ""}
         </button>
       </form>
     </div>

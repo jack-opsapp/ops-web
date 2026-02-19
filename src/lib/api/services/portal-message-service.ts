@@ -197,12 +197,13 @@ export const PortalMessageService = {
   > {
     const supabase = getServiceRoleClient();
 
-    // Fetch all messages for this company, newest first
+    // Fetch recent messages for this company, newest first (capped to prevent unbounded queries)
     const { data: messages, error } = await supabase
       .from("portal_messages")
       .select("*")
       .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(1000);
 
     if (error) throw new Error(`Failed to fetch conversations: ${error.message}`);
     if (!messages || messages.length === 0) return [];

@@ -66,6 +66,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (body.content.length > 5000) {
+      return NextResponse.json(
+        { error: "Message content is too long (max 5000 characters)" },
+        { status: 400 }
+      );
+    }
+
     const message = await PortalMessageService.sendMessage({
       companyId: session.companyId,
       clientId: session.clientId,
