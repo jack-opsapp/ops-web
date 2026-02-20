@@ -1,24 +1,18 @@
 /**
- * OPS Web - User Service (Hybrid: Supabase + Bubble)
+ * OPS Web - User Service (Firebase + Supabase)
  *
  * Data CRUD → Supabase `users` table.
- * Auth workflows (login, signup, password reset) → Bubble /wf/ endpoints
- *   (until auth is migrated to Supabase Auth).
+ * Auth workflows (login, signup, password reset) → Firebase Auth + Supabase.
  *
  * Role detection: company.admin_ids FIRST, then role column, then default Field Crew.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import { getBubbleClient } from "../bubble-client";
 import {
-  BubbleTypes,
-} from "../../constants/bubble-fields";
-import {
-  type UserDTO,
-  type BubbleObjectResponse,
-  userDtoToModel,
-  companyDtoToModel,
-} from "../../types/dto";
+  signInWithEmail,
+  signUpWithEmail,
+  sendPasswordResetEmail as firebaseResetPassword,
+} from "@/lib/firebase/auth";
 import type { User, UserRole } from "../../types/models";
 import { UserRole as UserRoleEnum } from "../../types/models";
 
@@ -27,8 +21,8 @@ import { UserRole as UserRoleEnum } from "../../types/models";
 function mapFromDb(row: Record<string, unknown>): User {
   return {
     id: row.id as string,
-    firstName: row.first_name as string,
-    lastName: row.last_name as string,
+    firstName: (row.first_name as string) ?? "",
+    lastName: (row.last_name as string) ?? "",
     email: (row.email as string) ?? null,
     phone: (row.phone as string) ?? null,
     profileImageURL: (row.profile_image_url as string) ?? null,
@@ -80,6 +74,52 @@ function mapToDb(data: Partial<User>): Record<string, unknown> {
   if (data.stripeCustomerId !== undefined) row.stripe_customer_id = data.stripeCustomerId;
   if (data.deviceToken !== undefined) row.device_token = data.deviceToken;
   return row;
+}
+
+function mapCompanyFromDb(row: Record<string, unknown>): import("../../types/models").Company {
+  return {
+    id: row.id as string,
+    bubbleId: (row.bubble_id as string) ?? undefined,
+    name: (row.name as string) ?? "",
+    logoURL: (row.logo_url as string) ?? null,
+    externalId: (row.external_id as string) ?? null,
+    companyDescription: (row.company_description as string) ?? null,
+    address: (row.address as string) ?? null,
+    phone: (row.phone as string) ?? null,
+    email: (row.email as string) ?? null,
+    website: (row.website as string) ?? null,
+    latitude: (row.latitude as number) ?? null,
+    longitude: (row.longitude as number) ?? null,
+    openHour: (row.open_hour as string) ?? null,
+    closeHour: (row.close_hour as string) ?? null,
+    industries: (row.industries as string[]) ?? [],
+    companySize: (row.company_size as string) ?? null,
+    companyAge: (row.company_age as string) ?? null,
+    referralMethod: (row.referral_method as string) ?? null,
+    projectIds: (row.project_ids as string[]) ?? [],
+    teamIds: (row.team_ids as string[]) ?? [],
+    adminIds: (row.admin_ids as string[]) ?? [],
+    accountHolderId: (row.account_holder_id as string) ?? null,
+    defaultProjectColor: (row.default_project_color as string) ?? "#59779F",
+    teamMembersSynced: (row.team_members_synced as boolean) ?? false,
+    subscriptionStatus: (row.subscription_status as import("../../types/models").SubscriptionStatus) ?? null,
+    subscriptionPlan: (row.subscription_plan as import("../../types/models").SubscriptionPlan) ?? null,
+    subscriptionEnd: row.subscription_end ? new Date(row.subscription_end as string) : null,
+    subscriptionPeriod: (row.subscription_period as import("../../types/models").PaymentSchedule) ?? null,
+    maxSeats: (row.max_seats as number) ?? 10,
+    seatedEmployeeIds: (row.seated_employee_ids as string[]) ?? [],
+    seatGraceStartDate: row.seat_grace_start_date ? new Date(row.seat_grace_start_date as string) : null,
+    trialStartDate: row.trial_start_date ? new Date(row.trial_start_date as string) : null,
+    trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : null,
+    hasPrioritySupport: (row.has_priority_support as boolean) ?? false,
+    dataSetupPurchased: (row.data_setup_purchased as boolean) ?? false,
+    dataSetupCompleted: (row.data_setup_completed as boolean) ?? false,
+    dataSetupScheduledDate: row.data_setup_scheduled_date ? new Date(row.data_setup_scheduled_date as string) : null,
+    stripeCustomerId: (row.stripe_customer_id as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
+  };
 }
 
 // ─── Query Options ────────────────────────────────────────────────────────────
@@ -256,12 +296,13 @@ export const UserService = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // AUTH WORKFLOWS (Bubble — until migrated to Supabase Auth)
+  // AUTH WORKFLOWS (Firebase + Supabase)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Login with Google via Bubble workflow.
-   * Returns user + company objects by merging workflow + Data API data.
+   * Login with Google via Firebase + Supabase lookup.
+   * Firebase already verified the idToken client-side.
+   * Looks up user by email in Supabase, auto-provisions on first sign-in.
    */
   async loginWithGoogle(
     idToken: string,
@@ -270,215 +311,186 @@ export const UserService = {
     givenName: string,
     familyName: string
   ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
-    const client = getBubbleClient();
+    // Firebase already verified the idToken client-side.
+    // Look up user by email in Supabase.
+    const supabase = requireSupabase();
 
-    // Step 1: Authenticate via Bubble workflow
-    const wfResponse = await client.post<Record<string, unknown>>("/wf/login_google", {
-      id_token: idToken,
-      email,
-      name,
-      given_name: givenName,
-      family_name: familyName,
-    });
+    const { data: userRow, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
 
-    const resp = (wfResponse as Record<string, unknown>).response as Record<string, unknown> | undefined;
-    if (!resp) throw new Error("No response object from login workflow");
+    if (userError || !userRow) {
+      // First sign-in: auto-provision user row
+      const nameParts = name.split(" ");
+      const firstName = givenName || nameParts[0] || "";
+      const lastName = familyName || nameParts.slice(1).join(" ") || "";
 
-    const wfUser = resp.user as Record<string, unknown> | undefined;
-    const userId = (wfUser?._id as string) || (resp.user_id as string) || null;
-    if (!userId) throw new Error("No user ID returned from login workflow");
+      const { data: newUser, error: insertError } = await supabase
+        .from("users")
+        .insert({
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          role: "Field Crew",
+          user_type: "Employee",
+          is_active: true,
+        })
+        .select("*")
+        .single();
 
-    const wfCompany = resp.company as Record<string, unknown> | undefined;
-    const wfCompanyId = wfCompany?._id as string | undefined;
-
-    // Step 2: Build admin IDs from workflow company
-    let adminIds: string[] = [];
-    if (wfCompany) {
-      const wfAdmin = wfCompany.admin ?? wfCompany.adminIds ?? wfCompany.admin_ids;
-      if (Array.isArray(wfAdmin)) {
-        adminIds = wfAdmin
-          .map((ref: unknown) => {
-            if (typeof ref === "string") return ref;
-            if (ref && typeof ref === "object") {
-              const obj = ref as Record<string, unknown>;
-              return (obj.unique_id as string) || (obj._id as string) || null;
-            }
-            return null;
-          })
-          .filter(Boolean) as string[];
+      if (insertError || !newUser) {
+        throw new Error(`Failed to provision user: ${insertError?.message}`);
       }
+
+      return { user: mapFromDb(newUser), company: null };
     }
 
-    // Step 3: Fetch company from Data API
+    const user = mapFromDb(userRow);
+
+    // Fetch company if user has one
     let company: import("../../types/models").Company | null = null;
-    if (wfCompanyId) {
-      try {
-        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
-          `/obj/${BubbleTypes.company.toLowerCase()}/${wfCompanyId}`
-        );
-        company = companyDtoToModel(companyResponse.response);
-        if (adminIds.length === 0 && (company.adminIds?.length ?? 0) > 0) {
-          adminIds = company.adminIds ?? [];
-        }
-      } catch {
-        company = companyDtoToModel(wfCompany as unknown as import("../../types/dto").CompanyDTO);
+    if (userRow.company_id) {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", userRow.company_id)
+        .single();
+
+      if (companyRow) {
+        company = mapCompanyFromDb(companyRow);
       }
-    }
-
-    // Step 4: Fetch user from Data API and merge with workflow data
-    let userDto: UserDTO;
-    try {
-      const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
-        `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`
-      );
-      userDto = userResponse.response;
-    } catch {
-      userDto = { _id: userId } as UserDTO;
-    }
-
-    // Merge: workflow data takes priority for fields hidden by privacy rules
-    if (!userDto.company && wfCompanyId) userDto.company = wfCompanyId;
-    if (!userDto.nameFirst)
-      userDto.nameFirst = (wfUser?.nameFirst ?? wfUser?.name_first ?? givenName) as string;
-    if (!userDto.nameLast)
-      userDto.nameLast = (wfUser?.nameLast ?? wfUser?.name_last ?? familyName) as string;
-    if (!userDto.email) userDto.email = (wfUser?.email as string) || email;
-    if (!userDto.employeeType) {
-      const wfEmployeeType = (
-        wfUser?.employeeType ?? wfUser?.employee_type ?? wfUser?.employeetype ??
-        wfUser?.type ?? resp.employee_type ?? resp.employeeType
-      ) as string | undefined;
-      if (wfEmployeeType) userDto.employeeType = wfEmployeeType;
-    }
-    if (!userDto.avatar && wfUser?.avatar) userDto.avatar = wfUser.avatar as string;
-
-    const user = userDtoToModel(userDto, adminIds);
-
-    if (user.role === UserRoleEnum.FieldCrew && adminIds.length === 0 && !userDto.employeeType) {
-      console.warn(
-        "[loginWithGoogle] Role detection defaulted to FieldCrew.",
-        "adminIds: [], employeeType:", userDto.employeeType ?? "null",
-        "userId:", userId
-      );
     }
 
     return { user, company };
   },
 
   /**
-   * Login with email/password via Bubble workflow.
+   * Login with email/password via Firebase then Supabase user lookup.
+   * Firebase handles credential validation.
    */
-  async loginWithToken(
+  async loginWithEmailPassword(
     email: string,
     password: string
-  ): Promise<{ token: string; userId: string; user: User; company: import("../../types/models").Company | null }> {
-    const client = getBubbleClient();
+  ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
+    // Firebase handles credential validation
+    await signInWithEmail(email, password);
 
-    const tokenResponse = await client.post<{
-      status: string;
-      response: { token: string; user_id: string; expires: number };
-    }>("/wf/generate-api-token", { email, password });
+    const supabase = requireSupabase();
+    const { data: userRow, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
 
-    const { token, user_id } = tokenResponse.response;
-
-    const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${user_id}`
-    );
-    const userDto = userResponse.response;
-
-    let company: import("../../types/models").Company | null = null;
-    let adminIds: string[] = [];
-    if (userDto.company) {
-      try {
-        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
-          `/obj/${BubbleTypes.company.toLowerCase()}/${userDto.company}`
-        );
-        company = companyDtoToModel(companyResponse.response);
-        adminIds = company.adminIds ?? [];
-      } catch {
-        // Company fetch failed — continue with user only
-      }
+    if (error || !userRow) {
+      throw new Error("Account not found. Please check your email.");
     }
 
-    const user = userDtoToModel(userDto, adminIds);
-    return { token, userId: user_id, user, company };
+    const user = mapFromDb(userRow);
+    let company: import("../../types/models").Company | null = null;
+
+    if (userRow.company_id) {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", userRow.company_id)
+        .single();
+      if (companyRow) company = mapCompanyFromDb(companyRow);
+    }
+
+    return { user, company };
   },
 
   /**
-   * Legacy login via Bubble workflow API.
-   */
-  async login(
-    email: string,
-    password: string
-  ): Promise<{ token: string; userId: string; user: User }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { token: string; user_id: string; user: UserDTO };
-    }>("/wf/login", { email, password });
-
-    const user = userDtoToModel(response.response.user);
-    return {
-      token: response.response.token,
-      userId: response.response.user_id,
-      user,
-    };
-  },
-
-  /**
-   * Signup via Bubble workflow API.
+   * Signup: create Firebase account then insert Supabase user row.
    */
   async signup(
     email: string,
     password: string,
     userType: string = "Employee"
   ): Promise<{ userId: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { user_id: string };
-    }>("/wf/signup", { email, password, userType });
-    return { userId: response.response.user_id };
+    // Create Firebase account
+    const firebaseUser = await signUpWithEmail(email, password);
+
+    // Insert Supabase user row
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("users")
+      .insert({
+        email,
+        firebase_uid: firebaseUser.uid,
+        role: "Field Crew",
+        user_type: userType,
+        is_active: true,
+      })
+      .select("id")
+      .single();
+
+    if (error || !data) {
+      throw new Error(`Failed to create user record: ${error?.message}`);
+    }
+
+    return { userId: data.id };
   },
 
   /**
-   * Reset password via Bubble workflow API.
+   * Reset password via Firebase.
    */
   async resetPassword(email: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/reset_pw", { email });
+    await firebaseResetPassword(email);
   },
 
   /**
-   * Join a company via company code (Bubble workflow API).
+   * Join a company via company code (Supabase lookup by external_id).
    */
   async joinCompany(userId: string, companyCode: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/join_company", {
-      user_id: userId,
-      company_code: companyCode,
-    });
+    // company_code is stored in companies.external_id (the join code field)
+    const supabase = requireSupabase();
+
+    const { data: company, error } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("external_id", companyCode)
+      .single();
+
+    if (error || !company) {
+      throw new Error("Invalid company code. Please check and try again.");
+    }
+
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ company_id: company.id })
+      .eq("id", userId);
+
+    if (updateError) {
+      throw new Error(`Failed to join company: ${updateError.message}`);
+    }
   },
 
   /**
-   * Send team invites via Bubble workflow.
+   * Send team invites via server-side API route (SendGrid).
+   * Replaces the Bubble /wf/send_invite workflow.
    */
   async sendInvite(
     emails: string[],
     companyId: string
   ): Promise<{ success: boolean; invitesSent?: number; errorMessage?: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response?: { success?: boolean; invites_sent?: number; error_message?: string };
-      success?: boolean;
-      invites_sent?: number;
-      error_message?: string;
-    }>("/wf/send_invite", { emails, company: companyId });
+    // Delegate to server-side API route (needs SendGrid)
+    const response = await fetch("/api/invites/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emails, companyId }),
+    });
 
-    const data = response.response ?? response;
-    return {
-      success: data.success ?? true,
-      invitesSent: data.invites_sent,
-      errorMessage: data.error_message,
-    };
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return { success: false, errorMessage: data.error ?? "Failed to send invites" };
+    }
+
+    const data = await response.json();
+    return { success: true, invitesSent: data.invitesSent };
   },
 };
 
