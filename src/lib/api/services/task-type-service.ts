@@ -1,7 +1,7 @@
 /**
  * OPS Web - TaskType Service (Supabase)
  *
- * Complete CRUD operations for TaskTypes stored in Supabase `task_types_v2` table.
+ * Complete CRUD operations for TaskTypes stored in Supabase `task_types` table.
  * Replaces the old Bubble.io-based implementation.
  */
 
@@ -48,7 +48,7 @@ export const TaskTypeService = {
   async fetchTaskTypes(companyId: string): Promise<TaskType[]> {
     const supabase = requireSupabase();
     const { data, error } = await supabase
-      .from("task_types_v2")
+      .from("task_types")
       .select("*")
       .eq("company_id", companyId)
       .is("deleted_at", null)
@@ -64,7 +64,7 @@ export const TaskTypeService = {
   async fetchTaskType(id: string): Promise<TaskType> {
     const supabase = requireSupabase();
     const { data, error } = await supabase
-      .from("task_types_v2")
+      .from("task_types")
       .select("*")
       .eq("id", id)
       .single();
@@ -83,7 +83,7 @@ export const TaskTypeService = {
     const row = mapToDb(data);
 
     const { data: created, error } = await supabase
-      .from("task_types_v2")
+      .from("task_types")
       .insert(row)
       .select("id")
       .single();
@@ -100,7 +100,7 @@ export const TaskTypeService = {
     const row = mapToDb(data);
 
     const { error } = await supabase
-      .from("task_types_v2")
+      .from("task_types")
       .update(row)
       .eq("id", id);
 
@@ -114,7 +114,7 @@ export const TaskTypeService = {
     const supabase = requireSupabase();
 
     const { error } = await supabase
-      .from("task_types_v2")
+      .from("task_types")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);
 
@@ -138,7 +138,7 @@ export const TaskTypeService = {
     ];
 
     const { data, error } = await supabase
-      .from("task_types_v2")
+      .from("task_types")
       .insert(rows)
       .select("id");
 

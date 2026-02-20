@@ -7,6 +7,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
+// Note: getSupabaseClient is still used by requireSupabase() below
 
 /**
  * Server-side override for requireSupabase().
@@ -39,7 +40,7 @@ export function requireSupabase(): SupabaseClient {
 /**
  * Resolve a Bubble company ID to its Supabase UUID.
  * Caches the result so the lookup only happens once per session.
- * Uses the RLS-authenticated client (Firebase JWT → bubble_id lookup).
+ * Uses a server-side API route (works with both Firebase and Bubble auth).
  */
 let _cachedBubbleId: string | null = null;
 let _cachedUuid: string | null = null;
@@ -53,24 +54,20 @@ export async function resolveCompanyUuid(bubbleId: string): Promise<string> {
     return bubbleId;
   }
 
-  const client = getSupabaseClient();
-  if (!client) return bubbleId;
-
   try {
-    // RLS policy allows reading own company via Firebase JWT
-    const { data } = await client
-      .from("companies")
-      .select("id")
-      .limit(1)
-      .single();
-
-    if (data?.id) {
-      _cachedBubbleId = bubbleId;
-      _cachedUuid = data.id as string;
-      return _cachedUuid;
+    const resp = await fetch(
+      `/api/resolve-uuid?table=companies&bubble_id=${encodeURIComponent(bubbleId)}`
+    );
+    if (resp.ok) {
+      const { uuid } = await resp.json();
+      if (uuid) {
+        _cachedBubbleId = bubbleId;
+        _cachedUuid = uuid;
+        return uuid;
+      }
     }
   } catch {
-    // Supabase not ready or no matching company — fall through
+    // API not available — fall through
   }
 
   return bubbleId;

@@ -8,6 +8,7 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { signInWithGoogle, signInWithEmail } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { resolveCompanyUuid } from "@/lib/supabase/helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -60,12 +61,22 @@ function LoginForm() {
         companyId: result.company?.id ?? "null",
         companyName: result.company?.name ?? "null",
       });
-      // 4. Store user + company in auth store
+      // 4. Fetch Supabase profile fields (devPermission, isCompanyAdmin)
+      //    Bubble doesn't return these so we pull from Supabase.
+      try {
+        const profileResp = await fetch(`/api/me?email=${encodeURIComponent(firebaseUser.email || "")}`);
+        if (profileResp.ok) {
+          const profile = await profileResp.json();
+          result.user = { ...result.user, ...profile };
+        }
+      } catch { /* non-fatal */ }
+
+      // 5. Store user + company in auth store
       setUser(result.user);
       if (result.company) {
         setCompany(result.company);
       }
-      console.log("[LoginPage] Step 4: Auth store updated, navigating to", redirectTo);
+      console.log("[LoginPage] Step 5: Auth store updated, navigating to", redirectTo);
       router.push(redirectTo);
     } catch (err: unknown) {
       console.error("[LoginPage] Google sign-in FAILED:", err);
@@ -87,12 +98,27 @@ function LoginForm() {
     try {
       // 1. Call Bubble /wf/generate-api-token (matches iOS)
       const result = await UserService.loginWithToken(email, password);
-      // 2. Store in auth store with token
+      // 2. Fetch Supabase profile fields (devPermission, isCompanyAdmin)
+      try {
+        const profileResp = await fetch(`/api/me?email=${encodeURIComponent(email)}`);
+        if (profileResp.ok) {
+          const profile = await profileResp.json();
+          result.user = { ...result.user, ...profile };
+        }
+      } catch { /* non-fatal */ }
+
+      // 3. Store in auth store with token
       login(result.user, result.token);
       if (result.company) {
+        // Resolve Bubble company ID → Supabase UUID
+        const bubbleId = result.company.id;
+        const uuid = await resolveCompanyUuid(bubbleId);
+        if (uuid !== bubbleId) {
+          result.company = { ...result.company, id: uuid, bubbleId };
+        }
         setCompany(result.company);
       }
-      // 3. Also sign into Firebase for session persistence
+      // 4. Also sign into Firebase for session persistence
       try {
         await signInWithEmail(email, password);
       } catch {

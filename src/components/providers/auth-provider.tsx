@@ -41,7 +41,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
       const authenticated = !!firebaseUser;
       setFirebaseAuth(authenticated);
-      setAuthCookie(authenticated);
+
+      // Only clear the auth cookie if there's no Bubble token keeping us logged in.
+      // Email/password login uses Bubble tokens — Firebase auth is optional for that flow.
+      if (authenticated) {
+        setAuthCookie(true);
+      } else {
+        const hasBubbleToken = !!useAuthStore.getState().token;
+        if (!hasBubbleToken) {
+          setAuthCookie(false);
+        }
+      }
 
       if (authenticated && firebaseUser && !fetchingRef.current) {
         // Check if the login page already handled this (user already in store)

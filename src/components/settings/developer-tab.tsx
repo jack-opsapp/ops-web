@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Database, Play, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Database, Play, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { getIdToken } from "@/lib/firebase/auth";
+
+const LAST_SYNC_KEY = "ops_migration_last_sync";
 
 interface MigrationResult {
   success: boolean;
   stats?: {
+    syncMode: "full" | "incremental";
+    syncedAt: string;
     companies: number;
     users: number;
     clients: number;
@@ -27,24 +32,56 @@ export function DeveloperTab() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<MigrationResult | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmMode, setConfirmMode] = useState<"full" | "incremental" | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
-  const handleMigrate = async () => {
+  useEffect(() => {
+    setLastSyncAt(localStorage.getItem(LAST_SYNC_KEY));
+  }, []);
+
+  const handleMigrate = async (mode: "full" | "incremental") => {
     if (!currentUser?.id) return;
 
-    setShowConfirm(false);
+    setConfirmMode(null);
     setIsRunning(true);
     setResult(null);
 
     try {
+      const idToken = await getIdToken();
+      const bubbleToken = useAuthStore.getState().token;
+
+      if (!idToken && !bubbleToken) {
+        setResult({ success: false, error: "Could not get auth token. Please re-login." });
+        setIsRunning(false);
+        return;
+      }
+
+      const body: Record<string, string> = {};
+      if (mode === "incremental") {
+        // Use stored timestamp or default to 7 days ago
+        const since = lastSyncAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        body.sinceDate = since;
+      }
+
       const resp = await fetch("/api/admin/migrate-bubble", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser.id }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken
+            ? { Authorization: `Bearer ${idToken}` }
+            : { "X-Bubble-Token": bubbleToken! }),
+        },
+        body: JSON.stringify(body),
       });
 
       const data: MigrationResult = await resp.json();
       setResult(data);
+
+      // Store sync timestamp for next incremental run
+      if (data.success && data.stats?.syncedAt) {
+        localStorage.setItem(LAST_SYNC_KEY, data.stats.syncedAt);
+        setLastSyncAt(data.stats.syncedAt);
+      }
     } catch (e) {
       setResult({
         success: false,
@@ -54,6 +91,10 @@ export function DeveloperTab() {
       setIsRunning(false);
     }
   };
+
+  const formattedLastSync = lastSyncAt
+    ? new Date(lastSyncAt).toLocaleString()
+    : null;
 
   return (
     <div className="space-y-6 py-4">
@@ -73,35 +114,52 @@ export function DeveloperTab() {
               Migrate Bubble → Supabase
             </h3>
             <p className="text-sm text-[#999] mt-1">
-              Imports all companies, users, clients, projects, tasks, calendar
-              events, and task types from Bubble.io into Supabase. Safe to run
-              multiple times — existing records are updated, not duplicated.
+              Imports data from Bubble.io into Supabase. Safe to re-run —
+              existing records are updated, not duplicated.
             </p>
+            {formattedLastSync && (
+              <p className="text-xs text-[#666] mt-1">
+                Last synced: {formattedLastSync}
+              </p>
+            )}
 
-            <div className="mt-4">
-              {!showConfirm && !isRunning && (
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#417394] text-white text-sm font-medium hover:bg-[#4e8aab] transition-colors"
-                >
-                  <Play className="h-4 w-4" />
-                  Run Migration
-                </button>
+            <div className="mt-4 space-y-3">
+              {!confirmMode && !isRunning && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Sync Changes — incremental, only modified records */}
+                  <button
+                    onClick={() => setConfirmMode("incremental")}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#417394] text-white text-sm font-medium hover:bg-[#4e8aab] transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Sync Changes
+                  </button>
+                  {/* Full Migration — always available */}
+                  <button
+                    onClick={() => setConfirmMode("full")}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[rgba(255,255,255,0.15)] text-[#999] text-sm font-medium hover:text-[#E5E5E5] hover:border-[rgba(255,255,255,0.3)] transition-colors"
+                  >
+                    <Play className="h-4 w-4" />
+                    Full Migration
+                  </button>
+                </div>
               )}
 
-              {showConfirm && !isRunning && (
-                <div className="flex items-center gap-3">
+              {confirmMode && !isRunning && (
+                <div className="flex items-center gap-3 flex-wrap">
                   <p className="text-sm text-[#C4A868]">
-                    This will fetch all data from Bubble and insert into Supabase. Continue?
+                    {confirmMode === "incremental"
+                      ? `Sync records modified since ${formattedLastSync ?? "7 days ago"}?`
+                      : "Fetch ALL data from Bubble and overwrite Supabase. Continue?"}
                   </p>
                   <button
-                    onClick={handleMigrate}
+                    onClick={() => handleMigrate(confirmMode)}
                     className="px-4 py-2 rounded-md bg-[#417394] text-white text-sm font-medium hover:bg-[#4e8aab] transition-colors"
                   >
-                    Yes, migrate
+                    Yes, {confirmMode === "incremental" ? "sync" : "migrate"}
                   </button>
                   <button
-                    onClick={() => setShowConfirm(false)}
+                    onClick={() => setConfirmMode(null)}
                     className="px-4 py-2 rounded-md border border-[rgba(255,255,255,0.15)] text-[#999] text-sm hover:text-[#E5E5E5] transition-colors"
                   >
                     Cancel
@@ -112,7 +170,9 @@ export function DeveloperTab() {
               {isRunning && (
                 <div className="flex items-center gap-3 text-sm text-[#999]">
                   <Loader2 className="h-4 w-4 animate-spin text-[#417394]" />
-                  Migrating data from Bubble... This may take a few minutes.
+                  {confirmMode === "incremental"
+                    ? "Syncing recent changes from Bubble..."
+                    : "Migrating all data from Bubble... This may take a few minutes."}
                 </div>
               )}
             </div>
@@ -147,11 +207,11 @@ export function DeveloperTab() {
               {result.stats && (
                 <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
                   {Object.entries(result.stats)
-                    .filter(([key]) => !["errorCount", "errors"].includes(key))
+                    .filter(([key]) => !["errorCount", "errors", "syncedAt"].includes(key))
                     .map(([key, value]) => (
                       <div key={key} className="text-sm">
                         <span className="text-[#999]">{formatLabel(key)}:</span>{" "}
-                        <span className="text-[#E5E5E5] font-medium">{value}</span>
+                        <span className="text-[#E5E5E5] font-medium">{String(value)}</span>
                       </div>
                     ))}
                 </div>

@@ -71,7 +71,8 @@ export default function SettingsPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
 
   // Show developer tab only for users with devPermission
-  const tabs = currentUser?.devPermission
+  const showDev = currentUser?.devPermission === true;
+  const tabs = showDev
     ? [...baseTabs, { id: "developer" as const, label: "Developer", icon: Code2 }]
     : baseTabs;
 

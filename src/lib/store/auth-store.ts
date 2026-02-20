@@ -41,18 +41,24 @@ export interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      // Initial state
+      // Initial state — isLoading starts true to prevent redirect flash
+      // before Zustand hydration and AuthProvider resolve auth state
       currentUser: null,
       company: null,
       token: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true,
       role: UserRole.FieldCrew,
 
       // Login: set user, token, and update auth state
       login: (user: User, token: string) => {
         // Update the API client with the new token
         getBubbleClient().setAuthToken(token);
+
+        // Set auth cookie so Next.js middleware knows we're authenticated
+        if (typeof document !== "undefined") {
+          document.cookie = "ops-auth-token=1; path=/; max-age=2592000; SameSite=Lax";
+        }
 
         set({
           currentUser: user,
@@ -105,16 +111,25 @@ export const useAuthStore = create<AuthState>()(
         if (authenticated) {
           set({ isAuthenticated: true, isLoading: false });
         } else {
-          // User signed out of Firebase - clear everything
-          getBubbleClient().clearAuthToken();
-          set({
-            currentUser: null,
-            company: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
-            role: UserRole.FieldCrew,
-          });
+          // Only clear auth if there's no Bubble token keeping us logged in.
+          // Email/password login uses Bubble tokens as primary auth —
+          // Firebase auth is optional for that flow.
+          const { token } = get();
+          if (token) {
+            // Bubble token exists — keep the session alive
+            set({ isLoading: false });
+          } else {
+            // No Bubble token either — fully signed out
+            getBubbleClient().clearAuthToken();
+            set({
+              currentUser: null,
+              company: null,
+              token: null,
+              isAuthenticated: false,
+              isLoading: false,
+              role: UserRole.FieldCrew,
+            });
+          }
         }
       },
 
