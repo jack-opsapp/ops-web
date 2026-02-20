@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
+  sendPasswordResetEmail as firebaseSendPasswordReset,
   type User,
   type Unsubscribe,
 } from "firebase/auth";
@@ -80,4 +81,11 @@ export async function getIdToken(forceRefresh = false): Promise<string | null> {
   const user = auth.currentUser;
   if (!user) return null;
   return user.getIdToken(forceRefresh);
+}
+
+/**
+ * Send a password reset email to the given address.
+ */
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  await firebaseSendPasswordReset(auth, email);
 }
