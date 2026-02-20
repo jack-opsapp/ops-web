@@ -48,9 +48,8 @@ export function DeveloperTab() {
 
     try {
       const idToken = await getIdToken();
-      const bubbleToken = useAuthStore.getState().token;
 
-      if (!idToken && !bubbleToken) {
+      if (!idToken) {
         setResult({ success: false, error: "Could not get auth token. Please re-login." });
         setIsRunning(false);
         return;
@@ -67,9 +66,7 @@ export function DeveloperTab() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(idToken
-            ? { Authorization: `Bearer ${idToken}` }
-            : { "X-Bubble-Token": bubbleToken! }),
+          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify(body),
       });

@@ -11,7 +11,6 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { User, Company } from "../types/models";
 import { UserRole } from "../types/models";
-import { getBubbleClient } from "../api/bubble-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,17 +18,14 @@ export interface AuthState {
   // State
   currentUser: User | null;
   company: Company | null;
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   role: UserRole;
 
   // Actions
-  login: (user: User, token: string) => void;
   logout: () => void;
   setUser: (user: User) => void;
   setCompany: (company: Company) => void;
-  setToken: (token: string) => void;
   setLoading: (loading: boolean) => void;
   setFirebaseAuth: (authenticated: boolean) => void;
   updateRole: () => void;
@@ -45,38 +41,15 @@ export const useAuthStore = create<AuthState>()(
       // before Zustand hydration and AuthProvider resolve auth state
       currentUser: null,
       company: null,
-      token: null,
       isAuthenticated: false,
       isLoading: true,
       role: UserRole.FieldCrew,
 
-      // Login: set user, token, and update auth state
-      login: (user: User, token: string) => {
-        // Update the API client with the new token
-        getBubbleClient().setAuthToken(token);
-
-        // Set auth cookie so Next.js middleware knows we're authenticated
-        if (typeof document !== "undefined") {
-          document.cookie = "ops-auth-token=1; path=/; max-age=2592000; SameSite=Lax";
-        }
-
-        set({
-          currentUser: user,
-          token,
-          isAuthenticated: true,
-          role: user.role,
-          isLoading: false,
-        });
-      },
-
       // Logout: clear all auth state
       logout: () => {
-        getBubbleClient().clearAuthToken();
-
         set({
           currentUser: null,
           company: null,
-          token: null,
           isAuthenticated: false,
           isLoading: false,
           role: UserRole.FieldCrew,
@@ -85,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Update user data (e.g., after profile update or sync)
       setUser: (user: User) => {
-        set({ currentUser: user, role: user.role });
+        set({ currentUser: user, role: user.role, isAuthenticated: true, isLoading: false });
       },
 
       // Set company data (fetched separately from user)
@@ -93,12 +66,6 @@ export const useAuthStore = create<AuthState>()(
         set({ company });
         // Re-evaluate role with company admin IDs
         get().updateRole();
-      },
-
-      // Set auth token (e.g., after token refresh)
-      setToken: (token: string) => {
-        getBubbleClient().setAuthToken(token);
-        set({ token });
       },
 
       // Set loading state
@@ -111,25 +78,14 @@ export const useAuthStore = create<AuthState>()(
         if (authenticated) {
           set({ isAuthenticated: true, isLoading: false });
         } else {
-          // Only clear auth if there's no Bubble token keeping us logged in.
-          // Email/password login uses Bubble tokens as primary auth —
-          // Firebase auth is optional for that flow.
-          const { token } = get();
-          if (token) {
-            // Bubble token exists — keep the session alive
-            set({ isLoading: false });
-          } else {
-            // No Bubble token either — fully signed out
-            getBubbleClient().clearAuthToken();
-            set({
-              currentUser: null,
-              company: null,
-              token: null,
-              isAuthenticated: false,
-              isLoading: false,
-              role: UserRole.FieldCrew,
-            });
-          }
+          // Firebase signed out — fully clear session
+          set({
+            currentUser: null,
+            company: null,
+            isAuthenticated: false,
+            isLoading: false,
+            role: UserRole.FieldCrew,
+          });
         }
       },
 
@@ -158,12 +114,10 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      // Hydrate auth state from persisted storage
+      // Hydrate auth state from persisted storage (no-op: Firebase persists its own session)
       hydrate: () => {
-        const { token } = get();
-        if (token) {
-          getBubbleClient().setAuthToken(token);
-        }
+        // Firebase SDK handles session persistence automatically.
+        // No additional action needed.
       },
     }),
     {
@@ -182,18 +136,9 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         currentUser: state.currentUser,
         company: state.company,
-        token: state.token,
         isAuthenticated: state.isAuthenticated,
         role: state.role,
       }),
-      onRehydrateStorage: () => {
-        return (state) => {
-          // Re-set the API client token after rehydration
-          if (state?.token) {
-            getBubbleClient().setAuthToken(state.token);
-          }
-        };
-      },
     }
   )
 );

@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { onAuthStateChanged, getIdToken } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
-import { resolveCompanyUuid } from "@/lib/supabase/helpers";
 import { toast } from "sonner";
 
 /**
@@ -47,10 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (authenticated) {
         setAuthCookie(true);
       } else {
-        const hasBubbleToken = !!useAuthStore.getState().token;
-        if (!hasBubbleToken) {
-          setAuthCookie(false);
-        }
+        setAuthCookie(false);
       }
 
       if (authenticated && firebaseUser && !fetchingRef.current) {
@@ -89,13 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(result.user);
           if (result.company) {
-            // Resolve Bubble company ID → Supabase UUID for all downstream queries
-            const bubbleId = result.company.id;
-            const uuid = await resolveCompanyUuid(bubbleId);
-            if (uuid !== bubbleId) {
-              console.log("[AuthProvider] Resolved company UUID:", bubbleId, "→", uuid);
-              result.company = { ...result.company, id: uuid, bubbleId };
-            }
             setCompany(result.company);
           } else {
             console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");

@@ -212,7 +212,6 @@ export function mockAuthStore(user?: MockAuthUser): void {
     isAuthenticated: true,
     isLoading: false,
     role: UserRole.Admin,
-    token: "mock-token",
   });
 }
 
@@ -223,7 +222,6 @@ export function resetAuthStore(): void {
   useAuthStore.setState({
     currentUser: null,
     company: null,
-    token: null,
     isAuthenticated: false,
     isLoading: false,
     role: UserRole.FieldCrew,
