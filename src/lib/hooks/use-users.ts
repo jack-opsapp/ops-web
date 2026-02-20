@@ -208,7 +208,8 @@ export function useSendInvite() {
  * Login mutation.
  */
 export function useLogin() {
-  const { login: setAuth } = useAuthStore();
+  const setUser = useAuthStore((s) => s.setUser);
+  const setCompany = useAuthStore((s) => s.setCompany);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -218,10 +219,13 @@ export function useLogin() {
     }: {
       email: string;
       password: string;
-    }) => UserService.login(email, password),
+    }) => UserService.loginWithEmailPassword(email, password),
 
     onSuccess: (result) => {
-      setAuth(result.user, result.token);
+      setUser(result.user);
+      if (result.company) {
+        setCompany(result.company);
+      }
       // Clear all cached data for the new user session
       queryClient.clear();
     },

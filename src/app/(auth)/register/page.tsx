@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
-import { signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth";
+import { signInWithGoogle, getCurrentUser } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,17 +50,14 @@ export default function RegisterPage() {
     setError(null);
     setIsLoadingEmail(true);
     try {
-      const user = await signUpWithEmail(email, password);
-      // Update display name after creation
-      const { updateProfile } = await import("firebase/auth");
-      await updateProfile(user, { displayName: fullName.trim() });
+      // Create Firebase account + Supabase user row in one call
+      await UserService.signup(email, password, "Employee");
 
-      // Create user record in Bubble backend
-      try {
-        await UserService.signup(email, password, "Employee");
-      } catch (bubbleError) {
-        console.error("[Register] Bubble signup failed:", bubbleError);
-        // Continue anyway - the auth provider will try to reconcile on next login
+      // Update Firebase display name after account creation
+      const firebaseUser = getCurrentUser();
+      if (firebaseUser) {
+        const { updateProfile } = await import("firebase/auth");
+        await updateProfile(firebaseUser, { displayName: fullName.trim() });
       }
 
       router.push("/onboarding");
