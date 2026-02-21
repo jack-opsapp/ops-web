@@ -9,7 +9,12 @@ import {
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { AnalyticsTabs } from "./_components/analytics-tabs";
 
-const emptyEventData: { dimension: string; count: number }[] = [];
+/** Wrap a promise so it returns a fallback on error instead of rejecting. */
+async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  try { return await promise; } catch { return fallback; }
+}
+
+const emptyEvents: { dimension: string; count: number }[] = [];
 const emptyFunnel: { step: string; eventName: string; count: number }[] = [];
 
 export default async function AnalyticsPage() {
@@ -21,40 +26,29 @@ export default async function AnalyticsPage() {
     const { dau, wau, mau } = calcActiveUsers(authUsers);
     const signupTrend = buildWeeklyTrend(authUsers.map((u) => u.metadata.creationTime ?? ""));
 
-    // GA4 data (only if configured)
-    let onboardingFunnel = emptyFunnel;
-    let signupsByPlatform = emptyEventData;
-    let taskCreatedByDate = emptyEventData;
-    let projectCreatedByDate = emptyEventData;
-    let topScreens = emptyEventData;
-    let formAbandonment = emptyEventData;
-    let teamInvitedByPlatform = emptyEventData;
-    let subscribeByPlatform = emptyEventData;
-    let beginTrialByPlatform = emptyEventData;
-
-    if (ga4Available) {
-      [
-        onboardingFunnel,
-        signupsByPlatform,
-        taskCreatedByDate,
-        projectCreatedByDate,
-        topScreens,
-        formAbandonment,
-        teamInvitedByPlatform,
-        subscribeByPlatform,
-        beginTrialByPlatform,
-      ] = await Promise.all([
-        getOnboardingFunnel(90),
-        getEventByPlatform("sign_up", 30),
-        getEventByDate("task_created", 30),
-        getEventByDate("create_project", 30),
-        getTopScreens(30),
-        getFormAbandonment(30),
-        getEventByPlatform("team_member_invited", 30),
-        getEventByPlatform("subscribe", 90),
-        getEventByPlatform("begin_trial", 90),
-      ]);
-    }
+    // GA4 data — each call is individually wrapped so one bad query
+    // doesn't take down the whole page (custom dimensions may not exist yet)
+    const [
+      onboardingFunnel,
+      signupsByPlatform,
+      taskCreatedByDate,
+      projectCreatedByDate,
+      topScreens,
+      formAbandonment,
+      teamInvitedByPlatform,
+      subscribeByPlatform,
+      beginTrialByPlatform,
+    ] = ga4Available ? await Promise.all([
+      safe(getOnboardingFunnel(90), emptyFunnel),
+      safe(getEventByPlatform("sign_up", 30), emptyEvents),
+      safe(getEventByDate("task_created", 30), emptyEvents),
+      safe(getEventByDate("create_project", 30), emptyEvents),
+      safe(getTopScreens(30), emptyEvents),
+      safe(getFormAbandonment(30), emptyEvents),
+      safe(getEventByPlatform("team_member_invited", 30), emptyEvents),
+      safe(getEventByPlatform("subscribe", 90), emptyEvents),
+      safe(getEventByPlatform("begin_trial", 90), emptyEvents),
+    ]) : [emptyFunnel, emptyEvents, emptyEvents, emptyEvents, emptyEvents, emptyEvents, emptyEvents, emptyEvents, emptyEvents];
 
     return (
       <div>
