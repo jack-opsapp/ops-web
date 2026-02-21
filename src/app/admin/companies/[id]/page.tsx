@@ -39,7 +39,19 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await fetchCompanyDetail(id);
+  let data;
+  try {
+    data = await fetchCompanyDetail(id);
+  } catch (err: unknown) {
+    return (
+      <div className="p-8">
+        <h1 className="text-red-400 font-mohave text-lg mb-4">Company Detail Fetch Failed</h1>
+        <pre className="text-[13px] text-[#E5E5E5] bg-white/[0.05] rounded p-4 whitespace-pre-wrap">
+          {err instanceof Error ? `${err.message}\n\n${err.stack}` : String(err)}
+        </pre>
+      </div>
+    );
+  }
   if (!data) notFound();
 
   const { company, users, projects, taskCount, clientCount } = data;
