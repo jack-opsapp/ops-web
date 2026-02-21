@@ -58,7 +58,22 @@ async function fetchOverviewData() {
 }
 
 export default async function OverviewPage() {
-  const data = await fetchOverviewData();
+  let data;
+  try {
+    data = await fetchOverviewData();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    return (
+      <div className="p-8">
+        <h1 className="text-red-400 font-mohave text-lg mb-4">Admin Data Fetch Failed</h1>
+        <pre className="text-[13px] text-[#E5E5E5] bg-white/[0.05] rounded p-4 overflow-auto whitespace-pre-wrap">
+          {msg}
+          {stack && `\n\n${stack}`}
+        </pre>
+      </div>
+    );
+  }
 
   return (
     <div>
