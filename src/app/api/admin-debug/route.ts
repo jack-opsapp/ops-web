@@ -5,34 +5,59 @@ import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
 export async function GET() {
   const cookieStore = await cookies();
   const headersList = await headers();
+  const results: Record<string, unknown> = {};
 
+  // 1. Check auth token
   const token =
     headersList.get("authorization")?.replace("Bearer ", "") ||
     cookieStore.get("__session")?.value ||
     cookieStore.get("ops-auth-token")?.value;
 
-  if (!token) {
-    return NextResponse.json({ error: "no token found", cookies: {
-      __session: !!cookieStore.get("__session"),
-      "ops-auth-token": !!cookieStore.get("ops-auth-token"),
-    }});
+  results.tokenPresent = !!token;
+  results.tokenLength = token?.length ?? 0;
+
+  if (token) {
+    try {
+      const user = await verifyFirebaseToken(token);
+      results.auth = { success: true, uid: user.uid, email: user.email };
+    } catch (err: unknown) {
+      results.auth = { error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
+  // 2. Check env vars
+  results.envVars = {
+    NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    FIREBASE_ADMIN_PRIVATE_KEY: !!process.env.FIREBASE_ADMIN_PRIVATE_KEY,
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "MISSING",
+    FIREBASE_ADMIN_CLIENT_EMAIL: !!process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    GA4_PROPERTY_ID: !!process.env.GA4_PROPERTY_ID,
+  };
+
+  // 3. Test Supabase
   try {
-    const user = await verifyFirebaseToken(token);
-    return NextResponse.json({
-      success: true,
-      uid: user.uid,
-      email: user.email,
-      emailMatch: user.email === "jack@opsapp.co",
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
+    const { getAdminSupabase } = await import("@/lib/supabase/admin-client");
+    const db = getAdminSupabase();
+    const { count, error } = await db
+      .from("companies")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null);
+    results.supabase = error
+      ? { error: error.message, code: error.code }
+      : { success: true, companyCount: count };
   } catch (err: unknown) {
-    return NextResponse.json({
-      error: "verification failed",
-      message: err instanceof Error ? err.message : String(err),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      tokenLength: token.length,
-    });
+    results.supabase = { error: err instanceof Error ? err.message : String(err) };
   }
+
+  // 4. Test Firebase Admin SDK
+  try {
+    const { listAllAuthUsers } = await import("@/lib/firebase/admin-sdk");
+    const users = await listAllAuthUsers();
+    results.firebaseAdmin = { success: true, userCount: users.length };
+  } catch (err: unknown) {
+    results.firebaseAdmin = { error: err instanceof Error ? err.message : String(err) };
+  }
+
+  return NextResponse.json(results);
 }
