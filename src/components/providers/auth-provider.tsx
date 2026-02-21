@@ -12,10 +12,10 @@ import { toast } from "sonner";
  * Firebase auth is client-side only (localStorage), but middleware runs
  * on the server and can only read cookies.
  */
-function setAuthCookie(authenticated: boolean) {
+function setAuthCookie(token: string | null) {
   if (typeof document === "undefined") return;
-  if (authenticated) {
-    document.cookie = "ops-auth-token=1; path=/; max-age=2592000; SameSite=Lax";
+  if (token) {
+    document.cookie = `ops-auth-token=${token}; path=/; max-age=2592000; SameSite=Lax`;
   } else {
     document.cookie = "ops-auth-token=; path=/; max-age=0";
   }
@@ -41,9 +41,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
       const authenticated = !!firebaseUser;
       setFirebaseAuth(authenticated);
-      setAuthCookie(authenticated);
 
-      if (authenticated && firebaseUser && !fetchingRef.current) {
+      if (!authenticated) {
+        setAuthCookie(null);
+        console.log("[AuthProvider] Not authenticated");
+        setLoading(false);
+        return;
+      }
+
+      // Always get the real ID token for the cookie (middleware/server needs it)
+      const idToken = await getIdToken();
+      setAuthCookie(idToken);
+
+      if (firebaseUser && !fetchingRef.current) {
         // Check if the login page already handled this (user already in store)
         const existingUser = useAuthStore.getState().currentUser;
         if (existingUser?.companyId) {
@@ -55,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchingRef.current = true;
         console.log("[AuthProvider] Firebase user authenticated, no user in store — calling loginWithGoogle:", firebaseUser.email);
         try {
-          const idToken = await getIdToken();
           if (!idToken || !firebaseUser.email) {
             console.warn("[AuthProvider] Missing idToken or email, aborting");
             fetchingRef.current = false;
@@ -99,9 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fetchingRef.current = false;
           setLoading(false);
         }
-      } else {
-        if (!authenticated) console.log("[AuthProvider] Not authenticated");
-        else if (fetchingRef.current) console.log("[AuthProvider] Already fetching, skipping");
+      } else if (fetchingRef.current) {
+        console.log("[AuthProvider] Already fetching, skipping");
         setLoading(false);
       }
     });
