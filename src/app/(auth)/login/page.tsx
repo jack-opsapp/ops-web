@@ -4,8 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { signInWithGoogle } from "@/lib/firebase/auth";
+import { Eye, EyeOff, Mail, Lock, MailCheck } from "lucide-react";
+import { signInWithGoogle, signInWithApple } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,8 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isLoadingApple, setIsLoadingApple] = useState(false);
+  const [provisionMessage, setProvisionMessage] = useState<string | null>(null);
 
   const setUser = useAuthStore((s) => s.setUser);
   const setCompany = useAuthStore((s) => s.setCompany);
@@ -85,6 +87,36 @@ function LoginForm() {
     }
   }
 
+  async function handleAppleSignIn() {
+    setError(null);
+    setIsLoadingApple(true);
+    try {
+      const firebaseUser = await signInWithApple();
+      const result = await UserService.loginWithGoogle(
+        await firebaseUser.getIdToken(),
+        firebaseUser.email || "",
+        firebaseUser.displayName || "",
+        firebaseUser.displayName?.split(" ")[0] || "",
+        firebaseUser.displayName?.split(" ").slice(1).join(" ") || ""
+      );
+      try {
+        const profileResp = await fetch(`/api/me?email=${encodeURIComponent(firebaseUser.email || "")}`);
+        if (profileResp.ok) {
+          const profile = await profileResp.json();
+          result.user = { ...result.user, ...profile };
+        }
+      } catch { /* non-fatal */ }
+      setUser(result.user);
+      if (result.company) setCompany(result.company);
+      router.push(redirectTo);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Apple sign-in failed";
+      setError(message);
+    } finally {
+      setIsLoadingApple(false);
+    }
+  }
+
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) {
@@ -107,7 +139,25 @@ function LoginForm() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign-in failed";
       if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid")) {
-        setError("Invalid email or password");
+        // Check if this is a migrated Bubble user who needs Firebase provisioning
+        try {
+          const provisionResp = await fetch("/api/auth/provision-migrated", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const provisionData = await provisionResp.json();
+          if (provisionData.provisioned) {
+            setProvisionMessage(
+              "Welcome back! We've upgraded our login system. Check your email to set a new password."
+            );
+            setError(null);
+          } else {
+            setError("Invalid email or password");
+          }
+        } catch {
+          setError("Invalid email or password");
+        }
       } else if (message.includes("too-many-requests") || message.includes("429")) {
         setError("Too many attempts. Please try again later.");
       } else {
@@ -141,6 +191,16 @@ function LoginForm() {
           </div>
         )}
 
+        {/* Migrated user provisioned message */}
+        {provisionMessage && (
+          <div className="bg-[#C4A868]/10 border border-[#C4A868]/30 rounded px-1.5 py-1.5 animate-slide-up">
+            <div className="flex items-start gap-1.5">
+              <MailCheck className="w-4 h-4 text-[#C4A868] mt-0.5 shrink-0" />
+              <p className="font-mohave text-body-sm text-[#C4A868]">{provisionMessage}</p>
+            </div>
+          </div>
+        )}
+
         {/* Google Sign-In */}
         <Button
           variant="secondary"
@@ -148,7 +208,7 @@ function LoginForm() {
           className="w-full gap-1.5 border-border-medium"
           onClick={handleGoogleSignIn}
           loading={isLoadingGoogle}
-          disabled={isLoadingEmail}
+          disabled={isLoadingEmail || isLoadingApple}
         >
           <svg className="w-[20px] h-[20px]" viewBox="0 0 24 24">
             <path
@@ -171,6 +231,21 @@ function LoginForm() {
           <span>Continue with Google</span>
         </Button>
 
+        {/* Apple Sign-In */}
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full gap-1.5 border-border-medium"
+          onClick={handleAppleSignIn}
+          loading={isLoadingApple}
+          disabled={isLoadingEmail || isLoadingGoogle}
+        >
+          <svg className="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.42c1.42.07 2.4.83 3.23.89.97-.2 1.9-.97 3.08-.88 1.32.12 2.32.67 2.97 1.7-2.72 1.63-2.28 5.29.61 6.31-.64 1.79-1.47 3.55-2.89 4.84zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+          </svg>
+          <span>Continue with Apple</span>
+        </Button>
+
         {/* Divider */}
         <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
           or sign in with email
@@ -185,7 +260,7 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             prefixIcon={<Mail className="w-[16px] h-[16px]" />}
-            disabled={isLoadingEmail || isLoadingGoogle}
+            disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
             autoComplete="email"
           />
           <div className="relative">
@@ -210,7 +285,7 @@ function LoginForm() {
                   )}
                 </button>
               }
-              disabled={isLoadingEmail || isLoadingGoogle}
+              disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
               autoComplete="current-password"
             />
           </div>
@@ -219,7 +294,7 @@ function LoginForm() {
             size="lg"
             className="w-full"
             loading={isLoadingEmail}
-            disabled={isLoadingGoogle}
+            disabled={isLoadingGoogle || isLoadingApple}
           >
             Sign In
           </Button>
