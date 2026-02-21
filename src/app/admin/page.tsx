@@ -1,9 +1,9 @@
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { listAllAuthUsers, calcActiveUsers } from "@/lib/firebase/admin-sdk";
-import { StatCard } from "../_components/stat-card";
-import { AdminPageHeader } from "../_components/admin-page-header";
-import { AdminBarChart } from "../_components/charts/bar-chart";
-import { PlanBadge } from "../_components/plan-badge";
+import { StatCard } from "./_components/stat-card";
+import { AdminPageHeader } from "./_components/admin-page-header";
+import { AdminBarChart } from "./_components/charts/bar-chart";
+import { PlanBadge } from "./_components/plan-badge";
 
 async function fetchOverviewData() {
   const db = getAdminSupabase();
