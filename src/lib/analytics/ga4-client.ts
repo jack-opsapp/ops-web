@@ -16,13 +16,27 @@ let _ga4Client: BetaAnalyticsDataClient | null = null;
 export function getGA4Client(): BetaAnalyticsDataClient {
   if (_ga4Client) return _ga4Client;
 
+  // Support full JSON or individual env vars
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (!serviceAccountJson) {
-    throw new Error("Missing FIREBASE_ADMIN_SERVICE_ACCOUNT env var");
+  if (serviceAccountJson) {
+    _ga4Client = new BetaAnalyticsDataClient({
+      credentials: JSON.parse(serviceAccountJson),
+    });
+    return _ga4Client;
+  }
+
+  // Construct from individual env vars
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
+    ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
+
+  if (!privateKey || !projectId) {
+    throw new Error("Missing FIREBASE_ADMIN_PRIVATE_KEY or NEXT_PUBLIC_FIREBASE_PROJECT_ID env var");
   }
 
   _ga4Client = new BetaAnalyticsDataClient({
-    credentials: JSON.parse(serviceAccountJson),
+    credentials: { client_email: clientEmail, private_key: privateKey },
   });
 
   return _ga4Client;

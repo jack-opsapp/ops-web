@@ -18,13 +18,24 @@ function getAdminApp(): App {
     return _app;
   }
 
+  // Support full JSON or individual env vars
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (!serviceAccountJson) {
-    throw new Error("Missing FIREBASE_ADMIN_SERVICE_ACCOUNT env var");
+  if (serviceAccountJson) {
+    _app = initializeApp({ credential: cert(JSON.parse(serviceAccountJson)) });
+    return _app;
   }
 
-  const serviceAccount = JSON.parse(serviceAccountJson);
-  _app = initializeApp({ credential: cert(serviceAccount) });
+  // Construct from individual env vars (Vercel convention)
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
+    ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
+
+  if (!privateKey || !projectId) {
+    throw new Error("Missing FIREBASE_ADMIN_PRIVATE_KEY or NEXT_PUBLIC_FIREBASE_PROJECT_ID env var");
+  }
+
+  _app = initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
   return _app;
 }
 
