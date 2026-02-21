@@ -6,6 +6,7 @@
  */
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
+import { parsePrivateKey } from "./parse-private-key";
 
 let _app: App | null = null;
 
@@ -26,7 +27,7 @@ function getAdminApp(): App {
   }
 
   // Construct from individual env vars (Vercel convention)
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = parsePrivateKey(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
     ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;

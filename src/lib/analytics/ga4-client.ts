@@ -6,6 +6,7 @@
  */
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 import type { protos } from "@google-analytics/data";
+import { parsePrivateKey } from "@/lib/firebase/parse-private-key";
 
 type Row = protos.google.analytics.data.v1beta.IRow;
 
@@ -26,7 +27,7 @@ export function getGA4Client(): BetaAnalyticsDataClient {
   }
 
   // Construct from individual env vars
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = parsePrivateKey(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
     ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
