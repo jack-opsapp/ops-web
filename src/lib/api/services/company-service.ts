@@ -1,14 +1,12 @@
 /**
- * OPS Web - Company Service (Hybrid: Supabase + Bubble)
+ * OPS Web - Company Service (Supabase + Direct Stripe)
  *
  * Data CRUD → Supabase `companies` table.
- * Subscription/Stripe workflows → Bubble /wf/ endpoints (until Stripe webhooks
- *   are wired directly to Supabase).
+ * Subscription/Stripe workflows → /api/stripe/subscription/* (Next.js API routes).
  * Image upload workflows → /api/uploads/presign (S3 presigned URLs).
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import { getBubbleClient } from "../bubble-client";
 import type { Company, SubscriptionStatus, SubscriptionPlan, PaymentSchedule } from "../../types/models";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
@@ -179,52 +177,64 @@ export const CompanyService = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BUBBLE WORKFLOWS (stay on Bubble until migrated to direct Stripe/S3)
+  // SUBSCRIPTION MANAGEMENT (Direct Stripe via Next.js API routes)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Update company via Bubble workflow API (for complex operations).
-   */
-  async updateCompanyWorkflow(data: Record<string, unknown>): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/update_company", data);
-  },
-
-  // ─── Subscription Management (Bubble/Stripe) ──────────────────────────────
-
-  /**
-   * Fetch subscription info for a company via Bubble workflow.
+   * Fetch subscription info for a company directly from Supabase.
+   * Replaces: Bubble /wf/fetch_subscription_info
    */
   async fetchSubscriptionInfo(companyId: string): Promise<Record<string, unknown>> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: Record<string, unknown>;
-    }>("/wf/fetch_subscription_info", { company_id: companyId });
-    return response.response;
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("companies")
+      .select(
+        "subscription_status, subscription_plan, subscription_period, subscription_end, " +
+        "stripe_customer_id, max_seats, seated_employee_ids, trial_start_date, trial_end_date"
+      )
+      .eq("id", companyId)
+      .single();
+
+    if (error || !data) throw new Error(`Failed to fetch subscription: ${error?.message}`);
+
+    const row = data as unknown as Record<string, unknown>;
+
+    return {
+      subscriptionStatus: row.subscription_status,
+      subscriptionPlan: row.subscription_plan,
+      subscriptionPeriod: row.subscription_period,
+      subscriptionEnd: row.subscription_end,
+      stripeCustomerId: row.stripe_customer_id,
+      maxSeats: row.max_seats,
+      seatedCount: ((row.seated_employee_ids as string[]) ?? []).length,
+      trialStartDate: row.trial_start_date,
+      trialEndDate: row.trial_end_date,
+    };
   },
 
   /**
    * Create a Stripe setup intent for adding a payment method.
+   * Replaces: Bubble /wf/create_subscription_setup_intent
    */
   async createSetupIntent(
     companyId: string,
     userId: string
   ): Promise<{ clientSecret: string; ephemeralKey: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { client_secret: string; ephemeral_key: string };
-    }>("/wf/create_subscription_setup_intent", {
-      company_id: companyId,
-      user_id: userId,
+    const response = await fetch("/api/stripe/subscription/setup-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId, userId }),
     });
-    return {
-      clientSecret: response.response.client_secret,
-      ephemeralKey: response.response.ephemeral_key,
-    };
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? "Failed to create setup intent");
+    }
+    return response.json() as Promise<{ clientSecret: string; ephemeralKey: string }>;
   },
 
   /**
    * Complete a subscription purchase.
+   * Replaces: Bubble /wf/complete_subscription
    */
   async completeSubscription(data: {
     companyId: string;
@@ -233,18 +243,26 @@ export const CompanyService = {
     period: "Monthly" | "Annual";
     paymentMethodId?: string;
   }): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/complete_subscription", {
-      company_id: data.companyId,
-      user_id: data.userId,
-      plan_id: data.planId,
-      period: data.period,
-      payment_method_id: data.paymentMethodId,
+    const response = await fetch("/api/stripe/subscription/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId: data.companyId,
+        userId: data.userId,
+        plan: data.planId,
+        period: data.period,
+        paymentMethodId: data.paymentMethodId,
+      }),
     });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? "Failed to complete subscription");
+    }
   },
 
   /**
    * Create a subscription with payment in one step.
+   * Replaces: Bubble /wf/create_subscription_with_payment
    */
   async createSubscriptionWithPayment(data: {
     companyId: string;
@@ -253,26 +271,29 @@ export const CompanyService = {
     period: "Monthly" | "Annual";
     paymentMethodId: string;
   }): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/create_subscription_with_payment", {
-      company_id: data.companyId,
-      user_id: data.userId,
-      plan_id: data.planId,
-      period: data.period,
-      payment_method_id: data.paymentMethodId,
-    });
+    // Same as completeSubscription — payment method is provided
+    return CompanyService.completeSubscription(data);
   },
 
   /**
    * Cancel the company's subscription.
+   * Replaces: Bubble /wf/cancel_subscription
    */
   async cancelSubscription(companyId: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/cancel_subscription", { company_id: companyId });
+    const response = await fetch("/api/stripe/subscription/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? "Failed to cancel subscription");
+    }
   },
 
   /**
    * Subscribe user to a specific plan directly.
+   * Replaces: Bubble /wf/subscribe_user_to_plan
    */
   async subscribeToPlan(data: {
     userId: string;
@@ -280,12 +301,9 @@ export const CompanyService = {
     planId: string;
     period: "Monthly" | "Annual";
   }): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/subscribe_user_to_plan", {
-      user_id: data.userId,
-      company_id: data.companyId,
-      plan_id: data.planId,
-      period: data.period,
+    return CompanyService.createSubscriptionWithPayment({
+      ...data,
+      paymentMethodId: "",
     });
   },
 
