@@ -25,7 +25,8 @@ export async function GET() {
     }
   }
 
-  // 2. Check env vars
+  // 2. Check env vars + inspect private key format
+  const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? "";
   results.envVars = {
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -33,6 +34,16 @@ export async function GET() {
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "MISSING",
     FIREBASE_ADMIN_CLIENT_EMAIL: !!process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
     GA4_PROPERTY_ID: !!process.env.GA4_PROPERTY_ID,
+  };
+  results.privateKeyDebug = {
+    length: rawKey.length,
+    first50: rawKey.slice(0, 50),
+    last30: rawKey.slice(-30),
+    hasBeginMarker: rawKey.includes("-----BEGIN"),
+    hasEndMarker: rawKey.includes("-----END"),
+    hasLiteralBackslashN: rawKey.includes("\\n"),
+    hasRealNewlines: rawKey.includes("\n"),
+    startsWithQuote: rawKey.startsWith('"'),
   };
 
   // 3. Test Supabase
