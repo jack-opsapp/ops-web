@@ -84,5 +84,57 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Subscription activated / renewed
+  if (
+    event.type === "customer.subscription.updated" ||
+    event.type === "customer.subscription.created"
+  ) {
+    const sub = event.data.object as Stripe.Subscription;
+    const companyId = sub.metadata?.supabase_company_id;
+    if (companyId) {
+      const plan = sub.metadata?.plan ?? "starter";
+      const period = sub.metadata?.period ?? "Monthly";
+      const status =
+        sub.status === "active"
+          ? "active"
+          : sub.status === "trialing"
+            ? "trial"
+            : sub.status === "past_due"
+              ? "grace"
+              : "expired";
+
+      // current_period_end is on each subscription item in Stripe v20+
+      const periodEnd = sub.items.data[0]?.current_period_end;
+
+      const supabase = getServiceRoleClient();
+      await supabase
+        .from("companies")
+        .update({
+          subscription_status: status,
+          subscription_plan: plan,
+          subscription_period: period,
+          subscription_end: periodEnd
+            ? new Date(periodEnd * 1000).toISOString()
+            : null,
+        })
+        .eq("id", companyId);
+    }
+  }
+
+  // Subscription cancelled
+  if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object as Stripe.Subscription;
+    const companyId = sub.metadata?.supabase_company_id;
+    if (companyId) {
+      const supabase = getServiceRoleClient();
+      await supabase
+        .from("companies")
+        .update({
+          subscription_status: "cancelled",
+        })
+        .eq("id", companyId);
+    }
+  }
+
   return NextResponse.json({ received: true });
 }
