@@ -4,7 +4,7 @@
  * Data CRUD → Supabase `companies` table.
  * Subscription/Stripe workflows → Bubble /wf/ endpoints (until Stripe webhooks
  *   are wired directly to Supabase).
- * Image upload workflows → Bubble /wf/ endpoints (until Task 31 S3 presign route).
+ * Image upload workflows → /api/uploads/presign (S3 presigned URLs).
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
@@ -289,32 +289,33 @@ export const CompanyService = {
     });
   },
 
-  // ─── Image Upload Workflows (Bubble/S3) ───────────────────────────────────
+  // ─── Image Upload Workflows (S3 via /api/uploads/presign) ────────────────
 
   /**
    * Get a presigned URL for uploading a profile/logo image.
+   * Calls the internal Next.js API route which generates an S3 presigned URL.
    */
   async getPresignedUrlProfile(
     companyId: string,
     filename: string,
     contentType: string = "image/jpeg"
   ): Promise<{ uploadUrl: string; publicUrl: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { upload_url: string; public_url: string };
-    }>("/wf/get_presigned_url_profile", {
-      company_id: companyId,
-      filename,
-      content_type: contentType,
+    const response = await fetch("/api/uploads/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename,
+        contentType,
+        folder: `profiles/${companyId}`,
+      }),
     });
-    return {
-      uploadUrl: response.response.upload_url,
-      publicUrl: response.response.public_url,
-    };
+    if (!response.ok) throw new Error("Failed to get presigned URL for profile image");
+    return response.json();
   },
 
   /**
    * Get a presigned URL for uploading project images.
+   * Calls the internal Next.js API route which generates an S3 presigned URL.
    */
   async getPresignedUrlProject(
     companyId: string,
@@ -322,33 +323,35 @@ export const CompanyService = {
     filename: string,
     contentType: string = "image/jpeg"
   ): Promise<{ uploadUrl: string; publicUrl: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { upload_url: string; public_url: string };
-    }>("/wf/get_presigned_url", {
-      company_id: companyId,
-      project_id: projectId,
-      filename,
-      content_type: contentType,
+    const response = await fetch("/api/uploads/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename,
+        contentType,
+        folder: `projects/${projectId}`,
+      }),
     });
-    return {
-      uploadUrl: response.response.upload_url,
-      publicUrl: response.response.public_url,
-    };
+    if (!response.ok) throw new Error("Failed to get presigned URL for project image");
+    return response.json();
   },
 
   /**
-   * Register uploaded project image URLs with Bubble.
+   * Register uploaded project image URLs directly in Supabase.
+   * Images are stored in projects.project_images array.
    */
   async registerProjectImages(
     projectId: string,
     imageUrls: string[]
   ): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/upload_project_images", {
-      project_id: projectId,
-      image_urls: imageUrls,
-    });
+    // Images are now stored directly in Supabase projects.project_images array.
+    const supabase = requireSupabase();
+    const { error } = await supabase
+      .from("projects")
+      .update({ project_images: imageUrls })
+      .eq("id", projectId);
+
+    if (error) throw new Error(`Failed to register project images: ${error.message}`);
   },
 };
 
