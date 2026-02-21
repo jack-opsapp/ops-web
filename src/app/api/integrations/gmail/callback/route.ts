@@ -2,16 +2,16 @@
  * OPS Web - Gmail OAuth Callback
  *
  * GET /api/integrations/gmail/callback?code=...&state=companyId
- * Exchanges auth code for tokens, stores refresh token on Company via Bubble workflow.
+ * Exchanges auth code for tokens, stores them in Supabase gmail_connections table.
+ * Bubble dependency fully removed.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-const BUBBLE_API_URL = process.env.NEXT_PUBLIC_BUBBLE_API_URL ?? "https://opsapp.co/version-test/api/1.1";
-const BUBBLE_API_TOKEN = process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ?? "";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -63,19 +63,38 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json();
     const refreshToken = tokens.refresh_token;
 
-    // Store the refresh token on the Company via Bubble workflow
-    await fetch(`${BUBBLE_API_URL}/wf/store_gmail_tokens`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${BUBBLE_API_TOKEN}`,
-      },
-      body: JSON.stringify({
-        company_id: companyId,
-        gmail_refresh_token: refreshToken,
-        gmail_connected: true,
-      }),
+    // Fetch Gmail address from Google userinfo endpoint
+    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
+    const userInfo = userInfoResponse.ok ? await userInfoResponse.json() : {};
+    const gmailEmail = userInfo.email ?? "unknown@gmail.com";
+
+    // Store tokens in Supabase gmail_connections table
+    const supabase = getServiceRoleClient();
+    const { error: dbError } = await supabase
+      .from("gmail_connections")
+      .upsert(
+        {
+          company_id: companyId,
+          email: gmailEmail,
+          type: "company",
+          gmail_refresh_token: refreshToken,
+          gmail_access_token: tokens.access_token ?? null,
+          token_expiry: tokens.expiry_date
+            ? new Date(tokens.expiry_date).toISOString()
+            : null,
+          gmail_auto_log_enabled: true,
+        },
+        { onConflict: "company_id,email" }
+      );
+
+    if (dbError) {
+      console.error("Failed to store Gmail tokens in Supabase:", dbError.message);
+      return NextResponse.redirect(
+        `${BASE_URL}/settings?tab=integrations&status=error&message=db_error`
+      );
+    }
 
     return NextResponse.redirect(
       `${BASE_URL}/settings?tab=integrations&status=connected`

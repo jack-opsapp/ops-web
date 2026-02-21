@@ -300,6 +300,39 @@ export const UserService = {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
+   * Login with email/password via Firebase Authentication + Supabase profile lookup.
+   *
+   * Flow:
+   * 1. Sign into Firebase with email/password (sets onAuthStateChanged → cookie)
+   * 2. Fetch full user + company profile from Supabase via /api/me
+   * 3. Return typed User + Company models
+   *
+   * Requires: Email/Password sign-in enabled in Firebase Console →
+   * Authentication → Sign-in method → Email/Password.
+   */
+  async loginWithEmailPassword(
+    email: string,
+    password: string
+  ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
+    // Step 1: Firebase auth (triggers onAuthStateChanged → sets ops-auth-token cookie)
+    await signInWithEmail(email, password);
+
+    // Step 2: Fetch Supabase profile via service-role API
+    // (Supabase client-side RLS won't work yet — JWT hasn't propagated)
+    const resp = await fetch(`/api/me?email=${encodeURIComponent(email)}`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error ?? "Could not load user profile");
+    }
+    const { user: userRow, company: companyRow } = await resp.json();
+
+    const user = mapFromDb(userRow as Record<string, unknown>);
+    const company = companyRow ? mapCompanyFromDb(companyRow as Record<string, unknown>) : null;
+
+    return { user, company };
+  },
+
+  /**
    * Login with Google via Firebase + Supabase lookup.
    * Firebase already verified the idToken client-side.
    * Looks up user by email in Supabase, auto-provisions on first sign-in.
@@ -361,43 +394,6 @@ export const UserService = {
       if (companyRow) {
         company = mapCompanyFromDb(companyRow);
       }
-    }
-
-    return { user, company };
-  },
-
-  /**
-   * Login with email/password via Firebase then Supabase user lookup.
-   * Firebase handles credential validation.
-   */
-  async loginWithEmailPassword(
-    email: string,
-    password: string
-  ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
-    // Firebase handles credential validation
-    await signInWithEmail(email, password);
-
-    const supabase = requireSupabase();
-    const { data: userRow, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
-
-    if (error || !userRow) {
-      throw new Error("Account not found. Please check your email.");
-    }
-
-    const user = mapFromDb(userRow);
-    let company: import("../../types/models").Company | null = null;
-
-    if (userRow.company_id) {
-      const { data: companyRow } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("id", userRow.company_id)
-        .single();
-      if (companyRow) company = mapCompanyFromDb(companyRow);
     }
 
     return { user, company };

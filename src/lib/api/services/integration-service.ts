@@ -1,36 +1,58 @@
 /**
  * OPS Web - Integration Service
  *
- * Methods for managing email integrations (Gmail OAuth, forwarding).
+ * Gmail integration via Supabase `gmail_connections` table.
+ * Bubble dependency fully removed.
  */
 
-import { getBubbleClient } from "../bubble-client";
-import { BubbleTypes } from "../../constants/bubble-fields";
+import { requireSupabase } from "@/lib/supabase/helpers";
 
 export const IntegrationService = {
   /**
-   * Check if the company has Gmail tokens connected.
+   * Check if the company has a Gmail connection in Supabase.
    */
   async getGmailConnectionStatus(companyId: string): Promise<boolean> {
-    const client = getBubbleClient();
-    const response = await client.get<{
-      response: { gmail_connected?: boolean };
-    }>(`/obj/${BubbleTypes.company.toLowerCase()}/${companyId}`);
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("gmail_connections")
+      .select("id")
+      .eq("company_id", companyId)
+      .limit(1);
 
-    return response.response.gmail_connected === true;
+    if (error) return false;
+    return (data?.length ?? 0) > 0;
   },
 
   /**
-   * Disconnect Gmail by clearing tokens.
+   * Get the connected Gmail email address for a company.
+   * Returns null if not connected.
+   */
+  async getGmailConnection(
+    companyId: string
+  ): Promise<{ email: string; autoLogEnabled: boolean } | null> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("gmail_connections")
+      .select("email, gmail_auto_log_enabled")
+      .eq("company_id", companyId)
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+    return { email: data.email, autoLogEnabled: data.gmail_auto_log_enabled };
+  },
+
+  /**
+   * Disconnect Gmail by deleting the connection row.
    */
   async disconnectGmail(companyId: string): Promise<void> {
-    const client = getBubbleClient();
+    const supabase = requireSupabase();
+    const { error } = await supabase
+      .from("gmail_connections")
+      .delete()
+      .eq("company_id", companyId);
 
-    await client.post("/wf/store_gmail_tokens", {
-      company_id: companyId,
-      gmail_refresh_token: null,
-      gmail_connected: false,
-    });
+    if (error) throw new Error(`Failed to disconnect Gmail: ${error.message}`);
   },
 
   /**
