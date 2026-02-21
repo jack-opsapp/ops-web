@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
+import { trackBeginTrial, trackCompleteOnboarding } from "@/lib/analytics/analytics";
 import {
   useSetupStore,
   type WorkType,
@@ -318,9 +319,11 @@ export default function SetupPage() {
 
   const handleNext = useCallback(() => {
     if (currentStep < TOTAL_STEPS) {
+      if (currentStep === 1) trackBeginTrial();
       setCurrentStep(currentStep + 1);
     } else {
       completeSetup();
+      trackCompleteOnboarding(false);
       router.push("/dashboard");
     }
   }, [currentStep, setCurrentStep, completeSetup, router]);
@@ -333,6 +336,7 @@ export default function SetupPage() {
 
   const handleSkip = useCallback(() => {
     completeSetup();
+    trackCompleteOnboarding(false);
     router.push("/dashboard");
   }, [completeSetup, router]);
 

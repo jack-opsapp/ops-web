@@ -10,6 +10,7 @@ import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { trackLogin } from "@/lib/analytics/analytics";
 
 export default function LoginPage() {
   return (
@@ -66,6 +67,7 @@ function LoginForm() {
         setCompany(result.company);
       }
       console.log("[LoginPage] Step 4: Auth store updated, navigating to", redirectTo);
+      trackLogin("google");
       router.push(redirectTo);
     } catch (err: unknown) {
       console.error("[LoginPage] Google sign-in FAILED:", err);
@@ -98,6 +100,7 @@ function LoginForm() {
       } catch {
         // Firebase sign-in is optional - Bubble auth is primary
       }
+      trackLogin("email");
       router.push(redirectTo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign-in failed";

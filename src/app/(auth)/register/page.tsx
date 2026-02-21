@@ -8,6 +8,7 @@ import { signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { trackSignUp } from "@/lib/analytics/analytics";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function RegisterPage() {
     setIsLoadingGoogle(true);
     try {
       await signInWithGoogle();
+      trackSignUp("google");
       router.push("/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Google sign-in failed";
@@ -63,6 +65,7 @@ export default function RegisterPage() {
         // Continue anyway - the auth provider will try to reconcile on next login
       }
 
+      trackSignUp("email");
       router.push("/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
