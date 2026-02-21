@@ -17,6 +17,7 @@ const protectedPrefixes = [
   "/invoices",
   "/accounting",
   "/settings",
+  "/admin",
 ];
 
 // Portal routes that require a portal session cookie
