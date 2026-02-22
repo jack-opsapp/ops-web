@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { BlogPost, BlogCategory } from "@/lib/admin/types";
 
@@ -223,6 +224,25 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
   const [sortKey, setSortKey] = useState<SortKey>("published_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [previewPost, setPreviewPost] = useState<(BlogPost & { ga4_views: number }) | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleToggleLive(post: BlogPost & { ga4_views: number }) {
+    setTogglingId(post.id);
+    try {
+      const res = await fetch(`/api/blog/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_live: !post.is_live }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      router.refresh();
+    } catch {
+      alert("Failed to toggle post status");
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -364,18 +384,28 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
               {getCategoryName(post.category_id, categories)}
             </span>
 
-            {/* Status */}
-            <span>
-              {post.is_live ? (
-                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368]">
+            {/* Status Toggle */}
+            <button
+              type="button"
+              onClick={() => handleToggleLive(post)}
+              disabled={togglingId === post.id}
+              className="w-fit"
+              title={post.is_live ? "Click to unpublish" : "Click to publish"}
+            >
+              {togglingId === post.id ? (
+                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B] animate-pulse">
+                  ...
+                </span>
+              ) : post.is_live ? (
+                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368] hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer">
                   Live
                 </span>
               ) : (
-                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B]">
+                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B] hover:bg-[#A5B368]/20 hover:text-[#A5B368] transition-colors cursor-pointer">
                   Draft
                 </span>
               )}
-            </span>
+            </button>
 
             {/* Display Views */}
             <span className="font-mono text-[13px] text-[#A7A7A7] text-right">
