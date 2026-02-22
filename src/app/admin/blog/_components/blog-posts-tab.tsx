@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { BlogPost, BlogCategory } from "@/lib/admin/types";
 
@@ -29,6 +29,178 @@ function formatDate(date: string | null): string {
   });
 }
 
+function formatPublishedDate(isoDate: string): string {
+  const date = new Date(isoDate);
+  const day = date.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
+  const time = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `POSTED AT ${day} ${time}`;
+}
+
+// ─── Preview Modal ───────────────────────────────────────────────────────────
+
+function BlogPreviewModal({
+  post,
+  categories,
+  onClose,
+}: {
+  post: BlogPost & { ga4_views: number };
+  categories: BlogCategory[];
+  onClose: () => void;
+}) {
+  const category = post.category_id
+    ? categories.find((c) => c.id === post.category_id)
+    : null;
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [handleKeyDown]);
+
+  // Content is admin-authored and stored in our database, not user-submitted
+  const contentHtml = { __html: post.content };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-3xl bg-[#141414] border border-white/[0.1] rounded-xl shadow-2xl mx-4">
+        {/* Top bar */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#141414] border-b border-white/[0.08] rounded-t-xl">
+          <div className="flex items-center gap-3">
+            {post.is_live ? (
+              <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368]">
+                Live
+              </span>
+            ) : (
+              <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B]">
+                Draft
+              </span>
+            )}
+            <span className="font-mono text-[11px] text-[#6B6B6B]">
+              {post.word_count.toLocaleString()} words
+            </span>
+            <span className="font-mono text-[11px] text-[#6B6B6B]">
+              {post.display_views.toLocaleString()} views
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/admin/blog/${post.id}/edit`}
+              className="px-3 py-1.5 bg-[#597794] hover:bg-[#6B8AA6] rounded font-mohave text-[12px] uppercase tracking-wider text-white transition-colors"
+            >
+              Edit
+            </Link>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] hover:text-[#E5E5E5] border border-white/[0.1] hover:border-white/[0.2] transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-8 py-8">
+          {/* Header */}
+          <header className="mb-8">
+            {category && (
+              <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#597794] mb-3">
+                {category.name}
+              </span>
+            )}
+            <h1 className="font-mohave text-3xl font-bold text-[#E5E5E5] leading-tight">
+              {post.title}
+            </h1>
+            {post.subtitle && (
+              <p className="mt-2 text-lg text-[#A7A7A7]">{post.subtitle}</p>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[#666]">
+              <span>{post.author || "The Ops Team"}</span>
+              {post.published_at && (
+                <span>{formatPublishedDate(post.published_at)}</span>
+              )}
+            </div>
+          </header>
+
+          {/* Thumbnail */}
+          {post.thumbnail_url && (
+            <div className="mb-8 rounded-xl overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.thumbnail_url}
+                alt={post.title}
+                className="w-full object-cover"
+              />
+            </div>
+          )}
+
+          {/* Body — admin-authored content from our database */}
+          <section
+            className={[
+              "text-[#CFCFCF] leading-relaxed",
+              "[&_h1]:font-mohave [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-[#E5E5E5] [&_h1]:mt-8 [&_h1]:mb-4",
+              "[&_h2]:font-mohave [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#E5E5E5] [&_h2]:mt-8 [&_h2]:mb-4",
+              "[&_h3]:font-mohave [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#E5E5E5] [&_h3]:mt-6 [&_h3]:mb-3",
+              "[&_p]:mb-4",
+              "[&_a]:text-[#597794] [&_a]:underline [&_a]:hover:text-[#8AAFC4]",
+              "[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4",
+              "[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4",
+              "[&_li]:mb-2",
+              "[&_blockquote]:border-l-2 [&_blockquote]:border-[#597794] [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-[#A7A7A7] [&_blockquote]:my-5",
+              "[&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-5",
+              "[&_strong]:font-semibold [&_strong]:text-[#E5E5E5]",
+            ].join(" ")}
+            dangerouslySetInnerHTML={contentHtml}
+          />
+
+          {/* FAQs */}
+          {post.faqs && post.faqs.length > 0 && (
+            <section className="mt-12 border-t border-white/[0.08] pt-8">
+              <h2 className="font-mohave text-2xl font-semibold text-[#E5E5E5] mb-5">
+                Frequently Asked Questions
+              </h2>
+              <div className="space-y-3">
+                {post.faqs.map((faq, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
+                  >
+                    <h3 className="font-mohave text-lg font-semibold text-[#E5E5E5] mb-1">
+                      {faq.question}
+                    </h3>
+                    <p className="text-[#A7A7A7] text-sm leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const COLUMNS: {
   label: string;
   key?: SortKey;
@@ -50,6 +222,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("published_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [previewPost, setPreviewPost] = useState<(BlogPost & { ga4_views: number }) | null>(null);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -178,12 +351,13 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             className="grid grid-cols-7 px-6 items-center h-14 border-b border-white/[0.05] hover:bg-white/[0.02] transition-colors"
           >
             {/* Title */}
-            <Link
-              href={`/admin/blog/${post.id}/edit`}
-              className="font-mohave text-[14px] text-[#E5E5E5] hover:text-[#C4A868] max-w-[300px] truncate"
+            <button
+              type="button"
+              onClick={() => setPreviewPost(post)}
+              className="font-mohave text-[14px] text-[#E5E5E5] hover:text-[#C4A868] max-w-[300px] truncate text-left"
             >
               {post.title}
-            </Link>
+            </button>
 
             {/* Category */}
             <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#597794]/20 text-[#8AAFC4] w-fit">
@@ -234,6 +408,15 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
           </div>
         )}
       </div>
+
+      {/* Preview Modal */}
+      {previewPost && (
+        <BlogPreviewModal
+          post={previewPost}
+          categories={categories}
+          onClose={() => setPreviewPost(null)}
+        />
+      )}
     </div>
   );
 }
