@@ -2,6 +2,8 @@
 
 import { SubTabs } from "../../_components/sub-tabs";
 import { BlogDashboard } from "./blog-dashboard";
+import { BlogPostsTab } from "./blog-posts-tab";
+import { BlogTopicsTab } from "./blog-topics-tab";
 import type { BlogPost, BlogCategory } from "@/lib/admin/types";
 
 interface BlogHubContentProps {
@@ -31,9 +33,9 @@ export function BlogHubContent(props: BlogHubContentProps) {
           );
         }
         if (activeTab === "Posts")
-          return <div className="text-[#6B6B6B]">Posts tab placeholder</div>;
+          return <BlogPostsTab posts={props.posts} categories={props.categories} />;
         if (activeTab === "Topics")
-          return <div className="text-[#6B6B6B]">Topics tab placeholder</div>;
+          return <BlogTopicsTab />;
         return null;
       }}
     </SubTabs>
