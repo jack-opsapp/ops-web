@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 // ─── ISR ──────────────────────────────────────────────────────────────────────
 
 export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,8 +20,12 @@ interface PageProps {
 // ─── generateStaticParams ─────────────────────────────────────────────────────
 
 export async function generateStaticParams() {
-  const posts = await getLiveBlogPosts();
-  return posts.map((post) => ({ slug: post.slug }));
+  try {
+    const posts = await getLiveBlogPosts();
+    return posts.map((post) => ({ slug: post.slug }));
+  } catch {
+    return [];
+  }
 }
 
 // ─── generateMetadata ─────────────────────────────────────────────────────────
