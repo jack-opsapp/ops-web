@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/admin/revenue", label: "REVENUE" },
   { href: "/admin/platform-health", label: "PLATFORM HEALTH" },
   { href: "/admin/feedback", label: "FEEDBACK" },
+  { href: "/admin/blog", label: "BLOG" },
   { href: "/admin/system", label: "SYSTEM" },
 ];
 

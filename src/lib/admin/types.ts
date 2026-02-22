@@ -215,3 +215,49 @@ export interface DonutSegment {
   value: number;
   color: string;
 }
+
+// ─── Blog Types ──────────────────────────────────────────────────────────────
+
+export interface BlogCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface BlogTopic {
+  id: string;
+  topic: string;
+  author: string;
+  image_url: string | null;
+  used: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  slug: string;
+  author: string | null;
+  content: string;
+  summary: string | null;
+  teaser: string | null;
+  meta_title: string | null;
+  thumbnail_url: string | null;
+  category_id: string | null;
+  category2_id: string | null;
+  is_live: boolean;
+  display_views: number;
+  word_count: number;
+  faqs: { question: string; answer: string }[];
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogPostListItem extends BlogPost {
+  category_name: string | null;
+  category2_name: string | null;
+  ga4_views?: number;
+}

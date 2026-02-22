@@ -255,3 +255,69 @@ export async function getFormAbandonment(days = 30) {
   });
   return processEventCountRows(response.rows ?? []);
 }
+
+// ─── Blog Analytics ──────────────────────────────────────────────────────────
+
+/**
+ * Get total page views on /blog/* paths.
+ */
+export async function getBlogPageViews(days = 30): Promise<number> {
+  const client = getGA4Client();
+  const [response] = await client.runReport({
+    property: getPropertyId(),
+    metrics: [{ name: "screenPageViews" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "pagePath",
+        stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" },
+      },
+    },
+    dateRanges: [buildDateRange(days)],
+  });
+  return parseInt(response.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10);
+}
+
+/**
+ * Get page views broken down by individual blog post path.
+ * Returns [{dimension: "/blog/slug", count: 123}] sorted by count desc.
+ */
+export async function getBlogViewsByPost(days = 30, limit = 50) {
+  const client = getGA4Client();
+  const [response] = await client.runReport({
+    property: getPropertyId(),
+    dimensions: [{ name: "pagePath" }],
+    metrics: [{ name: "screenPageViews" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "pagePath",
+        stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" },
+      },
+    },
+    dateRanges: [buildDateRange(days)],
+    orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+    limit,
+  });
+  return processEventCountRows(response.rows ?? []);
+}
+
+/**
+ * Get blog page views by date for trend line chart.
+ * Returns [{dimension: "20260215", count: 45}] sorted by date asc.
+ */
+export async function getBlogViewsTimeline(days = 30) {
+  const client = getGA4Client();
+  const [response] = await client.runReport({
+    property: getPropertyId(),
+    dimensions: [{ name: "date" }],
+    metrics: [{ name: "screenPageViews" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "pagePath",
+        stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" },
+      },
+    },
+    dateRanges: [buildDateRange(days)],
+    orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
+  });
+  return processEventCountRows(response.rows ?? []);
+}
