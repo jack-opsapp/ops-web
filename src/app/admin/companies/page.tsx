@@ -1,40 +1,44 @@
-import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { getCompanyList } from "@/lib/admin/admin-queries";
+import { listAllAuthUsers } from "@/lib/firebase/admin-sdk";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { CompaniesTable } from "./_components/companies-table";
 
 async function fetchCompanies() {
-  const db = getAdminSupabase();
+  const [companies, authUsers] = await Promise.all([
+    getCompanyList(),
+    listAllAuthUsers(),
+  ]);
 
-  const { data: companies } = await db
-    .from("companies")
-    .select(`
-      id, name, subscription_plan, subscription_status, created_at,
-      seated_employee_ids, max_seats
-    `)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+  // Build email → lastSignIn map from Firebase
+  const lastSignInByEmail: Record<string, string> = {};
+  for (const u of authUsers) {
+    if (u.email && u.metadata.lastSignInTime) {
+      lastSignInByEmail[u.email] = u.metadata.lastSignInTime;
+    }
+  }
 
-  if (!companies) return [];
+  // We need user emails per company to find lastActive
+  // Since getCompanyList doesn't fetch user emails, we'll use the authUsers
+  // grouped by company via a separate query
+  const db = (await import("@/lib/supabase/admin-client")).getAdminSupabase();
+  const { data: users } = await db
+    .from("users")
+    .select("company_id, email")
+    .is("deleted_at", null);
 
-  // Fetch user and project counts per company in parallel
-  const counts = await Promise.all(
-    companies.map(async (c) => {
-      const [{ count: userCount }, { count: projectCount }] = await Promise.all([
-        db.from("users").select("*", { count: "exact", head: true })
-          .eq("company_id", c.id).is("deleted_at", null),
-        db.from("projects").select("*", { count: "exact", head: true })
-          .eq("company_id", c.id).is("deleted_at", null),
-      ]);
-      return { id: c.id, userCount: userCount ?? 0, projectCount: projectCount ?? 0 };
-    })
-  );
-
-  const countsById = Object.fromEntries(counts.map((c) => [c.id, c]));
+  const companyLastActive: Record<string, string> = {};
+  for (const u of users ?? []) {
+    if (!u.email || !u.company_id) continue;
+    const lastSign = lastSignInByEmail[u.email];
+    if (!lastSign) continue;
+    if (!companyLastActive[u.company_id] || new Date(lastSign) > new Date(companyLastActive[u.company_id])) {
+      companyLastActive[u.company_id] = lastSign;
+    }
+  }
 
   return companies.map((c) => ({
     ...c,
-    userCount: countsById[c.id]?.userCount ?? 0,
-    projectCount: countsById[c.id]?.projectCount ?? 0,
+    lastActive: companyLastActive[c.id] ?? null,
   }));
 }
 

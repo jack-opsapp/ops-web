@@ -196,6 +196,46 @@ export async function getSignupsByWeek(weeks = 12) {
 }
 
 /**
+ * Get total event count for a specific event name (no dimension).
+ */
+export async function getEventCountTotal(eventName: string, days = 30): Promise<number> {
+  const client = getGA4Client();
+  const [response] = await client.runReport({
+    property: getPropertyId(),
+    metrics: [{ name: "eventCount" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "EXACT", value: eventName },
+      },
+    },
+    dateRanges: [buildDateRange(days)],
+  });
+  return parseInt(response.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10);
+}
+
+/**
+ * Get event counts by an arbitrary dimension.
+ */
+export async function getEventByDimension(eventName: string, dimensionName: string, days = 30) {
+  const client = getGA4Client();
+  const [response] = await client.runReport({
+    property: getPropertyId(),
+    dimensions: [{ name: dimensionName }],
+    metrics: [{ name: "eventCount" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "EXACT", value: eventName },
+      },
+    },
+    dateRanges: [buildDateRange(days)],
+    orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+  });
+  return processEventCountRows(response.rows ?? []);
+}
+
+/**
  * Get form abandonment breakdown by form type.
  */
 export async function getFormAbandonment(days = 30) {

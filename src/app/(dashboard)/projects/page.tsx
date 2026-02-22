@@ -16,6 +16,7 @@ import {
   ArrowRight,
   CheckSquare,
 } from "lucide-react";
+import { trackScreenView } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,6 +253,9 @@ export default function ProjectsPage() {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+
+  // Track screen view
+  useEffect(() => { trackScreenView("projects"); }, []);
 
   // Set page actions in top bar
   const setActions = usePageActionsStore((s) => s.setActions);

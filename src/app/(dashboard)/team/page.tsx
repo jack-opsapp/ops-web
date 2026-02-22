@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -19,6 +19,7 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { trackScreenView } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -547,6 +548,9 @@ export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+
+  // Track screen view
+  useEffect(() => { trackScreenView("team"); }, []);
 
   // ─── Data hooks ──────────────────────────────────────────────────────────
   const { data: teamData, isLoading } = useTeamMembers();

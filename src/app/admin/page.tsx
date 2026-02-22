@@ -1,59 +1,73 @@
-import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { listAllAuthUsers, calcActiveUsers } from "@/lib/firebase/admin-sdk";
+import {
+  getTotalCompanies,
+  getTrialsExpiringIn,
+  getRecentSignups,
+  getCompanySparkline,
+  getTasksCreatedSparkline,
+  getActiveUsersSparkline,
+  computeMRR,
+  getTrialConversionRate,
+  getAlerts,
+} from "@/lib/admin/admin-queries";
+import { getFeatureRequests } from "@/lib/admin/admin-queries";
+import { PLAN_PRICES } from "@/lib/admin/types";
 import { StatCard } from "./_components/stat-card";
 import { AdminPageHeader } from "./_components/admin-page-header";
-import { AdminBarChart } from "./_components/charts/bar-chart";
+import { Sparkline } from "./_components/sparkline";
+import { AlertList } from "./_components/alert-list";
 import { PlanBadge } from "./_components/plan-badge";
 
 async function fetchOverviewData() {
-  const db = getAdminSupabase();
-  const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-  const twelveMonthsAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
-
   const [
-    { count: totalCompanies },
-    { count: activeSubscriptions },
-    { count: trialsExpiring },
-    { data: allCompanies },
-    { data: recentCompanies },
+    totalCompanies,
     authUsers,
+    mrr,
+    trialConversion,
+    trialsExpiring,
+    recentSignups,
+    companySparkline,
+    taskSparkline,
+    alerts,
+    featureRequests,
   ] = await Promise.all([
-    db.from("companies").select("*", { count: "exact", head: true }).is("deleted_at", null),
-    db.from("companies").select("*", { count: "exact", head: true })
-      .in("subscription_status", ["active", "grace"]).is("deleted_at", null),
-    db.from("companies").select("*", { count: "exact", head: true })
-      .eq("subscription_status", "trial")
-      .lte("trial_end_date", twoWeeksFromNow)
-      .is("deleted_at", null),
-    db.from("companies").select("created_at")
-      .gte("created_at", twelveMonthsAgo)
-      .is("deleted_at", null),
-    db.from("companies").select("name, subscription_plan, subscription_status, created_at")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(5),
+    getTotalCompanies(),
     listAllAuthUsers(),
+    computeMRR(),
+    getTrialConversionRate(90),
+    getTrialsExpiringIn(14),
+    getRecentSignups(10),
+    getCompanySparkline(12),
+    getTasksCreatedSparkline(12),
+    getAlerts(),
+    getFeatureRequests(),
   ]);
 
-  const { mau } = calcActiveUsers(authUsers);
+  const { mau, wau } = calcActiveUsers(authUsers);
+  const activeUsersSparkline = getActiveUsersSparkline(authUsers, 12);
 
-  // Group companies by month for bar chart
-  const monthCounts: Record<string, number> = {};
-  for (const c of allCompanies ?? []) {
-    const month = c.created_at?.slice(0, 7) ?? "";
-    monthCounts[month] = (monthCounts[month] ?? 0) + 1;
-  }
-  const companiesByMonth = Object.entries(monthCounts)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, value]) => ({ label: label.slice(5), value })); // "MM" format
+  // Revenue sparkline: approximate from company sparkline data
+  // Each new paying company adds avg revenue
+  const avgPrice = Object.values(PLAN_PRICES).reduce((a, b) => a + b, 0) / Object.keys(PLAN_PRICES).length;
+  const revenueSparkline = companySparkline.map((d) => ({
+    label: d.label,
+    value: Math.round(d.value * avgPrice),
+  }));
 
   return {
-    totalCompanies: totalCompanies ?? 0,
-    activeSubscriptions: activeSubscriptions ?? 0,
-    trialsExpiring: trialsExpiring ?? 0,
+    totalCompanies,
     mau,
-    companiesByMonth,
-    recentCompanies: recentCompanies ?? [],
+    wau,
+    mrr,
+    trialConversion,
+    trialsExpiring,
+    recentSignups,
+    companySparkline,
+    taskSparkline,
+    activeUsersSparkline,
+    revenueSparkline,
+    alerts,
+    latestFeatureRequests: featureRequests.slice(0, 5),
   };
 }
 
@@ -83,11 +97,13 @@ export default async function OverviewPage() {
       />
 
       <div className="p-8 space-y-8">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-4 gap-4">
+        {/* 6 KPI Cards */}
+        <div className="grid grid-cols-6 gap-4">
           <StatCard label="Total Companies" value={data.totalCompanies} />
-          <StatCard label="Monthly Active Users" value={data.mau} caption="last 30 days, Firebase Auth" />
-          <StatCard label="Active Subscriptions" value={data.activeSubscriptions} />
+          <StatCard label="MAU" value={data.mau} caption="Firebase Auth" />
+          <StatCard label="WAU" value={data.wau} caption="Firebase Auth" />
+          <StatCard label="MRR" value={`$${data.mrr.toLocaleString()}`} />
+          <StatCard label="Trial Conversion" value={`${data.trialConversion}%`} caption="last 90 days" />
           <StatCard
             label="Trials Expiring"
             value={data.trialsExpiring}
@@ -96,23 +112,53 @@ export default async function OverviewPage() {
           />
         </div>
 
-        {/* Charts + Recent */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* New Companies Chart */}
-          <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-            <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-6">
+        {/* 4 Sparklines */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
+            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
               New Companies
             </p>
-            <AdminBarChart data={data.companiesByMonth} />
+            <Sparkline data={data.companySparkline} color="#597794" />
           </div>
+          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
+            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+              Active Users
+            </p>
+            <Sparkline data={data.activeUsersSparkline} color="#9DB582" />
+          </div>
+          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
+            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+              Tasks Created
+            </p>
+            <Sparkline data={data.taskSparkline} color="#8195B5" />
+          </div>
+          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
+            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+              Revenue
+            </p>
+            <Sparkline data={data.revenueSparkline} color="#C4A868" />
+          </div>
+        </div>
 
-          {/* Recent Signups Table */}
+        {/* Alerts */}
+        <div className="border border-white/[0.08] rounded-lg bg-white/[0.02]">
+          <div className="px-6 py-4 border-b border-white/[0.08]">
+            <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B]">
+              Action Items
+            </p>
+          </div>
+          <AlertList alerts={data.alerts} />
+        </div>
+
+        {/* Two Columns: Recent Signups + Feature Requests */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Recent Signups */}
           <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
             <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
               Recent Signups
             </p>
             <div className="space-y-0">
-              {data.recentCompanies.map((company, i) => (
+              {data.recentSignups.map((company, i) => (
                 <div
                   key={i}
                   className="flex items-center justify-between h-14 border-b border-white/[0.05] last:border-0"
@@ -128,6 +174,35 @@ export default async function OverviewPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Latest Feature Requests */}
+          <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
+            <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
+              Latest Feature Requests
+            </p>
+            <div className="space-y-0">
+              {data.latestFeatureRequests.length === 0 ? (
+                <p className="font-mohave text-[14px] uppercase text-[#6B6B6B] py-4 text-center">
+                  No feature requests
+                </p>
+              ) : (
+                data.latestFeatureRequests.map((fr) => (
+                  <div
+                    key={fr.id}
+                    className="flex items-center justify-between h-14 border-b border-white/[0.05] last:border-0"
+                  >
+                    <div className="min-w-0 flex-1 pr-4">
+                      <p className="font-mohave text-[14px] text-[#E5E5E5] truncate">{fr.title}</p>
+                      <p className="font-kosugi text-[11px] text-[#6B6B6B]">{fr.type}</p>
+                    </div>
+                    <span className="font-kosugi text-[12px] text-[#6B6B6B] flex-shrink-0">
+                      [{new Date(fr.created_at).toLocaleDateString()}]
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

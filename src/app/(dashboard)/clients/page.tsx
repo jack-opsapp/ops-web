@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Building2,
 } from "lucide-react";
+import { trackScreenView } from "@/lib/analytics/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -314,6 +315,9 @@ export default function ClientsPage() {
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateClient = () => openWindow({ id: "create-client", title: "New Client", type: "create-client" });
+
+  // Track screen view
+  useEffect(() => { trackScreenView("clients"); }, []);
 
   // Set page actions in top bar
   const setActions = usePageActionsStore((s) => s.setActions);

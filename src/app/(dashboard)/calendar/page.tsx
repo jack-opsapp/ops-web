@@ -10,6 +10,7 @@ import {
   MapPin,
   Loader2,
 } from "lucide-react";
+import { trackScreenView } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import {
@@ -875,6 +876,9 @@ function MiniStatsBar({ events, currentDate: _currentDate, view: _view }: { even
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>("month");
+
+  // Track screen view
+  useEffect(() => { trackScreenView("calendar"); }, []);
 
   // Compute the visible date range based on currentDate and view
   const { rangeStart, rangeEnd } = useMemo(() => {

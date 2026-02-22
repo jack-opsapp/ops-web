@@ -28,6 +28,7 @@ import {
   type User,
 } from "@/lib/types/models";
 import { toast } from "sonner";
+import { trackCreateProject, trackFormAbandoned } from "@/lib/analytics/analytics";
 
 // ─── Form Schema ───────────────────────────────────────────────────────────────
 
@@ -271,7 +272,8 @@ export function CreateProjectForm({
     handleSubmit,
     control,
     reset,
-    formState: { errors },
+    watch,
+    formState: { errors, isDirty },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {
@@ -316,6 +318,7 @@ export function CreateProjectForm({
       },
       {
         onSuccess: () => {
+          trackCreateProject(1);
           toast.success("Project created successfully");
           reset();
           onSuccess?.();
@@ -446,6 +449,11 @@ export function CreateProjectForm({
               type="button"
               variant="ghost"
               onClick={() => {
+                if (isDirty) {
+                  const values = watch();
+                  const fieldsFilled = [values.title, values.clientId, values.address, values.startDate, values.endDate, values.projectDescription, values.notes].filter(Boolean).length + (values.teamMemberIds.length > 0 ? 1 : 0);
+                  trackFormAbandoned("create_project", fieldsFilled);
+                }
                 reset();
                 setServerError(null);
                 onCancel();

@@ -12,6 +12,7 @@ import {
   DollarSign,
   Mail,
 } from "lucide-react";
+import { trackScreenView } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,6 +147,9 @@ export default function PipelinePage() {
     id: string;
     stage: OpportunityStage;
   } | null>(null);
+
+  // Track screen view
+  useEffect(() => { trackScreenView("pipeline"); }, []);
 
   // ── Auth ───────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();

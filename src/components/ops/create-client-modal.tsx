@@ -24,6 +24,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { trackClientCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
 import { useCreateClient } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 
@@ -122,6 +123,7 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
       },
       {
         onSuccess: () => {
+          trackClientCreated();
           toast.success("Client created successfully");
           reset();
           onSuccess?.();
@@ -208,6 +210,11 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
               type="button"
               variant="ghost"
               onClick={() => {
+                if (isDirty) {
+                  const values = watch();
+                  const fieldsFilled = [values.name, values.company, values.email, values.phone, values.address, values.notes].filter(Boolean).length;
+                  trackFormAbandoned("create_client", fieldsFilled);
+                }
                 reset();
                 setServerError(null);
                 onCancel();

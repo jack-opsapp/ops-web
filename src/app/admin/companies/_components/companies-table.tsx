@@ -13,9 +13,27 @@ type Company = {
   created_at: string;
   userCount: number;
   projectCount: number;
+  pipelineCount: number;
+  lastActive: string | null;
 };
 
-const STATUS_FILTERS = ["ALL", "TRIAL", "ACTIVE", "GRACE", "EXPIRED"] as const;
+const STATUS_FILTERS = ["ALL", "TRIAL", "ACTIVE", "GRACE", "EXPIRED", "INACTIVE"] as const;
+
+function isInactive(lastActive: string | null): boolean {
+  if (!lastActive) return true;
+  return Date.now() - new Date(lastActive).getTime() > 30 * 86_400_000;
+}
+
+function timeAgo(date: string | null): string {
+  if (!date) return "never";
+  const diff = Date.now() - new Date(date).getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
 
 export function CompaniesTable({ companies }: { companies: Company[] }) {
   const [search, setSearch] = useState("");
@@ -24,8 +42,12 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
   const filtered = useMemo(() => {
     return companies.filter((c) => {
       const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
+
+      if (statusFilter === "ALL") return matchesSearch;
+      if (statusFilter === "INACTIVE") {
+        return matchesSearch && isInactive(c.lastActive);
+      }
       const matchesStatus =
-        statusFilter === "ALL" ||
         c.subscription_status?.toLowerCase() === statusFilter.toLowerCase();
       return matchesSearch && matchesStatus;
     });
@@ -65,8 +87,8 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
       {/* Table */}
       <div className="border border-white/[0.08] rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-6 px-6 py-3 border-b border-white/[0.08]">
-          {["COMPANY", "PLAN", "STATUS", "USERS", "PROJECTS", "JOINED"].map((h) => (
+        <div className="grid grid-cols-8 px-6 py-3 border-b border-white/[0.08]">
+          {["COMPANY", "PLAN", "STATUS", "USERS", "PROJECTS", "PIPELINE", "LAST ACTIVE", "JOINED"].map((h) => (
             <span key={h} className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B]">
               {h}
             </span>
@@ -74,24 +96,34 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
         </div>
 
         {/* Rows */}
-        {filtered.map((c) => (
-          <Link
-            key={c.id}
-            href={`/admin/companies/${c.id}`}
-            className="grid grid-cols-6 px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
-          >
-            <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
-              {c.name}
-            </span>
-            <span><PlanBadge plan={c.subscription_plan ?? "trial"} /></span>
-            <span><StatusBadge status={c.subscription_status ?? "trial"} /></span>
-            <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.userCount}</span>
-            <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.projectCount}</span>
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">
-              [{new Date(c.created_at).toLocaleDateString()}]
-            </span>
-          </Link>
-        ))}
+        {filtered.map((c) => {
+          const inactive = isInactive(c.lastActive);
+          return (
+            <Link
+              key={c.id}
+              href={`/admin/companies/${c.id}`}
+              className={[
+                "grid grid-cols-8 px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors",
+                inactive ? "opacity-60" : "",
+              ].join(" ")}
+            >
+              <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
+                {c.name}
+              </span>
+              <span><PlanBadge plan={c.subscription_plan ?? "trial"} /></span>
+              <span><StatusBadge status={c.subscription_status ?? "trial"} /></span>
+              <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.userCount}</span>
+              <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.projectCount}</span>
+              <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.pipelineCount}</span>
+              <span className={`font-kosugi text-[12px] ${inactive ? "text-[#C4A868]" : "text-[#6B6B6B]"}`}>
+                [{timeAgo(c.lastActive)}]
+              </span>
+              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+                [{new Date(c.created_at).toLocaleDateString()}]
+              </span>
+            </Link>
+          );
+        })}
 
         {filtered.length === 0 && (
           <div className="px-6 py-12 text-center">

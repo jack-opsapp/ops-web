@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { X, Save } from "lucide-react";
+import { trackTaskCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,7 +108,7 @@ function TaskForm({
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues,
@@ -124,6 +125,24 @@ function TaskForm({
 
   const selectedTeamMemberIds = watch("teamMemberIds");
 
+  function handleFormSubmit(values: TaskFormValues) {
+    if (!isEditMode) {
+      const hasSchedule = !!(values.startDate || values.endDate);
+      const teamSize = (values.teamMemberIds || []).length;
+      trackTaskCreated(hasSchedule, teamSize);
+    }
+    onSubmit(values);
+  }
+
+  function handleCancel() {
+    if (isDirty) {
+      const values = watch();
+      const fieldsFilled = [values.customTitle, values.taskTypeId, values.startDate, values.endDate].filter(Boolean).length + ((values.teamMemberIds || []).length > 0 ? 1 : 0);
+      trackFormAbandoned("task", fieldsFilled);
+    }
+    onCancel();
+  }
+
   function toggleTeamMember(memberId: string) {
     const current = selectedTeamMemberIds || [];
     if (current.includes(memberId)) {
@@ -138,7 +157,7 @@ function TaskForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(handleFormSubmit)}
       className={cn(
         "bg-background-elevated border border-border-medium rounded-lg p-2",
         "animate-fade-in space-y-2"
@@ -151,7 +170,7 @@ function TaskForm({
         </h3>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={handleCancel}
           className="p-[4px] text-text-tertiary hover:text-text-primary transition-colors"
         >
           <X className="w-[18px] h-[18px]" />
@@ -293,7 +312,7 @@ function TaskForm({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={onCancel}
+          onClick={handleCancel}
           disabled={isSubmitting}
         >
           Cancel

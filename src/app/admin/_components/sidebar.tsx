@@ -2,9 +2,13 @@ import { SidebarNavItem } from "./sidebar-nav-item";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "OVERVIEW" },
+  { href: "/admin/acquisition", label: "ACQUISITION" },
   { href: "/admin/companies", label: "COMPANIES" },
-  { href: "/admin/analytics", label: "ANALYTICS" },
-  { href: "/admin/subscriptions", label: "SUBSCRIPTIONS" },
+  { href: "/admin/engagement", label: "ENGAGEMENT" },
+  { href: "/admin/revenue", label: "REVENUE" },
+  { href: "/admin/platform-health", label: "PLATFORM HEALTH" },
+  { href: "/admin/feedback", label: "FEEDBACK" },
+  { href: "/admin/system", label: "SYSTEM" },
 ];
 
 export function AdminSidebar() {
