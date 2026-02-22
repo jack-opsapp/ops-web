@@ -181,8 +181,7 @@ export function deriveSubscriptionStatus(company: {
   if (company.trial_end_date) {
     return new Date(company.trial_end_date) > new Date() ? "trial" : "expired";
   }
-  if (company.stripe_customer_id) return "unknown";
-  return "none";
+  return "no subscription";
 }
 
 /** Derive subscription plan from available fields when subscription_plan is null */
@@ -195,7 +194,7 @@ export function deriveSubscriptionPlan(company: {
   if (company.subscription_plan) return company.subscription_plan;
   const status = deriveSubscriptionStatus(company);
   if (status === "trial" || status === "expired") return "trial";
-  return "none";
+  return "—";
 }
 
 // ─── Chart Types ──────────────────────────────────────────────────────────────

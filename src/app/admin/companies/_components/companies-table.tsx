@@ -20,7 +20,7 @@ type Company = {
   lastActive: string | null;
 };
 
-const STATUS_FILTERS = ["ALL", "TRIAL", "ACTIVE", "GRACE", "EXPIRED", "NONE", "INACTIVE"] as const;
+const STATUS_FILTERS = ["ALL", "TRIAL", "ACTIVE", "GRACE", "EXPIRED", "NO SUB", "INACTIVE"] as const;
 
 function isInactive(lastActive: string | null): boolean {
   if (!lastActive) return true;
@@ -50,6 +50,9 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
       if (statusFilter === "ALL") return matchesSearch;
       if (statusFilter === "INACTIVE") {
         return matchesSearch && isInactive(c.lastActive);
+      }
+      if (statusFilter === "NO SUB") {
+        return matchesSearch && deriveSubscriptionStatus(c) === "no subscription";
       }
       const derived = deriveSubscriptionStatus(c);
       const matchesStatus = derived.toLowerCase() === statusFilter.toLowerCase();

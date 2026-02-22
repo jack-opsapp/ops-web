@@ -52,13 +52,11 @@ function deriveStatus(company: Record<string, unknown>): string {
   if (status) return status;
 
   const trialEnd = company.trial_end_date as string | null;
-  const stripeId = company.stripe_customer_id as string | null;
 
   if (trialEnd) {
     return new Date(trialEnd) > new Date() ? "trial" : "expired";
   }
-  if (stripeId) return "unknown";
-  return "none";
+  return "no subscription";
 }
 
 function derivePlan(company: Record<string, unknown>): string {
@@ -67,7 +65,7 @@ function derivePlan(company: Record<string, unknown>): string {
 
   const status = deriveStatus(company);
   if (status === "trial" || status === "expired") return "trial";
-  return "none";
+  return "—";
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -394,9 +392,11 @@ function SubscriptionTab({ company }: { company: Record<string, unknown> }) {
   const plan = derivePlan(company);
   const isInferred = !company.subscription_status;
 
+  const noSub = status === "no subscription";
+
   const rows = [
-    ["Plan", plan + (isInferred && plan !== "none" ? " (inferred)" : "")],
-    ["Status", status + (isInferred && status !== "none" ? " (inferred)" : "")],
+    ["Plan", noSub ? "—" : plan],
+    ["Status", status],
     ["Seats", `${seatsUsed} / ${company.max_seats ?? "?"}`],
     ["Trial Start", company.trial_start_date ? new Date(company.trial_start_date as string).toLocaleDateString() : "—"],
     ["Trial End", company.trial_end_date ? new Date(company.trial_end_date as string).toLocaleDateString() : "—"],
@@ -407,10 +407,10 @@ function SubscriptionTab({ company }: { company: Record<string, unknown> }) {
 
   return (
     <div className="space-y-3">
-      {isInferred && (
-        <div className="bg-[#C4A868]/10 border border-[#C4A868]/20 rounded-lg px-4 py-2">
-          <p className="font-mohave text-[11px] uppercase text-[#C4A868]">
-            Subscription data incomplete — status inferred from available fields
+      {noSub && (
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-3">
+          <p className="font-mohave text-[12px] uppercase text-[#6B6B6B]">
+            No Stripe subscription — trial managed by legacy system
           </p>
         </div>
       )}

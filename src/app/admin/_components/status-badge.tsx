@@ -4,8 +4,7 @@ const STATUS_COLORS: Record<string, string> = {
   grace: "#C4A868",
   expired: "#93321A",
   cancelled: "#93321A",
-  none: "#4A4A4A",
-  unknown: "#6B6B6B",
+  "no subscription": "#4A4A4A",
 };
 
 export function StatusBadge({ status }: { status: string }) {
