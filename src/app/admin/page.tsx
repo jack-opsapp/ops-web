@@ -16,7 +16,7 @@ import { StatCard } from "./_components/stat-card";
 import { AdminPageHeader } from "./_components/admin-page-header";
 import { Sparkline } from "./_components/sparkline";
 import { AlertList } from "./_components/alert-list";
-import { PlanBadge } from "./_components/plan-badge";
+import { RecentSignups } from "./_components/recent-signups";
 
 async function fetchOverviewData() {
   const [
@@ -157,24 +157,7 @@ export default async function OverviewPage() {
             <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
               Recent Signups
             </p>
-            <div className="space-y-0">
-              {data.recentSignups.map((company, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between h-14 border-b border-white/[0.05] last:border-0"
-                >
-                  <span className="font-mohave text-[14px] text-[#E5E5E5]">
-                    {company.name}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <PlanBadge plan={company.subscription_plan ?? "trial"} />
-                    <span className="font-kosugi text-[12px] text-[#6B6B6B]">
-                      [{new Date(company.created_at).toLocaleDateString()}]
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <RecentSignups companies={data.recentSignups} />
           </div>
 
           {/* Latest Feature Requests */}

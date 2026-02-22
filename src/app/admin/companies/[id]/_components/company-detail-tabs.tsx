@@ -63,11 +63,33 @@ export function CompanyDetailTabs({
   );
 }
 
+function deriveStatus(company: Record<string, unknown>): string {
+  const status = company.subscription_status as string | null;
+  if (status) return status;
+  const trialEnd = company.trial_end_date as string | null;
+  const stripeId = company.stripe_customer_id as string | null;
+  if (trialEnd) return new Date(trialEnd) > new Date() ? "trial" : "expired";
+  if (stripeId) return "unknown";
+  return "none";
+}
+
+function derivePlan(company: Record<string, unknown>): string {
+  const plan = company.subscription_plan as string | null;
+  if (plan) return plan;
+  const status = deriveStatus(company);
+  if (status === "trial" || status === "expired") return "trial";
+  return "none";
+}
+
 function SubscriptionTab({ company }: { company: Record<string, unknown> }) {
   const seatsUsed = (company.seated_employee_ids as string[] | null)?.length ?? 0;
+  const status = deriveStatus(company);
+  const plan = derivePlan(company);
+  const isInferred = !company.subscription_status;
+
   const rows = [
-    ["Plan", company.subscription_plan ?? "—"],
-    ["Status", company.subscription_status ?? "—"],
+    ["Plan", plan + (isInferred && plan !== "none" ? " (inferred)" : "")],
+    ["Status", status + (isInferred && status !== "none" ? " (inferred)" : "")],
     ["Seats", `${seatsUsed} / ${company.max_seats ?? "?"}`],
     ["Trial Start", company.trial_start_date ? new Date(company.trial_start_date as string).toLocaleDateString() : "—"],
     ["Trial End", company.trial_end_date ? new Date(company.trial_end_date as string).toLocaleDateString() : "—"],
@@ -78,13 +100,22 @@ function SubscriptionTab({ company }: { company: Record<string, unknown> }) {
   ];
 
   return (
-    <div className="border border-white/[0.08] rounded-lg p-6 space-y-4 max-w-lg">
-      {rows.map(([label, value]) => (
-        <div key={label as string} className="flex justify-between items-center h-10 border-b border-white/[0.05] last:border-0">
-          <span className="font-mohave text-[13px] uppercase text-[#6B6B6B]">{label as string}</span>
-          <span className="font-kosugi text-[13px] text-[#A0A0A0]">[{value as string}]</span>
+    <div className="space-y-4 max-w-lg">
+      {isInferred && (
+        <div className="bg-[#C4A868]/10 border border-[#C4A868]/20 rounded-lg px-4 py-2">
+          <p className="font-mohave text-[11px] uppercase text-[#C4A868]">
+            Subscription data incomplete — status inferred from available fields
+          </p>
         </div>
-      ))}
+      )}
+      <div className="border border-white/[0.08] rounded-lg p-6 space-y-4">
+        {rows.map(([label, value]) => (
+          <div key={label as string} className="flex justify-between items-center h-10 border-b border-white/[0.05] last:border-0">
+            <span className="font-mohave text-[13px] uppercase text-[#6B6B6B]">{label as string}</span>
+            <span className="font-kosugi text-[13px] text-[#A0A0A0]">[{value as string}]</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

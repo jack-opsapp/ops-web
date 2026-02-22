@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCompanyDetail, getCompanyUsageTimeline } from "@/lib/admin/admin-queries";
 import { listAllAuthUsers } from "@/lib/firebase/admin-sdk";
+import { deriveSubscriptionStatus, deriveSubscriptionPlan } from "@/lib/admin/types";
 import { AdminPageHeader } from "../../_components/admin-page-header";
 import { StatCard } from "../../_components/stat-card";
 import { PlanBadge } from "../../_components/plan-badge";
@@ -92,8 +93,11 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
       <div className="p-8 space-y-8">
         {/* Plan + Status */}
         <div className="flex items-center gap-3">
-          <PlanBadge plan={company.subscription_plan ?? "trial"} />
-          <StatusBadge status={company.subscription_status ?? "trial"} />
+          <PlanBadge plan={deriveSubscriptionPlan(company)} />
+          <StatusBadge status={deriveSubscriptionStatus(company)} />
+          {!company.subscription_status && (
+            <span className="font-mohave text-[11px] uppercase text-[#C4A868]">(inferred)</span>
+          )}
         </div>
 
         {/* Mini Stats */}

@@ -5,6 +5,7 @@ import { AdminBarChart } from "../../_components/charts/bar-chart";
 import { AdminDonutChart } from "../../_components/charts/donut-chart";
 import { StackedBarChart } from "../../_components/charts/stacked-bar-chart";
 import { PlanBadge } from "../../_components/plan-badge";
+import { useCompanySheet } from "../../_components/company-sheet-provider";
 import type {
   PlanDistribution,
   ChartDataPoint,
@@ -27,6 +28,7 @@ export function RevenueCharts({
   trialTimeline,
   seatUtilization,
 }: RevenueChartsProps) {
+  const { openCompany } = useCompanySheet();
   const donutData = planDistribution.map((p) => ({
     name: p.plan,
     value: p.count,
@@ -110,7 +112,13 @@ export function RevenueCharts({
           </div>
           {seatUtilization.map((s) => (
             <div key={s.companyId} className="grid grid-cols-5 py-2.5 border-b border-white/[0.05] last:border-0 items-center">
-              <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">{s.companyName}</span>
+              <button
+                type="button"
+                onClick={() => openCompany(s.companyId)}
+                className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4 text-left hover:text-[#597794] transition-colors cursor-pointer"
+              >
+                {s.companyName}
+              </button>
               <span><PlanBadge plan={s.plan} /></span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{s.seatsUsed}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{s.maxSeats}</span>

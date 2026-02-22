@@ -3,6 +3,7 @@ const PLAN_COLORS: Record<string, string> = {
   starter: "#9DB582",
   team: "#8195B5",
   business: "#C4A868",
+  none: "#4A4A4A",
 };
 
 export function PlanBadge({ plan }: { plan: string }) {

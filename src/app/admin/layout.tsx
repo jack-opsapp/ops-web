@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
 import { AdminSidebar } from "./_components/sidebar";
+import { CompanySheetProvider } from "./_components/company-sheet-provider";
 
 const ADMIN_EMAIL = "jack@opsapp.co";
 
@@ -37,9 +38,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0D0D0D]">
-      <AdminSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
+    <CompanySheetProvider>
+      <div className="flex min-h-screen bg-[#0D0D0D]">
+        <AdminSidebar />
+        <main className="flex-1 overflow-auto">{children}</main>
+      </div>
+    </CompanySheetProvider>
   );
 }

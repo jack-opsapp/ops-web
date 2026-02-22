@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { PlanBadge } from "../../_components/plan-badge";
 import { StatusBadge } from "../../_components/status-badge";
+import { useCompanySheet } from "../../_components/company-sheet-provider";
+import { deriveSubscriptionStatus, deriveSubscriptionPlan } from "@/lib/admin/types";
 
 type Company = {
   id: string;
   name: string;
   subscription_plan: string | null;
   subscription_status: string | null;
+  trial_end_date: string | null;
+  stripe_customer_id: string | null;
   created_at: string;
   userCount: number;
   projectCount: number;
@@ -17,7 +20,7 @@ type Company = {
   lastActive: string | null;
 };
 
-const STATUS_FILTERS = ["ALL", "TRIAL", "ACTIVE", "GRACE", "EXPIRED", "INACTIVE"] as const;
+const STATUS_FILTERS = ["ALL", "TRIAL", "ACTIVE", "GRACE", "EXPIRED", "NONE", "INACTIVE"] as const;
 
 function isInactive(lastActive: string | null): boolean {
   if (!lastActive) return true;
@@ -38,6 +41,7 @@ function timeAgo(date: string | null): string {
 export function CompaniesTable({ companies }: { companies: Company[] }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const { openCompany } = useCompanySheet();
 
   const filtered = useMemo(() => {
     return companies.filter((c) => {
@@ -47,8 +51,8 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
       if (statusFilter === "INACTIVE") {
         return matchesSearch && isInactive(c.lastActive);
       }
-      const matchesStatus =
-        c.subscription_status?.toLowerCase() === statusFilter.toLowerCase();
+      const derived = deriveSubscriptionStatus(c);
+      const matchesStatus = derived.toLowerCase() === statusFilter.toLowerCase();
       return matchesSearch && matchesStatus;
     });
   }, [companies, search, statusFilter]);
@@ -99,19 +103,20 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
         {filtered.map((c) => {
           const inactive = isInactive(c.lastActive);
           return (
-            <Link
+            <button
               key={c.id}
-              href={`/admin/companies/${c.id}`}
+              type="button"
+              onClick={() => openCompany(c.id)}
               className={[
-                "grid grid-cols-8 px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors",
+                "grid grid-cols-8 px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors w-full text-left cursor-pointer",
                 inactive ? "opacity-60" : "",
               ].join(" ")}
             >
               <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
                 {c.name}
               </span>
-              <span><PlanBadge plan={c.subscription_plan ?? "trial"} /></span>
-              <span><StatusBadge status={c.subscription_status ?? "trial"} /></span>
+              <span><PlanBadge plan={deriveSubscriptionPlan(c)} /></span>
+              <span><StatusBadge status={deriveSubscriptionStatus(c)} /></span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.userCount}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.projectCount}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.pipelineCount}</span>
@@ -121,7 +126,7 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
               <span className="font-kosugi text-[12px] text-[#6B6B6B]">
                 [{new Date(c.created_at).toLocaleDateString()}]
               </span>
-            </Link>
+            </button>
           );
         })}
 

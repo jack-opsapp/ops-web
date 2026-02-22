@@ -169,6 +169,35 @@ export interface TableStats {
   rowCount: number;
 }
 
+// ─── Subscription Derivation ──────────────────────────────────────────────
+
+/** Derive subscription status from available fields when subscription_status is null */
+export function deriveSubscriptionStatus(company: {
+  subscription_status?: string | null;
+  trial_end_date?: string | null;
+  stripe_customer_id?: string | null;
+}): string {
+  if (company.subscription_status) return company.subscription_status;
+  if (company.trial_end_date) {
+    return new Date(company.trial_end_date) > new Date() ? "trial" : "expired";
+  }
+  if (company.stripe_customer_id) return "unknown";
+  return "none";
+}
+
+/** Derive subscription plan from available fields when subscription_plan is null */
+export function deriveSubscriptionPlan(company: {
+  subscription_plan?: string | null;
+  subscription_status?: string | null;
+  trial_end_date?: string | null;
+  stripe_customer_id?: string | null;
+}): string {
+  if (company.subscription_plan) return company.subscription_plan;
+  const status = deriveSubscriptionStatus(company);
+  if (status === "trial" || status === "expired") return "trial";
+  return "none";
+}
+
 // ─── Chart Types ──────────────────────────────────────────────────────────────
 
 export interface ChartDataPoint {
