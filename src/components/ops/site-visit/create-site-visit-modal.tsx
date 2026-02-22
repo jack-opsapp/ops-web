@@ -5,7 +5,7 @@
  *
  * Form for scheduling a site visit. Creates:
  *   1. SiteVisit row in Supabase
- *   2. CalendarEvent in Bubble (eventType: 'site_visit')
+ *   2. CalendarEvent in Supabase (eventType: 'site_visit')
  *   3. Activity on opportunity timeline (type: 'site_visit_scheduled')
  *   4. Advances opportunity from 'new_lead' → 'qualifying' if applicable
  */
@@ -131,7 +131,7 @@ export function CreateSiteVisitModal({
         createdBy: user.id,
       });
 
-      // 2. Create calendar event in Bubble (fire-and-forget)
+      // 2. Create calendar event (fire-and-forget)
       CalendarService.createCalendarEvent({
         companyId: company.id,
         projectId: projectId ?? "",

@@ -2,13 +2,11 @@
  * OPS Web - Inbound Email Webhook
  *
  * POST /api/integrations/email-webhook
- * Receives parsed inbound emails from forwarding service and creates new RFQ projects (leads).
+ * Receives parsed inbound emails and creates new opportunity (lead) in Supabase.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-
-const BUBBLE_API_URL = process.env.NEXT_PUBLIC_BUBBLE_API_URL ?? "https://opsapp.co/version-test/api/1.1";
-const BUBBLE_API_TOKEN = process.env.NEXT_PUBLIC_BUBBLE_API_TOKEN ?? "";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 interface InboundEmail {
   to: string;
@@ -47,29 +45,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a new RFQ project via Bubble workflow
-    const response = await fetch(`${BUBBLE_API_URL}/wf/create_lead_from_email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${BUBBLE_API_TOKEN}`,
-      },
-      body: JSON.stringify({
-        company_prefix: companyPrefix,
-        sender_email: body.from,
-        sender_name: body.fromName ?? body.from.split("@")[0],
-        subject: body.subject,
-        body: body.body,
-        status: "RFQ",
-      }),
-    });
+    const supabase = getServiceRoleClient();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Failed to create lead from email:", errorText);
+    // Resolve company by matching the prefix against id or external_id
+    const { data: companies } = await supabase
+      .from("companies")
+      .select("id")
+      .or(`id.like.${companyPrefix}%,external_id.like.${companyPrefix}%`)
+      .limit(1);
+
+    const companyId = companies?.[0]?.id;
+    if (!companyId) {
+      console.error("[email-webhook] No company found for prefix:", companyPrefix);
+      return NextResponse.json(
+        { error: "Company not found" },
+        { status: 404 }
+      );
+    }
+
+    // Create opportunity (lead) in Supabase
+    const senderName = body.fromName ?? body.from.split("@")[0];
+    const { error: insertError } = await supabase
+      .from("opportunities")
+      .insert({
+        company_id: companyId,
+        title: body.subject,
+        contact_email: body.from,
+        contact_name: senderName,
+        description: body.body?.slice(0, 5000) || null,
+        stage: "new_lead",
+      });
+
+    if (insertError) {
+      console.error("[email-webhook] Failed to create opportunity:", insertError.message);
       return NextResponse.json(
         { error: "Failed to create lead" },
-        { status: 502 }
+        { status: 500 }
       );
     }
 

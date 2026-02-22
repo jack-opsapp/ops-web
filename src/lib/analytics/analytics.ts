@@ -31,11 +31,11 @@ function log(eventName: string, params?: Record<string, unknown>) {
 
 // ─── Auth Events ──────────────────────────────────────────────────────────────
 
-export function trackSignUp(method: "email" | "google") {
+export function trackSignUp(method: "email" | "google" | "apple") {
   log("sign_up", { method });
 }
 
-export function trackLogin(method: "email" | "google") {
+export function trackLogin(method: "email" | "google" | "apple") {
   log("login", { method });
 }
 

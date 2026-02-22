@@ -9,7 +9,6 @@
  */
 
 import { QueryClient } from "@tanstack/react-query";
-import { BubbleApiError, BubbleUnauthorizedError } from "./bubble-client";
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
 
@@ -225,7 +224,13 @@ export function setOnUnauthorized(handler: () => void) {
 }
 
 function handleGlobalError(error: unknown) {
-  if (error instanceof BubbleUnauthorizedError && onUnauthorized) {
+  // Check for 401 responses to trigger logout
+  if (
+    error instanceof Error &&
+    "status" in error &&
+    (error as { status: number }).status === 401 &&
+    onUnauthorized
+  ) {
     onUnauthorized();
   }
 }
@@ -242,17 +247,19 @@ function createQueryClient(): QueryClient {
 
         // Retry failed requests up to 2 times
         retry: (failureCount, error) => {
-          // Don't retry auth errors
-          if (error instanceof BubbleUnauthorizedError) return false;
+          // Don't retry auth errors (401)
+          if (
+            error instanceof Error &&
+            "status" in error &&
+            (error as { status: number }).status === 401
+          ) return false;
           // Don't retry 4xx errors (except 429)
           if (
-            error instanceof BubbleApiError &&
-            error.statusCode !== null &&
-            error.statusCode >= 400 &&
-            error.statusCode < 500 &&
-            error.statusCode !== 429
+            error instanceof Error &&
+            "status" in error
           ) {
-            return false;
+            const status = (error as { status: number }).status;
+            if (status >= 400 && status < 500 && status !== 429) return false;
           }
           return failureCount < 2;
         },

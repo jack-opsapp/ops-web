@@ -1,14 +1,12 @@
 /**
- * OPS Web - Company Service (Hybrid: Supabase + Bubble)
+ * OPS Web - Company Service
  *
  * Data CRUD → Supabase `companies` table.
- * Subscription/Stripe workflows → Bubble /wf/ endpoints (until Stripe webhooks
- *   are wired directly to Supabase).
- * Image upload workflows → Bubble /wf/ endpoints (until Task 31 S3 presign route).
+ * Subscription management → Stripe API routes.
+ * Image uploads → /api/uploads/presign route.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import { getBubbleClient } from "../bubble-client";
 import type { Company, SubscriptionStatus, SubscriptionPlan, PaymentSchedule } from "../../types/models";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
@@ -179,176 +177,177 @@ export const CompanyService = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BUBBLE WORKFLOWS (stay on Bubble until migrated to direct Stripe/S3)
+  // SUBSCRIPTION MANAGEMENT (via Stripe API routes)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Update company via Bubble workflow API (for complex operations).
+   * Fetch subscription info — reads directly from companies table.
    */
-  async updateCompanyWorkflow(data: Record<string, unknown>): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/update_company", data);
-  },
-
-  // ─── Subscription Management (Bubble/Stripe) ──────────────────────────────
-
-  /**
-   * Fetch subscription info for a company via Bubble workflow.
-   */
-  async fetchSubscriptionInfo(companyId: string): Promise<Record<string, unknown>> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: Record<string, unknown>;
-    }>("/wf/fetch_subscription_info", { company_id: companyId });
-    return response.response;
+  async fetchSubscriptionInfo(companyId: string): Promise<{
+    status: string | null;
+    plan: string | null;
+    period: string | null;
+    endDate: string | null;
+    stripeCustomerId: string | null;
+  }> {
+    const company = await CompanyService.fetchCompany(companyId);
+    return {
+      status: company.subscriptionStatus,
+      plan: company.subscriptionPlan,
+      period: company.subscriptionPeriod,
+      endDate: company.subscriptionEnd?.toISOString() ?? null,
+      stripeCustomerId: company.stripeCustomerId,
+    };
   },
 
   /**
    * Create a Stripe setup intent for adding a payment method.
    */
-  async createSetupIntent(
-    companyId: string,
-    userId: string
-  ): Promise<{ clientSecret: string; ephemeralKey: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { client_secret: string; ephemeral_key: string };
-    }>("/wf/create_subscription_setup_intent", {
-      company_id: companyId,
-      user_id: userId,
+  async createSetupIntent(companyId: string): Promise<{ clientSecret: string }> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+
+    const response = await fetch("/api/stripe/setup-intent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify({ companyId }),
     });
-    return {
-      clientSecret: response.response.client_secret,
-      ephemeralKey: response.response.ephemeral_key,
-    };
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Setup intent failed" }));
+      throw new Error(error.error || "Failed to create setup intent");
+    }
+
+    return response.json();
   },
 
   /**
-   * Complete a subscription purchase.
+   * Subscribe to a plan (replaces completeSubscription, createSubscriptionWithPayment, subscribeToPlan).
    */
-  async completeSubscription(data: {
+  async subscribe(data: {
     companyId: string;
-    userId: string;
-    planId: string;
+    plan: string;
     period: "Monthly" | "Annual";
     paymentMethodId?: string;
-  }): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/complete_subscription", {
-      company_id: data.companyId,
-      user_id: data.userId,
-      plan_id: data.planId,
-      period: data.period,
-      payment_method_id: data.paymentMethodId,
+  }): Promise<{ subscriptionId: string; status: string; clientSecret?: string }> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+
+    const response = await fetch("/api/stripe/subscribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify(data),
     });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Subscribe failed" }));
+      throw new Error(error.error || "Failed to subscribe");
+    }
+
+    return response.json();
   },
 
   /**
-   * Create a subscription with payment in one step.
-   */
-  async createSubscriptionWithPayment(data: {
-    companyId: string;
-    userId: string;
-    planId: string;
-    period: "Monthly" | "Annual";
-    paymentMethodId: string;
-  }): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/create_subscription_with_payment", {
-      company_id: data.companyId,
-      user_id: data.userId,
-      plan_id: data.planId,
-      period: data.period,
-      payment_method_id: data.paymentMethodId,
-    });
-  },
-
-  /**
-   * Cancel the company's subscription.
+   * Cancel the company's subscription at period end.
    */
   async cancelSubscription(companyId: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/cancel_subscription", { company_id: companyId });
-  },
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
 
-  /**
-   * Subscribe user to a specific plan directly.
-   */
-  async subscribeToPlan(data: {
-    userId: string;
-    companyId: string;
-    planId: string;
-    period: "Monthly" | "Annual";
-  }): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/subscribe_user_to_plan", {
-      user_id: data.userId,
-      company_id: data.companyId,
-      plan_id: data.planId,
-      period: data.period,
+    const response = await fetch("/api/stripe/cancel", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify({ companyId }),
     });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Cancel failed" }));
+      throw new Error(error.error || "Failed to cancel subscription");
+    }
   },
 
-  // ─── Image Upload Workflows (Bubble/S3) ───────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IMAGE UPLOADS (via existing /api/uploads/presign route)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   /**
    * Get a presigned URL for uploading a profile/logo image.
    */
   async getPresignedUrlProfile(
-    companyId: string,
+    _companyId: string,
     filename: string,
     contentType: string = "image/jpeg"
   ): Promise<{ uploadUrl: string; publicUrl: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { upload_url: string; public_url: string };
-    }>("/wf/get_presigned_url_profile", {
-      company_id: companyId,
-      filename,
-      content_type: contentType,
+    const response = await fetch("/api/uploads/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename, contentType, folder: "profiles" }),
     });
-    return {
-      uploadUrl: response.response.upload_url,
-      publicUrl: response.response.public_url,
-    };
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Presign failed" }));
+      throw new Error(error.error || "Failed to get presigned URL");
+    }
+
+    return response.json();
   },
 
   /**
    * Get a presigned URL for uploading project images.
    */
   async getPresignedUrlProject(
-    companyId: string,
+    _companyId: string,
     projectId: string,
     filename: string,
     contentType: string = "image/jpeg"
   ): Promise<{ uploadUrl: string; publicUrl: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { upload_url: string; public_url: string };
-    }>("/wf/get_presigned_url", {
-      company_id: companyId,
-      project_id: projectId,
-      filename,
-      content_type: contentType,
+    const response = await fetch("/api/uploads/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename, contentType, folder: `projects/${projectId}` }),
     });
-    return {
-      uploadUrl: response.response.upload_url,
-      publicUrl: response.response.public_url,
-    };
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Presign failed" }));
+      throw new Error(error.error || "Failed to get presigned URL");
+    }
+
+    return response.json();
   },
 
   /**
-   * Register uploaded project image URLs with Bubble.
+   * Register uploaded project image URLs in Supabase.
    */
-  async registerProjectImages(
-    projectId: string,
-    imageUrls: string[]
-  ): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/upload_project_images", {
-      project_id: projectId,
-      image_urls: imageUrls,
-    });
+  async registerProjectImages(projectId: string, imageUrls: string[]): Promise<void> {
+    const supabase = requireSupabase();
+
+    // Fetch current images
+    const { data: project, error: fetchError } = await supabase
+      .from("projects")
+      .select("project_images")
+      .eq("id", projectId)
+      .single();
+
+    if (fetchError) throw new Error(`Failed to fetch project: ${fetchError.message}`);
+
+    const existing = (project?.project_images as string[]) ?? [];
+    const updated = [...existing, ...imageUrls];
+
+    const { error: updateError } = await supabase
+      .from("projects")
+      .update({ project_images: updated })
+      .eq("id", projectId);
+
+    if (updateError) throw new Error(`Failed to register images: ${updateError.message}`);
   },
 };
 

@@ -1,25 +1,14 @@
 /**
- * OPS Web - User Service (Hybrid: Supabase + Bubble)
+ * OPS Web - User Service
  *
  * Data CRUD → Supabase `users` table.
- * Auth workflows (login, signup, password reset) → Bubble /wf/ endpoints
- *   (until auth is migrated to Supabase Auth).
+ * Auth workflows → Next.js API routes (/api/auth/*).
  *
  * Role detection: company.admin_ids FIRST, then role column, then default Field Crew.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleTypes,
-} from "../../constants/bubble-fields";
-import {
-  type UserDTO,
-  type BubbleObjectResponse,
-  userDtoToModel,
-  companyDtoToModel,
-} from "../../types/dto";
-import type { User, UserRole } from "../../types/models";
+import type { Company, User, UserRole } from "../../types/models";
 import { UserRole as UserRoleEnum } from "../../types/models";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
@@ -256,229 +245,83 @@ export const UserService = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // AUTH WORKFLOWS (Bubble — until migrated to Supabase Auth)
+  // AUTH WORKFLOWS (via Next.js API routes)
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Login with Google via Bubble workflow.
-   * Returns user + company objects by merging workflow + Data API data.
+   * Sync user after Firebase authentication.
+   * Calls POST /api/auth/sync-user to upsert user record in Supabase.
    */
-  async loginWithGoogle(
+  async syncUser(
     idToken: string,
     email: string,
-    name: string,
-    givenName: string,
-    familyName: string
-  ): Promise<{ user: User; company: import("../../types/models").Company | null }> {
-    const client = getBubbleClient();
-
-    // Step 1: Authenticate via Bubble workflow
-    const wfResponse = await client.post<Record<string, unknown>>("/wf/login_google", {
-      id_token: idToken,
-      email,
-      name,
-      given_name: givenName,
-      family_name: familyName,
+    displayName?: string,
+    firstName?: string,
+    lastName?: string,
+    photoURL?: string
+  ): Promise<{ user: User; company: Company | null }> {
+    const response = await fetch("/api/auth/sync-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        idToken,
+        email,
+        displayName,
+        firstName,
+        lastName,
+        photoURL,
+      }),
     });
 
-    const resp = (wfResponse as Record<string, unknown>).response as Record<string, unknown> | undefined;
-    if (!resp) throw new Error("No response object from login workflow");
-
-    const wfUser = resp.user as Record<string, unknown> | undefined;
-    const userId = (wfUser?._id as string) || (resp.user_id as string) || null;
-    if (!userId) throw new Error("No user ID returned from login workflow");
-
-    const wfCompany = resp.company as Record<string, unknown> | undefined;
-    const wfCompanyId = wfCompany?._id as string | undefined;
-
-    // Step 2: Build admin IDs from workflow company
-    let adminIds: string[] = [];
-    if (wfCompany) {
-      const wfAdmin = wfCompany.admin ?? wfCompany.adminIds ?? wfCompany.admin_ids;
-      if (Array.isArray(wfAdmin)) {
-        adminIds = wfAdmin
-          .map((ref: unknown) => {
-            if (typeof ref === "string") return ref;
-            if (ref && typeof ref === "object") {
-              const obj = ref as Record<string, unknown>;
-              return (obj.unique_id as string) || (obj._id as string) || null;
-            }
-            return null;
-          })
-          .filter(Boolean) as string[];
-      }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Sync failed" }));
+      throw new Error(error.error || "Failed to sync user");
     }
 
-    // Step 3: Fetch company from Data API
-    let company: import("../../types/models").Company | null = null;
-    if (wfCompanyId) {
-      try {
-        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
-          `/obj/${BubbleTypes.company.toLowerCase()}/${wfCompanyId}`
-        );
-        company = companyDtoToModel(companyResponse.response);
-        if (adminIds.length === 0 && (company.adminIds?.length ?? 0) > 0) {
-          adminIds = company.adminIds ?? [];
-        }
-      } catch {
-        company = companyDtoToModel(wfCompany as unknown as import("../../types/dto").CompanyDTO);
-      }
-    }
-
-    // Step 4: Fetch user from Data API and merge with workflow data
-    let userDto: UserDTO;
-    try {
-      const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
-        `/obj/${BubbleTypes.user.toLowerCase()}/${userId}`
-      );
-      userDto = userResponse.response;
-    } catch {
-      userDto = { _id: userId } as UserDTO;
-    }
-
-    // Merge: workflow data takes priority for fields hidden by privacy rules
-    if (!userDto.company && wfCompanyId) userDto.company = wfCompanyId;
-    if (!userDto.nameFirst)
-      userDto.nameFirst = (wfUser?.nameFirst ?? wfUser?.name_first ?? givenName) as string;
-    if (!userDto.nameLast)
-      userDto.nameLast = (wfUser?.nameLast ?? wfUser?.name_last ?? familyName) as string;
-    if (!userDto.email) userDto.email = (wfUser?.email as string) || email;
-    if (!userDto.employeeType) {
-      const wfEmployeeType = (
-        wfUser?.employeeType ?? wfUser?.employee_type ?? wfUser?.employeetype ??
-        wfUser?.type ?? resp.employee_type ?? resp.employeeType
-      ) as string | undefined;
-      if (wfEmployeeType) userDto.employeeType = wfEmployeeType;
-    }
-    if (!userDto.avatar && wfUser?.avatar) userDto.avatar = wfUser.avatar as string;
-
-    const user = userDtoToModel(userDto, adminIds);
-
-    if (user.role === UserRoleEnum.FieldCrew && adminIds.length === 0 && !userDto.employeeType) {
-      console.warn(
-        "[loginWithGoogle] Role detection defaulted to FieldCrew.",
-        "adminIds: [], employeeType:", userDto.employeeType ?? "null",
-        "userId:", userId
-      );
-    }
-
-    return { user, company };
+    return response.json();
   },
 
   /**
-   * Login with email/password via Bubble workflow.
+   * Join a company via company code.
    */
-  async loginWithToken(
-    email: string,
-    password: string
-  ): Promise<{ token: string; userId: string; user: User; company: import("../../types/models").Company | null }> {
-    const client = getBubbleClient();
-
-    const tokenResponse = await client.post<{
-      status: string;
-      response: { token: string; user_id: string; expires: number };
-    }>("/wf/generate-api-token", { email, password });
-
-    const { token, user_id } = tokenResponse.response;
-
-    const userResponse = await client.get<BubbleObjectResponse<UserDTO>>(
-      `/obj/${BubbleTypes.user.toLowerCase()}/${user_id}`
-    );
-    const userDto = userResponse.response;
-
-    let company: import("../../types/models").Company | null = null;
-    let adminIds: string[] = [];
-    if (userDto.company) {
-      try {
-        const companyResponse = await client.get<BubbleObjectResponse<import("../../types/dto").CompanyDTO>>(
-          `/obj/${BubbleTypes.company.toLowerCase()}/${userDto.company}`
-        );
-        company = companyDtoToModel(companyResponse.response);
-        adminIds = company.adminIds ?? [];
-      } catch {
-        // Company fetch failed — continue with user only
-      }
-    }
-
-    const user = userDtoToModel(userDto, adminIds);
-    return { token, userId: user_id, user, company };
-  },
-
-  /**
-   * Legacy login via Bubble workflow API.
-   */
-  async login(
-    email: string,
-    password: string
-  ): Promise<{ token: string; userId: string; user: User }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { token: string; user_id: string; user: UserDTO };
-    }>("/wf/login", { email, password });
-
-    const user = userDtoToModel(response.response.user);
-    return {
-      token: response.response.token,
-      userId: response.response.user_id,
-      user,
-    };
-  },
-
-  /**
-   * Signup via Bubble workflow API.
-   */
-  async signup(
-    email: string,
-    password: string,
-    userType: string = "Employee"
-  ): Promise<{ userId: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response: { user_id: string };
-    }>("/wf/signup", { email, password, userType });
-    return { userId: response.response.user_id };
-  },
-
-  /**
-   * Reset password via Bubble workflow API.
-   */
-  async resetPassword(email: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/reset_pw", { email });
-  },
-
-  /**
-   * Join a company via company code (Bubble workflow API).
-   */
-  async joinCompany(userId: string, companyCode: string): Promise<void> {
-    const client = getBubbleClient();
-    await client.post("/wf/join_company", {
-      user_id: userId,
-      company_code: companyCode,
+  async joinCompany(
+    idToken: string,
+    companyCode: string
+  ): Promise<{ user: User; company: Company }> {
+    const response = await fetch("/api/auth/join-company", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, companyCode }),
     });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Join failed" }));
+      throw new Error(error.error || "Failed to join company");
+    }
+
+    return response.json();
   },
 
   /**
-   * Send team invites via Bubble workflow.
+   * Send team invites.
    */
   async sendInvite(
+    idToken: string,
     emails: string[],
     companyId: string
   ): Promise<{ success: boolean; invitesSent?: number; errorMessage?: string }> {
-    const client = getBubbleClient();
-    const response = await client.post<{
-      response?: { success?: boolean; invites_sent?: number; error_message?: string };
-      success?: boolean;
-      invites_sent?: number;
-      error_message?: string;
-    }>("/wf/send_invite", { emails, company: companyId });
+    const response = await fetch("/api/auth/send-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, emails, companyId }),
+    });
 
-    const data = response.response ?? response;
-    return {
-      success: data.success ?? true,
-      invitesSent: data.invites_sent,
-      errorMessage: data.error_message,
-    };
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Send failed" }));
+      throw new Error(error.error || "Failed to send invites");
+    }
+
+    return response.json();
   },
 };
 

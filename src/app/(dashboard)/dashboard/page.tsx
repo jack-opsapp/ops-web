@@ -528,7 +528,7 @@ function PipelineMiniView({
 }
 
 // ---------------------------------------------------------------------------
-// Revenue Chart (mock - no financial data API in Bubble)
+// Revenue Chart (mock data)
 // ---------------------------------------------------------------------------
 function RevenueChart() {
   const months = [

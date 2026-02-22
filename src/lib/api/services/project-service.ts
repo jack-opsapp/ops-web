@@ -3,7 +3,7 @@
  *
  * Complete CRUD operations for Projects stored in Supabase `projects` table.
  * Project teamMembers is computed from tasks, NOT stored directly.
- * Replaces the old Bubble.io-based implementation.
+ * Supabase-backed project CRUD operations.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";

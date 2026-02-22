@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { onAuthStateChanged, getIdToken } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
-import { resolveCompanyUuid } from "@/lib/supabase/helpers";
 import { toast } from "sonner";
 
 /**
@@ -24,8 +23,8 @@ function setAuthCookie(token: string | null) {
 /**
  * AuthProvider subscribes to Firebase auth state and syncs it to Zustand.
  *
- * Important: The LoginPage handles the initial loginWithGoogle call during
- * a fresh sign-in. AuthProvider only calls loginWithGoogle when Firebase
+ * Important: The LoginPage handles the initial syncUser call during
+ * a fresh sign-in. AuthProvider only calls syncUser when Firebase
  * detects an existing session on page reload (no user in Zustand store yet).
  * This prevents the duplicate/triple API calls that were happening before.
  */
@@ -63,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         fetchingRef.current = true;
-        console.log("[AuthProvider] Firebase user authenticated, no user in store — calling loginWithGoogle:", firebaseUser.email);
+        console.log("[AuthProvider] Firebase user authenticated, no user in store — calling syncUser:", firebaseUser.email);
         try {
           if (!idToken || !firebaseUser.email) {
             console.warn("[AuthProvider] Missing idToken or email, aborting");
@@ -72,15 +71,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const result = await UserService.loginWithGoogle(
+          const result = await UserService.syncUser(
             idToken,
             firebaseUser.email,
-            firebaseUser.displayName || "",
-            firebaseUser.displayName?.split(" ")[0] || "",
-            firebaseUser.displayName?.split(" ").slice(1).join(" ") || ""
+            firebaseUser.displayName || undefined,
+            firebaseUser.displayName?.split(" ")[0] || undefined,
+            firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+            firebaseUser.photoURL || undefined
           );
 
-          console.log("[AuthProvider] loginWithGoogle result:", {
+          console.log("[AuthProvider] syncUser result:", {
             userId: result.user.id,
             userRole: result.user.role,
             companyName: result.company?.name ?? "null",
@@ -88,13 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(result.user);
           if (result.company) {
-            // Resolve Bubble company ID → Supabase UUID for all downstream queries
-            const bubbleId = result.company.id;
-            const uuid = await resolveCompanyUuid(bubbleId);
-            if (uuid !== bubbleId) {
-              console.log("[AuthProvider] Resolved company UUID:", bubbleId, "→", uuid);
-              result.company = { ...result.company, id: uuid, bubbleId };
-            }
             setCompany(result.company);
           } else {
             console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");

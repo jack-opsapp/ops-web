@@ -27,7 +27,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 // ─── Validation Schema ───────────────────────────────────────────────────────
 
 /**
- * Phone validation that handles the Bubble quirk where phone can be
+ * Phone validation that handles the quirk where phone can be
  * string OR number. We normalize everything to string and validate format.
  */
 const phoneSchema = z

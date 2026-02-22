@@ -448,7 +448,7 @@ function NotesTab({ project }: { project: Project }) {
   const [editingNote, setEditingNote] = useState<ProjectNote | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  // Legacy migration: one-time convert Bubble teamNotes to project_notes
+  // Legacy migration: one-time convert teamNotes to project_notes
   useEffect(() => {
     if (
       !migrated.current &&

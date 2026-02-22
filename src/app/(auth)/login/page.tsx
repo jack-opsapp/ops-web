@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { signInWithGoogle, signInWithEmail } from "@/lib/firebase/auth";
+import { signInWithGoogle, signInWithApple, signInWithEmail } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,10 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isLoadingApple, setIsLoadingApple] = useState(false);
 
   const setUser = useAuthStore((s) => s.setUser);
   const setCompany = useAuthStore((s) => s.setCompany);
-  const login = useAuthStore((s) => s.login);
 
   async function handleGoogleSignIn() {
     setError(null);
@@ -46,14 +46,15 @@ function LoginForm() {
       // 2. Get ID token
       const idToken = await firebaseUser.getIdToken();
       console.log("[LoginPage] Step 2: Got idToken:", idToken ? `${idToken.substring(0, 20)}...` : "NULL");
-      // 3. Call Bubble /wf/login_google (matches iOS)
-      console.log("[LoginPage] Step 3: Calling UserService.loginWithGoogle...");
-      const result = await UserService.loginWithGoogle(
+      // 3. Sync user with Supabase via API route
+      console.log("[LoginPage] Step 3: Calling UserService.syncUser...");
+      const result = await UserService.syncUser(
         idToken,
         firebaseUser.email || "",
-        firebaseUser.displayName || "",
-        firebaseUser.displayName?.split(" ")[0] || "",
-        firebaseUser.displayName?.split(" ").slice(1).join(" ") || ""
+        firebaseUser.displayName || undefined,
+        firebaseUser.displayName?.split(" ")[0] || undefined,
+        firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+        firebaseUser.photoURL || undefined
       );
       console.log("[LoginPage] Step 3 DONE:", {
         userId: result.user.id,
@@ -78,6 +79,35 @@ function LoginForm() {
     }
   }
 
+  async function handleAppleSignIn() {
+    setError(null);
+    setIsLoadingApple(true);
+    try {
+      const firebaseUser = await signInWithApple();
+      const idToken = await firebaseUser.getIdToken();
+      const result = await UserService.syncUser(
+        idToken,
+        firebaseUser.email || "",
+        firebaseUser.displayName || undefined,
+        firebaseUser.displayName?.split(" ")[0] || undefined,
+        firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+        firebaseUser.photoURL || undefined
+      );
+      setUser(result.user);
+      if (result.company) {
+        setCompany(result.company);
+      }
+      trackLogin("apple");
+      router.push(redirectTo);
+    } catch (err: unknown) {
+      console.error("[LoginPage] Apple sign-in FAILED:", err);
+      const message = err instanceof Error ? err.message : "Apple sign-in failed";
+      setError(message);
+    } finally {
+      setIsLoadingApple(false);
+    }
+  }
+
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) {
@@ -87,24 +117,26 @@ function LoginForm() {
     setError(null);
     setIsLoadingEmail(true);
     try {
-      // 1. Call Bubble /wf/generate-api-token (matches iOS)
-      const result = await UserService.loginWithToken(email, password);
-      // 2. Store in auth store with token
-      login(result.user, result.token);
+      // 1. Sign into Firebase
+      const firebaseUser = await signInWithEmail(email, password);
+      // 2. Get ID token
+      const idToken = await firebaseUser.getIdToken();
+      // 3. Sync user with Supabase
+      const result = await UserService.syncUser(
+        idToken,
+        email,
+        firebaseUser.displayName || undefined
+      );
+      // 4. Store in auth store
+      setUser(result.user);
       if (result.company) {
         setCompany(result.company);
-      }
-      // 3. Also sign into Firebase for session persistence
-      try {
-        await signInWithEmail(email, password);
-      } catch {
-        // Firebase sign-in is optional - Bubble auth is primary
       }
       trackLogin("email");
       router.push(redirectTo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign-in failed";
-      if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid")) {
+      if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid") || message.includes("auth/invalid-credential")) {
         setError("Invalid email or password");
       } else if (message.includes("too-many-requests") || message.includes("429")) {
         setError("Too many attempts. Please try again later.");
@@ -146,7 +178,7 @@ function LoginForm() {
           className="w-full gap-1.5 border-border-medium"
           onClick={handleGoogleSignIn}
           loading={isLoadingGoogle}
-          disabled={isLoadingEmail}
+          disabled={isLoadingEmail || isLoadingApple}
         >
           <svg className="w-[20px] h-[20px]" viewBox="0 0 24 24">
             <path
@@ -169,6 +201,21 @@ function LoginForm() {
           <span>Continue with Google</span>
         </Button>
 
+        {/* Apple Sign-In */}
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full gap-1.5 border-border-medium"
+          onClick={handleAppleSignIn}
+          loading={isLoadingApple}
+          disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
+        >
+          <svg className="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+          </svg>
+          <span>Continue with Apple</span>
+        </Button>
+
         {/* Divider */}
         <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
           or sign in with email
@@ -183,7 +230,7 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             prefixIcon={<Mail className="w-[16px] h-[16px]" />}
-            disabled={isLoadingEmail || isLoadingGoogle}
+            disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
             autoComplete="email"
           />
           <div className="relative">
@@ -208,7 +255,7 @@ function LoginForm() {
                   )}
                 </button>
               }
-              disabled={isLoadingEmail || isLoadingGoogle}
+              disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
               autoComplete="current-password"
             />
           </div>

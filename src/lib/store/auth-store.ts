@@ -11,7 +11,6 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { User, Company } from "../types/models";
 import { UserRole } from "../types/models";
-import { getBubbleClient } from "../api/bubble-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,9 +50,6 @@ export const useAuthStore = create<AuthState>()(
 
       // Login: set user, token, and update auth state
       login: (user: User, token: string) => {
-        // Update the API client with the new token
-        getBubbleClient().setAuthToken(token);
-
         set({
           currentUser: user,
           token,
@@ -65,8 +61,6 @@ export const useAuthStore = create<AuthState>()(
 
       // Logout: clear all auth state
       logout: () => {
-        getBubbleClient().clearAuthToken();
-
         set({
           currentUser: null,
           company: null,
@@ -91,7 +85,6 @@ export const useAuthStore = create<AuthState>()(
 
       // Set auth token (e.g., after token refresh)
       setToken: (token: string) => {
-        getBubbleClient().setAuthToken(token);
         set({ token });
       },
 
@@ -106,7 +99,6 @@ export const useAuthStore = create<AuthState>()(
           set({ isAuthenticated: true, isLoading: false });
         } else {
           // User signed out of Firebase - clear everything
-          getBubbleClient().clearAuthToken();
           set({
             currentUser: null,
             company: null,
@@ -145,10 +137,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Hydrate auth state from persisted storage
       hydrate: () => {
-        const { token } = get();
-        if (token) {
-          getBubbleClient().setAuthToken(token);
-        }
+        // No-op: Firebase handles auth state automatically
       },
     }),
     {
@@ -172,11 +161,8 @@ export const useAuthStore = create<AuthState>()(
         role: state.role,
       }),
       onRehydrateStorage: () => {
-        return (state) => {
-          // Re-set the API client token after rehydration
-          if (state?.token) {
-            getBubbleClient().setAuthToken(state.token);
-          }
+        return () => {
+          // No-op: auth tokens are managed by Firebase
         };
       },
     }

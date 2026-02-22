@@ -2,7 +2,7 @@
  * OPS Web - TaskType Service (Supabase)
  *
  * Complete CRUD operations for TaskTypes stored in Supabase `task_types_v2` table.
- * Replaces the old Bubble.io-based implementation.
+ * Supabase-backed task type CRUD operations.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";

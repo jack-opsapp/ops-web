@@ -8,11 +8,6 @@ const nextConfig: NextConfig = {
         hostname: "*.amazonaws.com",
         pathname: "/ops-app-files-prod/**",
       },
-      {
-        protocol: "https",
-        hostname: "*.bubbleapps.io",
-        pathname: "/**",
-      },
     ],
   },
   experimental: {
@@ -22,8 +17,6 @@ const nextConfig: NextConfig = {
       "date-fns",
     ],
   },
-  // Bubble API calls are proxied through /api/bubble/[...path] API route.
-  // The API route sets the Authorization header server-side (more reliable than rewrites).
 };
 
 export default nextConfig;

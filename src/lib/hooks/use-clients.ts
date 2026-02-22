@@ -75,10 +75,11 @@ export function useSubClients(
  */
 export function useCreateClient() {
   const queryClient = useQueryClient();
+  const { company } = useAuthStore();
 
   return useMutation({
     mutationFn: (data: Partial<Client> & { name: string }) =>
-      ClientService.createClient(data),
+      ClientService.createClient({ ...data, companyId: data.companyId ?? company?.id ?? "" }),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -166,13 +167,14 @@ export function useDeleteClient() {
  */
 export function useCreateSubClient() {
   const queryClient = useQueryClient();
+  const { company } = useAuthStore();
 
   return useMutation({
     mutationFn: (
       data: Partial<SubClient> & { name: string; clientId: string }
-    ) => ClientService.createSubClient(data),
+    ) => ClientService.createSubClient(data, company?.id ?? ""),
 
-    onSuccess: (_id, variables) => {
+    onSuccess: (_subClient, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.clients.subClients(variables.clientId),
       });

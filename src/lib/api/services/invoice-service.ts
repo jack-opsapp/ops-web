@@ -234,7 +234,7 @@ export const InvoiceService = {
     companyId: string,
     options: FetchInvoicesOptions = {}
   ): Promise<Invoice[]> {
-    // Supabase returns all matching rows (no Bubble pagination loop needed)
+    // Supabase returns all matching rows
     return InvoiceService.fetchInvoices(companyId, options);
   },
 

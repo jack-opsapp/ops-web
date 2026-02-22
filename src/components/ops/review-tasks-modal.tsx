@@ -5,7 +5,7 @@
  *
  * Shown when an estimate is approved. Presents proposed tasks grouped
  * by LABOR line item. Staff can select/deselect tasks and adjust crew
- * before creating ProjectTasks in Bubble.
+ * before creating ProjectTasks.
  *
  * Skipped if CompanySettings.autoGenerateTasks = true.
  */

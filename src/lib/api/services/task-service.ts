@@ -3,7 +3,7 @@
  *
  * Complete CRUD operations for ProjectTasks stored in Supabase `project_tasks` table.
  * Includes calendar event creation for task scheduling.
- * Replaces the old Bubble.io-based implementation.
+ * Supabase-backed task CRUD operations.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";

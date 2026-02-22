@@ -190,11 +190,13 @@ export function useSendInvite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (emails: string[]) =>
-      UserService.sendInvite(emails, company!.id),
-
+    mutationFn: async (emails: string[]) => {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Not authenticated");
+      return UserService.sendInvite(idToken, emails, company!.id);
+    },
     onSuccess: () => {
-      // Refresh team list after invite
       queryClient.invalidateQueries({
         queryKey: queryKeys.users.lists(),
       });
@@ -205,52 +207,15 @@ export function useSendInvite() {
 // ─── Auth Mutations ───────────────────────────────────────────────────────────
 
 /**
- * Login mutation.
- */
-export function useLogin() {
-  const { login: setAuth } = useAuthStore();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      email,
-      password,
-    }: {
-      email: string;
-      password: string;
-    }) => UserService.login(email, password),
-
-    onSuccess: (result) => {
-      setAuth(result.user, result.token);
-      // Clear all cached data for the new user session
-      queryClient.clear();
-    },
-  });
-}
-
-/**
- * Signup mutation.
- */
-export function useSignup() {
-  return useMutation({
-    mutationFn: ({
-      email,
-      password,
-      userType,
-    }: {
-      email: string;
-      password: string;
-      userType?: string;
-    }) => UserService.signup(email, password, userType),
-  });
-}
-
-/**
- * Reset password mutation.
+ * Reset password mutation (via Firebase).
  */
 export function useResetPassword() {
   return useMutation({
-    mutationFn: (email: string) => UserService.resetPassword(email),
+    mutationFn: async (email: string) => {
+      const { sendPasswordResetEmail, getAuth } = await import("firebase/auth");
+      const auth = getAuth();
+      await sendPasswordResetEmail(auth, email);
+    },
   });
 }
 
@@ -261,14 +226,12 @@ export function useJoinCompany() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      userId,
-      companyCode,
-    }: {
-      userId: string;
-      companyCode: string;
-    }) => UserService.joinCompany(userId, companyCode),
-
+    mutationFn: async ({ companyCode }: { companyCode: string }) => {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Not authenticated");
+      return UserService.joinCompany(idToken, companyCode);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.users.current(),

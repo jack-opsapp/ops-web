@@ -19,7 +19,7 @@ export function formatCurrency(
 
 /**
  * Format a phone number for display.
- * Input can be string or number (Bubble SubClient quirk).
+ * Input can be string or number.
  */
 export function formatPhoneNumber(phone: string | number | null | undefined): string {
   if (phone == null) return "";
@@ -45,7 +45,7 @@ export function formatPhoneNumber(phone: string | number | null | undefined): st
 
 /**
  * Format an address for display.
- * Handles Bubble BubbleAddress objects and plain strings.
+ * Handles address objects and plain strings.
  */
 export function formatAddress(
   address:

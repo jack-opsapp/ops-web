@@ -2,7 +2,7 @@
  * OPS Web - Image Upload Service
  *
  * Handles image uploads to S3 via direct presigned URLs from /api/uploads/presign.
- * Replaces the old Bubble.io workflow-based presigned URL generation.
+ * Uses S3 presigned URLs via /api/uploads/presign.
  * Includes client-side validation, compression, and multi-image support.
  */
 
@@ -100,7 +100,7 @@ export async function uploadImage(
   }
 
   try {
-    // Get presigned URL from our own API route (no Bubble dependency)
+    // Get presigned URL from our API route
     const presignResponse = await fetch("/api/uploads/presign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

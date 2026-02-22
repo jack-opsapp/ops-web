@@ -1,45 +1,88 @@
 /**
- * OPS Web - Client Service
+ * OPS Web - Client Service (Supabase)
  *
  * Complete CRUD operations for Clients and Sub-Clients.
- * All queries filter out soft-deleted items.
+ * All queries filter out soft-deleted items (deleted_at IS NULL).
  */
 
-import { getBubbleClient } from "../bubble-client";
-import {
-  BubbleTypes,
-  BubbleClientFields,
-  BubbleSubClientFields,
-  BubbleConstraintType,
-  type BubbleConstraint,
-} from "../../constants/bubble-fields";
-import {
-  type ClientDTO,
-  type SubClientDTO,
-  type BubbleListResponse,
-  type BubbleObjectResponse,
-  type BubbleCreationResponse,
-  clientDtoToModel,
-  clientModelToDto,
-  subClientDtoToModel,
-  subClientModelToDto,
-} from "../../types/dto";
+import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
 import type { Client, SubClient } from "../../types/models";
+
+// ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapClientFromDb(row: Record<string, unknown>): Client {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    email: (row.email as string) ?? null,
+    phoneNumber: (row.phone_number as string) ?? null,
+    address: (row.address as string) ?? null,
+    latitude: (row.latitude as number) ?? null,
+    longitude: (row.longitude as number) ?? null,
+    profileImageURL: (row.profile_image_url as string) ?? null,
+    notes: (row.notes as string) ?? null,
+    companyId: (row.company_id as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    createdAt: parseDate(row.created_at),
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapClientToDb(data: Partial<Client>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.name !== undefined) row.name = data.name;
+  if (data.email !== undefined) row.email = data.email;
+  if (data.phoneNumber !== undefined) row.phone_number = data.phoneNumber;
+  if (data.address !== undefined) row.address = data.address;
+  if (data.latitude !== undefined) row.latitude = data.latitude;
+  if (data.longitude !== undefined) row.longitude = data.longitude;
+  if (data.profileImageURL !== undefined) row.profile_image_url = data.profileImageURL;
+  if (data.notes !== undefined) row.notes = data.notes;
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  return row;
+}
+
+function mapSubClientFromDb(row: Record<string, unknown>): SubClient {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    title: (row.title as string) ?? null,
+    email: (row.email as string) ?? null,
+    phoneNumber: (row.phone_number as string) ?? null,
+    address: (row.address as string) ?? null,
+    clientId: (row.client_id as string) ?? null,
+    createdAt: parseDateRequired(row.created_at),
+    updatedAt: parseDateRequired(row.updated_at),
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
+function mapSubClientToDb(data: Partial<SubClient>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.name !== undefined) row.name = data.name;
+  if (data.title !== undefined) row.title = data.title;
+  if (data.email !== undefined) row.email = data.email;
+  if (data.phoneNumber !== undefined) row.phone_number = data.phoneNumber;
+  if (data.address !== undefined) row.address = data.address;
+  if (data.clientId !== undefined) row.client_id = data.clientId;
+  return row;
+}
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
 export interface FetchClientsOptions {
-  /** Search by name */
+  /** Search by name (case-insensitive) */
   searchName?: string;
-  /** Filter by status */
-  status?: string;
-  /** Sort field */
+  /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction */
   descending?: boolean;
-  /** Pagination limit */
+  /** Pagination limit (max 100) */
   limit?: number;
-  /** Pagination cursor */
+  /** Pagination offset */
   cursor?: number;
 }
 
@@ -47,145 +90,128 @@ export interface FetchClientsOptions {
 
 export const ClientService = {
   /**
-   * Fetch all clients for a company.
+   * Fetch clients for a company with optional search, sort, and pagination.
    */
   async fetchClients(
     companyId: string,
     options: FetchClientsOptions = {}
   ): Promise<{ clients: Client[]; remaining: number; count: number }> {
-    const apiClient = getBubbleClient();
+    const supabase = requireSupabase();
+    const limit = Math.min(options.limit ?? 100, 100);
+    const offset = options.cursor ?? 0;
 
-    const constraints: BubbleConstraint[] = [
-      {
-        key: BubbleClientFields.parentCompany,
-        constraint_type: BubbleConstraintType.equals,
-        value: companyId,
-      },
-      {
-        key: BubbleClientFields.deletedAt,
-        constraint_type: BubbleConstraintType.isEmpty,
-      },
-    ];
+    let query = supabase
+      .from("clients")
+      .select("*", { count: "exact" })
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (options.searchName) {
-      constraints.push({
-        key: BubbleClientFields.name,
-        constraint_type: BubbleConstraintType.textContains,
-        value: options.searchName,
-      });
+      query = query.ilike("name", `%${options.searchName}%`);
     }
-
-    if (options.status) {
-      constraints.push({
-        key: BubbleClientFields.status,
-        constraint_type: BubbleConstraintType.equals,
-        value: options.status,
-      });
-    }
-
-    const params: Record<string, string | number> = {
-      constraints: JSON.stringify(constraints),
-      limit: Math.min(options.limit ?? 100, 100),
-      cursor: options.cursor ?? 0,
-    };
 
     if (options.sortField) {
-      params.sort_field = options.sortField;
-      params.descending = options.descending ? "true" : "false";
+      query = query.order(options.sortField, { ascending: !options.descending });
+    } else {
+      query = query.order("name");
     }
 
-    const response = await apiClient.get<BubbleListResponse<ClientDTO>>(
-      `/obj/${BubbleTypes.client.toLowerCase()}`,
-      { params }
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    const clients = response.response.results.map(clientDtoToModel);
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Failed to fetch clients: ${error.message}`);
 
-    return {
-      clients,
-      remaining: response.response.remaining,
-      count: response.response.count,
-    };
+    const total = count ?? 0;
+    const clients = (data ?? []).map(mapClientFromDb);
+    const remaining = Math.max(0, total - offset - clients.length);
+
+    return { clients, remaining, count: total };
   },
 
   /**
    * Fetch a single client by ID.
    */
   async fetchClient(id: string): Promise<Client> {
-    const apiClient = getBubbleClient();
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    const response = await apiClient.get<BubbleObjectResponse<ClientDTO>>(
-      `/obj/${BubbleTypes.client.toLowerCase()}/${id}`
-    );
-
-    return clientDtoToModel(response.response);
+    if (error) throw new Error(`Failed to fetch client: ${error.message}`);
+    return mapClientFromDb(data);
   },
 
   /**
-   * Create a new client.
+   * Create a new client. Returns the full Client object.
    */
   async createClient(
-    data: Partial<Client> & { name: string }
-  ): Promise<string> {
-    const apiClient = getBubbleClient();
+    data: Partial<Client> & { name: string; companyId: string }
+  ): Promise<Client> {
+    const supabase = requireSupabase();
+    const row = mapClientToDb(data);
 
-    const dto = clientModelToDto(data);
+    const { data: created, error } = await supabase
+      .from("clients")
+      .insert(row)
+      .select()
+      .single();
 
-    const response = await apiClient.post<BubbleCreationResponse>(
-      `/obj/${BubbleTypes.client.toLowerCase()}`,
-      dto
-    );
-
-    return response.id;
+    if (error) throw new Error(`Failed to create client: ${error.message}`);
+    return mapClientFromDb(created);
   },
 
   /**
    * Update an existing client.
    */
   async updateClient(id: string, data: Partial<Client>): Promise<void> {
-    const apiClient = getBubbleClient();
+    const supabase = requireSupabase();
+    const row = mapClientToDb(data);
 
-    const dto = clientModelToDto(data);
+    const { error } = await supabase
+      .from("clients")
+      .update(row)
+      .eq("id", id);
 
-    await apiClient.patch(
-      `/obj/${BubbleTypes.client.toLowerCase()}/${id}`,
-      dto
-    );
+    if (error) throw new Error(`Failed to update client: ${error.message}`);
   },
 
   /**
-   * Soft delete a client.
+   * Soft delete a client by setting deleted_at.
    */
   async deleteClient(id: string): Promise<void> {
-    const apiClient = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await apiClient.patch(
-      `/obj/${BubbleTypes.client.toLowerCase()}/${id}`,
-      { [BubbleClientFields.deletedAt]: new Date().toISOString() }
-    );
+    const { error } = await supabase
+      .from("clients")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to delete client: ${error.message}`);
   },
 
   /**
-   * Fetch all clients with auto-pagination.
+   * Fetch all clients with auto-pagination (useful for exports).
    */
   async fetchAllClients(
     companyId: string,
     options: Omit<FetchClientsOptions, "limit" | "cursor"> = {}
   ): Promise<Client[]> {
     const allClients: Client[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    let offset = 0;
+    let hasMore = true;
 
-    while (remaining > 0) {
+    while (hasMore) {
       const result = await ClientService.fetchClients(companyId, {
         ...options,
         limit: 100,
-        cursor,
+        cursor: offset,
       });
 
       allClients.push(...result.clients);
-      remaining = result.remaining;
-      cursor += result.clients.length;
+      hasMore = result.remaining > 0;
+      offset += result.clients.length;
     }
 
     return allClients;
@@ -194,102 +220,87 @@ export const ClientService = {
   // ─── Sub-Client Operations ────────────────────────────────────────────────
 
   /**
-   * Fetch all sub-clients for a specific client (auto-paginates past 100).
+   * Fetch all sub-clients for a specific client.
    */
   async fetchSubClients(clientId: string): Promise<SubClient[]> {
-    const apiClient = getBubbleClient();
-    const allSubClients: SubClient[] = [];
-    let cursor = 0;
-    let remaining = 1;
+    const supabase = requireSupabase();
 
-    while (remaining > 0) {
-      const constraints: BubbleConstraint[] = [
-        {
-          key: BubbleSubClientFields.parentClient,
-          constraint_type: BubbleConstraintType.equals,
-          value: clientId,
-        },
-        {
-          key: BubbleSubClientFields.deletedAt,
-          constraint_type: BubbleConstraintType.isEmpty,
-        },
-      ];
+    const { data, error } = await supabase
+      .from("sub_clients")
+      .select("*")
+      .eq("client_id", clientId)
+      .is("deleted_at", null)
+      .order("name");
 
-      const params = {
-        constraints: JSON.stringify(constraints),
-        limit: 100,
-        cursor,
-      };
-
-      // Note: Bubble uses "Sub Client" with a space, but the API endpoint is lowercase
-      const response = await apiClient.get<BubbleListResponse<SubClientDTO>>(
-        `/obj/subclient`,
-        { params }
-      );
-
-      const subClients = response.response.results.map(subClientDtoToModel);
-      allSubClients.push(...subClients);
-      remaining = response.response.remaining;
-      cursor += subClients.length;
-    }
-
-    return allSubClients;
+    if (error) throw new Error(`Failed to fetch sub-clients: ${error.message}`);
+    return (data ?? []).map(mapSubClientFromDb);
   },
 
   /**
    * Fetch a single sub-client by ID.
    */
   async fetchSubClient(id: string): Promise<SubClient> {
-    const apiClient = getBubbleClient();
+    const supabase = requireSupabase();
 
-    const response = await apiClient.get<BubbleObjectResponse<SubClientDTO>>(
-      `/obj/subclient/${id}`
-    );
+    const { data, error } = await supabase
+      .from("sub_clients")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    return subClientDtoToModel(response.response);
+    if (error) throw new Error(`Failed to fetch sub-client: ${error.message}`);
+    return mapSubClientFromDb(data);
   },
 
   /**
-   * Create a new sub-client.
+   * Create a new sub-client. Returns the full SubClient object.
+   * The company_id is resolved from the parent client.
    */
   async createSubClient(
-    data: Partial<SubClient> & { name: string; clientId: string }
-  ): Promise<string> {
-    const apiClient = getBubbleClient();
+    data: Partial<SubClient> & { name: string; clientId: string },
+    companyId: string
+  ): Promise<SubClient> {
+    const supabase = requireSupabase();
+    const row = mapSubClientToDb(data);
+    row.company_id = companyId;
 
-    const dto = subClientModelToDto(data);
+    const { data: created, error } = await supabase
+      .from("sub_clients")
+      .insert(row)
+      .select()
+      .single();
 
-    const response = await apiClient.post<BubbleCreationResponse>(
-      `/obj/subclient`,
-      dto
-    );
-
-    return response.id;
+    if (error) throw new Error(`Failed to create sub-client: ${error.message}`);
+    return mapSubClientFromDb(created);
   },
 
   /**
    * Update an existing sub-client.
    */
-  async updateSubClient(
-    id: string,
-    data: Partial<SubClient>
-  ): Promise<void> {
-    const apiClient = getBubbleClient();
+  async updateSubClient(id: string, data: Partial<SubClient>): Promise<void> {
+    const supabase = requireSupabase();
+    const row = mapSubClientToDb(data);
 
-    const dto = subClientModelToDto(data);
+    const { error } = await supabase
+      .from("sub_clients")
+      .update(row)
+      .eq("id", id);
 
-    await apiClient.patch(`/obj/subclient/${id}`, dto);
+    if (error) throw new Error(`Failed to update sub-client: ${error.message}`);
   },
 
   /**
-   * Soft delete a sub-client.
+   * Soft delete a sub-client by setting deleted_at.
    */
   async deleteSubClient(id: string): Promise<void> {
-    const apiClient = getBubbleClient();
+    const supabase = requireSupabase();
 
-    await apiClient.patch(`/obj/subclient/${id}`, {
-      [BubbleSubClientFields.deletedAt]: new Date().toISOString(),
-    });
+    const { error } = await supabase
+      .from("sub_clients")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to delete sub-client: ${error.message}`);
   },
 };
 

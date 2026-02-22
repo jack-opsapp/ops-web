@@ -1,9 +1,11 @@
 /**
  * POST /api/webhooks/stripe
  *
- * Handles Stripe webhook events for portal invoice payments.
- * Verifies the signature, then records the payment in the payments table.
- * The existing DB trigger updates invoice balance_due and status automatically.
+ * Handles Stripe webhook events:
+ *  - payment_intent.succeeded → records portal invoice payments
+ *  - customer.subscription.created/updated → syncs subscription status to companies table
+ *  - customer.subscription.deleted → marks subscription as cancelled
+ *  - invoice.payment_failed → sets subscription status to grace
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -36,6 +38,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Webhook signature verification failed` }, { status: 400 });
   }
 
+  const supabase = getServiceRoleClient();
+
   // Handle payment_intent.succeeded
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -48,7 +52,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for duplicate — don't record the same PaymentIntent twice
-    const supabase = getServiceRoleClient();
     const { data: existing } = await supabase
       .from("payments")
       .select("id")
@@ -82,6 +85,82 @@ export async function POST(req: NextRequest) {
     console.log(
       `[stripe-webhook] Payment recorded: $${(paymentIntent.amount / 100).toFixed(2)} for invoice ${invoiceId}`
     );
+  }
+
+  // Handle subscription events
+  if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId = subscription.customer as string;
+
+    // Find the company by stripe_customer_id
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (company) {
+      const updates: Record<string, unknown> = {
+        subscription_status: subscription.status === "active" ? "active" :
+                            subscription.status === "trialing" ? "trial" :
+                            subscription.status === "past_due" ? "grace" :
+                            subscription.cancel_at_period_end ? "cancelled" : subscription.status,
+        subscription_end: subscription.items.data[0]?.current_period_end
+          ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
+          : new Date().toISOString(),
+        subscription_ids_json: JSON.stringify([subscription.id]),
+      };
+
+      await supabase
+        .from("companies")
+        .update(updates)
+        .eq("id", company.id);
+
+      console.log(`[stripe-webhook] Subscription ${event.type} for company ${company.id}`);
+    }
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId = subscription.customer as string;
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (company) {
+      await supabase
+        .from("companies")
+        .update({
+          subscription_status: "cancelled",
+          subscription_ids_json: null,
+        })
+        .eq("id", company.id);
+
+      console.log(`[stripe-webhook] Subscription deleted for company ${company.id}`);
+    }
+  }
+
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const customerId = invoice.customer as string;
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (company) {
+      await supabase
+        .from("companies")
+        .update({ subscription_status: "grace" })
+        .eq("id", company.id);
+
+      console.log(`[stripe-webhook] Payment failed for company ${company.id}`);
+    }
   }
 
   return NextResponse.json({ received: true });

@@ -1,6 +1,7 @@
 import {
   signInWithPopup,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -15,12 +16,25 @@ googleProvider.setCustomParameters({
   prompt: "select_account",
 });
 
+const appleProvider = new OAuthProvider("apple.com");
+appleProvider.addScope("email");
+appleProvider.addScope("name");
+
 /**
  * Sign in with Google via popup.
  * Returns the authenticated user.
  */
 export async function signInWithGoogle(): Promise<User> {
   const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
+}
+
+/**
+ * Sign in with Apple via popup.
+ * Returns the authenticated user.
+ */
+export async function signInWithApple(): Promise<User> {
+  const result = await signInWithPopup(auth, appleProvider);
   return result.user;
 }
 

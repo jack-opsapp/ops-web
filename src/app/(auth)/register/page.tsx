@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
-import { signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth";
+import { signInWithGoogle, signInWithApple, signUpWithEmail } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isLoadingApple, setIsLoadingApple] = useState(false);
 
   async function handleGoogleSignIn() {
     setError(null);
@@ -32,6 +33,21 @@ export default function RegisterPage() {
       setError(message);
     } finally {
       setIsLoadingGoogle(false);
+    }
+  }
+
+  async function handleAppleSignIn() {
+    setError(null);
+    setIsLoadingApple(true);
+    try {
+      await signInWithApple();
+      trackSignUp("apple");
+      router.push("/onboarding");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Apple sign-in failed";
+      setError(message);
+    } finally {
+      setIsLoadingApple(false);
     }
   }
 
@@ -57,12 +73,19 @@ export default function RegisterPage() {
       const { updateProfile } = await import("firebase/auth");
       await updateProfile(user, { displayName: fullName.trim() });
 
-      // Create user record in Bubble backend
+      // Sync user with Supabase via API route
+      const idToken = await user.getIdToken();
       try {
-        await UserService.signup(email, password, "Employee");
-      } catch (bubbleError) {
-        console.error("[Register] Bubble signup failed:", bubbleError);
-        // Continue anyway - the auth provider will try to reconcile on next login
+        await UserService.syncUser(
+          idToken,
+          email,
+          fullName.trim(),
+          fullName.trim().split(" ")[0],
+          fullName.trim().split(" ").slice(1).join(" ")
+        );
+      } catch (syncError) {
+        console.error("[Register] User sync failed:", syncError);
+        // Continue anyway - auth provider will reconcile on next login
       }
 
       trackSignUp("email");
@@ -111,7 +134,7 @@ export default function RegisterPage() {
           className="w-full gap-1.5 border-border-medium"
           onClick={handleGoogleSignIn}
           loading={isLoadingGoogle}
-          disabled={isLoadingEmail}
+          disabled={isLoadingEmail || isLoadingApple}
         >
           <svg className="w-[20px] h-[20px]" viewBox="0 0 24 24">
             <path
@@ -134,6 +157,21 @@ export default function RegisterPage() {
           <span>Continue with Google</span>
         </Button>
 
+        {/* Apple Sign-In */}
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full gap-1.5 border-border-medium"
+          onClick={handleAppleSignIn}
+          loading={isLoadingApple}
+          disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
+        >
+          <svg className="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+          </svg>
+          <span>Continue with Apple</span>
+        </Button>
+
         {/* Divider */}
         <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
           or create account with email
@@ -148,7 +186,7 @@ export default function RegisterPage() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             prefixIcon={<User className="w-[16px] h-[16px]" />}
-            disabled={isLoadingEmail || isLoadingGoogle}
+            disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
             autoComplete="name"
           />
           <Input
@@ -158,7 +196,7 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             prefixIcon={<Mail className="w-[16px] h-[16px]" />}
-            disabled={isLoadingEmail || isLoadingGoogle}
+            disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
             autoComplete="email"
           />
           <div className="relative">
@@ -183,7 +221,7 @@ export default function RegisterPage() {
                   )}
                 </button>
               }
-              disabled={isLoadingEmail || isLoadingGoogle}
+              disabled={isLoadingEmail || isLoadingGoogle || isLoadingApple}
               autoComplete="new-password"
             />
           </div>
@@ -192,7 +230,7 @@ export default function RegisterPage() {
             size="lg"
             className="w-full"
             loading={isLoadingEmail}
-            disabled={isLoadingGoogle}
+            disabled={isLoadingGoogle || isLoadingApple}
           >
             Create Account
           </Button>

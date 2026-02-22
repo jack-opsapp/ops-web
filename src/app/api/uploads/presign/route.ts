@@ -2,7 +2,7 @@
  * OPS Web - S3 Presigned URL Generator
  *
  * Generates presigned PUT URLs for direct-to-S3 image uploads.
- * Replaces the old Bubble /wf/get_upload_url workflow.
+ * Direct S3 presigned URL generation for image uploads.
  *
  * POST /api/uploads/presign
  * Body: { filename: string, contentType: string, folder?: string }

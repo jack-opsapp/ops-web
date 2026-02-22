@@ -49,11 +49,20 @@ export function useCompanyById(
   });
 }
 
+/** Return type for subscription info query. */
+type SubscriptionInfo = {
+  status: string | null;
+  plan: string | null;
+  period: string | null;
+  endDate: string | null;
+  stripeCustomerId: string | null;
+};
+
 /**
  * Fetch subscription info for the current company.
  */
 export function useSubscriptionInfo(
-  queryOptions?: Partial<UseQueryOptions<Record<string, unknown>>>
+  queryOptions?: Partial<UseQueryOptions<SubscriptionInfo>>
 ) {
   const { company } = useAuthStore();
   const companyId = company?.id;
@@ -124,7 +133,7 @@ export function useUpdateCompany() {
 // ─── Subscription Mutations ───────────────────────────────────────────────────
 
 /**
- * Complete a subscription purchase.
+ * Subscribe to a plan (replaces the old completeSubscription hook).
  */
 export function useCompleteSubscription() {
   const queryClient = useQueryClient();
@@ -132,13 +141,12 @@ export function useCompleteSubscription() {
 
   return useMutation({
     mutationFn: (data: {
-      planId: string;
+      plan: string;
       period: "Monthly" | "Annual";
       paymentMethodId?: string;
     }) =>
-      CompanyService.completeSubscription({
+      CompanyService.subscribe({
         companyId: company!.id,
-        userId: useAuthStore.getState().currentUser!.id,
         ...data,
       }),
 

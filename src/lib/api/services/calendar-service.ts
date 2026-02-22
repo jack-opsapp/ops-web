@@ -2,7 +2,7 @@
  * OPS Web - Calendar Event Service (Supabase)
  *
  * Complete CRUD operations for CalendarEvents stored in Supabase `calendar_events` table.
- * Replaces the old Bubble.io-based implementation.
+ * Supabase-backed calendar event CRUD operations.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
