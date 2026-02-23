@@ -73,7 +73,7 @@ export function middleware(request: NextRequest) {
   // If user is on an auth route and is authenticated, redirect to destination
   if (authRoutes.some((route) => pathname === route)) {
     if (isAuthenticated) {
-      const redirect = request.nextUrl.searchParams.get("redirect") || "/projects";
+      const redirect = request.nextUrl.searchParams.get("redirect") || "/dashboard";
       return NextResponse.redirect(new URL(redirect, request.url));
     }
     return NextResponse.next();
