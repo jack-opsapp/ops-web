@@ -31,7 +31,6 @@ import {
 import { WidgetGrid } from "@/components/dashboard/widget-grid";
 import { WidgetCustomizer } from "@/components/dashboard/widget-customizer";
 import { StatsWidget } from "@/components/dashboard/widgets/stats-widget";
-import { QuickActionsWidget } from "@/components/dashboard/widgets/quick-actions-widget";
 import { CalendarWidget } from "@/components/dashboard/widgets/calendar-widget";
 import { CrewWidget } from "@/components/dashboard/widgets/crew-widget";
 import { TasksWidget } from "@/components/dashboard/widgets/tasks-widget";
@@ -165,7 +164,7 @@ export default function DashboardPage() {
         <WidgetCustomizer open={showCustomize} />
 
         {/* Widget Grid */}
-        <WidgetGrid>
+        <WidgetGrid isCustomizing={showCustomize}>
           {{
             stats: (
               <StatsWidget
@@ -177,12 +176,6 @@ export default function DashboardPage() {
                 projectsLoading={projectsLoading}
                 calendarLoading={calendarLoading}
                 clientsLoading={clientsLoading}
-              />
-            ),
-            "quick-actions": (
-              <QuickActionsWidget
-                size={widgetConfigs["quick-actions"].size}
-                onNavigate={navigate}
               />
             ),
             calendar: (

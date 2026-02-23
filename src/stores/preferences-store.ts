@@ -8,6 +8,7 @@ import {
   type WidgetSize,
   DEFAULT_WIDGET_CONFIGS,
   WIDGET_REGISTRY,
+  WIDGET_RENDER_ORDER,
 } from "@/lib/types/dashboard-widgets";
 
 // Re-export for consumers that imported from here
@@ -68,6 +69,10 @@ interface PreferencesState {
   setWidgetVisible: (id: DashboardWidgetId, visible: boolean) => void;
   resetWidgetConfigs: () => void;
 
+  // Widget order (v3 — user-defined display order)
+  widgetOrder: DashboardWidgetId[];
+  setWidgetOrder: (order: DashboardWidgetId[]) => void;
+
   // Scheduling
   schedulingType: SchedulingTypeId;
   setSchedulingType: (type: SchedulingTypeId) => void;
@@ -115,7 +120,12 @@ export const usePreferencesStore = create<PreferencesState>()(
             [id]: { ...state.widgetConfigs[id], visible },
           },
         })),
-      resetWidgetConfigs: () => set({ widgetConfigs: { ...DEFAULT_WIDGET_CONFIGS } }),
+      resetWidgetConfigs: () =>
+        set({ widgetConfigs: { ...DEFAULT_WIDGET_CONFIGS }, widgetOrder: [...WIDGET_RENDER_ORDER] }),
+
+      // Widget order
+      widgetOrder: [...WIDGET_RENDER_ORDER],
+      setWidgetOrder: (order) => set({ widgetOrder: order }),
 
       schedulingType: "both",
       setSchedulingType: (type) => set({ schedulingType: type }),
@@ -128,7 +138,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
 
@@ -137,7 +147,6 @@ export const usePreferencesStore = create<PreferencesState>()(
           const oldVisible = state.visibleWidgets as string[];
           const configs = { ...DEFAULT_WIDGET_CONFIGS };
 
-          // Preserve visibility from old format
           for (const id of Object.keys(configs) as DashboardWidgetId[]) {
             configs[id] = {
               ...configs[id],
@@ -145,9 +154,32 @@ export const usePreferencesStore = create<PreferencesState>()(
             };
           }
 
-          // Remove old keys
           const { visibleWidgets: _, ...rest } = state;
-          return { ...rest, widgetConfigs: configs };
+          return { ...rest, widgetConfigs: configs, widgetOrder: [...WIDGET_RENDER_ORDER] };
+        }
+
+        // Migrate v2 → v3: add widgetOrder, strip removed widget ids
+        if (version < 3 && state) {
+          const validIds = new Set<string>(WIDGET_RENDER_ORDER);
+          // Add default widgetOrder if missing
+          if (!state.widgetOrder) {
+            (state as Record<string, unknown>).widgetOrder = [...WIDGET_RENDER_ORDER];
+          } else {
+            // Filter out any removed widget ids (e.g. "quick-actions")
+            (state as Record<string, unknown>).widgetOrder = (
+              state.widgetOrder as string[]
+            ).filter((id) => validIds.has(id));
+          }
+          // Clean widgetConfigs of removed widget ids
+          if (state.widgetConfigs) {
+            const configs = state.widgetConfigs as Record<string, unknown>;
+            for (const key of Object.keys(configs)) {
+              if (!validIds.has(key)) {
+                delete configs[key];
+              }
+            }
+          }
+          return state as Record<string, unknown>;
         }
 
         return state as Record<string, unknown>;

@@ -11,7 +11,6 @@ export interface WidgetConfig {
 
 export type DashboardWidgetId =
   | "stats"
-  | "quick-actions"
   | "calendar"
   | "crew"
   | "tasks"
@@ -29,11 +28,6 @@ export interface WidgetRegistryEntry {
 export const WIDGET_REGISTRY: Record<DashboardWidgetId, WidgetRegistryEntry> = {
   stats: {
     label: "Stats Overview",
-    supportedSizes: ["md", "full"],
-    defaultSize: "full",
-  },
-  "quick-actions": {
-    label: "Quick Actions",
     supportedSizes: ["md", "full"],
     defaultSize: "full",
   },
@@ -77,7 +71,6 @@ export const WIDGET_REGISTRY: Record<DashboardWidgetId, WidgetRegistryEntry> = {
 /** Controls the auto-flow order of widgets in the grid */
 export const WIDGET_RENDER_ORDER: DashboardWidgetId[] = [
   "stats",
-  "quick-actions",
   "calendar",
   "crew",
   "tasks",
