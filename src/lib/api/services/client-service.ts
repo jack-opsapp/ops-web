@@ -11,6 +11,7 @@ import type { Client, SubClient } from "../../types/models";
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
 function mapClientFromDb(row: Record<string, unknown>): Client {
+  const subClientRows = Array.isArray(row.sub_clients) ? row.sub_clients : [];
   return {
     id: row.id as string,
     name: row.name as string,
@@ -26,6 +27,9 @@ function mapClientFromDb(row: Record<string, unknown>): Client {
     needsSync: false,
     createdAt: parseDate(row.created_at),
     deletedAt: parseDate(row.deleted_at),
+    subClients: subClientRows.length > 0
+      ? subClientRows.map((sc: Record<string, unknown>) => mapSubClientFromDb(sc))
+      : undefined,
   };
 }
 
@@ -102,7 +106,7 @@ export const ClientService = {
 
     let query = supabase
       .from("clients")
-      .select("*", { count: "exact" })
+      .select("*, sub_clients(*)", { count: "exact" })
       .eq("company_id", companyId)
       .is("deleted_at", null);
 
@@ -135,7 +139,7 @@ export const ClientService = {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("clients")
-      .select("*")
+      .select("*, sub_clients(*)")
       .eq("id", id)
       .single();
 

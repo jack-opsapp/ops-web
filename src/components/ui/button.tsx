@@ -30,8 +30,8 @@ const buttonVariants = cva(
           "hover:bg-ops-amber-hover",
         ],
         secondary: [
-          "bg-transparent text-text-secondary border border-[rgba(255,255,255,0.4)]",
-          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text-primary",
+          "bg-transparent text-text-secondary border border-[rgba(255,255,255,0.10)]",
+          "hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.18)] hover:text-text-primary",
         ],
         destructive: [
           "bg-ops-error text-white border border-ops-error",

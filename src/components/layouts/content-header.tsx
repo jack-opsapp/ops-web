@@ -38,66 +38,52 @@ function getBreadcrumbs(pathname: string): { label: string; href?: string; isEnt
   return crumbs;
 }
 
-function getPageTitle(pathname: string): string | null {
-  for (const [route, title] of Object.entries(routeTitles)) {
-    if (pathname === route || pathname.startsWith(route + "/")) {
-      return title;
-    }
-  }
-  return null;
-}
-
 export function ContentHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const entityName = useBreadcrumbStore((s) => s.entityName);
 
   const breadcrumbs = useMemo(() => getBreadcrumbs(pathname), [pathname]);
-  const pageTitle = useMemo(() => getPageTitle(pathname), [pathname]);
 
-  if (breadcrumbs.length <= 1 && !pageTitle) return null;
+  // Only render breadcrumbs for nested routes (2+ segments).
+  // Top-level pages handle their own headers with counts, actions, etc.
+  if (breadcrumbs.length <= 1) return null;
 
   return (
     <div className="px-3 pt-2 pb-1 shrink-0">
-      {breadcrumbs.length > 1 ? (
-        <div className="flex items-center gap-[6px]">
-          {breadcrumbs.map((crumb, index) => {
-            const isLast = index === breadcrumbs.length - 1;
-            const displayLabel =
-              crumb.isEntity && entityName
-                ? entityName
-                : crumb.isEntity
-                  ? crumb.label.length > 16
-                    ? crumb.label.slice(0, 16) + "..."
-                    : crumb.label
-                  : crumb.label;
+      <div className="flex items-center gap-[6px]">
+        {breadcrumbs.map((crumb, index) => {
+          const isLast = index === breadcrumbs.length - 1;
+          const displayLabel =
+            crumb.isEntity && entityName
+              ? entityName
+              : crumb.isEntity
+                ? crumb.label.length > 16
+                  ? crumb.label.slice(0, 16) + "..."
+                  : crumb.label
+                : crumb.label;
 
-            return (
-              <div key={index} className="flex items-center gap-[6px]">
-                {index > 0 && (
-                  <span className="text-text-disabled font-mono text-body-sm">/</span>
-                )}
-                {crumb.href && !isLast ? (
-                  <button
-                    onClick={() => router.push(crumb.href!)}
-                    className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors truncate uppercase tracking-wider"
-                  >
-                    {displayLabel}
-                  </button>
-                ) : (
-                  <span className="font-mohave text-body font-semibold text-text-primary truncate uppercase tracking-wider">
-                    {displayLabel}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : pageTitle ? (
-        <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider truncate">
-          {pageTitle}
-        </h1>
-      ) : null}
+          return (
+            <div key={index} className="flex items-center gap-[6px]">
+              {index > 0 && (
+                <span className="text-text-disabled font-mono text-body-sm">/</span>
+              )}
+              {crumb.href && !isLast ? (
+                <button
+                  onClick={() => router.push(crumb.href!)}
+                  className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors truncate uppercase tracking-wider"
+                >
+                  {displayLabel}
+                </button>
+              ) : (
+                <span className="font-mohave text-body font-semibold text-text-primary truncate uppercase tracking-wider">
+                  {displayLabel}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

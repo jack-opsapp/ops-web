@@ -19,13 +19,13 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
     <div
       ref={ref}
       className={cn(
-        "flex flex-col items-center justify-center gap-2 py-6 px-3",
-        "text-left",
+        "flex items-start gap-2 py-3 px-3",
+        "border-l-2 border-l-[rgba(255,255,255,0.08)]",
         className
       )}
     >
       {icon && (
-        <div className="text-text-disabled" aria-hidden="true">
+        <div className="text-text-disabled shrink-0 mt-[2px]" aria-hidden="true">
           {icon}
         </div>
       )}
@@ -36,17 +36,17 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
             {description}
           </p>
         )}
+        {action && (
+          <Button
+            variant={action.variant ?? "default"}
+            size="sm"
+            onClick={action.onClick}
+            className="mt-1.5"
+          >
+            {action.label}
+          </Button>
+        )}
       </div>
-      {action && (
-        <Button
-          variant={action.variant ?? "default"}
-          size="sm"
-          onClick={action.onClick}
-          className="mt-1"
-        >
-          {action.label}
-        </Button>
-      )}
     </div>
   )
 );

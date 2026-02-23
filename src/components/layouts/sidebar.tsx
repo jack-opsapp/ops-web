@@ -35,20 +35,26 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const navItems: NavItem[] = [
+type NavEntry = NavItem | "divider";
+
+const navItems: NavEntry[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  "divider",
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Calendar", href: "/calendar", icon: CalendarDays },
   { label: "Clients", href: "/clients", icon: Users },
   { label: "Job Board", href: "/job-board", icon: Columns3 },
   { label: "Team", href: "/team", icon: UserCog },
   { label: "Map", href: "/map", icon: MapPin },
+  "divider",
   { label: "Pipeline", href: "/pipeline", icon: GitBranch },
   { label: "Estimates", href: "/estimates", icon: FileText },
   { label: "Invoices", href: "/invoices", icon: Receipt },
+  "divider",
   { label: "Products", href: "/products", icon: Package },
   { label: "Accounting", href: "/accounting", icon: Calculator },
   { label: "Portal Inbox", href: "/portal-inbox", icon: MessageSquareText },
+  "divider",
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -151,14 +157,21 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-1 px-1 space-y-[2px]">
-        {navItems.map((item) => (
-          <NavItemButton
-            key={item.href}
-            item={item}
-            isActive={isActive(item.href)}
-            isCollapsed={isCollapsed}
-          />
-        ))}
+        {navItems.map((entry, i) => {
+          if (entry === "divider") {
+            return (
+              <div key={`div-${i}`} className="my-1 mx-1.5 h-px bg-[rgba(255,255,255,0.06)]" />
+            );
+          }
+          return (
+            <NavItemButton
+              key={entry.href}
+              item={entry}
+              isActive={isActive(entry.href)}
+              isCollapsed={isCollapsed}
+            />
+          );
+        })}
       </nav>
 
       {/* Collapse Chevron — positioned on sidebar right edge */}

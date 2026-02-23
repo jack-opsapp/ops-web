@@ -223,7 +223,7 @@
   }
   @keyframes typewriter {
     from { width: 0; }
-    to { width: 100%; }
+    to { width: max-content; }
   }
   @keyframes blink-caret {
     0%, 100% { border-color: transparent; }

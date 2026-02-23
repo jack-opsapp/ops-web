@@ -183,7 +183,7 @@ function StatCard({
 // ---------------------------------------------------------------------------
 // Mini Calendar Widget - wired to useCalendarEventsForRange
 // ---------------------------------------------------------------------------
-function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoading: boolean }) {
+function MiniCalendar({ events, isLoading, onNavigate }: { events: CalendarEvent[]; isLoading: boolean; onNavigate: (path: string) => void }) {
   const today = useMemo(() => new Date(), []);
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthNames = [
@@ -258,6 +258,7 @@ function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoadin
             return (
               <div
                 key={i}
+                onClick={() => onNavigate("/calendar")}
                 className={cn(
                   "flex flex-col items-center py-[6px] rounded transition-colors cursor-pointer",
                   isToday
@@ -314,6 +315,7 @@ function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoadin
               return (
                 <div
                   key={ev.id || i}
+                  onClick={() => onNavigate(ev.projectId ? `/projects/${ev.projectId}` : "/calendar")}
                   className="flex items-center gap-1 px-[6px] py-[5px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors"
                 >
                   <span className="font-mono text-[10px] text-text-disabled w-[60px] shrink-0">
@@ -342,9 +344,11 @@ function MiniCalendar({ events, isLoading }: { events: CalendarEvent[]; isLoadin
 function CrewStatus({
   teamMembers,
   isLoading,
+  onNavigate,
 }: {
   teamMembers: User[];
   isLoading: boolean;
+  onNavigate: (path: string) => void;
 }) {
   const activeCount = teamMembers.filter((m) => m.isActive).length;
 
@@ -378,6 +382,7 @@ function CrewStatus({
               return (
                 <div
                   key={member.id}
+                  onClick={() => onNavigate("/team")}
                   className="flex items-center gap-1.5 px-[6px] py-1 rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors"
                 >
                   <UserAvatar
@@ -431,9 +436,11 @@ function CrewStatus({
 function PipelineMiniView({
   projects,
   isLoading,
+  onNavigate,
 }: {
   projects: Project[];
   isLoading: boolean;
+  onNavigate: (path: string) => void;
 }) {
   const stages = useMemo(() => {
     const activeProjects = projects.filter(
@@ -499,7 +506,7 @@ function PipelineMiniView({
             {/* Stage breakdown */}
             <div className="space-y-[6px]">
               {stages.map((stage, i) => (
-                <div key={i} className="flex items-center justify-between">
+                <div key={i} onClick={() => onNavigate("/pipeline")} className="flex items-center justify-between cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded px-1 py-[2px] transition-colors">
                   <div className="flex items-center gap-1">
                     <span
                       className="w-[8px] h-[8px] rounded-sm shrink-0"
@@ -763,8 +770,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         {/* Column 1: Calendar + Crew */}
         <div className="space-y-2">
-          <MiniCalendar events={weekEvents} isLoading={calendarLoading} />
-          <CrewStatus teamMembers={teamMembers} isLoading={teamLoading} />
+          <MiniCalendar events={weekEvents} isLoading={calendarLoading} onNavigate={(path) => router.push(path)} />
+          <CrewStatus teamMembers={teamMembers} isLoading={teamLoading} onNavigate={(path) => router.push(path)} />
         </div>
 
         {/* Column 2: Upcoming Tasks + Recent Activity */}
@@ -805,6 +812,7 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={task.id}
+                        onClick={() => router.push(task.projectId ? `/projects/${task.projectId}` : "/calendar")}
                         className="flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group"
                       >
                         {isInProgress ? (
@@ -876,7 +884,7 @@ export default function DashboardPage() {
 
         {/* Column 3: Pipeline + Revenue */}
         <div className="space-y-2">
-          <PipelineMiniView projects={projects} isLoading={projectsLoading} />
+          <PipelineMiniView projects={projects} isLoading={projectsLoading} onNavigate={(path) => router.push(path)} />
           <RevenueChart />
         </div>
       </div>

@@ -86,7 +86,7 @@ export function TopBar() {
         : "synced";
 
   return (
-    <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative">
+    <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative bg-transparent">
       {/* Left: Page Action Buttons */}
       <TooltipProvider delayDuration={300}>
         <div className="flex items-center gap-1">
@@ -127,9 +127,9 @@ export function TopBar() {
         {/* Search trigger - styled as input, opens CommandPalette */}
         <button
           className={cn(
-            "flex items-center gap-[6px] px-1.5 py-[8px] rounded-lg",
-            "bg-background-input border border-border",
-            "text-text-tertiary hover:border-ops-accent hover:text-text-secondary",
+            "flex items-center gap-[6px] px-1.5 py-[8px] rounded",
+            "bg-transparent border border-[rgba(255,255,255,0.10)]",
+            "text-text-tertiary hover:border-[rgba(255,255,255,0.18)] hover:text-text-secondary",
             "transition-all duration-150 cursor-pointer",
             "min-w-[200px]"
           )}

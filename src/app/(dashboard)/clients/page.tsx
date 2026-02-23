@@ -438,34 +438,37 @@ export default function ClientsPage() {
         <LoadingSkeleton viewMode={viewMode} />
       ) : filteredClients.length === 0 && !searchQuery && filterMode === "all" ? (
         /* Empty state - no clients at all */
-        <div className="flex flex-col items-center justify-center py-8">
-          <div className="w-[64px] h-[64px] rounded-lg bg-ops-accent-muted flex items-center justify-center mb-2">
-            <Users className="w-[32px] h-[32px] text-ops-accent" />
+        <div className="flex items-start gap-2 py-3 px-3 border-l-2 border-l-[rgba(255,255,255,0.08)]">
+          <Users className="w-[20px] h-[20px] text-text-disabled shrink-0 mt-[2px]" />
+          <div className="flex flex-col items-start gap-0.5">
+            <h3 className="font-mohave text-body-lg text-text-secondary">
+              No clients yet
+            </h3>
+            <p className="font-mohave text-body-sm text-text-tertiary max-w-[360px]">
+              Add your first client to start managing relationships, contacts, and projects.
+            </p>
+            <Button
+              className="mt-1.5 gap-[6px]"
+              size="sm"
+              onClick={() => openCreateClient()}
+            >
+              <Plus className="w-[14px] h-[14px]" />
+              Add First Client
+            </Button>
           </div>
-          <h3 className="font-mohave text-heading text-text-primary">
-            No clients yet
-          </h3>
-          <p className="font-kosugi text-caption text-text-tertiary mt-0.5 max-w-[320px]">
-            Add your first client to start managing relationships, contacts, and projects.
-          </p>
-          <Button
-            className="mt-3 gap-[6px]"
-            onClick={() => openCreateClient()}
-          >
-            <Plus className="w-[16px] h-[16px]" />
-            Add First Client
-          </Button>
         </div>
       ) : filteredClients.length === 0 ? (
         /* Empty state - filtered/searched with no results */
-        <div className="flex flex-col items-center justify-center py-6">
-          <Search className="w-[40px] h-[40px] text-text-disabled mb-2" />
-          <h3 className="font-mohave text-heading text-text-primary">
-            No matching clients
-          </h3>
-          <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
-            Try adjusting your search or filter criteria
-          </p>
+        <div className="flex items-start gap-2 py-3 px-3 border-l-2 border-l-[rgba(255,255,255,0.08)]">
+          <Search className="w-[20px] h-[20px] text-text-disabled shrink-0 mt-[2px]" />
+          <div>
+            <h3 className="font-mohave text-body-lg text-text-secondary">
+              No matching clients
+            </h3>
+            <p className="font-mohave text-body-sm text-text-tertiary">
+              Try adjusting your search or filter criteria
+            </p>
+          </div>
         </div>
       ) : viewMode === "cards" ? (
         /* Card Grid */

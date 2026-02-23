@@ -55,7 +55,7 @@ function PipelineSkeleton() {
   const stages = PIPELINE_STAGES_DEFAULT;
 
   return (
-    <div className="flex flex-col h-full space-y-2">
+    <div className="flex flex-col h-full space-y-2 min-w-0">
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
@@ -437,7 +437,7 @@ export default function PipelinePage() {
   const totalDeals = activeOpportunities.length;
 
   return (
-    <div className="flex flex-col h-full space-y-2">
+    <div className="flex flex-col h-full space-y-2 min-w-0">
       {/* Header */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">

@@ -36,7 +36,7 @@ interface CommandDialogProps {
 function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 max-w-[640px] shadow-glow-accent-lg">
+      <DialogContent className="overflow-hidden p-0 max-w-[640px] shadow-glow-accent-lg" hideClose>
         <VisuallyHidden.Root>
           <DialogTitle>Command Palette</DialogTitle>
         </VisuallyHidden.Root>
