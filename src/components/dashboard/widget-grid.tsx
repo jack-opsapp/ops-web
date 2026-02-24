@@ -57,12 +57,12 @@ export function WidgetGrid({
             return (
               <motion.div
                 key={instance.id}
-                layout
+                layout={false}
                 layoutId={instance.id}
                 transition={SPRING_REORDER}
                 className={cn(
                   COL_SPAN_CLASSES[ghostSize],
-                  "border-2 border-dashed border-ops-accent/40 bg-ops-accent/10 rounded-md flex items-center justify-center"
+                  "rounded-md flex items-center justify-center bg-ops-accent/5"
                 )}
                 style={{ minHeight: 160 }}
               >

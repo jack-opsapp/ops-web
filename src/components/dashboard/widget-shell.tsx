@@ -94,7 +94,7 @@ export function WidgetShell({
   return (
     <motion.div
       ref={setNodeRef}
-      layout
+      layout={!isDragActive}
       layoutId={instanceId}
       animate={animateState}
       transition={SPRING_REORDER}
