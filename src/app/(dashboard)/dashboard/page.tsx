@@ -146,6 +146,7 @@ export default function DashboardPage() {
   const ghostWidgetIdRef = useRef<string | null>(null);
   const tentativeOrderRef = useRef<WidgetInstance[] | null>(null);
   const lastReorderOverIdRef = useRef<string | null>(null);
+  const reorderCooldownRef = useRef(false);
 
   // Keep ref in sync with state for stable callbacks
   const updateTentativeOrder = useCallback((value: WidgetInstance[] | null | ((prev: WidgetInstance[] | null) => WidgetInstance[] | null)) => {
@@ -294,14 +295,21 @@ export default function DashboardPage() {
       // Skip placeholder targets — they just highlight, don't reorder
       if (overIdRaw.startsWith("placeholder__")) return;
 
-      // Guard: skip if we already reordered for this exact overId.
-      // Without this, Framer Motion layout animations cause dnd-kit to
-      // re-fire onDragOver for the same target, creating an infinite
-      // setState loop (React error #185).
+      // Guard 1: skip if we already reordered for this exact overId.
       if (overIdRaw === lastReorderOverIdRef.current) return;
+
+      // Guard 2: cooldown — when the pointer sits on the border between
+      // two widgets, snapping items to new positions causes collision
+      // detection to alternate between targets (A→B→A→B). The single-ID
+      // guard above can't catch this oscillation. A short cooldown after
+      // each reorder breaks the loop while remaining imperceptible to the
+      // user (~6-7 reorders/sec is plenty for smooth drag UX).
+      if (reorderCooldownRef.current) return;
+
       lastReorderOverIdRef.current = overIdRaw;
 
       const activeIdStr = event.active.id as string;
+      let didReorder = false;
 
       if (dragSourceRef.current === "grid") {
         // Grid reorder: splice active to over's position
@@ -310,6 +318,7 @@ export default function DashboardPage() {
           const activeIdx = prev.findIndex((i) => i.id === activeIdStr);
           const overIdx = prev.findIndex((i) => i.id === overIdRaw);
           if (activeIdx === -1 || overIdx === -1 || activeIdx === overIdx) return prev;
+          didReorder = true;
           const next = [...prev];
           const [moved] = next.splice(activeIdx, 1);
           next.splice(overIdx, 0, moved);
@@ -323,11 +332,18 @@ export default function DashboardPage() {
           const ghostIdx = prev.findIndex((i) => i.id === gId);
           const overIdx = prev.findIndex((i) => i.id === overIdRaw);
           if (ghostIdx === -1 || overIdx === -1 || ghostIdx === overIdx) return prev;
+          didReorder = true;
           const next = [...prev];
           const [moved] = next.splice(ghostIdx, 1);
           next.splice(overIdx, 0, moved);
           return next;
         });
+      }
+
+      // Start cooldown only if we actually reordered
+      if (didReorder) {
+        reorderCooldownRef.current = true;
+        setTimeout(() => { reorderCooldownRef.current = false; }, 150);
       }
     },
     [updateTentativeOrder] // Stable — uses refs and functional updaters only
@@ -381,6 +397,7 @@ export default function DashboardPage() {
       ghostWidgetIdRef.current = null;
       dragSourceRef.current = null;
       lastReorderOverIdRef.current = null;
+      reorderCooldownRef.current = false;
     },
     [reorderWidgetInstances, addWidgetInstance, addWidgetInstanceAt, updateTentativeOrder]
   );
@@ -393,6 +410,7 @@ export default function DashboardPage() {
     ghostWidgetIdRef.current = null;
     dragSourceRef.current = null;
     lastReorderOverIdRef.current = null;
+    reorderCooldownRef.current = false;
   }, [updateTentativeOrder]);
 
   // ── Toggle customize mode ──
