@@ -341,7 +341,10 @@ export default function DashboardPage() {
         reorderWidgetInstances(newOrder);
       } else if (dragSourceRef.current === "tray" && gId && currentOrder) {
         const typeId = active.data.current?.typeId as WidgetTypeId | undefined;
-        if (typeId && over) {
+        const overIdStr = over?.id as string | undefined;
+        // Only add if dropped on a valid grid target (widget or placeholder), not back on tray / nowhere
+        const isValidDrop = overIdStr && (overIdStr.startsWith("wi_") || overIdStr.startsWith("placeholder__") || overIdStr.startsWith("ghost__"));
+        if (typeId && isValidDrop) {
           // Find ghost's position in tentative order to know where to insert
           const ghostIdx = currentOrder.findIndex((i) => i.id === gId);
           // Get the widget immediately after the ghost — this is the "before" reference for the store API
@@ -359,9 +362,8 @@ export default function DashboardPage() {
           } else {
             addWidgetInstance(typeId);
           }
-        } else if (typeId) {
-          addWidgetInstance(typeId);
         }
+        // If not a valid drop target, widget is NOT added (drag cancelled back to tray)
       }
 
       // Clear all drag state

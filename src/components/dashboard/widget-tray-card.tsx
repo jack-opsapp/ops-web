@@ -45,7 +45,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
         "shrink-0 snap-start rounded-lg border p-[8px] flex flex-col",
         "cursor-grab active:cursor-grabbing select-none transition-colors duration-150",
         isAdded
-          ? "border-ops-accent/30 bg-ops-accent/5"
+          ? "border-border/50 opacity-50 saturate-0"
           : "border-border bg-[rgba(255,255,255,0.03)] hover:border-border-medium hover:bg-[rgba(255,255,255,0.05)]",
         isDragging && "opacity-40 scale-95"
       )}
@@ -57,9 +57,9 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
       <div className="flex items-center justify-between mt-[4px]">
         {isAdded ? (
           <div className="flex items-center gap-[4px]">
-            <span className="font-mono text-[8px] text-ops-accent">Added</span>
+            <span className="font-mono text-[8px] text-text-disabled">Added</span>
             {entry.allowMultiple && instanceCount > 1 && (
-              <span className="font-mono text-[8px] px-[3px] py-[1px] rounded bg-ops-accent/15 text-ops-accent">
+              <span className="font-mono text-[8px] px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-disabled">
                 {instanceCount}x
               </span>
             )}
@@ -79,7 +79,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
             className={cn(
               "w-[18px] h-[18px] rounded-md flex items-center justify-center border transition-all duration-150",
               isAdded
-                ? "bg-transparent text-ops-accent border-ops-accent/30 hover:bg-ops-accent/10"
+                ? "bg-transparent text-text-disabled border-border/50 hover:bg-[rgba(255,255,255,0.06)]"
                 : "bg-ops-accent/10 text-ops-accent border-ops-accent/20 hover:bg-ops-accent/20"
             )}
             title={`Add ${entry.label}`}
