@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
+import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 function getStripe(): Stripe {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Verify auth
-    const firebaseUser = await verifyFirebaseToken(idToken);
+    const firebaseUser = await verifyAuthToken(idToken);
     const db = getServiceRoleClient();
 
     // Verify user belongs to company and is admin

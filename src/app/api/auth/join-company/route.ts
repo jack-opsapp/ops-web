@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
+import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { parseDate } from "@/lib/supabase/helpers";
 import type {
@@ -186,8 +186,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Verify Firebase ID token
-    const firebaseUser = await verifyFirebaseToken(idToken);
+    // Verify auth token (Supabase or Firebase)
+    const firebaseUser = await verifyAuthToken(idToken);
 
     // Find the company
     const companyRow = await findCompanyByCode(companyCode);

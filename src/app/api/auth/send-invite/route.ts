@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
+import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { sendTeamInvite } from "@/lib/email/sendgrid";
 import { sendTeamInviteSMS } from "@/lib/sms/twilio";
@@ -49,8 +49,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Verify Firebase ID token
-    const firebaseUser = await verifyFirebaseToken(idToken);
+    // Verify auth token (Supabase or Firebase)
+    const firebaseUser = await verifyAuthToken(idToken);
 
     // Verify the requesting user exists and belongs to the specified company
     const db = getServiceRoleClient();

@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
+import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 async function fetchTable(
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Verify auth
-    const firebaseUser = await verifyFirebaseToken(idToken);
+    const firebaseUser = await verifyAuthToken(idToken);
 
     const db = getServiceRoleClient();
 
