@@ -145,6 +145,7 @@ export default function DashboardPage() {
   const dragSourceRef = useRef<"grid" | "tray" | null>(null);
   const ghostWidgetIdRef = useRef<string | null>(null);
   const tentativeOrderRef = useRef<WidgetInstance[] | null>(null);
+  const lastReorderOverIdRef = useRef<string | null>(null);
 
   // Keep ref in sync with state for stable callbacks
   const updateTentativeOrder = useCallback((value: WidgetInstance[] | null | ((prev: WidgetInstance[] | null) => WidgetInstance[] | null)) => {
@@ -252,6 +253,7 @@ export default function DashboardPage() {
     (event: DragStartEvent) => {
       const id = event.active.id as string;
       setActiveId(id);
+      lastReorderOverIdRef.current = null;
 
       if (id.startsWith("tray__")) {
         // Tray → Grid: create ghost widget and inject into tentative order
@@ -291,6 +293,13 @@ export default function DashboardPage() {
 
       // Skip placeholder targets — they just highlight, don't reorder
       if (overIdRaw.startsWith("placeholder__")) return;
+
+      // Guard: skip if we already reordered for this exact overId.
+      // Without this, Framer Motion layout animations cause dnd-kit to
+      // re-fire onDragOver for the same target, creating an infinite
+      // setState loop (React error #185).
+      if (overIdRaw === lastReorderOverIdRef.current) return;
+      lastReorderOverIdRef.current = overIdRaw;
 
       const activeIdStr = event.active.id as string;
 
@@ -371,6 +380,7 @@ export default function DashboardPage() {
       setGhostWidget(null);
       ghostWidgetIdRef.current = null;
       dragSourceRef.current = null;
+      lastReorderOverIdRef.current = null;
     },
     [reorderWidgetInstances, addWidgetInstance, addWidgetInstanceAt, updateTentativeOrder]
   );
@@ -382,6 +392,7 @@ export default function DashboardPage() {
     setGhostWidget(null);
     ghostWidgetIdRef.current = null;
     dragSourceRef.current = null;
+    lastReorderOverIdRef.current = null;
   }, [updateTentativeOrder]);
 
   // ── Toggle customize mode ──
