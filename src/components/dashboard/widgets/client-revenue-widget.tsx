@@ -101,7 +101,7 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
     return entries;
   }, [invoices, period, clientNameMap]);
 
-  const maxItems = size === "lg" ? 8 : 5;
+  const maxItems = size === "lg" ? 7 : 3;
   const displayed = rankedClients.slice(0, maxItems);
   const maxAmount = displayed.length > 0 ? displayed[0].amount : 0;
 
@@ -115,7 +115,7 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />

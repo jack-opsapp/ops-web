@@ -26,7 +26,7 @@ export function TaskListWidget({
   today,
   onNavigate,
 }: TaskListWidgetProps) {
-  const maxTasks = size === "sm" ? 1 : size === "lg" ? 10 : 5;
+  const maxTasks = size === "sm" ? 1 : size === "lg" ? 6 : 3;
   const visibleTasks = tasks.slice(0, maxTasks);
 
   // lg: group by day
@@ -56,7 +56,7 @@ export function TaskListWidget({
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Next Task</CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -82,7 +82,7 @@ export function TaskListWidget({
             <span className="font-mono text-[11px] text-text-tertiary">Next 7 days</span>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto min-h-0">
+        <CardContent className="flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -106,6 +106,11 @@ export function TaskListWidget({
                   </div>
                 </div>
               ))}
+              {tasks.length > maxTasks && (
+                <span className="font-mono text-[11px] text-text-disabled block px-1">
+                  +{tasks.length - maxTasks} more
+                </span>
+              )}
             </div>
           )}
         </CardContent>
@@ -122,7 +127,7 @@ export function TaskListWidget({
           <span className="font-mono text-[11px] text-text-tertiary">Today + 7 days</span>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto min-h-0">
+      <CardContent className="flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -137,6 +142,11 @@ export function TaskListWidget({
                 <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox />
               ))}
             </AnimatePresence>
+            {tasks.length > maxTasks && (
+              <span className="font-mono text-[11px] text-text-disabled block px-1">
+                +{tasks.length - maxTasks} more
+              </span>
+            )}
           </div>
         )}
       </CardContent>

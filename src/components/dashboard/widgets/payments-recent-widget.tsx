@@ -90,7 +90,7 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
             <CardTitle className="text-card-subtitle">Last Payment</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -120,7 +120,9 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
     );
   }
 
-  // ── MD: List of up to 5 recent payments ─────────────────────────────────
+  const maxItems = size === "lg" ? 7 : 3;
+
+  // ── MD / LG: List of recent payments ──────────────────────────────────
   return (
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
@@ -136,7 +138,7 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -150,12 +152,12 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
           </p>
         ) : (
           <div className="space-y-[6px]">
-            {paidInvoices.slice(0, 5).map((invoice) => (
+            {paidInvoices.slice(0, maxItems).map((invoice) => (
               <PaymentRow key={invoice.id} invoice={invoice} />
             ))}
-            {paidInvoices.length > 5 && (
+            {paidInvoices.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{paidInvoices.length - 5} more
+                +{paidInvoices.length - maxItems} more
               </span>
             )}
           </div>

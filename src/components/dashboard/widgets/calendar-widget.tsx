@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useRef, useCallback } from "react";
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CalendarEvent } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
-import { format, isSameDay, isAfter } from "@/lib/utils/date";
+import { format, isSameDay } from "@/lib/utils/date";
 
 interface CalendarWidgetProps {
   size: WidgetSize;
@@ -57,37 +57,29 @@ export function CalendarWidget({
     return daySet;
   }, [events]);
 
-  const todayEvents = useMemo(() => {
-    return events
-      .filter((ev) => {
-        if (!ev.startDate) return false;
-        return isSameDay(new Date(ev.startDate), today);
-      })
-      .sort((a, b) => {
-        const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
-        const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
-        return aDate - bDate;
-      })
-      .slice(0, 6);
-  }, [events, today]);
+  // Group events by day for the week
+  const eventsByDay = useMemo(() => {
+    return weekDays.map((day) => {
+      const dayEvents = events
+        .filter((ev) => {
+          if (!ev.startDate) return false;
+          return isSameDay(new Date(ev.startDate), day);
+        })
+        .sort((a, b) => {
+          const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return aDate - bDate;
+        });
+      return { day, events: dayEvents };
+    });
+  }, [weekDays, events]);
 
-  const tomorrowEvents = useMemo(() => {
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    return events
-      .filter((ev) => {
-        if (!ev.startDate) return false;
-        return isSameDay(new Date(ev.startDate), tomorrow);
-      })
-      .sort((a, b) => {
-        const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
-        const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
-        return aDate - bDate;
-      })
-      .slice(0, 4);
-  }, [events, today]);
+  const todayIndex = useMemo(
+    () => weekDays.findIndex((d) => isSameDay(d, today)),
+    [weekDays, today]
+  );
 
-  const todayEventCount = todayEvents.length;
+  const todayEventCount = eventsByDay[todayIndex]?.events.length ?? 0;
 
   // sm: date + event count
   if (size === "sm") {
@@ -98,7 +90,7 @@ export function CalendarWidget({
             {monthNames[today.getMonth()].slice(0, 3)} {today.getDate()}
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
           ) : (
@@ -114,52 +106,9 @@ export function CalendarWidget({
     );
   }
 
-  // lg: week strip + today events + tomorrow preview
-  if (size === "lg") {
-    return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1.5 shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">
-              {monthNames[today.getMonth()]} {today.getFullYear()}
-            </CardTitle>
-            <span className="font-mono text-[11px] text-text-tertiary">Today</span>
-          </div>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
-          {/* Week strip */}
-          <WeekStrip
-            weekDays={weekDays}
-            today={today}
-            eventDaySet={eventDaySet}
-            onNavigate={onNavigate}
-          />
+  const maxEventsPerDay = size === "lg" ? 5 : 3;
 
-          {/* Today's events */}
-          <EventList
-            label="Today's Schedule"
-            events={todayEvents}
-            isLoading={isLoading}
-            emptyMessage="No events scheduled today"
-            onNavigate={onNavigate}
-          />
-
-          {/* Tomorrow preview */}
-          <div className="mt-1.5">
-            <EventList
-              label="Tomorrow"
-              events={tomorrowEvents}
-              isLoading={isLoading}
-              emptyMessage="No events tomorrow"
-              onNavigate={onNavigate}
-            />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // md: week strip + today events (current default)
+  // md + lg: week strip + snap carousel of day panels
   return (
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
@@ -170,20 +119,29 @@ export function CalendarWidget({
           <span className="font-mono text-[11px] text-text-tertiary">Today</span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0 flex flex-col">
+        {/* Week strip */}
         <WeekStrip
           weekDays={weekDays}
           today={today}
           eventDaySet={eventDaySet}
           onNavigate={onNavigate}
         />
-        <EventList
-          label="Today's Schedule"
-          events={todayEvents}
-          isLoading={isLoading}
-          emptyMessage="No events scheduled today"
-          onNavigate={onNavigate}
-        />
+
+        {/* Snap carousel of day panels */}
+        {isLoading ? (
+          <div className="flex items-center justify-center flex-1">
+            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+            <span className="font-mono text-[11px] text-text-disabled ml-1">Loading events...</span>
+          </div>
+        ) : (
+          <DayCarousel
+            eventsByDay={eventsByDay}
+            todayIndex={todayIndex}
+            maxEventsPerDay={maxEventsPerDay}
+            onNavigate={onNavigate}
+          />
+        )}
       </CardContent>
     </Card>
   );
@@ -204,7 +162,7 @@ function WeekStrip({
   onNavigate: (path: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-[2px] mb-1.5">
+    <div className="grid grid-cols-7 gap-[2px] mb-1.5 shrink-0">
       {weekDays.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
         const hasEvent = eventDaySet.has(d.toDateString());
@@ -213,7 +171,7 @@ function WeekStrip({
             key={i}
             onClick={() => onNavigate("/calendar")}
             className={cn(
-              "flex flex-col items-center py-[6px] rounded transition-colors cursor-pointer",
+              "flex flex-col items-center py-[4px] rounded transition-colors cursor-pointer",
               isToday
                 ? "bg-[rgba(255,255,255,0.1)] text-text-primary"
                 : "hover:bg-[rgba(255,255,255,0.04)]"
@@ -238,7 +196,7 @@ function WeekStrip({
             {hasEvent && (
               <span
                 className={cn(
-                  "w-[4px] h-[4px] rounded-full mt-[2px]",
+                  "w-[4px] h-[4px] rounded-full mt-[1px]",
                   isToday ? "bg-text-primary" : "bg-[#5C6070]"
                 )}
               />
@@ -250,58 +208,143 @@ function WeekStrip({
   );
 }
 
-function EventList({
-  label,
-  events,
-  isLoading,
-  emptyMessage,
+function DayCarousel({
+  eventsByDay,
+  todayIndex,
+  maxEventsPerDay,
   onNavigate,
 }: {
-  label: string;
-  events: CalendarEvent[];
-  isLoading: boolean;
-  emptyMessage: string;
+  eventsByDay: { day: Date; events: CalendarEvent[] }[];
+  todayIndex: number;
+  maxEventsPerDay: number;
   onNavigate: (path: string) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to a specific panel
+  const scrollToIndex = useCallback((index: number) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const panels = container.children;
+    if (panels[index]) {
+      (panels[index] as HTMLElement).scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "start",
+      });
+    }
+  }, []);
+
+  // Initialize scroll to today
+  const initRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el && todayIndex >= 0) {
+        // Use requestAnimationFrame for layout-safe scroll
+        requestAnimationFrame(() => {
+          const panels = el.children;
+          if (panels[todayIndex]) {
+            (panels[todayIndex] as HTMLElement).scrollIntoView({
+              behavior: "instant",
+              block: "nearest",
+              inline: "start",
+            });
+          }
+        });
+      }
+      // Also set the ref
+      (scrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    },
+    [todayIndex]
+  );
+
   return (
-    <div className="border-t border-border pt-1.5 space-y-[4px]">
-      <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-        {label}
-      </span>
-      {isLoading ? (
-        <div className="flex items-center justify-center py-2">
-          <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-          <span className="font-mono text-[11px] text-text-disabled ml-1">Loading events...</span>
-        </div>
-      ) : events.length === 0 ? (
-        <p className="font-mohave text-body-sm text-text-disabled py-1">{emptyMessage}</p>
-      ) : (
-        events.map((ev, i) => {
-          const eventTime = ev.startDate
-            ? format(new Date(ev.startDate), "h:mm a")
-            : "";
+    <div className="relative flex-1 min-h-0">
+      {/* Navigation arrows */}
+      <button
+        onClick={() => {
+          const container = scrollRef.current;
+          if (container) container.scrollBy({ left: -container.offsetWidth, behavior: "smooth" });
+        }}
+        className="absolute left-0 top-0 z-10 w-[20px] h-full flex items-center justify-center text-text-disabled hover:text-text-secondary transition-colors"
+        aria-label="Previous day"
+      >
+        <ChevronLeft className="w-[14px] h-[14px]" />
+      </button>
+      <button
+        onClick={() => {
+          const container = scrollRef.current;
+          if (container) container.scrollBy({ left: container.offsetWidth, behavior: "smooth" });
+        }}
+        className="absolute right-0 top-0 z-10 w-[20px] h-full flex items-center justify-center text-text-disabled hover:text-text-secondary transition-colors"
+        aria-label="Next day"
+      >
+        <ChevronRight className="w-[14px] h-[14px]" />
+      </button>
+
+      {/* Snap container */}
+      <div
+        ref={initRef}
+        className="flex overflow-x-auto snap-x snap-mandatory h-full scrollbar-none mx-[20px]"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {eventsByDay.map(({ day, events }, i) => {
+          const dayLabel = day.toDateString() === new Date().toDateString()
+            ? "Today"
+            : dayNames[day.getDay()] + ", " + monthNames[day.getMonth()].slice(0, 3) + " " + day.getDate();
+
+          const visibleEvents = events.slice(0, maxEventsPerDay);
+          const remaining = events.length - maxEventsPerDay;
+
           return (
             <div
-              key={ev.id || i}
-              onClick={() =>
-                onNavigate(ev.projectId ? `/projects/${ev.projectId}` : "/calendar")
-              }
-              className="flex items-center gap-1 px-[6px] py-[5px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors"
+              key={i}
+              className="snap-start w-full shrink-0 px-[2px]"
             >
-              <span className="font-mono text-[10px] text-text-disabled w-[60px] shrink-0">
-                {eventTime}
+              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
+                {dayLabel}
               </span>
-              <div
-                className="w-[3px] h-[16px] rounded-full shrink-0"
-                style={{ backgroundColor: ev.color || "#5C6070" }}
-              />
-              <span className="font-mohave text-body-sm text-text-secondary truncate">
-                {ev.title}
-              </span>
+              {visibleEvents.length === 0 ? (
+                <p className="font-mohave text-body-sm text-text-disabled py-1">
+                  No events
+                </p>
+              ) : (
+                <div className="space-y-[3px] mt-[2px]">
+                  {visibleEvents.map((ev, j) => {
+                    const eventTime = ev.startDate
+                      ? format(new Date(ev.startDate), "h:mm a")
+                      : "";
+                    return (
+                      <div
+                        key={ev.id || j}
+                        onClick={() =>
+                          onNavigate(ev.projectId ? `/projects/${ev.projectId}` : "/calendar")
+                        }
+                        className="flex items-center gap-1 px-[4px] py-[4px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors"
+                      >
+                        <span className="font-mono text-[10px] text-text-disabled w-[52px] shrink-0">
+                          {eventTime}
+                        </span>
+                        <div
+                          className="w-[3px] h-[14px] rounded-full shrink-0"
+                          style={{ backgroundColor: ev.color || "#5C6070" }}
+                        />
+                        <span className="font-mohave text-body-sm text-text-secondary truncate">
+                          {ev.title}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {remaining > 0 && (
+                    <span className="font-mono text-[11px] text-text-disabled block px-1">
+                      +{remaining} more
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
-        })
-      )}
+        })}
+      </div>
     </div>
   );
 }

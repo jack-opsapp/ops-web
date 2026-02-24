@@ -165,7 +165,7 @@ export function EstimatesOverviewWidget({
             {STATUS_FILTER_LABEL[filter]} Estimates
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -189,7 +189,7 @@ export function EstimatesOverviewWidget({
   }
 
   // ── MD / LG: List with send button ───────────────────────────────────────
-  const maxItems = size === "lg" ? 8 : 5;
+  const maxItems = size === "lg" ? 7 : 3;
 
   return (
     <Card className="p-2 h-full flex flex-col">
@@ -205,7 +205,7 @@ export function EstimatesOverviewWidget({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />

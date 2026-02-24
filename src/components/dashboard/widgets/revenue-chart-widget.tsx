@@ -27,7 +27,7 @@ export function RevenueWidget({ size }: RevenueWidgetProps) {
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Revenue</CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           <p className="font-mono text-data-lg text-text-disabled">--</p>
           <p className="font-kosugi text-[10px] text-text-tertiary mt-[2px]">MTD Revenue</p>
           <span className="font-kosugi text-[9px] text-text-disabled">Coming Soon</span>
@@ -45,7 +45,7 @@ export function RevenueWidget({ size }: RevenueWidgetProps) {
           <span className="font-kosugi text-[9px] text-text-disabled">Coming Soon</span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         <div className="flex items-end gap-[6px] h-[120px]">
           {months.map((month, i) => {
             const barHeight = (month.value / maxValue) * 100;

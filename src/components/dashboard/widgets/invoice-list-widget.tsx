@@ -123,7 +123,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
     [filtered]
   );
 
-  const maxItems = size === "lg" ? 8 : size === "md" ? 5 : 0;
+  const maxItems = size === "lg" ? 7 : size === "md" ? 3 : 0;
 
   // ── SM: Count + total amount ────────────────────────────────────────────
   if (size === "sm") {
@@ -134,7 +134,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             {STATUS_FILTER_LABEL[filter]} Invoices
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -170,7 +170,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />

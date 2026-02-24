@@ -59,7 +59,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Past Due</CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -96,7 +96,9 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
     );
   }
 
-  // ── MD: List ──────────────────────────────────────────────────────────
+  const maxItems = size === "lg" ? 7 : 3;
+
+  // ── MD / LG: List ─────────────────────────────────────────────────────
   return (
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
@@ -116,7 +118,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -130,7 +132,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
           </p>
         ) : (
           <div className="space-y-[6px]">
-            {pastDue.slice(0, 5).map((invoice) => {
+            {pastDue.slice(0, maxItems).map((invoice) => {
               const clientName = invoice.client?.name ?? "Unknown Client";
               const daysPast = differenceInDays(today, new Date(invoice.dueDate));
 
@@ -160,9 +162,9 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
                 </div>
               );
             })}
-            {pastDue.length > 5 && (
+            {pastDue.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{pastDue.length - 5} more
+                +{pastDue.length - maxItems} more
               </span>
             )}
           </div>

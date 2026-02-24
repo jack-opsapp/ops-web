@@ -184,7 +184,7 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -229,8 +229,8 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
                   )}
                 </div>
 
-                {/* Conversion rate between stages */}
-                {i < conversions.length && (
+                {/* Conversion rate between stages (lg only to save space) */}
+                {size === "lg" && i < conversions.length && (
                   <div className="flex items-center gap-1.5 py-[2px]">
                     <div className="w-[60px] shrink-0" />
                     <div className="flex items-center gap-0.5 pl-2">
@@ -238,8 +238,7 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
                       <span className="font-mono text-[10px] text-text-disabled">
                         {conversions[i].rate}%
                       </span>
-                      {/* Avg time (LG only) */}
-                      {size === "lg" && avgTimes && avgTimes[i] !== null && (
+                      {avgTimes && avgTimes[i] !== null && (
                         <span className="font-mono text-[10px] text-text-disabled ml-1">
                           avg {avgTimes[i]}d
                         </span>

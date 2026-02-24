@@ -34,7 +34,7 @@ export function SiteVisitsWidget({ size, config }: SiteVisitsWidgetProps) {
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           <p className="font-mohave text-body-sm text-text-disabled">
             No {filter === "recent" ? "recent" : "upcoming"} visits
           </p>
@@ -54,7 +54,7 @@ export function SiteVisitsWidget({ size, config }: SiteVisitsWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <MapPin className="w-[20px] h-[20px] text-text-disabled" />
           <p className="font-mohave text-body-sm text-text-disabled text-center">

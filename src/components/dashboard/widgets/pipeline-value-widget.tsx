@@ -99,7 +99,7 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -110,7 +110,7 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
         ) : (
           <>
             {/* Bar chart */}
-            <div className="space-y-[6px]">
+            <div className="space-y-[3px]">
               {stageValues.map((s) => {
                 const barWidth =
                   maxValue > 0
@@ -120,7 +120,7 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
 
                 return (
                   <div key={s.stage}>
-                    <div className="flex items-center justify-between mb-[2px]">
+                    <div className="flex items-center justify-between mb-[1px]">
                       <span className="font-mohave text-body-sm text-text-secondary">
                         {s.label}
                       </span>
@@ -128,7 +128,7 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
                         ${s.value.toLocaleString()}
                       </span>
                     </div>
-                    <div className="h-[6px] rounded-full bg-border overflow-hidden">
+                    <div className="h-[5px] rounded-full bg-border overflow-hidden">
                       <div
                         className="h-full rounded-full bg-ops-accent transition-all duration-500"
                         style={{

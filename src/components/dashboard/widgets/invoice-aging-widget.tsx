@@ -120,7 +120,7 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -160,11 +160,11 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
             </div>
 
             {/* Bucket breakdown list */}
-            <div className="space-y-[6px]">
+            <div className="space-y-[3px]">
               {buckets.map((bucket, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between px-1 py-[2px] rounded transition-colors"
+                  className="flex items-center justify-between px-1 py-[1px] rounded transition-colors"
                 >
                   <div className="flex items-center gap-1">
                     <span

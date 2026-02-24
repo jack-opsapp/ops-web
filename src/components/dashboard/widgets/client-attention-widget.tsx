@@ -149,7 +149,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Needs Attention</CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -177,8 +177,8 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
     );
   }
 
-  // ── MD: List of clients with attention reasons ───────────────────────────
-  const maxItems = 5;
+  // ── MD / LG: List of clients with attention reasons ─────────────────────
+  const maxItems = size === "lg" ? 7 : 3;
 
   return (
     <Card className="p-2 h-full flex flex-col">
@@ -195,7 +195,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />

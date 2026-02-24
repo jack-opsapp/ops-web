@@ -86,7 +86,7 @@ export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -100,7 +100,7 @@ export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
           </p>
         ) : (
           <div className="space-y-[6px]">
-            {sourceData.map((s, i) => {
+            {sourceData.slice(0, 4).map((s, i) => {
               const barWidth = Math.max((s.count / maxCount) * 100, 4);
               const colorClass = BAR_COLORS[i % BAR_COLORS.length];
 
@@ -123,6 +123,11 @@ export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
                 </div>
               );
             })}
+            {sourceData.length > 4 && (
+              <span className="font-mono text-[11px] text-text-disabled block px-1">
+                +{sourceData.length - 4} more
+              </span>
+            )}
           </div>
         )}
       </CardContent>

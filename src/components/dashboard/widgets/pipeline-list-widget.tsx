@@ -115,7 +115,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             {FILTER_LABEL[filter]}
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -138,7 +138,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     );
   }
 
-  // ── LG: Grouped by stage, up to 8 visible ──────────────────────────────
+  // ── LG: Grouped by stage, up to 7 visible ──────────────────────────────
   if (size === "lg") {
     const activeStages = getActiveStages();
     const grouped = activeStages
@@ -150,7 +150,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       }))
       .filter((g) => g.items.length > 0);
 
-    let remainingSlots = 8;
+    let remainingSlots = 7;
 
     return (
       <Card className="p-2 h-full flex flex-col">
@@ -169,7 +169,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -224,7 +224,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     );
   }
 
-  // ── MD: List of up to 5 opportunities ───────────────────────────────────
+  // ── MD: List of up to 3 opportunities ───────────────────────────────────
   return (
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
@@ -242,7 +242,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -256,12 +256,12 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           </p>
         ) : (
           <div className="space-y-[6px]">
-            {filtered.slice(0, 5).map((opp) => (
+            {filtered.slice(0, 3).map((opp) => (
               <OpportunityRow key={opp.id} opportunity={opp} />
             ))}
-            {filtered.length > 5 && (
+            {filtered.length > 3 && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{filtered.length - 5} more
+                +{filtered.length - 3} more
               </span>
             )}
           </div>

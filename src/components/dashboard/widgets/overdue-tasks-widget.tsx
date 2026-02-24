@@ -50,7 +50,7 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Overdue Tasks</CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -80,7 +80,9 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
     );
   }
 
-  // ── MD: List with checkboxes ────────────────────────────────────────────
+  const maxItems = size === "lg" ? 7 : 3;
+
+  // ── MD / LG: List with checkboxes ─────────────────────────────────────
   return (
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
@@ -98,7 +100,7 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
+      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -113,13 +115,13 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
         ) : (
           <div className="space-y-[4px]">
             <AnimatePresence>
-              {overdueTasks.slice(0, 6).map((task) => (
+              {overdueTasks.slice(0, maxItems).map((task) => (
                 <OverdueTaskRow key={task.id} task={task} today={today} />
               ))}
             </AnimatePresence>
-            {overdueTasks.length > 6 && (
+            {overdueTasks.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{overdueTasks.length - 6} more
+                +{overdueTasks.length - maxItems} more
               </span>
             )}
           </div>
