@@ -116,7 +116,7 @@ export function WidgetShell({
       {...(isCustomizing ? { ...attributes, ...listeners } : {})}
     >
       {/* Wrap children so widget content is non-interactive during edit mode */}
-      <div className={isCustomizing ? "pointer-events-none" : ""}>
+      <div className={cn("h-full", isCustomizing && "pointer-events-none")}>
         {children}
       </div>
 
