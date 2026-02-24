@@ -136,7 +136,7 @@ export default function DashboardPage() {
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+  // overId removed — was dead state causing unnecessary re-renders during drag
   const router = useRouter();
 
   // ── Tentative order state for real-time shifting ──
@@ -288,8 +288,6 @@ export default function DashboardPage() {
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const overIdRaw = event.over?.id as string | null;
-      setOverId(overIdRaw);
-
       if (!overIdRaw) return;
 
       // Skip placeholder targets — they just highlight, don't reorder
@@ -353,7 +351,6 @@ export default function DashboardPage() {
     (event: DragEndEvent) => {
       const { active, over } = event;
       setActiveId(null);
-      setOverId(null);
 
       const currentOrder = tentativeOrderRef.current;
       const gId = ghostWidgetIdRef.current;

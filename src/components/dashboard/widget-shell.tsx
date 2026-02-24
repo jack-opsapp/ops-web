@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
-import { EyeOff, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -163,15 +163,6 @@ export function WidgetShell({
                   </button>
                 );
               })}
-
-            {/* Hide button */}
-            <button
-              onClick={() => updateWidgetInstance(instanceId, { visible: false })}
-              className="p-[3px] rounded-sm text-text-disabled hover:text-ops-error transition-all duration-150"
-              title={`Hide ${entry?.label ?? "widget"}`}
-            >
-              <EyeOff className="w-[12px] h-[12px]" />
-            </button>
 
             {/* Remove button */}
             <button
