@@ -64,7 +64,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     case "stat-invoices":
     case "stat-estimates":
     case "stat-opportunities":
-      return <StatWidget typeId={typeId} config={config} />;
+      return <StatWidget typeId={typeId} size={size} config={config} />;
 
     // ── SCHEDULE (need data props → pass empty) ──
     case "calendar":
@@ -158,6 +158,7 @@ const PREVIEW_SCALE = 0.45;
 
 // Approximate pixel dimensions for each widget size at full scale
 const SIZE_DIMENSIONS: Record<WidgetSize, { width: number; height: number }> = {
+  xs: { width: 160, height: 160 },
   sm: { width: 280, height: 160 },
   md: { width: 560, height: 200 },
   lg: { width: 560, height: 400 },

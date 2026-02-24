@@ -34,7 +34,7 @@ import {
   EstimateStatus,
   OpportunityStage,
 } from "@/lib/types/pipeline";
-import type { WidgetTypeId } from "@/lib/types/dashboard-widgets";
+import type { WidgetTypeId, WidgetSize } from "@/lib/types/dashboard-widgets";
 import {
   startOfWeek,
   endOfWeek,
@@ -50,42 +50,52 @@ import {
 // ---------------------------------------------------------------------------
 interface StatWidgetProps {
   typeId: WidgetTypeId;
+  size: WidgetSize;
   config: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-export function StatWidget({ typeId, config }: StatWidgetProps) {
+export function StatWidget({ typeId, size, config }: StatWidgetProps) {
   switch (typeId) {
     case "stat-projects":
-      return <StatProjects config={config} />;
+      return <StatProjects typeId={typeId} size={size} config={config} />;
     case "stat-tasks":
-      return <StatTasks config={config} />;
+      return <StatTasks typeId={typeId} size={size} config={config} />;
     case "stat-events":
-      return <StatEvents config={config} />;
+      return <StatEvents typeId={typeId} size={size} config={config} />;
     case "stat-clients":
-      return <StatClients config={config} />;
+      return <StatClients typeId={typeId} size={size} config={config} />;
     case "stat-team":
-      return <StatTeam config={config} />;
+      return <StatTeam typeId={typeId} size={size} config={config} />;
     case "stat-revenue":
-      return <StatRevenue config={config} />;
+      return <StatRevenue typeId={typeId} size={size} config={config} />;
     case "stat-invoices":
-      return <StatInvoices config={config} />;
+      return <StatInvoices typeId={typeId} size={size} config={config} />;
     case "stat-estimates":
-      return <StatEstimatesCount config={config} />;
+      return <StatEstimatesCount typeId={typeId} size={size} config={config} />;
     case "stat-opportunities":
-      return <StatOpportunities config={config} />;
+      return <StatOpportunities typeId={typeId} size={size} config={config} />;
     default:
       return null;
   }
 }
 
 // ---------------------------------------------------------------------------
+// Shared inner props
+// ---------------------------------------------------------------------------
+interface InnerStatProps {
+  typeId: WidgetTypeId;
+  size: WidgetSize;
+  config: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
 // Individual stat implementations
 // ---------------------------------------------------------------------------
 
-function StatProjects({ config }: { config: Record<string, unknown> }) {
+function StatProjects({ typeId, size, config }: InnerStatProps) {
   const { data, isLoading } = useProjects();
   const projects = data?.projects ?? [];
   const statusFilter = (config.statusFilter as string) ?? "all";
@@ -110,11 +120,11 @@ function StatProjects({ config }: { config: Record<string, unknown> }) {
   }, [projects, statusFilter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={FolderKanban} isLoading={isLoading} />
+    <StatCard label={label} value={value} subValue={subValue} icon={FolderKanban} isLoading={isLoading} typeId={typeId} size={size} />
   );
 }
 
-function StatTasks({ config }: { config: Record<string, unknown> }) {
+function StatTasks({ typeId, size, config }: InnerStatProps) {
   const { data, isLoading } = useTasks();
   const tasks = data?.tasks ?? [];
   const filter = (config.filter as string) ?? "due-today";
@@ -163,11 +173,11 @@ function StatTasks({ config }: { config: Record<string, unknown> }) {
   }, [tasks, filter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={ClipboardCheck} isLoading={isLoading} />
+    <StatCard label={label} value={value} subValue={subValue} icon={ClipboardCheck} isLoading={isLoading} typeId={typeId} size={size} />
   );
 }
 
-function StatEvents({ config }: { config: Record<string, unknown> }) {
+function StatEvents({ typeId, size, config }: InnerStatProps) {
   const range = (config.range as string) ?? "this-week";
   const today = useMemo(() => new Date(), []);
 
@@ -199,11 +209,13 @@ function StatEvents({ config }: { config: Record<string, unknown> }) {
       subValue={rangeLabels[range]}
       icon={CalendarDays}
       isLoading={isLoading}
+      typeId={typeId}
+      size={size}
     />
   );
 }
 
-function StatClients({ config }: { config: Record<string, unknown> }) {
+function StatClients({ typeId, size, config }: InnerStatProps) {
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: projectsData } = useProjects();
   const filter = (config.filter as string) ?? "all";
@@ -226,11 +238,11 @@ function StatClients({ config }: { config: Record<string, unknown> }) {
   }, [clients, projects, filter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={Users} isLoading={clientsLoading} />
+    <StatCard label={label} value={value} subValue={subValue} icon={Users} isLoading={clientsLoading} typeId={typeId} size={size} />
   );
 }
 
-function StatTeam({ config }: { config: Record<string, unknown> }) {
+function StatTeam({ typeId, size, config }: InnerStatProps) {
   const { data, isLoading } = useTeamMembers();
   const members = data?.users ?? [];
   const filter = (config.filter as string) ?? "active";
@@ -244,11 +256,11 @@ function StatTeam({ config }: { config: Record<string, unknown> }) {
   }, [members, filter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={UserCheck} isLoading={isLoading} />
+    <StatCard label={label} value={value} subValue={subValue} icon={UserCheck} isLoading={isLoading} typeId={typeId} size={size} />
   );
 }
 
-function StatRevenue({ config }: { config: Record<string, unknown> }) {
+function StatRevenue({ typeId, size, config }: InnerStatProps) {
   const { data } = useInvoices();
   const invoices = data ?? [];
   const metric = (config.metric as string) ?? "mtd-invoiced";
@@ -289,11 +301,11 @@ function StatRevenue({ config }: { config: Record<string, unknown> }) {
   }, [invoices, metric]);
 
   return (
-    <StatCard label={label} value={value} displayPrefix="$" subValue={subValue} icon={DollarSign} />
+    <StatCard label={label} value={value} displayPrefix="$" subValue={subValue} icon={DollarSign} typeId={typeId} size={size} />
   );
 }
 
-function StatInvoices({ config }: { config: Record<string, unknown> }) {
+function StatInvoices({ typeId, size, config }: InnerStatProps) {
   const { data } = useInvoices();
   const invoices = data ?? [];
   const statusFilter = (config.statusFilter as string) ?? "all-open";
@@ -320,11 +332,11 @@ function StatInvoices({ config }: { config: Record<string, unknown> }) {
   }, [invoices, statusFilter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={FileText} />
+    <StatCard label={label} value={value} subValue={subValue} icon={FileText} typeId={typeId} size={size} />
   );
 }
 
-function StatEstimatesCount({ config }: { config: Record<string, unknown> }) {
+function StatEstimatesCount({ typeId, size, config }: InnerStatProps) {
   const { data } = useEstimates();
   const estimates = data ?? [];
   const statusFilter = (config.statusFilter as string) ?? "all-open";
@@ -355,11 +367,11 @@ function StatEstimatesCount({ config }: { config: Record<string, unknown> }) {
   }, [estimates, statusFilter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={Calculator} />
+    <StatCard label={label} value={value} subValue={subValue} icon={Calculator} typeId={typeId} size={size} />
   );
 }
 
-function StatOpportunities({ config }: { config: Record<string, unknown> }) {
+function StatOpportunities({ typeId, size, config }: InnerStatProps) {
   const { data } = useOpportunities();
   const opportunities = data ?? [];
   const stageFilter = (config.stageFilter as string) ?? "all-active";
@@ -398,6 +410,6 @@ function StatOpportunities({ config }: { config: Record<string, unknown> }) {
   }, [opportunities, stageFilter, metric]);
 
   return (
-    <StatCard label={label} value={value} displayPrefix={prefix} subValue={subValue} icon={Target} />
+    <StatCard label={label} value={value} displayPrefix={prefix} subValue={subValue} icon={Target} typeId={typeId} size={size} />
   );
 }

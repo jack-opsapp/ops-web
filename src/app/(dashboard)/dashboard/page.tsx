@@ -437,7 +437,7 @@ export default function DashboardPage() {
       case "stat-invoices":
       case "stat-estimates":
       case "stat-opportunities":
-        return <StatWidget typeId={typeId} config={config} />;
+        return <StatWidget typeId={typeId} size={size} config={config} />;
 
       // ── SCHEDULE ──
       case "calendar":

@@ -20,6 +20,7 @@ import {
 
 // Static Tailwind class maps for purge safety
 export const COL_SPAN_CLASSES: Record<WidgetSize, string> = {
+  xs: "col-span-1",
   sm: "col-span-1",
   md: "col-span-1 md:col-span-2",
   lg: "col-span-1 md:col-span-2",
@@ -27,6 +28,7 @@ export const COL_SPAN_CLASSES: Record<WidgetSize, string> = {
 };
 
 const ROW_SPAN_CLASSES: Record<WidgetSize, string> = {
+  xs: "",
   sm: "",
   md: "",
   lg: "row-span-2",

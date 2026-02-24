@@ -4,6 +4,22 @@ import { useState, useEffect } from "react";
 import { TrendingUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card } from "@/components/ui/card";
+import type { WidgetTypeId, WidgetSize } from "@/lib/types/dashboard-widgets";
+
+// ---------------------------------------------------------------------------
+// Per-stat accent colors (from tailwind config palette)
+// ---------------------------------------------------------------------------
+const STAT_ACCENT_COLORS: Partial<Record<WidgetTypeId, string>> = {
+  "stat-projects": "#8195B5",      // in-progress blue
+  "stat-tasks": "#9DB582",         // accepted green
+  "stat-events": "#A182B5",        // purple
+  "stat-clients": "#59779F",       // quote blue
+  "stat-team": "#A5B368",          // success green
+  "stat-revenue": "#C4A868",       // amber/gold
+  "stat-invoices": "#B5A381",      // warm estimated
+  "stat-estimates": "#7B68A6",     // inspection purple
+  "stat-opportunities": "#B58289", // rose
+};
 
 // ---------------------------------------------------------------------------
 // Animated counter hook
@@ -45,6 +61,8 @@ export interface StatCardProps {
   trend?: "up" | "down" | "neutral";
   trendValue?: string;
   isLoading?: boolean;
+  typeId?: WidgetTypeId;
+  size?: WidgetSize;
 }
 
 export function StatCard({
@@ -57,9 +75,45 @@ export function StatCard({
   trend,
   trendValue,
   isLoading,
+  typeId,
+  size,
 }: StatCardProps) {
   const animatedVal = useAnimatedValue(value);
+  const isXs = size === "xs";
+  const accent = typeId ? STAT_ACCENT_COLORS[typeId] ?? "#8195B5" : "#8195B5";
 
+  // ── XS: Square, borderless, colored, large number ──
+  if (isXs) {
+    return (
+      <div
+        className="h-full w-full flex flex-col items-center justify-center rounded-md overflow-hidden aspect-square max-w-[160px]"
+        style={{
+          background: `linear-gradient(135deg, ${accent}18, ${accent}08)`,
+          borderLeft: `3px solid ${accent}`,
+        }}
+      >
+        {isLoading ? (
+          <Loader2 className="w-[20px] h-[20px] animate-spin" style={{ color: accent }} />
+        ) : (
+          <>
+            <span className="mb-[4px] opacity-50" style={{ color: accent }}>
+              <Icon className="w-[18px] h-[18px]" />
+            </span>
+            <p className="font-mono text-[32px] leading-none font-semibold" style={{ color: accent }}>
+              {displayPrefix}
+              {animatedVal.toLocaleString()}
+              {displaySuffix}
+            </p>
+            <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-widest mt-[6px] text-center px-[8px]">
+              {label}
+            </span>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ── SM (default): Rectangle card with border ──
   return (
     <Card className="p-2 h-full flex flex-col">
       <div className="flex items-start justify-between flex-1">
@@ -85,8 +139,11 @@ export function StatCard({
             </>
           )}
         </div>
-        <div className="w-[40px] h-[40px] rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0">
-          <Icon className="w-[20px] h-[20px] text-text-secondary" />
+        <div
+          className="w-[40px] h-[40px] rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: `${accent}15` }}
+        >
+          <span style={{ color: accent }}><Icon className="w-[20px] h-[20px]" /></span>
         </div>
       </div>
       {trend && trendValue && !isLoading && (

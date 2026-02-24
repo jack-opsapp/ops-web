@@ -2,7 +2,7 @@
 // Dashboard Widget System — Type Definitions & Registry (v3 — Multi-Instance)
 // ---------------------------------------------------------------------------
 
-export type WidgetSize = "sm" | "md" | "lg" | "full";
+export type WidgetSize = "xs" | "sm" | "md" | "lg" | "full";
 
 // ---------------------------------------------------------------------------
 // Categories & Tags
@@ -128,6 +128,7 @@ export const WIDGET_SIZE_GRID_SPANS: Record<
   WidgetSize,
   { colSpan: number; rowSpan: number }
 > = {
+  xs: { colSpan: 1, rowSpan: 1 },
   sm: { colSpan: 1, rowSpan: 1 },
   md: { colSpan: 2, rowSpan: 1 },
   lg: { colSpan: 2, rowSpan: 2 },
@@ -135,6 +136,7 @@ export const WIDGET_SIZE_GRID_SPANS: Record<
 };
 
 export const WIDGET_SIZE_LABELS: Record<WidgetSize, string> = {
+  xs: "XS",
   sm: "S",
   md: "M",
   lg: "L",
@@ -180,8 +182,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["essential", "office"],
     icon: "FolderKanban",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -206,8 +208,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["essential", "scheduling"],
     icon: "ClipboardCheck",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -231,8 +233,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["essential", "scheduling"],
     icon: "CalendarDays",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -254,8 +256,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["essential", "clients"],
     icon: "Users",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -276,8 +278,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["essential", "field-ops"],
     icon: "UserCheck",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -298,8 +300,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["finance"],
     icon: "DollarSign",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -322,8 +324,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["finance"],
     icon: "FileText",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -347,8 +349,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["estimates"],
     icon: "Calculator",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
@@ -372,8 +374,8 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "stats",
     tags: ["pipeline"],
     icon: "Target",
-    supportedSizes: ["sm"],
-    defaultSize: "sm",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
     allowMultiple: true,
     configSchema: [
       {
