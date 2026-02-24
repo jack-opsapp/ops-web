@@ -234,7 +234,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
                   placeholder="Search widgets..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-background-input border border-border-input text-text-primary font-mohave text-body-sm placeholder:text-text-placeholder focus:border-border-medium focus:outline-none transition-colors"
+                  className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
                 />
               </div>
             </div>
