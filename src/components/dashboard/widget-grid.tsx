@@ -40,10 +40,10 @@ export function WidgetGrid({
       variants={gridVariants}
       initial="hidden"
       animate="visible"
-      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4"
+      className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8"
       style={{
         gridAutoFlow: "dense",
-        gridAutoRows: "160px",
+        gridAutoRows: "140px",
         gap,
         transition: "gap 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
@@ -64,7 +64,7 @@ export function WidgetGrid({
                   COL_SPAN_CLASSES[ghostSize],
                   "rounded-md flex items-center justify-center bg-ops-accent/5"
                 )}
-                style={{ minHeight: 160 }}
+                style={{ minHeight: 140 }}
               >
                 <span className="font-mohave text-[11px] text-ops-accent/60">
                   {ghostEntry?.label ?? "Widget"}

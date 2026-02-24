@@ -28,6 +28,8 @@ import {
   TaskStatus,
   ProjectStatus,
   isActiveProjectStatus,
+  PROJECT_STATUS_COLORS,
+  TASK_STATUS_COLORS,
 } from "@/lib/types/models";
 import {
   InvoiceStatus,
@@ -44,6 +46,47 @@ import {
   isBefore,
   isAfter,
 } from "@/lib/utils/date";
+
+// ---------------------------------------------------------------------------
+// Accent color map — explicit per widget type
+// ---------------------------------------------------------------------------
+const STAT_ACCENT_COLORS: Partial<Record<WidgetTypeId, string | null>> = {
+  // Generic stats
+  "stat-projects": "#9DB582",       // accepted green (all active)
+  "stat-tasks": null,               // neutral
+  "stat-events": null,              // neutral
+  "stat-clients": null,             // neutral
+  "stat-team": null,                // neutral
+  "stat-revenue": "#C4A868",        // amber
+  "stat-invoices": "#B5A381",       // warm
+  "stat-estimates": "#7B68A6",      // violet
+  "stat-opportunities": "#B58289",  // rose
+
+  // Per-status projects — use PROJECT_STATUS_COLORS
+  "stat-projects-rfq": PROJECT_STATUS_COLORS[ProjectStatus.RFQ],
+  "stat-projects-estimated": PROJECT_STATUS_COLORS[ProjectStatus.Estimated],
+  "stat-projects-accepted": PROJECT_STATUS_COLORS[ProjectStatus.Accepted],
+  "stat-projects-in-progress": PROJECT_STATUS_COLORS[ProjectStatus.InProgress],
+  "stat-projects-completed": PROJECT_STATUS_COLORS[ProjectStatus.Completed],
+
+  // Per-status tasks — use TASK_STATUS_COLORS
+  "stat-tasks-booked": TASK_STATUS_COLORS[TaskStatus.Booked],
+  "stat-tasks-in-progress": TASK_STATUS_COLORS[TaskStatus.InProgress],
+  "stat-tasks-completed": TASK_STATUS_COLORS[TaskStatus.Completed],
+  "stat-tasks-overdue": "#93321A",  // error red
+
+  // Client segment
+  "stat-clients-active": "#9DB582", // accepted green
+
+  // Financial
+  "stat-receivables": "#C4A868",    // amber
+  "stat-collect": "#B58289",        // completed rose
+};
+
+function getAccentColor(typeId: WidgetTypeId): string | null {
+  const color = STAT_ACCENT_COLORS[typeId];
+  return color === undefined ? null : color;
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -77,6 +120,32 @@ export function StatWidget({ typeId, size, config }: StatWidgetProps) {
       return <StatEstimatesCount typeId={typeId} size={size} config={config} />;
     case "stat-opportunities":
       return <StatOpportunities typeId={typeId} size={size} config={config} />;
+
+    // Per-status projects
+    case "stat-projects-rfq":
+    case "stat-projects-estimated":
+    case "stat-projects-accepted":
+    case "stat-projects-in-progress":
+    case "stat-projects-completed":
+      return <StatProjectsByStatus typeId={typeId} size={size} />;
+
+    // Per-status tasks
+    case "stat-tasks-booked":
+    case "stat-tasks-in-progress":
+    case "stat-tasks-completed":
+    case "stat-tasks-overdue":
+      return <StatTasksByStatus typeId={typeId} size={size} />;
+
+    // Client segment
+    case "stat-clients-active":
+      return <StatClientsActive typeId={typeId} size={size} />;
+
+    // Financial
+    case "stat-receivables":
+      return <StatReceivables typeId={typeId} size={size} />;
+    case "stat-collect":
+      return <StatToCollect typeId={typeId} size={size} />;
+
     default:
       return null;
   }
@@ -91,8 +160,219 @@ interface InnerStatProps {
   config: Record<string, unknown>;
 }
 
+interface SimpleStatProps {
+  typeId: WidgetTypeId;
+  size: WidgetSize;
+}
+
 // ---------------------------------------------------------------------------
-// Individual stat implementations
+// Per-status project stat
+// ---------------------------------------------------------------------------
+const PROJECT_STATUS_MAP: Partial<Record<WidgetTypeId, ProjectStatus>> = {
+  "stat-projects-rfq": ProjectStatus.RFQ,
+  "stat-projects-estimated": ProjectStatus.Estimated,
+  "stat-projects-accepted": ProjectStatus.Accepted,
+  "stat-projects-in-progress": ProjectStatus.InProgress,
+  "stat-projects-completed": ProjectStatus.Completed,
+};
+
+const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  [ProjectStatus.RFQ]: "RFQ",
+  [ProjectStatus.Estimated]: "Estimated",
+  [ProjectStatus.Accepted]: "Accepted",
+  [ProjectStatus.InProgress]: "In Progress",
+  [ProjectStatus.Completed]: "Completed",
+  [ProjectStatus.Closed]: "Closed",
+  [ProjectStatus.Archived]: "Archived",
+};
+
+function StatProjectsByStatus({ typeId, size }: SimpleStatProps) {
+  const { data, isLoading } = useProjects();
+  const projects = data?.projects ?? [];
+  const status = PROJECT_STATUS_MAP[typeId]!;
+
+  const count = useMemo(
+    () => projects.filter((p) => !p.deletedAt && p.status === status).length,
+    [projects, status]
+  );
+
+  return (
+    <StatCard
+      label={`${PROJECT_STATUS_LABELS[status]} Projects`}
+      value={count}
+      subValue={PROJECT_STATUS_LABELS[status]}
+      icon={FolderKanban}
+      isLoading={isLoading}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-status task stat
+// ---------------------------------------------------------------------------
+const TASK_STATUS_MAP: Partial<Record<WidgetTypeId, TaskStatus | "overdue">> = {
+  "stat-tasks-booked": TaskStatus.Booked,
+  "stat-tasks-in-progress": TaskStatus.InProgress,
+  "stat-tasks-completed": TaskStatus.Completed,
+  "stat-tasks-overdue": "overdue",
+};
+
+const TASK_STATUS_LABELS: Record<string, string> = {
+  [TaskStatus.Booked]: "Booked",
+  [TaskStatus.InProgress]: "In Progress",
+  [TaskStatus.Completed]: "Completed",
+  overdue: "Overdue",
+};
+
+function StatTasksByStatus({ typeId, size }: SimpleStatProps) {
+  const { data, isLoading } = useTasks();
+  const tasks = data?.tasks ?? [];
+  const statusOrOverdue = TASK_STATUS_MAP[typeId]!;
+
+  const count = useMemo(() => {
+    const active = tasks.filter((t: ProjectTask) => !t.deletedAt);
+
+    if (statusOrOverdue === "overdue") {
+      const today = new Date();
+      return active.filter((t: ProjectTask) => {
+        if (t.status === TaskStatus.Completed || t.status === TaskStatus.Cancelled) return false;
+        if (!t.calendarEvent?.startDate) return false;
+        return isBefore(new Date(t.calendarEvent.startDate), today) &&
+          !isSameDay(new Date(t.calendarEvent.startDate), today);
+      }).length;
+    }
+
+    return active.filter((t: ProjectTask) => t.status === statusOrOverdue).length;
+  }, [tasks, statusOrOverdue]);
+
+  const label = TASK_STATUS_LABELS[statusOrOverdue] ?? "Tasks";
+
+  return (
+    <StatCard
+      label={`${label} Tasks`}
+      value={count}
+      subValue={label.toLowerCase()}
+      icon={ClipboardCheck}
+      isLoading={isLoading}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Active clients (cross-reference with projects)
+// ---------------------------------------------------------------------------
+function StatClientsActive({ typeId, size }: SimpleStatProps) {
+  const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const { data: projectsData } = useProjects();
+
+  const clients = clientsData?.clients ?? [];
+  const projects = projectsData?.projects ?? [];
+
+  const { value, subValue } = useMemo(() => {
+    const active = clients.filter((c) => !c.deletedAt);
+    const clientsWithActiveProjects = new Set(
+      projects
+        .filter((p) => isActiveProjectStatus(p.status) && !p.deletedAt && p.clientId)
+        .map((p) => p.clientId)
+    );
+    const count = active.filter((c) => clientsWithActiveProjects.has(c.id)).length;
+    return { value: count, subValue: `of ${active.length} total` };
+  }, [clients, projects]);
+
+  return (
+    <StatCard
+      label="Active Clients"
+      value={value}
+      subValue={subValue}
+      icon={Users}
+      isLoading={clientsLoading}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Receivables — sum balanceDue on all open invoices
+// ---------------------------------------------------------------------------
+function StatReceivables({ typeId, size }: SimpleStatProps) {
+  const { data } = useInvoices();
+  const invoices = data ?? [];
+
+  const total = useMemo(
+    () =>
+      invoices
+        .filter(
+          (inv) =>
+            !inv.deletedAt &&
+            inv.status !== InvoiceStatus.Paid &&
+            inv.status !== InvoiceStatus.Void
+        )
+        .reduce((sum, inv) => sum + (inv.balanceDue ?? 0), 0),
+    [invoices]
+  );
+
+  return (
+    <StatCard
+      label="Receivables"
+      value={Math.round(total)}
+      displayPrefix="$"
+      subValue="outstanding"
+      icon={DollarSign}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// To Collect — sum balanceDue on invoices linked to completed projects
+// ---------------------------------------------------------------------------
+function StatToCollect({ typeId, size }: SimpleStatProps) {
+  const { data: invoicesData } = useInvoices();
+  const { data: projectsData } = useProjects();
+
+  const invoices = invoicesData ?? [];
+  const projects = projectsData?.projects ?? [];
+
+  const total = useMemo(() => {
+    const completedProjectIds = new Set(
+      projects
+        .filter((p) => !p.deletedAt && p.status === ProjectStatus.Completed)
+        .map((p) => p.id)
+    );
+
+    return invoices
+      .filter(
+        (inv) =>
+          !inv.deletedAt &&
+          inv.projectId &&
+          completedProjectIds.has(inv.projectId) &&
+          inv.status !== InvoiceStatus.Paid &&
+          inv.status !== InvoiceStatus.Void
+      )
+      .reduce((sum, inv) => sum + (inv.balanceDue ?? 0), 0);
+  }, [invoices, projects]);
+
+  return (
+    <StatCard
+      label="To Collect"
+      value={Math.round(total)}
+      displayPrefix="$"
+      subValue="on completed projects"
+      icon={DollarSign}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Original stat implementations (updated to pass accentColor)
 // ---------------------------------------------------------------------------
 
 function StatProjects({ typeId, size, config }: InnerStatProps) {
@@ -120,7 +400,7 @@ function StatProjects({ typeId, size, config }: InnerStatProps) {
   }, [projects, statusFilter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={FolderKanban} isLoading={isLoading} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} subValue={subValue} icon={FolderKanban} isLoading={isLoading} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -173,7 +453,7 @@ function StatTasks({ typeId, size, config }: InnerStatProps) {
   }, [tasks, filter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={ClipboardCheck} isLoading={isLoading} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} subValue={subValue} icon={ClipboardCheck} isLoading={isLoading} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -209,7 +489,7 @@ function StatEvents({ typeId, size, config }: InnerStatProps) {
       subValue={rangeLabels[range]}
       icon={CalendarDays}
       isLoading={isLoading}
-      typeId={typeId}
+      accentColor={getAccentColor(typeId)}
       size={size}
     />
   );
@@ -238,7 +518,7 @@ function StatClients({ typeId, size, config }: InnerStatProps) {
   }, [clients, projects, filter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={Users} isLoading={clientsLoading} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} subValue={subValue} icon={Users} isLoading={clientsLoading} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -256,7 +536,7 @@ function StatTeam({ typeId, size, config }: InnerStatProps) {
   }, [members, filter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={UserCheck} isLoading={isLoading} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} subValue={subValue} icon={UserCheck} isLoading={isLoading} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -301,7 +581,7 @@ function StatRevenue({ typeId, size, config }: InnerStatProps) {
   }, [invoices, metric]);
 
   return (
-    <StatCard label={label} value={value} displayPrefix="$" subValue={subValue} icon={DollarSign} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} displayPrefix="$" subValue={subValue} icon={DollarSign} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -332,7 +612,7 @@ function StatInvoices({ typeId, size, config }: InnerStatProps) {
   }, [invoices, statusFilter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={FileText} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} subValue={subValue} icon={FileText} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -367,7 +647,7 @@ function StatEstimatesCount({ typeId, size, config }: InnerStatProps) {
   }, [estimates, statusFilter]);
 
   return (
-    <StatCard label={label} value={value} subValue={subValue} icon={Calculator} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} subValue={subValue} icon={Calculator} accentColor={getAccentColor(typeId)} size={size} />
   );
 }
 
@@ -381,8 +661,6 @@ function StatOpportunities({ typeId, size, config }: InnerStatProps) {
     const active = opportunities.filter(
       (opp) => !opp.deletedAt && opp.stage !== OpportunityStage.Won && opp.stage !== OpportunityStage.Lost
     );
-
-    const closedStages = new Set([OpportunityStage.Won, OpportunityStage.Lost]);
 
     if (stageFilter === "all-active") {
       if (metric === "value") {
@@ -410,6 +688,6 @@ function StatOpportunities({ typeId, size, config }: InnerStatProps) {
   }, [opportunities, stageFilter, metric]);
 
   return (
-    <StatCard label={label} value={value} displayPrefix={prefix} subValue={subValue} icon={Target} typeId={typeId} size={size} />
+    <StatCard label={label} value={value} displayPrefix={prefix} subValue={subValue} icon={Target} accentColor={getAccentColor(typeId)} size={size} />
   );
 }

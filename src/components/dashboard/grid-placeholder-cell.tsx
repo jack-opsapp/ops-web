@@ -21,7 +21,7 @@ export function GridPlaceholderCell({ id, index }: GridPlaceholderCellProps) {
       animate="visible"
       exit="exit"
       className="col-span-1"
-      style={{ minHeight: 160 }}
+      style={{ minHeight: 140 }}
       aria-label={`Empty slot ${index + 1}`}
       role="region"
     >

@@ -45,12 +45,14 @@ export const DEFAULT_NOTIFICATION_PREFS: Record<string, boolean> = {
 // Default widget instances — shown for new users / reset
 // ---------------------------------------------------------------------------
 const DEFAULT_WIDGET_INSTANCES: WidgetInstance[] = [
-  createWidgetInstance("stat-projects", { statusFilter: "all" }),
+  createWidgetInstance("stat-projects-rfq"),
+  createWidgetInstance("stat-projects-estimated"),
+  createWidgetInstance("stat-projects-accepted"),
+  createWidgetInstance("stat-projects-in-progress"),
   createWidgetInstance("stat-tasks", { filter: "due-today" }),
+  createWidgetInstance("stat-tasks-overdue"),
   createWidgetInstance("stat-events", { range: "this-week" }),
-  createWidgetInstance("stat-clients", { filter: "all" }),
-  createWidgetInstance("stat-team", { filter: "active" }),
-  createWidgetInstance("stat-revenue", { metric: "mtd-invoiced" }),
+  createWidgetInstance("stat-receivables"),
   createWidgetInstance("calendar"),
   createWidgetInstance("task-list", { filter: "upcoming" }),
   createWidgetInstance("crew-status"),
@@ -216,10 +218,14 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
+
+        // ── v5 → v6: Grid & stat widget overhaul — existing instances are valid, just bump ──
+        // No data migration needed: new widget types are additive.
+        // Existing widgetInstances array carries forward as-is.
 
         // ── v1-v4 → v5: Convert old widgetConfigs/widgetOrder to widgetInstances ──
         if (version < 5) {

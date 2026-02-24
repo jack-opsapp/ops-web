@@ -38,6 +38,7 @@ import { NotificationsWidget } from "@/components/dashboard/widgets/notification
 import { FollowUpsDueWidget } from "@/components/dashboard/widgets/follow-ups-due-widget";
 import { SiteVisitsWidget } from "@/components/dashboard/widgets/site-visits-widget";
 import { CrewLocationsWidget } from "@/components/dashboard/widgets/crew-locations-widget";
+import { ClientRankingWidget, ProjectRankingWidget } from "@/components/dashboard/widgets/ranking-widget";
 
 // No-op navigate for preview
 const noop = () => {};
@@ -64,7 +65,29 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     case "stat-invoices":
     case "stat-estimates":
     case "stat-opportunities":
+    // Per-status projects
+    case "stat-projects-rfq":
+    case "stat-projects-estimated":
+    case "stat-projects-accepted":
+    case "stat-projects-in-progress":
+    case "stat-projects-completed":
+    // Per-status tasks
+    case "stat-tasks-booked":
+    case "stat-tasks-in-progress":
+    case "stat-tasks-completed":
+    case "stat-tasks-overdue":
+    // Client segment
+    case "stat-clients-active":
+    // Financial
+    case "stat-receivables":
+    case "stat-collect":
       return <StatWidget typeId={typeId} size={size} config={config} />;
+
+    // ── RANKING WIDGETS ──
+    case "stat-client-ranking":
+      return <ClientRankingWidget size={size} config={config} />;
+    case "stat-project-ranking":
+      return <ProjectRankingWidget size={size} config={config} />;
 
     // ── SCHEDULE (need data props → pass empty) ──
     case "calendar":
@@ -158,11 +181,11 @@ const PREVIEW_SCALE = 0.45;
 
 // Approximate pixel dimensions for each widget size at full scale
 const SIZE_DIMENSIONS: Record<WidgetSize, { width: number; height: number }> = {
-  xs: { width: 160, height: 160 },
-  sm: { width: 280, height: 160 },
-  md: { width: 560, height: 200 },
-  lg: { width: 560, height: 400 },
-  full: { width: 1120, height: 200 },
+  xs: { width: 140, height: 140 },
+  sm: { width: 280, height: 140 },
+  md: { width: 560, height: 140 },
+  lg: { width: 560, height: 280 },
+  full: { width: 1120, height: 140 },
 };
 
 interface WidgetPreviewProps {

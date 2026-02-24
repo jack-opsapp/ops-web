@@ -34,7 +34,7 @@ export type WidgetTag =
 // ---------------------------------------------------------------------------
 
 export type WidgetTypeId =
-  // Stats (9)
+  // Stats — generic (9)
   | "stat-projects"
   | "stat-tasks"
   | "stat-events"
@@ -44,6 +44,25 @@ export type WidgetTypeId =
   | "stat-invoices"
   | "stat-estimates"
   | "stat-opportunities"
+  // Stats — per-status projects (5)
+  | "stat-projects-rfq"
+  | "stat-projects-estimated"
+  | "stat-projects-accepted"
+  | "stat-projects-in-progress"
+  | "stat-projects-completed"
+  // Stats — per-status tasks (4)
+  | "stat-tasks-booked"
+  | "stat-tasks-in-progress"
+  | "stat-tasks-completed"
+  | "stat-tasks-overdue"
+  // Stats — client segment (1)
+  | "stat-clients-active"
+  // Stats — financial (2)
+  | "stat-receivables"
+  | "stat-collect"
+  // Stats — ranking (2)
+  | "stat-client-ranking"
+  | "stat-project-ranking"
   // Schedule (2)
   | "calendar"
   | "task-list"
@@ -129,10 +148,10 @@ export const WIDGET_SIZE_GRID_SPANS: Record<
   { colSpan: number; rowSpan: number }
 > = {
   xs: { colSpan: 1, rowSpan: 1 },
-  sm: { colSpan: 1, rowSpan: 1 },
-  md: { colSpan: 2, rowSpan: 1 },
-  lg: { colSpan: 2, rowSpan: 2 },
-  full: { colSpan: 4, rowSpan: 1 },
+  sm: { colSpan: 2, rowSpan: 1 },
+  md: { colSpan: 4, rowSpan: 1 },
+  lg: { colSpan: 4, rowSpan: 2 },
+  full: { colSpan: 8, rowSpan: 1 },
 };
 
 export const WIDGET_SIZE_LABELS: Record<WidgetSize, string> = {
@@ -177,8 +196,8 @@ export const CATEGORY_ORDER: WidgetCategory[] = [
 export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   // ── STATISTICS (9) ──────────────────────────────────────────────────────
   "stat-projects": {
-    label: "Project Count",
-    description: "Count of projects by status",
+    label: "Active Projects",
+    description: "Count of active projects",
     category: "stats",
     tags: ["essential", "office"],
     icon: "FolderKanban",
@@ -401,6 +420,194 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
           { value: "value", label: "Total Value" },
         ],
         defaultValue: "count",
+      },
+    ],
+  },
+
+  // ── STATISTICS — Per-Status Projects (5) ────────────────────────────────
+  "stat-projects-rfq": {
+    label: "RFQ Projects",
+    description: "Projects in RFQ status",
+    category: "stats",
+    tags: ["essential", "office"],
+    icon: "FolderKanban",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-projects-estimated": {
+    label: "Estimated Projects",
+    description: "Projects in Estimated status",
+    category: "stats",
+    tags: ["essential", "office"],
+    icon: "FolderKanban",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-projects-accepted": {
+    label: "Accepted Projects",
+    description: "Projects in Accepted status",
+    category: "stats",
+    tags: ["essential", "office"],
+    icon: "FolderKanban",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-projects-in-progress": {
+    label: "In Progress Projects",
+    description: "Projects currently in progress",
+    category: "stats",
+    tags: ["essential", "office"],
+    icon: "FolderKanban",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-projects-completed": {
+    label: "Completed Projects",
+    description: "Projects that are completed",
+    category: "stats",
+    tags: ["essential", "office"],
+    icon: "FolderKanban",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+
+  // ── STATISTICS — Per-Status Tasks (4) ──────────────────────────────────
+  "stat-tasks-booked": {
+    label: "Booked Tasks",
+    description: "Tasks in Booked status",
+    category: "stats",
+    tags: ["essential", "scheduling"],
+    icon: "ClipboardCheck",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-tasks-in-progress": {
+    label: "In Progress Tasks",
+    description: "Tasks currently in progress",
+    category: "stats",
+    tags: ["essential", "scheduling"],
+    icon: "ClipboardCheck",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-tasks-completed": {
+    label: "Completed Tasks",
+    description: "Tasks that are completed",
+    category: "stats",
+    tags: ["essential", "scheduling"],
+    icon: "ClipboardCheck",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-tasks-overdue": {
+    label: "Overdue Tasks",
+    description: "Tasks past their due date",
+    category: "stats",
+    tags: ["essential", "scheduling"],
+    icon: "ClipboardCheck",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+
+  // ── STATISTICS — Client Segment (1) ────────────────────────────────────
+  "stat-clients-active": {
+    label: "Active Clients",
+    description: "Clients with active projects",
+    category: "stats",
+    tags: ["essential", "clients"],
+    icon: "Users",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+
+  // ── STATISTICS — Financial (2) ─────────────────────────────────────────
+  "stat-receivables": {
+    label: "Receivables",
+    description: "Total outstanding balance due",
+    category: "stats",
+    tags: ["finance"],
+    icon: "DollarSign",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-collect": {
+    label: "To Collect",
+    description: "Balance due on completed projects",
+    category: "stats",
+    tags: ["finance"],
+    icon: "DollarSign",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+
+  // ── STATISTICS — Ranking (2) ───────────────────────────────────────────
+  "stat-client-ranking": {
+    label: "Client Ranking",
+    description: "Top clients by invoice metric",
+    category: "stats",
+    tags: ["clients", "finance"],
+    icon: "Trophy",
+    supportedSizes: ["xs", "sm", "md"],
+    defaultSize: "sm",
+    allowMultiple: false,
+    configSchema: [
+      {
+        key: "metric",
+        label: "Metric",
+        type: "select",
+        options: [
+          { value: "outstanding", label: "Outstanding" },
+          { value: "collected", label: "Collected" },
+          { value: "invoiced", label: "Invoiced" },
+        ],
+        defaultValue: "outstanding",
+      },
+    ],
+  },
+  "stat-project-ranking": {
+    label: "Project Ranking",
+    description: "Top projects by invoice metric",
+    category: "stats",
+    tags: ["essential", "finance"],
+    icon: "Trophy",
+    supportedSizes: ["xs", "sm", "md"],
+    defaultSize: "sm",
+    allowMultiple: false,
+    configSchema: [
+      {
+        key: "metric",
+        label: "Metric",
+        type: "select",
+        options: [
+          { value: "outstanding", label: "Outstanding" },
+          { value: "collected", label: "Collected" },
+          { value: "invoiced", label: "Invoiced" },
+        ],
+        defaultValue: "outstanding",
       },
     ],
   },
