@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
-import { EyeOff, GripVertical, Trash2 } from "lucide-react";
+import { EyeOff, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -61,7 +61,6 @@ export function WidgetShell({
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
   } = useSortable({
     id: instanceId,
     disabled: !isCustomizing,
@@ -108,14 +107,18 @@ export function WidgetShell({
         COL_SPAN_CLASSES[size],
         ROW_SPAN_CLASSES[size],
         "relative group/widget h-full overflow-hidden",
-        isCustomizing && "ring-1 ring-border-medium rounded-md",
+        isCustomizing && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing",
         isDropTarget && "ring-2 ring-ops-accent bg-ops-accent/5"
       )}
       data-widget-id={instanceId}
       data-widget-type={typeId}
       data-widget-size={size}
+      {...(isCustomizing ? { ...attributes, ...listeners } : {})}
     >
-      {children}
+      {/* Wrap children so widget content is non-interactive during edit mode */}
+      <div className={isCustomizing ? "pointer-events-none" : ""}>
+        {children}
+      </div>
 
       {/* Dark overlay during edit mode */}
       <AnimatePresence>
@@ -138,25 +141,15 @@ export function WidgetShell({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-            className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px] rounded-md px-[3px] py-[2px]"
+            className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px] rounded-md px-[3px] py-[2px] pointer-events-auto"
             style={{
               background: "rgba(10, 10, 10, 0.70)",
               backdropFilter: "blur(20px) saturate(1.2)",
               WebkitBackdropFilter: "blur(20px) saturate(1.2)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
+            onPointerDown={(e) => e.stopPropagation()}
           >
-            {/* Drag handle — uses setActivatorNodeRef for precise activation */}
-            <button
-              ref={setActivatorNodeRef}
-              {...attributes}
-              {...listeners}
-              className="p-[3px] rounded-sm text-text-disabled hover:text-text-secondary transition-all duration-150 cursor-grab active:cursor-grabbing"
-              title="Drag to reorder"
-            >
-              <GripVertical className="w-[12px] h-[12px]" />
-            </button>
-
             {/* Size pills */}
             {hasMultipleSizes &&
               entry.supportedSizes.map((s: WidgetSize) => {
