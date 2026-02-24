@@ -70,8 +70,8 @@ export function PipelineWidget({
   // sm: bar only
   if (size === "sm") {
     return (
-      <Card className="p-2">
-        <CardHeader className="pb-1">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1 shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
@@ -79,7 +79,7 @@ export function PipelineWidget({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-2">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -108,8 +108,8 @@ export function PipelineWidget({
   // lg: bar + list + stage detail with project names
   if (size === "lg") {
     return (
-      <Card className="p-2 h-full">
-        <CardHeader className="pb-1.5">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1.5 shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
@@ -117,7 +117,7 @@ export function PipelineWidget({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -191,8 +191,8 @@ export function PipelineWidget({
 
   // md: bar + list (current default)
   return (
-    <Card className="p-2">
-      <CardHeader className="pb-1.5">
+    <Card className="p-2 h-full flex flex-col">
+      <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
@@ -200,7 +200,7 @@ export function PipelineWidget({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type FloatingWindowType = "create-project" | "create-client";
+export type FloatingWindowType = "create-project" | "create-client" | "create-task";
 
 export interface FloatingWindowState {
   id: string;

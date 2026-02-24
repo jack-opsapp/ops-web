@@ -163,6 +163,38 @@ export function useUpdateUserRole() {
 }
 
 /**
+ * Deactivate a team member (set isActive = false).
+ */
+export function useDeactivateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id }: { id: string }) =>
+      UserService.updateUser(id, { isActive: false }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+
+/**
+ * Reactivate a team member (set isActive = true).
+ */
+export function useReactivateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id }: { id: string }) =>
+      UserService.updateUser(id, { isActive: true }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+
+/**
  * Mark tutorial as completed for a user.
  */
 export function useMarkTutorialCompleted() {
@@ -183,18 +215,18 @@ export function useMarkTutorialCompleted() {
 }
 
 /**
- * Send team invite email(s).
+ * Send team invites via email and/or SMS.
  */
 export function useSendInvite() {
   const { company } = useAuthStore();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (emails: string[]) => {
+    mutationFn: async (data: { emails?: string[]; phones?: string[] }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
-      return UserService.sendInvite(idToken, emails, company!.id);
+      return UserService.sendInvite(idToken, data, company!.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

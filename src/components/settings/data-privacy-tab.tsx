@@ -1,26 +1,94 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Trash2, Database, Clock } from "lucide-react";
+import { Download, Trash2, Database, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 
 export function DataPrivacyTab() {
+  const { company } = useAuthStore();
+  const [exporting, setExporting] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
-  function handleExportData() {
-    toast.info("Data export requested", {
-      description: "You will receive an email with your data export within 24 hours.",
-    });
+  async function handleExportData() {
+    if (!company) return;
+    setExporting(true);
+    try {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+
+      const res = await fetch("/api/data/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, companyId: company.id }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Export failed" }));
+        throw new Error(err.error || "Export failed");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ops-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Data exported successfully");
+    } catch (err) {
+      toast.error("Export failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setExporting(false);
+    }
   }
 
-  function handleDeleteAccount() {
-    toast.info("Account deletion requested", {
-      description: "Please contact support@opsapp.co to complete this process.",
-    });
-    setDeleteAccountOpen(false);
+  async function handleDeleteAccount() {
+    if (confirmText !== "DELETE") {
+      toast.error("Please type DELETE to confirm");
+      return;
+    }
+    if (!company) return;
+
+    setDeleting(true);
+    try {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+
+      const res = await fetch("/api/data/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, companyId: company.id, confirmText }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Deletion failed" }));
+        throw new Error(err.error || "Deletion failed");
+      }
+
+      toast.success("Account deleted");
+
+      // Sign out and redirect
+      const { signOut } = await import("@/lib/firebase/auth");
+      await signOut();
+      window.location.href = "/login";
+    } catch (err) {
+      toast.error("Deletion failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -33,12 +101,21 @@ export function DataPrivacyTab() {
           <p className="font-mohave text-body-sm text-text-secondary">
             Download a copy of all your data including projects, clients, tasks, and team information.
           </p>
-          <Button variant="secondary" className="gap-[6px]" onClick={handleExportData}>
-            <Download className="w-[16px] h-[16px]" />
-            Request Data Export
+          <Button
+            variant="secondary"
+            className="gap-[6px]"
+            onClick={handleExportData}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="w-[16px] h-[16px] animate-spin" />
+            ) : (
+              <Download className="w-[16px] h-[16px]" />
+            )}
+            {exporting ? "Exporting..." : "Download Data Export"}
           </Button>
           <p className="font-kosugi text-[11px] text-text-disabled">
-            Export is generated as a ZIP file containing CSV and JSON files.
+            Export is generated as a JSON file containing all your company data.
           </p>
         </CardContent>
       </Card>
@@ -101,12 +178,16 @@ export function DataPrivacyTab() {
 
       <ConfirmDialog
         open={deleteAccountOpen}
-        onOpenChange={setDeleteAccountOpen}
+        onOpenChange={(open) => {
+          setDeleteAccountOpen(open);
+          if (!open) setConfirmText("");
+        }}
         title="Delete your account?"
-        description="This will permanently delete your account, all projects, clients, tasks, and team data. This action cannot be undone."
+        description="This will permanently delete your account, all projects, clients, tasks, and team data. This action cannot be undone. Type DELETE to confirm."
         confirmLabel="Delete Account"
         variant="destructive"
         onConfirm={handleDeleteAccount}
+        loading={deleting}
       />
     </div>
   );

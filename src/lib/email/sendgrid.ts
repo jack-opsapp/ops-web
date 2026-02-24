@@ -13,6 +13,7 @@ import { magicLinkTemplate } from "./templates/magic-link";
 import { estimateReadyTemplate } from "./templates/estimate-ready";
 import { questionsReminderTemplate } from "./templates/questions-reminder";
 import { invoiceReadyTemplate } from "./templates/invoice-ready";
+import { teamInviteTemplate } from "./templates/team-invite";
 
 let initialized = false;
 
@@ -129,6 +130,30 @@ export async function sendInvoiceReady(params: {
     to: params.email,
     from: { email: getFromEmail(), name: params.companyName },
     subject: `Invoice #${params.invoiceNumber} from ${params.companyName} — ${params.amount}`,
+    html,
+  });
+}
+
+export async function sendTeamInvite(params: {
+  email: string;
+  companyName: string;
+  joinUrl: string;
+  accentColor?: string;
+  logoUrl?: string | null;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = teamInviteTemplate({
+    companyName: params.companyName,
+    joinUrl: params.joinUrl,
+    accentColor: params.accentColor ?? "#417394",
+    logoUrl: params.logoUrl ?? null,
+  });
+
+  await sgMail.send({
+    to: params.email,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject: `Join ${params.companyName} on OPS`,
     html,
   });
 }

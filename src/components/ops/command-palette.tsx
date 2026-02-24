@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -21,9 +21,13 @@ import {
   LogOut,
   Keyboard,
   RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
+import { useProjects } from "@/lib/hooks/use-projects";
+import { useClients } from "@/lib/hooks/use-clients";
+import { useTasks } from "@/lib/hooks/use-tasks";
 import {
   CommandDialog,
   CommandInput,
@@ -46,13 +50,68 @@ interface CommandAction {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Toggle with Cmd+K / Ctrl+K
+  // Entity data for search (uses cached data, no extra fetches)
+  const { data: projectsData } = useProjects(undefined, { enabled: open });
+  const { data: clientsData } = useClients(undefined, { enabled: open });
+  const { data: tasksData } = useTasks(undefined, { enabled: open });
+
+  const entityResults = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (q.length < 2) return { projects: [], clients: [], tasks: [] };
+
+    const projects = (projectsData?.projects ?? [])
+      .filter(
+        (p) =>
+          p.title?.toLowerCase().includes(q) ||
+          p.address?.toLowerCase().includes(q)
+      )
+      .slice(0, 5);
+
+    const clients = (clientsData?.clients ?? [])
+      .filter(
+        (c) =>
+          c.name?.toLowerCase().includes(q) ||
+          c.email?.toLowerCase().includes(q)
+      )
+      .slice(0, 5);
+
+    const tasks = (tasksData?.tasks ?? [])
+      .filter(
+        (t) =>
+          t.customTitle?.toLowerCase().includes(q) ||
+          t.taskNotes?.toLowerCase().includes(q)
+      )
+      .slice(0, 5);
+
+    return { projects, clients, tasks };
+  }, [search, projectsData, clientsData, tasksData]);
+
+  const hasEntityResults =
+    entityResults.projects.length > 0 ||
+    entityResults.clients.length > 0 ||
+    entityResults.tasks.length > 0;
+
+  // Toggle with Cmd+K / Ctrl+K or backslash
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen((prev) => !prev);
+      }
+      // Backslash shortcut (only when not typing in an input/textarea)
+      if (
+        e.key === "\\" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target as HTMLElement)?.isContentEditable
+      ) {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
@@ -220,10 +279,11 @@ export function CommandPalette() {
   ];
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <CommandInput
-        placeholder="Search commands, navigate, or take action..."
+        placeholder="Search projects, clients, tasks, or commands..."
         onClear={() => setOpen(false)}
+        onValueChange={setSearch}
       />
       <CommandList>
         <CommandEmpty>
@@ -235,6 +295,65 @@ export function CommandPalette() {
             </span>
           </div>
         </CommandEmpty>
+
+        {/* Entity search results */}
+        {hasEntityResults && (
+          <>
+            {entityResults.projects.length > 0 && (
+              <CommandGroup heading="Projects">
+                {entityResults.projects.map((p) => (
+                  <CommandItem
+                    key={`project-${p.id}`}
+                    value={`project ${p.title} ${p.address ?? ""}`}
+                    onSelect={() => navigate(`/projects/${p.id}`)}
+                  >
+                    <FolderKanban className="w-[16px] h-[16px] text-text-tertiary" />
+                    <span className="truncate">{p.title}</span>
+                    {p.address && (
+                      <span className="ml-auto text-[11px] text-text-disabled truncate max-w-[180px]">
+                        {p.address}
+                      </span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {entityResults.clients.length > 0 && (
+              <CommandGroup heading="Clients">
+                {entityResults.clients.map((c) => (
+                  <CommandItem
+                    key={`client-${c.id}`}
+                    value={`client ${c.name} ${c.email ?? ""}`}
+                    onSelect={() => navigate(`/clients/${c.id}`)}
+                  >
+                    <Users className="w-[16px] h-[16px] text-text-tertiary" />
+                    <span className="truncate">{c.name}</span>
+                    {c.email && (
+                      <span className="ml-auto text-[11px] text-text-disabled truncate max-w-[180px]">
+                        {c.email}
+                      </span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {entityResults.tasks.length > 0 && (
+              <CommandGroup heading="Tasks">
+                {entityResults.tasks.map((t) => (
+                  <CommandItem
+                    key={`task-${t.id}`}
+                    value={`task ${t.customTitle ?? ""} ${t.taskNotes ?? ""}`}
+                    onSelect={() => navigate(`/projects/${t.projectId}`)}
+                  >
+                    <ClipboardList className="w-[16px] h-[16px] text-text-tertiary" />
+                    <span className="truncate">{t.customTitle || "Untitled Task"}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            <CommandSeparator />
+          </>
+        )}
 
         <CommandGroup heading="Quick Actions">
           {quickActions.map((action) => (

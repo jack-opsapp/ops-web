@@ -2,13 +2,13 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
-import { EyeOff, GripVertical } from "lucide-react";
+import { EyeOff, GripVertical, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import type { WidgetSize, DashboardWidgetId } from "@/lib/types/dashboard-widgets";
-import { WIDGET_REGISTRY, WIDGET_SIZE_LABELS } from "@/lib/types/dashboard-widgets";
+import type { WidgetSize, WidgetTypeId } from "@/lib/types/dashboard-widgets";
+import { WIDGET_TYPE_REGISTRY, WIDGET_SIZE_LABELS } from "@/lib/types/dashboard-widgets";
 import { SPRING_LAYOUT, widgetVariants, EASE_SMOOTH } from "@/lib/utils/motion";
 
 // Static Tailwind class maps for purge safety
@@ -27,15 +27,28 @@ const ROW_SPAN_CLASSES: Record<WidgetSize, string> = {
 };
 
 interface WidgetShellProps {
-  widgetId: DashboardWidgetId;
+  instanceId: string;
+  typeId: WidgetTypeId;
   size: WidgetSize;
   isCustomizing?: boolean;
+  isDragActive?: boolean;
+  isBeingDragged?: boolean;
+  isDropTarget?: boolean;
   children: ReactNode;
 }
 
-export function WidgetShell({ widgetId, size, isCustomizing, children }: WidgetShellProps) {
-  const setWidgetSize = usePreferencesStore((s) => s.setWidgetSize);
-  const setWidgetVisible = usePreferencesStore((s) => s.setWidgetVisible);
+export function WidgetShell({
+  instanceId,
+  typeId,
+  size,
+  isCustomizing,
+  isDragActive,
+  isBeingDragged,
+  isDropTarget,
+  children,
+}: WidgetShellProps) {
+  const updateWidgetInstance = usePreferencesStore((s) => s.updateWidgetInstance);
+  const removeWidgetInstance = usePreferencesStore((s) => s.removeWidgetInstance);
 
   const {
     attributes,
@@ -45,11 +58,11 @@ export function WidgetShell({ widgetId, size, isCustomizing, children }: WidgetS
     transition,
     isDragging,
   } = useSortable({
-    id: widgetId,
+    id: instanceId,
     disabled: !isCustomizing,
   });
 
-  const entry = WIDGET_REGISTRY[widgetId];
+  const entry = WIDGET_TYPE_REGISTRY[typeId];
   const hasMultipleSizes = entry && entry.supportedSizes.length > 1;
 
   // Merge dnd-kit transform with Framer Motion layout
@@ -63,7 +76,7 @@ export function WidgetShell({ widgetId, size, isCustomizing, children }: WidgetS
     <motion.div
       ref={setNodeRef}
       layout
-      layoutId={widgetId}
+      layoutId={instanceId}
       variants={widgetVariants}
       initial="hidden"
       animate="visible"
@@ -73,11 +86,15 @@ export function WidgetShell({ widgetId, size, isCustomizing, children }: WidgetS
       className={cn(
         COL_SPAN_CLASSES[size],
         ROW_SPAN_CLASSES[size],
-        "relative group/widget",
+        "relative group/widget h-full overflow-hidden transition-all duration-200",
         isCustomizing && "ring-1 ring-border-medium rounded-md",
-        isDragging && "opacity-80 ring-ops-accent"
+        // Drag states
+        isBeingDragged && "opacity-0",
+        isDragActive && !isBeingDragged && !isDropTarget && "scale-[0.96] saturate-[0.3] opacity-70",
+        isDropTarget && "ring-2 ring-ops-accent bg-ops-accent/5 scale-100 opacity-100"
       )}
-      data-widget-id={widgetId}
+      data-widget-id={instanceId}
+      data-widget-type={typeId}
       data-widget-size={size}
     >
       {children}
@@ -109,7 +126,7 @@ export function WidgetShell({ widgetId, size, isCustomizing, children }: WidgetS
                 return (
                   <button
                     key={s}
-                    onClick={() => setWidgetSize(widgetId, s)}
+                    onClick={() => updateWidgetInstance(instanceId, { size: s })}
                     className={cn(
                       "px-[8px] py-[2px] rounded-sm font-mono text-[10px] border transition-all duration-150",
                       isSelected
@@ -124,11 +141,20 @@ export function WidgetShell({ widgetId, size, isCustomizing, children }: WidgetS
 
             {/* Hide button */}
             <button
-              onClick={() => setWidgetVisible(widgetId, false)}
+              onClick={() => updateWidgetInstance(instanceId, { visible: false })}
               className="p-[3px] rounded-sm bg-[rgba(25,25,25,0.85)] backdrop-blur-sm text-text-disabled hover:text-ops-error border border-transparent hover:border-ops-error/30 transition-all duration-150"
               title={`Hide ${entry?.label ?? "widget"}`}
             >
               <EyeOff className="w-[12px] h-[12px]" />
+            </button>
+
+            {/* Remove button */}
+            <button
+              onClick={() => removeWidgetInstance(instanceId)}
+              className="p-[3px] rounded-sm bg-[rgba(25,25,25,0.85)] backdrop-blur-sm text-text-disabled hover:text-ops-error border border-transparent hover:border-ops-error/30 transition-all duration-150"
+              title={`Remove ${entry?.label ?? "widget"}`}
+            >
+              <Trash2 className="w-[12px] h-[12px]" />
             </button>
           </motion.div>
         )}

@@ -27,6 +27,7 @@ import {
   useMoveOpportunityStage,
   useUpdateOpportunity,
   useCreateOpportunity,
+  useGmailConnections,
 } from "@/lib/hooks";
 import {
   type Opportunity,
@@ -65,9 +66,9 @@ function PipelineSkeleton() {
         </div>
 
         {/* Metrics skeleton */}
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="flex-1 p-1 flex items-center gap-1.5">
+            <Card key={i} className="p-1 flex items-center gap-1.5">
               <div className="w-[32px] h-[32px] rounded bg-background-elevated animate-pulse" />
               <div className="space-y-1">
                 <div className="h-[10px] w-[60px] bg-background-elevated rounded animate-pulse" />
@@ -132,6 +133,7 @@ export default function PipelinePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showInboxLeads, setShowInboxLeads] = useState(false);
+  const [gmailBannerDismissed, setGmailBannerDismissed] = useState(false);
 
   // Detail sheet
   const [selectedOpportunity, setSelectedOpportunity] =
@@ -174,6 +176,7 @@ export default function PipelinePage() {
   // ── Data fetching ──────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const { data: gmailConnections = [] } = useGmailConnections();
 
   const isLoading = oppsLoading || clientsLoading;
 
@@ -440,7 +443,7 @@ export default function PipelinePage() {
     <div className="flex flex-col h-full space-y-2 min-w-0">
       {/* Header */}
       <div className="shrink-0 space-y-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-1">
           <div>
             <div className="flex items-center gap-2">
               <p className="font-kosugi text-caption-sm text-text-tertiary">
@@ -451,7 +454,7 @@ export default function PipelinePage() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <div className="max-w-[250px]">
               <Input
                 placeholder="Search deals..."
@@ -501,9 +504,9 @@ export default function PipelinePage() {
         </div>
 
         {/* Metrics bar */}
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {/* Pipeline Value */}
-          <Card className="flex-1 p-1 flex items-center gap-1.5">
+          <Card className="p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-ops-accent-muted flex items-center justify-center shrink-0">
               <DollarSign className="w-[16px] h-[16px] text-ops-accent" />
             </div>
@@ -518,7 +521,7 @@ export default function PipelinePage() {
           </Card>
 
           {/* Active Deals */}
-          <Card className="flex-1 p-1 flex items-center gap-1.5">
+          <Card className="p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-ops-amber-muted flex items-center justify-center shrink-0">
               <Target className="w-[16px] h-[16px] text-ops-amber" />
             </div>
@@ -533,7 +536,7 @@ export default function PipelinePage() {
           </Card>
 
           {/* Won */}
-          <Card className="flex-1 p-1 flex items-center gap-1.5">
+          <Card className="p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-status-success/15 flex items-center justify-center shrink-0">
               <TrendingUp className="w-[16px] h-[16px] text-status-success" />
             </div>
@@ -548,7 +551,7 @@ export default function PipelinePage() {
           </Card>
 
           {/* Conversion Rate */}
-          <Card className="flex-1 p-1 flex items-center gap-1.5">
+          <Card className="p-1 flex items-center gap-1.5">
             <div className="w-[32px] h-[32px] rounded bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0">
               <TrendingUp className="w-[16px] h-[16px] text-text-secondary" />
             </div>
@@ -626,6 +629,41 @@ export default function PipelinePage() {
           </Card>
         )}
       </div>
+
+      {/* Gmail connect prompt */}
+      {gmailConnections.length === 0 && !gmailBannerDismissed && (
+        <div className="shrink-0 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-[rgba(65,115,148,0.08)] border border-ops-accent/20 animate-fade-in">
+          <div className="w-[32px] h-[32px] rounded bg-ops-accent-muted flex items-center justify-center shrink-0">
+            <Mail className="w-[16px] h-[16px] text-ops-accent" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-mohave text-body text-text-primary">Connect Gmail to auto-import leads</p>
+            <p className="font-kosugi text-[11px] text-text-disabled">
+              Incoming client emails become pipeline leads automatically.
+            </p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              size="sm"
+              className="gap-[6px]"
+              onClick={() => {
+                const params = new URLSearchParams({ companyId: company?.id ?? "", type: "company" });
+                window.location.href = `/api/integrations/gmail?${params}`;
+              }}
+            >
+              <Mail className="w-[14px] h-[14px]" />
+              Connect
+            </Button>
+            <button
+              onClick={() => setGmailBannerDismissed(true)}
+              className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-[14px] h-[14px]" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mutation loading indicator */}
       {moveStage.isPending && (

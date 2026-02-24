@@ -303,17 +303,17 @@ export const UserService = {
   },
 
   /**
-   * Send team invites.
+   * Send team invites via email and/or SMS.
    */
   async sendInvite(
     idToken: string,
-    emails: string[],
+    data: { emails?: string[]; phones?: string[] },
     companyId: string
-  ): Promise<{ success: boolean; invitesSent?: number; errorMessage?: string }> {
+  ): Promise<{ success: boolean; invitesSent?: number; emailsSent?: number; smsSent?: number }> {
     const response = await fetch("/api/auth/send-invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken, emails, companyId }),
+      body: JSON.stringify({ idToken, ...data, companyId }),
     });
 
     if (!response.ok) {

@@ -1,64 +1,327 @@
 "use client";
 
-import { CreditCard, Download, FileText } from "lucide-react";
+import { useState, useCallback } from "react";
+import {
+  CreditCard,
+  Download,
+  FileText,
+  ExternalLink,
+  Loader2,
+  Plus,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  usePaymentMethods,
+  useStripeInvoices,
+  useCreateSetupIntent,
+  type PaymentMethod,
+} from "@/lib/hooks/use-billing";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+
+// Lazy-load Stripe.js
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
+
+// ─── Card Brand Display ──────────────────────────────────────────────────────
+
+function brandLabel(brand: string): string {
+  const map: Record<string, string> = {
+    visa: "Visa",
+    mastercard: "Mastercard",
+    amex: "American Express",
+    discover: "Discover",
+    diners: "Diners Club",
+    jcb: "JCB",
+    unionpay: "UnionPay",
+  };
+  return map[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1);
+}
+
+// ─── Payment Method Card ─────────────────────────────────────────────────────
+
+function PaymentMethodCard({ method }: { method: PaymentMethod }) {
+  return (
+    <div className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0">
+      <div className="flex items-center gap-1.5">
+        <CreditCard className="w-[20px] h-[20px] text-text-secondary" />
+        <div>
+          <p className="font-mohave text-body text-text-primary">
+            {brandLabel(method.brand)} ending in {method.last4}
+          </p>
+          <p className="font-kosugi text-[11px] text-text-disabled">
+            Expires {String(method.expMonth).padStart(2, "0")}/{method.expYear}
+          </p>
+        </div>
+      </div>
+      {method.isDefault && (
+        <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+          Default
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Add Card Form (inside Elements provider) ────────────────────────────────
+
+function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const createSetupIntent = useCreateSetupIntent();
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setSubmitting(true);
+    try {
+      // Create SetupIntent
+      const { clientSecret } = await createSetupIntent.mutateAsync();
+
+      // Confirm card setup
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) throw new Error("Card element not found");
+
+      const { error } = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: { card: cardElement },
+      });
+
+      if (error) {
+        toast.error(error.message ?? "Failed to add card");
+      } else {
+        toast.success("Payment method added");
+        onSuccess();
+      }
+    } catch (err) {
+      toast.error("Failed to add card", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="bg-background-input border border-border rounded-lg p-1.5">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: "15px",
+                color: "#e5e5e5",
+                "::placeholder": { color: "#6b7280" },
+                backgroundColor: "transparent",
+              },
+              invalid: { color: "#ef4444" },
+            },
+          }}
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <Button type="submit" disabled={!stripe || submitting} className="gap-[6px]">
+          {submitting ? (
+            <Loader2 className="w-[14px] h-[14px] animate-spin" />
+          ) : (
+            <Check className="w-[14px] h-[14px]" />
+          )}
+          Save Card
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Invoice Status Badge ────────────────────────────────────────────────────
+
+function InvoiceStatusBadge({ status }: { status: string | null }) {
+  const styles: Record<string, string> = {
+    paid: "text-status-success bg-status-success/10",
+    open: "text-ops-amber bg-ops-amber/10",
+    draft: "text-text-disabled bg-background-elevated",
+    void: "text-text-disabled bg-background-elevated",
+    uncollectible: "text-ops-error bg-ops-error-muted",
+  };
+
+  const s = status ?? "unknown";
+  const className = styles[s] ?? "text-text-disabled bg-background-elevated";
+
+  return (
+    <span className={`font-kosugi text-[9px] uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
+      {s}
+    </span>
+  );
+}
+
+// ─── Main Billing Tab ────────────────────────────────────────────────────────
 
 export function BillingTab() {
+  const { company } = useAuthStore();
+  const { data: methods, isLoading: methodsLoading, refetch: refetchMethods } = usePaymentMethods();
+  const { data: invoices, isLoading: invoicesLoading } = useStripeInvoices();
+  const [showAddCard, setShowAddCard] = useState(false);
+
+  const handleCardAdded = useCallback(() => {
+    setShowAddCard(false);
+    refetchMethods();
+  }, [refetchMethods]);
+
+  const hasPaymentMethod = methods && methods.length > 0;
+
   return (
     <div className="space-y-3 max-w-[600px]">
+      {/* Payment Method */}
       <Card>
         <CardHeader>
           <CardTitle>Payment Method</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1.5">
-          <div className="flex items-center gap-1.5 py-2">
-            <CreditCard className="w-[24px] h-[24px] text-text-disabled" />
-            <div>
-              <p className="font-mohave text-body text-text-secondary">No payment method on file</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">
-                Add a payment method to continue service after your trial ends.
-              </p>
+        <CardContent>
+          {methodsLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
             </div>
-          </div>
-          <Button variant="secondary" className="gap-[6px]" onClick={() => toast.info("Payment setup coming soon", { description: "Contact support@opsapp.co for billing." })}>
-            <CreditCard className="w-[14px] h-[14px]" />
-            Add Payment Method
-          </Button>
+          ) : hasPaymentMethod ? (
+            <div className="space-y-0">
+              {methods.map((method) => (
+                <PaymentMethodCard key={method.id} method={method} />
+              ))}
+              {!showAddCard && (
+                <Button
+                  variant="secondary"
+                  className="gap-[6px] mt-1.5"
+                  onClick={() => setShowAddCard(true)}
+                >
+                  <Plus className="w-[14px] h-[14px]" />
+                  Add Another Card
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 py-2">
+                <CreditCard className="w-[24px] h-[24px] text-text-disabled" />
+                <div>
+                  <p className="font-mohave text-body text-text-secondary">
+                    No payment method on file
+                  </p>
+                  <p className="font-kosugi text-[11px] text-text-disabled">
+                    Add a payment method to continue service after your trial ends.
+                  </p>
+                </div>
+              </div>
+              {!showAddCard && (
+                <Button
+                  variant="secondary"
+                  className="gap-[6px]"
+                  onClick={() => setShowAddCard(true)}
+                >
+                  <CreditCard className="w-[14px] h-[14px]" />
+                  Add Payment Method
+                </Button>
+              )}
+            </div>
+          )}
+
+          {showAddCard && company && (
+            <div className="mt-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.04)]">
+              <Elements stripe={stripePromise}>
+                <AddCardForm
+                  onSuccess={handleCardAdded}
+                  onCancel={() => setShowAddCard(false)}
+                />
+              </Elements>
+            </div>
+          )}
         </CardContent>
       </Card>
 
+      {/* Billing History */}
       <Card>
         <CardHeader>
           <CardTitle>Billing History</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center py-3">
-            <FileText className="w-[32px] h-[32px] text-text-disabled mb-1" />
-            <p className="font-mohave text-body text-text-tertiary">No billing history</p>
-            <p className="font-kosugi text-[11px] text-text-disabled mt-0.5">
-              Invoices will appear here after your first payment.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Download Invoices</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="font-mohave text-body-sm text-text-secondary mb-1.5">
-            Download past invoices for your records or accounting.
-          </p>
-          <Button variant="secondary" className="gap-[6px]" disabled>
-            <Download className="w-[14px] h-[14px]" />
-            Download All Invoices
-          </Button>
-          <p className="font-kosugi text-[11px] text-text-disabled mt-1">
-            No invoices available to download.
-          </p>
+          {invoicesLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+            </div>
+          ) : invoices && invoices.length > 0 ? (
+            <div className="space-y-0">
+              {invoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
+                    <div>
+                      <p className="font-mohave text-body-sm text-text-primary">
+                        {invoice.number ?? "Invoice"}
+                      </p>
+                      <p className="font-kosugi text-[10px] text-text-disabled">
+                        {invoice.date
+                          ? new Date(invoice.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-body-sm text-text-primary">
+                      ${invoice.amount.toFixed(2)}
+                    </span>
+                    <InvoiceStatusBadge status={invoice.status} />
+                    {invoice.hostedUrl && (
+                      <a
+                        href={invoice.hostedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-[4px] rounded hover:bg-background-elevated transition-colors"
+                      >
+                        <ExternalLink className="w-[14px] h-[14px] text-ops-accent" />
+                      </a>
+                    )}
+                    {invoice.pdfUrl && (
+                      <a
+                        href={invoice.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-[4px] rounded hover:bg-background-elevated transition-colors"
+                      >
+                        <Download className="w-[14px] h-[14px] text-text-tertiary" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-3">
+              <FileText className="w-[32px] h-[32px] text-text-disabled mb-1" />
+              <p className="font-mohave text-body text-text-tertiary">No billing history</p>
+              <p className="font-kosugi text-[11px] text-text-disabled mt-0.5">
+                Invoices will appear here after your first payment.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

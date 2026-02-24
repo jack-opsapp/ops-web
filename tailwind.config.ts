@@ -12,11 +12,11 @@ const config: Config = {
       colors: {
         // === OPS Brand Colors ===
         ops: {
-          // Primary accent - Steel Blue (used sparingly)
+          // Primary accent - driven by CSS variable (default: Steel Blue)
           accent: {
-            DEFAULT: "#417394",
-            hover: "#4d83a6",
-            muted: "rgba(65, 115, 148, 0.15)",
+            DEFAULT: "rgb(var(--ops-accent-rgb, 65 115 148) / <alpha-value>)",
+            hover: "var(--ops-accent-hover, #4d83a6)",
+            muted: "var(--ops-accent-muted, rgba(65, 115, 148, 0.15))",
           },
           // Secondary accent - Amber/Gold (active state ONLY)
           amber: {
@@ -114,6 +114,10 @@ const config: Config = {
         "caption": ["14px", { lineHeight: "1.4", fontWeight: "400" }],
         "caption-bold": ["14px", { lineHeight: "1.4", fontWeight: "600" }],
         "caption-sm": ["12px", { lineHeight: "1.4", fontWeight: "400" }],
+        // Micro (labels, shortcuts, metadata)
+        "micro": ["11px", { lineHeight: "1.3", fontWeight: "400" }],
+        "micro-sm": ["10px", { lineHeight: "1.3", fontWeight: "400" }],
+        "micro-xs": ["9px", { lineHeight: "1.3", fontWeight: "400" }],
         // Cards
         "card-title": ["18px", { lineHeight: "1.3", fontWeight: "500" }],
         "card-subtitle": ["15px", { lineHeight: "1.4", fontWeight: "400" }],

@@ -192,7 +192,7 @@ function LostContent({
             placeholder="Any additional details..."
             rows={3}
             className={cn(
-              "w-full bg-background-input text-text-primary font-kosugi text-body-sm",
+              "w-full bg-background-input text-text-primary font-mohave text-body-sm",
               "px-1.5 py-1.5 rounded-lg border border-border resize-none",
               "placeholder:text-text-tertiary",
               "focus:border-ops-accent focus:outline-none"

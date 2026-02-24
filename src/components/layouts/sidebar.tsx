@@ -99,6 +99,7 @@ function NavItemButton({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isCollapsed, toggle } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const storeCompany = useAuthStore((s) => s.company);
@@ -224,8 +225,15 @@ export function Sidebar() {
             isCollapsed ? "justify-center" : "gap-1.5"
           )}
         >
-          {/* Avatar */}
-          <div className="shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
+          {/* Avatar — when collapsed, clicking opens settings */}
+          <button
+            onClick={isCollapsed ? () => router.push("/settings?tab=profile") : undefined}
+            className={cn(
+              "shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden",
+              isCollapsed && "cursor-pointer hover:ring-1 hover:ring-ops-accent transition-all"
+            )}
+            title={isCollapsed ? "Account settings" : undefined}
+          >
             {currentUser?.profileImageURL ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -239,7 +247,7 @@ export function Sidebar() {
                 {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
               </span>
             )}
-          </div>
+          </button>
 
           {!isCollapsed && (
             <div className="flex-1 min-w-0">

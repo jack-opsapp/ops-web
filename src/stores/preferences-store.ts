@@ -3,16 +3,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  type DashboardWidgetId,
-  type WidgetConfig,
+  type WidgetTypeId,
+  type WidgetInstance,
   type WidgetSize,
-  DEFAULT_WIDGET_CONFIGS,
-  WIDGET_REGISTRY,
-  WIDGET_RENDER_ORDER,
+  WIDGET_TYPE_REGISTRY,
+  createWidgetInstance,
 } from "@/lib/types/dashboard-widgets";
-
-// Re-export for consumers that imported from here
-export type { DashboardWidgetId } from "@/lib/types/dashboard-widgets";
 
 export type AccentColorId = "steel-blue" | "amber-gold" | "emerald" | "violet" | "rose" | "cyan";
 export type FontSizeId = "small" | "default" | "large";
@@ -45,6 +41,28 @@ export const DEFAULT_NOTIFICATION_PREFS: Record<string, boolean> = {
   "Pipeline movement": true,
 };
 
+// ---------------------------------------------------------------------------
+// Default widget instances — shown for new users / reset
+// ---------------------------------------------------------------------------
+const DEFAULT_WIDGET_INSTANCES: WidgetInstance[] = [
+  createWidgetInstance("stat-projects", { statusFilter: "all" }),
+  createWidgetInstance("stat-tasks", { filter: "due-today" }),
+  createWidgetInstance("stat-events", { range: "this-week" }),
+  createWidgetInstance("stat-clients", { filter: "all" }),
+  createWidgetInstance("stat-team", { filter: "active" }),
+  createWidgetInstance("stat-revenue", { metric: "mtd-invoiced" }),
+  createWidgetInstance("calendar"),
+  createWidgetInstance("task-list", { filter: "upcoming" }),
+  createWidgetInstance("crew-status"),
+  createWidgetInstance("pipeline-funnel"),
+  createWidgetInstance("revenue-chart", { period: "6mo" }),
+  createWidgetInstance("activity-feed", { entityFilter: "all" }),
+  createWidgetInstance("action-bar"),
+];
+
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
 interface PreferencesState {
   // Keyboard shortcuts
   showShortcutHints: boolean;
@@ -63,15 +81,14 @@ interface PreferencesState {
   dashboardLayout: DashboardLayoutId;
   setDashboardLayout: (layout: DashboardLayoutId) => void;
 
-  // Widget configs (v2 — replaces visibleWidgets)
-  widgetConfigs: Record<DashboardWidgetId, WidgetConfig>;
-  setWidgetSize: (id: DashboardWidgetId, size: WidgetSize) => void;
-  setWidgetVisible: (id: DashboardWidgetId, visible: boolean) => void;
-  resetWidgetConfigs: () => void;
-
-  // Widget order (v3 — user-defined display order)
-  widgetOrder: DashboardWidgetId[];
-  setWidgetOrder: (order: DashboardWidgetId[]) => void;
+  // Widget instances (v5 — multi-instance system)
+  widgetInstances: WidgetInstance[];
+  addWidgetInstance: (typeId: WidgetTypeId, config?: Record<string, unknown>) => void;
+  removeWidgetInstance: (instanceId: string) => void;
+  updateWidgetInstance: (instanceId: string, updates: Partial<Pick<WidgetInstance, "size" | "visible" | "config">>) => void;
+  reorderWidgetInstances: (newOrder: string[]) => void;
+  resetWidgetInstances: () => void;
+  applyWidgetInstances: (instances: WidgetInstance[]) => void;
 
   // Scheduling
   schedulingType: SchedulingTypeId;
@@ -100,32 +117,72 @@ export const usePreferencesStore = create<PreferencesState>()(
       dashboardLayout: "default",
       setDashboardLayout: (layout) => set({ dashboardLayout: layout }),
 
-      // Widget configs
-      widgetConfigs: { ...DEFAULT_WIDGET_CONFIGS },
-      setWidgetSize: (id, size) =>
-        set((state) => {
-          const entry = WIDGET_REGISTRY[id];
-          if (!entry || !entry.supportedSizes.includes(size)) return state;
-          return {
-            widgetConfigs: {
-              ...state.widgetConfigs,
-              [id]: { ...state.widgetConfigs[id], size },
-            },
-          };
-        }),
-      setWidgetVisible: (id, visible) =>
-        set((state) => ({
-          widgetConfigs: {
-            ...state.widgetConfigs,
-            [id]: { ...state.widgetConfigs[id], visible },
-          },
-        })),
-      resetWidgetConfigs: () =>
-        set({ widgetConfigs: { ...DEFAULT_WIDGET_CONFIGS }, widgetOrder: [...WIDGET_RENDER_ORDER] }),
+      // Widget instances
+      widgetInstances: DEFAULT_WIDGET_INSTANCES.map((inst) => ({ ...inst })),
 
-      // Widget order
-      widgetOrder: [...WIDGET_RENDER_ORDER],
-      setWidgetOrder: (order) => set({ widgetOrder: order }),
+      addWidgetInstance: (typeId, config) =>
+        set((state) => {
+          const entry = WIDGET_TYPE_REGISTRY[typeId];
+          if (!entry) return state;
+
+          // Check if single-instance and already exists
+          if (!entry.allowMultiple) {
+            const existing = state.widgetInstances.find((i) => i.typeId === typeId);
+            if (existing) return state;
+          }
+
+          const instance = createWidgetInstance(typeId, config);
+          return { widgetInstances: [...state.widgetInstances, instance] };
+        }),
+
+      removeWidgetInstance: (instanceId) =>
+        set((state) => ({
+          widgetInstances: state.widgetInstances.filter((i) => i.id !== instanceId),
+        })),
+
+      updateWidgetInstance: (instanceId, updates) =>
+        set((state) => {
+          const idx = state.widgetInstances.findIndex((i) => i.id === instanceId);
+          if (idx === -1) return state;
+
+          const instance = state.widgetInstances[idx];
+          const entry = WIDGET_TYPE_REGISTRY[instance.typeId];
+
+          // Validate size if being updated
+          if (updates.size && entry && !entry.supportedSizes.includes(updates.size)) {
+            return state;
+          }
+
+          const updated = [...state.widgetInstances];
+          updated[idx] = {
+            ...instance,
+            ...updates,
+            config: updates.config
+              ? { ...instance.config, ...updates.config }
+              : instance.config,
+          };
+          return { widgetInstances: updated };
+        }),
+
+      reorderWidgetInstances: (newOrder) =>
+        set((state) => {
+          const idMap = new Map(state.widgetInstances.map((i) => [i.id, i]));
+          const reordered: WidgetInstance[] = [];
+          for (const id of newOrder) {
+            const inst = idMap.get(id);
+            if (inst) reordered.push(inst);
+          }
+          // Append any instances not in newOrder (shouldn't happen, but safe)
+          for (const inst of state.widgetInstances) {
+            if (!newOrder.includes(inst.id)) reordered.push(inst);
+          }
+          return { widgetInstances: reordered };
+        }),
+
+      resetWidgetInstances: () =>
+        set({ widgetInstances: DEFAULT_WIDGET_INSTANCES.map((inst) => ({ ...inst, id: createWidgetInstance(inst.typeId, inst.config).id })) }),
+
+      applyWidgetInstances: (instances) => set({ widgetInstances: instances }),
 
       schedulingType: "both",
       setSchedulingType: (type) => set({ schedulingType: type }),
@@ -138,48 +195,58 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 3,
+      version: 5,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
+        if (!state) return {} as Record<string, unknown>;
 
-        // Migrate v1 (visibleWidgets array) → v2 (widgetConfigs map)
-        if (version < 2 && state && "visibleWidgets" in state) {
-          const oldVisible = state.visibleWidgets as string[];
-          const configs = { ...DEFAULT_WIDGET_CONFIGS };
+        // ── v1-v4 → v5: Convert old widgetConfigs/widgetOrder to widgetInstances ──
+        if (version < 5) {
+          // Old v4 schema had widgetConfigs (Record<string, {size, visible}>) + widgetOrder (string[])
+          const oldConfigs = state.widgetConfigs as Record<string, { size: WidgetSize; visible: boolean }> | undefined;
+          const oldOrder = state.widgetOrder as string[] | undefined;
 
-          for (const id of Object.keys(configs) as DashboardWidgetId[]) {
-            configs[id] = {
-              ...configs[id],
-              visible: oldVisible.includes(id),
+          if (oldConfigs && oldOrder) {
+            // Map old fixed IDs to new type IDs
+            const OLD_TO_NEW: Record<string, { typeId: WidgetTypeId; config?: Record<string, unknown> }> = {
+              "stat-active-projects": { typeId: "stat-projects", config: { statusFilter: "all" } },
+              "stat-weekly-events": { typeId: "stat-events", config: { range: "this-week" } },
+              "stat-total-clients": { typeId: "stat-clients", config: { filter: "all" } },
+              "stat-revenue-mtd": { typeId: "stat-revenue", config: { metric: "mtd-invoiced" } },
+              "stat-team-active": { typeId: "stat-team", config: { filter: "active" } },
+              "stat-tasks-due": { typeId: "stat-tasks", config: { filter: "due-today" } },
+              calendar: { typeId: "calendar" },
+              tasks: { typeId: "task-list", config: { filter: "upcoming" } },
+              crew: { typeId: "crew-status" },
+              pipeline: { typeId: "pipeline-funnel" },
+              revenue: { typeId: "revenue-chart", config: { period: "6mo" } },
+              activity: { typeId: "activity-feed", config: { entityFilter: "all" } },
+              alerts: { typeId: "action-bar" },
             };
-          }
 
-          const { visibleWidgets: _, ...rest } = state;
-          return { ...rest, widgetConfigs: configs, widgetOrder: [...WIDGET_RENDER_ORDER] };
-        }
+            const instances: WidgetInstance[] = [];
+            for (const oldId of oldOrder) {
+              const mapping = OLD_TO_NEW[oldId];
+              const oldCfg = oldConfigs[oldId];
+              if (!mapping || !oldCfg) continue;
 
-        // Migrate v2 → v3: add widgetOrder, strip removed widget ids
-        if (version < 3 && state) {
-          const validIds = new Set<string>(WIDGET_RENDER_ORDER);
-          // Add default widgetOrder if missing
-          if (!state.widgetOrder) {
-            (state as Record<string, unknown>).widgetOrder = [...WIDGET_RENDER_ORDER];
-          } else {
-            // Filter out any removed widget ids (e.g. "quick-actions")
-            (state as Record<string, unknown>).widgetOrder = (
-              state.widgetOrder as string[]
-            ).filter((id) => validIds.has(id));
-          }
-          // Clean widgetConfigs of removed widget ids
-          if (state.widgetConfigs) {
-            const configs = state.widgetConfigs as Record<string, unknown>;
-            for (const key of Object.keys(configs)) {
-              if (!validIds.has(key)) {
-                delete configs[key];
-              }
+              instances.push({
+                ...createWidgetInstance(mapping.typeId, mapping.config),
+                size: oldCfg.size,
+                visible: oldCfg.visible,
+              });
             }
+
+            // Clean up old keys
+            delete state.widgetConfigs;
+            delete state.widgetOrder;
+
+            (state as Record<string, unknown>).widgetInstances = instances;
+          } else {
+            // No old data — use defaults
+            (state as Record<string, unknown>).widgetInstances =
+              DEFAULT_WIDGET_INSTANCES.map((inst) => ({ ...inst }));
           }
-          return state as Record<string, unknown>;
         }
 
         return state as Record<string, unknown>;

@@ -1,31 +1,39 @@
 "use client";
 
-import { useState } from "react";
 import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import {
+  usePreferencesStore,
+  ACCENT_COLOR_VALUES,
+  FONT_SIZE_SCALES,
+  type AccentColorId,
+  type FontSizeId,
+} from "@/stores/preferences-store";
 
-const ACCENT_COLORS = [
-  { id: "steel-blue", label: "Steel Blue", value: "#417394" },
-  { id: "amber-gold", label: "Amber Gold", value: "#C4A868" },
-  { id: "emerald", label: "Emerald", value: "#10B981" },
-  { id: "violet", label: "Violet", value: "#8B5CF6" },
-  { id: "rose", label: "Rose", value: "#F43F5E" },
-  { id: "cyan", label: "Cyan", value: "#06B6D4" },
+const ACCENT_COLORS: { id: AccentColorId; label: string }[] = [
+  { id: "steel-blue", label: "Steel Blue" },
+  { id: "amber-gold", label: "Amber Gold" },
+  { id: "emerald", label: "Emerald" },
+  { id: "violet", label: "Violet" },
+  { id: "rose", label: "Rose" },
+  { id: "cyan", label: "Cyan" },
 ];
 
-const FONT_SIZES = [
+const FONT_SIZES: { id: FontSizeId; label: string; scale: string }[] = [
   { id: "small", label: "Small", scale: "90%" },
   { id: "default", label: "Default", scale: "100%" },
   { id: "large", label: "Large", scale: "110%" },
 ];
 
 export function AppearanceTab() {
-  const [theme, setTheme] = useState<"dark" | "light" | "system">("dark");
-  const [accentColor, setAccentColor] = useState("steel-blue");
-  const [fontSize, setFontSize] = useState("default");
-  const [compactMode, setCompactMode] = useState(false);
+  const accentColor = usePreferencesStore((s) => s.accentColor);
+  const fontSize = usePreferencesStore((s) => s.fontSize);
+  const compactMode = usePreferencesStore((s) => s.compactMode);
+  const setAccentColor = usePreferencesStore((s) => s.setAccentColor);
+  const setFontSize = usePreferencesStore((s) => s.setFontSize);
+  const setCompactMode = usePreferencesStore((s) => s.setCompactMode);
 
   return (
     <div className="space-y-3 max-w-[600px]">
@@ -43,18 +51,20 @@ export function AppearanceTab() {
               <button
                 key={t.id}
                 onClick={() => {
-                  setTheme(t.id);
-                  toast.success(`Theme set to ${t.label}`);
+                  if (t.id !== "dark") {
+                    toast.info("Light theme coming soon");
+                    return;
+                  }
                 }}
                 className={cn(
                   "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all",
-                  theme === t.id
+                  t.id === "dark"
                     ? "bg-ops-accent-muted border-ops-accent"
-                    : "bg-background-input border-border hover:border-border-medium"
+                    : "bg-background-input border-border hover:border-border-medium opacity-50"
                 )}
               >
-                <t.icon className={cn("w-[20px] h-[20px]", theme === t.id ? "text-ops-accent" : "text-text-tertiary")} />
-                <span className={cn("font-mohave text-body-sm", theme === t.id ? "text-ops-accent" : "text-text-secondary")}>
+                <t.icon className={cn("w-[20px] h-[20px]", t.id === "dark" ? "text-ops-accent" : "text-text-tertiary")} />
+                <span className={cn("font-mohave text-body-sm", t.id === "dark" ? "text-ops-accent" : "text-text-secondary")}>
                   {t.label}
                 </span>
               </button>
@@ -88,7 +98,7 @@ export function AppearanceTab() {
               >
                 <span
                   className="w-[16px] h-[16px] rounded-full border border-[rgba(255,255,255,0.2)]"
-                  style={{ backgroundColor: color.value }}
+                  style={{ backgroundColor: ACCENT_COLOR_VALUES[color.id] }}
                 />
                 <span className="font-mohave text-body-sm text-text-secondary">{color.label}</span>
                 {accentColor === color.id && (
@@ -97,9 +107,6 @@ export function AppearanceTab() {
               </button>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-disabled mt-1">
-            Custom accent colors will be available in a future update.
-          </p>
         </CardContent>
       </Card>
 
@@ -112,7 +119,10 @@ export function AppearanceTab() {
             {FONT_SIZES.map((size) => (
               <button
                 key={size.id}
-                onClick={() => setFontSize(size.id)}
+                onClick={() => {
+                  setFontSize(size.id);
+                  toast.success(`Font size set to ${size.label}`);
+                }}
                 className={cn(
                   "flex-1 py-[8px] rounded border font-mohave text-body-sm transition-all",
                   fontSize === size.id

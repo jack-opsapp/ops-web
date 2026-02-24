@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -27,12 +26,15 @@ import { EmptyState } from "@/components/ops/empty-state";
 import { BulkActionBar, type BulkAction } from "@/components/ops/bulk-action-bar";
 import { SelectableRow } from "@/components/ops/selectable-row";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { ProjectDetailSheet } from "@/components/ops/project-detail-sheet";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useWindowStore } from "@/stores/window-store";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
+import { useTeamMembers } from "@/lib/hooks/use-users";
+import { UserAvatar } from "@/components/ops/user-avatar";
 import { exportToCSV } from "@/lib/utils/csv-export";
 import {
   DropdownMenu,
@@ -94,11 +96,12 @@ function statusToKey(status: ProjectStatus): StatusBadgeProjectStatus {
   }
 }
 
-function TeamAvatars({ project }: { project: Project }) {
-  const members = project.teamMembers ?? [];
-  const memberIds = members.length > 0 ? members : project.teamMemberIds;
-  const display = memberIds.slice(0, 3);
-  const overflow = memberIds.length - 3;
+function TeamAvatars({ project, memberMap }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User> }) {
+  const resolvedMembers = project.teamMemberIds
+    .map((id) => memberMap.get(id))
+    .filter(Boolean) as import("@/lib/types/models").User[];
+  const display = resolvedMembers.slice(0, 3);
+  const overflow = resolvedMembers.length - 3;
 
   if (display.length === 0) {
     return (
@@ -110,31 +113,15 @@ function TeamAvatars({ project }: { project: Project }) {
 
   return (
     <div className="flex items-center -space-x-[6px]">
-      {display.map((member, i) => {
-        const name =
-          typeof member === "object" && member !== null
-            ? getUserFullName(member)
-            : typeof member === "string"
-              ? member.slice(0, 2).toUpperCase()
-              : "?";
-        const initial =
-          typeof member === "object" && member !== null
-            ? getInitials(getUserFullName(member))
-            : typeof member === "string"
-              ? member.charAt(0).toUpperCase()
-              : "?";
-        return (
-          <div
-            key={i}
-            className="w-[24px] h-[24px] rounded-full bg-ops-accent-muted border-2 border-background-card flex items-center justify-center"
-            title={name}
-          >
-            <span className="font-mohave text-[10px] text-ops-accent">
-              {initial}
-            </span>
-          </div>
-        );
-      })}
+      {display.map((member) => (
+        <UserAvatar
+          key={member.id}
+          name={getUserFullName(member)}
+          imageUrl={member.profileImageURL}
+          size="sm"
+          color={member.userColor ?? undefined}
+        />
+      ))}
       {overflow > 0 && (
         <div className="w-[24px] h-[24px] rounded-full bg-background-elevated border-2 border-background-card flex items-center justify-center">
           <span className="font-mono text-[9px] text-text-tertiary">+{overflow}</span>
@@ -144,7 +131,7 @@ function TeamAvatars({ project }: { project: Project }) {
   );
 }
 
-function ProjectCardContent({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCardContent({ project, memberMap, onClick }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User>; onClick: () => void }) {
   const clientName = project.client?.name ?? "No Client";
 
   return (
@@ -167,7 +154,7 @@ function ProjectCardContent({ project, onClick }: { project: Project; onClick: (
       )}
 
       <div className="flex items-center justify-between pt-[4px] border-t border-border-subtle">
-        <TeamAvatars project={project} />
+        <TeamAvatars project={project} memberMap={memberMap} />
         <div className="flex items-center gap-[6px] text-text-tertiary">
           <CalendarDays className="w-[13px] h-[13px]" />
           <span className="font-mono text-[11px]">
@@ -244,13 +231,13 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export default function ProjectsPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
 
@@ -285,6 +272,7 @@ export default function ProjectsPage() {
   } = useProjects();
 
   const { data: clientsData } = useClients();
+  const { data: teamData } = useTeamMembers();
 
   const updateStatus = useUpdateProjectStatus();
   const deleteProject = useDeleteProject();
@@ -297,6 +285,15 @@ export default function ProjectsPage() {
     }
     return map;
   }, [clientsData]);
+
+  // Build team member lookup map (userId → User) to resolve avatars on project cards
+  const memberMap = useMemo(() => {
+    const map = new Map<string, import("@/lib/types/models").User>();
+    for (const user of teamData?.users ?? []) {
+      map.set(user.id, user);
+    }
+    return map;
+  }, [teamData]);
 
   // Enrich projects with client relationship data
   const projects = useMemo(() => {
@@ -593,14 +590,15 @@ export default function ProjectsPage() {
               id={project.id}
               allIds={filteredIds}
               selectionActive={isSelecting}
-              onClick={() => router.push(`/projects/${project.id}`)}
+              onClick={() => setPreviewProjectId(project.id)}
               className="rounded-lg"
             >
               <ProjectCardContent
                 project={project}
+                memberMap={memberMap}
                 onClick={() => {
                   if (!isSelecting) {
-                    router.push(`/projects/${project.id}`);
+                    setPreviewProjectId(project.id);
                   }
                 }}
               />
@@ -657,7 +655,7 @@ export default function ProjectsPage() {
                       if (isSelecting) {
                         toggleSelection(project.id);
                       } else {
-                        router.push(`/projects/${project.id}`);
+                        setPreviewProjectId(project.id);
                       }
                     }}
                     className={cn(
@@ -690,7 +688,7 @@ export default function ProjectsPage() {
                       <StatusBadge status={statusToKey(project.status) } />
                     </td>
                     <td className="px-1.5 py-1">
-                      <TeamAvatars project={project} />
+                      <TeamAvatars project={project} memberMap={memberMap} />
                     </td>
                     <td className="px-1.5 py-1">
                       <span className="font-mono text-data-sm text-text-tertiary">
@@ -761,6 +759,14 @@ export default function ProjectsPage() {
         loading={deleteProject.isPending}
       />
 
+      {/* Project Detail Sheet */}
+      <ProjectDetailSheet
+        projectId={previewProjectId}
+        open={!!previewProjectId}
+        onOpenChange={(open) => {
+          if (!open) setPreviewProjectId(null);
+        }}
+      />
     </div>
   );
 }

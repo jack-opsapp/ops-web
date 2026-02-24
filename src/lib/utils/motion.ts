@@ -46,3 +46,31 @@ export const widgetVariants: Variants = {
     },
   },
 };
+
+/** Widget drag inactive state (siblings shrink/desaturate) */
+export const widgetDragInactiveVariants: Variants = {
+  idle: {
+    scale: 1,
+    opacity: 1,
+    filter: "saturate(1)",
+  },
+  dragging: {
+    scale: 0.96,
+    opacity: 0.7,
+    filter: "saturate(0.3)",
+    transition: { duration: 0.2, ease: EASE_SMOOTH },
+  },
+};
+
+/** Widget drop target highlight */
+export const widgetDropTargetVariants: Variants = {
+  idle: {
+    scale: 1,
+    opacity: 1,
+  },
+  active: {
+    scale: 1,
+    opacity: 1,
+    transition: { duration: 0.15, ease: EASE_SMOOTH },
+  },
+};

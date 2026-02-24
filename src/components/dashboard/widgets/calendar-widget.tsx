@@ -92,13 +92,13 @@ export function CalendarWidget({
   // sm: date + event count
   if (size === "sm") {
     return (
-      <Card className="p-2">
-        <CardHeader className="pb-1">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">
             {monthNames[today.getMonth()].slice(0, 3)} {today.getDate()}
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
           ) : (
@@ -117,8 +117,8 @@ export function CalendarWidget({
   // lg: week strip + today events + tomorrow preview
   if (size === "lg") {
     return (
-      <Card className="p-2 h-full">
-        <CardHeader className="pb-1.5">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1.5 shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-card-subtitle">
               {monthNames[today.getMonth()]} {today.getFullYear()}
@@ -126,7 +126,7 @@ export function CalendarWidget({
             <span className="font-mono text-[11px] text-text-tertiary">Today</span>
           </div>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {/* Week strip */}
           <WeekStrip
             weekDays={weekDays}
@@ -161,8 +161,8 @@ export function CalendarWidget({
 
   // md: week strip + today events (current default)
   return (
-    <Card className="p-2">
-      <CardHeader className="pb-1.5">
+    <Card className="p-2 h-full flex flex-col">
+      <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">
             {monthNames[today.getMonth()]} {today.getFullYear()}
@@ -170,7 +170,7 @@ export function CalendarWidget({
           <span className="font-mono text-[11px] text-text-tertiary">Today</span>
         </div>
       </CardHeader>
-      <CardContent className="py-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
         <WeekStrip
           weekDays={weekDays}
           today={today}

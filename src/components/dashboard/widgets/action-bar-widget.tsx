@@ -20,8 +20,8 @@ export function AlertsWidget({
   onNavigate,
 }: AlertsWidgetProps) {
   return (
-    <Card variant="accent">
-      <CardContent className="p-2">
+    <Card variant="accent" className="h-full flex flex-col">
+      <CardContent className="p-2 flex-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <AlertTriangle className="w-[20px] h-[20px] text-text-secondary shrink-0" />

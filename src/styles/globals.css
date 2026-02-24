@@ -4,6 +4,21 @@
 
 /* === OPS Web - Global Styles === */
 
+/* Accent color CSS variables (overridden dynamically by PreferencesApplier) */
+:root {
+  --ops-accent-rgb: 65 115 148;
+  --ops-accent-hover: #4d83a6;
+  --ops-accent-muted: rgba(65, 115, 148, 0.15);
+}
+
+/* Compact mode spacing overrides */
+.compact-mode .p-3 { padding: 8px !important; }
+.compact-mode .p-2 { padding: 6px !important; }
+.compact-mode .gap-2 { gap: 8px !important; }
+.compact-mode .gap-3 { gap: 12px !important; }
+.compact-mode .space-y-3 > * + * { margin-top: 12px !important; }
+.compact-mode .space-y-2 > * + * { margin-top: 8px !important; }
+
 /* Font Imports */
 @font-face {
   font-family: "Mohave";
@@ -232,6 +247,15 @@
 }
 
 @layer utilities {
+  /* Widget grid cell visualization during drag */
+  .widget-grid-lines {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: calc(25% - 6px) 160px;
+    background-position: 0 0;
+  }
+
   /* Prevent text selection on interactive elements */
   .no-select {
     -webkit-user-select: none;

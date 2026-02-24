@@ -46,6 +46,8 @@ export {
   useCurrentUser,
   useUpdateUser,
   useUpdateUserRole,
+  useDeactivateUser,
+  useReactivateUser,
   useMarkTutorialCompleted,
   useSendInvite,
   useResetPassword,

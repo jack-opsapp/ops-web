@@ -7,9 +7,30 @@
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import type { ProjectTask, TaskStatus } from "../../types/models";
+import type { CalendarEvent, ProjectTask, TaskStatus } from "../../types/models";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
+
+function mapCalendarEventFromDb(row: Record<string, unknown>): CalendarEvent {
+  return {
+    id: row.id as string,
+    color: (row.color as string) ?? "",
+    companyId: row.company_id as string,
+    projectId: row.project_id as string,
+    taskId: (row.task_id as string) ?? null,
+    duration: (row.duration as number) ?? 0,
+    endDate: parseDate(row.end_date),
+    startDate: parseDate(row.start_date),
+    title: (row.title as string) ?? "",
+    teamMemberIds: (row.team_member_ids as string[]) ?? [],
+    eventType: (row.event_type as string) ?? "task",
+    opportunityId: (row.opportunity_id as string) ?? null,
+    siteVisitId: (row.site_visit_id as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
 
 function mapFromDb(row: Record<string, unknown>): ProjectTask {
   return {
@@ -144,13 +165,21 @@ export const TaskService = {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("project_tasks")
-      .select("*")
+      .select("*, calendar_events(*)")
       .eq("project_id", projectId)
       .is("deleted_at", null)
       .order("display_order");
 
     if (error) throw new Error(`Failed to fetch project tasks: ${error.message}`);
-    return (data ?? []).map(mapFromDb);
+    return (data ?? []).map((row) => {
+      const task = mapFromDb(row);
+      // Attach joined calendar event if present
+      const eventRow = row.calendar_events;
+      if (eventRow && typeof eventRow === "object" && !Array.isArray(eventRow)) {
+        task.calendarEvent = mapCalendarEventFromDb(eventRow as Record<string, unknown>);
+      }
+      return task;
+    });
   },
 
   /**

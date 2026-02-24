@@ -109,10 +109,12 @@ async function updateBranding(
 const ACCENT_PRESETS = [
   { label: "Steel Blue", value: "#417394" },
   { label: "Amber Gold", value: "#C4A868" },
-  { label: "Royal Blue", value: "#2563EB" },
-  { label: "Emerald", value: "#059669" },
-  { label: "Crimson", value: "#DC2626" },
-  { label: "Violet", value: "#7C3AED" },
+  { label: "Sage", value: "#7D9B76" },
+  { label: "Terracotta", value: "#C07A56" },
+  { label: "Dusty Rose", value: "#C2858A" },
+  { label: "Slate", value: "#7A8B99" },
+  { label: "Sandstone", value: "#B8A68E" },
+  { label: "Forest", value: "#5B7B5E" },
 ];
 
 // ─── Template configs ────────────────────────────────────────────────────────
@@ -166,14 +168,15 @@ export function PortalBrandingTab() {
   // ── Seed form from fetched data ──────────────────────────────────────────
   useEffect(() => {
     if (branding) {
-      setLogoUrl(branding.logoUrl ?? "");
+      // Default portal logo to company logo if not explicitly set
+      setLogoUrl(branding.logoUrl ?? company?.logoURL ?? "");
       setAccentColor(branding.accentColor);
       setTemplate(branding.template);
       setThemeMode(branding.themeMode);
       setWelcomeMessage(branding.welcomeMessage ?? "");
       setIsDirty(false);
     }
-  }, [branding]);
+  }, [branding, company?.logoURL]);
 
   // ── Save mutation ────────────────────────────────────────────────────────
   const saveMutation = useMutation({

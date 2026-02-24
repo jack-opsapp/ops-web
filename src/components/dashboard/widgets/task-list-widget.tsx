@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
-import { Clock, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
+import { useMemo, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, Check, ChevronRight, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
 import type { ProjectTask } from "@/lib/types/models";
+import { useUpdateTaskStatus } from "@/lib/hooks";
 import { format, isSameDay } from "@/lib/utils/date";
+import { cn } from "@/lib/utils/cn";
 
-interface TasksWidgetProps {
+interface TaskListWidgetProps {
   size: WidgetSize;
   tasks: ProjectTask[];
   isLoading: boolean;
@@ -16,14 +19,13 @@ interface TasksWidgetProps {
   onNavigate: (path: string) => void;
 }
 
-export function TasksWidget({
+export function TaskListWidget({
   size,
   tasks,
   isLoading,
   today,
   onNavigate,
-}: TasksWidgetProps) {
-  // sm: 1, md: 5, lg: 10
+}: TaskListWidgetProps) {
   const maxTasks = size === "sm" ? 1 : size === "lg" ? 10 : 5;
   const visibleTasks = tasks.slice(0, maxTasks);
 
@@ -50,11 +52,11 @@ export function TasksWidget({
   if (size === "sm") {
     const nextTask = visibleTasks[0];
     return (
-      <Card className="p-2">
-        <CardHeader className="pb-1">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Next Task</CardTitle>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -63,21 +65,7 @@ export function TasksWidget({
           ) : !nextTask ? (
             <p className="font-mohave text-body-sm text-text-disabled">No upcoming tasks</p>
           ) : (
-            <div
-              onClick={() => onNavigate(nextTask.projectId ? `/projects/${nextTask.projectId}` : "/calendar")}
-              className="cursor-pointer"
-            >
-              <p className="font-mohave text-body-sm text-text-primary truncate">
-                {getTaskDisplayTitle(nextTask, nextTask.taskType)}
-              </p>
-              <span className="font-mono text-[10px] text-text-tertiary">
-                {nextTask.calendarEvent?.startDate
-                  ? isSameDay(new Date(nextTask.calendarEvent.startDate), today)
-                    ? `Today ${format(new Date(nextTask.calendarEvent.startDate), "h:mm a")}`
-                    : format(new Date(nextTask.calendarEvent.startDate), "EEE h:mm a")
-                  : "Unscheduled"}
-              </span>
-            </div>
+            <TaskRow task={nextTask} today={today} onNavigate={onNavigate} showCheckbox />
           )}
         </CardContent>
       </Card>
@@ -87,14 +75,14 @@ export function TasksWidget({
   // lg: grouped by day
   if (size === "lg" && groupedTasks) {
     return (
-      <Card className="h-full">
-        <CardHeader>
+      <Card className="h-full flex flex-col">
+        <CardHeader className="shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">Upcoming Tasks</CardTitle>
+            <CardTitle className="text-card-subtitle">Task List</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">Next 7 days</span>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -110,9 +98,11 @@ export function TasksWidget({
                     {day}
                   </span>
                   <div className="space-y-[4px] mt-[4px]">
-                    {dayTasks.map((task) => (
-                      <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} />
-                    ))}
+                    <AnimatePresence>
+                      {dayTasks.map((task) => (
+                        <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox />
+                      ))}
+                    </AnimatePresence>
                   </div>
                 </div>
               ))}
@@ -123,16 +113,16 @@ export function TasksWidget({
     );
   }
 
-  // md: 5 tasks flat list (current default)
+  // md: flat list
   return (
-    <Card>
-      <CardHeader>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Upcoming Tasks</CardTitle>
+          <CardTitle className="text-card-subtitle">Task List</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">Today + 7 days</span>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -142,9 +132,11 @@ export function TasksWidget({
           <p className="font-mohave text-body-sm text-text-disabled py-2">No upcoming tasks</p>
         ) : (
           <div className="space-y-[4px]">
-            {visibleTasks.map((task) => (
-              <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} />
-            ))}
+            <AnimatePresence>
+              {visibleTasks.map((task) => (
+                <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </CardContent>
@@ -153,17 +145,22 @@ export function TasksWidget({
 }
 
 // ---------------------------------------------------------------------------
-// Shared task row component
+// Task row with one-click complete checkbox
 // ---------------------------------------------------------------------------
 function TaskRow({
   task,
   today,
   onNavigate,
+  showCheckbox,
 }: {
   task: ProjectTask;
   today: Date;
   onNavigate: (path: string) => void;
+  showCheckbox?: boolean;
 }) {
+  const [completing, setCompleting] = useState(false);
+  const updateStatus = useUpdateTaskStatus();
+
   const isInProgress = task.status === TaskStatus.InProgress;
   const displayTitle = getTaskDisplayTitle(task, task.taskType);
   const eventDate = task.calendarEvent?.startDate
@@ -175,22 +172,63 @@ function TaskRow({
       : format(eventDate, "EEE h:mm a")
     : "Unscheduled";
 
+  const handleComplete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (completing) return;
+      setCompleting(true);
+      updateStatus.mutate(
+        { id: task.id, status: TaskStatus.Completed },
+        { onError: () => setCompleting(false) }
+      );
+    },
+    [task.id, completing, updateStatus]
+  );
+
   return (
-    <div
+    <motion.div
+      layout
+      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+      transition={{ duration: 0.25 }}
       onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/calendar")}
-      className="flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group"
-    >
-      {isInProgress ? (
-        <Clock className="w-[16px] h-[16px] text-text-secondary shrink-0" />
-      ) : (
-        <CheckCircle2 className="w-[16px] h-[16px] text-text-disabled shrink-0" />
+      className={cn(
+        "flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
+        completing && "opacity-50"
       )}
+    >
+      {/* One-click complete checkbox */}
+      {showCheckbox && (
+        <button
+          onClick={handleComplete}
+          className={cn(
+            "w-[18px] h-[18px] rounded border flex items-center justify-center shrink-0 transition-all duration-200",
+            completing
+              ? "bg-status-success border-status-success"
+              : "border-border-medium hover:border-ops-accent hover:bg-ops-accent/10"
+          )}
+          title="Complete task"
+        >
+          {completing && <Check className="w-[12px] h-[12px] text-white" />}
+        </button>
+      )}
+
+      {!showCheckbox && (
+        isInProgress ? (
+          <Clock className="w-[16px] h-[16px] text-text-secondary shrink-0" />
+        ) : (
+          <div className="w-[16px] h-[16px] rounded-full border border-border-medium shrink-0" />
+        )
+      )}
+
       <div
         className="w-[3px] h-[16px] rounded-full shrink-0"
         style={{ backgroundColor: task.taskColor || "#5C6070" }}
       />
       <div className="flex-1 min-w-0">
-        <p className="font-mohave text-body-sm text-text-primary truncate">
+        <p className={cn(
+          "font-mohave text-body-sm text-text-primary truncate transition-all duration-200",
+          completing && "line-through text-text-disabled"
+        )}>
           {displayTitle}
         </p>
       </div>
@@ -198,6 +236,6 @@ function TaskRow({
         {timeDisplay}
       </span>
       <ChevronRight className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-    </div>
+    </motion.div>
   );
 }

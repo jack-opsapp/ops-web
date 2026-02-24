@@ -39,8 +39,8 @@ export function CrewWidget({
   // sm: avatar row
   if (size === "sm") {
     return (
-      <Card className="p-2">
-        <CardHeader className="pb-1">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1 shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-card-subtitle">Crew</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
@@ -48,7 +48,7 @@ export function CrewWidget({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-2">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -83,8 +83,8 @@ export function CrewWidget({
   // lg: name + status + locations
   if (size === "lg") {
     return (
-      <Card className="p-2 h-full">
-        <CardHeader className="pb-1.5">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1.5 shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-card-subtitle">Crew Status</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
@@ -92,7 +92,7 @@ export function CrewWidget({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-3">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -162,8 +162,8 @@ export function CrewWidget({
 
   // md: name + status (current default)
   return (
-    <Card className="p-2">
-      <CardHeader className="pb-1.5">
+    <Card className="p-2 h-full flex flex-col">
+      <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">Crew Status</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
@@ -171,7 +171,7 @@ export function CrewWidget({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-3">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />

@@ -453,13 +453,13 @@ function InviteForm({
     }
     setError(null);
 
-    sendInvite.mutate([email.trim()], {
+    sendInvite.mutate({ emails: [email.trim()] }, {
       onSuccess: (result) => {
         if (result.success) {
           onInvite(email);
           setEmail("");
         } else {
-          setError(result.errorMessage ?? "Failed to send invite");
+          setError("Failed to send invite");
         }
       },
       onError: (err) => {

@@ -23,11 +23,11 @@ export function RevenueWidget({ size }: RevenueWidgetProps) {
   // sm: just show MTD number
   if (size === "sm") {
     return (
-      <Card className="p-2">
-        <CardHeader className="pb-1">
+      <Card className="p-2 h-full flex flex-col">
+        <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">Revenue</CardTitle>
         </CardHeader>
-        <CardContent className="py-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
           <p className="font-mono text-data-lg text-text-disabled">--</p>
           <p className="font-kosugi text-[10px] text-text-tertiary mt-[2px]">MTD Revenue</p>
           <span className="font-kosugi text-[9px] text-text-disabled">Coming Soon</span>
@@ -38,14 +38,14 @@ export function RevenueWidget({ size }: RevenueWidgetProps) {
 
   // md: full chart (current default)
   return (
-    <Card className="p-2">
-      <CardHeader className="pb-1.5">
+    <Card className="p-2 h-full flex flex-col">
+      <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">Revenue</CardTitle>
           <span className="font-kosugi text-[9px] text-text-disabled">Coming Soon</span>
         </div>
       </CardHeader>
-      <CardContent className="py-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0">
         <div className="flex items-end gap-[6px] h-[120px]">
           {months.map((month, i) => {
             const barHeight = (month.value / maxValue) * 100;

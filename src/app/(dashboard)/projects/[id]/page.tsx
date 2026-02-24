@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -57,6 +57,7 @@ import {
 } from "@/lib/hooks/use-projects";
 import { useProjectEstimates, useProjectInvoices } from "@/lib/hooks";
 import { useClient } from "@/lib/hooks/use-clients";
+import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import {
@@ -182,6 +183,13 @@ function OverviewTab({ project }: { project: Project }) {
   const router = useRouter();
   const { data: client } = useClient(project.clientId ?? undefined);
   const resolvedClient = project.client ?? client;
+  const { data: teamData } = useTeamMembers();
+  const resolvedTeamMembers = useMemo(() => {
+    const users = teamData?.users ?? [];
+    return project.teamMemberIds
+      .map((id) => users.find((u) => u.id === id))
+      .filter(Boolean) as import("@/lib/types/models").User[];
+  }, [project.teamMemberIds, teamData]);
 
   const mapQuery = project.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`
@@ -288,10 +296,10 @@ function OverviewTab({ project }: { project: Project }) {
           <CardTitle>Team</CardTitle>
         </CardHeader>
         <CardContent>
-          {project.teamMembers && project.teamMembers.length > 0 ? (
+          {resolvedTeamMembers.length > 0 ? (
             <div className="space-y-1">
-              {project.teamMembers.map((member, i) => (
-                <div key={member.id || i} className="flex items-center gap-1">
+              {resolvedTeamMembers.map((member) => (
+                <div key={member.id} className="flex items-center gap-1">
                   <UserAvatar
                     name={getUserFullName(member)}
                     imageUrl={member.profileImageURL}
@@ -305,22 +313,6 @@ function OverviewTab({ project }: { project: Project }) {
                     <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
                       {member.role}
                     </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : project.teamMemberIds.length > 0 ? (
-            <div className="space-y-1">
-              {project.teamMemberIds.map((id, _i) => (
-                <div key={id} className="flex items-center gap-1">
-                  <div className="w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center">
-                    <span className="font-mohave text-body-sm text-ops-accent">
-                      {id.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-mohave text-body-sm text-text-tertiary">Team Member</p>
-                    <span className="font-mono text-[10px] text-text-disabled">{id.slice(0, 12)}...</span>
                   </div>
                 </div>
               ))}
@@ -818,6 +810,9 @@ export default function ProjectDetailPage() {
     refetch,
   } = useProject(projectId || undefined);
 
+  // Fetch client separately since project.client isn't populated by the query
+  const { data: resolvedClient } = useClient(project?.clientId ?? undefined);
+
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
 
@@ -889,7 +884,7 @@ export default function ProjectDetailPage() {
             <StatusBadge status={statusToKey(project.status) } />
           </div>
           <p className="font-kosugi text-caption text-text-tertiary mt-[2px]">
-            {project.client?.name ?? "No Client"}
+            {project.client?.name ?? resolvedClient?.name ?? "No Client"}
           </p>
         </div>
 

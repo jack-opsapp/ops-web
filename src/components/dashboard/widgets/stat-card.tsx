@@ -1,22 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  FolderKanban,
-  CalendarDays,
-  Users,
-  DollarSign,
-  TrendingUp,
-  Loader2,
-} from "lucide-react";
+import { TrendingUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card } from "@/components/ui/card";
-import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 
 // ---------------------------------------------------------------------------
 // Animated counter hook
 // ---------------------------------------------------------------------------
-function useAnimatedValue(target: number, duration = 1200) {
+export function useAnimatedValue(target: number, duration = 1200) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
@@ -43,7 +35,7 @@ function useAnimatedValue(target: number, duration = 1200) {
 // ---------------------------------------------------------------------------
 // Stat Card
 // ---------------------------------------------------------------------------
-interface StatCardProps {
+export interface StatCardProps {
   label: string;
   value: number;
   displayPrefix?: string;
@@ -55,7 +47,7 @@ interface StatCardProps {
   isLoading?: boolean;
 }
 
-function StatCard({
+export function StatCard({
   label,
   value,
   displayPrefix = "",
@@ -69,8 +61,8 @@ function StatCard({
   const animatedVal = useAnimatedValue(value);
 
   return (
-    <Card className="p-2">
-      <div className="flex items-start justify-between">
+    <Card className="p-2 h-full flex flex-col">
+      <div className="flex items-start justify-between flex-1">
         <div>
           <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
             {label}
@@ -93,12 +85,12 @@ function StatCard({
             </>
           )}
         </div>
-        <div className="w-[40px] h-[40px] rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center">
+        <div className="w-[40px] h-[40px] rounded-lg bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0">
           <Icon className="w-[20px] h-[20px] text-text-secondary" />
         </div>
       </div>
       {trend && trendValue && !isLoading && (
-        <div className="mt-1 flex items-center gap-[4px]">
+        <div className="mt-1 flex items-center gap-[4px] shrink-0">
           <TrendingUp
             className={cn(
               "w-[14px] h-[14px]",
@@ -120,88 +112,5 @@ function StatCard({
         </div>
       )}
     </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Stats Widget
-// ---------------------------------------------------------------------------
-interface StatsWidgetProps {
-  size: WidgetSize;
-  activeProjectCount: number;
-  totalProjectCount: number;
-  weekEventCount: number;
-  totalClientCount: number;
-  projectsLoading: boolean;
-  calendarLoading: boolean;
-  clientsLoading: boolean;
-}
-
-export function StatsWidget({
-  size,
-  activeProjectCount,
-  totalProjectCount,
-  weekEventCount,
-  totalClientCount,
-  projectsLoading,
-  calendarLoading,
-  clientsLoading,
-}: StatsWidgetProps) {
-  const allStats = [
-    {
-      label: "Active Projects",
-      value: activeProjectCount,
-      subValue: `of ${totalProjectCount} total`,
-      icon: FolderKanban,
-      isLoading: projectsLoading,
-    },
-    {
-      label: "This Week",
-      value: weekEventCount,
-      subValue: "events scheduled",
-      icon: CalendarDays,
-      isLoading: calendarLoading,
-    },
-    {
-      label: "Total Clients",
-      value: totalClientCount,
-      subValue: "across all projects",
-      icon: Users,
-      isLoading: clientsLoading,
-    },
-    {
-      label: "Revenue MTD",
-      value: 0,
-      displayPrefix: "$",
-      subValue: "Coming soon",
-      icon: DollarSign,
-      isLoading: false,
-    },
-  ];
-
-  // md: show first 2 stats, full: show all 4
-  const visibleStats = size === "md" ? allStats.slice(0, 2) : allStats;
-
-  return (
-    <div
-      className={cn(
-        "grid gap-2",
-        size === "md"
-          ? "grid-cols-1 sm:grid-cols-2"
-          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-      )}
-    >
-      {visibleStats.map((stat) => (
-        <StatCard
-          key={stat.label}
-          label={stat.label}
-          value={stat.value}
-          displayPrefix={stat.displayPrefix}
-          subValue={stat.subValue}
-          icon={stat.icon}
-          isLoading={stat.isLoading}
-        />
-      ))}
-    </div>
   );
 }

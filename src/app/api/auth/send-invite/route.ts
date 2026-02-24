@@ -1,23 +1,27 @@
 /**
  * POST /api/auth/send-invite
  *
- * Sends team invite emails for a company.
+ * Sends team invites via email (SendGrid) and/or SMS (Twilio).
  * - Verifies the Firebase ID token
  * - Validates the requesting user belongs to the specified company
- * - Returns success (actual email sending via SendGrid to be wired later)
+ * - Sends email invites for each address in `emails`
+ * - Sends SMS invites for each number in `phones`
  *
- * Body: { idToken, emails: string[], companyId: string }
+ * Body: { idToken, emails?: string[], phones?: string[], companyId: string }
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { sendTeamInvite } from "@/lib/email/sendgrid";
+import { sendTeamInviteSMS } from "@/lib/sms/twilio";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
 interface SendInviteBody {
   idToken: string;
-  emails: string[];
+  emails?: string[];
+  phones?: string[];
   companyId: string;
 }
 
@@ -26,18 +30,21 @@ interface SendInviteBody {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = (await req.json()) as SendInviteBody;
-    const { idToken, emails, companyId } = body;
+    const { idToken, emails, phones, companyId } = body;
 
-    if (!idToken || !emails || !companyId) {
+    if (!idToken || !companyId) {
       return NextResponse.json(
-        { error: "Missing required fields: idToken, emails, companyId" },
+        { error: "Missing required fields: idToken, companyId" },
         { status: 400 }
       );
     }
 
-    if (!Array.isArray(emails) || emails.length === 0) {
+    const hasEmails = Array.isArray(emails) && emails.length > 0;
+    const hasPhones = Array.isArray(phones) && phones.length > 0;
+
+    if (!hasEmails && !hasPhones) {
       return NextResponse.json(
-        { error: "emails must be a non-empty array" },
+        { error: "At least one email or phone number is required" },
         { status: 400 }
       );
     }
@@ -68,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Verify the company exists
     const { data: company } = await db
       .from("companies")
-      .select("id, name")
+      .select("id, name, external_id, logo_url")
       .eq("id", companyId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -77,14 +84,49 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
 
-    // TODO: Wire up SendGrid email integration here.
-    // For each email in `emails`, send an invite email with the company code
-    // and a link to join the company. The company's external_id or id can be
-    // used as the invite code.
+    const inviteCode = company.external_id || company.id;
+    const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join?code=${inviteCode}`;
+    let emailsSent = 0;
+    let smsSent = 0;
+
+    // Send email invites via SendGrid
+    if (hasEmails) {
+      for (const email of emails) {
+        try {
+          await sendTeamInvite({
+            email,
+            companyName: company.name,
+            joinUrl,
+            logoUrl: company.logo_url,
+          });
+          emailsSent++;
+        } catch (emailError) {
+          console.error(`[api/auth/send-invite] Email failed for ${email}:`, emailError);
+        }
+      }
+    }
+
+    // Send SMS invites via Twilio
+    if (hasPhones) {
+      for (const phone of phones) {
+        try {
+          await sendTeamInviteSMS({
+            phone,
+            companyName: company.name,
+            joinUrl,
+          });
+          smsSent++;
+        } catch (smsError) {
+          console.error(`[api/auth/send-invite] SMS failed for ${phone}:`, smsError);
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      invitesSent: emails.length,
+      emailsSent,
+      smsSent,
+      invitesSent: emailsSent + smsSent,
     });
   } catch (error) {
     console.error("[api/auth/send-invite] Error:", error);

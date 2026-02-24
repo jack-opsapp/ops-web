@@ -38,6 +38,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useWindowStore } from "@/stores/window-store";
+import { usePageActionsStore } from "@/stores/page-actions-store";
 
 import {
   useProjects,
@@ -560,6 +561,16 @@ export default function JobBoardPage() {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+
+  // Register header actions
+  const setActions = usePageActionsStore((s) => s.setActions);
+  const clearActions = usePageActionsStore((s) => s.clearActions);
+  useEffect(() => {
+    setActions([
+      { label: "New Project", icon: Plus, onClick: openCreateProject },
+    ]);
+    return () => clearActions();
+  }, [setActions, clearActions]);
 
   // Track optimistic DnD overrides: map of projectId -> target ColumnId
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});

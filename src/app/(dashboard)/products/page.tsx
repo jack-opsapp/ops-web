@@ -23,6 +23,7 @@ import {
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
+  useTaskTypes,
 } from "@/lib/hooks";
 import {
   formatCurrency,
@@ -42,6 +43,8 @@ export default function ProductsPage() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+
+  const { data: taskTypes = [] } = useTaskTypes();
 
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -76,6 +79,14 @@ export default function ProductsPage() {
 
     return result;
   }, [products, search]);
+
+  const taskTypeMap = useMemo(() => {
+    const map = new Map<string, { display: string; color: string }>();
+    for (const tt of taskTypes) {
+      map.set(tt.id, { display: tt.display, color: tt.color });
+    }
+    return map;
+  }, [taskTypes]);
 
   const stats = useMemo(() => {
     const active = products.filter((p) => !p.deletedAt);
@@ -147,6 +158,9 @@ export default function ProductsPage() {
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
                   Category
                 </th>
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
+                  Task Type
+                </th>
                 <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
                   Price
                 </th>
@@ -193,6 +207,23 @@ export default function ProductsPage() {
                     <span className="font-kosugi text-caption-sm text-text-tertiary">
                       {product.category || "—"}
                     </span>
+                  </td>
+
+                  {/* Task Type */}
+                  <td className="px-2 py-1.5 hidden lg:table-cell">
+                    {product.taskTypeId && taskTypeMap.has(product.taskTypeId) ? (
+                      <span className="inline-flex items-center gap-[4px]">
+                        <span
+                          className="w-[8px] h-[8px] rounded-full"
+                          style={{ backgroundColor: taskTypeMap.get(product.taskTypeId)!.color }}
+                        />
+                        <span className="font-kosugi text-caption-sm text-text-secondary">
+                          {taskTypeMap.get(product.taskTypeId)!.display}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="font-kosugi text-caption-sm text-text-disabled">—</span>
+                    )}
                   </td>
 
                   {/* Price */}
@@ -294,6 +325,7 @@ function ProductFormModal({
   onUpdate: (id: string, data: Partial<CreateProduct>) => void;
 }) {
   const isEditing = !!product;
+  const { data: taskTypes = [] } = useTaskTypes();
 
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -301,6 +333,7 @@ function ProductFormModal({
   const [unitCost, setUnitCost] = useState(product?.unitCost ?? 0);
   const [unit, setUnit] = useState(product?.unit ?? "each");
   const [category, setCategory] = useState(product?.category ?? "");
+  const [taskTypeId, setTaskTypeId] = useState<string | null>(product?.taskTypeId ?? null);
   const [isTaxable, setIsTaxable] = useState(product?.isTaxable ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
 
@@ -313,6 +346,7 @@ function ProductFormModal({
       setUnitCost(product.unitCost ?? 0);
       setUnit(product.unit ?? "each");
       setCategory(product.category ?? "");
+      setTaskTypeId(product.taskTypeId ?? null);
       setIsTaxable(product.isTaxable);
       setIsActive(product.isActive);
     } else {
@@ -322,6 +356,7 @@ function ProductFormModal({
       setUnitCost(0);
       setUnit("each");
       setCategory("");
+      setTaskTypeId(null);
       setIsTaxable(true);
       setIsActive(true);
     }
@@ -337,6 +372,7 @@ function ProductFormModal({
       unitCost: unitCost || null,
       unit,
       category: category.trim() || null,
+      taskTypeId: taskTypeId || null,
       isTaxable,
       isActive,
     };
@@ -442,6 +478,28 @@ function ProductFormModal({
                 placeholder="e.g. Labor, Materials"
               />
             </div>
+          </div>
+
+          {/* Task Type */}
+          <div className="space-y-0.5">
+            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              Task Type
+            </label>
+            <select
+              value={taskTypeId ?? ""}
+              onChange={(e) => setTaskTypeId(e.target.value || null)}
+              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+            >
+              <option value="">None</option>
+              {taskTypes.map((tt) => (
+                <option key={tt.id} value={tt.id}>
+                  {tt.display}
+                </option>
+              ))}
+            </select>
+            <p className="font-kosugi text-[10px] text-text-disabled">
+              Associates this product with a task type for automatic assignment
+            </p>
           </div>
 
           {/* Toggles */}

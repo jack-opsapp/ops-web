@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { Check, Loader2, Save } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompanySettings, useUpdateCompanySettings } from "@/lib/hooks";
+import { usePreferencesStore, type DashboardLayoutId, type SchedulingTypeId } from "@/stores/preferences-store";
 import { toast } from "sonner";
 
 function LifecycleSettings() {
@@ -126,22 +126,23 @@ function LifecycleSettings() {
 }
 
 export function PreferencesTab() {
-  const [dashboardLayout, setDashboardLayout] = useState<"default" | "compact" | "data-dense">("default");
-  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>({
-    "Task assignments": true,
-    "Project updates": true,
-    "Team activity": true,
-    "Sync alerts": false,
-    "Client messages": true,
-    "Schedule changes": true,
-    "Invoice reminders": false,
-    "Pipeline movement": true,
-  });
+  const dashboardLayout = usePreferencesStore((s) => s.dashboardLayout);
+  const setDashboardLayout = usePreferencesStore((s) => s.setDashboardLayout);
+  const schedulingType = usePreferencesStore((s) => s.schedulingType);
+  const setSchedulingType = usePreferencesStore((s) => s.setSchedulingType);
+  const notificationPrefs = usePreferencesStore((s) => s.notificationPrefs);
+  const setNotificationPref = usePreferencesStore((s) => s.setNotificationPref);
 
-  const layouts = [
-    { id: "default" as const, label: "Default", description: "Balanced overview with cards" },
-    { id: "compact" as const, label: "Compact", description: "More items, less detail" },
-    { id: "data-dense" as const, label: "Data Dense", description: "Maximum information density" },
+  const schedulingTypes: { id: SchedulingTypeId; label: string; description: string }[] = [
+    { id: "all-day", label: "All Day", description: "Tasks span entire days, no specific times" },
+    { id: "time-slots", label: "Time Slots", description: "Tasks are assigned to specific time ranges" },
+    { id: "both", label: "Both", description: "Use all-day or time-based scheduling per task" },
+  ];
+
+  const layouts: { id: DashboardLayoutId; label: string; description: string }[] = [
+    { id: "default", label: "Default", description: "Balanced overview with cards" },
+    { id: "compact", label: "Compact", description: "More items, less detail" },
+    { id: "data-dense", label: "Data Dense", description: "Maximum information density" },
   ];
 
   return (
@@ -157,7 +158,10 @@ export function PreferencesTab() {
             {layouts.map((layout) => (
               <button
                 key={layout.id}
-                onClick={() => setDashboardLayout(layout.id)}
+                onClick={() => {
+                  setDashboardLayout(layout.id);
+                  toast.success(`Dashboard layout set to ${layout.label}`);
+                }}
                 className={cn(
                   "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all",
                   dashboardLayout === layout.id
@@ -182,6 +186,41 @@ export function PreferencesTab() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Scheduling Type</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1">
+            {schedulingTypes.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => {
+                  setSchedulingType(type.id);
+                  toast.success(`Scheduling set to ${type.label}`);
+                }}
+                className={cn(
+                  "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all",
+                  schedulingType === type.id
+                    ? "bg-ops-accent-muted border-ops-accent"
+                    : "bg-background-input border-border hover:border-border-medium"
+                )}
+              >
+                <div>
+                  <p className="font-mohave text-body text-text-primary text-left">{type.label}</p>
+                  <p className="font-kosugi text-[11px] text-text-tertiary">{type.description}</p>
+                </div>
+                {schedulingType === type.id && (
+                  <div className="w-[20px] h-[20px] rounded-full bg-ops-accent flex items-center justify-center">
+                    <Check className="w-[12px] h-[12px] text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Notifications</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
@@ -191,7 +230,7 @@ export function PreferencesTab() {
               <button
                 onClick={() => {
                   const newValue = !enabled;
-                  setNotificationPrefs((prev) => ({ ...prev, [item]: newValue }));
+                  setNotificationPref(item, newValue);
                   toast.success(`${item} notifications ${newValue ? "enabled" : "disabled"}`);
                 }}
                 className={cn(

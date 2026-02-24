@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ActivityWidget() {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">Recent Activity</CardTitle>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto min-h-0">
         <div className="space-y-[4px]">
           {[
             {

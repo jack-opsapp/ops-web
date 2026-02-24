@@ -131,7 +131,7 @@ export function TopBar() {
             "bg-transparent border border-[rgba(255,255,255,0.10)]",
             "text-text-tertiary hover:border-[rgba(255,255,255,0.18)] hover:text-text-secondary",
             "transition-all duration-150 cursor-pointer",
-            "min-w-[200px]"
+            "min-w-[140px] sm:min-w-[200px]"
           )}
           onClick={() => {
             window.dispatchEvent(
@@ -145,8 +145,8 @@ export function TopBar() {
           aria-label="Open search"
         >
           <Search className="w-[16px] h-[16px] shrink-0" />
-          <span className="font-mohave text-body-sm">Search...</span>
-          <kbd className="ml-auto font-mono text-[10px] text-text-disabled bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px]">
+          <span className="font-mohave text-body-sm hidden sm:inline">Search...</span>
+          <kbd className="ml-auto font-mono text-[10px] text-text-disabled bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
             ⌘K
           </kbd>
         </button>

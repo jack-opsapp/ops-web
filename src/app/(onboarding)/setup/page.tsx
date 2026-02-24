@@ -40,6 +40,8 @@ import {
   type CurrentTool,
   type NeededFeature,
 } from "@/stores/setup-store";
+import { usePreferencesStore } from "@/stores/preferences-store";
+import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults";
 
 const TOTAL_STEPS = 5;
 
@@ -297,8 +299,10 @@ export default function SetupPage() {
     workType,
     trackingPriorities,
     teamSize,
+    neededFeatures,
     completeSetup,
   } = useSetupStore();
+  const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
 
   const canProceed = useCallback(() => {
     switch (currentStep) {
@@ -322,11 +326,20 @@ export default function SetupPage() {
       if (currentStep === 1) trackBeginTrial();
       setCurrentStep(currentStep + 1);
     } else {
+      // Apply widget defaults based on setup answers
+      const instances = getDefaultWidgetInstancesFromSetup({
+        workType,
+        trackingPriorities,
+        teamSize,
+        neededFeatures,
+      });
+      applyWidgetInstances(instances);
+
       completeSetup();
       trackCompleteOnboarding(false);
       router.push("/dashboard");
     }
-  }, [currentStep, setCurrentStep, completeSetup, router]);
+  }, [currentStep, setCurrentStep, completeSetup, router, workType, trackingPriorities, teamSize, neededFeatures, applyWidgetInstances]);
 
   const handleBack = useCallback(() => {
     if (currentStep > 1) {
