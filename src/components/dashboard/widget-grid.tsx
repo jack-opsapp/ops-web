@@ -19,7 +19,6 @@ interface WidgetGridProps {
   orderedInstances: WidgetInstance[];
   isCustomizing?: boolean;
   activeId?: string | null;
-  overId?: string | null;
   /** Ghost widget ID (tray drag preview in grid) */
   ghostId?: string | null;
 }
@@ -29,7 +28,6 @@ export function WidgetGrid({
   orderedInstances,
   isCustomizing,
   activeId = null,
-  overId = null,
   ghostId = null,
 }: WidgetGridProps) {
   const visibleInstances = orderedInstances.filter((i: WidgetInstance) => i.visible);
@@ -84,7 +82,6 @@ export function WidgetGrid({
               isCustomizing={isCustomizing}
               isDragActive={activeId !== null}
               isBeingDragged={activeId === instance.id}
-              isDropTarget={overId === instance.id && activeId !== instance.id}
             >
               {children[instance.id] ?? null}
             </WidgetShell>

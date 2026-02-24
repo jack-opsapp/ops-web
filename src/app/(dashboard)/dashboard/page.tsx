@@ -672,7 +672,6 @@ export default function DashboardPage() {
             <WidgetGrid
               isCustomizing
               activeId={activeId}
-              overId={overId}
               orderedInstances={displayOrder}
               ghostId={ghostWidget?.id ?? null}
             >

@@ -40,7 +40,6 @@ interface WidgetShellProps {
   isCustomizing?: boolean;
   isDragActive?: boolean;
   isBeingDragged?: boolean;
-  isDropTarget?: boolean;
   children: ReactNode;
 }
 
@@ -51,7 +50,6 @@ export function WidgetShell({
   isCustomizing,
   isDragActive,
   isBeingDragged,
-  isDropTarget,
   children,
 }: WidgetShellProps) {
   const updateWidgetInstance = usePreferencesStore((s) => s.updateWidgetInstance);
@@ -77,9 +75,6 @@ export function WidgetShell({
       // Invisible in-place — overlay shows the "grabbed" copy
       return { scale: 0.95, opacity: 0, filter: "saturate(0.3)" };
     }
-    if (isDropTarget) {
-      return { scale: 1, opacity: 1, filter: "saturate(1)" };
-    }
     if (isDragActive) {
       // Sibling: shrink + desaturate more
       return {
@@ -94,7 +89,7 @@ export function WidgetShell({
     }
     // Normal
     return { scale: 1, opacity: 1, filter: "saturate(1)" };
-  }, [isBeingDragged, isDropTarget, isDragActive, isCustomizing]);
+  }, [isBeingDragged, isDragActive, isCustomizing]);
 
   return (
     <motion.div
@@ -107,8 +102,7 @@ export function WidgetShell({
         COL_SPAN_CLASSES[size],
         ROW_SPAN_CLASSES[size],
         "relative group/widget h-full overflow-hidden",
-        isCustomizing && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing",
-        isDropTarget && "ring-2 ring-ops-accent bg-ops-accent/5"
+        isCustomizing && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing"
       )}
       data-widget-id={instanceId}
       data-widget-type={typeId}
