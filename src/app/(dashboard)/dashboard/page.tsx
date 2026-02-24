@@ -401,7 +401,6 @@ export default function DashboardPage() {
 
   const handleDragCancel = useCallback((_event: DragCancelEvent) => {
     setActiveId(null);
-    setOverId(null);
     updateTentativeOrder(null);
     setGhostWidget(null);
     ghostWidgetIdRef.current = null;
