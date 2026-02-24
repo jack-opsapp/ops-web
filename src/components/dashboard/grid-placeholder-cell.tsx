@@ -20,7 +20,7 @@ export function GridPlaceholderCell({ id, index }: GridPlaceholderCellProps) {
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="col-span-1 aspect-square"
+      className="col-span-1"
       style={{ minHeight: 160 }}
       aria-label={`Empty slot ${index + 1}`}
       role="region"
