@@ -88,6 +88,8 @@ export function WidgetShell({
         ROW_SPAN_CLASSES[size],
         "relative group/widget h-full overflow-hidden transition-all duration-200",
         isCustomizing && "ring-1 ring-border-medium rounded-md",
+        // Edit mode resting state (customizing but no drag happening)
+        isCustomizing && !isDragActive && "scale-[0.98] saturate-[0.7] opacity-90",
         // Drag states
         isBeingDragged && "opacity-0",
         isDragActive && !isBeingDragged && !isDropTarget && "scale-[0.96] saturate-[0.3] opacity-70",

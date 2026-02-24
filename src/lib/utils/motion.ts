@@ -74,3 +74,19 @@ export const widgetDropTargetVariants: Variants = {
     transition: { duration: 0.15, ease: EASE_SMOOTH },
   },
 };
+
+/** Widget tray — slide up from bottom */
+export const trayVariants: Variants = {
+  hidden: { y: "100%", opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.35, ease: EASE_SMOOTH } },
+  exit: { y: "100%", opacity: 0, transition: { duration: 0.25, ease: EASE_SMOOTH } },
+};
+
+/** Staggered entrance for tray cards */
+export const trayCardVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.9, y: 12 },
+  visible: (i: number) => ({
+    opacity: 1, scale: 1, y: 0,
+    transition: { delay: i * 0.03, duration: 0.25, ease: EASE_SMOOTH },
+  }),
+};

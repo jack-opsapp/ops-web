@@ -262,6 +262,15 @@
     user-select: none;
   }
 
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Truncate with ellipsis */
   .truncate-2 {
     display: -webkit-box;

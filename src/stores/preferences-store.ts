@@ -84,6 +84,7 @@ interface PreferencesState {
   // Widget instances (v5 — multi-instance system)
   widgetInstances: WidgetInstance[];
   addWidgetInstance: (typeId: WidgetTypeId, config?: Record<string, unknown>) => void;
+  addWidgetInstanceAt: (typeId: WidgetTypeId, beforeInstanceId: string, config?: Record<string, unknown>) => void;
   removeWidgetInstance: (instanceId: string) => void;
   updateWidgetInstance: (instanceId: string, updates: Partial<Pick<WidgetInstance, "size" | "visible" | "config">>) => void;
   reorderWidgetInstances: (newOrder: string[]) => void;
@@ -133,6 +134,26 @@ export const usePreferencesStore = create<PreferencesState>()(
 
           const instance = createWidgetInstance(typeId, config);
           return { widgetInstances: [...state.widgetInstances, instance] };
+        }),
+
+      addWidgetInstanceAt: (typeId, beforeInstanceId, config) =>
+        set((state) => {
+          const entry = WIDGET_TYPE_REGISTRY[typeId];
+          if (!entry) return state;
+
+          if (!entry.allowMultiple) {
+            const existing = state.widgetInstances.find((i) => i.typeId === typeId);
+            if (existing) return state;
+          }
+
+          const instance = createWidgetInstance(typeId, config);
+          const idx = state.widgetInstances.findIndex((i) => i.id === beforeInstanceId);
+          if (idx === -1) {
+            return { widgetInstances: [...state.widgetInstances, instance] };
+          }
+          const updated = [...state.widgetInstances];
+          updated.splice(idx, 0, instance);
+          return { widgetInstances: updated };
         }),
 
       removeWidgetInstance: (instanceId) =>

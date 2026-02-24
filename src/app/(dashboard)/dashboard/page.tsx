@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Check } from "lucide-react";
 import { MotionConfig } from "framer-motion";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragEndEvent,
+  type DragStartEvent,
+  type DragOverEvent,
+  type DragCancelEvent,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -27,10 +41,11 @@ import {
   isAfter,
 } from "@/lib/utils/date";
 import type { WidgetInstance, WidgetTypeId } from "@/lib/types/dashboard-widgets";
+import { WIDGET_TYPE_REGISTRY } from "@/lib/types/dashboard-widgets";
 
 // Widget components
 import { WidgetGrid } from "@/components/dashboard/widget-grid";
-import { WidgetSidebar } from "@/components/dashboard/widget-sidebar";
+import { WidgetTray } from "@/components/dashboard/widget-tray";
 import { StatWidget } from "@/components/dashboard/widgets/stat-widget";
 import { CalendarWidget } from "@/components/dashboard/widgets/calendar-widget";
 import { CrewWidget } from "@/components/dashboard/widgets/crew-status-widget";
@@ -88,12 +103,18 @@ function PlaceholderWidget({ typeId, label }: { typeId: string; label: string })
 // ---------------------------------------------------------------------------
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [trayOpen, setTrayOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   const router = useRouter();
 
   const { currentUser } = useAuthStore();
   const firstName = currentUser?.firstName || "there";
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
+  const reorderWidgetInstances = usePreferencesStore((s) => s.reorderWidgetInstances);
+  const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
+  const addWidgetInstanceAt = usePreferencesStore((s) => s.addWidgetInstanceAt);
 
   // ── Data hooks for non-stat widgets that receive props ──
   const today = useMemo(() => new Date(), []);
@@ -114,7 +135,6 @@ export default function DashboardPage() {
   const teamMembers = teamData?.users ?? [];
   const weekEvents = useMemo(() => calendarEvents ?? [], [calendarEvents]);
 
-  // Computed values for legacy widgets that still need props
   const activeProjectCount = useMemo(
     () => projects.filter((p) => isActiveProjectStatus(p.status) && !p.deletedAt).length,
     [projects]
@@ -150,7 +170,97 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
+  // ── Escape key handling ──
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (trayOpen) {
+          setTrayOpen(false);
+        } else if (isCustomizing) {
+          setIsCustomizing(false);
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [trayOpen, isCustomizing]);
+
   const navigate = (path: string) => router.push(path);
+
+  // ── DnD sensors — slightly higher distance for tray cards to avoid conflicting with horizontal scroll ──
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // ── DnD handlers ──
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    setOverId(event.over?.id as string | null);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveId(null);
+      setOverId(null);
+
+      if (!over) return;
+
+      const activeIdStr = active.id as string;
+
+      // ── Tray → Grid drag ──
+      if (activeIdStr.startsWith("tray__")) {
+        const typeId = active.data.current?.typeId as WidgetTypeId | undefined;
+        if (!typeId) return;
+
+        const overIdStr = over.id as string;
+        // If dropping over an existing widget instance, insert before it
+        if (overIdStr.startsWith("wi_")) {
+          addWidgetInstanceAt(typeId, overIdStr);
+        } else {
+          // Dropped somewhere else — append
+          addWidgetInstance(typeId);
+        }
+        return;
+      }
+
+      // ── Grid reorder drag ──
+      if (active.id === over.id) return;
+
+      const allIds = widgetInstances.map((i: WidgetInstance) => i.id);
+      const oldIndex = allIds.indexOf(active.id as string);
+      const newIndex = allIds.indexOf(over.id as string);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const newOrder = [...allIds];
+      newOrder.splice(oldIndex, 1);
+      newOrder.splice(newIndex, 0, active.id as string);
+      reorderWidgetInstances(newOrder);
+    },
+    [widgetInstances, reorderWidgetInstances, addWidgetInstance, addWidgetInstanceAt]
+  );
+
+  const handleDragCancel = useCallback((_event: DragCancelEvent) => {
+    setActiveId(null);
+    setOverId(null);
+  }, []);
+
+  // ── Toggle customize mode ──
+  const handleCustomizeToggle = () => {
+    if (isCustomizing) {
+      // "Done" — exit edit mode
+      setIsCustomizing(false);
+      setTrayOpen(false);
+    } else {
+      // Enter edit mode + open tray
+      setIsCustomizing(true);
+      setTrayOpen(true);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Render widget content by type
@@ -319,12 +429,42 @@ export default function DashboardPage() {
     activeProjectCount,
   ]);
 
+  // ── Build overlay content for DragOverlay ──
+  const overlayContent = useMemo(() => {
+    if (!activeId) return null;
+
+    // Tray drag — show compact preview
+    if (activeId.startsWith("tray__")) {
+      const typeId = activeId.replace("tray__", "") as WidgetTypeId;
+      const entry = WIDGET_TYPE_REGISTRY[typeId];
+      if (!entry) return null;
+      return (
+        <div className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-none">
+          <span className="font-mohave text-[13px] text-text-primary">{entry.label}</span>
+          <span className="font-mono text-[9px] text-text-disabled mt-[2px]">{entry.description}</span>
+        </div>
+      );
+    }
+
+    // Grid drag — show actual widget content
+    return (
+      <div
+        className="rounded-md ring-2 ring-ops-accent shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-none"
+        style={{ opacity: 0.95 }}
+      >
+        {childrenMap[activeId] ?? null}
+      </div>
+    );
+  }, [activeId, childrenMap]);
+
   return (
     <MotionConfig reducedMotion="user">
       <div
         className={cn(
           "space-y-3 max-w-[1400px] transition-opacity duration-500",
-          mounted ? "opacity-100" : "opacity-0"
+          mounted ? "opacity-100" : "opacity-0",
+          // Add bottom padding when tray is open so grid content isn't hidden behind it
+          trayOpen && "pb-[340px]"
         )}
       >
         {/* Header with greeting + customize toggle */}
@@ -345,23 +485,61 @@ export default function DashboardPage() {
             </p>
           </div>
           <Button
-            variant="ghost"
+            variant={isCustomizing ? "default" : "ghost"}
             size="sm"
-            className="gap-[6px] shrink-0"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={cn(
+              "gap-[6px] shrink-0",
+              isCustomizing && "bg-ops-accent hover:bg-ops-accent/90 text-white"
+            )}
+            onClick={handleCustomizeToggle}
           >
-            <SlidersHorizontal className="w-[14px] h-[14px]" />
-            Customize
+            {isCustomizing ? (
+              <>
+                <Check className="w-[14px] h-[14px]" />
+                Done
+              </>
+            ) : (
+              <>
+                <SlidersHorizontal className="w-[14px] h-[14px]" />
+                Customize
+              </>
+            )}
           </Button>
         </div>
 
-        {/* Widget sidebar */}
-        <WidgetSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        {/* When customizing, DndContext wraps both grid and tray */}
+        {isCustomizing ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <WidgetGrid isCustomizing activeId={activeId} overId={overId}>
+              {childrenMap}
+            </WidgetGrid>
 
-        {/* Widget Grid */}
-        <WidgetGrid isCustomizing={sidebarOpen}>
-          {childrenMap}
-        </WidgetGrid>
+            <WidgetTray open={trayOpen} onClose={() => setTrayOpen(false)} />
+
+            <DragOverlay dropAnimation={null}>
+              {overlayContent}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          <WidgetGrid>{childrenMap}</WidgetGrid>
+        )}
+
+        {/* When edit mode is active but tray is closed, show a small "Open Tray" button */}
+        {isCustomizing && !trayOpen && (
+          <button
+            onClick={() => setTrayOpen(true)}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-secondary font-mohave text-body-sm hover:text-text-primary hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
+          >
+            Open Widget Tray
+          </button>
+        )}
       </div>
     </MotionConfig>
   );
