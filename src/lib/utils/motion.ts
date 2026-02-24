@@ -15,7 +15,7 @@ export const DRAG_GRABBED_SHADOW = "0 12px 40px rgba(0,0,0,0.5), 0 4px 12px rgba
 
 // ── Edit mode visual constants ──
 export const EDIT_MODE_SCALE = 0.97;
-export const EDIT_MODE_OVERLAY_OPACITY = 0.12;
+export const EDIT_MODE_OVERLAY_OPACITY = 1;
 
 export const DRAG_SIBLING_SCALE = 0.95;
 export const DRAG_SIBLING_SATURATION = 0.35;

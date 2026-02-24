@@ -13,7 +13,6 @@ import {
   SPRING_REORDER,
   EASE_SMOOTH,
   editModeOverlayVariants,
-  EDIT_MODE_SCALE,
   DRAG_SIBLING_SCALE,
   DRAG_SIBLING_SATURATION,
   DRAG_SIBLING_OPACITY,
@@ -91,8 +90,8 @@ export function WidgetShell({
       };
     }
     if (isCustomizing) {
-      // Edit mode resting
-      return { scale: EDIT_MODE_SCALE, opacity: 1, filter: "saturate(0.7)" };
+      // Edit mode resting — no scale (avoids inconsistent visual shrink across widget sizes)
+      return { scale: 1, opacity: 1, filter: "saturate(0.7)" };
     }
     // Normal
     return { scale: 1, opacity: 1, filter: "saturate(1)" };
@@ -126,7 +125,7 @@ export function WidgetShell({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="absolute inset-0 bg-black rounded-md pointer-events-none"
+            className="absolute inset-0 bg-border rounded-md pointer-events-none"
           />
         )}
       </AnimatePresence>
@@ -139,14 +138,20 @@ export function WidgetShell({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-            className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px]"
+            className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px] rounded-md px-[3px] py-[2px]"
+            style={{
+              background: "rgba(10, 10, 10, 0.70)",
+              backdropFilter: "blur(20px) saturate(1.2)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+            }}
           >
             {/* Drag handle — uses setActivatorNodeRef for precise activation */}
             <button
               ref={setActivatorNodeRef}
               {...attributes}
               {...listeners}
-              className="p-[3px] rounded-sm bg-[rgba(25,25,25,0.85)] backdrop-blur-sm text-text-disabled hover:text-text-secondary border border-transparent hover:border-border-medium transition-all duration-150 cursor-grab active:cursor-grabbing"
+              className="p-[3px] rounded-sm text-text-disabled hover:text-text-secondary transition-all duration-150 cursor-grab active:cursor-grabbing"
               title="Drag to reorder"
             >
               <GripVertical className="w-[12px] h-[12px]" />
@@ -164,7 +169,7 @@ export function WidgetShell({
                       "px-[8px] py-[2px] rounded-sm font-mono text-[10px] border transition-all duration-150",
                       isSelected
                         ? "bg-ops-accent-muted border-ops-accent text-text-primary"
-                        : "bg-[rgba(25,25,25,0.85)] text-text-disabled border-transparent hover:border-border-medium backdrop-blur-sm"
+                        : "border-transparent text-text-disabled"
                     )}
                   >
                     {WIDGET_SIZE_LABELS[s]}
@@ -175,7 +180,7 @@ export function WidgetShell({
             {/* Hide button */}
             <button
               onClick={() => updateWidgetInstance(instanceId, { visible: false })}
-              className="p-[3px] rounded-sm bg-[rgba(25,25,25,0.85)] backdrop-blur-sm text-text-disabled hover:text-ops-error border border-transparent hover:border-ops-error/30 transition-all duration-150"
+              className="p-[3px] rounded-sm text-text-disabled hover:text-ops-error transition-all duration-150"
               title={`Hide ${entry?.label ?? "widget"}`}
             >
               <EyeOff className="w-[12px] h-[12px]" />
@@ -184,7 +189,7 @@ export function WidgetShell({
             {/* Remove button */}
             <button
               onClick={() => removeWidgetInstance(instanceId)}
-              className="p-[3px] rounded-sm bg-[rgba(25,25,25,0.85)] backdrop-blur-sm text-text-disabled hover:text-ops-error border border-transparent hover:border-ops-error/30 transition-all duration-150"
+              className="p-[3px] rounded-sm text-text-disabled hover:text-ops-error transition-all duration-150"
               title={`Remove ${entry?.label ?? "widget"}`}
             >
               <Trash2 className="w-[12px] h-[12px]" />

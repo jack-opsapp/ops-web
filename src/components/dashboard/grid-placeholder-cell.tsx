@@ -20,7 +20,7 @@ export function GridPlaceholderCell({ id, index }: GridPlaceholderCellProps) {
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="col-span-1"
+      className="col-span-1 aspect-square"
       style={{ minHeight: 160 }}
       aria-label={`Empty slot ${index + 1}`}
       role="region"
@@ -30,7 +30,7 @@ export function GridPlaceholderCell({ id, index }: GridPlaceholderCellProps) {
         style={{
           backgroundColor: isOver
             ? "rgba(var(--ops-accent-rgb), 0.25)"
-            : "rgba(255, 255, 255, 0.06)",
+            : "rgba(255, 255, 255, 0.2)",
         }}
       />
     </motion.div>
