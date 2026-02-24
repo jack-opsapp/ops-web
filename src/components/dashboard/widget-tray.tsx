@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo, useCallback, useRef } from "react";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
 import { X, Search, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -17,6 +17,45 @@ import {
 import { trayVariants } from "@/lib/utils/motion";
 import { WidgetTrayCard } from "./widget-tray-card";
 
+// ── Detent heights ──
+const DETENT_PEEK = 160;
+const DETENT_HALF = 320;
+const DETENT_FULL_VH = 0.6; // 60% of viewport height
+const SNAP_VELOCITY_THRESHOLD = 300; // px/s — flick faster than this to snap to next detent
+
+function getDetentFull() {
+  return typeof window !== "undefined" ? window.innerHeight * DETENT_FULL_VH : 500;
+}
+
+function nearestDetent(height: number): number {
+  const full = getDetentFull();
+  const detents = [DETENT_PEEK, DETENT_HALF, full];
+  let best = detents[0];
+  let bestDist = Math.abs(height - best);
+  for (const d of detents) {
+    const dist = Math.abs(height - d);
+    if (dist < bestDist) {
+      best = d;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+function nextDetentUp(height: number): number {
+  const full = getDetentFull();
+  if (height < DETENT_HALF - 20) return DETENT_HALF;
+  if (height < full - 20) return full;
+  return full;
+}
+
+function nextDetentDown(height: number): number {
+  const full = getDetentFull();
+  if (height > full - 20) return DETENT_HALF;
+  if (height > DETENT_PEEK + 20) return DETENT_PEEK;
+  return DETENT_PEEK;
+}
+
 interface WidgetTrayProps {
   open: boolean;
   onClose: () => void;
@@ -24,6 +63,13 @@ interface WidgetTrayProps {
 
 export function WidgetTray({ open, onClose }: WidgetTrayProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentDetent, setCurrentDetent] = useState(DETENT_HALF);
+  const sheetHeight = useMotionValue(DETENT_HALF);
+  const dragStartHeight = useRef(DETENT_HALF);
+
+  // Transform: invert y drag delta into height change
+  // (dragging up = negative y = increase height)
+  const displayHeight = useTransform(sheetHeight, (h) => h);
 
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
   const resetWidgetInstances = usePreferencesStore((s) => s.resetWidgetInstances);
@@ -71,6 +117,56 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
 
   const totalActiveCount = widgetInstances.filter((i: WidgetInstance) => i.visible).length;
 
+  // ── Drag handle logic ──
+  const handleDragStart = useCallback(() => {
+    dragStartHeight.current = sheetHeight.get();
+  }, [sheetHeight]);
+
+  const handleDrag = useCallback(
+    (_: unknown, info: PanInfo) => {
+      const full = getDetentFull();
+      const newHeight = Math.max(DETENT_PEEK, Math.min(full, dragStartHeight.current - info.offset.y));
+      sheetHeight.set(newHeight);
+    },
+    [sheetHeight]
+  );
+
+  const handleDragEnd = useCallback(
+    (_: unknown, info: PanInfo) => {
+      const full = getDetentFull();
+      const current = sheetHeight.get();
+      const vy = info.velocity.y;
+
+      let target: number;
+      if (Math.abs(vy) > SNAP_VELOCITY_THRESHOLD) {
+        // Flick: snap in flick direction
+        target = vy < 0 ? nextDetentUp(current) : nextDetentDown(current);
+      } else {
+        // Slow drag: snap to nearest
+        target = nearestDetent(current);
+      }
+
+      // If dragged well below peek, close
+      if (current < DETENT_PEEK * 0.6 || (vy > SNAP_VELOCITY_THRESHOLD && current <= DETENT_PEEK)) {
+        onClose();
+        return;
+      }
+
+      target = Math.max(DETENT_PEEK, Math.min(full, target));
+      setCurrentDetent(target);
+      animate(sheetHeight, target, { type: "spring", stiffness: 500, damping: 35, mass: 0.8 });
+    },
+    [sheetHeight, onClose]
+  );
+
+  // Reset detent when tray opens
+  const handleAnimationStart = useCallback(() => {
+    if (open) {
+      sheetHeight.set(DETENT_HALF);
+      setCurrentDetent(DETENT_HALF);
+    }
+  }, [open, sheetHeight]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -91,18 +187,25 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className={cn(
-              "fixed bottom-0 left-0 right-0 z-40",
-              "max-h-[320px] flex flex-col",
-              "bg-[rgba(10,10,10,0.95)] backdrop-blur-xl",
-              "border-t border-border rounded-t-xl",
-              "shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
-            )}
+            onAnimationStart={handleAnimationStart}
+            className="fixed bottom-0 left-0 right-0 z-40 flex flex-col rounded-t-xl shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
+            style={{
+              height: displayHeight,
+              background: "rgba(10, 10, 10, 0.70)",
+              backdropFilter: "blur(20px) saturate(1.2)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+            }}
           >
-            {/* Drag handle pill */}
-            <div className="flex justify-center pt-[8px] pb-[4px] shrink-0">
+            {/* Drag handle pill — pan gesture drives detent snapping */}
+            <motion.div
+              className="flex justify-center pt-[8px] pb-[4px] shrink-0 cursor-grab active:cursor-grabbing touch-none"
+              onPanStart={handleDragStart}
+              onPan={handleDrag}
+              onPanEnd={handleDragEnd}
+            >
               <div className="w-[40px] h-[4px] rounded-full bg-[rgba(255,255,255,0.2)]" />
-            </div>
+            </motion.div>
 
             {/* Header row */}
             <div className="flex items-center justify-between px-3 pb-[6px] shrink-0">
