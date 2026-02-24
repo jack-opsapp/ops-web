@@ -5,11 +5,24 @@ import type { Variants, Easing } from "framer-motion";
 
 export const EASE_SMOOTH: Easing = [0.22, 1, 0.36, 1];
 
-export const SPRING_LAYOUT = {
-  type: "spring" as const,
-  stiffness: 400,
-  damping: 30,
-};
+// ── Edit-mode spring physics ──
+export const SPRING_REORDER = { type: "spring" as const, stiffness: 500, damping: 35, mass: 0.8 };
+export const SPRING_PLACEHOLDER = { type: "spring" as const, stiffness: 300, damping: 28 };
+
+// ── Drag grabbed feedback ──
+export const DRAG_GRABBED_SCALE = 1.04;
+export const DRAG_GRABBED_SHADOW = "0 12px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)";
+
+// ── Edit mode visual constants ──
+export const EDIT_MODE_SCALE = 0.97;
+export const EDIT_MODE_OVERLAY_OPACITY = 0.12;
+
+export const DRAG_SIBLING_SCALE = 0.95;
+export const DRAG_SIBLING_SATURATION = 0.35;
+export const DRAG_SIBLING_OPACITY = 0.7;
+
+export const EDIT_MODE_GAP = 12;
+export const NORMAL_GAP = 8;
 
 export const STAGGER_GRID = { staggerChildren: 0.06 };
 
@@ -18,60 +31,6 @@ export const gridVariants: Variants = {
   hidden: {},
   visible: {
     transition: STAGGER_GRID,
-  },
-};
-
-/** Per-widget enter/exit variants */
-export const widgetVariants: Variants = {
-  hidden: {
-    opacity: 0,
-    scale: 0.95,
-    y: 20,
-  },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: {
-      duration: 0.3,
-      ease: EASE_SMOOTH,
-    },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.95,
-    transition: {
-      duration: 0.2,
-      ease: EASE_SMOOTH,
-    },
-  },
-};
-
-/** Widget drag inactive state (siblings shrink/desaturate) */
-export const widgetDragInactiveVariants: Variants = {
-  idle: {
-    scale: 1,
-    opacity: 1,
-    filter: "saturate(1)",
-  },
-  dragging: {
-    scale: 0.96,
-    opacity: 0.7,
-    filter: "saturate(0.3)",
-    transition: { duration: 0.2, ease: EASE_SMOOTH },
-  },
-};
-
-/** Widget drop target highlight */
-export const widgetDropTargetVariants: Variants = {
-  idle: {
-    scale: 1,
-    opacity: 1,
-  },
-  active: {
-    scale: 1,
-    opacity: 1,
-    transition: { duration: 0.15, ease: EASE_SMOOTH },
   },
 };
 
@@ -89,4 +48,22 @@ export const trayCardVariants: Variants = {
     opacity: 1, scale: 1, y: 0,
     transition: { delay: i * 0.03, duration: 0.25, ease: EASE_SMOOTH },
   }),
+};
+
+/** Dark overlay that fades over widget content during edit mode */
+export const editModeOverlayVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: EDIT_MODE_OVERLAY_OPACITY, transition: { duration: 0.25, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+};
+
+/** Placeholder cell entrance/exit — stagger index passed as custom prop */
+export const placeholderCellVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.85 },
+  visible: (i: number) => ({
+    opacity: 1,
+    scale: 1,
+    transition: { ...SPRING_PLACEHOLDER, delay: i * 0.04 },
+  }),
+  exit: { opacity: 0, scale: 0.85, transition: { duration: 0.15, ease: EASE_SMOOTH } },
 };

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { SlidersHorizontal, Check } from "lucide-react";
-import { MotionConfig } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
 import {
   DndContext,
+  pointerWithin,
   closestCenter,
   PointerSensor,
   KeyboardSensor,
@@ -16,6 +17,7 @@ import {
   type DragStartEvent,
   type DragOverEvent,
   type DragCancelEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
@@ -41,7 +43,12 @@ import {
   isAfter,
 } from "@/lib/utils/date";
 import type { WidgetInstance, WidgetTypeId } from "@/lib/types/dashboard-widgets";
-import { WIDGET_TYPE_REGISTRY } from "@/lib/types/dashboard-widgets";
+import { WIDGET_TYPE_REGISTRY, generateInstanceId } from "@/lib/types/dashboard-widgets";
+import {
+  SPRING_REORDER,
+  DRAG_GRABBED_SCALE,
+  DRAG_GRABBED_SHADOW,
+} from "@/lib/utils/motion";
 
 // Widget components
 import { WidgetGrid } from "@/components/dashboard/widget-grid";
@@ -99,6 +106,29 @@ function PlaceholderWidget({ typeId, label }: { typeId: string; label: string })
 }
 
 // ---------------------------------------------------------------------------
+// Custom collision detection: prefer widget targets over placeholders
+// ---------------------------------------------------------------------------
+const customCollisionDetection: CollisionDetection = (args) => {
+  // First try pointerWithin (more precise for mixed-size grids)
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    // Prioritize widget instances over placeholder cells
+    const widgetCollision = pointerCollisions.find(
+      (c) => typeof c.id === "string" && c.id.startsWith("wi_")
+    );
+    if (widgetCollision) return [widgetCollision];
+    // Ghost widgets also count as valid targets
+    const ghostCollision = pointerCollisions.find(
+      (c) => typeof c.id === "string" && c.id.startsWith("ghost__")
+    );
+    if (ghostCollision) return [ghostCollision];
+    return pointerCollisions;
+  }
+  // Fallback to closestCenter
+  return closestCenter(args);
+};
+
+// ---------------------------------------------------------------------------
 // Dashboard Page
 // ---------------------------------------------------------------------------
 export default function DashboardPage() {
@@ -109,12 +139,36 @@ export default function DashboardPage() {
   const [overId, setOverId] = useState<string | null>(null);
   const router = useRouter();
 
+  // ── Tentative order state for real-time shifting ──
+  const [tentativeOrder, setTentativeOrder] = useState<WidgetInstance[] | null>(null);
+  const [ghostWidget, setGhostWidget] = useState<WidgetInstance | null>(null);
+  const dragSourceRef = useRef<"grid" | "tray" | null>(null);
+  const ghostWidgetIdRef = useRef<string | null>(null);
+  const tentativeOrderRef = useRef<WidgetInstance[] | null>(null);
+
+  // Keep ref in sync with state for stable callbacks
+  const updateTentativeOrder = useCallback((value: WidgetInstance[] | null | ((prev: WidgetInstance[] | null) => WidgetInstance[] | null)) => {
+    if (typeof value === "function") {
+      setTentativeOrder((prev) => {
+        const next = value(prev);
+        tentativeOrderRef.current = next;
+        return next;
+      });
+    } else {
+      tentativeOrderRef.current = value;
+      setTentativeOrder(value);
+    }
+  }, []);
+
   const { currentUser } = useAuthStore();
   const firstName = currentUser?.firstName || "there";
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
   const reorderWidgetInstances = usePreferencesStore((s) => s.reorderWidgetInstances);
   const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
   const addWidgetInstanceAt = usePreferencesStore((s) => s.addWidgetInstanceAt);
+
+  // The display order: tentative (during drag) or store (at rest)
+  const displayOrder = tentativeOrder ?? widgetInstances;
 
   // ── Data hooks for non-stat widgets that receive props ──
   const today = useMemo(() => new Date(), []);
@@ -187,20 +241,88 @@ export default function DashboardPage() {
 
   const navigate = (path: string) => router.push(path);
 
-  // ── DnD sensors — slightly higher distance for tray cards to avoid conflicting with horizontal scroll ──
+  // ── DnD sensors ──
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   // ── DnD handlers ──
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  }, []);
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = event.active.id as string;
+      setActiveId(id);
 
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    setOverId(event.over?.id as string | null);
-  }, []);
+      if (id.startsWith("tray__")) {
+        // Tray → Grid: create ghost widget and inject into tentative order
+        dragSourceRef.current = "tray";
+        const typeId = event.active.data.current?.typeId as WidgetTypeId | undefined;
+        if (typeId) {
+          const entry = WIDGET_TYPE_REGISTRY[typeId];
+          const ghost: WidgetInstance = {
+            id: `ghost__${typeId}__${generateInstanceId()}`,
+            typeId,
+            size: entry?.defaultSize ?? "sm",
+            visible: true,
+            config: {},
+          };
+          setGhostWidget(ghost);
+          ghostWidgetIdRef.current = ghost.id;
+          // Append ghost at end of current order
+          updateTentativeOrder([...widgetInstances, ghost]);
+        } else {
+          updateTentativeOrder([...widgetInstances]);
+        }
+      } else {
+        // Grid reorder: snapshot current order
+        dragSourceRef.current = "grid";
+        updateTentativeOrder([...widgetInstances]);
+      }
+    },
+    [widgetInstances, updateTentativeOrder]
+  );
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const overIdRaw = event.over?.id as string | null;
+      setOverId(overIdRaw);
+
+      if (!overIdRaw) return;
+
+      // Skip placeholder targets — they just highlight, don't reorder
+      if (overIdRaw.startsWith("placeholder__")) return;
+
+      const activeIdStr = event.active.id as string;
+
+      if (dragSourceRef.current === "grid") {
+        // Grid reorder: splice active to over's position
+        updateTentativeOrder((prev) => {
+          if (!prev) return prev;
+          const activeIdx = prev.findIndex((i) => i.id === activeIdStr);
+          const overIdx = prev.findIndex((i) => i.id === overIdRaw);
+          if (activeIdx === -1 || overIdx === -1 || activeIdx === overIdx) return prev;
+          const next = [...prev];
+          const [moved] = next.splice(activeIdx, 1);
+          next.splice(overIdx, 0, moved);
+          return next;
+        });
+      } else if (dragSourceRef.current === "tray" && ghostWidgetIdRef.current) {
+        // Tray-to-grid: move ghost to hovered widget's position
+        const gId = ghostWidgetIdRef.current;
+        updateTentativeOrder((prev) => {
+          if (!prev) return prev;
+          const ghostIdx = prev.findIndex((i) => i.id === gId);
+          const overIdx = prev.findIndex((i) => i.id === overIdRaw);
+          if (ghostIdx === -1 || overIdx === -1 || ghostIdx === overIdx) return prev;
+          const next = [...prev];
+          const [moved] = next.splice(ghostIdx, 1);
+          next.splice(overIdx, 0, moved);
+          return next;
+        });
+      }
+    },
+    [updateTentativeOrder] // Stable — uses refs and functional updaters only
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -208,55 +330,64 @@ export default function DashboardPage() {
       setActiveId(null);
       setOverId(null);
 
-      if (!over) return;
+      const currentOrder = tentativeOrderRef.current;
+      const gId = ghostWidgetIdRef.current;
 
-      const activeIdStr = active.id as string;
-
-      // ── Tray → Grid drag ──
-      if (activeIdStr.startsWith("tray__")) {
+      if (dragSourceRef.current === "grid" && currentOrder) {
+        // Commit tentative order to store — filter out any ghost IDs
+        const newOrder = currentOrder
+          .filter((i) => !i.id.startsWith("ghost__"))
+          .map((i) => i.id);
+        reorderWidgetInstances(newOrder);
+      } else if (dragSourceRef.current === "tray" && gId && currentOrder) {
         const typeId = active.data.current?.typeId as WidgetTypeId | undefined;
-        if (!typeId) return;
-
-        const overIdStr = over.id as string;
-        // If dropping over an existing widget instance, insert before it
-        if (overIdStr.startsWith("wi_")) {
-          addWidgetInstanceAt(typeId, overIdStr);
-        } else {
-          // Dropped somewhere else — append
+        if (typeId && over) {
+          // Find ghost's position in tentative order to know where to insert
+          const ghostIdx = currentOrder.findIndex((i) => i.id === gId);
+          // Get the widget immediately after the ghost — this is the "before" reference for the store API
+          const insertBeforeRef = currentOrder[ghostIdx + 1];
+          if (insertBeforeRef && insertBeforeRef.id.startsWith("wi_")) {
+            addWidgetInstanceAt(typeId, insertBeforeRef.id);
+          } else if (ghostIdx === 0 && currentOrder.length > 1) {
+            // Ghost is at the very beginning — insert before first real widget
+            const firstReal = currentOrder.find((i) => i.id.startsWith("wi_"));
+            if (firstReal) {
+              addWidgetInstanceAt(typeId, firstReal.id);
+            } else {
+              addWidgetInstance(typeId);
+            }
+          } else {
+            addWidgetInstance(typeId);
+          }
+        } else if (typeId) {
           addWidgetInstance(typeId);
         }
-        return;
       }
 
-      // ── Grid reorder drag ──
-      if (active.id === over.id) return;
-
-      const allIds = widgetInstances.map((i: WidgetInstance) => i.id);
-      const oldIndex = allIds.indexOf(active.id as string);
-      const newIndex = allIds.indexOf(over.id as string);
-      if (oldIndex === -1 || newIndex === -1) return;
-
-      const newOrder = [...allIds];
-      newOrder.splice(oldIndex, 1);
-      newOrder.splice(newIndex, 0, active.id as string);
-      reorderWidgetInstances(newOrder);
+      // Clear all drag state
+      updateTentativeOrder(null);
+      setGhostWidget(null);
+      ghostWidgetIdRef.current = null;
+      dragSourceRef.current = null;
     },
-    [widgetInstances, reorderWidgetInstances, addWidgetInstance, addWidgetInstanceAt]
+    [reorderWidgetInstances, addWidgetInstance, addWidgetInstanceAt, updateTentativeOrder]
   );
 
   const handleDragCancel = useCallback((_event: DragCancelEvent) => {
     setActiveId(null);
     setOverId(null);
-  }, []);
+    updateTentativeOrder(null);
+    setGhostWidget(null);
+    ghostWidgetIdRef.current = null;
+    dragSourceRef.current = null;
+  }, [updateTentativeOrder]);
 
   // ── Toggle customize mode ──
   const handleCustomizeToggle = () => {
     if (isCustomizing) {
-      // "Done" — exit edit mode
       setIsCustomizing(false);
       setTrayOpen(false);
     } else {
-      // Enter edit mode + open tray
       setIsCustomizing(true);
       setTrayOpen(true);
     }
@@ -439,21 +570,30 @@ export default function DashboardPage() {
       const entry = WIDGET_TYPE_REGISTRY[typeId];
       if (!entry) return null;
       return (
-        <div className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-none">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: DRAG_GRABBED_SCALE, opacity: 0.95 }}
+          transition={SPRING_REORDER}
+          className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center pointer-events-none"
+          style={{ boxShadow: DRAG_GRABBED_SHADOW }}
+        >
           <span className="font-mohave text-[13px] text-text-primary">{entry.label}</span>
           <span className="font-mono text-[9px] text-text-disabled mt-[2px]">{entry.description}</span>
-        </div>
+        </motion.div>
       );
     }
 
-    // Grid drag — show actual widget content
+    // Grid drag — show actual widget content with "grabbed" feedback
     return (
-      <div
-        className="rounded-md ring-2 ring-ops-accent shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-none"
-        style={{ opacity: 0.95 }}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: DRAG_GRABBED_SCALE, opacity: 0.95 }}
+        transition={SPRING_REORDER}
+        className="rounded-md ring-2 ring-ops-accent pointer-events-none"
+        style={{ boxShadow: DRAG_GRABBED_SHADOW }}
       >
         {childrenMap[activeId] ?? null}
-      </div>
+      </motion.div>
     );
   }, [activeId, childrenMap]);
 
@@ -463,7 +603,6 @@ export default function DashboardPage() {
         className={cn(
           "space-y-3 max-w-[1400px] transition-opacity duration-500",
           mounted ? "opacity-100" : "opacity-0",
-          // Add bottom padding when tray is open so grid content isn't hidden behind it
           trayOpen && "pb-[340px]"
         )}
       >
@@ -511,13 +650,19 @@ export default function DashboardPage() {
         {isCustomizing ? (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={customCollisionDetection}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <WidgetGrid isCustomizing activeId={activeId} overId={overId}>
+            <WidgetGrid
+              isCustomizing
+              activeId={activeId}
+              overId={overId}
+              orderedInstances={displayOrder}
+              ghostId={ghostWidget?.id ?? null}
+            >
               {childrenMap}
             </WidgetGrid>
 
@@ -528,7 +673,7 @@ export default function DashboardPage() {
             </DragOverlay>
           </DndContext>
         ) : (
-          <WidgetGrid>{childrenMap}</WidgetGrid>
+          <WidgetGrid orderedInstances={displayOrder}>{childrenMap}</WidgetGrid>
         )}
 
         {/* When edit mode is active but tray is closed, show a small "Open Tray" button */}

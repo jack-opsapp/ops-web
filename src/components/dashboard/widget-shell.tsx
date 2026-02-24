@@ -1,18 +1,26 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { EyeOff, GripVertical, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import type { WidgetSize, WidgetTypeId } from "@/lib/types/dashboard-widgets";
 import { WIDGET_TYPE_REGISTRY, WIDGET_SIZE_LABELS } from "@/lib/types/dashboard-widgets";
-import { SPRING_LAYOUT, widgetVariants, EASE_SMOOTH } from "@/lib/utils/motion";
+import {
+  SPRING_REORDER,
+  EASE_SMOOTH,
+  editModeOverlayVariants,
+  EDIT_MODE_SCALE,
+  DRAG_SIBLING_SCALE,
+  DRAG_SIBLING_SATURATION,
+  DRAG_SIBLING_OPACITY,
+} from "@/lib/utils/motion";
 
 // Static Tailwind class maps for purge safety
-const COL_SPAN_CLASSES: Record<WidgetSize, string> = {
+export const COL_SPAN_CLASSES: Record<WidgetSize, string> = {
   sm: "col-span-1",
   md: "col-span-1 md:col-span-2",
   lg: "col-span-1 md:col-span-2",
@@ -54,52 +62,74 @@ export function WidgetShell({
     attributes,
     listeners,
     setNodeRef,
-    transform,
-    transition,
-    isDragging,
+    setActivatorNodeRef,
   } = useSortable({
     id: instanceId,
     disabled: !isCustomizing,
+    // Disable dnd-kit's built-in CSS transforms — Framer Motion handles positioning
+    transition: null,
   });
 
   const entry = WIDGET_TYPE_REGISTRY[typeId];
   const hasMultipleSizes = entry && entry.supportedSizes.length > 1;
 
-  // Merge dnd-kit transform with Framer Motion layout
-  const sortableStyle = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-  };
+  // Compute animation state — GPU-composited only (transform, opacity, filter)
+  const animateState = useMemo(() => {
+    if (isBeingDragged) {
+      // Invisible in-place — overlay shows the "grabbed" copy
+      return { scale: 0.95, opacity: 0, filter: "saturate(0.3)" };
+    }
+    if (isDropTarget) {
+      return { scale: 1, opacity: 1, filter: "saturate(1)" };
+    }
+    if (isDragActive) {
+      // Sibling: shrink + desaturate more
+      return {
+        scale: DRAG_SIBLING_SCALE,
+        opacity: DRAG_SIBLING_OPACITY,
+        filter: `saturate(${DRAG_SIBLING_SATURATION})`,
+      };
+    }
+    if (isCustomizing) {
+      // Edit mode resting
+      return { scale: EDIT_MODE_SCALE, opacity: 1, filter: "saturate(0.7)" };
+    }
+    // Normal
+    return { scale: 1, opacity: 1, filter: "saturate(1)" };
+  }, [isBeingDragged, isDropTarget, isDragActive, isCustomizing]);
 
   return (
     <motion.div
       ref={setNodeRef}
       layout
       layoutId={instanceId}
-      variants={widgetVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      transition={SPRING_LAYOUT}
-      style={sortableStyle}
+      animate={animateState}
+      transition={SPRING_REORDER}
       className={cn(
         COL_SPAN_CLASSES[size],
         ROW_SPAN_CLASSES[size],
-        "relative group/widget h-full overflow-hidden transition-all duration-200",
+        "relative group/widget h-full overflow-hidden",
         isCustomizing && "ring-1 ring-border-medium rounded-md",
-        // Edit mode resting state (customizing but no drag happening)
-        isCustomizing && !isDragActive && "scale-[0.98] saturate-[0.7] opacity-90",
-        // Drag states
-        isBeingDragged && "opacity-0",
-        isDragActive && !isBeingDragged && !isDropTarget && "scale-[0.96] saturate-[0.3] opacity-70",
-        isDropTarget && "ring-2 ring-ops-accent bg-ops-accent/5 scale-100 opacity-100"
+        isDropTarget && "ring-2 ring-ops-accent bg-ops-accent/5"
       )}
       data-widget-id={instanceId}
       data-widget-type={typeId}
       data-widget-size={size}
     >
       {children}
+
+      {/* Dark overlay during edit mode */}
+      <AnimatePresence>
+        {isCustomizing && !isBeingDragged && (
+          <motion.div
+            variants={editModeOverlayVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute inset-0 bg-black rounded-md pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
 
       {/* Inline customization toolbar — floats at top of widget */}
       <AnimatePresence>
@@ -111,8 +141,9 @@ export function WidgetShell({
             transition={{ duration: 0.2, ease: EASE_SMOOTH }}
             className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px]"
           >
-            {/* Drag handle */}
+            {/* Drag handle — uses setActivatorNodeRef for precise activation */}
             <button
+              ref={setActivatorNodeRef}
               {...attributes}
               {...listeners}
               className="p-[3px] rounded-sm bg-[rgba(25,25,25,0.85)] backdrop-blur-sm text-text-disabled hover:text-text-secondary border border-transparent hover:border-border-medium transition-all duration-150 cursor-grab active:cursor-grabbing"

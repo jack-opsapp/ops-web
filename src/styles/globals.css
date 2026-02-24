@@ -247,15 +247,6 @@
 }
 
 @layer utilities {
-  /* Widget grid cell visualization during drag */
-  .widget-grid-lines {
-    background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: calc(25% - 6px) 160px;
-    background-position: 0 0;
-  }
-
   /* Prevent text selection on interactive elements */
   .no-select {
     -webkit-user-select: none;
