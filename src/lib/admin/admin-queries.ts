@@ -4,6 +4,7 @@
  * SERVER ONLY. All functions use getAdminSupabase() (service role, bypasses RLS).
  * ~30 query functions powering every admin tab.
  */
+import { unstable_cache } from "next/cache";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import {
   PLAN_PRICES,
@@ -31,12 +32,20 @@ const db = () => getAdminSupabase();
 
 // ─── Admin Access ────────────────────────────────────────────────────────────
 
+const _isAdminEmail = unstable_cache(
+  async (email: string): Promise<boolean> => {
+    const { count } = await db()
+      .from("admins")
+      .select("*", { count: "exact", head: true })
+      .eq("email", email);
+    return (count ?? 0) > 0;
+  },
+  ["admin-email-check"],
+  { revalidate: 300 } // 5 minutes
+);
+
 export async function isAdminEmail(email: string): Promise<boolean> {
-  const { count } = await db()
-    .from("admins")
-    .select("*", { count: "exact", head: true })
-    .eq("email", email);
-  return (count ?? 0) > 0;
+  return _isAdminEmail(email);
 }
 
 // ─── Overview Queries ─────────────────────────────────────────────────────────
