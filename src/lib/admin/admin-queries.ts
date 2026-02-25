@@ -21,6 +21,10 @@ import {
   type TableStats,
   type ChartDataPoint,
   type StackedBarDataPoint,
+  type LearnCourseOverview,
+  type LearnCourseDetail,
+  type LearnCourseAnalytics,
+  type LearnVanityMetrics,
 } from "./types";
 
 const db = () => getAdminSupabase();
@@ -881,4 +885,277 @@ export async function getAlerts() {
   }
 
   return alerts;
+}
+
+// ─── OPS Learn Queries ───────────────────────────────────────────────────────
+
+export async function getLearnCourseList(): Promise<LearnCourseOverview[]> {
+  const { data: courses, error } = await db()
+    .from("courses")
+    .select(`
+      id, title, slug, status, price_cents, sort_order,
+      display_enrollments, display_rating, display_review_count,
+      modules (
+        id,
+        lessons ( id ),
+        assessments ( id )
+      )
+    `)
+    .order("sort_order");
+
+  if (error) {
+    console.error("getLearnCourseList error:", error);
+    return [];
+  }
+
+  const courseIds = (courses ?? []).map((c) => c.id);
+  const { data: enrollments } = await db()
+    .from("enrollments")
+    .select("course_id, status")
+    .in("course_id", courseIds);
+
+  const enrollMap = new Map<string, { enrolled: number; completed: number }>();
+  for (const e of enrollments ?? []) {
+    const entry = enrollMap.get(e.course_id) ?? { enrolled: 0, completed: 0 };
+    entry.enrolled++;
+    if (e.status === "completed") entry.completed++;
+    enrollMap.set(e.course_id, entry);
+  }
+
+  return (courses ?? []).map((c) => {
+    const modules = c.modules ?? [];
+    const lesson_count = modules.reduce(
+      (acc: number, m: { lessons?: { id: string }[] }) => acc + (m.lessons?.length ?? 0),
+      0
+    );
+    const assessment_count = modules.reduce(
+      (acc: number, m: { assessments?: { id: string }[] }) => acc + (m.assessments?.length ?? 0),
+      0
+    );
+    const counts = enrollMap.get(c.id) ?? { enrolled: 0, completed: 0 };
+
+    return {
+      id: c.id,
+      title: c.title,
+      slug: c.slug,
+      status: c.status,
+      price_cents: c.price_cents,
+      sort_order: c.sort_order,
+      module_count: modules.length,
+      lesson_count,
+      assessment_count,
+      enrolled_count: counts.enrolled,
+      completed_count: counts.completed,
+      display_enrollments: c.display_enrollments ?? 0,
+      display_rating: Number(c.display_rating ?? 0),
+      display_review_count: c.display_review_count ?? 0,
+    };
+  });
+}
+
+export async function getLearnCourseDetail(courseId: string): Promise<LearnCourseDetail | null> {
+  const { data: course, error: courseErr } = await db()
+    .from("courses")
+    .select("id, title, slug, status, price_cents, display_enrollments, display_rating, display_review_count")
+    .eq("id", courseId)
+    .single();
+
+  if (courseErr || !course) return null;
+
+  const { data: modules } = await db()
+    .from("modules")
+    .select("id, title, sort_order")
+    .eq("course_id", courseId)
+    .order("sort_order");
+
+  const moduleIds = (modules ?? []).map((m) => m.id);
+
+  const { data: lessons } = await db()
+    .from("lessons")
+    .select("id, title, slug, duration_minutes, sort_order, module_id, content_blocks ( type )")
+    .in("module_id", moduleIds)
+    .order("sort_order");
+
+  const { data: assessments } = await db()
+    .from("assessments")
+    .select("id, title, slug, type, sort_order, passing_score, questions, module_id")
+    .in("module_id", moduleIds)
+    .order("sort_order");
+
+  const assembledModules = (modules ?? []).map((m) => ({
+    id: m.id,
+    title: m.title,
+    sort_order: m.sort_order,
+    lessons: (lessons ?? [])
+      .filter((l) => l.module_id === m.id)
+      .map((l) => ({
+        id: l.id,
+        title: l.title,
+        slug: l.slug,
+        duration_minutes: l.duration_minutes,
+        sort_order: l.sort_order,
+        content_blocks: (l.content_blocks ?? []).map((cb: { type: string }) => ({ type: cb.type })),
+      })),
+    assessments: (assessments ?? [])
+      .filter((a) => a.module_id === m.id)
+      .map((a) => ({
+        id: a.id,
+        title: a.title,
+        slug: a.slug,
+        type: a.type as "quiz" | "assignment" | "test",
+        sort_order: a.sort_order,
+        passing_score: a.passing_score,
+        question_count: Array.isArray(a.questions) ? a.questions.length : 0,
+      })),
+  }));
+
+  return {
+    id: course.id,
+    title: course.title,
+    slug: course.slug,
+    status: course.status,
+    price_cents: course.price_cents,
+    display_enrollments: course.display_enrollments ?? 0,
+    display_rating: Number(course.display_rating ?? 0),
+    display_review_count: course.display_review_count ?? 0,
+    modules: assembledModules,
+  };
+}
+
+export async function getLearnCourseAnalytics(courseId: string): Promise<LearnCourseAnalytics> {
+  // 1. Enrollment counts
+  const { data: enrollments } = await db()
+    .from("enrollments")
+    .select("status")
+    .eq("course_id", courseId);
+
+  const total = enrollments?.length ?? 0;
+  const active = enrollments?.filter((e) => e.status === "active").length ?? 0;
+  const completed = enrollments?.filter((e) => e.status === "completed").length ?? 0;
+
+  // 2. Lesson-level progress
+  const { data: modules } = await db()
+    .from("modules")
+    .select("id, title, sort_order")
+    .eq("course_id", courseId)
+    .order("sort_order");
+
+  const moduleIds = (modules ?? []).map((m) => m.id);
+
+  const { data: lessons } = await db()
+    .from("lessons")
+    .select("id, title, sort_order, module_id")
+    .in("module_id", moduleIds)
+    .order("sort_order");
+
+  const lessonIds = (lessons ?? []).map((l) => l.id);
+
+  const { data: progress } = await db()
+    .from("lesson_progress")
+    .select("lesson_id, status")
+    .in("lesson_id", lessonIds);
+
+  const progressMap = new Map<string, { started: number; completed: number }>();
+  for (const p of progress ?? []) {
+    const entry = progressMap.get(p.lesson_id) ?? { started: 0, completed: 0 };
+    entry.started++;
+    if (p.status === "completed") entry.completed++;
+    progressMap.set(p.lesson_id, entry);
+  }
+
+  const moduleMap = new Map((modules ?? []).map((m) => [m.id, m]));
+
+  const lesson_progress = (lessons ?? []).map((l) => {
+    const mod = moduleMap.get(l.module_id);
+    const counts = progressMap.get(l.id) ?? { started: 0, completed: 0 };
+    return {
+      lesson_id: l.id,
+      lesson_title: l.title,
+      module_title: mod?.title ?? "",
+      module_sort_order: mod?.sort_order ?? 0,
+      lesson_sort_order: l.sort_order,
+      started_count: counts.started,
+      completed_count: counts.completed,
+    };
+  });
+
+  // 3. Assessment stats
+  const { data: assessments } = await db()
+    .from("assessments")
+    .select("id, title, type")
+    .in("module_id", moduleIds);
+
+  const assessmentIds = (assessments ?? []).map((a) => a.id);
+
+  const { data: submissions } = await db()
+    .from("assessment_submissions")
+    .select("assessment_id, score, status")
+    .in("assessment_id", assessmentIds)
+    .eq("status", "graded");
+
+  const subMap = new Map<string, { scores: number[]; passed: number }>();
+  for (const s of submissions ?? []) {
+    const entry = subMap.get(s.assessment_id) ?? { scores: [], passed: 0 };
+    if (s.score !== null) {
+      entry.scores.push(s.score);
+      if (s.score >= 70) entry.passed++;
+    }
+    subMap.set(s.assessment_id, entry);
+  }
+
+  const assessment_stats = (assessments ?? []).map((a) => {
+    const stats = subMap.get(a.id) ?? { scores: [], passed: 0 };
+    const count = stats.scores.length;
+    return {
+      assessment_id: a.id,
+      assessment_title: a.title,
+      type: a.type,
+      submission_count: count,
+      pass_count: stats.passed,
+      pass_rate: count > 0 ? Math.round((stats.passed / count) * 100) : 0,
+      avg_score: count > 0 ? Math.round(stats.scores.reduce((a, b) => a + b, 0) / count) : 0,
+    };
+  });
+
+  return {
+    enrollment: {
+      total,
+      active,
+      completed,
+      completion_rate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    },
+    lesson_progress,
+    assessment_stats,
+  };
+}
+
+export async function updateLearnVanityMetrics(
+  courseId: string,
+  metrics: LearnVanityMetrics
+): Promise<{ success: boolean; error?: string }> {
+  if (metrics.display_enrollments < 0) {
+    return { success: false, error: "Enrollments must be ≥ 0" };
+  }
+  if (metrics.display_rating < 0 || metrics.display_rating > 5) {
+    return { success: false, error: "Rating must be 0.0–5.0" };
+  }
+  if (metrics.display_review_count < 0) {
+    return { success: false, error: "Review count must be ≥ 0" };
+  }
+
+  const { error } = await db()
+    .from("courses")
+    .update({
+      display_enrollments: metrics.display_enrollments,
+      display_rating: metrics.display_rating,
+      display_review_count: metrics.display_review_count,
+    })
+    .eq("id", courseId);
+
+  if (error) {
+    console.error("updateLearnVanityMetrics error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }

@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/feedback", label: "FEEDBACK" },
   { href: "/admin/blog", label: "BLOG" },
   { href: "/admin/system", label: "SYSTEM" },
+  { href: "/admin/learn", label: "OPS LEARN" },
 ];
 
 export function AdminSidebar() {

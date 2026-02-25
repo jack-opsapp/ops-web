@@ -261,3 +261,104 @@ export interface BlogPostListItem extends BlogPost {
   category2_name: string | null;
   ga4_views?: number;
 }
+
+// ─── OPS Learn Types ─────────────────────────────────────────────────────────
+
+export interface LearnCourseOverview {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  price_cents: number;
+  sort_order: number;
+  module_count: number;
+  lesson_count: number;
+  assessment_count: number;
+  enrolled_count: number;
+  completed_count: number;
+  display_enrollments: number;
+  display_rating: number;
+  display_review_count: number;
+}
+
+export interface LearnContentBlock {
+  type: string;
+}
+
+export interface LearnLessonDetail {
+  id: string;
+  title: string;
+  slug: string;
+  duration_minutes: number | null;
+  sort_order: number;
+  content_blocks: LearnContentBlock[];
+}
+
+export interface LearnAssessmentDetail {
+  id: string;
+  title: string;
+  slug: string;
+  type: "quiz" | "assignment" | "test";
+  sort_order: number;
+  passing_score: number | null;
+  question_count: number;
+}
+
+export interface LearnModuleDetail {
+  id: string;
+  title: string;
+  sort_order: number;
+  lessons: LearnLessonDetail[];
+  assessments: LearnAssessmentDetail[];
+}
+
+export interface LearnCourseDetail {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  price_cents: number;
+  display_enrollments: number;
+  display_rating: number;
+  display_review_count: number;
+  modules: LearnModuleDetail[];
+}
+
+export interface LearnEnrollmentCounts {
+  total: number;
+  active: number;
+  completed: number;
+  completion_rate: number;
+}
+
+export interface LearnLessonProgress {
+  lesson_id: string;
+  lesson_title: string;
+  module_title: string;
+  module_sort_order: number;
+  lesson_sort_order: number;
+  started_count: number;
+  completed_count: number;
+}
+
+export interface LearnAssessmentStats {
+  assessment_id: string;
+  assessment_title: string;
+  type: string;
+  submission_count: number;
+  pass_count: number;
+  pass_rate: number;
+  avg_score: number;
+}
+
+export interface LearnCourseAnalytics {
+  enrollment: LearnEnrollmentCounts;
+  lesson_progress: LearnLessonProgress[];
+  assessment_stats: LearnAssessmentStats[];
+}
+
+export interface LearnVanityMetrics {
+  display_enrollments: number;
+  display_rating: number;
+  display_review_count: number;
+}
