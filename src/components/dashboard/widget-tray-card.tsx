@@ -42,11 +42,11 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
       animate="visible"
       custom={index}
       className={cn(
-        "shrink-0 snap-start rounded-lg border p-[8px] flex flex-col",
+        "shrink-0 snap-start rounded-lg p-[8px] flex flex-col",
         "cursor-grab active:cursor-grabbing select-none transition-colors duration-150",
         isAdded
-          ? "border-border/50 opacity-50 saturate-0"
-          : "border-border bg-[rgba(255,255,255,0.03)] hover:border-border-medium hover:bg-[rgba(255,255,255,0.05)]",
+          ? "opacity-50 saturate-0"
+          : "bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)]",
         isDragging && "opacity-40 scale-95"
       )}
     >
