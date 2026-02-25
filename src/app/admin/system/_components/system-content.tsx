@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SubTabs } from "../../_components/sub-tabs";
 import { FeatureFlagsTab } from "./feature-flags-tab";
+import { useSortState } from "../../_components/sortable-table-header";
 import type { AuditLogEntry, DataQualityIssue, TableStats } from "@/lib/admin/types";
 
 interface SystemContentProps {
@@ -35,15 +36,66 @@ export function SystemContent({ auditLog, dataQuality, tableStats, integrations 
 
 function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [tableFilter, setTableFilter] = useState("ALL");
+  const [actionFilter, setActionFilter] = useState("ALL");
+
+  const tables = useMemo(() => Array.from(new Set(entries.map((e) => e.table_name))).sort(), [entries]);
+  const actions = useMemo(() => Array.from(new Set(entries.map((e) => e.action))).sort(), [entries]);
+
+  const filtered = useMemo(
+    () =>
+      entries.filter((e) => {
+        if (tableFilter !== "ALL" && e.table_name !== tableFilter) return false;
+        if (actionFilter !== "ALL" && e.action !== actionFilter) return false;
+        return true;
+      }),
+    [entries, tableFilter, actionFilter]
+  );
 
   return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <select
+          value={tableFilter}
+          onChange={(e) => setTableFilter(e.target.value)}
+          className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[12px] text-[#E5E5E5] uppercase focus:outline-none focus:border-[#597794]"
+        >
+          <option value="ALL" className="bg-[#1D1D1D]">All Tables</option>
+          {tables.map((t) => (
+            <option key={t} value={t} className="bg-[#1D1D1D]">{t}</option>
+          ))}
+        </select>
+        <div className="flex gap-1">
+          {["ALL", ...actions].map((a) => (
+            <button
+              key={a}
+              onClick={() => setActionFilter(a)}
+              className={[
+                "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
+                actionFilter === a
+                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
+              ].join(" ")}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+        {(tableFilter !== "ALL" || actionFilter !== "ALL") && (
+          <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+            [{filtered.length} of {entries.length}]
+          </span>
+        )}
+      </div>
+
     <div className="border border-white/[0.08] rounded-lg overflow-hidden">
       <div className="grid grid-cols-5 px-6 py-3 border-b border-white/[0.08]">
         {["TABLE", "ACTION", "RECORD ID", "TIMESTAMP", ""].map((h) => (
           <span key={h} className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">{h}</span>
         ))}
       </div>
-      {entries.map((entry) => (
+      {filtered.map((entry) => (
         <div key={entry.id}>
           <div
             className="grid grid-cols-5 px-6 items-center h-14 border-b border-white/[0.05] cursor-pointer hover:bg-white/[0.02] transition-colors"
@@ -85,13 +137,14 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
           )}
         </div>
       ))}
-      {entries.length === 0 && (
+      {filtered.length === 0 && (
         <div className="px-6 py-12 text-center">
           <p className="font-mohave text-[14px] uppercase text-[#6B6B6B]">
             No audit log entries (table may not exist)
           </p>
         </div>
       )}
+    </div>
     </div>
   );
 }
@@ -164,6 +217,8 @@ function IntegrationsTab({ data }: { data: SystemContentProps["integrations"] })
 
 function DatabaseTab({ stats }: { stats: TableStats[] }) {
   const totalRows = stats.reduce((s, t) => s + t.rowCount, 0);
+  const sort = useSortState("rowCount");
+  const sorted = sort.sorted(stats);
 
   return (
     <div className="space-y-4">
@@ -175,11 +230,26 @@ function DatabaseTab({ stats }: { stats: TableStats[] }) {
 
       <div className="border border-white/[0.08] rounded-lg overflow-hidden">
         <div className="grid grid-cols-3 px-6 py-3 border-b border-white/[0.08]">
-          {["TABLE", "ROWS", "% OF TOTAL"].map((h) => (
-            <span key={h} className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">{h}</span>
+          {([
+            { key: "table", label: "TABLE" },
+            { key: "rowCount", label: "ROWS" },
+            { key: null, label: "% OF TOTAL" },
+          ] as const).map((col) => (
+            <span
+              key={col.label}
+              className={`font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B] inline-flex items-center gap-1 ${
+                col.key ? "cursor-pointer select-none hover:text-[#A0A0A0]" : ""
+              }`}
+              onClick={col.key ? () => sort.toggle(col.key) : undefined}
+            >
+              {col.label}
+              {col.key && sort.sort.key === col.key && (
+                <span className="text-[#597794]">{sort.sort.dir === "asc" ? "↑" : "↓"}</span>
+              )}
+            </span>
           ))}
         </div>
-        {stats.map((t) => {
+        {sorted.map((t) => {
           const pct = totalRows > 0 ? Math.round((t.rowCount / totalRows) * 100) : 0;
           return (
             <div key={t.table} className="grid grid-cols-3 px-6 items-center h-12 border-b border-white/[0.05] last:border-0">

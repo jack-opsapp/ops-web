@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 interface FunnelStep {
   step: string;
   count: number;
@@ -7,10 +9,12 @@ interface FunnelStep {
 
 interface FunnelChartProps {
   steps: FunnelStep[];
+  onStepClick?: (step: FunnelStep, index: number) => void;
 }
 
-export function FunnelChart({ steps }: FunnelChartProps) {
+export function FunnelChart({ steps, onStepClick }: FunnelChartProps) {
   const max = steps[0]?.count ?? 1;
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   return (
     <div className="space-y-3">
@@ -20,9 +24,18 @@ export function FunnelChart({ steps }: FunnelChartProps) {
           i > 0 && steps[i - 1].count > 0
             ? Math.round((1 - s.count / steps[i - 1].count) * 100)
             : null;
+        const isHovered = hoveredIndex === i;
 
         return (
-          <div key={s.step}>
+          <div
+            key={s.step}
+            className={`rounded-md px-2 py-1 -mx-2 transition-colors ${
+              onStepClick ? "cursor-pointer" : ""
+            } ${isHovered ? "bg-white/[0.04]" : ""}`}
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
+            onClick={onStepClick ? () => onStepClick(s, i) : undefined}
+          >
             <div className="flex items-center justify-between mb-1">
               <span className="font-mohave text-[13px] uppercase text-[#A0A0A0]">
                 {s.step}
@@ -40,7 +53,9 @@ export function FunnelChart({ steps }: FunnelChartProps) {
             </div>
             <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#597794] rounded-full transition-all duration-500"
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isHovered ? "bg-[#6B8DAD]" : "bg-[#597794]"
+                }`}
                 style={{ width: `${pct}%` }}
               />
             </div>

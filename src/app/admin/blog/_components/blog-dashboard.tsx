@@ -2,6 +2,10 @@
 
 import { StatCard } from "../../_components/stat-card";
 import { BlogCharts } from "./blog-charts";
+import {
+  SortableTableHeader,
+  useSortState,
+} from "../../_components/sortable-table-header";
 import type { BlogPost } from "@/lib/admin/types";
 
 interface BlogDashboardProps {
@@ -21,10 +25,12 @@ export function BlogDashboard({
   ga4Timeline,
   ga4ByPost,
 }: BlogDashboardProps) {
+  const sort = useSortState("ga4_views");
+
   // Only live posts for the content performance table
-  const livePosts = posts
-    .filter((p) => p.is_live)
-    .sort((a, b) => b.ga4_views - a.ga4_views);
+  const livePosts = sort.sorted(
+    posts.filter((p) => p.is_live)
+  );
 
   const avgViews =
     livePosts.length > 0
@@ -60,26 +66,19 @@ export function BlogDashboard({
         <div className="border border-white/[0.08] rounded-lg overflow-hidden">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-white/[0.02]">
-                <th className="font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] px-4 py-3">
-                  Title
-                </th>
-                <th className="font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] px-4 py-3">
-                  Category
-                </th>
-                <th className="font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] px-4 py-3 text-right">
-                  GA4 Views
-                </th>
-                <th className="font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] px-4 py-3 text-right">
-                  Display Views
-                </th>
-                <th className="font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] px-4 py-3 text-right">
-                  Words
-                </th>
-                <th className="font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] px-4 py-3 text-right">
-                  Published
-                </th>
-              </tr>
+              <SortableTableHeader
+                columns={[
+                  { key: "title", label: "Title" },
+                  { key: "category_id", label: "Category" },
+                  { key: "ga4_views", label: "GA4 Views" },
+                  { key: "display_views", label: "Display Views" },
+                  { key: "word_count", label: "Words" },
+                  { key: "published_at", label: "Published" },
+                ]}
+                sort={sort.sort}
+                onSort={sort.toggle}
+                className="px-4"
+              />
             </thead>
             <tbody>
               {livePosts.map((post) => (

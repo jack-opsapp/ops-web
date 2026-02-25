@@ -1,12 +1,32 @@
 "use client";
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useState } from "react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, Sector } from "recharts";
 
 interface DonutChartProps {
   data: { name: string; value: number; color: string }[];
+  onSegmentClick?: (segment: { name: string; value: number }) => void;
 }
 
-export function AdminDonutChart({ data }: DonutChartProps) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius - 2}
+      outerRadius={outerRadius + 4}
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill}
+    />
+  );
+}
+
+export function AdminDonutChart({ data, onSegmentClick }: DonutChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+
   return (
     <ResponsiveContainer width="100%" height={220}>
       <PieChart>
@@ -18,6 +38,16 @@ export function AdminDonutChart({ data }: DonutChartProps) {
           outerRadius={85}
           paddingAngle={2}
           dataKey="value"
+          activeIndex={activeIndex}
+          activeShape={renderActiveShape}
+          onMouseEnter={(_, index) => setActiveIndex(index)}
+          onMouseLeave={() => setActiveIndex(undefined)}
+          onClick={
+            onSegmentClick
+              ? (entry) => onSegmentClick({ name: entry.name, value: entry.value })
+              : undefined
+          }
+          cursor={onSegmentClick ? "pointer" : undefined}
         >
           {data.map((entry, i) => (
             <Cell key={i} fill={entry.color} />

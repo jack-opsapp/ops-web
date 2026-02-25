@@ -26,6 +26,9 @@ async function fetchRevenueData() {
     newVsChurned,
     trialTimeline,
     seatUtilization,
+    // Previous period for trend comparison
+    prevChurnedCount,
+    prevTrialConversion,
   ] = await Promise.all([
     computeMRR(),
     getPayingCompanyCount(),
@@ -37,7 +40,12 @@ async function fetchRevenueData() {
     getNewVsChurned(12),
     getTrialExpirationTimeline(30),
     getSeatUtilization(),
+    getChurnedCount(60), // 30-60 days ago for comparison
+    getTrialConversionRate(180), // previous 90 days for comparison
   ]);
+
+  // Compute previous period churn (days 31-60 churn = 60d total - current 30d)
+  const prevPeriodChurn = Math.max(0, prevChurnedCount - churnedCount);
 
   return {
     mrr,
@@ -46,11 +54,23 @@ async function fetchRevenueData() {
     trialCount,
     churnedCount,
     trialConversion,
+    prevPeriodChurn,
+    prevTrialConversion,
     planDistribution,
     mrrGrowth,
     newVsChurned,
     trialTimeline,
     seatUtilization,
+  };
+}
+
+function computeTrend(current: number, previous: number): { direction: "up" | "down" | "flat"; value: string } {
+  if (previous === 0) return { direction: current > 0 ? "up" : "flat", value: "N/A" };
+  const pctChange = Math.round(((current - previous) / previous) * 100);
+  if (pctChange === 0) return { direction: "flat", value: "0%" };
+  return {
+    direction: pctChange > 0 ? "up" : "down",
+    value: `${Math.abs(pctChange)}%`,
   };
 }
 
@@ -69,6 +89,14 @@ export default async function RevenuePage() {
     );
   }
 
+  const churnTrend = computeTrend(data.churnedCount, data.prevPeriodChurn);
+  // For churn, "up" is bad — flip the direction semantics
+  const churnTrendAdjusted = {
+    ...churnTrend,
+    direction: churnTrend.direction === "up" ? "down" as const : churnTrend.direction === "down" ? "up" as const : "flat" as const,
+  };
+  const conversionTrend = computeTrend(data.trialConversion, data.prevTrialConversion);
+
   return (
     <div>
       <AdminPageHeader title="Revenue" caption="Supabase data, real-time" />
@@ -76,12 +104,22 @@ export default async function RevenuePage() {
       <div className="p-8 space-y-8">
         {/* 6 KPI Cards */}
         <div className="grid grid-cols-6 gap-4">
-          <StatCard label="MRR" value={`$${data.mrr.toLocaleString()}`} />
+          <StatCard label="MRR" value={`$${data.mrr.toLocaleString()}`} href="#mrr-growth" />
           <StatCard label="ARR" value={`$${data.arr.toLocaleString()}`} />
           <StatCard label="Trials" value={data.trialCount} />
-          <StatCard label="Paying" value={data.payingCount} accent />
-          <StatCard label="Churned (30d)" value={data.churnedCount} danger={data.churnedCount > 0} />
-          <StatCard label="Trial Conversion" value={`${data.trialConversion}%`} caption="last 90 days" />
+          <StatCard label="Paying" value={data.payingCount} accent href="/admin/companies" />
+          <StatCard
+            label="Churned (30d)"
+            value={data.churnedCount}
+            danger={data.churnedCount > 0}
+            trend={churnTrendAdjusted}
+          />
+          <StatCard
+            label="Trial Conversion"
+            value={`${data.trialConversion}%`}
+            caption="last 90 days"
+            trend={conversionTrend}
+          />
         </div>
 
         {/* Charts (client component) */}

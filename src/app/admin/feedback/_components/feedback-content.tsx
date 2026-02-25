@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { SubTabs } from "../../_components/sub-tabs";
+import {
+  SortableTableHeader,
+  useSortState,
+} from "../../_components/sortable-table-header";
 import type { FeatureRequest, AppMessage, PromoCode } from "@/lib/admin/types";
 
 const STATUS_OPTIONS = ["new", "reviewing", "planned", "in-progress", "done", "wont-fix"] as const;
@@ -35,12 +39,21 @@ export function FeedbackContent({ featureRequests, appMessages, promoCodes }: Fe
 
 function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL");
   const [items, setItems] = useState(requests);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const sort = useSortState("created_at");
 
-  const filtered = statusFilter === "ALL"
-    ? items
-    : items.filter((r) => r.status === statusFilter);
+  const types = Array.from(new Set(items.map((r) => r.type)));
+
+  const filtered = sort.sorted(
+    items.filter((r) => {
+      if (statusFilter !== "ALL" && r.status !== statusFilter) return false;
+      if (typeFilter !== "ALL" && r.type !== typeFilter) return false;
+      return true;
+    })
+  );
 
   async function handleStatusChange(id: string, newStatus: string) {
     startTransition(async () => {
@@ -59,41 +72,86 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Status Filters */}
-      <div className="flex gap-1 flex-wrap">
-        {["ALL", ...STATUS_OPTIONS].map((f) => (
-          <button
-            key={f}
-            onClick={() => setStatusFilter(f)}
-            className={[
-              "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
-              statusFilter === f
-                ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
-                : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
-            ].join(" ")}
-          >
-            {f}
-          </button>
-        ))}
+      {/* Status + Type Filters */}
+      <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
+          {["ALL", ...STATUS_OPTIONS].map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={[
+                "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
+                statusFilter === f
+                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
+              ].join(" ")}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        {types.length > 1 && (
+          <>
+            <div className="w-px h-6 bg-white/[0.08] self-center" />
+            <div className="flex gap-1 flex-wrap">
+              {["ALL", ...types].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={[
+                    "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
+                    typeFilter === t
+                      ? "text-[#597794] border-[#597794]/30 bg-[#597794]/10"
+                      : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
+                  ].join(" ")}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Table */}
       <div className="border border-white/[0.08] rounded-lg overflow-hidden">
-        <div className="grid grid-cols-6 px-6 py-3 border-b border-white/[0.08]">
-          {["TYPE", "TITLE", "PLATFORM", "STATUS", "USER", "DATE"].map((h) => (
-            <span key={h} className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">{h}</span>
-          ))}
-        </div>
+        <table className="w-full">
+          <thead>
+            <SortableTableHeader
+              columns={[
+                { key: "type", label: "Type" },
+                { key: "title", label: "Title" },
+                { key: "platform", label: "Platform" },
+                { key: "status", label: "Status" },
+                { key: "user_email", label: "User" },
+                { key: "created_at", label: "Date" },
+              ]}
+              sort={sort.sort}
+              onSort={sort.toggle}
+              className="px-6"
+            />
+          </thead>
+          <tbody>
         {filtered.map((r) => {
           const statusColor = STATUS_COLORS[r.status] ?? "#6B6B6B";
           return (
-            <div key={r.id} className="grid grid-cols-6 px-6 items-center min-h-[56px] border-b border-white/[0.05] last:border-0">
-              <span className="font-mohave text-[13px] text-[#A0A0A0]">{r.type}</span>
-              <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-2" title={r.description ?? undefined}>
-                {r.title}
-              </span>
-              <span className="font-mohave text-[13px] text-[#A0A0A0]">{r.platform ?? "—"}</span>
-              <span>
+            <tr key={r.id} className="border-b border-white/[0.05] last:border-0">
+              <td className="px-6 py-3 font-mohave text-[13px] text-[#A0A0A0]">{r.type}</td>
+              <td className="px-2 py-3">
+                <button
+                  onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                  className="font-mohave text-[14px] text-[#E5E5E5] truncate text-left hover:text-[#597794] transition-colors cursor-pointer"
+                >
+                  {r.title}
+                </button>
+                {expandedId === r.id && r.description && (
+                  <p className="font-kosugi text-[12px] text-[#A0A0A0] mt-2 whitespace-pre-wrap">
+                    {r.description}
+                  </p>
+                )}
+              </td>
+              <td className="px-2 py-3 font-mohave text-[13px] text-[#A0A0A0]">{r.platform ?? "\u2014"}</td>
+              <td className="px-2 py-3">
                 <select
                   value={r.status}
                   onChange={(e) => handleStatusChange(r.id, e.target.value)}
@@ -107,14 +165,16 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                     </option>
                   ))}
                 </select>
-              </span>
-              <span className="font-kosugi text-[12px] text-[#6B6B6B] truncate">{r.user_email ?? "—"}</span>
-              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+              </td>
+              <td className="px-2 py-3 font-kosugi text-[12px] text-[#6B6B6B] truncate">{r.user_email ?? "\u2014"}</td>
+              <td className="px-2 py-3 font-kosugi text-[12px] text-[#6B6B6B]">
                 [{new Date(r.created_at).toLocaleDateString()}]
-              </span>
-            </div>
+              </td>
+            </tr>
           );
         })}
+          </tbody>
+        </table>
         {filtered.length === 0 && (
           <div className="px-6 py-12 text-center">
             <p className="font-mohave text-[14px] uppercase text-[#6B6B6B]">No feature requests</p>

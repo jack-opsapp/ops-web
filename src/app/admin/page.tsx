@@ -14,9 +14,9 @@ import { getFeatureRequests } from "@/lib/admin/admin-queries";
 import { PLAN_PRICES } from "@/lib/admin/types";
 import { StatCard } from "./_components/stat-card";
 import { AdminPageHeader } from "./_components/admin-page-header";
-import { Sparkline } from "./_components/sparkline";
 import { AlertList } from "./_components/alert-list";
 import { RecentSignups } from "./_components/recent-signups";
+import { OverviewSparklines } from "./_components/overview-sparklines";
 
 async function fetchOverviewData() {
   const [
@@ -47,7 +47,6 @@ async function fetchOverviewData() {
   const activeUsersSparkline = getActiveUsersSparkline(authUsers, 12);
 
   // Revenue sparkline: approximate from company sparkline data
-  // Each new paying company adds avg revenue
   const avgPrice = Object.values(PLAN_PRICES).reduce((a, b) => a + b, 0) / Object.keys(PLAN_PRICES).length;
   const revenueSparkline = companySparkline.map((d) => ({
     label: d.label,
@@ -97,12 +96,12 @@ export default async function OverviewPage() {
       />
 
       <div className="p-8 space-y-8">
-        {/* 6 KPI Cards */}
+        {/* 6 KPI Cards — clickable */}
         <div className="grid grid-cols-6 gap-4">
-          <StatCard label="Total Companies" value={data.totalCompanies} />
-          <StatCard label="MAU" value={data.mau} caption="Firebase Auth" />
-          <StatCard label="WAU" value={data.wau} caption="Firebase Auth" />
-          <StatCard label="MRR" value={`$${data.mrr.toLocaleString()}`} />
+          <StatCard label="Total Companies" value={data.totalCompanies} href="/admin/companies" />
+          <StatCard label="MAU" value={data.mau} caption="Firebase Auth" href="/admin/engagement" />
+          <StatCard label="WAU" value={data.wau} caption="Firebase Auth" href="/admin/engagement" />
+          <StatCard label="MRR" value={`$${data.mrr.toLocaleString()}`} href="/admin/revenue" />
           <StatCard label="Trial Conversion" value={`${data.trialConversion}%`} caption="last 90 days" />
           <StatCard
             label="Trials Expiring"
@@ -112,33 +111,15 @@ export default async function OverviewPage() {
           />
         </div>
 
-        {/* 4 Sparklines */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-              New Companies
-            </p>
-            <Sparkline data={data.companySparkline} color="#597794" />
-          </div>
-          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-              Active Users
-            </p>
-            <Sparkline data={data.activeUsersSparkline} color="#9DB582" />
-          </div>
-          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-              Tasks Created
-            </p>
-            <Sparkline data={data.taskSparkline} color="#8195B5" />
-          </div>
-          <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-            <p className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-              Revenue
-            </p>
-            <Sparkline data={data.revenueSparkline} color="#C4A868" />
-          </div>
-        </div>
+        {/* 4 Sparklines with DateRangeControl */}
+        <OverviewSparklines
+          initial={{
+            companies: data.companySparkline,
+            activeUsers: data.activeUsersSparkline,
+            tasks: data.taskSparkline,
+            revenue: data.revenueSparkline,
+          }}
+        />
 
         {/* Alerts */}
         <div className="border border-white/[0.08] rounded-lg bg-white/[0.02]">
@@ -160,11 +141,16 @@ export default async function OverviewPage() {
             <RecentSignups companies={data.recentSignups} />
           </div>
 
-          {/* Latest Feature Requests */}
+          {/* Latest Feature Requests — clickable header */}
           <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-            <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
-              Latest Feature Requests
-            </p>
+            <a href="/admin/feedback" className="flex items-center justify-between mb-4 group">
+              <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] group-hover:text-[#A0A0A0] transition-colors">
+                Latest Feature Requests
+              </p>
+              <span className="font-mohave text-[12px] text-[#597794] opacity-0 group-hover:opacity-100 transition-opacity">
+                View All &rarr;
+              </span>
+            </a>
             <div className="space-y-0">
               {data.latestFeatureRequests.length === 0 ? (
                 <p className="font-mohave text-[14px] uppercase text-[#6B6B6B] py-4 text-center">

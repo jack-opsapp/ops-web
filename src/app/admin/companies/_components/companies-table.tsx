@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { PlanBadge } from "../../_components/plan-badge";
 import { StatusBadge } from "../../_components/status-badge";
 import { useCompanySheet } from "../../_components/company-sheet-provider";
 import { deriveSubscriptionStatus, deriveSubscriptionPlan } from "@/lib/admin/types";
+import type { SortDir } from "../../_components/sortable-table-header";
 
 type Company = {
   id: string;
@@ -38,13 +39,26 @@ function timeAgo(date: string | null): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+type SortKey = "name" | "userCount" | "projectCount" | "pipelineCount" | "lastActive" | "created_at";
+
 export function CompaniesTable({ companies }: { companies: Company[] }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const { openCompany } = useCompanySheet();
 
+  const handleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }, [sortKey]);
+
   const filtered = useMemo(() => {
-    return companies.filter((c) => {
+    const base = companies.filter((c) => {
       const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
 
       if (statusFilter === "ALL") return matchesSearch;
@@ -58,7 +72,29 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
       const matchesStatus = derived.toLowerCase() === statusFilter.toLowerCase();
       return matchesSearch && matchesStatus;
     });
-  }, [companies, search, statusFilter]);
+
+    return [...base].sort((a, b) => {
+      let aVal: string | number | null;
+      let bVal: string | number | null;
+      if (sortKey === "lastActive") {
+        aVal = a.lastActive ? new Date(a.lastActive).getTime() : 0;
+        bVal = b.lastActive ? new Date(b.lastActive).getTime() : 0;
+      } else if (sortKey === "created_at") {
+        aVal = new Date(a.created_at).getTime();
+        bVal = new Date(b.created_at).getTime();
+      } else if (sortKey === "name") {
+        aVal = a.name.toLowerCase();
+        bVal = b.name.toLowerCase();
+      } else {
+        aVal = a[sortKey] as number;
+        bVal = b[sortKey] as number;
+      }
+      const cmp = typeof aVal === "string" && typeof bVal === "string"
+        ? aVal.localeCompare(bVal)
+        : (aVal as number) - (bVal as number);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [companies, search, statusFilter, sortKey, sortDir]);
 
   return (
     <div className="space-y-4">
@@ -95,9 +131,27 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
       <div className="border border-white/[0.08] rounded-lg overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-8 px-6 py-3 border-b border-white/[0.08]">
-          {["COMPANY", "PLAN", "STATUS", "USERS", "PROJECTS", "PIPELINE", "LAST ACTIVE", "JOINED"].map((h) => (
-            <span key={h} className="font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B]">
-              {h}
+          {([
+            { key: "name", label: "COMPANY" },
+            { key: null, label: "PLAN" },
+            { key: null, label: "STATUS" },
+            { key: "userCount", label: "USERS" },
+            { key: "projectCount", label: "PROJECTS" },
+            { key: "pipelineCount", label: "PIPELINE" },
+            { key: "lastActive", label: "LAST ACTIVE" },
+            { key: "created_at", label: "JOINED" },
+          ] as const).map((col) => (
+            <span
+              key={col.label}
+              className={`font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] inline-flex items-center gap-1 ${
+                col.key ? "cursor-pointer select-none hover:text-[#A0A0A0]" : ""
+              }`}
+              onClick={col.key ? () => handleSort(col.key as SortKey) : undefined}
+            >
+              {col.label}
+              {col.key && sortKey === col.key && (
+                <span className="text-[#597794]">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>
+              )}
             </span>
           ))}
         </div>

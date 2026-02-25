@@ -4,6 +4,7 @@ import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
 import { isAdminEmail } from "@/lib/admin/admin-queries";
 import { AdminSidebar } from "./_components/sidebar";
 import { CompanySheetProvider } from "./_components/company-sheet-provider";
+import { AdminQueryProvider } from "./_components/query-provider";
 
 async function getAdminUser() {
   const cookieStore = await cookies();
@@ -37,11 +38,13 @@ export default async function AdminLayout({
   }
 
   return (
-    <CompanySheetProvider>
-      <div className="flex min-h-screen bg-[#0D0D0D]">
-        <AdminSidebar />
-        <main className="flex-1 overflow-auto">{children}</main>
-      </div>
-    </CompanySheetProvider>
+    <AdminQueryProvider>
+      <CompanySheetProvider>
+        <div className="flex min-h-screen bg-[#0D0D0D]">
+          <AdminSidebar />
+          <main className="flex-1 overflow-auto">{children}</main>
+        </div>
+      </CompanySheetProvider>
+    </AdminQueryProvider>
   );
 }

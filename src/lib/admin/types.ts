@@ -197,6 +197,18 @@ export function deriveSubscriptionPlan(company: {
   return "—";
 }
 
+// ─── Date Range / Granularity Types ──────────────────────────────────────────
+
+export type Granularity = "hourly" | "daily" | "weekly" | "monthly";
+
+export type DatePreset = "today" | "7d" | "30d" | "90d" | "12m" | "all";
+
+export interface DateRangeParams {
+  from: string;
+  to: string;
+  granularity: Granularity;
+}
+
 // ─── Chart Types ──────────────────────────────────────────────────────────────
 
 export interface ChartDataPoint {

@@ -26,7 +26,9 @@ import {
   type LearnCourseDetail,
   type LearnCourseAnalytics,
   type LearnVanityMetrics,
+  type Granularity,
 } from "./types";
+import { bucketize } from "./date-utils";
 
 const db = () => getAdminSupabase();
 
@@ -138,6 +140,23 @@ export function getActiveUsersSparkline(
   return Object.entries(weekBuckets)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([label, value]) => ({ label: label.slice(5), value }));
+}
+
+/**
+ * Active users timeline with date range + granularity support.
+ * Buckets auth users by lastSignInTime into the requested granularity.
+ */
+export function getActiveUsersTimeline(
+  authUsers: { metadata: { lastSignInTime?: string } }[],
+  from: string,
+  to: string,
+  granularity: Granularity
+): ChartDataPoint[] {
+  // Transform auth users into rows with created_at for bucketize
+  const rows = authUsers
+    .filter((u) => u.metadata.lastSignInTime)
+    .map((u) => ({ created_at: u.metadata.lastSignInTime! }));
+  return bucketize(rows, from, to, granularity);
 }
 
 // ─── Revenue Queries ──────────────────────────────────────────────────────────
