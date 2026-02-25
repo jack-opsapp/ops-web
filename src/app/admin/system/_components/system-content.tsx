@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubTabs } from "../../_components/sub-tabs";
+import { FeatureFlagsTab } from "./feature-flags-tab";
 import type { AuditLogEntry, DataQualityIssue, TableStats } from "@/lib/admin/types";
 
 interface SystemContentProps {
@@ -19,12 +20,13 @@ interface SystemContentProps {
 
 export function SystemContent({ auditLog, dataQuality, tableStats, integrations }: SystemContentProps) {
   return (
-    <SubTabs tabs={["Audit Log", "Data Quality", "Integrations", "Database"]}>
+    <SubTabs tabs={["Audit Log", "Data Quality", "Integrations", "Database", "Feature Flags"]}>
       {(tab) => {
         if (tab === "Audit Log") return <AuditLogTab entries={auditLog} />;
         if (tab === "Data Quality") return <DataQualityTab issues={dataQuality} />;
         if (tab === "Integrations") return <IntegrationsTab data={integrations} />;
         if (tab === "Database") return <DatabaseTab stats={tableStats} />;
+        if (tab === "Feature Flags") return <FeatureFlagsTab />;
         return null;
       }}
     </SubTabs>
