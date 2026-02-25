@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
+import { isAdminEmail } from "@/lib/admin/admin-queries";
 import { AdminSidebar } from "./_components/sidebar";
 import { CompanySheetProvider } from "./_components/company-sheet-provider";
-
-const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 
 async function getAdminUser() {
   const cookieStore = await cookies();
@@ -19,7 +18,7 @@ async function getAdminUser() {
 
   try {
     const user = await verifyFirebaseToken(token);
-    if (!user.email || !ADMIN_EMAILS.includes(user.email)) return null;
+    if (!user.email || !(await isAdminEmail(user.email))) return null;
     return user;
   } catch {
     return null;

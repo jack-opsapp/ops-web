@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { isAdminEmail } from "@/lib/admin/admin-queries";
 import {
   getBlogPostById,
   updateBlogPost,
   deleteBlogPost,
 } from "@/lib/admin/blog-queries";
 
-const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 const BLOG_API_KEY = process.env.BLOG_API_KEY;
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get("authorization") ?? "";
   if (BLOG_API_KEY && authHeader === `Bearer ${BLOG_API_KEY}`) return true;
   const user = await verifyAdminAuth(req);
-  return !!user?.email && ADMIN_EMAILS.includes(user.email);
+  return !!user?.email && (await isAdminEmail(user.email));
 }
 
 export async function GET(

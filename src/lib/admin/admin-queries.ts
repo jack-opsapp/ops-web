@@ -29,6 +29,16 @@ import {
 
 const db = () => getAdminSupabase();
 
+// ─── Admin Access ────────────────────────────────────────────────────────────
+
+export async function isAdminEmail(email: string): Promise<boolean> {
+  const { count } = await db()
+    .from("admins")
+    .select("*", { count: "exact", head: true })
+    .eq("email", email);
+  return (count ?? 0) > 0;
+}
+
 // ─── Overview Queries ─────────────────────────────────────────────────────────
 
 export async function getTotalCompanies(): Promise<number> {

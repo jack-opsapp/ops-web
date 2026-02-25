@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { isAdminEmail } from "@/lib/admin/admin-queries";
 import { getBlogTopics, createBlogTopic } from "@/lib/admin/blog-queries";
-
-const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 
 export async function GET(req: NextRequest) {
   const user = await verifyAdminAuth(req);
-  if (!user || !user.email || !ADMIN_EMAILS.includes(user.email)) {
+  if (!user || !user.email || !(await isAdminEmail(user.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -23,7 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await verifyAdminAuth(req);
-  if (!user || !user.email || !ADMIN_EMAILS.includes(user.email)) {
+  if (!user || !user.email || !(await isAdminEmail(user.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

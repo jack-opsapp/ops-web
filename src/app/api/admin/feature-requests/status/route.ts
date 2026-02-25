@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { updateFeatureRequestStatus } from "@/lib/admin/admin-queries";
-
-const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
+import { isAdminEmail, updateFeatureRequestStatus } from "@/lib/admin/admin-queries";
 
 export async function POST(req: NextRequest) {
   const user = await verifyAdminAuth(req);
-  if (!user || !user.email || !ADMIN_EMAILS.includes(user.email)) {
+  if (!user || !user.email || !(await isAdminEmail(user.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
