@@ -4,7 +4,7 @@ import { verifyFirebaseToken } from "@/lib/firebase/admin-verify";
 import { AdminSidebar } from "./_components/sidebar";
 import { CompanySheetProvider } from "./_components/company-sheet-provider";
 
-const ADMIN_EMAIL = "jack@opsapp.co";
+const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 
 async function getAdminUser() {
   const cookieStore = await cookies();
@@ -19,7 +19,7 @@ async function getAdminUser() {
 
   try {
     const user = await verifyFirebaseToken(token);
-    if (user.email !== ADMIN_EMAIL) return null;
+    if (!user.email || !ADMIN_EMAILS.includes(user.email)) return null;
     return user;
   } catch {
     return null;

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { updateBlogTopic, deleteBlogTopic } from "@/lib/admin/blog-queries";
 
-const ADMIN_EMAIL = "jack@opsapp.co";
+const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await verifyAdminAuth(req);
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !user.email || !ADMIN_EMAILS.includes(user.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,7 +32,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await verifyAdminAuth(req);
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !user.email || !ADMIN_EMAILS.includes(user.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

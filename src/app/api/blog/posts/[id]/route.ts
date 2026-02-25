@@ -6,14 +6,14 @@ import {
   deleteBlogPost,
 } from "@/lib/admin/blog-queries";
 
-const ADMIN_EMAIL = "jack@opsapp.co";
+const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 const BLOG_API_KEY = process.env.BLOG_API_KEY;
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get("authorization") ?? "";
   if (BLOG_API_KEY && authHeader === `Bearer ${BLOG_API_KEY}`) return true;
   const user = await verifyAdminAuth(req);
-  return user?.email === ADMIN_EMAIL;
+  return !!user?.email && ADMIN_EMAILS.includes(user.email);
 }
 
 export async function GET(

@@ -3,14 +3,14 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { getCompanyDetail, getCompanyUsageTimeline } from "@/lib/admin/admin-queries";
 import { listAllAuthUsers } from "@/lib/firebase/admin-sdk";
 
-const ADMIN_EMAIL = "jack@opsapp.co";
+const ADMIN_EMAILS = ["jack@opsapp.co", "canprojack@gmail.com"];
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await verifyAdminAuth(req);
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !user.email || !ADMIN_EMAILS.includes(user.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
