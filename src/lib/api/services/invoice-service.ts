@@ -456,6 +456,23 @@ export const InvoiceService = {
   },
 
   /**
+   * Fetch all line items linked to invoices for a company.
+   * Used by profit calculations (unit_cost data lives on line items).
+   */
+  async fetchAllLineItems(companyId: string): Promise<import("@/lib/types/pipeline").LineItem[]> {
+    const supabase = requireSupabase();
+
+    const { data, error } = await supabase
+      .from("line_items")
+      .select("*")
+      .eq("company_id", companyId)
+      .not("invoice_id", "is", null);
+
+    if (error) throw new Error(`Failed to fetch invoice line items: ${error.message}`);
+    return (data ?? []).map(mapLineItemFromDb);
+  },
+
+  /**
    * Void a payment by setting voided_at and voided_by (NOT deleted_at).
    * The DB trigger will recalculate the invoice balance.
    */

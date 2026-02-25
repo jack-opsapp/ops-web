@@ -53,6 +53,7 @@ const DEFAULT_WIDGET_INSTANCES: WidgetInstance[] = [
   createWidgetInstance("stat-tasks-overdue"),
   createWidgetInstance("stat-events", { range: "this-week" }),
   createWidgetInstance("stat-receivables"),
+  createWidgetInstance("stat-profit-mtd"),
   createWidgetInstance("calendar"),
   createWidgetInstance("task-list", { filter: "upcoming" }),
   createWidgetInstance("crew-status"),

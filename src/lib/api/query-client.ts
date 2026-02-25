@@ -137,6 +137,7 @@ export const queryKeys = {
       [...queryKeys.invoices.lists(), "project", projectId] as const,
     details: () => [...queryKeys.invoices.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.invoices.details(), id] as const,
+    lineItems: (companyId: string) => [...queryKeys.invoices.all, "lineItems", companyId] as const,
   },
 
   // Payments

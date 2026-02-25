@@ -81,6 +81,8 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     // Financial
     case "stat-receivables":
     case "stat-collect":
+    case "stat-profit-mtd":
+    case "stat-projected-profit":
       return <StatWidget typeId={typeId} size={size} config={config} />;
 
     // ── RANKING WIDGETS ──

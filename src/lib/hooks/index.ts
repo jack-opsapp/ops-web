@@ -115,6 +115,7 @@ export {
 
 // Invoices
 export {
+  useInvoiceLineItems,
   useInvoices,
   useProjectInvoices,
   useInvoice,

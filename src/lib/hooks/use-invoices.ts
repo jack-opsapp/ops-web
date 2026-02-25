@@ -14,6 +14,18 @@ import { InvoiceService, type FetchInvoicesOptions } from "../api/services";
 import type { CreateInvoice, CreateLineItem, CreatePayment } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
+export function useInvoiceLineItems() {
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  return useQuery({
+    queryKey: queryKeys.invoices.lineItems(companyId),
+    queryFn: () => InvoiceService.fetchAllLineItems(companyId),
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useInvoices(options?: FetchInvoicesOptions) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";

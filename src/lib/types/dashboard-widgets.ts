@@ -57,9 +57,11 @@ export type WidgetTypeId =
   | "stat-tasks-overdue"
   // Stats — client segment (1)
   | "stat-clients-active"
-  // Stats — financial (2)
+  // Stats — financial (4)
   | "stat-receivables"
   | "stat-collect"
+  | "stat-profit-mtd"
+  | "stat-projected-profit"
   // Stats — ranking (2)
   | "stat-client-ranking"
   | "stat-project-ranking"
@@ -556,6 +558,28 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     label: "To Collect",
     description: "Balance due on completed projects",
     category: "stats",
+    tags: ["finance"],
+    icon: "DollarSign",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-profit-mtd": {
+    label: "Profit MTD",
+    description: "Month-to-date profit (revenue minus costs)",
+    category: "financial",
+    tags: ["finance"],
+    icon: "DollarSign",
+    supportedSizes: ["xs", "sm"],
+    defaultSize: "xs",
+    allowMultiple: false,
+    configSchema: [],
+  },
+  "stat-projected-profit": {
+    label: "Projected Profit",
+    description: "Expected profit on open invoices",
+    category: "financial",
     tags: ["finance"],
     icon: "DollarSign",
     supportedSizes: ["xs", "sm"],

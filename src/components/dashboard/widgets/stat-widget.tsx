@@ -20,6 +20,7 @@ import {
   useTeamMembers,
   useCalendarEventsForRange,
   useInvoices,
+  useInvoiceLineItems,
   useEstimates,
   useOpportunities,
 } from "@/lib/hooks";
@@ -37,6 +38,7 @@ import {
   OpportunityStage,
 } from "@/lib/types/pipeline";
 import type { WidgetTypeId, WidgetSize } from "@/lib/types/dashboard-widgets";
+import type { LineItem } from "@/lib/types/pipeline";
 import {
   startOfWeek,
   endOfWeek,
@@ -81,6 +83,8 @@ const STAT_ACCENT_COLORS: Partial<Record<WidgetTypeId, string | null>> = {
   // Financial
   "stat-receivables": "#C4A868",    // amber
   "stat-collect": "#B58289",        // completed rose
+  "stat-profit-mtd": "#9DB582",     // profit green
+  "stat-projected-profit": "#9DB582", // profit green
 };
 
 function getAccentColor(typeId: WidgetTypeId): string | null {
@@ -145,6 +149,10 @@ export function StatWidget({ typeId, size, config }: StatWidgetProps) {
       return <StatReceivables typeId={typeId} size={size} />;
     case "stat-collect":
       return <StatToCollect typeId={typeId} size={size} />;
+    case "stat-profit-mtd":
+      return <StatProfitMTD typeId={typeId} size={size} />;
+    case "stat-projected-profit":
+      return <StatProjectedProfit typeId={typeId} size={size} />;
 
     default:
       return null;
@@ -689,5 +697,94 @@ function StatOpportunities({ typeId, size, config }: InnerStatProps) {
 
   return (
     <StatCard label={label} value={value} displayPrefix={prefix} subValue={subValue} icon={Target} accentColor={getAccentColor(typeId)} size={size} />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Profit MTD — revenue minus costs on paid invoices this month
+// ---------------------------------------------------------------------------
+function StatProfitMTD({ typeId, size }: SimpleStatProps) {
+  const { data: invoicesData } = useInvoices();
+  const { data: lineItemsData } = useInvoiceLineItems();
+
+  const invoices = invoicesData ?? [];
+  const lineItems = lineItemsData ?? [];
+
+  const profit = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+
+    // Paid invoices this month
+    const paidThisMonth = invoices.filter(
+      (inv) =>
+        !inv.deletedAt &&
+        inv.status === InvoiceStatus.Paid &&
+        inv.paidAt &&
+        new Date(inv.paidAt) >= monthStart
+    );
+
+    const paidIds = new Set(paidThisMonth.map((inv) => inv.id));
+    const revenue = paidThisMonth.reduce((sum, inv) => sum + (inv.amountPaid ?? 0), 0);
+
+    const cost = lineItems
+      .filter((li: LineItem) => li.invoiceId && paidIds.has(li.invoiceId))
+      .reduce((sum, li: LineItem) => sum + ((li.unitCost ?? 0) * li.quantity), 0);
+
+    return revenue - cost;
+  }, [invoices, lineItems]);
+
+  return (
+    <StatCard
+      label="Profit MTD"
+      value={Math.round(profit)}
+      displayPrefix="$"
+      subValue="this month"
+      icon={DollarSign}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Projected Profit — expected profit on open invoices
+// ---------------------------------------------------------------------------
+function StatProjectedProfit({ typeId, size }: SimpleStatProps) {
+  const { data: invoicesData } = useInvoices();
+  const { data: lineItemsData } = useInvoiceLineItems();
+
+  const invoices = invoicesData ?? [];
+  const lineItems = lineItemsData ?? [];
+
+  const projectedProfit = useMemo(() => {
+    // Open invoices (not Paid, Void, or WrittenOff)
+    const openInvoices = invoices.filter(
+      (inv) =>
+        !inv.deletedAt &&
+        inv.status !== InvoiceStatus.Paid &&
+        inv.status !== InvoiceStatus.Void &&
+        inv.status !== InvoiceStatus.WrittenOff
+    );
+
+    const openIds = new Set(openInvoices.map((inv) => inv.id));
+    const revenue = openInvoices.reduce((sum, inv) => sum + (inv.total ?? 0), 0);
+
+    const cost = lineItems
+      .filter((li: LineItem) => li.invoiceId && openIds.has(li.invoiceId))
+      .reduce((sum, li: LineItem) => sum + ((li.unitCost ?? 0) * li.quantity), 0);
+
+    return revenue - cost;
+  }, [invoices, lineItems]);
+
+  return (
+    <StatCard
+      label="Projected Profit"
+      value={Math.round(projectedProfit)}
+      displayPrefix="$"
+      subValue="on open invoices"
+      icon={DollarSign}
+      accentColor={getAccentColor(typeId)}
+      size={size}
+    />
   );
 }

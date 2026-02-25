@@ -454,6 +454,8 @@ export default function DashboardPage() {
       // Financial
       case "stat-receivables":
       case "stat-collect":
+      case "stat-profit-mtd":
+      case "stat-projected-profit":
         return <StatWidget typeId={typeId} size={size} config={config} />;
 
       // ── RANKING WIDGETS ──
