@@ -74,6 +74,7 @@ export function RevenueCharts({
       return json.data as ChartDataPoint[];
     },
     initialData: mrrGrowth,
+    staleTime: 0,
   });
 
   // New vs Churned query
@@ -86,6 +87,7 @@ export function RevenueCharts({
       return json.data as StackedBarDataPoint[];
     },
     initialData: newVsChurned,
+    staleTime: 0,
   });
 
   // Trial timeline query
@@ -98,6 +100,7 @@ export function RevenueCharts({
       return json.data as ChartDataPoint[];
     },
     initialData: trialTimeline,
+    staleTime: 0,
   });
 
   // Seat utilization — sortable + plan filter

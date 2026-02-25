@@ -43,6 +43,7 @@ export function OverviewSparklines({ initial }: OverviewSparklinesProps) {
     queryKey: ["overview-sparklines", params],
     queryFn: () => fetchSparklines(params),
     initialData: initial,
+    staleTime: 0,
   });
 
   return (

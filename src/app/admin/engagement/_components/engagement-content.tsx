@@ -79,6 +79,7 @@ export function EngagementContent({
     queryKey: ["engagement-active-users", activeUsersRange.params],
     queryFn: () => fetchActiveUsers(activeUsersRange.params),
     initialData: activeUsersSparkline,
+    staleTime: 0,
   });
 
   // Feature Adoption — sortable
