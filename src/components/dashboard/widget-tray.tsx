@@ -83,13 +83,23 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
     return counts;
   }, [widgetInstances]);
 
-  // Group widget types by category, filtered by search
+  // Set of in-use type IDs for quick lookup
+  const inUseTypeIdSet = useMemo(() => {
+    const seen = new Set<WidgetTypeId>();
+    for (const inst of widgetInstances) {
+      if (inst.visible) seen.add(inst.typeId as WidgetTypeId);
+    }
+    return seen;
+  }, [widgetInstances]);
+
+  // Group widget types by category, split into available vs in-use, filtered by search
   const groupedTypes = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    const groups: Record<WidgetCategory, WidgetTypeId[]> = {} as Record<WidgetCategory, WidgetTypeId[]>;
+    const groups: Record<WidgetCategory, { available: WidgetTypeId[]; inUse: WidgetTypeId[] }> =
+      {} as Record<WidgetCategory, { available: WidgetTypeId[]; inUse: WidgetTypeId[] }>;
 
     for (const cat of CATEGORY_ORDER) {
-      groups[cat] = [];
+      groups[cat] = { available: [], inUse: [] };
     }
 
     for (const [id, entry] of Object.entries(WIDGET_TYPE_REGISTRY)) {
@@ -103,40 +113,19 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
         if (!matchesLabel && !matchesDescription && !matchesTags && !matchesCategory) continue;
       }
 
-      groups[entry.category].push(typeId);
+      if (inUseTypeIdSet.has(typeId)) {
+        groups[entry.category].inUse.push(typeId);
+      } else {
+        groups[entry.category].available.push(typeId);
+      }
     }
 
     return groups;
-  }, [searchQuery]);
+  }, [searchQuery, inUseTypeIdSet]);
 
-  // Unique widget type IDs currently on the dashboard
-  const inUseTypeIds = useMemo(() => {
-    const seen = new Set<WidgetTypeId>();
-    for (const inst of widgetInstances) {
-      if (inst.visible) seen.add(inst.typeId as WidgetTypeId);
-    }
-    return Array.from(seen);
-  }, [widgetInstances]);
-
-  // Filter in-use by search query
-  const filteredInUseTypeIds = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return inUseTypeIds;
-    return inUseTypeIds.filter((typeId) => {
-      const entry = WIDGET_TYPE_REGISTRY[typeId];
-      if (!entry) return false;
-      return (
-        entry.label.toLowerCase().includes(query) ||
-        entry.description.toLowerCase().includes(query) ||
-        entry.tags.some((tag: WidgetTag) => tag.toLowerCase().includes(query)) ||
-        CATEGORY_LABELS[entry.category].toLowerCase().includes(query)
-      );
-    });
-  }, [inUseTypeIds, searchQuery]);
-
-  // Categories with at least one widget type
+  // Categories with at least one widget type (available or in-use)
   const visibleCategories = useMemo(
-    () => CATEGORY_ORDER.filter((cat) => groupedTypes[cat].length > 0),
+    () => CATEGORY_ORDER.filter((cat) => groupedTypes[cat].available.length > 0 || groupedTypes[cat].inUse.length > 0),
     [groupedTypes]
   );
 
@@ -266,61 +255,66 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
 
             {/* Scrollable body — category rows with horizontal card scrolls */}
             <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-2 scrollbar-hide">
-              {visibleCategories.length === 0 && filteredInUseTypeIds.length === 0 ? (
+              {visibleCategories.length === 0 ? (
                 <p className="font-mohave text-body-sm text-text-disabled py-3 text-center">
                   No widgets match your search
                 </p>
               ) : (
                 <div className="space-y-[10px]">
-                  {/* Already in Use section */}
-                  {filteredInUseTypeIds.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-[6px] mb-[6px]">
-                        <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                          Already in Use
-                        </span>
-                        <span className="font-mono text-[9px] text-text-disabled">
-                          {filteredInUseTypeIds.length}
-                        </span>
-                      </div>
-                      <div className="flex gap-[8px] overflow-x-auto px-0 pb-[8px] snap-x snap-mandatory scrollbar-hide">
-                        {filteredInUseTypeIds.map((typeId, i) => (
-                          <WidgetTrayCard
-                            key={`inuse-${typeId}`}
-                            typeId={typeId}
-                            index={i}
-                            instanceCount={instanceCountByType[typeId] || 0}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {visibleCategories.map((category) => {
+                    const { available, inUse } = groupedTypes[category];
+                    return (
+                      <div key={category}>
+                        {/* Category label */}
+                        <div className="flex items-center gap-[6px] mb-[6px]">
+                          <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
+                            {CATEGORY_LABELS[category]}
+                          </span>
+                          <span className="font-mono text-[9px] text-text-disabled">
+                            {available.length + inUse.length}
+                          </span>
+                        </div>
 
-                  {visibleCategories.map((category) => (
-                    <div key={category}>
-                      {/* Category label */}
-                      <div className="flex items-center gap-[6px] mb-[6px]">
-                        <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                          {CATEGORY_LABELS[category]}
-                        </span>
-                        <span className="font-mono text-[9px] text-text-disabled">
-                          {groupedTypes[category].length}
-                        </span>
-                      </div>
+                        {/* Available widgets — horizontal scroll */}
+                        {available.length > 0 && (
+                          <div className="flex gap-[8px] overflow-x-auto px-0 pb-[8px] snap-x snap-mandatory scrollbar-hide">
+                            {available.map((typeId, i) => (
+                              <WidgetTrayCard
+                                key={typeId}
+                                typeId={typeId}
+                                index={i}
+                                instanceCount={instanceCountByType[typeId] || 0}
+                              />
+                            ))}
+                          </div>
+                        )}
 
-                      {/* Horizontal scroll of cards */}
-                      <div className="flex gap-[8px] overflow-x-auto px-0 pb-[8px] snap-x snap-mandatory scrollbar-hide">
-                        {groupedTypes[category].map((typeId, i) => (
-                          <WidgetTrayCard
-                            key={typeId}
-                            typeId={typeId}
-                            index={i}
-                            instanceCount={instanceCountByType[typeId] || 0}
-                          />
-                        ))}
+                        {/* In-use subsection within this category */}
+                        {inUse.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-[6px] mb-[4px] mt-[2px]">
+                              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest">
+                                Already in Use
+                              </span>
+                              <span className="font-mono text-[8px] text-text-disabled">
+                                {inUse.length}
+                              </span>
+                            </div>
+                            <div className="flex gap-[8px] overflow-x-auto px-0 pb-[8px] snap-x snap-mandatory scrollbar-hide opacity-60">
+                              {inUse.map((typeId, i) => (
+                                <WidgetTrayCard
+                                  key={`inuse-${typeId}`}
+                                  typeId={typeId}
+                                  index={i}
+                                  instanceCount={instanceCountByType[typeId] || 0}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -177,7 +177,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
 }
 
 // Scale factor for the miniature preview
-const PREVIEW_SCALE = 0.45;
+const PREVIEW_SCALE = 0.6;
 
 // Approximate pixel dimensions for each widget size at full scale
 const SIZE_DIMENSIONS: Record<WidgetSize, { width: number; height: number }> = {
@@ -238,7 +238,7 @@ export function WidgetPreview({ typeId }: WidgetPreviewProps) {
 
       {/* Scaled preview container */}
       <div
-        className="rounded-md overflow-hidden border border-border/50"
+        className="rounded-md overflow-hidden"
         style={{ width: scaledWidth, height: scaledHeight }}
       >
         <div
