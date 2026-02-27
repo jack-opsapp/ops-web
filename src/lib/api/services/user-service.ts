@@ -35,6 +35,7 @@ function mapFromDb(row: Record<string, unknown>): User {
     hasCompletedAppOnboarding: (row.has_completed_onboarding as boolean) ?? false,
     hasCompletedAppTutorial: (row.has_completed_tutorial as boolean) ?? false,
     isCompanyAdmin: (row.is_company_admin as boolean) ?? false,
+    specialPermissions: (row.special_permissions as string[]) ?? [],
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
     deviceToken: (row.device_token as string) ?? null,
     lastSyncedAt: null,

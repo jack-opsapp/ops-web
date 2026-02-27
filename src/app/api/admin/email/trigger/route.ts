@@ -28,13 +28,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { slug } = await req.json();
+    const { slug, test_email } = await req.json();
 
     if (!slug || !ALLOWED_SLUGS.includes(slug)) {
       return NextResponse.json(
         { error: `Invalid slug. Allowed: ${ALLOWED_SLUGS.join(", ")}` },
         { status: 400 }
       );
+    }
+
+    const body: Record<string, string> = { triggered_by: "admin_dashboard" };
+    if (test_email) {
+      body.test_email = test_email;
     }
 
     const edgeFnUrl = `${SUPABASE_URL}/functions/v1/${slug}`;
@@ -45,7 +50,7 @@ export async function POST(req: NextRequest) {
         "x-supabase-service-role": SUPABASE_SERVICE_ROLE_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ triggered_by: "admin_dashboard" }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json().catch(() => ({ status: response.status }));

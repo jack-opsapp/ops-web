@@ -383,6 +383,7 @@ export interface User {
   hasCompletedAppOnboarding: boolean;
   hasCompletedAppTutorial: boolean;
   isCompanyAdmin: boolean;
+  specialPermissions: string[];
   stripeCustomerId: string | null;
   deviceToken: string | null;
   lastSyncedAt: Date | null;

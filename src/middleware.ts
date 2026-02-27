@@ -18,6 +18,7 @@ const protectedPrefixes = [
   "/accounting",
   "/settings",
   "/admin",
+  "/testing-grounds",
 ];
 
 // Portal routes that require a portal session cookie

@@ -66,6 +66,7 @@ function createMockOpsUser(overrides: Partial<User> = {}): User {
     devPermission: false,
     hasCompletedAppOnboarding: true,
     hasCompletedAppTutorial: true,
+    specialPermissions: [],
     stripeCustomerId: null,
     deviceToken: null,
     lastSyncedAt: null,
