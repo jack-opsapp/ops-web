@@ -30,7 +30,7 @@ export default function RegisterPage() {
     try {
       await signInWithGoogle();
       trackSignUp("google");
-      router.push("/onboarding");
+      router.push("/setup");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Google sign-in failed";
       setError(message);
@@ -45,7 +45,7 @@ export default function RegisterPage() {
     try {
       await signInWithApple();
       trackSignUp("apple");
-      router.push("/onboarding");
+      router.push("/setup");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Apple sign-in failed";
       setError(message);
@@ -92,7 +92,7 @@ export default function RegisterPage() {
       }
 
       trackSignUp("email");
-      router.push("/onboarding");
+      router.push("/setup");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
       if (message.includes("auth/email-already-in-use")) {
