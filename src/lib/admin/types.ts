@@ -375,6 +375,25 @@ export interface LearnVanityMetrics {
   display_review_count: number;
 }
 
+// ─── Analytics Types ─────────────────────────────────────────────────────────
+
+export interface WebsiteOverview {
+  sessions: number;
+  activeUsers: number;
+  pageviews: number;
+  newUsers: number;
+  avgSessionDuration: number; // seconds
+  bounceRate: number; // 0–1
+}
+
+export interface AnalyticsPageData {
+  overview: WebsiteOverview;
+  sessionsByDate: ChartDataPoint[];
+  topPages: { dimension: string; count: number }[];
+  topReferrers: { dimension: string; count: number }[];
+  deviceBreakdown: { dimension: string; count: number }[];
+}
+
 // ─── Email Types ──────────────────────────────────────────────────────────────
 
 export interface EmailLogRow {
