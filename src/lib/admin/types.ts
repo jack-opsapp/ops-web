@@ -374,3 +374,58 @@ export interface LearnVanityMetrics {
   display_rating: number;
   display_review_count: number;
 }
+
+// ─── Email Types ──────────────────────────────────────────────────────────────
+
+export interface EmailLogRow {
+  id: string;
+  user_id: string | null;
+  email_type: string;
+  recipient_email: string;
+  subject: string;
+  sent_at: string;
+  status: string;
+  error_message: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface EmailOverviewStats {
+  totalSent: number;
+  totalDelivered: number;
+  totalFailed: number;
+  deliveryRate: number;
+  dailyVolume: ChartDataPoint[];
+}
+
+export interface EmailFunnelStage {
+  step: string;
+  count: number;
+}
+
+export interface EmailFunnelData {
+  bubble: EmailFunnelStage[];
+  unverified: EmailFunnelStage[];
+  auth: EmailFunnelStage[];
+  segmentCounts: {
+    total_users: number;
+    bubble_reauth: number;
+    unverified: number;
+    auth_lifecycle: number;
+    removed: number;
+  };
+}
+
+export interface NewsletterContent {
+  id: string;
+  month: number;
+  year: number;
+  shipped: string[];
+  in_progress: string[];
+  bug_fixes: string[];
+  coming_up: string[];
+  custom_intro: string | null;
+  custom_outro: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}

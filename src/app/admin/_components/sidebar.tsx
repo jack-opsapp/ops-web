@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/admin/platform-health", label: "PLATFORM HEALTH" },
   { href: "/admin/feedback", label: "FEEDBACK" },
   { href: "/admin/blog", label: "BLOG" },
+  { href: "/admin/email", label: "EMAIL" },
   { href: "/admin/system", label: "SYSTEM" },
   { href: "/admin/learn", label: "OPS LEARN" },
 ];
