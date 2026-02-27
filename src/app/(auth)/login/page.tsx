@@ -107,27 +107,30 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex flex-col items-center">
-      {/* Logo + Branding */}
-      <div className="text-center mb-4">
+    <div className="flex flex-col">
+      {/* Mobile logo — hidden on desktop (hero has branding) */}
+      <div className="lg:hidden mb-6">
         <Image
           src="/images/ops-logo-white.png"
           alt="OPS"
-          width={80}
-          height={32}
-          className="mx-auto mb-2"
+          width={64}
+          height={26}
           priority
         />
-        <h1 className="font-bebas text-[32px] tracking-[0.15em] text-text-primary leading-none">
+      </div>
+
+      {/* Heading */}
+      <div className="mb-6">
+        <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text-primary leading-none">
           Welcome back
         </h1>
-        <p className="font-kosugi text-[12px] text-text-disabled mt-[6px]">
+        <p className="font-mohave text-body-sm text-text-tertiary mt-1">
           Sign in to manage your operations
         </p>
       </div>
 
-      {/* Card */}
-      <div className="w-full ultrathin-material-dark rounded-md p-3 space-y-2">
+      {/* Auth card */}
+      <div className="space-y-2">
         {/* Error */}
         {error && (
           <div className="bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
@@ -135,7 +138,7 @@ function LoginForm() {
           </div>
         )}
 
-        {/* Social Sign-In Buttons */}
+        {/* OAuth buttons */}
         <div className="space-y-1">
           {/* Google */}
           <button
@@ -254,7 +257,7 @@ function LoginForm() {
       </div>
 
       {/* Footer */}
-      <p className="mt-2 font-mohave text-body-sm text-text-tertiary">
+      <p className="mt-4 font-mohave text-body-sm text-text-tertiary">
         Don&apos;t have an account?{" "}
         <Link
           href="/register"
