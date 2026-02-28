@@ -22,6 +22,24 @@ const appleProvider = new OAuthProvider("apple.com");
 appleProvider.addScope("email");
 appleProvider.addScope("name");
 
+// ─── Redirect Flag ──────────────────────────────────────────────────────────
+// In Firebase v11, calling getRedirectResult() proactively blocks
+// onAuthStateChanged from firing. We only call it when we know a
+// redirect was initiated (flagged via sessionStorage).
+const REDIRECT_FLAG_KEY = "ops-auth-redirect-pending";
+
+export function setRedirectFlag() {
+  try { sessionStorage.setItem(REDIRECT_FLAG_KEY, "1"); } catch {}
+}
+
+export function isRedirectPending(): boolean {
+  try { return sessionStorage.getItem(REDIRECT_FLAG_KEY) === "1"; } catch { return false; }
+}
+
+export function clearRedirectFlag() {
+  try { sessionStorage.removeItem(REDIRECT_FLAG_KEY); } catch {}
+}
+
 /**
  * Sign in with Google — tries popup first, falls back to redirect.
  * Popup can fail due to COOP policies or popup blockers on some browsers.
@@ -40,6 +58,7 @@ export async function signInWithGoogle(): Promise<User> {
       code === "auth/internal-error"
     ) {
       console.warn("[auth] Popup failed, falling back to redirect:", code);
+      setRedirectFlag();
       await signInWithRedirect(auth, googleProvider);
       // Page will reload — this promise never resolves
       return new Promise(() => {});
@@ -65,6 +84,7 @@ export async function signInWithApple(): Promise<User> {
       code === "auth/internal-error"
     ) {
       console.warn("[auth] Popup failed, falling back to redirect:", code);
+      setRedirectFlag();
       await signInWithRedirect(auth, appleProvider);
       return new Promise(() => {});
     }

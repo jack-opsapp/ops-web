@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { onAuthStateChanged, getIdToken, checkRedirectResult } from "@/lib/firebase/auth";
+import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { toast } from "sonner";
 
@@ -39,12 +39,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("[AuthProvider] useEffect mounting, calling setLoading(true)");
     setLoading(true);
 
-    // Check for redirect result (handles signInWithRedirect callback)
-    checkRedirectResult().then((redirectUser) => {
-      if (redirectUser) {
-        console.log("[AuthProvider] Redirect sign-in detected:", redirectUser.email);
-      }
-    });
+    // Only check redirect result if we know a redirect was initiated.
+    // In Firebase v11, calling getRedirectResult() proactively blocks
+    // onAuthStateChanged from firing until the redirect check resolves.
+    // If the internal check stalls, onAuthStateChanged never fires at all.
+    if (isRedirectPending()) {
+      console.log("[AuthProvider] Redirect pending, checking result...");
+      clearRedirectFlag();
+      checkRedirectResult().then((redirectUser) => {
+        if (redirectUser) {
+          console.log("[AuthProvider] Redirect sign-in detected:", redirectUser.email);
+        }
+      });
+    }
 
     let unsubscribe: (() => void) | undefined;
     try {
