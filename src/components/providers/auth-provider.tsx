@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { onAuthStateChanged, getIdToken } from "@/lib/firebase/auth";
+import { onAuthStateChanged, getIdToken, checkRedirectResult } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { toast } from "sonner";
 
@@ -38,6 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log("[AuthProvider] useEffect mounting, calling setLoading(true)");
     setLoading(true);
+
+    // Check for redirect result (handles signInWithRedirect callback)
+    checkRedirectResult().then((redirectUser) => {
+      if (redirectUser) {
+        console.log("[AuthProvider] Redirect sign-in detected:", redirectUser.email);
+      }
+    });
 
     let unsubscribe: (() => void) | undefined;
     try {

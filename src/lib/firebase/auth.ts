@@ -1,5 +1,7 @@
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
   signInWithEmailAndPassword,
@@ -21,21 +23,65 @@ appleProvider.addScope("email");
 appleProvider.addScope("name");
 
 /**
- * Sign in with Google via popup.
- * Returns the authenticated user.
+ * Sign in with Google — tries popup first, falls back to redirect.
+ * Popup can fail due to COOP policies or popup blockers on some browsers.
  */
 export async function signInWithGoogle(): Promise<User> {
-  const result = await signInWithPopup(auth, googleProvider);
-  return result.user;
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    if (
+      code === "auth/popup-blocked" ||
+      code === "auth/popup-closed-by-user" ||
+      code === "auth/network-request-failed" ||
+      code === "auth/internal-error"
+    ) {
+      console.warn("[auth] Popup failed, falling back to redirect:", code);
+      await signInWithRedirect(auth, googleProvider);
+      // Page will reload — this promise never resolves
+      return new Promise(() => {});
+    }
+    throw err;
+  }
 }
 
 /**
- * Sign in with Apple via popup.
- * Returns the authenticated user.
+ * Sign in with Apple — tries popup first, falls back to redirect.
  */
 export async function signInWithApple(): Promise<User> {
-  const result = await signInWithPopup(auth, appleProvider);
-  return result.user;
+  try {
+    const result = await signInWithPopup(auth, appleProvider);
+    return result.user;
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code;
+    if (
+      code === "auth/popup-blocked" ||
+      code === "auth/popup-closed-by-user" ||
+      code === "auth/network-request-failed" ||
+      code === "auth/internal-error"
+    ) {
+      console.warn("[auth] Popup failed, falling back to redirect:", code);
+      await signInWithRedirect(auth, appleProvider);
+      return new Promise(() => {});
+    }
+    throw err;
+  }
+}
+
+/**
+ * Check for redirect result on page load.
+ * Call this in AuthProvider to handle the redirect callback.
+ */
+export async function checkRedirectResult(): Promise<User | null> {
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user ?? null;
+  } catch (err) {
+    console.warn("[auth] Redirect result check failed:", err);
+    return null;
+  }
 }
 
 /**
