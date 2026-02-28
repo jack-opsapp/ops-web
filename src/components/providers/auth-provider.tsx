@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending } from "@/lib/firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase/config";
 import { UserService } from "@/lib/api/services/user-service";
 import { toast } from "sonner";
 
@@ -21,12 +22,15 @@ function setAuthCookie(token: string | null) {
 }
 
 /**
- * AuthProvider subscribes to Firebase auth state and syncs it to Zustand.
+ * AuthProvider determines auth state and syncs it to Zustand.
+ *
+ * Uses authStateReady() as the primary mechanism (Promise-based,
+ * resolves when Firebase has determined auth state). Falls back to
+ * onAuthStateChanged for reactive updates (sign-in, sign-out, token refresh).
  *
  * Important: The LoginPage handles the initial syncUser call during
  * a fresh sign-in. AuthProvider only calls syncUser when Firebase
  * detects an existing session on page reload (no user in Zustand store yet).
- * This prevents the duplicate/triple API calls that were happening before.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setFirebaseAuth = useAuthStore((s) => s.setFirebaseAuth);
@@ -36,13 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchingRef = useRef(false);
 
   useEffect(() => {
-    console.log("[AuthProvider] useEffect mounting, calling setLoading(true)");
+    let cancelled = false;
     setLoading(true);
 
-    // Only check redirect result if we know a redirect was initiated.
-    // In Firebase v11, calling getRedirectResult() proactively blocks
-    // onAuthStateChanged from firing until the redirect check resolves.
-    // If the internal check stalls, onAuthStateChanged never fires at all.
+    // Handle redirect result only if a redirect was actually initiated
     if (isRedirectPending()) {
       console.log("[AuthProvider] Redirect pending, checking result...");
       clearRedirectFlag();
@@ -53,98 +54,139 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    let unsubscribe: (() => void) | undefined;
-    try {
-      console.log("[AuthProvider] About to call onAuthStateChanged...");
-      unsubscribe = onAuthStateChanged(async (firebaseUser) => {
-        console.log("[AuthProvider] onAuthStateChanged fired:", !!firebaseUser);
-        const authenticated = !!firebaseUser;
-        setFirebaseAuth(authenticated);
+    /**
+     * Process a Firebase user (or null) into Zustand state.
+     * Called from both authStateReady and onAuthStateChanged.
+     */
+    async function handleAuthState(firebaseUser: import("firebase/auth").User | null) {
+      if (cancelled) return;
 
-        if (!authenticated) {
-          setAuthCookie(null);
-          console.log("[AuthProvider] Not authenticated");
+      const authenticated = !!firebaseUser;
+      setFirebaseAuth(authenticated);
+
+      if (!authenticated) {
+        setAuthCookie(null);
+        console.log("[AuthProvider] Not authenticated");
+        setLoading(false);
+        return;
+      }
+
+      // Get ID token for the cookie (middleware/server needs it)
+      const idToken = await getIdToken();
+      setAuthCookie(idToken);
+
+      if (firebaseUser && !fetchingRef.current) {
+        // Check if the login page already handled this (user already in store)
+        const existingUser = useAuthStore.getState().currentUser;
+        if (existingUser?.companyId) {
+          console.log("[AuthProvider] User already in store, skipping sync.", existingUser.id);
           setLoading(false);
           return;
         }
 
-        // Always get the real ID token for the cookie (middleware/server needs it)
-        const idToken = await getIdToken();
-        setAuthCookie(idToken);
-
-        if (firebaseUser && !fetchingRef.current) {
-          // Check if the login page already handled this (user already in store)
-          const existingUser = useAuthStore.getState().currentUser;
-          if (existingUser?.companyId) {
-            console.log("[AuthProvider] User already in store (login page handled it), skipping API call.", existingUser.id);
+        fetchingRef.current = true;
+        console.log("[AuthProvider] Syncing user:", firebaseUser.email);
+        try {
+          if (!idToken || !firebaseUser.email) {
+            console.warn("[AuthProvider] Missing idToken or email, aborting");
+            fetchingRef.current = false;
             setLoading(false);
             return;
           }
 
-          fetchingRef.current = true;
-          console.log("[AuthProvider] Firebase user authenticated, no user in store — calling syncUser:", firebaseUser.email);
-          try {
-            if (!idToken || !firebaseUser.email) {
-              console.warn("[AuthProvider] Missing idToken or email, aborting");
-              fetchingRef.current = false;
-              setLoading(false);
-              return;
-            }
+          const result = await UserService.syncUser(
+            idToken,
+            firebaseUser.email,
+            firebaseUser.displayName || undefined,
+            firebaseUser.displayName?.split(" ")[0] || undefined,
+            firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+            firebaseUser.photoURL || undefined
+          );
 
-            const result = await UserService.syncUser(
-              idToken,
-              firebaseUser.email,
-              firebaseUser.displayName || undefined,
-              firebaseUser.displayName?.split(" ")[0] || undefined,
-              firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
-              firebaseUser.photoURL || undefined
-            );
+          if (cancelled) return;
 
-            console.log("[AuthProvider] syncUser result:", {
-              userId: result.user.id,
-              userRole: result.user.role,
-              companyName: result.company?.name ?? "null",
-            });
+          console.log("[AuthProvider] syncUser result:", {
+            userId: result.user.id,
+            userRole: result.user.role,
+            companyName: result.company?.name ?? "null",
+          });
 
-            setUser(result.user);
-            if (result.company) {
-              setCompany(result.company);
-            } else {
-              console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
-            }
-          } catch (err) {
-            console.error("[AuthProvider] FAILED:", err);
-            toast.error("Failed to load user data", {
-              description: "Please try signing out and back in.",
-            });
-          } finally {
-            fetchingRef.current = false;
-            setLoading(false);
+          setUser(result.user);
+          if (result.company) {
+            setCompany(result.company);
+          } else {
+            console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
           }
-        } else if (fetchingRef.current) {
-          // Don't set isLoading(false) here — the in-flight sync will
-          // handle it in its finally block. Setting it now would let the
-          // dashboard render before user data is loaded.
-          console.log("[AuthProvider] Already fetching, skipping");
+        } catch (err) {
+          console.error("[AuthProvider] syncUser FAILED:", err);
+          toast.error("Failed to load user data", {
+            description: "Please try signing out and back in.",
+          });
+        } finally {
+          fetchingRef.current = false;
+          if (!cancelled) setLoading(false);
         }
-      });
-      console.log("[AuthProvider] onAuthStateChanged registered successfully");
-    } catch (err) {
-      console.error("[AuthProvider] Firebase init error:", err);
-      setLoading(false);
+      } else if (fetchingRef.current) {
+        console.log("[AuthProvider] Already fetching, skipping");
+      }
     }
 
-    // Fallback: if onAuthStateChanged never fires within 4s, assume unauthenticated
-    const timeout = setTimeout(() => {
-      const { isLoading } = useAuthStore.getState();
-      if (isLoading) {
-        console.warn("[AuthProvider] onAuthStateChanged timed out after 4s — forcing unauthenticated state");
+    // ── Primary: authStateReady() ───────────────────────────────────────────
+    // Resolves when Firebase has determined auth state. Unlike
+    // onAuthStateChanged, this doesn't block on redirect resolution.
+    const firebaseAuth = getFirebaseAuth();
+    let initialCheckDone = false;
+
+    console.log("[AuthProvider] Calling authStateReady()...");
+    firebaseAuth.authStateReady().then(() => {
+      if (cancelled || initialCheckDone) return;
+      initialCheckDone = true;
+      console.log("[AuthProvider] authStateReady resolved, currentUser:", !!firebaseAuth.currentUser);
+      handleAuthState(firebaseAuth.currentUser);
+    }).catch((err) => {
+      console.error("[AuthProvider] authStateReady failed:", err);
+      if (!cancelled && !initialCheckDone) {
+        initialCheckDone = true;
         setFirebaseAuth(false);
         setLoading(false);
       }
-    }, 4000);
+    });
+
+    // ── Secondary: onAuthStateChanged for reactive updates ──────────────────
+    // Handles sign-in, sign-out, and token refresh AFTER the initial check.
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = onAuthStateChanged((firebaseUser) => {
+        console.log("[AuthProvider] onAuthStateChanged fired:", !!firebaseUser);
+        if (!initialCheckDone) {
+          // First fire — use this as the initial check
+          initialCheckDone = true;
+          handleAuthState(firebaseUser);
+        } else {
+          // Subsequent fires — handle state changes (sign-out, token refresh)
+          handleAuthState(firebaseUser);
+        }
+      });
+    } catch (err) {
+      console.error("[AuthProvider] Firebase init error:", err);
+      if (!initialCheckDone) {
+        initialCheckDone = true;
+        setLoading(false);
+      }
+    }
+
+    // ── Fallback: hard timeout ──────────────────────────────────────────────
+    const timeout = setTimeout(() => {
+      if (!initialCheckDone) {
+        console.warn("[AuthProvider] Auth timed out after 3s — forcing unauthenticated");
+        initialCheckDone = true;
+        setFirebaseAuth(false);
+        setLoading(false);
+      }
+    }, 3000);
 
     return () => {
+      cancelled = true;
       clearTimeout(timeout);
       if (unsubscribe) unsubscribe();
     };
