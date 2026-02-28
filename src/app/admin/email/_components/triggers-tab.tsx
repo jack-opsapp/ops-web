@@ -27,8 +27,8 @@ const TRIGGERS: TriggerConfig[] = [
     slug: "bubble-reauth-emails",
     label: "Bubble Re-auth",
     description: "Re-authentication emails for Bubble legacy users.",
-    schedule: "Daily 6:38 AM PST",
-    cronJobName: "bubble-reauth-emails-daily",
+    schedule: "Friday 6:38 AM PST",
+    cronJobName: "bubble-reauth-emails-weekly",
     hasTestEmail: true,
   },
   {
@@ -199,16 +199,12 @@ export function TriggersTab() {
           return (
             <div
               key={trigger.slug}
-              className="border border-white/[0.08] rounded-lg px-4 py-3 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors"
-              onClick={() => openSheet(trigger)}
+              className="border border-white/[0.08] rounded-lg px-4 py-3 bg-white/[0.02]"
             >
               <div className="flex items-center gap-3">
-                {/* Cron toggle */}
+                {/* Cron toggle — separate from clickable area */}
                 {trigger.cronJobName ? (
-                  <div
-                    className="flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className="flex-shrink-0">
                     <Switch
                       checked={isActive}
                       onCheckedChange={(val) => toggleCron(trigger.cronJobName!, val)}
@@ -219,23 +215,26 @@ export function TriggersTab() {
                   <div className="w-[44px] flex-shrink-0" />
                 )}
 
-                {/* Label + schedule */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-mohave text-[14px] text-[#E5E5E5] uppercase">
-                      {trigger.label}
-                    </h3>
-                    <span className="font-kosugi text-[10px] text-[#6B6B6B]">
-                      [{trigger.schedule}]
-                    </span>
+                {/* Clickable area — label + chevron opens sheet */}
+                <div
+                  className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => openSheet(trigger)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-mohave text-[14px] text-[#E5E5E5] uppercase">
+                        {trigger.label}
+                      </h3>
+                      <span className="font-kosugi text-[10px] text-[#6B6B6B]">
+                        [{trigger.schedule}]
+                      </span>
+                    </div>
+                    <p className="font-kosugi text-[11px] text-[#6B6B6B] truncate">
+                      {trigger.description}
+                    </p>
                   </div>
-                  <p className="font-kosugi text-[11px] text-[#6B6B6B] truncate">
-                    {trigger.description}
-                  </p>
+                  <ChevronRight className="w-4 h-4 text-[#6B6B6B] flex-shrink-0" />
                 </div>
-
-                {/* Chevron */}
-                <ChevronRight className="w-4 h-4 text-[#6B6B6B] flex-shrink-0" />
               </div>
             </div>
           );

@@ -28,7 +28,8 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 const DAY_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const DAILY_SEGMENTS = ["lifecycle", "bubble", "unverified"]; // run every day
+const DAILY_SEGMENTS = ["lifecycle", "unverified"]; // run every day
+// Bubble reauth runs every Friday
 // Newsletter runs 2nd Friday of each month
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -216,7 +217,7 @@ export function ScheduleTab() {
 
             // For future days, show projected schedule
             const segments = future
-              ? getFutureSegments(day, secondFriday)
+              ? getFutureSegments(year, month, day, secondFriday)
               : data?.counts ?? {};
 
             const hasData = Object.keys(segments).length > 0;
@@ -341,11 +342,18 @@ export function ScheduleTab() {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getFutureSegments(day: number, secondFriday: number): Record<string, number> {
+function getFutureSegments(year: number, month: number, day: number, secondFriday: number): Record<string, number> {
   const segments: Record<string, number> = {};
+  const dayOfWeek = new Date(year, month - 1, day).getDay(); // 0=Sun, 5=Fri
+  const isFriday = dayOfWeek === 5;
+
   // Daily triggers run every day
   for (const s of DAILY_SEGMENTS) {
     segments[s] = 0; // 0 = scheduled but no count yet
+  }
+  // Bubble reauth runs every Friday
+  if (isFriday) {
+    segments.bubble = 0;
   }
   // Newsletter only on 2nd Friday
   if (day === secondFriday) {
