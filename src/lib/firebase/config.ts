@@ -1,5 +1,12 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import {
+  initializeAuth,
+  getAuth,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  indexedDBLocalPersistence,
+  type Auth,
+} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -24,7 +31,22 @@ function getFirebaseApp(): FirebaseApp {
 
 function getFirebaseAuth(): Auth {
   if (!_auth) {
-    _auth = getAuth(getFirebaseApp());
+    const app = getFirebaseApp();
+    // If auth was already initialized by another import, use getAuth.
+    // Otherwise, use initializeAuth with explicit persistence to avoid
+    // Firebase v11's default IndexedDB persistence hanging silently.
+    try {
+      _auth = initializeAuth(app, {
+        persistence: [
+          indexedDBLocalPersistence,
+          browserLocalPersistence,
+          browserSessionPersistence,
+        ],
+      });
+    } catch {
+      // initializeAuth throws if auth was already initialized — fall back
+      _auth = getAuth(app);
+    }
   }
   return _auth;
 }
