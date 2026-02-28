@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { slug, test_email } = await req.json();
+    const { slug, test_email, preview_only } = await req.json();
 
     if (!slug || !ALLOWED_SLUGS.includes(slug)) {
       return NextResponse.json(
@@ -37,9 +37,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body: Record<string, string> = { triggered_by: "admin_dashboard" };
+    const body: Record<string, string | boolean> = { triggered_by: "admin_dashboard" };
     if (test_email) {
       body.test_email = test_email;
+    }
+    if (preview_only) {
+      body.preview_only = true;
     }
 
     const edgeFnUrl = `${SUPABASE_URL}/functions/v1/${slug}`;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Sheet,
   SheetContent,
@@ -63,7 +63,13 @@ export function TriggerSheet({
   const [testEmail, setTestEmail] = useState("");
   const [lastEmail, setLastEmail] = useState<EmailLogRow | null>(null);
   const [lastEmailLoading, setLastEmailLoading] = useState(false);
+
+  // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewSubject, setPreviewSubject] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Fetch last email when sheet opens
@@ -72,7 +78,6 @@ export function TriggerSheet({
       setLastEmail(null);
       return;
     }
-    // Skip for verify-email-domains — it doesn't send emails
     if (trigger.slug === "verify-email-domains") return;
 
     setLastEmailLoading(true);
@@ -82,6 +87,49 @@ export function TriggerSheet({
       .catch(() => setLastEmail(null))
       .finally(() => setLastEmailLoading(false));
   }, [open, trigger]);
+
+  const fetchPreview = useCallback(async () => {
+    if (!trigger) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewHtml(null);
+    setPreviewSubject(null);
+
+    try {
+      const res = await fetch("/api/admin/email/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: trigger.slug, preview_only: true }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPreviewError(data.error ?? `Error ${res.status}`);
+        return;
+      }
+
+      // Edge function should return { html, subject } in preview mode
+      const html = data.html ?? data.html_body ?? data.body ?? null;
+      const subject = data.subject ?? trigger.label;
+
+      if (html) {
+        setPreviewHtml(html);
+        setPreviewSubject(subject);
+        setPreviewOpen(true);
+      } else {
+        // No HTML returned — show whatever we got
+        setPreviewHtml(null);
+        setPreviewSubject(subject);
+        setPreviewOpen(true);
+        // Store full response as fallback to display as JSON
+        setPreviewError(JSON.stringify(data, null, 2));
+      }
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Failed to fetch preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [trigger]);
 
   if (!trigger) return null;
 
@@ -120,7 +168,7 @@ export function TriggerSheet({
               {trigger.description}
             </p>
 
-            {/* Last Email Preview */}
+            {/* Last Email Info */}
             {trigger.slug !== "verify-email-domains" && (
               <div>
                 <p className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
@@ -151,7 +199,7 @@ export function TriggerSheet({
                         {new Date(lastEmail.sent_at).toLocaleString()}
                       </span>
                     </div>
-                    <div className="px-4 py-2 flex items-center justify-between border-b border-white/[0.05]">
+                    <div className="px-4 py-2 flex items-center justify-between">
                       <span className="font-kosugi text-[11px] text-[#6B6B6B]">Status</span>
                       <span className={`font-mohave text-[11px] uppercase ${
                         lastEmail.status === "sent" || lastEmail.status === "delivered"
@@ -161,17 +209,6 @@ export function TriggerSheet({
                         {lastEmail.status}
                       </span>
                     </div>
-                    {/* Preview button */}
-                    {lastEmail.metadata && (
-                      <div className="px-4 py-2">
-                        <button
-                          onClick={() => setPreviewOpen(true)}
-                          className="w-full px-3 py-2 rounded border border-white/[0.08] font-mohave text-[12px] uppercase tracking-wider text-[#C4A868] hover:bg-white/[0.04] transition-colors"
-                        >
-                          Preview Email
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
@@ -188,6 +225,29 @@ export function TriggerSheet({
               <p className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
                 Actions
               </p>
+
+              {/* Preview Email — always visible for email triggers */}
+              {trigger.hasTestEmail && (
+                <button
+                  onClick={fetchPreview}
+                  disabled={previewLoading}
+                  className="w-full px-4 py-2.5 rounded-lg border border-[#C4A868]/30 font-mohave text-[13px] uppercase tracking-wider text-[#C4A868] hover:bg-[#C4A868]/5 transition-colors disabled:opacity-40 mb-2"
+                >
+                  {previewLoading ? "Generating Preview..." : "Preview Email"}
+                </button>
+              )}
+
+              {/* Preview error (shown inline) */}
+              {previewError && !previewOpen && (
+                <div className="mb-2 rounded p-2.5 bg-[#93321A]/10">
+                  <p className="font-mohave text-[10px] uppercase mb-0.5 text-[#93321A]">
+                    Preview Error
+                  </p>
+                  <pre className="font-mono text-[11px] text-[#A0A0A0] whitespace-pre-wrap overflow-auto max-h-20">
+                    {previewError}
+                  </pre>
+                </div>
+              )}
 
               {/* Run Now */}
               <button
@@ -255,7 +315,9 @@ export function TriggerSheet({
       <EmailPreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        lastEmail={lastEmail}
+        html={previewHtml}
+        subject={previewSubject ?? trigger.label}
+        fallbackJson={previewError}
         iframeRef={iframeRef}
       />
     </Sheet>
@@ -267,43 +329,36 @@ export function TriggerSheet({
 function EmailPreviewDialog({
   open,
   onOpenChange,
-  lastEmail,
+  html,
+  subject,
+  fallbackJson,
   iframeRef,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  lastEmail: EmailLogRow | null;
+  html: string | null;
+  subject: string;
+  fallbackJson: string | null;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
 }) {
-  const metadata = lastEmail?.metadata;
-  // Look for HTML body in common metadata keys
-  const htmlBody =
-    (metadata?.html as string) ??
-    (metadata?.html_body as string) ??
-    (metadata?.body as string) ??
-    (metadata?.html_content as string) ??
-    null;
-
   useEffect(() => {
-    if (!open || !htmlBody || !iframeRef.current) return;
+    if (!open || !html || !iframeRef.current) return;
     const doc = iframeRef.current.contentDocument;
     if (doc) {
       doc.open();
-      doc.write(htmlBody);
+      doc.write(html);
       doc.close();
     }
-  }, [open, htmlBody, iframeRef]);
-
-  if (!lastEmail || !metadata) return null;
+  }, [open, html, iframeRef]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[720px] max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle>{lastEmail.subject}</DialogTitle>
+          <DialogTitle>{subject}</DialogTitle>
         </DialogHeader>
 
-        {htmlBody ? (
+        {html ? (
           <iframe
             ref={iframeRef}
             sandbox="allow-same-origin"
@@ -313,10 +368,10 @@ function EmailPreviewDialog({
         ) : (
           <div className="space-y-2">
             <p className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
-              Metadata (no HTML body found)
+              Response (no HTML body returned)
             </p>
             <pre className="font-mono text-[11px] text-[#A0A0A0] whitespace-pre-wrap overflow-auto max-h-[50vh] bg-white/[0.02] rounded-lg p-3 border border-white/[0.08]">
-              {JSON.stringify(metadata, null, 2)}
+              {fallbackJson ?? "No data"}
             </pre>
           </div>
         )}
