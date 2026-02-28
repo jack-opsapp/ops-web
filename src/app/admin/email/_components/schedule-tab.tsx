@@ -28,8 +28,7 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 const DAY_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const DAILY_SEGMENTS = ["lifecycle", "unverified"]; // run every day
-// Bubble reauth runs every Friday
+const FRIDAY_SEGMENTS = ["lifecycle", "unverified", "bubble"]; // run every Friday
 // Newsletter runs 2nd Friday of each month
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -347,13 +346,11 @@ function getFutureSegments(year: number, month: number, day: number, secondFrida
   const dayOfWeek = new Date(year, month - 1, day).getDay(); // 0=Sun, 5=Fri
   const isFriday = dayOfWeek === 5;
 
-  // Daily triggers run every day
-  for (const s of DAILY_SEGMENTS) {
+  if (!isFriday) return segments; // All triggers run on Fridays only
+
+  // Friday triggers: lifecycle, unverified, bubble
+  for (const s of FRIDAY_SEGMENTS) {
     segments[s] = 0; // 0 = scheduled but no count yet
-  }
-  // Bubble reauth runs every Friday
-  if (isFriday) {
-    segments.bubble = 0;
   }
   // Newsletter only on 2nd Friday
   if (day === secondFriday) {
