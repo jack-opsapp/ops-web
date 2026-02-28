@@ -35,6 +35,7 @@ export async function signInWithGoogle(): Promise<User> {
     if (
       code === "auth/popup-blocked" ||
       code === "auth/popup-closed-by-user" ||
+      code === "auth/cancelled-popup-request" ||
       code === "auth/network-request-failed" ||
       code === "auth/internal-error"
     ) {
@@ -59,6 +60,7 @@ export async function signInWithApple(): Promise<User> {
     if (
       code === "auth/popup-blocked" ||
       code === "auth/popup-closed-by-user" ||
+      code === "auth/cancelled-popup-request" ||
       code === "auth/network-request-failed" ||
       code === "auth/internal-error"
     ) {

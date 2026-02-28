@@ -115,8 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false);
           }
         } else if (fetchingRef.current) {
+          // Don't set isLoading(false) here — the in-flight sync will
+          // handle it in its finally block. Setting it now would let the
+          // dashboard render before user data is loaded.
           console.log("[AuthProvider] Already fetching, skipping");
-          setLoading(false);
         }
       });
       console.log("[AuthProvider] onAuthStateChanged registered successfully");

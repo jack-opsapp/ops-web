@@ -41,11 +41,15 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       // Initial state
+      // isLoading defaults to true — AuthProvider sets it to false once
+      // Firebase auth state is determined. This prevents a redirect loop
+      // where stale isAuthenticated in localStorage triggers premature
+      // navigation before Firebase can verify the actual session.
       currentUser: null,
       company: null,
       token: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true,
       role: UserRole.FieldCrew,
 
       // Login: set user, token, and update auth state
@@ -96,7 +100,11 @@ export const useAuthStore = create<AuthState>()(
       // Handle Firebase auth state changes (from AuthProvider)
       setFirebaseAuth: (authenticated: boolean) => {
         if (authenticated) {
-          set({ isAuthenticated: true, isLoading: false });
+          // Only set isAuthenticated — do NOT set isLoading: false here.
+          // AuthProvider controls loading lifecycle: loading stays true
+          // until syncUser completes (or fails). This prevents the
+          // dashboard from rendering before user/company data is available.
+          set({ isAuthenticated: true });
         } else {
           // User signed out of Firebase - clear everything
           set({

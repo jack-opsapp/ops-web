@@ -63,7 +63,16 @@ function LoginForm() {
       trackLogin(provider);
       router.push(redirectTo);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : `${provider} sign-in failed`;
+      const code = (err as { code?: string })?.code;
+      let message: string;
+      if (code === "auth/unauthorized-domain") {
+        message = "This domain is not authorized for sign-in. Contact support.";
+      } else if (code === "auth/operation-not-allowed") {
+        message = `${provider === "google" ? "Google" : "Apple"} sign-in is not enabled.`;
+      } else {
+        message = err instanceof Error ? err.message : `${provider} sign-in failed`;
+      }
+      console.error(`[Login] ${provider} sign-in error:`, code, err);
       setError(message);
     } finally {
       setLoading(false);
