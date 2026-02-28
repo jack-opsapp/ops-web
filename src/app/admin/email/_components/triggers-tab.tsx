@@ -72,6 +72,7 @@ export function TriggersTab() {
   const [cronJobs, setCronJobs] = useState<Record<string, CronJob>>({});
   const [cronLoading, setCronLoading] = useState(true);
   const [toggleLoading, setToggleLoading] = useState<Record<string, boolean>>({});
+  const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({});
 
   // Sheet state
   const [selectedTrigger, setSelectedTrigger] = useState<TriggerConfig | null>(null);
@@ -104,6 +105,7 @@ export function TriggersTab() {
 
   async function toggleCron(jobname: string, active: boolean) {
     setToggleLoading((prev) => ({ ...prev, [jobname]: true }));
+    setToggleErrors((prev) => ({ ...prev, [jobname]: "" }));
     try {
       const res = await fetch("/api/admin/email/cron", {
         method: "POST",
@@ -115,9 +117,16 @@ export function TriggersTab() {
           ...prev,
           [jobname]: { ...prev[jobname], active },
         }));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.detail || data.error || `Toggle failed (${res.status})`;
+        setToggleErrors((prev) => ({ ...prev, [jobname]: msg }));
       }
-    } catch {
-      // silent
+    } catch (err) {
+      setToggleErrors((prev) => ({
+        ...prev,
+        [jobname]: err instanceof Error ? err.message : "Network error",
+      }));
     } finally {
       setToggleLoading((prev) => ({ ...prev, [jobname]: false }));
     }
@@ -236,6 +245,13 @@ export function TriggersTab() {
                   <ChevronRight className="w-4 h-4 text-[#6B6B6B] flex-shrink-0" />
                 </div>
               </div>
+
+              {/* Toggle error */}
+              {trigger.cronJobName && toggleErrors[trigger.cronJobName] && (
+                <p className="mt-2 font-kosugi text-[11px] text-[#93321A]">
+                  Toggle failed: {toggleErrors[trigger.cronJobName]}
+                </p>
+              )}
             </div>
           );
         })}
