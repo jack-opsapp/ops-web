@@ -3,6 +3,7 @@ import {
   initializeAuth,
   getAuth,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   type Auth,
 } from "firebase/auth";
 
@@ -36,6 +37,7 @@ function getFirebaseAuth(): Auth {
     try {
       _auth = initializeAuth(app, {
         persistence: browserLocalPersistence,
+        popupRedirectResolver: browserPopupRedirectResolver,
       });
     } catch {
       // initializeAuth throws if auth was already initialized — fall back
