@@ -3,8 +3,6 @@ import {
   initializeAuth,
   getAuth,
   browserLocalPersistence,
-  browserSessionPersistence,
-  indexedDBLocalPersistence,
   type Auth,
 } from "firebase/auth";
 
@@ -37,11 +35,7 @@ function getFirebaseAuth(): Auth {
     // Firebase v11's default IndexedDB persistence hanging silently.
     try {
       _auth = initializeAuth(app, {
-        persistence: [
-          indexedDBLocalPersistence,
-          browserLocalPersistence,
-          browserSessionPersistence,
-        ],
+        persistence: browserLocalPersistence,
       });
     } catch {
       // initializeAuth throws if auth was already initialized — fall back
