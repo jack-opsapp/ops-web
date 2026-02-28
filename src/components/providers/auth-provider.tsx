@@ -118,7 +118,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
 
+    // Fallback: if onAuthStateChanged never fires within 4s, assume unauthenticated
+    const timeout = setTimeout(() => {
+      const { isLoading } = useAuthStore.getState();
+      if (isLoading) {
+        console.warn("[AuthProvider] onAuthStateChanged timed out after 4s — forcing unauthenticated state");
+        setFirebaseAuth(false);
+        setLoading(false);
+      }
+    }, 4000);
+
     return () => {
+      clearTimeout(timeout);
       if (unsubscribe) unsubscribe();
     };
   }, [setFirebaseAuth, setUser, setCompany, setLoading]);
