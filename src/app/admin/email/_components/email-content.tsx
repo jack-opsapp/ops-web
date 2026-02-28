@@ -8,6 +8,7 @@ import { NewsletterTab } from "./newsletter-tab";
 import { TriggersTab } from "./triggers-tab";
 import type {
   EmailOverviewStats,
+  EmailEngagementStats,
   EmailFunnelData,
   EmailLogRow,
   NewsletterContent,
@@ -15,16 +16,17 @@ import type {
 
 interface EmailContentProps {
   overview: EmailOverviewStats;
+  engagement: EmailEngagementStats;
   funnels: EmailFunnelData;
   emailLog: EmailLogRow[];
   newsletters: NewsletterContent[];
 }
 
-export function EmailContent({ overview, funnels, emailLog, newsletters }: EmailContentProps) {
+export function EmailContent({ overview, engagement, funnels, emailLog, newsletters }: EmailContentProps) {
   return (
     <SubTabs tabs={["Overview", "Funnels", "Email Log", "Newsletter", "Triggers"]}>
       {(tab) => {
-        if (tab === "Overview") return <OverviewTab stats={overview} />;
+        if (tab === "Overview") return <OverviewTab stats={overview} engagement={engagement} />;
         if (tab === "Funnels") return <FunnelsTab data={funnels} />;
         if (tab === "Email Log") return <EmailLogTab entries={emailLog} />;
         if (tab === "Newsletter") return <NewsletterTab newsletters={newsletters} />;

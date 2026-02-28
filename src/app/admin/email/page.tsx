@@ -1,5 +1,6 @@
 import {
   getEmailOverviewStats,
+  getEmailEngagementStats,
   getEmailFunnelData,
   getEmailLog,
   getNewsletters,
@@ -8,14 +9,15 @@ import { AdminPageHeader } from "../_components/admin-page-header";
 import { EmailContent } from "./_components/email-content";
 
 async function fetchEmailData() {
-  const [overview, funnels, emailLog, newsletters] = await Promise.all([
+  const [overview, engagement, funnels, emailLog, newsletters] = await Promise.all([
     getEmailOverviewStats(),
+    getEmailEngagementStats(),
     getEmailFunnelData(),
     getEmailLog(200),
     getNewsletters(),
   ]);
 
-  return { overview, funnels, emailLog, newsletters };
+  return { overview, engagement, funnels, emailLog, newsletters };
 }
 
 export default async function EmailPage() {
@@ -39,6 +41,7 @@ export default async function EmailPage() {
       <div className="p-8">
         <EmailContent
           overview={data.overview}
+          engagement={data.engagement}
           funnels={data.funnels}
           emailLog={data.emailLog}
           newsletters={data.newsletters}

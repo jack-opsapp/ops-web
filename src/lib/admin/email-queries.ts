@@ -8,6 +8,7 @@ import { bucketize } from "./date-utils";
 import type {
   EmailLogRow,
   EmailOverviewStats,
+  EmailEngagementStats,
   EmailFunnelData,
   NewsletterContent,
 } from "./types";
@@ -60,6 +61,67 @@ export async function getEmailOverviewStats(): Promise<EmailOverviewStats> {
   );
 
   return { totalSent: sent, totalDelivered: delivered, totalFailed: failed, deliveryRate, dailyVolume };
+}
+
+// ─── Engagement Stats (from SendGrid webhook events) ─────────────────────────
+
+export async function getEmailEngagementStats(): Promise<EmailEngagementStats> {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const from = thirtyDaysAgo.toISOString();
+
+  const [
+    { count: totalDelivered },
+    { data: uniqueOpenRows },
+    { data: uniqueClickRows },
+    { count: totalBounces },
+    { count: spamReports },
+  ] = await Promise.all([
+    db()
+      .from("email_events")
+      .select("*", { count: "exact", head: true })
+      .eq("event", "delivered")
+      .gte("timestamp", from),
+    db()
+      .from("email_events")
+      .select("email")
+      .eq("event", "open")
+      .gte("timestamp", from),
+    db()
+      .from("email_events")
+      .select("email")
+      .eq("event", "click")
+      .gte("timestamp", from),
+    db()
+      .from("email_events")
+      .select("*", { count: "exact", head: true })
+      .eq("event", "bounce")
+      .gte("timestamp", from),
+    db()
+      .from("email_events")
+      .select("*", { count: "exact", head: true })
+      .eq("event", "spamreport")
+      .gte("timestamp", from),
+  ]);
+
+  const delivered = totalDelivered ?? 0;
+  const uniqueOpens = new Set((uniqueOpenRows ?? []).map((r: { email: string }) => r.email)).size;
+  const uniqueClicks = new Set((uniqueClickRows ?? []).map((r: { email: string }) => r.email)).size;
+  const bounces = totalBounces ?? 0;
+  const spam = spamReports ?? 0;
+
+  const openRate = delivered > 0 ? Math.round((uniqueOpens / delivered) * 100) : 0;
+  const clickRate = delivered > 0 ? Math.round((uniqueClicks / delivered) * 100) : 0;
+
+  return {
+    totalDelivered: delivered,
+    uniqueOpens,
+    uniqueClicks,
+    totalBounces: bounces,
+    spamReports: spam,
+    openRate,
+    clickRate,
+  };
 }
 
 // ─── Funnel Data ─────────────────────────────────────────────────────────────

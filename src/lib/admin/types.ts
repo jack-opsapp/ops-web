@@ -434,6 +434,16 @@ export interface EmailFunnelData {
   };
 }
 
+export interface EmailEngagementStats {
+  totalDelivered: number;
+  uniqueOpens: number;
+  uniqueClicks: number;
+  totalBounces: number;
+  spamReports: number;
+  openRate: number;
+  clickRate: number;
+}
+
 export interface NewsletterContent {
   id: string;
   month: number;
