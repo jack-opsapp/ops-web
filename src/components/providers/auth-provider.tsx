@@ -36,77 +36,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchingRef = useRef(false);
 
   useEffect(() => {
+    console.log("[AuthProvider] useEffect mounting, calling setLoading(true)");
     setLoading(true);
-    const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
-      const authenticated = !!firebaseUser;
-      setFirebaseAuth(authenticated);
 
-      if (!authenticated) {
-        setAuthCookie(null);
-        console.log("[AuthProvider] Not authenticated");
-        setLoading(false);
-        return;
-      }
+    let unsubscribe: (() => void) | undefined;
+    try {
+      console.log("[AuthProvider] About to call onAuthStateChanged...");
+      unsubscribe = onAuthStateChanged(async (firebaseUser) => {
+        console.log("[AuthProvider] onAuthStateChanged fired:", !!firebaseUser);
+        const authenticated = !!firebaseUser;
+        setFirebaseAuth(authenticated);
 
-      // Always get the real ID token for the cookie (middleware/server needs it)
-      const idToken = await getIdToken();
-      setAuthCookie(idToken);
-
-      if (firebaseUser && !fetchingRef.current) {
-        // Check if the login page already handled this (user already in store)
-        const existingUser = useAuthStore.getState().currentUser;
-        if (existingUser?.companyId) {
-          console.log("[AuthProvider] User already in store (login page handled it), skipping API call.", existingUser.id);
+        if (!authenticated) {
+          setAuthCookie(null);
+          console.log("[AuthProvider] Not authenticated");
           setLoading(false);
           return;
         }
 
-        fetchingRef.current = true;
-        console.log("[AuthProvider] Firebase user authenticated, no user in store — calling syncUser:", firebaseUser.email);
-        try {
-          if (!idToken || !firebaseUser.email) {
-            console.warn("[AuthProvider] Missing idToken or email, aborting");
-            fetchingRef.current = false;
+        // Always get the real ID token for the cookie (middleware/server needs it)
+        const idToken = await getIdToken();
+        setAuthCookie(idToken);
+
+        if (firebaseUser && !fetchingRef.current) {
+          // Check if the login page already handled this (user already in store)
+          const existingUser = useAuthStore.getState().currentUser;
+          if (existingUser?.companyId) {
+            console.log("[AuthProvider] User already in store (login page handled it), skipping API call.", existingUser.id);
             setLoading(false);
             return;
           }
 
-          const result = await UserService.syncUser(
-            idToken,
-            firebaseUser.email,
-            firebaseUser.displayName || undefined,
-            firebaseUser.displayName?.split(" ")[0] || undefined,
-            firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
-            firebaseUser.photoURL || undefined
-          );
+          fetchingRef.current = true;
+          console.log("[AuthProvider] Firebase user authenticated, no user in store — calling syncUser:", firebaseUser.email);
+          try {
+            if (!idToken || !firebaseUser.email) {
+              console.warn("[AuthProvider] Missing idToken or email, aborting");
+              fetchingRef.current = false;
+              setLoading(false);
+              return;
+            }
 
-          console.log("[AuthProvider] syncUser result:", {
-            userId: result.user.id,
-            userRole: result.user.role,
-            companyName: result.company?.name ?? "null",
-          });
+            const result = await UserService.syncUser(
+              idToken,
+              firebaseUser.email,
+              firebaseUser.displayName || undefined,
+              firebaseUser.displayName?.split(" ")[0] || undefined,
+              firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+              firebaseUser.photoURL || undefined
+            );
 
-          setUser(result.user);
-          if (result.company) {
-            setCompany(result.company);
-          } else {
-            console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
+            console.log("[AuthProvider] syncUser result:", {
+              userId: result.user.id,
+              userRole: result.user.role,
+              companyName: result.company?.name ?? "null",
+            });
+
+            setUser(result.user);
+            if (result.company) {
+              setCompany(result.company);
+            } else {
+              console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
+            }
+          } catch (err) {
+            console.error("[AuthProvider] FAILED:", err);
+            toast.error("Failed to load user data", {
+              description: "Please try signing out and back in.",
+            });
+          } finally {
+            fetchingRef.current = false;
+            setLoading(false);
           }
-        } catch (err) {
-          console.error("[AuthProvider] FAILED:", err);
-          toast.error("Failed to load user data", {
-            description: "Please try signing out and back in.",
-          });
-        } finally {
-          fetchingRef.current = false;
+        } else if (fetchingRef.current) {
+          console.log("[AuthProvider] Already fetching, skipping");
           setLoading(false);
         }
-      } else if (fetchingRef.current) {
-        console.log("[AuthProvider] Already fetching, skipping");
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
+      });
+      console.log("[AuthProvider] onAuthStateChanged registered successfully");
+    } catch (err) {
+      console.error("[AuthProvider] Firebase init error:", err);
+      setLoading(false);
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [setFirebaseAuth, setUser, setCompany, setLoading]);
 
   return <>{children}</>;
