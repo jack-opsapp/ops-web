@@ -444,6 +444,20 @@ export interface EmailEngagementStats {
   clickRate: number;
 }
 
+export interface EmailScheduleDay {
+  date: string;                    // YYYY-MM-DD
+  counts: Record<string, number>;  // email_type_prefix → count
+  total: number;
+}
+
+export interface EmailDayDetail {
+  recipient_email: string;
+  email_type: string;
+  subject: string;
+  status: string;
+  sent_at: string;
+}
+
 export interface NewsletterContent {
   id: string;
   month: number;

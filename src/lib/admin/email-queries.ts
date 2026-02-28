@@ -10,6 +10,8 @@ import type {
   EmailOverviewStats,
   EmailEngagementStats,
   EmailFunnelData,
+  EmailScheduleDay,
+  EmailDayDetail,
   NewsletterContent,
 } from "./types";
 
@@ -230,4 +232,95 @@ export async function deleteNewsletter(id: string): Promise<void> {
     .delete()
     .eq("id", id);
   if (error) throw error;
+}
+
+// ─── Last Email by Type ──────────────────────────────────────────────────────
+
+/** Map trigger slug → email_type prefix(es) used in email_log */
+const TRIGGER_TYPE_PREFIXES: Record<string, string[]> = {
+  "lifecycle-emails": ["lifecycle_no_onboarding", "lifecycle_no_first_project", "lifecycle_inactive", "lifecycle_trial_expiring", "lifecycle_trial_expired"],
+  "bubble-reauth-emails": ["bubble_reauth"],
+  "unverified-emails": ["unverified"],
+  "newsletter-emails": ["newsletter"],
+};
+
+export async function getLastEmailByType(
+  emailTypePrefix: string
+): Promise<EmailLogRow | null> {
+  // Find all prefixes for this trigger slug, or use as literal prefix
+  const prefixes = TRIGGER_TYPE_PREFIXES[emailTypePrefix] ?? [emailTypePrefix];
+
+  // Query with OR filter across all matching prefixes
+  let query = db()
+    .from("email_log")
+    .select("*")
+    .order("sent_at", { ascending: false })
+    .limit(1);
+
+  if (prefixes.length === 1) {
+    query = query.ilike("email_type", `${prefixes[0]}%`);
+  } else {
+    // Build OR filter: email_type like 'prefix1%' or email_type like 'prefix2%' ...
+    const orFilter = prefixes.map((p) => `email_type.ilike.${p}%`).join(",");
+    query = query.or(orFilter);
+  }
+
+  const { data } = await query;
+  return (data?.[0] as EmailLogRow) ?? null;
+}
+
+// ─── Schedule Data ───────────────────────────────────────────────────────────
+
+/** Bucket an email_type into a display segment */
+function emailTypeToSegment(emailType: string): string {
+  if (emailType.startsWith("lifecycle_") || emailType.startsWith("lifecycle-")) return "lifecycle";
+  if (emailType.startsWith("bubble_reauth") || emailType.startsWith("bubble-reauth")) return "bubble";
+  if (emailType.startsWith("unverified")) return "unverified";
+  if (emailType.startsWith("newsletter")) return "newsletter";
+  return "other";
+}
+
+export async function getEmailScheduleData(
+  year: number,
+  month: number
+): Promise<EmailScheduleDay[]> {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 1); // first day of next month
+
+  const { data } = await db()
+    .from("email_log")
+    .select("email_type, sent_at")
+    .gte("sent_at", startDate.toISOString())
+    .lt("sent_at", endDate.toISOString());
+
+  // Group by date + segment
+  const dayMap: Record<string, Record<string, number>> = {};
+
+  for (const row of (data ?? []) as { email_type: string; sent_at: string }[]) {
+    const date = row.sent_at.slice(0, 10); // YYYY-MM-DD
+    const segment = emailTypeToSegment(row.email_type);
+    if (!dayMap[date]) dayMap[date] = {};
+    dayMap[date][segment] = (dayMap[date][segment] ?? 0) + 1;
+  }
+
+  return Object.entries(dayMap).map(([date, counts]) => ({
+    date,
+    counts,
+    total: Object.values(counts).reduce((s, n) => s + n, 0),
+  }));
+}
+
+export async function getEmailsByDate(date: string): Promise<EmailDayDetail[]> {
+  const start = `${date}T00:00:00.000Z`;
+  const end = `${date}T23:59:59.999Z`;
+
+  const { data } = await db()
+    .from("email_log")
+    .select("recipient_email, email_type, subject, status, sent_at")
+    .gte("sent_at", start)
+    .lte("sent_at", end)
+    .order("sent_at", { ascending: false })
+    .limit(500);
+
+  return (data ?? []) as EmailDayDetail[];
 }
