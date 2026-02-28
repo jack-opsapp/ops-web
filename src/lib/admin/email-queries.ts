@@ -70,7 +70,13 @@ export async function getEmailEngagementStats(): Promise<EmailEngagementStats> {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const from = thirtyDaysAgo.toISOString();
 
-  const results = await Promise.all([
+  const [
+    { count: totalDelivered },
+    { data: uniqueOpenRows },
+    { data: uniqueClickRows },
+    { count: totalBounces },
+    { count: spamReports },
+  ] = await Promise.all([
     db()
       .from("email_events")
       .select("*", { count: "exact", head: true })
@@ -98,26 +104,11 @@ export async function getEmailEngagementStats(): Promise<EmailEngagementStats> {
       .gte("timestamp", from),
   ]);
 
-  // Log any query errors for debugging
-  results.forEach((r, i) => {
-    if (r.error) console.error(`[email-engagement] Query ${i} error:`, r.error.message);
-  });
-
-  const [
-    { count: totalDelivered },
-    { data: uniqueOpenRows },
-    { data: uniqueClickRows },
-    { count: totalBounces },
-    { count: spamReports },
-  ] = results;
-
   const delivered = totalDelivered ?? 0;
   const uniqueOpens = new Set((uniqueOpenRows ?? []).map((r: { email: string }) => r.email)).size;
   const uniqueClicks = new Set((uniqueClickRows ?? []).map((r: { email: string }) => r.email)).size;
   const bounces = totalBounces ?? 0;
   const spam = spamReports ?? 0;
-
-  console.log("[email-engagement] Results:", { delivered, uniqueOpens, uniqueClicks, bounces, spam });
 
   const openRate = delivered > 0 ? Math.round((uniqueOpens / delivered) * 100) : 0;
   const clickRate = delivered > 0 ? Math.round((uniqueClicks / delivered) * 100) : 0;
