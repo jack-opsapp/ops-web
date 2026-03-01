@@ -1,8 +1,6 @@
-interface AlertItem {
-  severity: "info" | "warning" | "danger";
-  title: string;
-  detail?: string;
-}
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import type { AlertItem } from "@/lib/admin/types";
 
 const SEVERITY_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
   info: { dot: "bg-[#597794]", text: "text-[#A0A0A0]", bg: "" },
@@ -23,13 +21,10 @@ export function AlertList({ alerts }: { alerts: AlertItem[] }) {
     <div className="space-y-0">
       {alerts.map((alert, i) => {
         const style = SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.info;
-        return (
-          <div
-            key={i}
-            className={`flex items-start gap-3 px-4 py-3 border-b border-white/[0.05] last:border-0 ${style.bg}`}
-          >
+        const inner = (
+          <>
             <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${style.dot}`} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className={`font-mohave text-[14px] ${style.text}`}>
                 {alert.title}
               </p>
@@ -39,6 +34,30 @@ export function AlertList({ alerts }: { alerts: AlertItem[] }) {
                 </p>
               )}
             </div>
+            {alert.href && (
+              <ChevronRight className="w-3.5 h-3.5 text-[#6B6B6B] mt-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </>
+        );
+
+        if (alert.href) {
+          return (
+            <Link
+              key={i}
+              href={alert.href}
+              className={`flex items-start gap-3 px-4 py-3 border-b border-white/[0.05] last:border-0 group transition-colors hover:bg-white/[0.04] ${style.bg}`}
+            >
+              {inner}
+            </Link>
+          );
+        }
+
+        return (
+          <div
+            key={i}
+            className={`flex items-start gap-3 px-4 py-3 border-b border-white/[0.05] last:border-0 ${style.bg}`}
+          >
+            {inner}
           </div>
         );
       })}

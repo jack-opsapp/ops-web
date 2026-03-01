@@ -903,23 +903,24 @@ export async function getAlerts() {
   const withProjects = new Set((projectCompanies ?? []).map((p) => p.company_id));
   const zeroProjectCount = emptyIds.filter((id) => !withProjects.has(id)).length;
 
-  const alerts: { severity: "info" | "warning" | "danger"; title: string; detail?: string }[] = [];
+  const alerts: { severity: "info" | "warning" | "danger"; title: string; detail?: string; href?: string }[] = [];
 
   if (trialsExpiring3d > 0) {
-    alerts.push({ severity: "danger", title: `${trialsExpiring3d} trial(s) expiring within 3 days` });
+    alerts.push({ severity: "danger", title: `${trialsExpiring3d} trial(s) expiring within 3 days`, href: "/admin/companies" });
   }
   if ((graceCompanies ?? []).length > 0) {
     alerts.push({
       severity: "warning",
       title: `${graceCompanies!.length} company(s) in grace period`,
       detail: graceCompanies!.map((c) => c.name).join(", "),
+      href: "/admin/companies",
     });
   }
   if ((featureRequests ?? []).length > 0) {
-    alerts.push({ severity: "info", title: `${featureRequests!.length} new feature request(s)` });
+    alerts.push({ severity: "info", title: `${featureRequests!.length} new feature request(s)`, href: "/admin/feedback" });
   }
   if (zeroProjectCount > 0) {
-    alerts.push({ severity: "info", title: `${zeroProjectCount} company(s) with 0 projects` });
+    alerts.push({ severity: "info", title: `${zeroProjectCount} company(s) with 0 projects`, href: "/admin/companies" });
   }
 
   return alerts;
