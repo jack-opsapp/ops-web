@@ -16,7 +16,7 @@
  */
 
 import { useRef, useEffect, useCallback } from "react";
-import type { StarfieldQuestion } from "./SetupStarfield";
+import type { StarfieldQuestion } from "@/stores/setup-store";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -36,11 +36,13 @@ function easeInOutCubic(t: number): number {
 
 interface SetupLaunchAnimationProps {
   questions: StarfieldQuestion[];
+  starfieldAnswers: Record<string, string | number>;
   onComplete: () => void;
 }
 
 export function SetupLaunchAnimation({
   questions,
+  starfieldAnswers,
   onComplete,
 }: SetupLaunchAnimationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -74,8 +76,8 @@ export function SetupLaunchAnimation({
       observer.observe(container);
     }
 
-    const answeredNodes = questions.filter((q) => q.answer !== null);
-    const unansweredNodes = questions.filter((q) => q.answer === null);
+    const answeredNodes = questions.filter((q) => starfieldAnswers[q.id] != null);
+    const unansweredNodes = questions.filter((q) => starfieldAnswers[q.id] == null);
 
     // Generate ambient particles
     const particles: {
@@ -323,7 +325,7 @@ export function SetupLaunchAnimation({
       cancelAnimationFrame(animRef.current);
       if (observer) observer.disconnect();
     };
-  }, [questions, resize]);
+  }, [questions, starfieldAnswers, resize]);
 
   return (
     <div

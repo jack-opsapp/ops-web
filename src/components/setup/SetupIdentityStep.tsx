@@ -245,7 +245,7 @@ export function IdentityStep1({
           About You
         </h2>
         <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
-          Let&apos;s start with the basics
+          The name behind the operation
         </p>
       </div>
 
@@ -271,7 +271,7 @@ export function IdentityStep1({
           placeholder="(555) 123-4567"
           value={phone}
           onChange={(e) => onUpdate({ phone: e.target.value })}
-          helperText="For account recovery only"
+          helperText="Recovery only. We don't call."
         />
       </div>
     </div>
@@ -307,7 +307,7 @@ export function IdentityStep2({
           Your Company
         </h2>
         <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
-          Tell us about your operation
+          This shapes your command center
         </p>
       </div>
 

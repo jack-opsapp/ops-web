@@ -8,132 +8,27 @@
  * Phase 3: Launch animation → navigate to dashboard
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { getAuth } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { trackBeginTrial, trackCompleteOnboarding } from "@/lib/analytics/analytics";
-import { useSetupStore } from "@/stores/setup-store";
+import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { useAuthStore } from "@/lib/store/auth-store";
 import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults";
 import { IdentityStep1, IdentityStep2 } from "@/components/setup/SetupIdentityStep";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
 import { SetupLaunchAnimation } from "@/components/setup/SetupLaunchAnimation";
-import type { StarfieldQuestion } from "@/components/setup/SetupStarfield";
-
-// ─── Starfield Questions (placeholder, content TBD) ─────────────────────────
-
-const STARFIELD_QUESTIONS: StarfieldQuestion[] = [
-  {
-    id: "q1",
-    label: "Work Style",
-    question: "How does your crew typically work?",
-    options: [
-      { id: "solo", label: "Solo jobs" },
-      { id: "small-teams", label: "Small teams" },
-      { id: "large-crews", label: "Large crews" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: -200, y: 150, z: 50 },
-  },
-  {
-    id: "q2",
-    label: "Scheduling",
-    question: "How do you handle scheduling?",
-    options: [
-      { id: "paper", label: "Paper calendar" },
-      { id: "digital", label: "Digital tools" },
-      { id: "none", label: "Wing it" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: 180, y: -120, z: -30 },
-  },
-  {
-    id: "q3",
-    label: "Invoicing",
-    question: "How do you invoice clients?",
-    options: [
-      { id: "quickbooks", label: "QuickBooks" },
-      { id: "manual", label: "Manual invoices" },
-      { id: "none", label: "No system yet" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: -150, y: -180, z: 80 },
-  },
-  {
-    id: "q4",
-    label: "Growth",
-    question: "What's your top growth goal?",
-    options: [
-      { id: "clients", label: "More clients" },
-      { id: "bigger-jobs", label: "Bigger jobs" },
-      { id: "margins", label: "Better margins" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: 220, y: 100, z: -60 },
-  },
-  {
-    id: "q5",
-    label: "Communication",
-    question: "How does your crew communicate?",
-    options: [
-      { id: "text", label: "Text messages" },
-      { id: "calls", label: "Phone calls" },
-      { id: "in-person", label: "In person" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: -50, y: 200, z: -40 },
-  },
-  {
-    id: "q6",
-    label: "Tracking",
-    question: "What do you track most?",
-    options: [
-      { id: "hours", label: "Hours worked" },
-      { id: "costs", label: "Job costs" },
-      { id: "materials", label: "Materials" },
-      { id: "nothing", label: "Nothing yet" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: 100, y: -200, z: 70 },
-  },
-  {
-    id: "q7",
-    label: "Pain Point",
-    question: "Biggest day-to-day headache?",
-    options: [
-      { id: "paperwork", label: "Paperwork" },
-      { id: "payments", label: "Chasing payments" },
-      { id: "coordination", label: "Crew coordination" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: -180, y: -50, z: -80 },
-  },
-  {
-    id: "q8",
-    label: "Estimates",
-    question: "How do you create estimates?",
-    options: [
-      { id: "spreadsheet", label: "Spreadsheet" },
-      { id: "handwritten", label: "Handwritten" },
-      { id: "software", label: "Software" },
-      { id: "none", label: "Don't estimate" },
-    ],
-    type: "single",
-    answer: null,
-    position: { x: 160, y: 160, z: 40 },
-  },
-];
-
 const MIN_STARFIELD_ANSWERS = 4;
+
+// ─── Auth helper ──────────────────────────────────────────────────────────────
+
+const getAuthToken = async (): Promise<string | null> => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  return user ? await user.getIdToken() : null;
+};
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -153,64 +48,95 @@ export default function SetupPage() {
     setCompanyInfo,
     starfieldAnswers,
     setStarfieldAnswer,
-    workType,
-    trackingPriorities,
-    teamSize,
-    neededFeatures,
+    completeStep,
     completeSetup,
   } = useSetupStore();
 
   const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
-  const token = useAuthStore((s) => s.token);
-
-  // Build questions with answers merged in
-  const questions: StarfieldQuestion[] = useMemo(
-    () =>
-      STARFIELD_QUESTIONS.map((q) => ({
-        ...q,
-        answer: starfieldAnswers[q.id] ?? null,
-      })),
-    [starfieldAnswers]
-  );
 
   const answeredCount = Object.keys(starfieldAnswers).length;
 
-  // ─── Phase 1 validation ────────────────────────────────────────────────
-
-  const canProceedIdentity1 = firstName.trim() !== "" && lastName.trim() !== "";
-  const canProceedIdentity2 =
-    companyName.trim() !== "" &&
-    industry !== "" &&
-    companySize !== "" &&
-    companyAge !== "";
-
   // ─── Navigation ────────────────────────────────────────────────────────
 
-  const handleNext = useCallback(() => {
-    if (phase === "identity-1") {
-      trackBeginTrial();
-      setPhase("identity-2");
-    } else if (phase === "identity-2") {
-      setPhase("starfield");
+  const handleIdentityNext = useCallback(async () => {
+    trackBeginTrial();
+    completeStep("identity");
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        await fetch("/api/setup/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            step: "identity",
+            data: { firstName, lastName, phone },
+          }),
+        });
+      }
+    } catch {
+      // Non-blocking — continue even if save fails
     }
-  }, [phase, setPhase]);
+    setPhase("company");
+  }, [completeStep, setPhase, firstName, lastName, phone]);
+
+  const handleCompanyNext = useCallback(async () => {
+    completeStep("company");
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        await fetch("/api/setup/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            step: "company",
+            data: { companyName, industry, companySize, companyAge },
+          }),
+        });
+      }
+    } catch {
+      // Non-blocking
+    }
+    setPhase("starfield");
+  }, [completeStep, setPhase, companyName, industry, companySize, companyAge]);
+
+  const handleNext = useCallback(() => {
+    if (phase === "identity") {
+      handleIdentityNext();
+    } else if (phase === "company") {
+      handleCompanyNext();
+    }
+  }, [phase, handleIdentityNext, handleCompanyNext]);
 
   const handleBack = useCallback(() => {
-    if (phase === "identity-2") {
-      setPhase("identity-1");
+    if (phase === "company") {
+      setPhase("identity");
     } else if (phase === "starfield") {
-      setPhase("identity-2");
+      setPhase("company");
     }
   }, [phase, setPhase]);
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        await fetch("/api/setup/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ step: phase, token }),
+        });
+      }
+    } catch {
+      // Non-blocking
+    }
     completeSetup();
     trackCompleteOnboarding(false);
     router.push("/dashboard");
-  }, [completeSetup, router]);
+  }, [completeSetup, router, phase]);
 
   const handleStarfieldAnswer = useCallback(
-    (questionId: string, answer: string | string[]) => {
+    (questionId: string, answer: string | number) => {
       setStarfieldAnswer(questionId, answer);
     },
     [setStarfieldAnswer]
@@ -223,55 +149,48 @@ export default function SetupPage() {
   }, [answeredCount, setPhase]);
 
   const handleLaunchComplete = useCallback(async () => {
-    // Apply widget defaults
-    const instances = getDefaultWidgetInstancesFromSetup({
-      workType,
-      trackingPriorities,
-      teamSize,
-      neededFeatures,
-    });
+    // 1. Save starfield answers
+    completeStep("starfield");
+
+    // 2. Personalize dashboard
+    const instances = getDefaultWidgetInstancesFromSetup(starfieldAnswers, companySize);
     applyWidgetInstances(instances);
 
-    // Save company data via API
+    // 3. Save to server
     try {
-      await fetch("/api/setup/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token,
-          firstName,
-          lastName,
-          phone,
-          companyName,
-          industry,
-          companySize,
-          companyAge,
-        }),
-      });
+      const token = await getAuthToken();
+      if (token) {
+        // Save starfield progress
+        await fetch("/api/setup/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            step: "starfield",
+            data: { starfieldAnswers },
+          }),
+        });
+        // Mark onboarding complete
+        await fetch("/api/setup/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+      }
     } catch {
-      // Non-blocking — setup completes even if API save fails
-      console.error("[setup] Failed to save company data");
+      // Non-blocking
     }
 
     completeSetup();
     trackCompleteOnboarding(false);
     router.push("/dashboard");
   }, [
-    workType,
-    trackingPriorities,
-    teamSize,
-    neededFeatures,
+    completeStep,
+    starfieldAnswers,
+    companySize,
     applyWidgetInstances,
     completeSetup,
     router,
-    token,
-    firstName,
-    lastName,
-    phone,
-    companyName,
-    industry,
-    companySize,
-    companyAge,
   ]);
 
   // ─── Starfield phase ──────────────────────────────────────────────────
@@ -280,7 +199,8 @@ export default function SetupPage() {
     return (
       <div className="fixed inset-0 bg-background">
         <SetupStarfield
-          questions={questions}
+          questions={STARFIELD_QUESTIONS}
+          starfieldAnswers={starfieldAnswers}
           onAnswer={handleStarfieldAnswer}
           minRequired={MIN_STARFIELD_ANSWERS}
         />
@@ -299,7 +219,7 @@ export default function SetupPage() {
             onClick={handleSkip}
             className="px-3 py-1.5 font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
           >
-            Skip
+            Skip for now
           </button>
           {answeredCount >= MIN_STARFIELD_ANSWERS && (
             <button
@@ -321,7 +241,8 @@ export default function SetupPage() {
     return (
       <div className="fixed inset-0 bg-background">
         <SetupLaunchAnimation
-          questions={questions}
+          questions={STARFIELD_QUESTIONS}
+          starfieldAnswers={starfieldAnswers}
           onComplete={handleLaunchComplete}
         />
       </div>
@@ -330,8 +251,7 @@ export default function SetupPage() {
 
   // ─── Identity phases ──────────────────────────────────────────────────
 
-  const canProceed = phase === "identity-1" ? canProceedIdentity1 : canProceedIdentity2;
-  const stepLabel = phase === "identity-1" ? "1 OF 2" : "2 OF 2";
+  const stepLabel = phase === "identity" ? "1 OF 2" : "2 OF 2";
 
   return (
     <div className="w-full max-w-[600px] mx-auto">
@@ -354,7 +274,7 @@ export default function SetupPage() {
         <div className="flex-1 h-[3px] rounded-full bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]" />
         <div
           className={`flex-1 h-[3px] rounded-full transition-all duration-300 ${
-            phase === "identity-2"
+            phase === "company"
               ? "bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]"
               : "bg-background-elevated"
           }`}
@@ -370,13 +290,13 @@ export default function SetupPage() {
           onClick={handleSkip}
           className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
         >
-          Skip Setup
+          Skip for now
         </button>
       </div>
 
       {/* Step content */}
       <div className="animate-fade-in" key={phase}>
-        {phase === "identity-1" && (
+        {phase === "identity" && (
           <IdentityStep1
             firstName={firstName}
             lastName={lastName}
@@ -384,7 +304,7 @@ export default function SetupPage() {
             onUpdate={(data) => setIdentity(data)}
           />
         )}
-        {phase === "identity-2" && (
+        {phase === "company" && (
           <IdentityStep2
             companyName={companyName}
             industry={industry}
@@ -400,15 +320,15 @@ export default function SetupPage() {
         <Button
           variant="ghost"
           onClick={handleBack}
-          disabled={phase === "identity-1"}
+          disabled={phase === "identity"}
           className="gap-[4px]"
         >
           <ChevronLeft className="w-[16px] h-[16px]" />
           Back
         </Button>
 
-        <Button onClick={handleNext} disabled={!canProceed} className="gap-[4px]">
-          Continue
+        <Button onClick={handleNext} className="gap-[4px]">
+          Next
           <ChevronRight className="w-[16px] h-[16px]" />
         </Button>
       </div>
