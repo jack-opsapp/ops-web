@@ -67,3 +67,35 @@ export const placeholderCellVariants: Variants = {
   }),
   exit: { opacity: 0, scale: 0.85, transition: { duration: 0.15, ease: EASE_SMOOTH } },
 };
+
+// ── FAB menu spring physics ──
+export const SPRING_FAB = { type: "spring" as const, stiffness: 200, damping: 15 };
+
+/** FAB overlay — right-edge gradient fade */
+export const fabOverlayVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** FAB menu item — slides in from right, staggered bottom-up */
+export const fabItemVariants: Variants = {
+  hidden: { opacity: 0, x: 40 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { ...SPRING_FAB, delay: i * 0.06 },
+  }),
+  exit: (i: number) => ({
+    opacity: 0,
+    x: 40,
+    transition: { ...SPRING_FAB, delay: i * 0.04 },
+  }),
+};
+
+/** FAB edit mode — minus badge scale-in */
+export const fabBadgeVariants: Variants = {
+  hidden: { opacity: 0, scale: 0 },
+  visible: { opacity: 1, scale: 1, transition: SPRING_FAB },
+  exit: { opacity: 0, scale: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
