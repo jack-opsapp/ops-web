@@ -397,6 +397,7 @@ export interface User {
   setupProgress: SetupProgress | null;
   stripeCustomerId: string | null;
   deviceToken: string | null;
+  fabActions?: string[] | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;

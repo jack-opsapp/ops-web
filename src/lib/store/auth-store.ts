@@ -11,6 +11,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { User, Company } from "../types/models";
 import { UserRole } from "../types/models";
+import { requireSupabase } from "@/lib/supabase/helpers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ export interface AuthState {
   setFirebaseAuth: (authenticated: boolean) => void;
   updateRole: () => void;
   hydrate: () => void;
+  updateFabActions: (actions: string[]) => Promise<void>;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -146,6 +148,22 @@ export const useAuthStore = create<AuthState>()(
       // Hydrate auth state from persisted storage
       hydrate: () => {
         // No-op: Firebase handles auth state automatically
+      },
+
+      // Persist FAB action preferences for the current user
+      updateFabActions: async (actions: string[]) => {
+        const { currentUser } = get();
+        if (!currentUser) return;
+
+        const supabase = requireSupabase();
+        const { error } = await supabase
+          .from("users")
+          .update({ fab_actions: actions })
+          .eq("id", currentUser.id);
+
+        if (!error) {
+          set({ currentUser: { ...currentUser, fabActions: actions } });
+        }
       },
     }),
     {
