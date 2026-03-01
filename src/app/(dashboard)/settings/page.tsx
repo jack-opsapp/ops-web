@@ -17,6 +17,7 @@ import {
   Globe,
   Plug,
   FileText,
+  Zap,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useDictionary } from "@/i18n/client";
@@ -36,6 +37,7 @@ import { TaskTypesTab } from "@/components/settings/task-types-tab";
 import { DeveloperTab } from "@/components/settings/developer-tab";
 import { PortalBrandingTab } from "@/components/settings/portal-branding-tab";
 import { DocumentTemplatesTab } from "@/components/settings/document-templates-tab";
+import { QuickActionsTab } from "@/components/settings/quick-actions-tab";
 
 type SettingsGroup = "account" | "company" | "billing" | "integrations" | "preferences" | "developer";
 
@@ -163,6 +165,9 @@ export default function SettingsPage() {
           <>
             <SettingsSection title={t("sections.preferences")} icon={SlidersHorizontal} defaultOpen>
               <PreferencesTab />
+            </SettingsSection>
+            <SettingsSection title="Quick Actions" icon={Zap}>
+              <QuickActionsTab />
             </SettingsSection>
             <SettingsSection title={t("sections.dataPrivacy")} icon={Database}>
               <DataPrivacyTab />
