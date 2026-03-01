@@ -14,20 +14,11 @@
  * - Respects prefers-reduced-motion
  */
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-export interface StarfieldQuestion {
-  id: string;
-  label: string;
-  question: string;
-  options: { id: string; label: string }[];
-  type: "single" | "multi";
-  answer: string | string[] | null;
-  position: { x: number; y: number; z: number };
-}
+import { StarfieldQuestion } from "@/stores/setup-store";
+import { LikertResponse } from "./starfield/LikertResponse";
+import { ForcedChoiceResponse } from "./starfield/ForcedChoiceResponse";
 
 interface Camera {
   x: number;
@@ -92,12 +83,14 @@ function project3D(
 
 interface SetupStarfieldProps {
   questions: StarfieldQuestion[];
-  onAnswer: (questionId: string, answer: string | string[]) => void;
+  starfieldAnswers: Record<string, string | number>;
+  onAnswer: (questionId: string, answer: string | number) => void;
   minRequired?: number;
 }
 
 export function SetupStarfield({
   questions,
+  starfieldAnswers,
   onAnswer,
   minRequired = 4,
 }: SetupStarfieldProps) {
@@ -131,6 +124,23 @@ export function SetupStarfield({
 
   const focusedNodeRef = useRef<string | null>(null);
   focusedNodeRef.current = focusedNode;
+
+  // Keep a ref to starfieldAnswers so the canvas draw loop can read it
+  const starfieldAnswersRef = useRef(starfieldAnswers);
+  starfieldAnswersRef.current = starfieldAnswers;
+
+  // ─── Conditional visibility ──────────────────────────────────────────────
+
+  const visibleQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (!q.conditionalOn) return true;
+      const depAnswer = starfieldAnswers[q.conditionalOn.questionId];
+      return depAnswer != null && depAnswer !== q.conditionalOn.excludeAnswer;
+    });
+  }, [questions, starfieldAnswers]);
+
+  const visibleQuestionsRef = useRef(visibleQuestions);
+  visibleQuestionsRef.current = visibleQuestions;
 
   // ─── Canvas resize ──────────────────────────────────────────────────────
 
@@ -248,7 +258,8 @@ export function SetupStarfield({
       const mouse = mouseRef.current;
       const camera = cameraRef.current;
       const vel = cameraVelRef.current;
-      const qs = questionsRef.current;
+      const qs = visibleQuestionsRef.current;
+      const answers = starfieldAnswersRef.current;
 
       // ── Spring camera toward target ──
       if (!prefersReduced) {
@@ -353,7 +364,7 @@ export function SetupStarfield({
         }
 
         // Node color
-        const isAnswered = q.answer !== null;
+        const isAnswered = answers[q.id] != null;
         const isFocusedNode = focusedNodeRef.current === q.id;
         let nodeAlpha = 0.6;
 
@@ -386,8 +397,8 @@ export function SetupStarfield({
         ctx.shadowColor = "transparent";
         ctx.shadowBlur = 0;
 
-        // ── Draw sub-nodes when focused ──
-        if (isFocusedNode) {
+        // ── Draw sub-nodes when focused (situational only) ──
+        if (isFocusedNode && q.responseType === "situational") {
           const subPositions: {
             id: string;
             label: string;
@@ -406,9 +417,7 @@ export function SetupStarfield({
             const subY = sy + Math.sin(angle) * orbitRadius;
             const subSize = SUB_NODE_RADIUS * proj.scale;
 
-            const isSelected =
-              q.answer === options[i].id ||
-              (Array.isArray(q.answer) && q.answer.includes(options[i].id));
+            const isSelected = answers[q.id] === options[i].id;
 
             // Vector line from center to sub-node
             ctx.strokeStyle = isSelected
@@ -504,37 +513,40 @@ export function SetupStarfield({
       const centerX = w / 2;
       const centerY = h / 2;
       const camera = cameraRef.current;
-      const qs = questionsRef.current;
+      const qs = visibleQuestionsRef.current;
 
-      // If focused on a node, check sub-node clicks
+      // If focused on a node, check sub-node clicks (situational only)
       if (focusedNodeRef.current) {
         const q = qs.find((q) => q.id === focusedNodeRef.current);
         if (q) {
-          const proj = project3D(
-            q.position.x,
-            q.position.y,
-            q.position.z,
-            camera,
-            centerX,
-            centerY
-          );
-          const orbitRadius = SUB_NODE_ORBIT_RADIUS * proj.scale;
-          const angleStep = (2 * Math.PI) / q.options.length;
+          // Only check canvas sub-node clicks for situational type
+          if (q.responseType === "situational") {
+            const proj = project3D(
+              q.position.x,
+              q.position.y,
+              q.position.z,
+              camera,
+              centerX,
+              centerY
+            );
+            const orbitRadius = SUB_NODE_ORBIT_RADIUS * proj.scale;
+            const angleStep = (2 * Math.PI) / q.options.length;
 
-          for (let i = 0; i < q.options.length; i++) {
-            const angle = angleStep * i - Math.PI / 2;
-            const subX = proj.x + Math.cos(angle) * orbitRadius;
-            const subY = proj.y + Math.sin(angle) * orbitRadius;
-            const dx = clickX - subX;
-            const dy = clickY - subY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 20 * proj.scale) {
-              handleOptionSelect(q.id, q.options[i].id);
-              return;
+            for (let i = 0; i < q.options.length; i++) {
+              const angle = angleStep * i - Math.PI / 2;
+              const subX = proj.x + Math.cos(angle) * orbitRadius;
+              const subY = proj.y + Math.sin(angle) * orbitRadius;
+              const dx = clickX - subX;
+              const dy = clickY - subY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 20 * proj.scale) {
+                handleOptionSelect(q.id, q.options[i].id);
+                return;
+              }
             }
           }
 
-          // Click outside sub-nodes? zoom out
+          // Click outside sub-nodes / response area? zoom out
           zoomOut();
           return;
         }
@@ -564,7 +576,8 @@ export function SetupStarfield({
 
   // ─── Render ───────────────────────────────────────────────────────────
 
-  const answeredCount = questions.filter((q) => q.answer !== null).length;
+  const focusedQuestion = visibleQuestions.find((q) => q.id === focusedNode) ?? null;
+  const answeredCount = visibleQuestions.filter((q) => starfieldAnswers[q.id] != null).length;
 
   return (
     <div
@@ -602,11 +615,11 @@ export function SetupStarfield({
         )}
       </AnimatePresence>
 
-      {/* Focused node: question text + sub-node labels */}
+      {/* Focused node: question text + response UI */}
       <AnimatePresence>
-        {focusedNode && (
+        {focusedQuestion && (
           <motion.div
-            key={`question-${focusedNode}`}
+            key={`question-${focusedQuestion.id}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -616,39 +629,81 @@ export function SetupStarfield({
             {/* Question text at top */}
             <div className="absolute top-[15%] left-1/2 -translate-x-1/2 text-center">
               <h2 className="font-mohave text-display text-text-primary">
-                {questions.find((q) => q.id === focusedNode)?.question}
+                {focusedQuestion.question}
               </h2>
               <p className="font-kosugi text-caption text-text-tertiary mt-1">
                 Click an option to answer
               </p>
             </div>
 
-            {/* Sub-node labels */}
-            {subNodePositions.map((sub) => (
-              <div
-                key={sub.id}
-                className="absolute pointer-events-auto cursor-pointer"
-                style={{
-                  left: sub.screenX,
-                  top: sub.screenY + 16,
-                  transform: "translateX(-50%)",
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (focusedNode) {
-                    handleOptionSelect(focusedNode, sub.id);
-                  }
-                }}
-              >
-                <span
-                  className={`font-kosugi text-caption whitespace-nowrap transition-colors ${
-                    sub.selected ? "text-ops-accent" : "text-text-secondary hover:text-text-primary"
-                  }`}
+            {/* Situational: sub-node labels (canvas draws the nodes) */}
+            {focusedQuestion.responseType === "situational" &&
+              subNodePositions.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="absolute pointer-events-auto cursor-pointer"
+                  style={{
+                    left: sub.screenX,
+                    top: sub.screenY + 16,
+                    transform: "translateX(-50%)",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOptionSelect(focusedQuestion.id, sub.id);
+                  }}
                 >
-                  {sub.label}
-                </span>
+                  <span
+                    className={`font-kosugi text-caption whitespace-nowrap transition-colors ${
+                      sub.selected ? "text-ops-accent" : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {sub.label}
+                  </span>
+                </div>
+              ))}
+
+            {/* Likert response */}
+            {focusedQuestion.responseType === "likert" && (
+              <div
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <LikertResponse
+                  minLabel={focusedQuestion.likertMin!}
+                  maxLabel={focusedQuestion.likertMax!}
+                  value={
+                    typeof starfieldAnswers[focusedQuestion.id] === "number"
+                      ? (starfieldAnswers[focusedQuestion.id] as number)
+                      : null
+                  }
+                  onSelect={(value) => {
+                    onAnswer(focusedQuestion.id, value);
+                    setTimeout(() => zoomOut(), 100);
+                  }}
+                />
               </div>
-            ))}
+            )}
+
+            {/* Forced choice response */}
+            {focusedQuestion.responseType === "forced_choice" && (
+              <div
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ForcedChoiceResponse
+                  options={focusedQuestion.options}
+                  value={
+                    typeof starfieldAnswers[focusedQuestion.id] === "string"
+                      ? (starfieldAnswers[focusedQuestion.id] as string)
+                      : null
+                  }
+                  onSelect={(optionId) => {
+                    onAnswer(focusedQuestion.id, optionId);
+                    setTimeout(() => zoomOut(), 100);
+                  }}
+                />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -656,11 +711,11 @@ export function SetupStarfield({
       {/* Progress indicator */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
         <div className="flex items-center gap-2">
-          {questions.map((q) => (
+          {visibleQuestions.map((q) => (
             <div
               key={q.id}
               className={`w-2 h-2 rounded-sm transition-colors duration-300 ${
-                q.answer !== null
+                starfieldAnswers[q.id] != null
                   ? "bg-ops-accent shadow-[0_0_6px_rgba(65,115,148,0.4)]"
                   : "bg-white/10"
               }`}
@@ -668,7 +723,7 @@ export function SetupStarfield({
           ))}
         </div>
         <p className="font-mono text-[10px] text-text-disabled text-center mt-2">
-          {answeredCount}/{questions.length} answered
+          {answeredCount}/{visibleQuestions.length} answered
           {answeredCount < minRequired && ` (${minRequired - answeredCount} more needed)`}
         </p>
       </div>
