@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
 import { SetupLaunchAnimation } from "@/components/setup/SetupLaunchAnimation";
-import type { StarfieldQuestion } from "@/components/setup/SetupStarfield";
+import type { StarfieldQuestion } from "@/stores/setup-store";
 
 // ─── Placeholder questions for testing ─────────────────────────────────────
 
@@ -13,106 +13,98 @@ const TEST_QUESTIONS: StarfieldQuestion[] = [
     id: "q1",
     label: "Work Style",
     question: "How does your crew typically work?",
+    responseType: "situational",
     options: [
       { id: "a", label: "Solo jobs" },
       { id: "b", label: "Small teams" },
       { id: "c", label: "Large crews" },
     ],
-    type: "single",
-    answer: null,
     position: { x: -200, y: 150, z: 50 },
   },
   {
     id: "q2",
     label: "Scheduling",
     question: "How do you handle scheduling?",
+    responseType: "situational",
     options: [
       { id: "a", label: "Paper calendar" },
       { id: "b", label: "Digital tools" },
       { id: "c", label: "Wing it" },
     ],
-    type: "single",
-    answer: null,
     position: { x: 180, y: -120, z: -30 },
   },
   {
     id: "q3",
     label: "Invoicing",
     question: "How do you invoice clients?",
+    responseType: "situational",
     options: [
       { id: "a", label: "QuickBooks" },
       { id: "b", label: "Manual invoices" },
       { id: "c", label: "No system yet" },
     ],
-    type: "single",
-    answer: null,
     position: { x: -150, y: -180, z: 80 },
   },
   {
     id: "q4",
     label: "Growth",
     question: "What's your top growth goal?",
+    responseType: "situational",
     options: [
       { id: "a", label: "More clients" },
       { id: "b", label: "Bigger jobs" },
       { id: "c", label: "Better margins" },
     ],
-    type: "single",
-    answer: null,
     position: { x: 220, y: 100, z: -60 },
   },
   {
     id: "q5",
     label: "Communication",
     question: "How does your crew communicate?",
+    responseType: "situational",
     options: [
       { id: "a", label: "Text messages" },
       { id: "b", label: "Phone calls" },
       { id: "c", label: "In person" },
     ],
-    type: "single",
-    answer: null,
     position: { x: -50, y: 200, z: -40 },
   },
   {
     id: "q6",
     label: "Tracking",
     question: "What do you track most?",
+    responseType: "situational",
     options: [
       { id: "a", label: "Hours worked" },
       { id: "b", label: "Job costs" },
       { id: "c", label: "Materials" },
       { id: "d", label: "Nothing yet" },
     ],
-    type: "single",
-    answer: null,
     position: { x: 100, y: -200, z: 70 },
   },
   {
     id: "q7",
     label: "Pain Point",
     question: "Biggest day-to-day headache?",
+    responseType: "situational",
     options: [
       { id: "a", label: "Paperwork" },
       { id: "b", label: "Chasing payments" },
       { id: "c", label: "Crew coordination" },
     ],
-    type: "single",
-    answer: null,
     position: { x: -180, y: -50, z: -80 },
   },
   {
     id: "q8",
     label: "Estimates",
     question: "How do you create estimates?",
+    responseType: "situational",
     options: [
       { id: "a", label: "Spreadsheet" },
       { id: "b", label: "Handwritten" },
       { id: "c", label: "Software" },
       { id: "d", label: "Don't estimate" },
     ],
-    type: "single",
-    answer: null,
     position: { x: 160, y: 160, z: 40 },
   },
 ];
@@ -126,15 +118,13 @@ export default function TestingGroundsPage() {
   const hasAccess = currentUser?.specialPermissions?.includes("testing-grounds");
 
   const [mode, setMode] = useState<TestMode>("idle");
-  const [questions, setQuestions] = useState<StarfieldQuestion[]>(TEST_QUESTIONS);
+  const [answers, setAnswers] = useState<Record<string, string | number>>({});
 
-  const answeredCount = questions.filter((q) => q.answer !== null).length;
+  const answeredCount = Object.keys(answers).length;
 
   const handleAnswer = useCallback(
-    (questionId: string, answer: string | string[]) => {
-      setQuestions((prev) =>
-        prev.map((q) => (q.id === questionId ? { ...q, answer } : q))
-      );
+    (questionId: string, answer: string | number) => {
+      setAnswers((prev) => ({ ...prev, [questionId]: answer }));
     },
     []
   );
@@ -144,7 +134,7 @@ export default function TestingGroundsPage() {
   }, []);
 
   const resetAnswers = useCallback(() => {
-    setQuestions(TEST_QUESTIONS.map((q) => ({ ...q, answer: null })));
+    setAnswers({});
   }, []);
 
   // ─── Access gate ───────────────────────────────────────────────────────
@@ -214,7 +204,8 @@ export default function TestingGroundsPage() {
     return (
       <div className="fixed inset-0 z-50 bg-background">
         <SetupStarfield
-          questions={questions}
+          questions={TEST_QUESTIONS}
+          starfieldAnswers={answers}
           onAnswer={handleAnswer}
           minRequired={4}
         />
@@ -247,7 +238,8 @@ export default function TestingGroundsPage() {
   return (
     <div className="fixed inset-0 z-50 bg-background">
       <SetupLaunchAnimation
-        questions={questions}
+        questions={TEST_QUESTIONS}
+        starfieldAnswers={answers}
         onComplete={handleLaunchComplete}
       />
       <div className="absolute top-4 right-4 z-10">
