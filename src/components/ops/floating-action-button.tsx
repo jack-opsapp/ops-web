@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Plus,
   Minus,
@@ -23,7 +23,9 @@ import {
   SPRING_FAB,
   fabOverlayVariants,
   fabItemVariants,
+  fabItemVariantsReduced,
   fabBadgeVariants,
+  fabBadgeVariantsReduced,
 } from "@/lib/utils/motion";
 
 // ─── Action registry ─────────────────────────────────────────────────────────
@@ -68,10 +70,7 @@ export function FloatingActionButton() {
   const [triggerAction, setTriggerActionState] = useState("projects");
 
   // ── Reduced motion ──────────────────────────────────────────────────────
-  const prefersReducedMotion =
-    typeof window !== "undefined"
-      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false;
+  const prefersReducedMotion = useReducedMotion();
 
   // ── Active actions from user prefs ──────────────────────────────────────
   const userActionIds = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
@@ -193,16 +192,16 @@ export function FloatingActionButton() {
       </AnimatePresence>
 
       {/* ── FAB container ── */}
-      <div ref={containerRef} className="fixed bottom-3 right-14 z-[95]">
+      <div ref={containerRef} className="fixed bottom-4 right-6 z-[95]">
         {/* ── Menu items — frosted glass pills, staggered from right ── */}
         <AnimatePresence>
           {(open || editMode) && (
-            <div className="absolute bottom-[60px] right-0 flex flex-col gap-2">
+            <div className="absolute bottom-[60px] right-0 flex flex-col-reverse gap-2">
               {activeActions.map((action, i) => (
                 <motion.button
                   key={action.id}
                   custom={i}
-                  variants={prefersReducedMotion ? undefined : fabItemVariants}
+                  variants={prefersReducedMotion ? fabItemVariantsReduced : fabItemVariants}
                   initial="hidden"
                   animate="visible"
                   exit="exit"
@@ -220,7 +219,7 @@ export function FloatingActionButton() {
                   {editMode && activeActions.length > 1 && (
                     <motion.div
                       variants={
-                        prefersReducedMotion ? undefined : fabBadgeVariants
+                        prefersReducedMotion ? fabBadgeVariantsReduced : fabBadgeVariants
                       }
                       initial="hidden"
                       animate="visible"
@@ -244,7 +243,7 @@ export function FloatingActionButton() {
               {/* Edit mode: Add Action ghost pill */}
               {editMode && activeActions.length < ALL_ACTIONS.length && (
                 <motion.button
-                  variants={prefersReducedMotion ? undefined : fabItemVariants}
+                  variants={prefersReducedMotion ? fabItemVariantsReduced : fabItemVariants}
                   custom={activeActions.length}
                   initial="hidden"
                   animate="visible"

@@ -99,3 +99,19 @@ export const fabBadgeVariants: Variants = {
   visible: { opacity: 1, scale: 1, transition: SPRING_FAB },
   exit: { opacity: 0, scale: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
 };
+
+/** FAB reduced-motion fallbacks — opacity only, no transforms */
+export const fabItemVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { duration: 0.2, delay: i * 0.03 },
+  }),
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+export const fabBadgeVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
