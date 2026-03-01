@@ -39,6 +39,7 @@ function mapFromDb(row: Record<string, unknown>): User {
     setupProgress: (row.setup_progress as User["setupProgress"]) ?? null,
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
     deviceToken: (row.device_token as string) ?? null,
+    fabActions: (row.fab_actions as string[]) ?? null,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
