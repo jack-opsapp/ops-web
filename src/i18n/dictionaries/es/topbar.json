@@ -1,0 +1,17 @@
+{
+  "sync.synced": "Sincronizado",
+  "sync.syncing": "Sincronizando",
+  "sync.pending": "Pendiente",
+  "sync.offline": "Sin conexión",
+  "sync.syncedTitle": "Todos los datos sincronizados",
+  "sync.syncingTitle": "Sincronizando datos...",
+  "sync.pendingTitle": "Cambios pendientes de sincronizar",
+  "sync.offlineTitle": "Sin conexión a internet",
+
+  "search.placeholder": "Buscar...",
+  "search.shortcut": "⌘K",
+  "search.ariaLabel": "Abrir búsqueda",
+
+  "notifications.title": "Notificaciones",
+  "notifications.ariaLabel": "Notificaciones"
+}

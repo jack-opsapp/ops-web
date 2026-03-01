@@ -39,6 +39,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useWindowStore } from "@/stores/window-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
+import { useDictionary } from "@/i18n/client";
 
 import {
   useProjects,
@@ -82,43 +83,46 @@ interface Column {
 // ---------------------------------------------------------------------------
 // Column / Status Mapping
 // ---------------------------------------------------------------------------
-const COLUMN_DEFINITIONS: Omit<Column, "cards">[] = [
+const COLUMN_STYLE_DEFS: Omit<Column, "cards" | "label">[] = [
   {
     id: "rfq",
-    label: "RFQ",
     color: "text-status-rfq",
     borderColor: "border-t-status-rfq",
     bgAccent: "bg-status-rfq",
   },
   {
     id: "estimated",
-    label: "Estimated",
     color: "text-status-estimated",
     borderColor: "border-t-status-estimated",
     bgAccent: "bg-status-estimated",
   },
   {
     id: "accepted",
-    label: "Accepted",
     color: "text-status-accepted",
     borderColor: "border-t-status-accepted",
     bgAccent: "bg-status-accepted",
   },
   {
     id: "in-progress",
-    label: "In Progress",
     color: "text-status-in-progress",
     borderColor: "border-t-status-in-progress",
     bgAccent: "bg-status-in-progress",
   },
   {
     id: "completed",
-    label: "Completed",
     color: "text-status-completed",
     borderColor: "border-t-status-completed",
     bgAccent: "bg-status-completed",
   },
 ];
+
+const COLUMN_LABEL_KEYS: Record<ColumnId, string> = {
+  rfq: "column.rfq",
+  estimated: "column.estimated",
+  accepted: "column.accepted",
+  "in-progress": "column.inProgress",
+  completed: "column.completed",
+};
 
 const COLUMN_ID_TO_STATUS: Record<ColumnId, ProjectStatus> = {
   rfq: ProjectStatus.RFQ,
@@ -168,10 +172,12 @@ function SortableKanbanCard({
   card,
   columnColor: _columnColor,
   isDraggingOverlay,
+  t,
 }: {
   card: JobCard;
   columnColor: string;
   isDraggingOverlay?: boolean;
+  t: (key: string) => string;
 }) {
   const router = useRouter();
   const {
@@ -266,7 +272,7 @@ function SortableKanbanCard({
               </div>
             ))
           ) : (
-            <span className="font-kosugi text-[9px] text-text-disabled">Unassigned</span>
+            <span className="font-kosugi text-[9px] text-text-disabled">{t("card.unassigned")}</span>
           )}
           {card.teamMembers.length > 3 && (
             <div className="w-[20px] h-[20px] rounded-full bg-background-elevated border border-background-card-dark flex items-center justify-center">
@@ -281,7 +287,7 @@ function SortableKanbanCard({
           {card.daysInStage > 0 && (
             <div
               className="flex items-center gap-[2px]"
-              title={`${card.daysInStage} days in this stage`}
+              title={`${card.daysInStage}${t("card.daysAgo")}`}
             >
               <Clock className="w-[10px] h-[10px] text-text-disabled" />
               <span className="font-mono text-[9px] text-text-disabled">{card.daysInStage}d</span>
@@ -309,10 +315,12 @@ function KanbanColumn({
   column,
   activeCardId: _activeCardId,
   onAddProject,
+  t,
 }: {
   column: Column;
   activeCardId: string | null;
   onAddProject?: () => void;
+  t: (key: string) => string;
 }) {
   const totalValue = column.cards.reduce((sum, c) => sum + c.value, 0);
   const avgDays =
@@ -362,7 +370,7 @@ function KanbanColumn({
           {avgDays > 0 && (
             <div className="flex items-center gap-[3px]">
               <Clock className="w-[10px] h-[10px] text-text-disabled" />
-              <span className="font-mono text-[10px] text-text-disabled">avg {avgDays}d</span>
+              <span className="font-mono text-[10px] text-text-disabled">{t("column.avg")} {avgDays}{t("card.daysAgo")}</span>
             </div>
           )}
         </div>
@@ -379,6 +387,7 @@ function KanbanColumn({
               key={card.id}
               card={card}
               columnColor={column.color}
+              t={t}
             />
           ))}
 
@@ -388,10 +397,10 @@ function KanbanColumn({
                 <LayoutGrid className="w-[14px] h-[14px] text-text-disabled" />
               </div>
               <span className="font-kosugi text-[11px] text-text-disabled">
-                No projects in this stage
+                {t("column.noProjects")}
               </span>
               <span className="font-kosugi text-[9px] text-text-disabled">
-                Drop here to move
+                {t("column.dropHere")}
               </span>
             </div>
           )}
@@ -415,6 +424,7 @@ function FilterBar({
   totalProjects,
   totalValue,
   onNewProject,
+  t,
 }: {
   searchQuery: string;
   setSearchQuery: (v: string) => void;
@@ -426,6 +436,7 @@ function FilterBar({
   totalProjects: number;
   totalValue: number;
   onNewProject?: () => void;
+  t: (key: string) => string;
 }) {
   return (
     <div className="shrink-0 space-y-1">
@@ -434,20 +445,20 @@ function FilterBar({
         <div>
           <div className="flex items-center gap-2">
             <p className="font-kosugi text-caption-sm text-text-tertiary">
-              Drag and drop to update project status
+              {t("subtitle")}
             </p>
             <span className="font-mono text-[11px] text-text-disabled">
-              {totalProjects} projects
+              {totalProjects} {t("projects")}
             </span>
             <span className="font-mono text-[11px] text-ops-amber">
-              ${(totalValue / 1000).toFixed(1)}k total
+              ${(totalValue / 1000).toFixed(1)}k {t("total")}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-1">
           <div className="max-w-[250px]">
             <Input
-              placeholder="Search projects..."
+              placeholder={t("search.placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -470,11 +481,11 @@ function FilterBar({
             onClick={() => setShowFilters(!showFilters)}
           >
             <ListFilter className="w-[14px] h-[14px]" />
-            Filter
+            {t("filter")}
           </Button>
           <Button variant="default" size="sm" className="gap-[6px]" onClick={onNewProject}>
             <Plus className="w-[14px] h-[14px]" />
-            New Project
+            {t("newProject")}
           </Button>
         </div>
       </div>
@@ -485,7 +496,7 @@ function FilterBar({
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1">
               <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                Client
+                {t("filter.client")}
               </span>
               <select
                 value={clientFilter}
@@ -497,7 +508,7 @@ function FilterBar({
                   "cursor-pointer"
                 )}
               >
-                <option value="">All Clients</option>
+                <option value="">{t("filter.allClients")}</option>
                 {allClients.map((client) => (
                   <option key={client} value={client}>
                     {client}
@@ -517,14 +528,14 @@ function FilterBar({
                 }}
               >
                 <X className="w-[12px] h-[12px]" />
-                Clear Filters
+                {t("filter.clear")}
               </Button>
             )}
 
             {/* Active filter badges */}
             {clientFilter && (
               <Badge variant="info" className="gap-[4px]">
-                Client: {clientFilter}
+                {t("filter.client")}: {clientFilter}
                 <button
                   onClick={() => setClientFilter("")}
                   className="hover:text-white cursor-pointer"
@@ -535,7 +546,7 @@ function FilterBar({
             )}
             {searchQuery && (
               <Badge variant="info" className="gap-[4px]">
-                Search: &quot;{searchQuery}&quot;
+                {t("search.label")}: &quot;{searchQuery}&quot;
                 <button
                   onClick={() => setSearchQuery("")}
                   className="hover:text-white cursor-pointer"
@@ -555,22 +566,33 @@ function FilterBar({
 // Job Board Page
 // ---------------------------------------------------------------------------
 export default function JobBoardPage() {
+  const { t } = useDictionary("schedule");
   const [searchQuery, setSearchQuery] = useState("");
   const [clientFilter, setClientFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const openWindow = useWindowStore((s) => s.openWindow);
-  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+  const openCreateProject = () => openWindow({ id: "create-project", title: t("newProject"), type: "create-project" });
+
+  const columnDefinitions = useMemo<Omit<Column, "cards">[]>(
+    () =>
+      COLUMN_STYLE_DEFS.map((def) => ({
+        ...def,
+        label: t(COLUMN_LABEL_KEYS[def.id]),
+      })),
+    [t]
+  );
 
   // Register header actions
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Project", icon: Plus, onClick: openCreateProject },
+      { label: t("newProject"), icon: Plus, onClick: openCreateProject },
     ]);
     return () => clearActions();
-  }, [setActions, clearActions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setActions, clearActions, t]);
 
   // Track optimistic DnD overrides: map of projectId -> target ColumnId
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
@@ -664,11 +686,11 @@ export default function JobBoardPage() {
       // Projects with statuses not on the board (Closed, Archived) are skipped
     }
 
-    return COLUMN_DEFINITIONS.map((def) => ({
+    return columnDefinitions.map((def) => ({
       ...def,
       cards: grouped[def.id],
     }));
-  }, [projectsData, dndOverrides, projectToCard]);
+  }, [projectsData, dndOverrides, projectToCard, columnDefinitions]);
 
   // Pointer sensor with small activation distance so clicks still work
   const sensors = useSensors(
@@ -754,7 +776,7 @@ export default function JobBoardPage() {
       let destColId: ColumnId | null = null;
 
       // Check if overId is a column id
-      if (COLUMN_DEFINITIONS.some((def) => def.id === overId)) {
+      if (columnDefinitions.some((def) => def.id === overId)) {
         destColId = overId as ColumnId;
       } else {
         // overId is a card, find its column
@@ -783,8 +805,8 @@ export default function JobBoardPage() {
         { id: activeId, status: newStatus },
         {
           onSuccess: () => {
-            toast.success("Project status updated", {
-              description: `Moved to ${COLUMN_DEFINITIONS.find((d) => d.id === destColId)?.label ?? destColId}`,
+            toast.success(t("status.updated"), {
+              description: `${t("status.moved")} ${columnDefinitions.find((d) => d.id === destColId)?.label ?? destColId}`,
             });
           },
           onError: (error) => {
@@ -794,14 +816,14 @@ export default function JobBoardPage() {
               delete next[activeId];
               return next;
             });
-            toast.error("Failed to update status", {
-              description: error instanceof Error ? error.message : "Please try again",
+            toast.error(t("status.failed"), {
+              description: error instanceof Error ? error.message : t("status.tryAgain"),
             });
           },
         }
       );
     },
-    [columns, updateStatusMutation]
+    [columns, updateStatusMutation, columnDefinitions, t]
   );
 
   // ─── Loading State ───────────────────────────────────────────────────────
@@ -809,7 +831,7 @@ export default function JobBoardPage() {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 text-ops-accent animate-spin" />
-        <span className="font-mohave text-body text-text-tertiary">Loading job board...</span>
+        <span className="font-mohave text-body text-text-tertiary">{t("loading")}</span>
       </div>
     );
   }
@@ -828,6 +850,7 @@ export default function JobBoardPage() {
         totalProjects={totalProjects}
         totalValue={totalValue}
         onNewProject={() => openCreateProject()}
+        t={t}
       />
 
       {/* Kanban Board with DnD */}
@@ -845,6 +868,7 @@ export default function JobBoardPage() {
                 column={column}
                 activeCardId={activeCardId}
                 onAddProject={() => openCreateProject()}
+                t={t}
               />
             ))}
           </div>
@@ -858,6 +882,7 @@ export default function JobBoardPage() {
                 card={activeCard.card}
                 columnColor=""
                 isDraggingOverlay
+                t={t}
               />
             </div>
           ) : null}
@@ -886,7 +911,7 @@ export default function JobBoardPage() {
           ))}
         </div>
         <span className="font-kosugi text-[10px] text-text-disabled">
-          Drag cards between columns to update status
+          {t("bottomBar")}
         </span>
       </div>
 

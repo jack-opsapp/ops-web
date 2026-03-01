@@ -1,5 +1,9 @@
 "use client";
 
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
+
 interface TaskItem {
   id: string;
   title: string;
@@ -11,41 +15,51 @@ interface PortalTaskTimelineProps {
   tasks: TaskItem[];
 }
 
-const STATUS_COLORS: Record<string, { dot: string; label: string }> = {
-  Booked: { dot: "#417394", label: "Booked" },
-  booked: { dot: "#417394", label: "Booked" },
-  "In Progress": { dot: "#C4A868", label: "In Progress" },
-  in_progress: { dot: "#C4A868", label: "In Progress" },
-  Completed: { dot: "#9DB582", label: "Completed" },
-  completed: { dot: "#9DB582", label: "Completed" },
-  Cancelled: { dot: "#B58289", label: "Cancelled" },
-  cancelled: { dot: "#B58289", label: "Cancelled" },
+const STATUS_DOTS: Record<string, string> = {
+  Booked: "#417394",
+  booked: "#417394",
+  "In Progress": "#C4A868",
+  in_progress: "#C4A868",
+  Completed: "#9DB582",
+  completed: "#9DB582",
+  Cancelled: "#B58289",
+  cancelled: "#B58289",
 };
 
-const DEFAULT_STATUS = { dot: "#9CA3AF", label: "" };
+const STATUS_KEYS: Record<string, string> = {
+  Booked: "taskTimeline.booked",
+  booked: "taskTimeline.booked",
+  "In Progress": "taskTimeline.inProgress",
+  in_progress: "taskTimeline.inProgress",
+  Completed: "taskTimeline.completed",
+  completed: "taskTimeline.completed",
+  Cancelled: "taskTimeline.cancelled",
+  cancelled: "taskTimeline.cancelled",
+};
 
-function formatScheduledDate(date?: string): string {
+const DEFAULT_DOT = "#9CA3AF";
+
+function formatScheduledDate(date: string | undefined, locale: Locale): string {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString(getDateLocale(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function getStatusDisplay(status: string) {
-  const found = STATUS_COLORS[status];
-  if (found) return found;
-  // Fallback: format the raw status string
-  return {
-    ...DEFAULT_STATUS,
-    label: status
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase()),
-  };
-}
-
 export function PortalTaskTimeline({ tasks }: PortalTaskTimelineProps) {
+  const { t } = useDictionary("portal");
+  const { locale } = useLocale();
+
+  function getStatusDisplay(status: string) {
+    const dot = STATUS_DOTS[status] ?? DEFAULT_DOT;
+    const key = STATUS_KEYS[status];
+    const label = key
+      ? t(key)
+      : status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return { dot, label };
+  }
   if (tasks.length === 0) return null;
 
   return (
@@ -108,7 +122,7 @@ export function PortalTaskTimeline({ tasks }: PortalTaskTimelineProps) {
                     className="text-xs mt-0.5"
                     style={{ color: "var(--portal-text-tertiary)" }}
                   >
-                    {formatScheduledDate(task.scheduledDate)}
+                    {formatScheduledDate(task.scheduledDate, locale)}
                   </p>
                 )}
               </div>

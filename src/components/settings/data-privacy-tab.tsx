@@ -8,8 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 export function DataPrivacyTab() {
+  const { t } = useDictionary("settings");
   const { company } = useAuthStore();
   const [exporting, setExporting] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
@@ -43,10 +45,10 @@ export function DataPrivacyTab() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Data exported successfully");
+      toast.success(t("dataPrivacy.toast.exported"));
     } catch (err) {
-      toast.error("Export failed", {
-        description: err instanceof Error ? err.message : "Unknown error",
+      toast.error(t("dataPrivacy.toast.exportFailed"), {
+        description: err instanceof Error ? err.message : t("dataPrivacy.toast.unknownError"),
       });
     } finally {
       setExporting(false);
@@ -55,7 +57,7 @@ export function DataPrivacyTab() {
 
   async function handleDeleteAccount() {
     if (confirmText !== "DELETE") {
-      toast.error("Please type DELETE to confirm");
+      toast.error(t("dataPrivacy.toast.typeDelete"));
       return;
     }
     if (!company) return;
@@ -76,15 +78,15 @@ export function DataPrivacyTab() {
         throw new Error(err.error || "Deletion failed");
       }
 
-      toast.success("Account deleted");
+      toast.success(t("dataPrivacy.toast.deleted"));
 
       // Sign out and redirect
       const { signOut } = await import("@/lib/firebase/auth");
       await signOut();
       window.location.href = "/login";
     } catch (err) {
-      toast.error("Deletion failed", {
-        description: err instanceof Error ? err.message : "Unknown error",
+      toast.error(t("dataPrivacy.toast.deleteFailed"), {
+        description: err instanceof Error ? err.message : t("dataPrivacy.toast.unknownError"),
       });
     } finally {
       setDeleting(false);
@@ -95,11 +97,11 @@ export function DataPrivacyTab() {
     <div className="space-y-3 max-w-[600px]">
       <Card>
         <CardHeader>
-          <CardTitle>Export Your Data</CardTitle>
+          <CardTitle>{t("dataPrivacy.exportTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-secondary">
-            Download a copy of all your data including projects, clients, tasks, and team information.
+            {t("dataPrivacy.exportDesc")}
           </p>
           <Button
             variant="secondary"
@@ -112,44 +114,44 @@ export function DataPrivacyTab() {
             ) : (
               <Download className="w-[16px] h-[16px]" />
             )}
-            {exporting ? "Exporting..." : "Download Data Export"}
+            {exporting ? t("dataPrivacy.exporting") : t("dataPrivacy.downloadExport")}
           </Button>
           <p className="font-kosugi text-[11px] text-text-disabled">
-            Export is generated as a JSON file containing all your company data.
+            {t("dataPrivacy.exportHelper")}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Data Retention</CardTitle>
+          <CardTitle>{t("dataPrivacy.retentionTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 py-[6px]">
               <Database className="w-[16px] h-[16px] text-ops-accent shrink-0" />
               <div>
-                <p className="font-mohave text-body-sm text-text-secondary">Active Data</p>
+                <p className="font-mohave text-body-sm text-text-secondary">{t("dataPrivacy.activeData")}</p>
                 <p className="font-kosugi text-[11px] text-text-disabled">
-                  Retained as long as your account is active
+                  {t("dataPrivacy.activeDataDesc")}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 py-[6px]">
               <Clock className="w-[16px] h-[16px] text-ops-amber shrink-0" />
               <div>
-                <p className="font-mohave text-body-sm text-text-secondary">Deleted Data</p>
+                <p className="font-mohave text-body-sm text-text-secondary">{t("dataPrivacy.deletedData")}</p>
                 <p className="font-kosugi text-[11px] text-text-disabled">
-                  Permanently removed within 30 days of deletion
+                  {t("dataPrivacy.deletedDataDesc")}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 py-[6px]">
               <Trash2 className="w-[16px] h-[16px] text-text-disabled shrink-0" />
               <div>
-                <p className="font-mohave text-body-sm text-text-secondary">Closed Accounts</p>
+                <p className="font-mohave text-body-sm text-text-secondary">{t("dataPrivacy.closedAccounts")}</p>
                 <p className="font-kosugi text-[11px] text-text-disabled">
-                  All data removed within 90 days of account closure
+                  {t("dataPrivacy.closedAccountsDesc")}
                 </p>
               </div>
             </div>
@@ -159,11 +161,11 @@ export function DataPrivacyTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Delete Account</CardTitle>
+          <CardTitle>{t("dataPrivacy.deleteTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-secondary">
-            Permanently delete your account and all associated data. This action cannot be undone.
+            {t("dataPrivacy.deleteDesc")}
           </p>
           <Button
             variant="destructive"
@@ -182,9 +184,9 @@ export function DataPrivacyTab() {
           setDeleteAccountOpen(open);
           if (!open) setConfirmText("");
         }}
-        title="Delete your account?"
-        description="This will permanently delete your account, all projects, clients, tasks, and team data. This action cannot be undone. Type DELETE to confirm."
-        confirmLabel="Delete Account"
+        title={t("dataPrivacy.deleteConfirmTitle")}
+        description={t("dataPrivacy.deleteConfirmDesc")}
+        confirmLabel={t("dataPrivacy.deleteTitle")}
         variant="destructive"
         onConfirm={handleDeleteAccount}
         loading={deleting}

@@ -11,8 +11,10 @@ import {
   SubscriptionStatus,
 } from "@/lib/types/models";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 export function SubscriptionTab() {
+  const { t } = useDictionary("settings");
   const { data: company, isLoading: isCompanyLoading } = useCompany();
 
   if (isCompanyLoading && !company) {
@@ -34,19 +36,19 @@ export function SubscriptionTab() {
   const trialDaysRemaining = company ? getDaysRemainingInTrial(company) : 0;
 
   const features = [
-    "Unlimited projects",
-    `${maxSeats} team seat${maxSeats !== 1 ? "s" : ""}`,
-    "Calendar & scheduling",
-    "Client management",
+    t("subscription.unlimitedProjects"),
+    `${maxSeats} ${t("subscription.teamSeats")}`,
+    t("subscription.calendarScheduling"),
+    t("subscription.clientManagement"),
     ...(plan === SubscriptionPlan.Team || plan === SubscriptionPlan.Business
-      ? ["Priority support"]
+      ? [t("subscription.prioritySupport")]
       : []),
-    ...(plan === SubscriptionPlan.Business ? ["API access"] : []),
+    ...(plan === SubscriptionPlan.Business ? [t("subscription.apiAccess")] : []),
   ];
 
   const priceDisplay = planInfo.monthlyPrice === 0
-    ? "Free"
-    : `$${planInfo.monthlyPrice}/month`;
+    ? t("subscription.free")
+    : `$${planInfo.monthlyPrice}${t("subscription.perMonth")}`;
 
   return (
     <div className="space-y-3 max-w-[600px]">
@@ -55,13 +57,13 @@ export function SubscriptionTab() {
           <div className="flex items-center justify-between">
             <div>
               <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                Current Plan
+                {t("subscription.currentPlan")}
               </span>
               <h3 className="font-mohave text-heading text-text-primary">{planInfo.displayName}</h3>
               <p className="font-mono text-data text-ops-accent">{priceDisplay}</p>
               {isTrial && trialDaysRemaining > 0 && (
                 <p className="font-kosugi text-[11px] text-ops-amber mt-[4px]">
-                  {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""} remaining in trial
+                  {trialDaysRemaining} {t("subscription.trialRemaining")}
                 </p>
               )}
             </div>
@@ -74,25 +76,25 @@ export function SubscriptionTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Seat Usage</CardTitle>
+          <CardTitle>{t("subscription.seatUsage")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mohave text-body text-text-secondary">Active Members</span>
+            <span className="font-mohave text-body text-text-secondary">{t("subscription.activeMembers")}</span>
             <span className="font-mono text-data text-text-primary">{seatedCount} / {maxSeats}</span>
           </div>
           <div className="h-[6px] bg-background-elevated rounded-full overflow-hidden">
             <div className="h-full bg-ops-accent rounded-full" style={{ width: `${seatPercentage}%` }} />
           </div>
           <p className="font-kosugi text-[11px] text-text-tertiary mt-[6px]">
-            {seatsRemaining} seat{seatsRemaining !== 1 ? "s" : ""} remaining on your plan
+            {seatsRemaining} {t("subscription.seatsRemaining")}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Plan Features</CardTitle>
+          <CardTitle>{t("subscription.planFeatures")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-[8px]">
@@ -103,8 +105,8 @@ export function SubscriptionTab() {
               </div>
             ))}
           </div>
-          <Button variant="accent" className="mt-2 w-full" onClick={() => toast.info("Contact support to upgrade your plan", { description: "Email support@opsapp.co for subscription changes." })}>
-            Upgrade Plan
+          <Button variant="accent" className="mt-2 w-full" onClick={() => toast.info(t("subscription.toast.contactSupport"), { description: t("subscription.toast.emailSupport") })}>
+            {t("subscription.upgrade")}
           </Button>
         </CardContent>
       </Card>

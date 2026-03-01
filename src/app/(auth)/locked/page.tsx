@@ -4,6 +4,7 @@ import { ShieldOff, Check, ExternalLink, Headphones, Zap, Crown, Building2 } fro
 import { cn } from "@/lib/utils/cn";
 import { TIER_CONFIG, type SubscriptionTier } from "@/lib/subscription";
 import { Button } from "@/components/ui/button";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Tier Visual Config ──────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
 // ─── Pricing Card ────────────────────────────────────────────────────────────
 
 function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
+  const { t } = useDictionary("auth");
   const config = TIER_CONFIG[tier];
   const display = TIER_DISPLAY[tier];
 
@@ -61,7 +63,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
       {display.popular && (
         <div className="absolute -top-[12px] left-1/2 -translate-x-1/2">
           <span className="font-kosugi text-[10px] uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm">
-            Most Popular
+            {t("locked.mostPopular")}
           </span>
         </div>
       )}
@@ -86,7 +88,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
 
       {/* Seat count */}
       <div className={cn("inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-caption-sm font-mono mb-2 w-fit", display.badgeClass)}>
-        {config.maxSeats} seats included
+        {config.maxSeats} {t("locked.seatsIncluded")}
       </div>
 
       {/* Features */}
@@ -106,7 +108,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
           size="lg"
           className="w-full"
         >
-          Subscribe
+          {t("locked.subscribe")}
           <ExternalLink className="w-[14px] h-[14px] ml-0.5" />
         </Button>
       </a>
@@ -117,15 +119,16 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function LockedPage() {
+  const { t } = useDictionary("auth");
   return (
     <div className="flex flex-col items-center min-h-screen px-2 py-5">
       {/* Logo */}
       <div className="text-center mb-2">
         <h1 className="font-bebas text-[56px] tracking-[0.2em] text-ops-accent leading-none">
-          OPS
+          {t("ops")}
         </h1>
         <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.3em] mt-0.5">
-          Command Center
+          {t("commandCenter")}
         </p>
       </div>
 
@@ -139,12 +142,10 @@ export default function LockedPage() {
       {/* Heading */}
       <div className="text-center mb-1 max-w-[600px]">
         <h2 className="font-mohave text-display text-text-primary mb-1">
-          Your subscription has expired
+          {t("locked.title")}
         </h2>
         <p className="font-mohave text-body text-text-secondary leading-relaxed">
-          Your access to the OPS command center has been suspended.
-          All your data is safe and will be available once you reactivate your subscription.
-          Choose a plan below to restore full access.
+          {t("locked.description")}
         </p>
       </div>
 
@@ -152,7 +153,7 @@ export default function LockedPage() {
       <div className="w-full max-w-[800px] flex items-center gap-2 my-3">
         <div className="flex-1 h-px bg-border" />
         <span className="font-kosugi text-[11px] uppercase tracking-[0.3em] text-text-tertiary">
-          Select a Plan
+          {t("locked.selectPlan")}
         </span>
         <div className="flex-1 h-px bg-border" />
       </div>
@@ -167,7 +168,7 @@ export default function LockedPage() {
       {/* Footer */}
       <div className="text-center space-y-1">
         <p className="font-mohave text-body-sm text-text-tertiary">
-          All plans include a 30-day money-back guarantee.
+          {t("locked.guarantee")}
         </p>
         <div className="flex items-center justify-center gap-2">
           <a
@@ -175,20 +176,20 @@ export default function LockedPage() {
             className="inline-flex items-center gap-0.5 font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
           >
             <Headphones className="w-[14px] h-[14px]" />
-            Contact Support
+            {t("locked.contactSupport")}
           </a>
           <span className="text-text-disabled">|</span>
           <a
             href="/login"
             className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary underline underline-offset-4 transition-colors"
           >
-            Sign in with a different account
+            {t("locked.differentAccount")}
           </a>
         </div>
 
         {/* System fingerprint for defense-tech aesthetic */}
         <p className="font-mono text-[10px] text-text-disabled tracking-wider mt-2 opacity-40">
-          SYS::SUBSCRIPTION_LOCKOUT // ACCESS_LEVEL::NONE // RETRY::PAYMENT_REQUIRED
+          {t("locked.sysMessage")}
         </p>
       </div>
     </div>

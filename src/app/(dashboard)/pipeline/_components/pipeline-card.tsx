@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { useDraggable } from "@dnd-kit/core";
 import { Clock, ChevronRight, GripVertical, AlertCircle } from "lucide-react";
 import {
@@ -60,6 +61,7 @@ export function PipelineCard({
   onSelect,
   onAdvanceStage,
 }: PipelineCardProps) {
+  const { t } = useDictionary("pipeline");
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: opportunity.id,
@@ -108,7 +110,7 @@ export function PipelineCard({
                 "shrink-0 cursor-grab active:cursor-grabbing",
                 "opacity-0 group-hover:opacity-100 transition-opacity"
               )}
-              title="Drag to move"
+              title={t("card.dragToMove")}
             >
               <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
             </div>
@@ -145,7 +147,7 @@ export function PipelineCard({
           {daysInStage > 0 && (
             <div
               className="flex items-center gap-[2px]"
-              title={`${daysInStage} days in stage`}
+              title={`${daysInStage} ${t("card.daysInStage")}`}
             >
               <Clock className="w-[10px] h-[10px] text-text-disabled" />
               <span className="font-mono text-[9px] text-text-disabled">
@@ -158,21 +160,21 @@ export function PipelineCard({
           {followUpOverdue && (
             <div
               className="flex items-center gap-[2px]"
-              title="Follow-up overdue"
+              title={t("card.followUpOverdue")}
             >
               <AlertCircle className="w-[10px] h-[10px] text-ops-error" />
               <span className="font-mono text-[9px] text-ops-error">
-                Overdue
+                {t("card.overdue")}
               </span>
             </div>
           )}
           {followUpToday && !followUpOverdue && (
             <div
               className="flex items-center gap-[2px]"
-              title="Follow-up due today"
+              title={t("card.followUpDueToday")}
             >
               <AlertCircle className="w-[10px] h-[10px] text-ops-amber" />
-              <span className="font-mono text-[9px] text-ops-amber">Today</span>
+              <span className="font-mono text-[9px] text-ops-amber">{t("card.today")}</span>
             </div>
           )}
         </div>
@@ -190,7 +192,7 @@ export function PipelineCard({
               "opacity-0 group-hover:opacity-100 transition-all",
               "cursor-pointer"
             )}
-            title="Advance to next stage"
+            title={t("card.advanceNext")}
           >
             <ChevronRight className="w-[12px] h-[12px]" />
           </button>

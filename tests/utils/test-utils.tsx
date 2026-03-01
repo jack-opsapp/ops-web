@@ -201,6 +201,7 @@ export function mockAuthStore(user?: MockAuthUser): void {
     hasCompletedAppOnboarding: true,
     hasCompletedAppTutorial: true,
     specialPermissions: [],
+    setupProgress: null,
     stripeCustomerId: null,
     deviceToken: null,
     lastSyncedAt: null,

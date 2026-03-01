@@ -13,6 +13,7 @@ import {
   Mail,
 } from "lucide-react";
 import { trackScreenView } from "@/lib/analytics/analytics";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
 // Loading Skeleton
 // ---------------------------------------------------------------------------
 function PipelineSkeleton() {
+  const { t } = useDictionary("pipeline");
   const stages = PIPELINE_STAGES_DEFAULT;
 
   return (
@@ -61,7 +63,7 @@ function PipelineSkeleton() {
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
           <p className="font-kosugi text-caption-sm text-text-tertiary">
-            Loading pipeline...
+            {t("loading")}
           </p>
         </div>
 
@@ -127,6 +129,8 @@ function PipelineSkeleton() {
 // Pipeline Page - Main Orchestrator
 // ---------------------------------------------------------------------------
 export default function PipelinePage() {
+  const { t } = useDictionary("pipeline");
+
   // ── State ──────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<OpportunityStage | null>(null);
@@ -163,7 +167,7 @@ export default function PipelinePage() {
   useEffect(() => {
     setActions([
       {
-        label: "New Lead",
+        label: t("newLead"),
         icon: Plus,
         onClick: () => setShowQuickAdd(true),
         shortcut: "\u2318\u21E7L",
@@ -284,14 +288,14 @@ export default function PipelinePage() {
         { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            toast.success(`Moved to ${getStageDisplayName(newStage)}`, {
+            toast.success(`${t("toast.movedTo")} ${getStageDisplayName(newStage)}`, {
               description: opp.title,
             });
           },
           onError: (error) => {
-            toast.error("Failed to move deal", {
+            toast.error(t("toast.failedMove"), {
               description:
-                error instanceof Error ? error.message : "An error occurred",
+                error instanceof Error ? error.message : t("toast.errorOccurred"),
             });
           },
         }
@@ -342,16 +346,16 @@ export default function PipelinePage() {
               updateOpportunity.mutate({ id, data: updateData });
             }
 
-            const action =
-              stage === OpportunityStage.Won ? "marked as Won" : "marked as Lost";
-            toast.success(`Deal ${action}`, {
+            const toastMsg =
+              stage === OpportunityStage.Won ? t("toast.dealMarkedWon") : t("toast.dealMarkedLost");
+            toast.success(toastMsg, {
               description: transitionOpportunity.title,
             });
           },
           onError: (error) => {
-            toast.error("Failed to update deal", {
+            toast.error(t("toast.failedUpdate"), {
               description:
-                error instanceof Error ? error.message : "An error occurred",
+                error instanceof Error ? error.message : t("toast.errorOccurred"),
             });
           },
         }
@@ -407,15 +411,15 @@ export default function PipelinePage() {
         },
         {
           onSuccess: () => {
-            toast.success("New lead created", {
+            toast.success(t("toast.newLeadCreated"), {
               description: data.title,
             });
             setShowQuickAdd(false);
           },
           onError: (error) => {
-            toast.error("Failed to create lead", {
+            toast.error(t("toast.failedCreateLead"), {
               description:
-                error instanceof Error ? error.message : "An error occurred",
+                error instanceof Error ? error.message : t("toast.errorOccurred"),
             });
           },
         }
@@ -447,7 +451,7 @@ export default function PipelinePage() {
           <div>
             <div className="flex items-center gap-2">
               <p className="font-kosugi text-caption-sm text-text-tertiary">
-                Drag deals between stages
+                {t("subtitle")}
               </p>
               <span className="font-mono text-[11px] text-text-disabled">
                 {totalDeals} deal{totalDeals !== 1 ? "s" : ""}
@@ -457,7 +461,7 @@ export default function PipelinePage() {
           <div className="flex items-center gap-1 flex-wrap">
             <div className="max-w-[250px]">
               <Input
-                placeholder="Search deals..."
+                placeholder={t("search.placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -480,7 +484,7 @@ export default function PipelinePage() {
               onClick={() => setShowFilters(!showFilters)}
             >
               <ListFilter className="w-[14px] h-[14px]" />
-              Filter
+              {t("filter")}
             </Button>
             <Button
               variant="secondary"
@@ -489,7 +493,7 @@ export default function PipelinePage() {
               onClick={() => setShowInboxLeads(!showInboxLeads)}
             >
               <Mail className="w-[14px] h-[14px]" />
-              Inbox
+              {t("inbox")}
             </Button>
             <Button
               variant="default"
@@ -498,7 +502,7 @@ export default function PipelinePage() {
               onClick={() => setShowQuickAdd(true)}
             >
               <Plus className="w-[14px] h-[14px]" />
-              New Lead
+              {t("newLead")}
             </Button>
           </div>
         </div>
@@ -512,7 +516,7 @@ export default function PipelinePage() {
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Pipeline Value
+                {t("metrics.pipelineValue")}
               </span>
               <span className="font-mono text-data text-ops-accent">
                 {formatCurrency(metrics.pipelineValue)}
@@ -527,7 +531,7 @@ export default function PipelinePage() {
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Active Deals
+                {t("metrics.activeDeals")}
               </span>
               <span className="font-mono text-data text-ops-amber">
                 {metrics.activeDeals}
@@ -542,7 +546,7 @@ export default function PipelinePage() {
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Won
+                {t("metrics.won")}
               </span>
               <span className="font-mono text-data text-status-success">
                 {metrics.wonDeals}
@@ -557,7 +561,7 @@ export default function PipelinePage() {
             </div>
             <div>
               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                Conversion
+                {t("metrics.conversion")}
               </span>
               <span className="font-mono text-data text-text-primary">
                 {metrics.conversionRate}%
@@ -572,7 +576,7 @@ export default function PipelinePage() {
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1">
                 <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                  Stage
+                  {t("filter.stage")}
                 </span>
                 <select
                   value={stageFilter ?? ""}
@@ -590,7 +594,7 @@ export default function PipelinePage() {
                     "cursor-pointer"
                   )}
                 >
-                  <option value="">All Stages</option>
+                  <option value="">{t("filter.allStages")}</option>
                   {allStages.map((stage) => (
                     <option key={stage} value={stage}>
                       {getStageDisplayName(stage)}
@@ -610,13 +614,13 @@ export default function PipelinePage() {
                   }}
                 >
                   <X className="w-[12px] h-[12px]" />
-                  Clear Filters
+                  {t("filter.clear")}
                 </Button>
               )}
 
               {stageFilter && (
                 <Badge variant="info" className="gap-[4px]">
-                  Stage: {getStageDisplayName(stageFilter)}
+                  {t("filter.stage")}: {getStageDisplayName(stageFilter)}
                   <button
                     onClick={() => setStageFilter(null)}
                     className="hover:text-white cursor-pointer"
@@ -637,9 +641,9 @@ export default function PipelinePage() {
             <Mail className="w-[16px] h-[16px] text-ops-accent" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-mohave text-body text-text-primary">Connect Gmail to auto-import leads</p>
+            <p className="font-mohave text-body text-text-primary">{t("gmail.connectBanner")}</p>
             <p className="font-kosugi text-[11px] text-text-disabled">
-              Incoming client emails become pipeline leads automatically.
+              {t("gmail.connectDesc")}
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -652,12 +656,12 @@ export default function PipelinePage() {
               }}
             >
               <Mail className="w-[14px] h-[14px]" />
-              Connect
+              {t("gmail.connect")}
             </Button>
             <button
               onClick={() => setGmailBannerDismissed(true)}
               className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
-              title="Dismiss"
+              title={t("gmail.dismiss")}
             >
               <X className="w-[14px] h-[14px]" />
             </button>
@@ -670,7 +674,7 @@ export default function PipelinePage() {
         <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-ops-accent-muted border border-ops-accent/30">
           <Loader2 className="w-[14px] h-[14px] text-ops-accent animate-spin" />
           <span className="font-kosugi text-[11px] text-ops-accent">
-            Updating pipeline...
+            {t("column.updating")}
           </span>
         </div>
       )}
@@ -717,7 +721,7 @@ export default function PipelinePage() {
           ))}
         </div>
         <span className="font-kosugi text-[10px] text-text-disabled uppercase">
-          Drag cards between columns to update stage
+          {t("bottomBar")}
         </span>
       </div>
 
@@ -793,7 +797,7 @@ export default function PipelinePage() {
                   },
                   {
                     onSuccess: () => {
-                      toast.success("Lead created from email", {
+                      toast.success(t("toast.leadFromEmail"), {
                         description: prefill.title,
                       });
                     },

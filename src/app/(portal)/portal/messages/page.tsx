@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Send, MessageSquare } from "lucide-react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 interface PortalMessage {
   id: string;
@@ -13,14 +16,14 @@ interface PortalMessage {
   createdAt: string;
 }
 
-function formatMessageTime(date: string): string {
-  return new Date(date).toLocaleTimeString("en-US", {
+function formatMessageTime(date: string, locale: Locale): string {
+  return new Date(date).toLocaleTimeString(getDateLocale(locale), {
     hour: "numeric",
     minute: "2-digit",
   });
 }
 
-function formatDateGroupLabel(date: string): string {
+function formatDateGroupLabel(date: string, t: (key: string) => string, locale: Locale): string {
   const messageDate = new Date(date);
   const today = new Date();
   const yesterday = new Date();
@@ -31,10 +34,10 @@ function formatDateGroupLabel(date: string): string {
   const todayStr = today.toDateString();
   const yesterdayStr = yesterday.toDateString();
 
-  if (msgDay === todayStr) return "Today";
-  if (msgDay === yesterdayStr) return "Yesterday";
+  if (msgDay === todayStr) return t("messages.today");
+  if (msgDay === yesterdayStr) return t("messages.yesterday");
 
-  return messageDate.toLocaleDateString("en-US", {
+  return messageDate.toLocaleDateString(getDateLocale(locale), {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -57,6 +60,8 @@ function groupMessagesByDate(messages: PortalMessage[]): Map<string, PortalMessa
 }
 
 export default function MessagesPage() {
+  const { t } = useDictionary("portal");
+  const { locale } = useLocale();
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -140,7 +145,7 @@ export default function MessagesPage() {
     return (
       <div className="text-center py-20">
         <p style={{ color: "var(--portal-text-secondary)" }}>
-          Unable to load messages. Please try refreshing.
+          {t("messages.loadError")}
         </p>
       </div>
     );
@@ -167,7 +172,7 @@ export default function MessagesPage() {
             textTransform: "var(--portal-heading-transform)" as React.CSSProperties["textTransform"],
           }}
         >
-          Messages
+          {t("messages.title")}
         </h1>
       </div>
 
@@ -199,13 +204,13 @@ export default function MessagesPage() {
                 fontWeight: "var(--portal-heading-weight)",
               }}
             >
-              No messages yet
+              {t("messages.empty")}
             </p>
             <p
               className="text-sm text-center max-w-xs"
               style={{ color: "var(--portal-text-tertiary)" }}
             >
-              Send a message below and your service provider will be notified.
+              {t("messages.emptyDesc")}
             </p>
           </div>
         ) : (
@@ -219,7 +224,7 @@ export default function MessagesPage() {
                     className="text-xs font-medium px-2 shrink-0"
                     style={{ color: "var(--portal-text-tertiary)" }}
                   >
-                    {formatDateGroupLabel(msgs[0].createdAt)}
+                    {formatDateGroupLabel(msgs[0].createdAt, t, locale)}
                   </span>
                   <div className="flex-1 h-px" style={{ backgroundColor: "var(--portal-border)" }} />
                 </div>
@@ -270,7 +275,7 @@ export default function MessagesPage() {
                             className={`text-[10px] mt-1 ${isClient ? "text-right mr-1" : "ml-1"}`}
                             style={{ color: "var(--portal-text-tertiary)" }}
                           >
-                            {formatMessageTime(msg.createdAt)}
+                            {formatMessageTime(msg.createdAt, locale)}
                           </p>
                         </div>
                       </div>
@@ -298,7 +303,7 @@ export default function MessagesPage() {
           value={newMessage}
           onChange={handleTextareaInput}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
+          placeholder={t("messages.placeholder")}
           rows={1}
           disabled={sendMutation.isPending}
           className="flex-1 resize-none text-sm bg-transparent outline-none py-2 px-1"
@@ -321,7 +326,7 @@ export default function MessagesPage() {
             borderRadius: "var(--portal-radius-sm)",
             cursor: newMessage.trim() && !sendMutation.isPending ? "pointer" : "default",
           }}
-          aria-label="Send message"
+          aria-label={t("messages.send")}
         >
           {sendMutation.isPending ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -337,7 +342,7 @@ export default function MessagesPage() {
           className="text-xs mt-1 text-center"
           style={{ color: "var(--portal-error)" }}
         >
-          Failed to send message. Please try again.
+          {t("messages.sendError")}
         </p>
       )}
     </div>

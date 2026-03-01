@@ -36,6 +36,7 @@ function mapFromDb(row: Record<string, unknown>): User {
     hasCompletedAppTutorial: (row.has_completed_tutorial as boolean) ?? false,
     isCompanyAdmin: (row.is_company_admin as boolean) ?? false,
     specialPermissions: (row.special_permissions as string[]) ?? [],
+    setupProgress: (row.setup_progress as User["setupProgress"]) ?? null,
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
     deviceToken: (row.device_token as string) ?? null,
     lastSyncedAt: null,
@@ -67,6 +68,7 @@ function mapToDb(data: Partial<User>): Record<string, unknown> {
   if (data.hasCompletedAppTutorial !== undefined)
     row.has_completed_tutorial = data.hasCompletedAppTutorial;
   if (data.isCompanyAdmin !== undefined) row.is_company_admin = data.isCompanyAdmin;
+  if (data.setupProgress !== undefined) row.setup_progress = data.setupProgress;
   if (data.stripeCustomerId !== undefined) row.stripe_customer_id = data.stripeCustomerId;
   if (data.deviceToken !== undefined) row.device_token = data.deviceToken;
   return row;

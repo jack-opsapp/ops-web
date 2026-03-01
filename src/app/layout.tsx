@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
+import { getLocale } from "@/i18n/server";
 
 export const metadata: Metadata = {
   title: {
@@ -28,15 +29,17 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
+
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang={locale} className="dark" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-text-primary font-mohave antialiased">
-        <Providers>
+        <Providers locale={locale}>
           {children}
           <Toaster />
         </Providers>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { useState, useMemo, useCallback } from "react";
 import {
   Plus,
@@ -119,6 +121,7 @@ function TaskRow({
   onAdvanceStatus,
   isUpdating,
 }: TaskRowProps) {
+  const { locale } = useLocale();
   const title = getTaskDisplayTitle(task, task.taskType ?? taskTypes.find((t) => t.id === task.taskTypeId));
   const taskType = task.taskType ?? taskTypes.find((t) => t.id === task.taskTypeId);
   const isCompleted = task.status === TaskStatus.Completed;
@@ -191,7 +194,7 @@ function TaskRow({
       {/* Calendar date */}
       {task.calendarEvent?.startDate && (
         <span className="hidden sm:inline font-mono text-[11px] text-text-tertiary shrink-0">
-          {new Date(task.calendarEvent.startDate).toLocaleDateString("en-US", {
+          {new Date(task.calendarEvent.startDate).toLocaleDateString(getDateLocale(locale), {
             month: "short",
             day: "numeric",
           })}

@@ -3,6 +3,7 @@
 import { Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -18,20 +19,21 @@ interface NotificationsWidgetProps {
 // ---------------------------------------------------------------------------
 
 export function NotificationsWidget({ size, config }: NotificationsWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const sortBy = (config.sortBy as string) ?? "recent";
 
   const sortLabel =
     sortBy === "priority"
-      ? "Priority"
+      ? t("notifications.sortPriority")
       : sortBy === "type"
-        ? "Type"
-        : "Recent";
+        ? t("notifications.sortType")
+        : t("notifications.sortRecent");
 
   return (
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Notifications</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("notifications.title")}</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
             {sortLabel}
           </span>
@@ -45,7 +47,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
         >
           <Bell className="w-[20px] h-[20px] text-text-disabled" />
           <p className="font-mohave text-body-sm text-text-disabled text-center">
-            Notifications will appear here
+            {t("notifications.emptyState")}
           </p>
         </div>
       </CardContent>

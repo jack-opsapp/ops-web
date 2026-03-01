@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { Delete } from "lucide-react";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 const PIN_LENGTH = 4;
 
 export default function PinPage() {
+  const { t } = useDictionary("auth");
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,14 +42,14 @@ export default function PinPage() {
           } else {
             setShake(true);
             setTimeout(() => setShake(false), 500);
-            setError("Incorrect PIN");
+            setError(t("pin.error.incorrect"));
             setPin("");
             setIsVerifying(false);
           }
         }, 600);
       }
     },
-    [pin, isVerifying, router]
+    [pin, isVerifying, router, t]
   );
 
   const handleDelete = useCallback(() => {
@@ -80,10 +82,10 @@ export default function PinPage() {
     <div className="flex flex-col items-center" ref={containerRef}>
       {/* Logo */}
       <h1 className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none mb-1">
-        OPS
+        {t("ops")}
       </h1>
       <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.3em] mb-5">
-        Enter PIN
+        {t("pin.title")}
       </p>
 
       {/* PIN Dots */}
@@ -170,11 +172,11 @@ export default function PinPage() {
         className="mt-3 font-mohave text-body-sm text-text-tertiary hover:text-ops-accent transition-colors underline underline-offset-4"
         onClick={() => {
           localStorage.removeItem("ops-pin");
-          toast.success("PIN cleared. Please set a new PIN in Settings.");
+          toast.success(t("pin.cleared"));
           router.push("/dashboard");
         }}
       >
-        Forgot PIN?
+        {t("pin.forgot")}
       </button>
 
       {/* Inline shake keyframe */}

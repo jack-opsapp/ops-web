@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { X, Check } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -20,6 +21,7 @@ interface QuickAddFormProps {
 // Quick Add Form - Inline new lead form for the New Lead column
 // ---------------------------------------------------------------------------
 export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
+  const { t } = useDictionary("pipeline");
   const [contactName, setContactName] = useState("");
   const [title, setTitle] = useState("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
@@ -34,7 +36,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
   const handleContactNameChange = (value: string) => {
     setContactName(value);
     if (!titleManuallyEdited) {
-      setTitle(value ? `${value} - Lead` : "");
+      setTitle(value ? `${value} - ${t("quickAdd.leadSuffix")}` : "");
     }
   };
 
@@ -46,7 +48,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
   const handleSubmit = () => {
     if (!contactName.trim()) return;
 
-    const finalTitle = title.trim() || `${contactName.trim()} - Lead`;
+    const finalTitle = title.trim() || `${contactName.trim()} - ${t("quickAdd.leadSuffix")}`;
     const value = estimatedValue ? parseFloat(estimatedValue) : undefined;
 
     onSubmit({
@@ -79,7 +81,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
       <input
         ref={contactRef}
         type="text"
-        placeholder="Contact name *"
+        placeholder={t("quickAdd.contactName")}
         value={contactName}
         onChange={(e) => handleContactNameChange(e.target.value)}
         className={cn(
@@ -93,7 +95,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
       {/* Deal title */}
       <input
         type="text"
-        placeholder="Deal title"
+        placeholder={t("quickAdd.dealTitle")}
         value={title}
         onChange={(e) => handleTitleChange(e.target.value)}
         className={cn(
@@ -107,7 +109,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
       {/* Estimated value */}
       <input
         type="number"
-        placeholder="Est. value ($)"
+        placeholder={t("quickAdd.estValue")}
         value={estimatedValue}
         onChange={(e) => setEstimatedValue(e.target.value)}
         className={cn(
@@ -127,7 +129,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
             "text-text-disabled hover:text-text-tertiary hover:bg-[rgba(255,255,255,0.06)]",
             "transition-colors"
           )}
-          title="Cancel (Esc)"
+          title={t("quickAdd.cancel")}
         >
           <X className="w-[14px] h-[14px]" />
         </button>
@@ -140,7 +142,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
             "transition-colors",
             "disabled:opacity-30 disabled:cursor-not-allowed"
           )}
-          title="Add Lead (Enter)"
+          title={t("quickAdd.addLead")}
         >
           <Check className="w-[14px] h-[14px]" />
         </button>

@@ -76,6 +76,9 @@ function mapEstimateFromDb(row: Record<string, unknown>): Estimate {
     // PDF
     pdfStoragePath: (row.pdf_storage_path as string) ?? null,
 
+    // Template
+    templateId: (row.template_id as string) ?? null,
+
     // Project linkage
     projectId: (row.project_id as string) ?? null,
 
@@ -129,6 +132,9 @@ function mapInvoiceFromDb(row: Record<string, unknown>): Invoice {
 
     // PDF
     pdfStoragePath: (row.pdf_storage_path as string) ?? null,
+
+    // Template
+    templateId: (row.template_id as string) ?? null,
 
     // System
     createdBy: (row.created_by as string) ?? null,

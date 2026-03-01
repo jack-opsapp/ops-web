@@ -28,6 +28,7 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useCompany } from "@/lib/hooks";
 import { signOut } from "@/lib/firebase/auth";
+import { useDictionary } from "@/i18n/client";
 
 interface NavItem {
   label: string;
@@ -37,26 +38,28 @@ interface NavItem {
 
 type NavEntry = NavItem | "divider";
 
-const navItems: NavEntry[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  "divider",
-  { label: "Projects", href: "/projects", icon: FolderKanban },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays },
-  { label: "Clients", href: "/clients", icon: Users },
-  { label: "Job Board", href: "/job-board", icon: Columns3 },
-  { label: "Team", href: "/team", icon: UserCog },
-  { label: "Map", href: "/map", icon: MapPin },
-  "divider",
-  { label: "Pipeline", href: "/pipeline", icon: GitBranch },
-  { label: "Estimates", href: "/estimates", icon: FileText },
-  { label: "Invoices", href: "/invoices", icon: Receipt },
-  "divider",
-  { label: "Products", href: "/products", icon: Package },
-  { label: "Accounting", href: "/accounting", icon: Calculator },
-  { label: "Portal Inbox", href: "/portal-inbox", icon: MessageSquareText },
-  "divider",
-  { label: "Settings", href: "/settings", icon: Settings },
-];
+function buildNavItems(t: (key: string) => string): NavEntry[] {
+  return [
+    { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
+    "divider",
+    { label: t("nav.projects"), href: "/projects", icon: FolderKanban },
+    { label: t("nav.calendar"), href: "/calendar", icon: CalendarDays },
+    { label: t("nav.clients"), href: "/clients", icon: Users },
+    { label: t("nav.jobBoard"), href: "/job-board", icon: Columns3 },
+    { label: t("nav.team"), href: "/team", icon: UserCog },
+    { label: t("nav.map"), href: "/map", icon: MapPin },
+    "divider",
+    { label: t("nav.pipeline"), href: "/pipeline", icon: GitBranch },
+    { label: t("nav.estimates"), href: "/estimates", icon: FileText },
+    { label: t("nav.invoices"), href: "/invoices", icon: Receipt },
+    "divider",
+    { label: t("nav.products"), href: "/products", icon: Package },
+    { label: t("nav.accounting"), href: "/accounting", icon: Calculator },
+    { label: t("nav.portalInbox"), href: "/portal-inbox", icon: MessageSquareText },
+    "divider",
+    { label: t("nav.settings"), href: "/settings", icon: Settings },
+  ];
+}
 
 function NavItemButton({
   item,
@@ -106,6 +109,8 @@ export function Sidebar() {
   const { data: freshCompany } = useCompany();
   const company = freshCompany ?? storeCompany;
   const logout = useAuthStore((s) => s.logout);
+  const { t } = useDictionary("sidebar");
+  const navItems = buildNavItems(t);
 
   const handleSignOut = useCallback(async () => {
     document.cookie = "ops-auth-token=; path=/; max-age=0";
@@ -141,7 +146,7 @@ export function Sidebar() {
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={company.logoURL}
-              alt={company.name || "Company"}
+              alt={company.name || t("companyAlt")}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -151,7 +156,7 @@ export function Sidebar() {
         </div>
         {!isCollapsed && (
           <span className="font-mohave text-body text-text-primary truncate uppercase">
-            {company?.name || "My Company"}
+            {company?.name || t("companyFallback")}
           </span>
         )}
       </div>
@@ -178,7 +183,7 @@ export function Sidebar() {
       {/* Collapse Chevron — positioned on sidebar right edge */}
       <button
         onClick={toggle}
-        title={isCollapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
+        title={isCollapsed ? t("expandSidebar") : t("collapseSidebar")}
         className={cn(
           "absolute top-1/2 -translate-y-1/2 -right-[10px] z-50",
           "w-[20px] h-[20px] rounded-full",
@@ -232,13 +237,13 @@ export function Sidebar() {
               "shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden",
               isCollapsed && "cursor-pointer hover:ring-1 hover:ring-ops-accent transition-all"
             )}
-            title={isCollapsed ? "Account settings" : undefined}
+            title={isCollapsed ? t("accountSettings") : undefined}
           >
             {currentUser?.profileImageURL ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={currentUser.profileImageURL}
-                alt={currentUser.firstName || "User"}
+                alt={currentUser.firstName || t("userFallback")}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />
@@ -252,7 +257,7 @@ export function Sidebar() {
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="font-mohave text-body-sm text-text-primary truncate">
-                {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : "User"}
+                {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : t("userFallback")}
               </p>
             </div>
           )}
@@ -261,7 +266,7 @@ export function Sidebar() {
             <button
               onClick={handleSignOut}
               className="shrink-0 p-[6px] rounded text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-              title="Sign out"
+              title={t("signOut")}
             >
               <LogOut className="w-[16px] h-[16px]" />
             </button>

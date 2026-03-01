@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { MapPin, ExternalLink } from "lucide-react";
+import { useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +49,7 @@ interface ProjectDetailModalProps {
 
 export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetailModalProps) {
   const router = useRouter();
+  const { locale } = useLocale();
   const { data: client } = useClient(project?.clientId ?? undefined);
   const resolvedClient = project?.client ?? client;
 
@@ -189,7 +192,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                   <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Start</span>
                   <p className="font-mono text-data-sm text-text-primary">
                     {project.startDate
-                      ? new Date(project.startDate).toLocaleDateString("en-US", {
+                      ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                           weekday: "short",
                           month: "short",
                           day: "numeric",
@@ -203,7 +206,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                   <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">End</span>
                   <p className="font-mono text-data-sm text-text-primary">
                     {project.endDate
-                      ? new Date(project.endDate).toLocaleDateString("en-US", {
+                      ? new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
                           weekday: "short",
                           month: "short",
                           day: "numeric",

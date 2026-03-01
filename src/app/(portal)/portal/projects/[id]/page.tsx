@@ -3,6 +3,9 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 import {
   Loader2,
   ArrowLeft,
@@ -58,9 +61,9 @@ interface ProjectDetail {
   tasks: ProjectTask[];
 }
 
-function formatDate(date: string | Date | null): string {
+function formatDate(date: string | Date | null, locale: Locale): string {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString(getDateLocale(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -68,6 +71,8 @@ function formatDate(date: string | Date | null): string {
 }
 
 export default function ProjectDetailPage() {
+  const { t } = useDictionary("portal");
+  const { locale } = useLocale();
   const params = useParams();
   const id = params.id as string;
 
@@ -98,7 +103,7 @@ export default function ProjectDetailPage() {
     return (
       <div className="text-center py-20">
         <p style={{ color: "var(--portal-text-secondary)" }}>
-          Unable to load this project. Please try refreshing.
+          {t("project.loadError")}
         </p>
         <Link
           href="/portal/home"
@@ -106,7 +111,7 @@ export default function ProjectDetailPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t("project.backHome")}
         </Link>
       </div>
     );
@@ -121,7 +126,7 @@ export default function ProjectDetailPage() {
         style={{ color: "var(--portal-text-secondary)" }}
       >
         <ArrowLeft className="w-4 h-4" />
-        Back
+        {t("project.back")}
       </Link>
 
       {/* Project Header */}
@@ -164,8 +169,8 @@ export default function ProjectDetailPage() {
           >
             <Calendar className="w-3.5 h-3.5 shrink-0" />
             <span>
-              {formatDate(project.startDate)}
-              {project.endDate && ` — ${formatDate(project.endDate)}`}
+              {formatDate(project.startDate, locale)}
+              {project.endDate && ` — ${formatDate(project.endDate, locale)}`}
             </span>
           </p>
         )}
@@ -187,7 +192,7 @@ export default function ProjectDetailPage() {
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Photos
+            {t("project.photos")}
           </h2>
           <PortalPhotoGallery photos={project.projectImages} />
         </section>
@@ -200,7 +205,7 @@ export default function ProjectDetailPage() {
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Tasks
+            {t("project.tasks")}
           </h2>
           <PortalTaskTimeline tasks={project.tasks} />
         </section>
@@ -213,7 +218,7 @@ export default function ProjectDetailPage() {
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Estimates
+            {t("project.estimates")}
           </h2>
           <div className="space-y-2">
             {project.estimates.map((est) => (
@@ -233,14 +238,14 @@ export default function ProjectDetailPage() {
                     />
                     <div>
                       <p className="text-sm font-medium">
-                        Estimate #{est.estimateNumber}
+                        {t("estimate.heading")} #{est.estimateNumber}
                         {est.title && ` — ${est.title}`}
                       </p>
                       <p
                         className="text-xs"
                         style={{ color: "var(--portal-text-secondary)" }}
                       >
-                        {formatCurrency(est.total)} · {formatDate(est.issueDate)}
+                        {formatCurrency(est.total)} · {formatDate(est.issueDate, locale)}
                       </p>
                     </div>
                   </div>
@@ -265,7 +270,7 @@ export default function ProjectDetailPage() {
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Invoices
+            {t("project.invoices")}
           </h2>
           <div className="space-y-2">
             {project.invoices.map((inv) => (
@@ -285,7 +290,7 @@ export default function ProjectDetailPage() {
                     />
                     <div>
                       <p className="text-sm font-medium">
-                        Invoice #{inv.invoiceNumber}
+                        {t("invoice.heading")} #{inv.invoiceNumber}
                         {inv.subject && ` — ${inv.subject}`}
                       </p>
                       <p
@@ -293,8 +298,8 @@ export default function ProjectDetailPage() {
                         style={{ color: "var(--portal-text-secondary)" }}
                       >
                         {inv.balanceDue > 0
-                          ? `Balance: ${formatCurrency(inv.balanceDue)} · Due ${formatDate(inv.dueDate)}`
-                          : `${formatCurrency(inv.total)} · Paid`}
+                          ? `Balance: ${formatCurrency(inv.balanceDue)} · Due ${formatDate(inv.dueDate, locale)}`
+                          : `${formatCurrency(inv.total)} · ${t("project.paid")}`}
                       </p>
                     </div>
                   </div>
@@ -325,7 +330,7 @@ export default function ProjectDetailPage() {
           }}
         >
           <MessageSquare className="w-4 h-4" />
-          Send a Message
+          {t("project.sendMessage")}
         </Link>
       </div>
     </div>

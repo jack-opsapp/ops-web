@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useDictionary } from "@/i18n/client";
 import {
   FolderKanban,
   ClipboardCheck,
@@ -184,20 +185,35 @@ const PROJECT_STATUS_MAP: Partial<Record<WidgetTypeId, ProjectStatus>> = {
   "stat-projects-completed": ProjectStatus.Completed,
 };
 
-const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  [ProjectStatus.RFQ]: "RFQ",
-  [ProjectStatus.Estimated]: "Estimated",
-  [ProjectStatus.Accepted]: "Accepted",
-  [ProjectStatus.InProgress]: "In Progress",
-  [ProjectStatus.Completed]: "Completed",
-  [ProjectStatus.Closed]: "Closed",
-  [ProjectStatus.Archived]: "Archived",
-};
+function useProjectStatusLabels(): Record<ProjectStatus, string> {
+  const { t } = useDictionary("dashboard");
+  return {
+    [ProjectStatus.RFQ]: t("stat.statusRfq"),
+    [ProjectStatus.Estimated]: t("stat.statusEstimated"),
+    [ProjectStatus.Accepted]: t("stat.statusAccepted"),
+    [ProjectStatus.InProgress]: t("stat.statusInProgress"),
+    [ProjectStatus.Completed]: t("stat.statusCompleted"),
+    [ProjectStatus.Closed]: t("stat.statusClosed"),
+    [ProjectStatus.Archived]: t("stat.statusArchived"),
+  };
+}
 
 function StatProjectsByStatus({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
+  const PROJECT_STATUS_LABELS = useProjectStatusLabels();
   const { data, isLoading } = useProjects();
   const projects = data?.projects ?? [];
   const status = PROJECT_STATUS_MAP[typeId]!;
+
+  const PROJECT_STATUS_LABEL_KEYS: Record<ProjectStatus, string> = {
+    [ProjectStatus.RFQ]: t("stat.rfqProjects"),
+    [ProjectStatus.Estimated]: t("stat.estimatedProjects"),
+    [ProjectStatus.Accepted]: t("stat.acceptedProjects"),
+    [ProjectStatus.InProgress]: t("stat.inProgressProjects"),
+    [ProjectStatus.Completed]: t("stat.completedProjects"),
+    [ProjectStatus.Closed]: t("stat.closedProjects"),
+    [ProjectStatus.Archived]: t("stat.archivedProjects"),
+  };
 
   const count = useMemo(
     () => projects.filter((p) => !p.deletedAt && p.status === status).length,
@@ -206,7 +222,7 @@ function StatProjectsByStatus({ typeId, size }: SimpleStatProps) {
 
   return (
     <StatCard
-      label={`${PROJECT_STATUS_LABELS[status]} Projects`}
+      label={PROJECT_STATUS_LABEL_KEYS[status]}
       value={count}
       subValue={PROJECT_STATUS_LABELS[status]}
       icon={FolderKanban}
@@ -227,39 +243,52 @@ const TASK_STATUS_MAP: Partial<Record<WidgetTypeId, TaskStatus | "overdue">> = {
   "stat-tasks-overdue": "overdue",
 };
 
-const TASK_STATUS_LABELS: Record<string, string> = {
-  [TaskStatus.Booked]: "Booked",
-  [TaskStatus.InProgress]: "In Progress",
-  [TaskStatus.Completed]: "Completed",
-  overdue: "Overdue",
-};
+function useTaskStatusLabels(): Record<string, string> {
+  const { t } = useDictionary("dashboard");
+  return {
+    [TaskStatus.Booked]: t("stat.statusBooked"),
+    [TaskStatus.InProgress]: t("stat.statusInProgress"),
+    [TaskStatus.Completed]: t("stat.statusCompleted"),
+    overdue: t("stat.statusOverdue"),
+  };
+}
 
 function StatTasksByStatus({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
+  const TASK_STATUS_LABELS = useTaskStatusLabels();
   const { data, isLoading } = useTasks();
   const tasks = data?.tasks ?? [];
   const statusOrOverdue = TASK_STATUS_MAP[typeId]!;
 
+  const TASK_STATUS_LABEL_KEYS: Record<string, string> = {
+    [TaskStatus.Booked]: t("stat.bookedTasks"),
+    [TaskStatus.InProgress]: t("stat.inProgressTasks"),
+    [TaskStatus.Completed]: t("stat.completedTasks"),
+    overdue: t("stat.overdueTasks"),
+  };
+
   const count = useMemo(() => {
-    const active = tasks.filter((t: ProjectTask) => !t.deletedAt);
+    const active = tasks.filter((tk: ProjectTask) => !tk.deletedAt);
 
     if (statusOrOverdue === "overdue") {
       const today = new Date();
-      return active.filter((t: ProjectTask) => {
-        if (t.status === TaskStatus.Completed || t.status === TaskStatus.Cancelled) return false;
-        if (!t.calendarEvent?.startDate) return false;
-        return isBefore(new Date(t.calendarEvent.startDate), today) &&
-          !isSameDay(new Date(t.calendarEvent.startDate), today);
+      return active.filter((tk: ProjectTask) => {
+        if (tk.status === TaskStatus.Completed || tk.status === TaskStatus.Cancelled) return false;
+        if (!tk.calendarEvent?.startDate) return false;
+        return isBefore(new Date(tk.calendarEvent.startDate), today) &&
+          !isSameDay(new Date(tk.calendarEvent.startDate), today);
       }).length;
     }
 
-    return active.filter((t: ProjectTask) => t.status === statusOrOverdue).length;
+    return active.filter((tk: ProjectTask) => tk.status === statusOrOverdue).length;
   }, [tasks, statusOrOverdue]);
 
-  const label = TASK_STATUS_LABELS[statusOrOverdue] ?? "Tasks";
+  const label = TASK_STATUS_LABELS[statusOrOverdue] ?? t("stat.tasks");
+  const composedLabel = TASK_STATUS_LABEL_KEYS[statusOrOverdue] ?? t("stat.tasks");
 
   return (
     <StatCard
-      label={`${label} Tasks`}
+      label={composedLabel}
       value={count}
       subValue={label.toLowerCase()}
       icon={ClipboardCheck}
@@ -274,6 +303,7 @@ function StatTasksByStatus({ typeId, size }: SimpleStatProps) {
 // Active clients (cross-reference with projects)
 // ---------------------------------------------------------------------------
 function StatClientsActive({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: projectsData } = useProjects();
 
@@ -288,12 +318,12 @@ function StatClientsActive({ typeId, size }: SimpleStatProps) {
         .map((p) => p.clientId)
     );
     const count = active.filter((c) => clientsWithActiveProjects.has(c.id)).length;
-    return { value: count, subValue: `of ${active.length} total` };
-  }, [clients, projects]);
+    return { value: count, subValue: `${t("stat.of")} ${active.length} ${t("stat.total")}` };
+  }, [clients, projects, t]);
 
   return (
     <StatCard
-      label="Active Clients"
+      label={t("stat.activeClients")}
       value={value}
       subValue={subValue}
       icon={Users}
@@ -308,6 +338,7 @@ function StatClientsActive({ typeId, size }: SimpleStatProps) {
 // Receivables — sum balanceDue on all open invoices
 // ---------------------------------------------------------------------------
 function StatReceivables({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data } = useInvoices();
   const invoices = data ?? [];
 
@@ -326,10 +357,10 @@ function StatReceivables({ typeId, size }: SimpleStatProps) {
 
   return (
     <StatCard
-      label="Receivables"
+      label={t("stat.receivables")}
       value={Math.round(total)}
       displayPrefix="$"
-      subValue="outstanding"
+      subValue={t("stat.outstanding")}
       icon={DollarSign}
       accentColor={getAccentColor(typeId)}
       size={size}
@@ -341,6 +372,7 @@ function StatReceivables({ typeId, size }: SimpleStatProps) {
 // To Collect — sum balanceDue on invoices linked to completed projects
 // ---------------------------------------------------------------------------
 function StatToCollect({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data: invoicesData } = useInvoices();
   const { data: projectsData } = useProjects();
 
@@ -368,10 +400,10 @@ function StatToCollect({ typeId, size }: SimpleStatProps) {
 
   return (
     <StatCard
-      label="To Collect"
+      label={t("stat.toCollect")}
       value={Math.round(total)}
       displayPrefix="$"
-      subValue="on completed projects"
+      subValue={t("stat.onCompletedProjects")}
       icon={DollarSign}
       accentColor={getAccentColor(typeId)}
       size={size}
@@ -384,6 +416,8 @@ function StatToCollect({ typeId, size }: SimpleStatProps) {
 // ---------------------------------------------------------------------------
 
 function StatProjects({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
+  const PROJECT_STATUS_LABELS = useProjectStatusLabels();
   const { data, isLoading } = useProjects();
   const projects = data?.projects ?? [];
   const statusFilter = (config.statusFilter as string) ?? "all";
@@ -392,7 +426,7 @@ function StatProjects({ typeId, size, config }: InnerStatProps) {
     const active = projects.filter((p) => !p.deletedAt);
     if (statusFilter === "all") {
       const count = active.filter((p) => isActiveProjectStatus(p.status)).length;
-      return { value: count, subValue: `of ${active.length} total`, label: "Active Projects" };
+      return { value: count, subValue: `${t("stat.of")} ${active.length} ${t("stat.total")}`, label: t("stat.activeProjects") };
     }
     const statusMap: Record<string, ProjectStatus> = {
       rfq: ProjectStatus.RFQ,
@@ -402,10 +436,29 @@ function StatProjects({ typeId, size, config }: InnerStatProps) {
       completed: ProjectStatus.Completed,
     };
     const status = statusMap[statusFilter];
+    const PROJECT_LABEL_BY_STATUS: Record<ProjectStatus, string> = {
+      [ProjectStatus.RFQ]: t("stat.rfqProjects"),
+      [ProjectStatus.Estimated]: t("stat.estimatedProjects"),
+      [ProjectStatus.Accepted]: t("stat.acceptedProjects"),
+      [ProjectStatus.InProgress]: t("stat.inProgressProjects"),
+      [ProjectStatus.Completed]: t("stat.completedProjects"),
+      [ProjectStatus.Closed]: t("stat.closedProjects"),
+      [ProjectStatus.Archived]: t("stat.archivedProjects"),
+    };
+    const PROJECT_SUBVALUE_BY_STATUS: Record<ProjectStatus, string> = {
+      [ProjectStatus.RFQ]: t("stat.rfqProjectsSub"),
+      [ProjectStatus.Estimated]: t("stat.estimatedProjectsSub"),
+      [ProjectStatus.Accepted]: t("stat.acceptedProjectsSub"),
+      [ProjectStatus.InProgress]: t("stat.inProgressProjectsSub"),
+      [ProjectStatus.Completed]: t("stat.completedProjectsSub"),
+      [ProjectStatus.Closed]: t("stat.closedProjectsSub"),
+      [ProjectStatus.Archived]: t("stat.archivedProjectsSub"),
+    };
     const count = active.filter((p) => p.status === status).length;
-    const statusLabel = status ?? statusFilter;
-    return { value: count, subValue: `${statusLabel} projects`, label: `${statusLabel} Projects` };
-  }, [projects, statusFilter]);
+    const composedLabel = status ? PROJECT_LABEL_BY_STATUS[status] : statusFilter;
+    const composedSub = status ? PROJECT_SUBVALUE_BY_STATUS[status] : statusFilter;
+    return { value: count, subValue: composedSub, label: composedLabel };
+  }, [projects, statusFilter, t, PROJECT_STATUS_LABELS]);
 
   return (
     <StatCard label={label} value={value} subValue={subValue} icon={FolderKanban} isLoading={isLoading} accentColor={getAccentColor(typeId)} size={size} />
@@ -413,6 +466,7 @@ function StatProjects({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatTasks({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data, isLoading } = useTasks();
   const tasks = data?.tasks ?? [];
   const filter = (config.filter as string) ?? "due-today";
@@ -421,44 +475,44 @@ function StatTasks({ typeId, size, config }: InnerStatProps) {
     const today = new Date();
     const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
     const open = tasks.filter(
-      (t: ProjectTask) =>
-        !t.deletedAt && t.status !== TaskStatus.Completed && t.status !== TaskStatus.Cancelled
+      (tk: ProjectTask) =>
+        !tk.deletedAt && tk.status !== TaskStatus.Completed && tk.status !== TaskStatus.Cancelled
     );
 
     switch (filter) {
       case "due-today": {
-        const count = open.filter((t: ProjectTask) => {
-          if (!t.calendarEvent?.startDate) return false;
-          return isSameDay(new Date(t.calendarEvent.startDate), today);
+        const count = open.filter((tk: ProjectTask) => {
+          if (!tk.calendarEvent?.startDate) return false;
+          return isSameDay(new Date(tk.calendarEvent.startDate), today);
         }).length;
-        return { value: count, subValue: "due today", label: "Tasks Due Today" };
+        return { value: count, subValue: t("stat.dueToday"), label: t("stat.tasksDueToday") };
       }
       case "due-this-week": {
-        const count = open.filter((t: ProjectTask) => {
-          if (!t.calendarEvent?.startDate) return false;
-          const d = new Date(t.calendarEvent.startDate);
+        const count = open.filter((tk: ProjectTask) => {
+          if (!tk.calendarEvent?.startDate) return false;
+          const d = new Date(tk.calendarEvent.startDate);
           return !isAfter(d, weekEnd) && !isBefore(d, today);
         }).length;
-        return { value: count, subValue: "this week", label: "Tasks This Week" };
+        return { value: count, subValue: t("stat.thisWeek"), label: t("stat.tasksThisWeek") };
       }
       case "overdue": {
-        const count = open.filter((t: ProjectTask) => {
-          if (!t.calendarEvent?.startDate) return false;
-          return isBefore(new Date(t.calendarEvent.startDate), today) &&
-            !isSameDay(new Date(t.calendarEvent.startDate), today);
+        const count = open.filter((tk: ProjectTask) => {
+          if (!tk.calendarEvent?.startDate) return false;
+          return isBefore(new Date(tk.calendarEvent.startDate), today) &&
+            !isSameDay(new Date(tk.calendarEvent.startDate), today);
         }).length;
-        return { value: count, subValue: "overdue", label: "Overdue Tasks" };
+        return { value: count, subValue: t("stat.overdue"), label: t("stat.overdueTasks") };
       }
       case "in-progress": {
-        const count = open.filter((t: ProjectTask) => t.status === TaskStatus.InProgress).length;
-        return { value: count, subValue: "in progress", label: "In Progress" };
+        const count = open.filter((tk: ProjectTask) => tk.status === TaskStatus.InProgress).length;
+        return { value: count, subValue: t("stat.inProgress"), label: t("stat.inProgressLabel") };
       }
       case "all-open":
       default: {
-        return { value: open.length, subValue: "open tasks", label: "Open Tasks" };
+        return { value: open.length, subValue: t("stat.openTasks"), label: t("stat.openTasksLabel") };
       }
     }
-  }, [tasks, filter]);
+  }, [tasks, filter, t]);
 
   return (
     <StatCard label={label} value={value} subValue={subValue} icon={ClipboardCheck} isLoading={isLoading} accentColor={getAccentColor(typeId)} size={size} />
@@ -466,6 +520,7 @@ function StatTasks({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatEvents({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const range = (config.range as string) ?? "this-week";
   const today = useMemo(() => new Date(), []);
 
@@ -485,14 +540,20 @@ function StatEvents({ typeId, size, config }: InnerStatProps) {
   const events = data ?? [];
 
   const rangeLabels: Record<string, string> = {
-    today: "today",
-    "this-week": "this week",
-    "this-month": "this month",
+    today: t("stat.today"),
+    "this-week": t("stat.thisWeek"),
+    "this-month": t("stat.thisMonth"),
+  };
+
+  const rangeTitles: Record<string, string> = {
+    today: t("stat.eventsToday"),
+    "this-week": t("stat.eventsThisWeek"),
+    "this-month": t("stat.eventsThisMonth"),
   };
 
   return (
     <StatCard
-      label={`Events ${rangeLabels[range] ?? ""}`}
+      label={rangeTitles[range] ?? ""}
       value={events.length}
       subValue={rangeLabels[range]}
       icon={CalendarDays}
@@ -504,6 +565,7 @@ function StatEvents({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatClients({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: projectsData } = useProjects();
   const filter = (config.filter as string) ?? "all";
@@ -520,10 +582,10 @@ function StatClients({ typeId, size, config }: InnerStatProps) {
           .map((p) => p.clientId)
       );
       const count = active.filter((c) => clientsWithActiveProjects.has(c.id)).length;
-      return { value: count, subValue: `of ${active.length} total`, label: "Active Clients" };
+      return { value: count, subValue: `${t("stat.of")} ${active.length} ${t("stat.total")}`, label: t("stat.activeClients") };
     }
-    return { value: active.length, subValue: "total clients", label: "Total Clients" };
-  }, [clients, projects, filter]);
+    return { value: active.length, subValue: t("stat.totalClients"), label: t("stat.totalClientsLabel") };
+  }, [clients, projects, filter, t]);
 
   return (
     <StatCard label={label} value={value} subValue={subValue} icon={Users} isLoading={clientsLoading} accentColor={getAccentColor(typeId)} size={size} />
@@ -531,6 +593,7 @@ function StatClients({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatTeam({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data, isLoading } = useTeamMembers();
   const members = data?.users ?? [];
   const filter = (config.filter as string) ?? "active";
@@ -538,10 +601,10 @@ function StatTeam({ typeId, size, config }: InnerStatProps) {
   const { value, subValue, label } = useMemo(() => {
     if (filter === "active") {
       const count = members.filter((m) => m.isActive).length;
-      return { value: count, subValue: `of ${members.length} total`, label: "Active Crew" };
+      return { value: count, subValue: `${t("stat.of")} ${members.length} ${t("stat.total")}`, label: t("stat.activeCrew") };
     }
-    return { value: members.length, subValue: "team members", label: "All Crew" };
-  }, [members, filter]);
+    return { value: members.length, subValue: t("stat.teamMembers"), label: t("stat.allCrew") };
+  }, [members, filter, t]);
 
   return (
     <StatCard label={label} value={value} subValue={subValue} icon={UserCheck} isLoading={isLoading} accentColor={getAccentColor(typeId)} size={size} />
@@ -549,6 +612,7 @@ function StatTeam({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatRevenue({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data } = useInvoices();
   const invoices = data ?? [];
   const metric = (config.metric as string) ?? "mtd-invoiced";
@@ -563,30 +627,30 @@ function StatRevenue({ typeId, size, config }: InnerStatProps) {
         const total = invoices
           .filter((inv) => !inv.deletedAt && inv.issueDate && new Date(inv.issueDate) >= monthStart)
           .reduce((sum, inv) => sum + (inv.total ?? 0), 0);
-        return { value: Math.round(total), subValue: "invoiced this month", label: "Revenue MTD" };
+        return { value: Math.round(total), subValue: t("stat.invoicedThisMonth"), label: t("stat.revenueMtd") };
       }
       case "mtd-collected": {
         const total = invoices
           .filter((inv) => !inv.deletedAt && inv.paidAt && new Date(inv.paidAt) >= monthStart)
           .reduce((sum, inv) => sum + (inv.amountPaid ?? 0), 0);
-        return { value: Math.round(total), subValue: "collected this month", label: "Collected MTD" };
+        return { value: Math.round(total), subValue: t("stat.collectedThisMonth"), label: t("stat.collectedMtd") };
       }
       case "outstanding": {
         const total = invoices
           .filter((inv) => !inv.deletedAt && inv.status !== InvoiceStatus.Paid && inv.status !== InvoiceStatus.Void)
           .reduce((sum, inv) => sum + (inv.balanceDue ?? 0), 0);
-        return { value: Math.round(total), subValue: "outstanding", label: "Outstanding" };
+        return { value: Math.round(total), subValue: t("stat.outstanding"), label: t("stat.outstandingLabel") };
       }
       case "ytd": {
         const total = invoices
           .filter((inv) => !inv.deletedAt && inv.paidAt && new Date(inv.paidAt) >= yearStart)
           .reduce((sum, inv) => sum + (inv.amountPaid ?? 0), 0);
-        return { value: Math.round(total), subValue: "year to date", label: "Revenue YTD" };
+        return { value: Math.round(total), subValue: t("stat.yearToDate"), label: t("stat.revenueYtd") };
       }
       default:
-        return { value: 0, subValue: "", label: "Revenue" };
+        return { value: 0, subValue: "", label: t("stat.revenue") };
     }
-  }, [invoices, metric]);
+  }, [invoices, metric, t]);
 
   return (
     <StatCard label={label} value={value} displayPrefix="$" subValue={subValue} icon={DollarSign} accentColor={getAccentColor(typeId)} size={size} />
@@ -594,6 +658,7 @@ function StatRevenue({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatInvoices({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data } = useInvoices();
   const invoices = data ?? [];
   const statusFilter = (config.statusFilter as string) ?? "all-open";
@@ -605,7 +670,7 @@ function StatInvoices({ typeId, size, config }: InnerStatProps) {
       const open = active.filter(
         (inv) => inv.status !== InvoiceStatus.Paid && inv.status !== InvoiceStatus.Void && inv.status !== InvoiceStatus.WrittenOff
       );
-      return { value: open.length, subValue: "open invoices", label: "Open Invoices" };
+      return { value: open.length, subValue: t("stat.openInvoices"), label: t("stat.openInvoicesLabel") };
     }
 
     const statusMap: Record<string, InvoiceStatus> = {
@@ -614,10 +679,17 @@ function StatInvoices({ typeId, size, config }: InnerStatProps) {
       viewed: InvoiceStatus.AwaitingPayment,
       past_due: InvoiceStatus.PastDue,
     };
+    const invoiceStatusLabels: Record<string, { label: string; sub: string }> = {
+      draft: { label: t("stat.draftInvoicesLabel"), sub: t("stat.draftInvoices") },
+      sent: { label: t("stat.sentInvoicesLabel"), sub: t("stat.sentInvoices") },
+      viewed: { label: t("stat.viewedInvoicesLabel"), sub: t("stat.viewedInvoices") },
+      past_due: { label: t("stat.pastDueInvoicesLabel"), sub: t("stat.pastDueInvoices") },
+    };
     const status = statusMap[statusFilter];
     const count = active.filter((inv) => inv.status === status).length;
-    return { value: count, subValue: `${statusFilter} invoices`, label: `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Invoices` };
-  }, [invoices, statusFilter]);
+    const labels = invoiceStatusLabels[statusFilter];
+    return { value: count, subValue: labels?.sub ?? statusFilter, label: labels?.label ?? statusFilter };
+  }, [invoices, statusFilter, t]);
 
   return (
     <StatCard label={label} value={value} subValue={subValue} icon={FileText} accentColor={getAccentColor(typeId)} size={size} />
@@ -625,6 +697,7 @@ function StatInvoices({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatEstimatesCount({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data } = useEstimates();
   const estimates = data ?? [];
   const statusFilter = (config.statusFilter as string) ?? "all-open";
@@ -640,7 +713,7 @@ function StatEstimatesCount({ typeId, size, config }: InnerStatProps) {
           est.status !== EstimateStatus.Expired &&
           est.status !== EstimateStatus.Superseded
       );
-      return { value: open.length, subValue: "open estimates", label: "Open Estimates" };
+      return { value: open.length, subValue: t("stat.openEstimates"), label: t("stat.openEstimatesLabel") };
     }
 
     const statusMap: Record<string, EstimateStatus> = {
@@ -649,10 +722,17 @@ function StatEstimatesCount({ typeId, size, config }: InnerStatProps) {
       viewed: EstimateStatus.Viewed,
       approved: EstimateStatus.Approved,
     };
+    const estimateStatusLabels: Record<string, { label: string; sub: string }> = {
+      draft: { label: t("stat.draftEstimatesLabel"), sub: t("stat.draftEstimates") },
+      sent: { label: t("stat.sentEstimatesLabel"), sub: t("stat.sentEstimates") },
+      viewed: { label: t("stat.viewedEstimatesLabel"), sub: t("stat.viewedEstimates") },
+      approved: { label: t("stat.approvedEstimatesLabel"), sub: t("stat.approvedEstimates") },
+    };
     const status = statusMap[statusFilter];
     const count = active.filter((est) => est.status === status).length;
-    return { value: count, subValue: `${statusFilter} estimates`, label: `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Estimates` };
-  }, [estimates, statusFilter]);
+    const labels = estimateStatusLabels[statusFilter];
+    return { value: count, subValue: labels?.sub ?? statusFilter, label: labels?.label ?? statusFilter };
+  }, [estimates, statusFilter, t]);
 
   return (
     <StatCard label={label} value={value} subValue={subValue} icon={Calculator} accentColor={getAccentColor(typeId)} size={size} />
@@ -660,6 +740,7 @@ function StatEstimatesCount({ typeId, size, config }: InnerStatProps) {
 }
 
 function StatOpportunities({ typeId, size, config }: InnerStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data } = useOpportunities();
   const opportunities = data ?? [];
   const stageFilter = (config.stageFilter as string) ?? "all-active";
@@ -673,9 +754,9 @@ function StatOpportunities({ typeId, size, config }: InnerStatProps) {
     if (stageFilter === "all-active") {
       if (metric === "value") {
         const total = active.reduce((sum, opp) => sum + (opp.estimatedValue ?? 0), 0);
-        return { value: Math.round(total), subValue: "pipeline value", label: "Pipeline Value", prefix: "$" };
+        return { value: Math.round(total), subValue: t("stat.pipelineValue"), label: t("stat.pipelineValueLabel"), prefix: "$" };
       }
-      return { value: active.length, subValue: "active opportunities", label: "Opportunities", prefix: "" };
+      return { value: active.length, subValue: t("stat.activeOpportunities"), label: t("stat.opportunities"), prefix: "" };
     }
 
     const stageMap: Record<string, OpportunityStage> = {
@@ -685,15 +766,23 @@ function StatOpportunities({ typeId, size, config }: InnerStatProps) {
       proposal_sent: OpportunityStage.Quoted,
       negotiation: OpportunityStage.Negotiation,
     };
+    const stageLabels: Record<string, { label: string; valueSub: string; valueLabel: string }> = {
+      new_lead: { label: t("stat.newLead"), valueSub: t("stat.newLeadValue"), valueLabel: t("stat.newLeadValueLabel") },
+      contacted: { label: t("stat.contacted"), valueSub: t("stat.contactedValue"), valueLabel: t("stat.contactedValueLabel") },
+      qualified: { label: t("stat.qualified"), valueSub: t("stat.qualifiedValue"), valueLabel: t("stat.qualifiedValueLabel") },
+      proposal_sent: { label: t("stat.proposalSent"), valueSub: t("stat.proposalSentValue"), valueLabel: t("stat.proposalSentValueLabel") },
+      negotiation: { label: t("stat.negotiation"), valueSub: t("stat.negotiationValue"), valueLabel: t("stat.negotiationValueLabel") },
+    };
     const stage = stageMap[stageFilter];
     const filtered = opportunities.filter((opp) => !opp.deletedAt && opp.stage === stage);
+    const labels = stageLabels[stageFilter];
 
     if (metric === "value") {
       const total = filtered.reduce((sum, opp) => sum + (opp.estimatedValue ?? 0), 0);
-      return { value: Math.round(total), subValue: `${stageFilter} value`, label: `${stageFilter} Value`, prefix: "$" };
+      return { value: Math.round(total), subValue: labels?.valueSub ?? stageFilter, label: labels?.valueLabel ?? stageFilter, prefix: "$" };
     }
-    return { value: filtered.length, subValue: `${stageFilter}`, label: `${stageFilter.charAt(0).toUpperCase() + stageFilter.slice(1)}`, prefix: "" };
-  }, [opportunities, stageFilter, metric]);
+    return { value: filtered.length, subValue: labels?.label ?? stageFilter, label: labels?.label ?? stageFilter, prefix: "" };
+  }, [opportunities, stageFilter, metric, t]);
 
   return (
     <StatCard label={label} value={value} displayPrefix={prefix} subValue={subValue} icon={Target} accentColor={getAccentColor(typeId)} size={size} />
@@ -704,6 +793,7 @@ function StatOpportunities({ typeId, size, config }: InnerStatProps) {
 // Profit MTD — revenue minus costs on paid invoices this month
 // ---------------------------------------------------------------------------
 function StatProfitMTD({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data: invoicesData } = useInvoices();
   const { data: lineItemsData } = useInvoiceLineItems();
 
@@ -735,10 +825,10 @@ function StatProfitMTD({ typeId, size }: SimpleStatProps) {
 
   return (
     <StatCard
-      label="Profit MTD"
+      label={t("stat.profitMtd")}
       value={Math.round(profit)}
       displayPrefix="$"
-      subValue="this month"
+      subValue={t("stat.thisMonth")}
       icon={DollarSign}
       accentColor={getAccentColor(typeId)}
       size={size}
@@ -750,6 +840,7 @@ function StatProfitMTD({ typeId, size }: SimpleStatProps) {
 // Projected Profit — expected profit on open invoices
 // ---------------------------------------------------------------------------
 function StatProjectedProfit({ typeId, size }: SimpleStatProps) {
+  const { t } = useDictionary("dashboard");
   const { data: invoicesData } = useInvoices();
   const { data: lineItemsData } = useInvoiceLineItems();
 
@@ -778,10 +869,10 @@ function StatProjectedProfit({ typeId, size }: SimpleStatProps) {
 
   return (
     <StatCard
-      label="Projected Profit"
+      label={t("stat.projectedProfit")}
       value={Math.round(projectedProfit)}
       displayPrefix="$"
-      subValue="on open invoices"
+      subValue={t("stat.onOpenInvoices")}
       icon={DollarSign}
       accentColor={getAccentColor(typeId)}
       size={size}

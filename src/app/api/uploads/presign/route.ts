@@ -23,6 +23,7 @@ const ALLOWED_TYPES = [
   "image/png",
   "image/webp",
   "image/heic",
+  "application/pdf",
 ];
 
 const MAX_FILENAME_LENGTH = 200;

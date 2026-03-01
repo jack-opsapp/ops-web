@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MetricCard } from "@/components/ops/metric-card";
@@ -38,21 +40,31 @@ type TabValue = "dashboard" | "integrations";
 
 // ─── Provider Info ──────────────────────────────────────────────────────────
 
-const PROVIDER_INFO: Record<
+const PROVIDER_STYLE: Record<
   AccountingProvider,
-  { name: string; description: string; color: string; bgColor: string }
+  { color: string; bgColor: string }
 > = {
   [AccountingProvider.QuickBooks]: {
-    name: "QuickBooks Online",
-    description: "Sync invoices, estimates, payments, and customers with Intuit QuickBooks Online.",
     color: "#2CA01C",
     bgColor: "rgba(44,160,28,0.1)",
   },
   [AccountingProvider.Sage]: {
-    name: "Sage Business Cloud",
-    description: "Sync invoices, quotes, payments, and contacts with Sage Business Cloud Accounting.",
     color: "#00DC00",
     bgColor: "rgba(0,220,0,0.08)",
+  },
+};
+
+const PROVIDER_I18N_KEYS: Record<
+  AccountingProvider,
+  { name: string; description: string }
+> = {
+  [AccountingProvider.QuickBooks]: {
+    name: "integrations.quickbooks",
+    description: "integrations.quickbooksDesc",
+  },
+  [AccountingProvider.Sage]: {
+    name: "integrations.sage",
+    description: "integrations.sageDesc",
   },
 };
 
@@ -106,6 +118,7 @@ function ConnectionCard({
   onDisconnect,
   onSync,
   isSyncing,
+  t,
 }: {
   provider: AccountingProvider;
   connection?: AccountingConnection;
@@ -113,8 +126,11 @@ function ConnectionCard({
   onDisconnect: () => void;
   onSync: () => void;
   isSyncing: boolean;
+  t: (key: string) => string;
 }) {
-  const info = PROVIDER_INFO[provider];
+  const { locale } = useLocale();
+  const style = PROVIDER_STYLE[provider];
+  const i18nKeys = PROVIDER_I18N_KEYS[provider];
   const isConnected = connection?.isConnected ?? false;
 
   return (
@@ -124,19 +140,19 @@ function ConnectionCard({
         <div className="flex items-center gap-2">
           <div
             className="w-[40px] h-[40px] rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: info.bgColor }}
+            style={{ backgroundColor: style.bgColor }}
           >
             <Calculator
               className="w-[20px] h-[20px]"
-              style={{ color: info.color }}
+              style={{ color: style.color }}
             />
           </div>
           <div>
             <h3 className="font-mohave text-body text-text-primary uppercase">
-              {info.name}
+              {t(i18nKeys.name)}
             </h3>
             <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5">
-              {info.description}
+              {t(i18nKeys.description)}
             </p>
           </div>
         </div>
@@ -153,12 +169,12 @@ function ConnectionCard({
           {isConnected ? (
             <>
               <CheckCircle2 className="w-[10px] h-[10px]" />
-              Connected
+              {t("integrations.connected")}
             </>
           ) : (
             <>
               <Link2Off className="w-[10px] h-[10px]" />
-              Not Connected
+              {t("integrations.notConnected")}
             </>
           )}
         </div>
@@ -169,30 +185,30 @@ function ConnectionCard({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 border-t border-border">
           <div>
             <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
-              Last Synced
+              {t("integrations.lastSynced")}
             </span>
             <span className="font-mono text-data-sm text-text-secondary">
               {connection.lastSyncAt
-                ? new Date(connection.lastSyncAt).toLocaleDateString("en-US", {
+                ? new Date(connection.lastSyncAt).toLocaleDateString(getDateLocale(locale), {
                     month: "short",
                     day: "numeric",
                     hour: "2-digit",
                     minute: "2-digit",
                   })
-                : "Never"}
+                : t("integrations.never")}
             </span>
           </div>
           <div>
             <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
-              Auto-Sync
+              {t("integrations.autoSync")}
             </span>
             <span className="font-mono text-data-sm text-text-secondary">
-              {connection.syncEnabled ? "Enabled" : "Disabled"}
+              {connection.syncEnabled ? t("integrations.enabled") : t("integrations.disabled")}
             </span>
           </div>
           <div>
             <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
-              Realm ID
+              {t("integrations.realmId")}
             </span>
             <span className="font-mono text-data-sm text-text-secondary truncate block">
               {connection.realmId || "—"}
@@ -217,7 +233,7 @@ function ConnectionCard({
               ) : (
                 <RefreshCw className="w-[14px] h-[14px]" />
               )}
-              {isSyncing ? "Syncing..." : "Sync Now"}
+              {isSyncing ? t("integrations.syncing") : t("integrations.syncNow")}
             </Button>
             <Button
               variant="ghost"
@@ -226,13 +242,13 @@ function ConnectionCard({
               className="text-text-tertiary hover:text-ops-error"
             >
               <Link2Off className="w-[14px] h-[14px] mr-0.5" />
-              Disconnect
+              {t("integrations.disconnect")}
             </Button>
           </>
         ) : (
           <Button variant="default" size="sm" onClick={onConnect} className="gap-1">
             <Link2 className="w-[14px] h-[14px]" />
-            Connect {info.name}
+            {t("integrations.connect")} {t(i18nKeys.name)}
           </Button>
         )}
       </div>
@@ -247,6 +263,7 @@ function SyncHistoryRow({
 }: {
   entry: { id: string; provider: string; status: string; timestamp: Date; details: string | null };
 }) {
+  const { locale } = useLocale();
   const statusIcon =
     entry.status === "success" ? (
       <CheckCircle2 className="w-[12px] h-[12px] text-status-success" />
@@ -263,7 +280,7 @@ function SyncHistoryRow({
         {entry.provider} — {entry.status}
       </span>
       <span className="font-mono text-[10px] text-text-disabled shrink-0">
-        {new Date(entry.timestamp).toLocaleDateString("en-US", {
+        {new Date(entry.timestamp).toLocaleDateString(getDateLocale(locale), {
           month: "short",
           day: "numeric",
           hour: "2-digit",
@@ -317,6 +334,7 @@ function AgingBar({
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function AccountingPage() {
+  const { t } = useDictionary("accounting");
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -424,10 +442,10 @@ export default function AccountingPage() {
 
   // ─── Tabs ─────────────────────────────────────────────────────────────────
 
-  const tabs: { value: TabValue; label: string }[] = [
-    { value: "dashboard", label: "Dashboard" },
-    { value: "integrations", label: "Integrations" },
-  ];
+  const tabs = useMemo<{ value: TabValue; label: string }[]>(() => [
+    { value: "dashboard", label: t("tabs.dashboard") },
+    { value: "integrations", label: t("tabs.integrations") },
+  ], [t]);
 
   return (
     <div className="space-y-3 pb-6">
@@ -435,10 +453,10 @@ export default function AccountingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
-            Accounting
+            {t("title")}
           </h1>
           <p className="font-mohave text-body-sm text-text-tertiary">
-            Financial overview and accounting integrations
+            {t("subtitle")}
           </p>
         </div>
 
@@ -467,22 +485,22 @@ export default function AccountingPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             <MetricCard
-              label="Total Outstanding"
+              label={t("metrics.totalOutstanding")}
               value={formatCurrency(metrics.outstanding)}
               icon={<DollarSign className="w-[16px] h-[16px]" />}
             />
             <MetricCard
-              label="Overdue"
+              label={t("metrics.overdue")}
               value={formatCurrency(metrics.overdue)}
               icon={<AlertTriangle className="w-[16px] h-[16px]" />}
             />
             <MetricCard
-              label="Paid This Month"
+              label={t("metrics.paidThisMonth")}
               value={formatCurrency(metrics.paidThisMonth)}
               icon={<TrendingUp className="w-[16px] h-[16px]" />}
             />
             <MetricCard
-              label="Total Invoiced"
+              label={t("metrics.totalInvoiced")}
               value={formatCurrency(metrics.totalInvoiced)}
               icon={<Calculator className="w-[16px] h-[16px]" />}
             />
@@ -492,35 +510,35 @@ export default function AccountingPage() {
             {/* Aging Report */}
             <Card variant="default" className="p-3 space-y-2">
               <h2 className="font-mohave text-body-lg text-text-primary uppercase tracking-wider">
-                Overdue Aging
+                {t("aging.title")}
               </h2>
               <div className="space-y-1.5">
                 <AgingBar
-                  label="Current"
+                  label={t("aging.current")}
                   amount={aging.current}
                   maxAmount={maxAging}
                   color="#9DB582"
                 />
                 <AgingBar
-                  label="1 – 30 days"
+                  label={t("aging.1to30")}
                   amount={aging.days1_30}
                   maxAmount={maxAging}
                   color="#C4A868"
                 />
                 <AgingBar
-                  label="31 – 60 days"
+                  label={t("aging.31to60")}
                   amount={aging.days31_60}
                   maxAmount={maxAging}
                   color="#D4944A"
                 />
                 <AgingBar
-                  label="61 – 90 days"
+                  label={t("aging.61to90")}
                   amount={aging.days61_90}
                   maxAmount={maxAging}
                   color="#B58289"
                 />
                 <AgingBar
-                  label="90+ days"
+                  label={t("aging.90plus")}
                   amount={aging.days90Plus}
                   maxAmount={maxAging}
                   color="#D45050"
@@ -531,11 +549,11 @@ export default function AccountingPage() {
             {/* Top Clients */}
             <Card variant="default" className="p-3 space-y-2">
               <h2 className="font-mohave text-body-lg text-text-primary uppercase tracking-wider">
-                Top Clients by Revenue
+                {t("topClients.title")}
               </h2>
               {topClients.length === 0 ? (
                 <p className="font-kosugi text-caption-sm text-text-disabled py-3 text-center">
-                  No invoice data yet
+                  {t("topClients.noData")}
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -557,7 +575,7 @@ export default function AccountingPage() {
                           {formatCurrency(client.total)}
                         </span>
                         <span className="font-mono text-[10px] text-text-disabled">
-                          ({formatCurrency(client.paid)} paid)
+                          ({t("topClients.paid").replace("{amount}", formatCurrency(client.paid))})
                         </span>
                       </div>
                     </div>
@@ -570,7 +588,7 @@ export default function AccountingPage() {
           {/* Invoice Status Breakdown */}
           <Card variant="default" className="p-3 space-y-2">
             <h2 className="font-mohave text-body-lg text-text-primary uppercase tracking-wider">
-              Invoice Breakdown
+              {t("invoiceBreakdown.title")}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {Object.values(InvoiceStatus).map((status) => {
@@ -613,6 +631,7 @@ export default function AccountingPage() {
                 triggerSync.isPending &&
                 triggerSync.variables?.provider === AccountingProvider.QuickBooks
               }
+              t={t}
             />
             <ConnectionCard
               provider={AccountingProvider.Sage}
@@ -624,6 +643,7 @@ export default function AccountingPage() {
                 triggerSync.isPending &&
                 triggerSync.variables?.provider === AccountingProvider.Sage
               }
+              t={t}
             />
           </div>
 
@@ -631,7 +651,7 @@ export default function AccountingPage() {
           <Card variant="default" className="p-3 space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="font-mohave text-body-lg text-text-primary uppercase tracking-wider">
-                Sync History
+                {t("integrations.syncHistory")}
               </h2>
               {connectionsLoading && (
                 <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
@@ -644,7 +664,7 @@ export default function AccountingPage() {
               </div>
             ) : syncHistory.length === 0 ? (
               <p className="font-kosugi text-caption-sm text-text-disabled py-4 text-center">
-                No sync history yet. Connect an accounting provider to get started.
+                {t("integrations.noSyncHistory")}
               </p>
             ) : (
               <div className="space-y-0.5 max-h-[300px] overflow-y-auto">
@@ -658,7 +678,7 @@ export default function AccountingPage() {
           {/* Sync Settings Info */}
           <Card variant="default" className="p-3 space-y-1.5">
             <h2 className="font-mohave text-body-lg text-text-primary uppercase tracking-wider">
-              How Sync Works
+              {t("integrations.howSyncWorks")}
             </h2>
             <div className="space-y-1">
               <div className="flex items-start gap-1.5">
@@ -666,8 +686,7 @@ export default function AccountingPage() {
                   <span className="font-mono text-[10px] text-status-success">1</span>
                 </div>
                 <p className="font-kosugi text-caption-sm text-text-secondary">
-                  <strong className="text-text-primary">Outbound:</strong> When you create or update invoices,
-                  estimates, or payments in OPS, they are automatically pushed to your connected accounting software.
+                  <strong className="text-text-primary">{t("integrations.outbound")}</strong> {t("integrations.outboundDesc")}
                 </p>
               </div>
               <div className="flex items-start gap-1.5">
@@ -675,8 +694,7 @@ export default function AccountingPage() {
                   <span className="font-mono text-[10px] text-[#8195B5]">2</span>
                 </div>
                 <p className="font-kosugi text-caption-sm text-text-secondary">
-                  <strong className="text-text-primary">Inbound:</strong> Changes made in QuickBooks or Sage are
-                  synced back to OPS via webhooks (QuickBooks) or periodic polling (Sage).
+                  <strong className="text-text-primary">{t("integrations.inbound")}</strong> {t("integrations.inboundDesc")}
                 </p>
               </div>
               <div className="flex items-start gap-1.5">
@@ -684,8 +702,7 @@ export default function AccountingPage() {
                   <span className="font-mono text-[10px] text-[#C4A868]">3</span>
                 </div>
                 <p className="font-kosugi text-caption-sm text-text-secondary">
-                  <strong className="text-text-primary">Conflicts:</strong> If both sides change the same record,
-                  OPS data takes priority by default. Conflicting changes are flagged for manual review.
+                  <strong className="text-text-primary">{t("integrations.conflicts")}</strong> {t("integrations.conflictsDesc")}
                 </p>
               </div>
             </div>

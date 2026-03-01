@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useDictionary } from "@/i18n/client";
 import dynamic from "next/dynamic";
 import {
   MapPin,
@@ -38,16 +39,6 @@ const ProjectMap = dynamic(
   }
 );
 
-const STATUS_FILTERS: { value: "all" | "active" | ProjectStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: ProjectStatus.RFQ, label: "RFQ" },
-  { value: ProjectStatus.Estimated, label: "Estimated" },
-  { value: ProjectStatus.Accepted, label: "Accepted" },
-  { value: ProjectStatus.InProgress, label: "In Progress" },
-  { value: ProjectStatus.Completed, label: "Completed" },
-];
-
 function ProjectListItem({
   project,
   isSelected,
@@ -57,6 +48,7 @@ function ProjectListItem({
   isSelected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useDictionary("dashboard");
   const statusColor = PROJECT_STATUS_COLORS[project.status] || "#417394";
   const hasLocation = project.latitude != null && project.longitude != null;
 
@@ -102,14 +94,14 @@ function ProjectListItem({
               <button
                 onClick={openInMaps}
                 className="text-text-disabled hover:text-ops-accent transition-colors shrink-0"
-                title="Open in Google Maps"
+                title={t("map.openInGoogleMaps")}
               >
                 <ExternalLink className="w-[12px] h-[12px]" />
               </button>
             )}
           </div>
           <p className="font-kosugi text-[10px] text-text-tertiary truncate">
-            {project.address || "No address"}
+            {project.address || t("map.noAddress")}
           </p>
           <div className="flex items-center gap-1 mt-[2px]">
             <span
@@ -122,7 +114,7 @@ function ProjectListItem({
               {project.status}
             </span>
             {!hasLocation && (
-              <span className="font-mono text-[9px] text-text-disabled">NO GPS</span>
+              <span className="font-mono text-[9px] text-text-disabled">{t("map.noGps")}</span>
             )}
           </div>
         </div>
@@ -132,6 +124,7 @@ function ProjectListItem({
 }
 
 export default function MapPage() {
+  const { t } = useDictionary("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | ProjectStatus>("active");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -139,6 +132,16 @@ export default function MapPage() {
 
   const { data, isLoading } = useProjects();
   const projects = useMemo(() => data?.projects ?? [], [data]);
+
+  const STATUS_FILTERS: { value: "all" | "active" | ProjectStatus; label: string }[] = useMemo(() => [
+    { value: "all", label: t("map.filterAll") },
+    { value: "active", label: t("map.filterActive") },
+    { value: ProjectStatus.RFQ, label: t("map.filterRfq") },
+    { value: ProjectStatus.Estimated, label: t("map.filterEstimated") },
+    { value: ProjectStatus.Accepted, label: t("map.filterAccepted") },
+    { value: ProjectStatus.InProgress, label: t("map.filterInProgress") },
+    { value: ProjectStatus.Completed, label: t("map.filterCompleted") },
+  ], [t]);
 
   // Filter projects
   const filteredProjects = useMemo(() => {
@@ -187,11 +190,11 @@ export default function MapPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[6px]">
               <MapPin className="w-[16px] h-[16px] text-ops-accent" />
-              <span className="font-mohave text-body font-medium text-text-primary uppercase tracking-wider">Projects</span>
+              <span className="font-mohave text-body font-medium text-text-primary uppercase tracking-wider">{t("map.projects")}</span>
             </div>
             <div className="flex items-center gap-[6px]">
               <span className="font-mono text-[10px] text-text-disabled">
-                {mappableCount}/{filteredProjects.length} pinned
+                {mappableCount}/{filteredProjects.length} {t("map.pinned")}
               </span>
             </div>
           </div>
@@ -203,7 +206,7 @@ export default function MapPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects..."
+              placeholder={t("map.searchPlaceholder")}
               className={cn(
                 "w-full pl-[28px] pr-[28px] py-[6px] rounded-lg",
                 "bg-background-input border border-border",
@@ -261,17 +264,17 @@ export default function MapPage() {
             <div className="flex flex-col items-center justify-center py-6">
               <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
               <span className="font-mono text-[10px] text-text-disabled mt-1">
-                LOADING PROJECTS...
+                {t("map.loadingProjects")}
               </span>
             </div>
           ) : filteredProjects.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
               <MapPin className="w-[24px] h-[24px] text-text-disabled mb-1" />
               <span className="font-mohave text-body-sm text-text-tertiary">
-                No projects found
+                {t("map.noProjectsFound")}
               </span>
               <span className="font-kosugi text-[10px] text-text-disabled">
-                {searchQuery ? "Try a different search" : "Create a project to see it here"}
+                {searchQuery ? t("map.tryDifferentSearch") : t("map.createProjectPrompt")}
               </span>
             </div>
           ) : (
@@ -291,11 +294,11 @@ export default function MapPage() {
           <div className="flex items-center gap-1">
             <div className="flex items-center gap-[3px]">
               <span className="w-[4px] h-[4px] rounded-full bg-[#6B8F71]" />
-              <span className="font-mono text-[9px] text-text-disabled">Live</span>
+              <span className="font-mono text-[9px] text-text-disabled">{t("map.live")}</span>
             </div>
           </div>
           <span className="font-mono text-[9px] text-text-disabled">
-            {projects.length} total projects
+            {projects.length} {t("map.totalProjects")}
           </span>
         </div>
       </div>
@@ -319,7 +322,7 @@ export default function MapPage() {
             "text-text-tertiary hover:text-text-primary transition-colors",
             "shadow-floating"
           )}
-          title={showSidebar ? "Hide sidebar" : "Show sidebar"}
+          title={showSidebar ? t("map.hideSidebar") : t("map.showSidebar")}
         >
           {showSidebar ? (
             <ChevronRight className="w-[16px] h-[16px] rotate-180" />
@@ -337,7 +340,7 @@ export default function MapPage() {
           )}
         >
           <div className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest mb-[4px]">
-            Status
+            {t("map.status")}
           </div>
           <div className="space-y-[3px]">
             {[

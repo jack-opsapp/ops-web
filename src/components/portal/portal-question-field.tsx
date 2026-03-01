@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ export function PortalQuestionField({
   onChange,
   error,
 }: PortalQuestionFieldProps) {
+  const { t } = useDictionary("portal");
   const [focused, setFocused] = useState(false);
 
   const currentStyle: React.CSSProperties = {
@@ -113,7 +115,7 @@ export function PortalQuestionField({
               fontSize: "12px",
             }}
           >
-            Required
+            {t("questions.required")}
           </span>
         )}
       </label>
@@ -128,7 +130,7 @@ export function PortalQuestionField({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={currentStyle}
-          placeholder="Your answer..."
+          placeholder={t("questions.answerPlaceholder")}
         />
       )}
 

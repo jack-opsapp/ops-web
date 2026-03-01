@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CalendarEvent } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { format, isSameDay } from "@/lib/utils/date";
+import { useDictionary } from "@/i18n/client";
 
 interface CalendarWidgetProps {
   size: WidgetSize;
@@ -15,10 +16,14 @@ interface CalendarWidgetProps {
   onNavigate: (path: string) => void;
 }
 
-const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+const DAY_NAME_KEYS = [
+  "calendar.sun", "calendar.mon", "calendar.tue", "calendar.wed",
+  "calendar.thu", "calendar.fri", "calendar.sat",
+];
+const MONTH_NAME_KEYS = [
+  "calendar.january", "calendar.february", "calendar.march", "calendar.april",
+  "calendar.may", "calendar.june", "calendar.july", "calendar.august",
+  "calendar.september", "calendar.october", "calendar.november", "calendar.december",
 ];
 
 export function CalendarWidget({
@@ -27,6 +32,7 @@ export function CalendarWidget({
   isLoading,
   onNavigate,
 }: CalendarWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const today = useMemo(() => new Date(), []);
 
   // Generate days of current week
@@ -87,7 +93,7 @@ export function CalendarWidget({
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">
-            {monthNames[today.getMonth()].slice(0, 3)} {today.getDate()}
+            {t(MONTH_NAME_KEYS[today.getMonth()]).slice(0, 3)} {today.getDate()}
           </CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
@@ -97,7 +103,7 @@ export function CalendarWidget({
             <>
               <p className="font-mono text-data-lg text-text-primary">{todayEventCount}</p>
               <p className="font-kosugi text-[10px] text-text-tertiary">
-                {todayEventCount === 1 ? "event today" : "events today"}
+                {todayEventCount === 1 ? t("calendar.eventToday") : t("calendar.eventsToday")}
               </p>
             </>
           )}
@@ -114,9 +120,9 @@ export function CalendarWidget({
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">
-            {monthNames[today.getMonth()]} {today.getFullYear()}
+            {t(MONTH_NAME_KEYS[today.getMonth()])} {today.getFullYear()}
           </CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">Today</span>
+          <span className="font-mono text-[11px] text-text-tertiary">{t("calendar.today")}</span>
         </div>
       </CardHeader>
       <CardContent className="py-0 flex-1 overflow-hidden min-h-0 flex flex-col">
@@ -132,7 +138,7 @@ export function CalendarWidget({
         {isLoading ? (
           <div className="flex items-center justify-center flex-1">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">Loading events...</span>
+            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("calendar.loading")}</span>
           </div>
         ) : (
           <DayCarousel
@@ -161,6 +167,7 @@ function WeekStrip({
   eventDaySet: Set<string>;
   onNavigate: (path: string) => void;
 }) {
+  const { t } = useDictionary("dashboard");
   return (
     <div className="grid grid-cols-7 gap-[2px] mb-1.5 shrink-0">
       {weekDays.map((d, i) => {
@@ -183,7 +190,7 @@ function WeekStrip({
                 isToday ? "text-text-secondary" : "text-text-disabled"
               )}
             >
-              {dayNames[i]}
+              {t(DAY_NAME_KEYS[i])}
             </span>
             <span
               className={cn(
@@ -219,6 +226,7 @@ function DayCarousel({
   maxEventsPerDay: number;
   onNavigate: (path: string) => void;
 }) {
+  const { t } = useDictionary("dashboard");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to a specific panel
@@ -266,7 +274,7 @@ function DayCarousel({
           if (container) container.scrollBy({ left: -container.offsetWidth, behavior: "smooth" });
         }}
         className="absolute left-0 top-0 z-10 w-[20px] h-full flex items-center justify-center text-text-disabled hover:text-text-secondary transition-colors"
-        aria-label="Previous day"
+        aria-label={t("calendar.previousDay")}
       >
         <ChevronLeft className="w-[14px] h-[14px]" />
       </button>
@@ -276,7 +284,7 @@ function DayCarousel({
           if (container) container.scrollBy({ left: container.offsetWidth, behavior: "smooth" });
         }}
         className="absolute right-0 top-0 z-10 w-[20px] h-full flex items-center justify-center text-text-disabled hover:text-text-secondary transition-colors"
-        aria-label="Next day"
+        aria-label={t("calendar.nextDay")}
       >
         <ChevronRight className="w-[14px] h-[14px]" />
       </button>
@@ -289,8 +297,8 @@ function DayCarousel({
       >
         {eventsByDay.map(({ day, events }, i) => {
           const dayLabel = day.toDateString() === new Date().toDateString()
-            ? "Today"
-            : dayNames[day.getDay()] + ", " + monthNames[day.getMonth()].slice(0, 3) + " " + day.getDate();
+            ? t("calendar.today")
+            : t(DAY_NAME_KEYS[day.getDay()]) + ", " + t(MONTH_NAME_KEYS[day.getMonth()]).slice(0, 3) + " " + day.getDate();
 
           const visibleEvents = events.slice(0, maxEventsPerDay);
           const remaining = events.length - maxEventsPerDay;
@@ -305,7 +313,7 @@ function DayCarousel({
               </span>
               {visibleEvents.length === 0 ? (
                 <p className="font-mohave text-body-sm text-text-disabled py-1">
-                  No events
+                  {t("calendar.noEvents")}
                 </p>
               ) : (
                 <div className="space-y-[3px] mt-[2px]">
@@ -336,7 +344,7 @@ function DayCarousel({
                   })}
                   {remaining > 0 && (
                     <span className="font-mono text-[11px] text-text-disabled block px-1">
-                      +{remaining} more
+                      +{remaining} {t("calendar.more")}
                     </span>
                   )}
                 </div>

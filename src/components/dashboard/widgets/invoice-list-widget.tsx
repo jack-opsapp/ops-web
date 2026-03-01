@@ -8,6 +8,9 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useInvoices, useSendInvoice } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -24,12 +27,12 @@ interface InvoiceListWidgetProps {
 
 type StatusFilter = "all-open" | "draft" | "sent" | "viewed" | "past_due";
 
-const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
-  "all-open": "Open",
-  draft: "Draft",
-  sent: "Sent",
-  viewed: "Viewed",
-  past_due: "Past Due",
+const STATUS_FILTER_LABEL_KEYS: Record<StatusFilter, string> = {
+  "all-open": "invoiceList.filterOpen",
+  draft: "invoiceList.filterDraft",
+  sent: "invoiceList.filterSent",
+  viewed: "invoiceList.filterViewed",
+  past_due: "invoiceList.filterPastDue",
 };
 
 /** Map config filter value to the InvoiceStatus enum values it matches */
@@ -68,31 +71,31 @@ function statusBadgeClasses(status: InvoiceStatus): string {
   }
 }
 
-function statusLabel(status: InvoiceStatus): string {
+function statusLabel(status: InvoiceStatus, t: (key: string) => string): string {
   switch (status) {
     case InvoiceStatus.Draft:
-      return "Draft";
+      return t("invoiceList.statusDraft");
     case InvoiceStatus.Sent:
-      return "Sent";
+      return t("invoiceList.statusSent");
     case InvoiceStatus.AwaitingPayment:
-      return "Awaiting";
+      return t("invoiceList.statusAwaiting");
     case InvoiceStatus.PartiallyPaid:
-      return "Partial";
+      return t("invoiceList.statusPartial");
     case InvoiceStatus.PastDue:
-      return "Past Due";
+      return t("invoiceList.statusPastDue");
     case InvoiceStatus.Paid:
-      return "Paid";
+      return t("invoiceList.statusPaid");
     case InvoiceStatus.Void:
-      return "Void";
+      return t("invoiceList.statusVoid");
     case InvoiceStatus.WrittenOff:
-      return "Written Off";
+      return t("invoiceList.statusWrittenOff");
     default:
       return status;
   }
 }
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("en-US", {
+function formatCurrency(amount: number, locale: Locale): string {
+  return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
@@ -100,9 +103,9 @@ function formatCurrency(amount: number): string {
   });
 }
 
-function formatDate(date: Date | string): string {
+function formatDate(date: Date | string, locale: Locale): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +113,8 @@ function formatDate(date: Date | string): string {
 // ---------------------------------------------------------------------------
 
 export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const filter = (config.statusFilter as StatusFilter) ?? "all-open";
   const { data: invoices, isLoading } = useInvoices();
 
@@ -131,7 +136,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">
-            {STATUS_FILTER_LABEL[filter]} Invoices
+            {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
@@ -139,7 +144,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("invoiceList.loadingShort")}
               </span>
             </div>
           ) : (
@@ -148,7 +153,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
                 {filtered.length}
               </span>
               <span className="font-mono text-[11px] text-text-tertiary">
-                {formatCurrency(totalAmount)}
+                {formatCurrency(totalAmount, locale)}
               </span>
             </div>
           )}
@@ -163,10 +168,10 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">
-            {STATUS_FILTER_LABEL[filter]} Invoices
+            {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrency(totalAmount)}`}
+            {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrency(totalAmount, locale)}`}
           </span>
         </div>
       </CardHeader>
@@ -175,12 +180,12 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading invoices...
+              {t("invoiceList.loading")}
             </span>
           </div>
         ) : filtered.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No {STATUS_FILTER_LABEL[filter].toLowerCase()} invoices
+            {t("invoiceList.noInvoicesPrefix")} {t(STATUS_FILTER_LABEL_KEYS[filter]).toLowerCase()} {t("invoiceList.invoicesLower")}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -189,7 +194,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             ))}
             {filtered.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{filtered.length - maxItems} more
+                +{filtered.length - maxItems} {t("invoiceList.more")}
               </span>
             )}
           </div>
@@ -204,6 +209,8 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
 // ---------------------------------------------------------------------------
 
 function InvoiceRow({ invoice }: { invoice: Invoice }) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const sendInvoice = useSendInvoice();
   const [sendState, setSendState] = useState<"idle" | "sending" | "sent">("idle");
 
@@ -225,8 +232,8 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
     [invoice.id, sendState, sendInvoice]
   );
 
-  const clientName = invoice.client?.name ?? "Unknown Client";
-  const dueDisplay = formatDate(invoice.dueDate);
+  const clientName = invoice.client?.name ?? t("invoiceList.unknownClient");
+  const dueDisplay = formatDate(invoice.dueDate, locale);
   const isDraft = invoice.status === InvoiceStatus.Draft;
 
   return (
@@ -237,13 +244,13 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
           {clientName}
         </p>
         <span className="font-mono text-[11px] text-text-tertiary">
-          Due {dueDisplay}
+          {t("invoiceList.due")} {dueDisplay}
         </span>
       </div>
 
       {/* Amount */}
       <span className="font-mono text-[11px] text-text-secondary shrink-0">
-        {formatCurrency(invoice.balanceDue)}
+        {formatCurrency(invoice.balanceDue, locale)}
       </span>
 
       {/* Status badge */}
@@ -253,7 +260,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
           statusBadgeClasses(invoice.status)
         )}
       >
-        {statusLabel(invoice.status)}
+        {statusLabel(invoice.status, t)}
       </span>
 
       {/* One-click Send (draft only) */}
@@ -266,7 +273,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
             "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
             sendState === "sent" && "text-status-success"
           )}
-          title="Send invoice"
+          title={t("invoiceList.sendInvoice")}
         >
           {sendState === "sending" ? (
             <Loader2 className="w-[12px] h-[12px] animate-spin" />
@@ -275,7 +282,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
           ) : (
             <>
               <Send className="w-[12px] h-[12px]" />
-              <span className="font-mohave text-[12px]">Send</span>
+              <span className="font-mohave text-[12px]">{t("invoiceList.send")}</span>
             </>
           )}
         </button>

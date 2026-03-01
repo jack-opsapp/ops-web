@@ -21,6 +21,8 @@ import {
   Navigation,
   Loader2,
 } from "lucide-react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { cn } from "@/lib/utils/cn";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { Button } from "@/components/ui/button";
@@ -58,10 +60,12 @@ function AddSubClientForm({
   onSave,
   onCancel,
   isSaving,
+  t,
 }: {
   onSave: (data: { name: string; title: string; phone: string; email: string }) => void;
   onCancel: () => void;
   isSaving?: boolean;
+  t: (key: string) => string;
 }) {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -88,21 +92,21 @@ function AddSubClientForm({
           error={error && !name.trim() ? "Required" : undefined}
         />
         <Input
-          placeholder="Title (e.g., Spouse)"
+          placeholder={t("detail.titlePlaceholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
       </div>
       <div className="grid grid-cols-2 gap-1">
         <Input
-          placeholder="Phone"
+          placeholder={t("new.phoneLabel")}
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           prefixIcon={<Phone className="w-[14px] h-[14px]" />}
         />
         <Input
-          placeholder="Email"
+          placeholder={t("new.emailLabel")}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -115,7 +119,7 @@ function AddSubClientForm({
         </Button>
         <Button size="sm" onClick={handleSubmit} className="gap-[4px]" loading={isSaving}>
           <Save className="w-[13px] h-[13px]" />
-          Add
+          {t("detail.addSubClient")}
         </Button>
       </div>
     </div>
@@ -182,6 +186,8 @@ function DetailLoadingSkeleton() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ClientDetailPage() {
+  const { t } = useDictionary("clients");
+  const { locale } = useLocale();
   const router = useRouter();
   const params = useParams();
   const clientId = params.id as string;
@@ -391,11 +397,11 @@ export default function ClientDetailPage() {
               )}
               {!isEditing && (
                 <p className="font-kosugi text-caption-sm text-text-tertiary mt-[2px]">
-                  {clientProjects.length} projects
+                  {clientProjects.length} {t("card.projects")}
                   {clientData.createdAt && (
                     <>
-                      {" "}| Client since{" "}
-                      {new Date(clientData.createdAt).toLocaleDateString("en-US", {
+                      {" "}| {t("detail.clientSince")}{" "}
+                      {new Date(clientData.createdAt).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         year: "numeric",
                       })}
@@ -449,7 +455,7 @@ export default function ClientDetailPage() {
           {/* Contact Info Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Contact Info</CardTitle>
+              <CardTitle>{t("detail.contactInfo")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-0">
               {/* Email */}
@@ -546,7 +552,7 @@ export default function ClientDetailPage() {
             <CardHeader>
               <div className="flex items-center gap-[6px]">
                 <StickyNote className="w-[14px] h-[14px] text-text-tertiary" />
-                <CardTitle>Notes</CardTitle>
+                <CardTitle>{t("detail.notes")}</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -563,7 +569,7 @@ export default function ClientDetailPage() {
                 </p>
               ) : (
                 <p className="font-mohave text-body-sm text-text-disabled italic">
-                  No notes added
+                  {t("detail.noNotes")}
                 </p>
               )}
             </CardContent>
@@ -575,7 +581,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-[6px]">
                   <Users className="w-[14px] h-[14px] text-text-tertiary" />
-                  <CardTitle>Sub-Clients</CardTitle>
+                  <CardTitle>{t("detail.subClients")}</CardTitle>
                   {subClients.length > 0 && (
                     <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
                       {subClients.length}
@@ -599,7 +605,7 @@ export default function ClientDetailPage() {
                   ) : (
                     <>
                       <Plus className="w-[14px] h-[14px]" />
-                      Add
+                      {t("detail.addSubClient")}
                     </>
                   )}
                 </Button>
@@ -613,13 +619,14 @@ export default function ClientDetailPage() {
                     onSave={handleAddSubClient}
                     onCancel={() => setShowAddSubClient(false)}
                     isSaving={createSubClient.isPending}
+                    t={t}
                   />
                 </div>
               )}
 
               {subClients.length === 0 && !showAddSubClient ? (
                 <p className="font-mohave text-body-sm text-text-disabled italic">
-                  No sub-clients added
+                  {t("detail.noSubClients")}
                 </p>
               ) : (
                 <div className="space-y-0">
@@ -690,7 +697,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-[6px]">
                   <FolderKanban className="w-[14px] h-[14px] text-text-tertiary" />
-                  <CardTitle>Active Projects</CardTitle>
+                  <CardTitle>{t("detail.activeProjects")}</CardTitle>
                   {activeProjects.length > 0 && (
                     <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
                       {activeProjects.length}
@@ -715,10 +722,10 @@ export default function ClientDetailPage() {
                 <div className="text-left py-4">
                   <FolderKanban className="w-[36px] h-[36px] text-text-disabled mx-auto mb-1" />
                   <p className="font-mohave text-body text-text-tertiary">
-                    No active projects
+                    {t("detail.noActiveProjects")}
                   </p>
                   <p className="font-kosugi text-caption-sm text-text-disabled mt-[4px]">
-                    Create a project to start tracking work for this client
+                    {t("detail.createProjectHelper")}
                   </p>
                 </div>
               ) : (
@@ -745,7 +752,7 @@ export default function ClientDetailPage() {
                           )}
                           {project.startDate && (
                             <span className="font-mono text-[10px] text-text-disabled">
-                              {new Date(project.startDate).toLocaleDateString("en-US", {
+                              {new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                                 month: "short",
                                 day: "numeric",
                               })}
@@ -770,7 +777,7 @@ export default function ClientDetailPage() {
               <CardHeader>
                 <div className="flex items-center gap-[6px]">
                   <FolderKanban className="w-[14px] h-[14px] text-text-disabled" />
-                  <CardTitle className="text-text-tertiary">Completed</CardTitle>
+                  <CardTitle className="text-text-tertiary">{t("detail.completedProjects")}</CardTitle>
                   <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-60">
                     {completedProjects.length}
                   </Badge>
@@ -811,9 +818,9 @@ export default function ClientDetailPage() {
       <ConfirmDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
-        title="Delete Client"
-        description={`Are you sure you want to delete "${clientData.name}"? This will also remove all sub-clients. This action cannot be undone.`}
-        confirmLabel="Delete Client"
+        title={t("detail.deleteClient")}
+        description={`${t("detail.deleteConfirm")} "${clientData.name}"? This will also remove all sub-clients. This action cannot be undone.`}
+        confirmLabel={t("detail.deleteClient")}
         variant="destructive"
         onConfirm={handleDelete}
         loading={deleteClient.isPending}

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useDroppable } from "@dnd-kit/core";
+import { useDictionary } from "@/i18n/client";
 import { placeholderCellVariants } from "@/lib/utils/motion";
 
 interface GridPlaceholderCellProps {
@@ -10,6 +11,7 @@ interface GridPlaceholderCellProps {
 }
 
 export function GridPlaceholderCell({ id, index }: GridPlaceholderCellProps) {
+  const { t } = useDictionary("dashboard");
   const { isOver, setNodeRef } = useDroppable({ id });
 
   return (
@@ -22,7 +24,7 @@ export function GridPlaceholderCell({ id, index }: GridPlaceholderCellProps) {
       exit="exit"
       className="col-span-1"
       style={{ minHeight: 140 }}
-      aria-label={`Empty slot ${index + 1}`}
+      aria-label={`${t("grid.emptySlot")} ${index + 1}`}
       role="region"
     >
       <div

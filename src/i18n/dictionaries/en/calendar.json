@@ -1,0 +1,36 @@
+{
+  "view.month": "Month",
+  "view.week": "Week",
+  "view.day": "Day",
+  "today": "Today",
+  "previous": "Previous",
+  "next": "Next",
+
+  "stats.today": "Today",
+  "stats.thisWeek": "This Week",
+
+  "taskType.installation": "installation",
+  "taskType.material": "material",
+  "taskType.estimate": "estimate",
+  "taskType.inspection": "inspection",
+  "taskType.quote": "quote",
+  "taskType.completion": "completion",
+
+  "empty.month": "No events scheduled for this month",
+  "empty.week": "No events scheduled for this week",
+  "empty.day": "No events scheduled for today",
+  "empty.helper": "Events will appear here once scheduled",
+  "loading": "Loading events...",
+
+  "moreEvents": "+{count} more",
+  "eventCount": "{count} event",
+  "eventCountPlural": "{count} events",
+
+  "dayNames.sun": "Sun",
+  "dayNames.mon": "Mon",
+  "dayNames.tue": "Tue",
+  "dayNames.wed": "Wed",
+  "dayNames.thu": "Thu",
+  "dayNames.fri": "Fri",
+  "dayNames.sat": "Sat"
+}

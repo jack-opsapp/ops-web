@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useDictionary } from "@/i18n/client";
 import Link from "next/link";
 import {
   Loader2,
@@ -13,7 +14,10 @@ import {
 } from "lucide-react";
 import { usePortalEstimate, useApproveEstimate, useDeclineEstimate } from "@/lib/hooks/use-portal-estimate";
 import { usePortalQuestions } from "@/lib/hooks/use-portal-questions";
+import { usePortalData } from "@/lib/hooks/use-portal-data";
 import { PortalEstimateView } from "@/components/portal/portal-estimate-view";
+import { getFieldVisibility } from "@/lib/portal/resolve-template-branding";
+import type { DocumentPartyInfo } from "@/components/portal/portal-invoice-view";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -26,15 +30,17 @@ export default function EstimateDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { t } = useDictionary("portal");
 
   // ── Data ────────────────────────────────────────────────────────────────
   const {
-    data: estimate,
+    data: estimateData,
     isLoading,
     error,
   } = usePortalEstimate(id);
 
   const { data: questionsData } = usePortalQuestions(id);
+  const { data: portalData } = usePortalData();
 
   // ── Mutations ───────────────────────────────────────────────────────────
   const approveMutation = useApproveEstimate();
@@ -49,6 +55,11 @@ export default function EstimateDetailPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ── Derived ─────────────────────────────────────────────────────────────
+  // The API now returns { ...estimate, template } — extract the template
+  const estimate = estimateData ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const template = (estimateData as any)?.template ?? null;
+
   const questions = questionsData?.questions ?? [];
   const hasQuestions = questions.length > 0;
 
@@ -64,6 +75,26 @@ export default function EstimateDetailPage() {
     ? ACTIONABLE_STATUSES.has(estimate.status)
     : false;
 
+  // Build company/client info for From/To sections
+  const companyInfo: DocumentPartyInfo | null = portalData?.company
+    ? {
+        name: portalData.company.name,
+        phone: portalData.company.phone,
+        email: portalData.company.email,
+      }
+    : null;
+
+  const clientInfo: DocumentPartyInfo | null = portalData?.client
+    ? {
+        name: portalData.client.name,
+        email: portalData.client.email,
+        phone: portalData.client.phoneNumber,
+        address: portalData.client.address,
+      }
+    : null;
+
+  const fieldVisibility = getFieldVisibility(template);
+
   // ── Handlers ────────────────────────────────────────────────────────────
   function handleApprove() {
     approveMutation.mutate(id, {
@@ -73,7 +104,7 @@ export default function EstimateDetailPage() {
           router.push(`/portal/estimates/${id}/questions`);
         } else {
           setSuccessMessage(
-            "Estimate approved! Thank you for your confirmation."
+            t("estimate.approved")
           );
         }
       },
@@ -94,8 +125,8 @@ export default function EstimateDetailPage() {
           setDeclineReason("");
           setSuccessMessage(
             declineMode === "changes"
-              ? "Change request sent! Your provider will prepare an updated estimate."
-              : "Estimate declined. We've notified your provider."
+              ? t("estimate.changesSent")
+              : t("estimate.declined")
           );
         },
       }
@@ -119,7 +150,7 @@ export default function EstimateDetailPage() {
     return (
       <div className="text-center py-20">
         <p style={{ color: "var(--portal-text-secondary)" }}>
-          Unable to load this estimate. Please try refreshing the page.
+          {t("estimate.loadError")}
         </p>
         <Link
           href="/portal/home"
@@ -127,7 +158,7 @@ export default function EstimateDetailPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to portal
+          {t("estimate.backToPortal")}
         </Link>
       </div>
     );
@@ -143,7 +174,7 @@ export default function EstimateDetailPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to portal
+          {t("estimate.backToPortal")}
         </Link>
 
         <div
@@ -175,7 +206,7 @@ export default function EstimateDetailPage() {
             className="inline-flex items-center gap-2 text-sm mt-4"
             style={{ color: "var(--portal-accent)" }}
           >
-            Return to portal home
+            {t("estimate.returnHome")}
           </Link>
         </div>
       </div>
@@ -192,7 +223,7 @@ export default function EstimateDetailPage() {
         style={{ color: "var(--portal-accent)" }}
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to portal
+        {t("estimate.backToPortal")}
       </Link>
 
       {/* Estimate content */}
@@ -200,6 +231,9 @@ export default function EstimateDetailPage() {
         estimate={estimate}
         questions={questions}
         lineItemIdsWithQuestions={lineItemIdsWithQuestions}
+        fieldVisibility={fieldVisibility}
+        companyInfo={companyInfo}
+        clientInfo={clientInfo}
       />
 
       {/* Questions link */}
@@ -223,11 +257,11 @@ export default function EstimateDetailPage() {
                   className="text-sm font-semibold"
                   style={{ color: "var(--portal-text)" }}
                 >
-                  Answer questions about this estimate
+                  {t("estimate.answerQuestions")}
                 </p>
                 <p className="text-xs" style={{ color: "var(--portal-text-secondary)" }}>
                   {questions.length} question{questions.length !== 1 ? "s" : ""}{" "}
-                  from your provider
+                  {t("estimate.questionsFromProvider")}
                 </p>
               </div>
             </div>
@@ -256,7 +290,7 @@ export default function EstimateDetailPage() {
             }}
           >
             <Check className="w-4 h-4" />
-            Approve Estimate
+            {t("estimate.approve")}
           </button>
 
           {/* Request Changes */}
@@ -275,7 +309,7 @@ export default function EstimateDetailPage() {
             }}
           >
             <Edit3 className="w-4 h-4" />
-            Request Changes
+            {t("estimate.requestChanges")}
           </button>
 
           {/* Decline */}
@@ -294,7 +328,7 @@ export default function EstimateDetailPage() {
             }}
           >
             <X className="w-4 h-4" />
-            Decline
+            {t("estimate.decline")}
           </button>
         </div>
       )}
@@ -321,25 +355,17 @@ export default function EstimateDetailPage() {
                 color: "var(--portal-text)",
               }}
             >
-              Approve Estimate?
+              {t("estimate.approveConfirmTitle")}
             </h3>
             <p
               className="text-sm mb-6"
               style={{ color: "var(--portal-text-secondary)" }}
             >
-              By approving estimate #{estimate.estimateNumber}, you are
-              confirming acceptance of the scope and pricing detailed above.
+              {t("estimate.approveConfirmDesc")}
               {estimate.depositAmount != null && estimate.depositAmount > 0 && (
                 <span>
                   {" "}
-                  A deposit of{" "}
-                  <strong style={{ color: "var(--portal-text)" }}>
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                    }).format(estimate.depositAmount)}
-                  </strong>{" "}
-                  may be required.
+                  {t("estimate.depositNote")}
                 </span>
               )}
             </p>
@@ -374,7 +400,7 @@ export default function EstimateDetailPage() {
                 ) : (
                   <Check className="w-4 h-4" />
                 )}
-                {approveMutation.isPending ? "Approving..." : "Approve"}
+                {approveMutation.isPending ? t("estimate.approving") : t("estimate.approve")}
               </button>
             </div>
 
@@ -384,7 +410,7 @@ export default function EstimateDetailPage() {
                 style={{ color: "var(--portal-error)" }}
               >
                 {(approveMutation.error as Error).message ??
-                  "Something went wrong. Please try again."}
+                  t("estimate.actionError")}
               </p>
             )}
           </div>
@@ -414,16 +440,16 @@ export default function EstimateDetailPage() {
               }}
             >
               {declineMode === "changes"
-                ? "Request Changes"
-                : "Decline Estimate"}
+                ? t("estimate.changesDialogTitle")
+                : t("estimate.declineEstimate")}
             </h3>
             <p
               className="text-sm mb-4"
               style={{ color: "var(--portal-text-secondary)" }}
             >
               {declineMode === "changes"
-                ? "Describe the changes you'd like and we'll prepare an updated estimate for you."
-                : "Let your provider know why this estimate doesn't work for you. This is optional but helps them prepare a better quote."}
+                ? t("estimate.changesDialogDesc")
+                : t("estimate.declineDialogDesc")}
             </p>
 
             <textarea
@@ -431,8 +457,8 @@ export default function EstimateDetailPage() {
               onChange={(e) => setDeclineReason(e.target.value)}
               placeholder={
                 declineMode === "changes"
-                  ? "What changes would you like?..."
-                  : "Reason for declining (optional)..."
+                  ? t("estimate.changesPlaceholder")
+                  : t("estimate.declinePlaceholder")
               }
               rows={4}
               style={{
@@ -493,10 +519,10 @@ export default function EstimateDetailPage() {
                   <X className="w-4 h-4" />
                 )}
                 {declineMutation.isPending
-                  ? "Sending..."
+                  ? t("estimate.sending")
                   : declineMode === "changes"
-                    ? "Send Change Request"
-                    : "Decline Estimate"}
+                    ? t("estimate.sendChangeRequest")
+                    : t("estimate.declineEstimate")}
               </button>
             </div>
 
@@ -506,7 +532,7 @@ export default function EstimateDetailPage() {
                 style={{ color: "var(--portal-error)" }}
               >
                 {(declineMutation.error as Error).message ??
-                  "Something went wrong. Please try again."}
+                  t("estimate.actionError")}
               </p>
             )}
           </div>

@@ -22,6 +22,7 @@ import type {
   PortalMessageSender,
 } from "@/lib/types/portal";
 import { Loader2 } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Query Keys ──────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ async function markClientMessagesRead(
 // ─── Page Component ──────────────────────────────────────────────────────────
 
 export default function PortalInboxPage() {
+  const { t } = useDictionary("dashboard");
   const companyId = useAuthStore(selectCompanyId);
   const currentUser = useAuthStore((s) => s.currentUser);
   const queryClient = useQueryClient();
@@ -268,10 +270,10 @@ export default function PortalInboxPage() {
     <div className="space-y-2 max-w-[1400px]">
       <div>
         <h1 className="font-mohave text-display text-text-primary">
-          Portal Inbox
+          {t("portalInbox.title")}
         </h1>
         <p className="font-kosugi text-caption-sm text-text-tertiary mt-[4px] uppercase">
-          Client portal messages and conversations
+          {t("portalInbox.subtitle")}
         </p>
       </div>
 

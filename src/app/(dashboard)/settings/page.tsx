@@ -16,8 +16,10 @@ import {
   Code2,
   Globe,
   Plug,
+  FileText,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { ProfileTab } from "@/components/settings/profile-tab";
@@ -33,6 +35,7 @@ import { TeamTab } from "@/components/settings/team-tab";
 import { TaskTypesTab } from "@/components/settings/task-types-tab";
 import { DeveloperTab } from "@/components/settings/developer-tab";
 import { PortalBrandingTab } from "@/components/settings/portal-branding-tab";
+import { DocumentTemplatesTab } from "@/components/settings/document-templates-tab";
 
 type SettingsGroup = "account" | "company" | "billing" | "integrations" | "preferences" | "developer";
 
@@ -53,20 +56,22 @@ const legacyTabMap: Record<string, SettingsGroup> = {
   developer: "developer",
 };
 
-const baseGroups: { id: SettingsGroup; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "account", label: "Account", icon: User },
-  { id: "company", label: "Company", icon: Building2 },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "integrations", label: "Integrations", icon: Plug },
-  { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
+const baseGroupDefs: { id: SettingsGroup; labelKey: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "account", labelKey: "tabs.account", icon: User },
+  { id: "company", labelKey: "tabs.company", icon: Building2 },
+  { id: "billing", labelKey: "tabs.billing", icon: CreditCard },
+  { id: "integrations", labelKey: "tabs.integrations", icon: Plug },
+  { id: "preferences", labelKey: "tabs.preferences", icon: SlidersHorizontal },
 ];
 
 export default function SettingsPage() {
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
   const currentUser = useAuthStore((s) => s.currentUser);
+  const { t } = useDictionary("settings");
 
+  const baseGroups = baseGroupDefs.map((g) => ({ id: g.id, label: t(g.labelKey), icon: g.icon }));
   const groups = currentUser?.devPermission
-    ? [...baseGroups, { id: "developer" as const, label: "Developer", icon: Code2 }]
+    ? [...baseGroups, { id: "developer" as const, label: t("tabs.developer"), icon: Code2 }]
     : baseGroups;
 
   // Handle URL params (supports both new group IDs and legacy tab IDs)
@@ -99,13 +104,13 @@ export default function SettingsPage() {
         {/* ── Account ─────────────────────────────────────────────────────── */}
         {activeGroup === "account" && (
           <>
-            <SettingsSection title="Profile" icon={User} defaultOpen>
+            <SettingsSection title={t("sections.profile")} icon={User} defaultOpen>
               <ProfileTab />
             </SettingsSection>
-            <SettingsSection title="Appearance" icon={Palette}>
+            <SettingsSection title={t("sections.appearance")} icon={Palette}>
               <AppearanceTab />
             </SettingsSection>
-            <SettingsSection title="Keyboard Shortcuts" icon={Keyboard}>
+            <SettingsSection title={t("sections.shortcuts")} icon={Keyboard}>
               <ShortcutsTab />
             </SettingsSection>
           </>
@@ -114,13 +119,13 @@ export default function SettingsPage() {
         {/* ── Company ────────────────────────────────────────────────────── */}
         {activeGroup === "company" && (
           <>
-            <SettingsSection title="Company Details" icon={Building2} defaultOpen>
+            <SettingsSection title={t("sections.companyDetails")} icon={Building2} defaultOpen>
               <CompanyTab />
             </SettingsSection>
-            <SettingsSection title="Team Members" icon={Users}>
+            <SettingsSection title={t("sections.teamMembers")} icon={Users}>
               <TeamTab />
             </SettingsSection>
-            <SettingsSection title="Task Types" icon={ListChecks}>
+            <SettingsSection title={t("sections.taskTypes")} icon={ListChecks}>
               <TaskTypesTab />
             </SettingsSection>
           </>
@@ -129,10 +134,10 @@ export default function SettingsPage() {
         {/* ── Billing ────────────────────────────────────────────────────── */}
         {activeGroup === "billing" && (
           <>
-            <SettingsSection title="Subscription Plan" icon={CreditCard} defaultOpen>
+            <SettingsSection title={t("sections.subscription")} icon={CreditCard} defaultOpen>
               <SubscriptionTab />
             </SettingsSection>
-            <SettingsSection title="Payment & Invoices" icon={Receipt}>
+            <SettingsSection title={t("sections.payment")} icon={Receipt}>
               <BillingTab />
             </SettingsSection>
           </>
@@ -141,11 +146,14 @@ export default function SettingsPage() {
         {/* ── Integrations ───────────────────────────────────────────────── */}
         {activeGroup === "integrations" && (
           <>
-            <SettingsSection title="Email & Services" icon={Mail} defaultOpen>
+            <SettingsSection title={t("sections.email")} icon={Mail} defaultOpen>
               <IntegrationsTab />
             </SettingsSection>
-            <SettingsSection title="Client Portal" icon={Globe}>
+            <SettingsSection title={t("sections.portal")} icon={Globe}>
               <PortalBrandingTab />
+            </SettingsSection>
+            <SettingsSection title={t("sections.templates")} icon={FileText}>
+              <DocumentTemplatesTab />
             </SettingsSection>
           </>
         )}
@@ -153,10 +161,10 @@ export default function SettingsPage() {
         {/* ── Preferences ────────────────────────────────────────────────── */}
         {activeGroup === "preferences" && (
           <>
-            <SettingsSection title="App Preferences" icon={SlidersHorizontal} defaultOpen>
+            <SettingsSection title={t("sections.preferences")} icon={SlidersHorizontal} defaultOpen>
               <PreferencesTab />
             </SettingsSection>
-            <SettingsSection title="Data & Privacy" icon={Database}>
+            <SettingsSection title={t("sections.dataPrivacy")} icon={Database}>
               <DataPrivacyTab />
             </SettingsSection>
           </>
@@ -164,7 +172,7 @@ export default function SettingsPage() {
 
         {/* ── Developer ──────────────────────────────────────────────────── */}
         {activeGroup === "developer" && (
-          <SettingsSection title="Developer Tools" icon={Code2} defaultOpen>
+          <SettingsSection title={t("sections.developer")} icon={Code2} defaultOpen>
             <DeveloperTab />
           </SettingsSection>
         )}

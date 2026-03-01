@@ -1,0 +1,52 @@
+{
+  "title": "Contabilidad",
+  "subtitle": "Resumen financiero e integraciones contables",
+
+  "tabs.dashboard": "Panel",
+  "tabs.integrations": "Integraciones",
+
+  "metrics.totalOutstanding": "Total pendiente",
+  "metrics.overdue": "Vencido",
+  "metrics.paidThisMonth": "Pagado este mes",
+  "metrics.totalInvoiced": "Total facturado",
+
+  "aging.title": "Antigüedad de deuda",
+  "aging.current": "Actual",
+  "aging.1to30": "1 – 30 días",
+  "aging.31to60": "31 – 60 días",
+  "aging.61to90": "61 – 90 días",
+  "aging.90plus": "90+ días",
+
+  "topClients.title": "Principales clientes por ingresos",
+  "invoiceBreakdown.title": "Desglose de facturas",
+
+  "integrations.quickbooks": "QuickBooks Online",
+  "integrations.sage": "Sage Business Cloud",
+  "integrations.connected": "Conectado",
+  "integrations.notConnected": "No conectado",
+  "integrations.syncNow": "Sincronizar ahora",
+  "integrations.disconnect": "Desconectar",
+  "integrations.connect": "Conectar",
+  "integrations.howSyncWorks": "Cómo funciona la sincronización",
+  "integrations.outbound": "Salida:",
+  "integrations.inbound": "Entrada:",
+  "integrations.conflicts": "Conflictos:",
+  "integrations.syncing": "Sincronizando...",
+  "integrations.lastSynced": "Última sincronización",
+  "integrations.autoSync": "Sincronización automática",
+  "integrations.realmId": "Realm ID",
+  "integrations.never": "Nunca",
+  "integrations.enabled": "Activado",
+  "integrations.disabled": "Desactivado",
+  "integrations.syncHistory": "Historial de sincronización",
+  "integrations.noSyncHistory": "Aún no hay historial de sincronización. Conecta un proveedor contable para comenzar.",
+  "integrations.outboundDesc": "Cuando creas o actualizas facturas, cotizaciones o pagos en OPS, se envían automáticamente a tu software contable conectado.",
+  "integrations.inboundDesc": "Los cambios realizados en QuickBooks o Sage se sincronizan de vuelta a OPS mediante webhooks (QuickBooks) o consultas periódicas (Sage).",
+  "integrations.conflictsDesc": "Si ambos lados modifican el mismo registro, los datos de OPS tienen prioridad por defecto. Los cambios en conflicto se marcan para revisión manual.",
+
+  "integrations.quickbooksDesc": "Sincroniza facturas, cotizaciones, pagos y clientes con Intuit QuickBooks Online.",
+  "integrations.sageDesc": "Sincroniza facturas, presupuestos, pagos y contactos con Sage Business Cloud Accounting.",
+
+  "topClients.noData": "Aún no hay datos de facturación",
+  "topClients.paid": "{amount} pagado"
+}

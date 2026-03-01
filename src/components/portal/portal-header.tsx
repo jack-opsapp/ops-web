@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useLocale, useDictionary } from "@/i18n/client";
 
 interface PortalHeaderProps {
   companyName: string;
@@ -11,13 +12,15 @@ interface PortalHeaderProps {
   unreadMessages: number;
 }
 
-const navLinks = [
-  { href: "/portal/home", label: "Home", icon: Home },
-  { href: "/portal/messages", label: "Messages", icon: MessageSquare },
-];
-
 export function PortalHeader({ companyName, logoUrl, unreadMessages }: PortalHeaderProps) {
   const pathname = usePathname();
+  const { locale, setLocale } = useLocale();
+  const { t } = useDictionary("portal");
+
+  const navLinks = [
+    { href: "/portal/home", label: t("nav.home"), icon: Home },
+    { href: "/portal/messages", label: t("nav.messages"), icon: MessageSquare },
+  ];
 
   return (
     <header
@@ -81,6 +84,35 @@ export function PortalHeader({ companyName, logoUrl, unreadMessages }: PortalHea
               </Link>
             );
           })}
+          <div
+            className="ml-2 flex items-center rounded-lg text-xs"
+            style={{ borderColor: "var(--portal-border)" }}
+          >
+            <button
+              onClick={() => locale !== "en" && setLocale("en")}
+              className={cn(
+                "px-2 py-1 rounded-l-lg border transition-colors",
+                locale === "en"
+                  ? "bg-[var(--portal-accent)] text-white border-[var(--portal-accent)]"
+                  : "border-[var(--portal-border)]"
+              )}
+              style={{ color: locale !== "en" ? "var(--portal-text-secondary)" : undefined }}
+            >
+              {t("toggle.en")}
+            </button>
+            <button
+              onClick={() => locale !== "es" && setLocale("es")}
+              className={cn(
+                "px-2 py-1 rounded-r-lg border border-l-0 transition-colors",
+                locale === "es"
+                  ? "bg-[var(--portal-accent)] text-white border-[var(--portal-accent)]"
+                  : "border-[var(--portal-border)]"
+              )}
+              style={{ color: locale !== "es" ? "var(--portal-text-secondary)" : undefined }}
+            >
+              {t("toggle.es")}
+            </button>
+          </div>
         </nav>
       </div>
     </header>

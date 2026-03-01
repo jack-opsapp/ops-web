@@ -11,6 +11,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackLogin } from "@/lib/analytics/analytics";
+import { useDictionary } from "@/i18n/client";
 
 export default function LoginPage() {
   return (
@@ -21,6 +22,7 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
+  const { t } = useDictionary("auth");
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/dashboard";
@@ -66,11 +68,11 @@ function LoginForm() {
       const code = (err as { code?: string })?.code;
       let message: string;
       if (code === "auth/unauthorized-domain") {
-        message = "This domain is not authorized for sign-in. Contact support.";
+        message = t("login.error.unauthorizedDomain");
       } else if (code === "auth/operation-not-allowed") {
-        message = `${provider === "google" ? "Google" : "Apple"} sign-in is not enabled.`;
+        message = `${provider === "google" ? "Google" : "Apple"} ${t("login.error.operationNotAllowed")}`;
       } else {
-        message = err instanceof Error ? err.message : `${provider} sign-in failed`;
+        message = err instanceof Error ? err.message : t("login.error.providerFailed");
       }
       console.error(`[Login] ${provider} sign-in error:`, code, err);
       setError(message);
@@ -82,7 +84,7 @@ function LoginForm() {
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please enter email and password");
+      setError(t("login.error.emptyFields"));
       return;
     }
     setError(null);
@@ -102,11 +104,11 @@ function LoginForm() {
       trackLogin("email");
       router.push(redirectTo);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Sign-in failed";
+      const message = err instanceof Error ? err.message : t("login.error.providerFailed");
       if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid") || message.includes("auth/invalid-credential")) {
-        setError("Invalid email or password");
+        setError(t("login.error.invalidCredentials"));
       } else if (message.includes("too-many-requests") || message.includes("429")) {
-        setError("Too many attempts. Please try again later.");
+        setError(t("login.error.tooManyAttempts"));
       } else {
         setError(message);
       }
@@ -121,7 +123,7 @@ function LoginForm() {
       <div className="lg:hidden mb-6">
         <Image
           src="/images/ops-logo-white.png"
-          alt="OPS"
+          alt={t("ops")}
           width={64}
           height={26}
           priority
@@ -131,10 +133,10 @@ function LoginForm() {
       {/* Heading */}
       <div className="mb-6">
         <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text-primary leading-none">
-          Welcome back
+          {t("login.title")}
         </h1>
         <p className="font-mohave text-body-sm text-text-tertiary mt-1">
-          Sign in to manage your operations
+          {t("login.subtitle")}
         </p>
       </div>
 
@@ -162,7 +164,7 @@ function LoginForm() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
             <span className="font-mohave text-body text-text-primary flex-1 text-left">
-              Continue with Google
+              {t("login.continueGoogle")}
             </span>
             {isLoadingGoogle && (
               <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
@@ -179,7 +181,7 @@ function LoginForm() {
               <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
             </svg>
             <span className="font-mohave text-body text-text-primary flex-1 text-left">
-              Continue with Apple
+              {t("login.continueApple")}
             </span>
             {isLoadingApple && (
               <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
@@ -189,7 +191,7 @@ function LoginForm() {
 
         {/* Divider */}
         <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
-          or
+          {t("login.or")}
         </div>
 
         {/* Email toggle / form */}
@@ -201,7 +203,7 @@ function LoginForm() {
           >
             <Mail className="w-[18px] h-[18px] text-text-tertiary shrink-0" />
             <span className="font-mohave text-body text-text-primary flex-1 text-left">
-              Sign in with email
+              {t("login.emailSignIn")}
             </span>
             <ArrowRight className="w-[14px] h-[14px] text-text-disabled shrink-0" />
           </button>
@@ -209,8 +211,8 @@ function LoginForm() {
           <form onSubmit={handleEmailSignIn} className="space-y-1.5 animate-fade-in">
             <Input
               type="email"
-              label="Email"
-              placeholder="you@company.com"
+              label={t("login.emailLabel")}
+              placeholder={t("login.emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               prefixIcon={<Mail className="w-[16px] h-[16px]" />}
@@ -220,8 +222,8 @@ function LoginForm() {
             />
             <Input
               type={showPassword ? "text" : "password"}
-              label="Password"
-              placeholder="Enter password"
+              label={t("login.passwordLabel")}
+              placeholder={t("login.passwordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               prefixIcon={<Lock className="w-[16px] h-[16px]" />}
@@ -249,7 +251,7 @@ function LoginForm() {
               loading={isLoadingEmail}
               disabled={isLoadingGoogle || isLoadingApple}
             >
-              Sign In
+              {t("login.signIn")}
             </Button>
             <button
               type="button"
@@ -259,7 +261,7 @@ function LoginForm() {
               }}
               className="w-full text-center font-kosugi text-[11px] text-text-disabled hover:text-text-tertiary transition-colors py-[4px]"
             >
-              Back to other options
+              {t("login.backToOptions")}
             </button>
           </form>
         )}
@@ -267,12 +269,12 @@ function LoginForm() {
 
       {/* Footer */}
       <p className="mt-4 font-mohave text-body-sm text-text-tertiary">
-        Don&apos;t have an account?{" "}
+        {t("login.noAccount")}{" "}
         <Link
           href="/register"
           className="text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
         >
-          Sign up
+          {t("login.signUp")}
         </Link>
       </p>
     </div>

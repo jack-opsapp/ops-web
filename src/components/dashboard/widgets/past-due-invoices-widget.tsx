@@ -9,6 +9,9 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { useInvoices } from "@/lib/hooks";
 import { differenceInDays } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -22,16 +25,16 @@ interface PastDueInvoicesWidgetProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatCurrency(amount: number): string {
-  return "$" + amount.toLocaleString("en-US", {
+function formatCurrency(amount: number, locale: Locale): string {
+  return "$" + amount.toLocaleString(getDateLocale(locale), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
-function formatDate(date: Date | string): string {
+function formatDate(date: Date | string, locale: Locale): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +42,8 @@ function formatDate(date: Date | string): string {
 // ---------------------------------------------------------------------------
 
 export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const { data: invoices, isLoading } = useInvoices();
   const today = useMemo(() => new Date(), []);
 
@@ -57,14 +62,14 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
     return (
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">Past Due</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("pastDue.titleShort")}</CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("pastDue.loading")}
               </span>
             </div>
           ) : (
@@ -87,7 +92,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
                     : "text-text-tertiary"
                 )}
               >
-                {formatCurrency(totalPastDue)}
+                {formatCurrency(totalPastDue, locale)}
               </span>
             </div>
           )}
@@ -103,7 +108,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Past Due Invoices</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("pastDue.title")}</CardTitle>
           <span
             className={cn(
               "font-mono text-[11px]",
@@ -114,7 +119,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
           >
             {isLoading
               ? "..."
-              : `${pastDue.length} \u00B7 ${formatCurrency(totalPastDue)}`}
+              : `${pastDue.length} \u00B7 ${formatCurrency(totalPastDue, locale)}`}
           </span>
         </div>
       </CardHeader>
@@ -123,17 +128,17 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading invoices...
+              {t("pastDue.loadingInvoices")}
             </span>
           </div>
         ) : pastDue.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No past due invoices
+            {t("pastDue.noPastDue")}
           </p>
         ) : (
           <div className="space-y-[6px]">
             {pastDue.slice(0, maxItems).map((invoice) => {
-              const clientName = invoice.client?.name ?? "Unknown Client";
+              const clientName = invoice.client?.name ?? t("pastDue.unknownClient");
               const daysPast = differenceInDays(today, new Date(invoice.dueDate));
 
               return (
@@ -153,7 +158,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
                   </div>
 
                   <span className="font-mono text-[11px] text-text-secondary shrink-0">
-                    {formatCurrency(invoice.balanceDue)}
+                    {formatCurrency(invoice.balanceDue, locale)}
                   </span>
 
                   <span className="font-mono text-[11px] text-status-error shrink-0">
@@ -164,7 +169,7 @@ export function PastDueInvoicesWidget({ size }: PastDueInvoicesWidgetProps) {
             })}
             {pastDue.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{pastDue.length - maxItems} more
+                {t("pastDue.more").replace("{count}", String(pastDue.length - maxItems))}
               </span>
             )}
           </div>

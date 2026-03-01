@@ -16,6 +16,8 @@ import {
   CheckSquare,
 } from "lucide-react";
 import { trackScreenView } from "@/lib/analytics/analytics";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,13 +57,6 @@ import {
 type FilterStatus = "all" | "active" | "completed" | "archived";
 type ViewMode = "cards" | "table";
 
-const filterTabs: { value: FilterStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "completed", label: "Completed" },
-  { value: "archived", label: "Archived" },
-];
-
 const ALL_PROJECT_STATUSES = [
   ProjectStatus.RFQ,
   ProjectStatus.Estimated,
@@ -97,6 +92,7 @@ function statusToKey(status: ProjectStatus): StatusBadgeProjectStatus {
 }
 
 function TeamAvatars({ project, memberMap }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User> }) {
+  const { t } = useDictionary("projects");
   const resolvedMembers = project.teamMemberIds
     .map((id) => memberMap.get(id))
     .filter(Boolean) as import("@/lib/types/models").User[];
@@ -106,7 +102,7 @@ function TeamAvatars({ project, memberMap }: { project: Project; memberMap: Map<
   if (display.length === 0) {
     return (
       <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-        No team
+        {t("noTeam")}
       </span>
     );
   }
@@ -132,6 +128,7 @@ function TeamAvatars({ project, memberMap }: { project: Project; memberMap: Map<
 }
 
 function ProjectCardContent({ project, memberMap, onClick }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User>; onClick: () => void }) {
+  const { locale } = useLocale();
   const clientName = project.client?.name ?? "No Client";
 
   return (
@@ -159,7 +156,7 @@ function ProjectCardContent({ project, memberMap, onClick }: { project: Project;
           <CalendarDays className="w-[13px] h-[13px]" />
           <span className="font-mono text-[11px]">
             {project.startDate
-              ? new Date(project.startDate).toLocaleDateString("en-US", {
+              ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                   month: "short",
                   day: "numeric",
                 })
@@ -167,7 +164,7 @@ function ProjectCardContent({ project, memberMap, onClick }: { project: Project;
             {project.endDate && (
               <>
                 {" - "}
-                {new Date(project.endDate).toLocaleDateString("en-US", {
+                {new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
                   month: "short",
                   day: "numeric",
                 })}
@@ -213,12 +210,13 @@ function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useDictionary("projects");
   return (
     <div className="flex flex-col items-center justify-center py-8">
       <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
         <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
       </div>
-      <h3 className="font-mohave text-heading text-text-primary">Failed to load projects</h3>
+      <h3 className="font-mohave text-heading text-text-primary">{t("empty.loadFailed")}</h3>
       <p className="font-kosugi text-caption text-text-tertiary mt-0.5 max-w-[300px]">
         {message}
       </p>
@@ -231,6 +229,15 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export default function ProjectsPage() {
+  const { t } = useDictionary("projects");
+  const { locale } = useLocale();
+  const filterTabs = useMemo<{ value: FilterStatus; label: string }[]>(() => [
+    { value: "all", label: t("filter.all") },
+    { value: "active", label: t("filter.active") },
+    { value: "completed", label: t("filter.completed") },
+    { value: "archived", label: t("filter.archived") },
+  ], [t]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
@@ -249,11 +256,11 @@ export default function ProjectsPage() {
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Project", icon: Plus, onClick: openCreateProject, shortcut: "\u2318\u21E7P" },
+      { label: t("newProject"), icon: Plus, onClick: openCreateProject, shortcut: "\u2318\u21E7P" },
     ]);
     return () => clearActions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions]);
+  }, [setActions, clearActions, t]);
 
   const {
     selectedIds,
@@ -442,19 +449,19 @@ export default function ProjectsPage() {
   const bulkActions: BulkAction[] = [
     {
       id: "status",
-      label: "Status",
+      label: t("bulk.status"),
       icon: ArrowRight,
       onClick: () => setStatusDropdownOpen(true),
     },
     {
       id: "export",
-      label: "Export",
+      label: t("bulk.export"),
       icon: Download,
       onClick: handleBulkExport,
     },
     {
       id: "delete",
-      label: "Delete",
+      label: t("bulk.delete"),
       icon: Trash2,
       variant: "destructive",
       onClick: handleBulkDelete,
@@ -469,7 +476,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between">
         <p className="font-kosugi text-caption-sm text-text-tertiary">
           {isLoading
-            ? "Loading projects..."
+            ? t("loading")
             : `${projects.length} total project${projects.length !== 1 ? "s" : ""}`}
         </p>
         <div className="flex items-center gap-1">
@@ -488,12 +495,12 @@ export default function ProjectsPage() {
               className="gap-[4px]"
             >
               <CheckSquare className="w-[14px] h-[14px]" />
-              {isSelecting ? "Cancel" : "Select"}
+              {isSelecting ? t("cancel") : t("select")}
             </Button>
           )}
           <Button className="gap-[6px]" onClick={() => openCreateProject()}>
             <Plus className="w-[16px] h-[16px]" />
-            New Project
+            {t("newProject")}
           </Button>
         </div>
       </div>
@@ -502,7 +509,7 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 max-w-[400px]">
           <Input
-            placeholder="Search projects..."
+            placeholder={t("search.placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -512,7 +519,7 @@ export default function ProjectsPage() {
         <div className="flex items-center gap-1">
           {/* Status tabs */}
           <SegmentedPicker
-            options={filterTabs.map((t) => ({ value: t.value, label: t.label }))}
+            options={filterTabs.map((tab) => ({ value: tab.value, label: tab.label }))}
             value={statusFilter}
             onChange={setStatusFilter}
           />
@@ -540,15 +547,15 @@ export default function ProjectsPage() {
           />
           <span className="font-mohave text-body-sm text-text-secondary">
             {allFilteredSelected
-              ? `All ${filteredIds.length} projects selected`
-              : `Select all ${filteredIds.length} projects`}
+              ? `${filteredIds.length} ${t("bulk.allSelected")}`
+              : `${t("bulk.selectAll")} ${filteredIds.length}`}
           </span>
           {selectedIds.size > 0 && (
             <button
               onClick={clearSelection}
               className="ml-auto font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover transition-colors"
             >
-              Clear selection
+              {t("bulk.clearSelection")}
             </button>
           )}
         </div>
@@ -569,17 +576,17 @@ export default function ProjectsPage() {
       ) : noDataAvailable && !searchQuery && statusFilter === "all" ? (
         <EmptyState
           icon={<LayoutGrid className="w-[48px] h-[48px]" />}
-          title="No projects yet"
-          description="Create your first project to start tracking work, schedules, and team assignments."
+          title={t("empty.title")}
+          description={t("empty.description")}
           action={{
-            label: "New Project",
+            label: t("newProject"),
             onClick: () => openCreateProject(),
           }}
         />
       ) : filteredProjects.length === 0 ? (
         <div className="text-left py-6">
           <p className="font-mohave text-body text-text-tertiary">
-            No projects match your search
+            {t("empty.noMatch")}
           </p>
         </div>
       ) : viewMode === "cards" ? (
@@ -627,19 +634,19 @@ export default function ProjectsPage() {
                   </th>
                 )}
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Project
+                  {t("table.project")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Client
+                  {t("table.client")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Status
+                  {t("table.status")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Team
+                  {t("table.team")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Start Date
+                  {t("table.startDate")}
                 </th>
               </tr>
             </thead>
@@ -693,7 +700,7 @@ export default function ProjectsPage() {
                     <td className="px-1.5 py-1">
                       <span className="font-mono text-data-sm text-text-tertiary">
                         {project.startDate
-                          ? new Date(project.startDate).toLocaleDateString("en-US", {
+                          ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
@@ -731,7 +738,7 @@ export default function ProjectsPage() {
             transform: "translateX(-50%)",
           }}
         >
-          <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("bulk.changeStatus")}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {ALL_PROJECT_STATUSES.map((status) => (
             <DropdownMenuItem

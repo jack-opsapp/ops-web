@@ -481,6 +481,9 @@ export interface Estimate {
   // PDF
   pdfStoragePath: string | null;
 
+  // Template
+  templateId: string | null;
+
   // System
   createdBy: string | null;
   createdAt: Date;
@@ -537,6 +540,9 @@ export interface Invoice {
 
   // PDF
   pdfStoragePath: string | null;
+
+  // Template
+  templateId: string | null;
 
   // System
   createdBy: string | null;

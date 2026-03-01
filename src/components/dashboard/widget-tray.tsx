@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
 import { X, Search, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import {
   WIDGET_TYPE_REGISTRY,
@@ -62,6 +63,7 @@ interface WidgetTrayProps {
 }
 
 export function WidgetTray({ open, onClose }: WidgetTrayProps) {
+  const { t } = useDictionary("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentDetent, setCurrentDetent] = useState(DETENT_HALF);
   const sheetHeight = useMotionValue(DETENT_HALF);
@@ -225,10 +227,10 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             <div className="flex items-center justify-between px-3 pb-[6px] shrink-0">
               <div className="flex items-center gap-[8px]">
                 <h2 className="font-mohave text-body-lg text-text-primary font-medium">
-                  Widget Catalog
+                  {t("tray.title")}
                 </h2>
                 <span className="font-mono text-[10px] text-text-disabled">
-                  {totalActiveCount} active
+                  {totalActiveCount} {t("tray.active")}
                 </span>
               </div>
               <button
@@ -245,7 +247,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
                 <Search className="absolute left-[8px] top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-text-disabled" />
                 <input
                   type="text"
-                  placeholder="Search widgets..."
+                  placeholder={t("tray.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
@@ -257,7 +259,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-2 scrollbar-hide">
               {visibleCategories.length === 0 ? (
                 <p className="font-mohave text-body-sm text-text-disabled py-3 text-center">
-                  No widgets match your search
+                  {t("tray.noResults")}
                 </p>
               ) : (
                 <div className="space-y-[10px]">
@@ -294,7 +296,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
                           <>
                             <div className="flex items-center gap-[6px] mb-[4px] mt-[2px]">
                               <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest">
-                                Already in Use
+                                {t("tray.alreadyInUse")}
                               </span>
                               <span className="font-mono text-[8px] text-text-disabled">
                                 {inUse.length}
@@ -326,7 +328,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
                 className="flex items-center gap-[6px] font-mohave text-body-sm text-text-disabled hover:text-text-secondary transition-colors w-full justify-center py-[4px]"
               >
                 <RotateCcw className="w-[12px] h-[12px]" />
-                Reset to defaults
+                {t("tray.resetToDefaults")}
               </button>
             </div>
           </motion.div>

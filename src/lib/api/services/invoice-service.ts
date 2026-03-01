@@ -78,6 +78,9 @@ function mapInvoiceFromDb(row: Record<string, unknown>): Invoice {
     // PDF
     pdfStoragePath: (row.pdf_storage_path as string) ?? null,
 
+    // Template
+    templateId: (row.template_id as string) ?? null,
+
     // System
     createdBy: (row.created_by as string) ?? null,
     createdAt: parseDateRequired(row.created_at),
@@ -144,6 +147,9 @@ function mapInvoiceToDb(
 
   // PDF
   if (data.pdfStoragePath !== undefined) row.pdf_storage_path = data.pdfStoragePath;
+
+  // Template
+  if (data.templateId !== undefined) row.template_id = data.templateId;
 
   // System
   if (data.createdBy !== undefined) row.created_by = data.createdBy;

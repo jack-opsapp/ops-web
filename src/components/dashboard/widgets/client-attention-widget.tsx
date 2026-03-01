@@ -9,6 +9,7 @@ import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
 import type { Invoice, Estimate } from "@/lib/types/pipeline";
 import { useClients, useInvoices, useEstimates } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -34,12 +35,12 @@ interface AttentionClient {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function reasonLabel(reason: AttentionReason): string {
+function reasonLabel(reason: AttentionReason, t: (key: string) => string): string {
   switch (reason) {
     case "past-due-invoice":
-      return "Past Due Invoice";
+      return t("clientAttention.pastDueInvoice");
     case "estimate-expiring":
-      return "Estimate Expiring";
+      return t("clientAttention.estimateExpiring");
   }
 }
 
@@ -57,6 +58,7 @@ function reasonBadgeClasses(reason: AttentionReason): string {
 // ---------------------------------------------------------------------------
 
 export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: invoices, isLoading: invoicesLoading } = useInvoices();
   const { data: estimates, isLoading: estimatesLoading } = useEstimates();
@@ -125,7 +127,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
     const result: AttentionClient[] = Object.entries(reasonsMap).map(
       ([clientId, reasons]) => ({
         clientId,
-        clientName: clientNameMap[clientId] ?? "Unknown Client",
+        clientName: clientNameMap[clientId] ?? t("clientAttention.unknownClient"),
         reasons: Array.from(reasons),
       })
     );
@@ -138,7 +140,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
     });
 
     return result;
-  }, [invoices, estimates, clientNameMap]);
+  }, [invoices, estimates, clientNameMap, t]);
 
   const count = attentionClients.length;
 
@@ -147,14 +149,14 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
     return (
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">Needs Attention</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("clientAttention.title")}</CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("clientAttention.loading")}
               </span>
             </div>
           ) : (
@@ -168,7 +170,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {count}
               </span>
               <span className="font-mono text-[11px] text-text-tertiary">
-                {count === 1 ? "client" : "clients"}
+                {count === 1 ? t("clientAttention.client") : t("clientAttention.clients")}
               </span>
             </div>
           )}
@@ -184,14 +186,14 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Needs Attention</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("clientAttention.title")}</CardTitle>
           <span
             className={cn(
               "font-mono text-[11px]",
               count > 0 ? "text-ops-error" : "text-text-tertiary"
             )}
           >
-            {isLoading ? "..." : `${count} ${count === 1 ? "client" : "clients"}`}
+            {isLoading ? "..." : `${count} ${count === 1 ? t("clientAttention.client") : t("clientAttention.clients")}`}
           </span>
         </div>
       </CardHeader>
@@ -200,14 +202,14 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading...
+              {t("clientAttention.loading")}
             </span>
           </div>
         ) : count === 0 ? (
           <div className="flex flex-col items-center gap-1 py-3">
             <AlertCircle className="w-[16px] h-[16px] text-status-success" />
             <p className="font-mohave text-body-sm text-text-disabled">
-              All clients in good standing
+              {t("clientAttention.allGood")}
             </p>
           </div>
         ) : (
@@ -234,7 +236,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                         reasonBadgeClasses(reason)
                       )}
                     >
-                      {reasonLabel(reason)}
+                      {reasonLabel(reason, t)}
                     </span>
                   ))}
                 </div>
@@ -242,7 +244,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
             ))}
             {count > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{count - maxItems} more
+                {t("clientAttention.more").replace("{count}", String(count - maxItems))}
               </span>
             )}
           </div>

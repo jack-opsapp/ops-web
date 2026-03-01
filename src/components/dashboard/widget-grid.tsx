@@ -7,6 +7,7 @@ import type { WidgetInstance } from "@/lib/types/dashboard-widgets";
 import { WIDGET_TYPE_REGISTRY } from "@/lib/types/dashboard-widgets";
 import { gridVariants, EDIT_MODE_GAP, NORMAL_GAP, SPRING_REORDER } from "@/lib/utils/motion";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { WidgetShell, COL_SPAN_CLASSES } from "./widget-shell";
 import { GridPlaceholderCell } from "./grid-placeholder-cell";
 
@@ -30,6 +31,7 @@ export function WidgetGrid({
   activeId = null,
   ghostId = null,
 }: WidgetGridProps) {
+  const { t } = useDictionary("dashboard");
   const visibleInstances = orderedInstances.filter((i: WidgetInstance) => i.visible);
   const visibleIds = visibleInstances.map((i: WidgetInstance) => i.id);
 
@@ -67,7 +69,7 @@ export function WidgetGrid({
                 style={{ minHeight: 140 }}
               >
                 <span className="font-mohave text-[11px] text-ops-accent/60">
-                  {ghostEntry?.label ?? "Widget"}
+                  {ghostEntry?.label ?? t("grid.widgetFallback")}
                 </span>
               </motion.div>
             );

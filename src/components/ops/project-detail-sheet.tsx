@@ -9,6 +9,8 @@ import {
   Users,
   ClipboardList,
 } from "lucide-react";
+import { useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -30,6 +32,7 @@ interface ProjectDetailSheetProps {
 
 export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDetailSheetProps) {
   const router = useRouter();
+  const { locale } = useLocale();
   const { data: project, isLoading } = useProject(projectId ?? undefined);
   const { data: tasks } = useProjectTasks(projectId ?? undefined);
 
@@ -84,7 +87,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                 <CalendarDays className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
                 <span className="font-mono text-[12px] text-text-secondary">
                   {project.startDate
-                    ? new Date(project.startDate).toLocaleDateString("en-US", {
+                    ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
@@ -93,7 +96,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                   {project.endDate && (
                     <>
                       {" — "}
-                      {new Date(project.endDate).toLocaleDateString("en-US", {
+                      {new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         day: "numeric",
                         year: "numeric",

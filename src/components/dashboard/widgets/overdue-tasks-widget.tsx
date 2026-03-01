@@ -10,6 +10,7 @@ import type { ProjectTask } from "@/lib/types/models";
 import { useTasks, useUpdateTaskStatus } from "@/lib/hooks";
 import { isBefore, isSameDay, differenceInDays } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -24,6 +25,7 @@ interface OverdueTasksWidgetProps {
 // ---------------------------------------------------------------------------
 
 export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data, isLoading } = useTasks();
   const today = useMemo(() => new Date(), []);
 
@@ -48,14 +50,14 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
     return (
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">Overdue Tasks</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("overdueTasks.title")}</CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("overdueTasks.loading")}
               </span>
             </div>
           ) : (
@@ -71,7 +73,7 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
                 {overdueTasks.length}
               </span>
               <span className="font-mono text-[11px] text-text-tertiary">
-                overdue
+                {t("overdueTasks.overdue")}
               </span>
             </div>
           )}
@@ -87,7 +89,7 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Overdue Tasks</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("overdueTasks.title")}</CardTitle>
           <span
             className={cn(
               "font-mono text-[11px]",
@@ -105,12 +107,12 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading tasks...
+              {t("overdueTasks.loadingTasks")}
             </span>
           </div>
         ) : overdueTasks.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No overdue tasks
+            {t("overdueTasks.noOverdue")}
           </p>
         ) : (
           <div className="space-y-[4px]">
@@ -121,7 +123,7 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
             </AnimatePresence>
             {overdueTasks.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{overdueTasks.length - maxItems} more
+                {t("overdueTasks.more").replace("{count}", String(overdueTasks.length - maxItems))}
               </span>
             )}
           </div>
@@ -142,11 +144,12 @@ function OverdueTaskRow({
   task: ProjectTask;
   today: Date;
 }) {
+  const { t } = useDictionary("dashboard");
   const [completing, setCompleting] = useState(false);
   const updateStatus = useUpdateTaskStatus();
 
   const displayTitle = getTaskDisplayTitle(task, task.taskType);
-  const projectName = task.project?.title ?? "Unassigned";
+  const projectName = task.project?.title ?? t("overdueTasks.unassigned");
   const startDate = task.calendarEvent?.startDate
     ? new Date(task.calendarEvent.startDate)
     : null;
@@ -184,7 +187,7 @@ function OverdueTaskRow({
             ? "bg-status-success border-status-success"
             : "border-border-medium hover:border-ops-accent hover:bg-ops-accent/10"
         )}
-        title="Complete task"
+        title={t("overdueTasks.completeTask")}
       >
         {completing && <Check className="w-[12px] h-[12px] text-white" />}
       </button>

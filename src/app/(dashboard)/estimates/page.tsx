@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 import {
   Plus,
   Search,
@@ -11,6 +14,8 @@ import {
   Trash2,
   X,
   ChevronDown,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,18 +56,11 @@ import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/ty
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
+import { toast } from "sonner";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { ReviewTasksModal } from "@/components/ops/review-tasks-modal";
 
 type FilterStatus = "all" | EstimateStatus;
-
-const statusFilters: { value: FilterStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: EstimateStatus.Draft, label: "Draft" },
-  { value: EstimateStatus.Sent, label: "Sent" },
-  { value: EstimateStatus.Approved, label: "Approved" },
-  { value: EstimateStatus.Declined, label: "Declined" },
-];
 
 function StatusBadgeEstimate({ status }: { status: EstimateStatus }) {
   const color = ESTIMATE_STATUS_COLORS[status] ?? "#9CA3AF";
@@ -80,9 +78,9 @@ function StatusBadgeEstimate({ status }: { status: EstimateStatus }) {
   );
 }
 
-function formatDate(date: Date | null): string {
+function formatDate(date: Date | null, locale: Locale): string {
   if (!date) return "--";
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString(getDateLocale(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -90,8 +88,18 @@ function formatDate(date: Date | null): string {
 }
 
 export default function EstimatesPage() {
+  const { t } = useDictionary("pipeline");
+  const { locale } = useLocale();
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+
+  const statusFilters = useMemo<{ value: FilterStatus; label: string }[]>(() => [
+    { value: "all", label: t("estimates.filter.all") },
+    { value: EstimateStatus.Draft, label: t("estimates.filter.draft") },
+    { value: EstimateStatus.Sent, label: t("estimates.filter.sent") },
+    { value: EstimateStatus.Approved, label: t("estimates.filter.approved") },
+    { value: EstimateStatus.Declined, label: t("estimates.filter.declined") },
+  ], [t]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -115,15 +123,38 @@ export default function EstimatesPage() {
   const sendEstimate = useSendEstimate();
   const convertToInvoice = useConvertEstimateToInvoice();
 
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+
   // Page actions
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Estimate", icon: Plus, onClick: () => setShowCreateModal(true) },
+      { label: t("estimates.newEstimate"), icon: Plus, onClick: () => setShowCreateModal(true) },
     ]);
     return () => clearActions();
-  }, [setActions, clearActions]);
+  }, [setActions, clearActions, t]);
+
+  async function handleDownloadPdf(estimateId: string) {
+    setGeneratingPdfId(estimateId);
+    try {
+      const res = await fetch("/api/documents/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: estimateId, documentType: "estimate" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "PDF generation failed" }));
+        throw new Error(err.error || "PDF generation failed");
+      }
+      const { pdfUrl } = await res.json();
+      window.open(pdfUrl, "_blank");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate PDF");
+    } finally {
+      setGeneratingPdfId(null);
+    }
+  }
 
   // Client name lookup
   const clientMap = useMemo(() => {
@@ -170,13 +201,13 @@ export default function EstimatesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <MetricCard
-          label="Total Value"
+          label={t("estimates.totalValue")}
           value={formatCurrency(metrics.total)}
           icon={<FileText className="w-[16px] h-[16px]" />}
         />
-        <MetricCard label="Accepted" value={formatCurrency(metrics.acceptedTotal)} />
-        <MetricCard label="Drafts" value={String(metrics.draft)} />
-        <MetricCard label="Sent" value={String(metrics.sent)} />
+        <MetricCard label={t("estimates.accepted")} value={formatCurrency(metrics.acceptedTotal)} />
+        <MetricCard label={t("estimates.drafts")} value={String(metrics.draft)} />
+        <MetricCard label={t("estimates.sent")} value={String(metrics.sent)} />
       </div>
 
       {/* Header */}
@@ -186,7 +217,7 @@ export default function EstimatesPage() {
         </span>
         <Button className="gap-[6px]" onClick={() => setShowCreateModal(true)}>
           <Plus className="w-[16px] h-[16px]" />
-          New Estimate
+          {t("estimates.newEstimate")}
         </Button>
       </div>
 
@@ -194,7 +225,7 @@ export default function EstimatesPage() {
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 max-w-[400px]">
           <Input
-            placeholder="Search estimates..."
+            placeholder={t("estimates.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -218,17 +249,17 @@ export default function EstimatesPage() {
         <div className="flex flex-col items-center justify-center py-8">
           <FileText className="w-[48px] h-[48px] text-text-disabled mb-2" />
           <h3 className="font-mohave text-heading text-text-primary">
-            {searchQuery || filterStatus !== "all" ? "No matching estimates" : "No estimates yet"}
+            {searchQuery || filterStatus !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.none")}
           </h3>
           <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
             {searchQuery || filterStatus !== "all"
-              ? "Try adjusting your search or filter"
-              : "Create your first estimate to get started"}
+              ? t("estimates.empty.noMatch")
+              : t("estimates.empty.helper")}
           </p>
           {!searchQuery && filterStatus === "all" && (
             <Button className="mt-3 gap-[6px]" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-[16px] h-[16px]" />
-              Create Estimate
+              {t("estimates.newEstimate")}
             </Button>
           )}
         </div>
@@ -238,28 +269,28 @@ export default function EstimatesPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Number
+                  {t("estimates.table.number")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Client
+                  {t("estimates.table.client")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
-                  Project
+                  {t("estimates.table.project")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
-                  Date
+                  {t("estimates.table.date")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
-                  Expiry
+                  {t("estimates.table.expiry")}
                 </th>
                 <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Total
+                  {t("estimates.table.total")}
                 </th>
                 <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Status
+                  {t("estimates.table.status")}
                 </th>
                 <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Actions
+                  {t("estimates.table.actions")}
                 </th>
               </tr>
             </thead>
@@ -287,12 +318,12 @@ export default function EstimatesPage() {
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
                     <span className="font-mono text-data-sm text-text-tertiary">
-                      {formatDate(estimate.issueDate)}
+                      {formatDate(estimate.issueDate, locale)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden lg:table-cell">
                     <span className="font-mono text-data-sm text-text-tertiary">
-                      {formatDate(estimate.expirationDate)}
+                      {formatDate(estimate.expirationDate, locale)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 text-right">
@@ -305,11 +336,23 @@ export default function EstimatesPage() {
                   </td>
                   <td className="px-1.5 py-1 text-right">
                     <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleDownloadPdf(estimate.id)}
+                        disabled={generatingPdfId === estimate.id}
+                        className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
+                        title={t("estimates.actions.downloadPdf")}
+                      >
+                        {generatingPdfId === estimate.id ? (
+                          <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                        ) : (
+                          <Download className="w-[14px] h-[14px]" />
+                        )}
+                      </button>
                       {estimate.status === EstimateStatus.Draft && (
                         <button
                           onClick={() => setSendingEstimate(estimate)}
                           className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
-                          title="Send"
+                          title={t("estimates.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />
                         </button>
@@ -318,7 +361,7 @@ export default function EstimatesPage() {
                         <button
                           onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
                           className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
-                          title="Convert to Invoice"
+                          title={t("estimates.actions.convertToInvoice")}
                         >
                           <ArrowRightLeft className="w-[14px] h-[14px]" />
                         </button>
@@ -326,7 +369,7 @@ export default function EstimatesPage() {
                       <button
                         onClick={() => deleteEstimate.mutate(estimate.id)}
                         className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                        title="Delete"
+                        title={t("estimates.actions.delete")}
                       >
                         <Trash2 className="w-[14px] h-[14px]" />
                       </button>
@@ -423,6 +466,7 @@ function EstimateFormModal({
   onCreate: (data: Partial<CreateEstimate> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
   onUpdate: (id: string, data: Partial<CreateEstimate> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
 }) {
+  const { t } = useDictionary("pipeline");
   const isEditing = !!estimate;
 
   const [clientId, setClientId] = useState(estimate?.clientId ?? "");
@@ -554,7 +598,7 @@ function EstimateFormModal({
       <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
-            {isEditing ? `Edit ${estimate?.estimateNumber}` : "New Estimate"}
+            {isEditing ? `${t("estimates.modal.edit")} ${estimate?.estimateNumber}` : t("estimates.modal.new")}
           </DialogTitle>
         </DialogHeader>
 
@@ -563,7 +607,7 @@ function EstimateFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Client
+                {t("estimates.form.client")}
               </label>
               <select
                 value={clientId}
@@ -578,7 +622,7 @@ function EstimateFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Project
+                {t("estimates.form.project")}
               </label>
               <select
                 value={projectId}
@@ -597,7 +641,7 @@ function EstimateFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Date
+                {t("estimates.form.date")}
               </label>
               <Input
                 type="date"
@@ -607,7 +651,7 @@ function EstimateFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Valid Until
+                {t("estimates.form.validUntil")}
               </label>
               <Input
                 type="date"
@@ -620,7 +664,7 @@ function EstimateFormModal({
           {/* Line Items */}
           <div className="space-y-0.5">
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Line Items
+              {t("estimates.form.lineItems")}
             </label>
             <LineItemEditor
               items={lineItems}
@@ -633,7 +677,7 @@ function EstimateFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Notes (visible to client)
+                {t("estimates.form.notes")}
               </label>
               <Textarea
                 value={notes}
@@ -644,12 +688,12 @@ function EstimateFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Internal Notes
+                {t("estimates.form.internalNotes")}
               </label>
               <Textarea
                 value={internalNotes}
                 onChange={(e) => setInternalNotes(e.target.value)}
-                placeholder="Internal notes (not visible to client)..."
+                placeholder={t("estimates.form.internalNotes")}
                 rows={3}
               />
             </div>
@@ -658,7 +702,7 @@ function EstimateFormModal({
           {/* T&C */}
           <div className="space-y-0.5">
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Terms & Conditions
+              {t("estimates.form.terms")}
             </label>
             <Textarea
               value={termsAndConditions}

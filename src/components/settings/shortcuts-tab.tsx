@@ -3,39 +3,41 @@
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { useDictionary } from "@/i18n/client";
 
 const shortcutGroups = [
   {
-    category: "Navigation",
+    categoryKey: "shortcuts.navigation",
     shortcuts: [
-      { keys: ["1"], description: "Dashboard" },
-      { keys: ["2"], description: "Projects" },
-      { keys: ["3"], description: "Calendar" },
-      { keys: ["4"], description: "Clients" },
-      { keys: ["5"], description: "Job Board" },
-      { keys: ["6"], description: "Team" },
-      { keys: ["7"], description: "Map" },
-      { keys: ["8"], description: "Pipeline" },
-      { keys: ["9"], description: "Invoices" },
-      { keys: ["\u2318", "K"], description: "Open command palette" },
+      { keys: ["1"], descKey: "shortcuts.dashboard" },
+      { keys: ["2"], descKey: "shortcuts.projects" },
+      { keys: ["3"], descKey: "shortcuts.calendar" },
+      { keys: ["4"], descKey: "shortcuts.clients" },
+      { keys: ["5"], descKey: "shortcuts.jobBoard" },
+      { keys: ["6"], descKey: "shortcuts.team" },
+      { keys: ["7"], descKey: "shortcuts.map" },
+      { keys: ["8"], descKey: "shortcuts.pipeline" },
+      { keys: ["9"], descKey: "shortcuts.invoices" },
+      { keys: ["\u2318", "K"], descKey: "shortcuts.commandPalette" },
     ],
   },
   {
-    category: "Actions",
+    categoryKey: "shortcuts.actions",
     shortcuts: [
-      { keys: ["\u2318", "\u21E7", "P"], description: "New project" },
-      { keys: ["\u2318", "\u21E7", "C"], description: "New client" },
+      { keys: ["\u2318", "\u21E7", "P"], descKey: "shortcuts.newProject" },
+      { keys: ["\u2318", "\u21E7", "C"], descKey: "shortcuts.newClient" },
     ],
   },
   {
-    category: "Interface",
+    categoryKey: "shortcuts.interface",
     shortcuts: [
-      { keys: ["\u2318", "B"], description: "Toggle sidebar" },
+      { keys: ["\u2318", "B"], descKey: "shortcuts.toggleSidebar" },
     ],
   },
 ];
 
 export function ShortcutsTab() {
+  const { t } = useDictionary("settings");
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const toggleShortcutHints = usePreferencesStore((s) => s.toggleShortcutHints);
 
@@ -45,9 +47,9 @@ export function ShortcutsTab() {
         <CardContent className="p-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mohave text-body text-text-primary">Show Keyboard Shortcuts</p>
+              <p className="font-mohave text-body text-text-primary">{t("shortcuts.showShortcuts")}</p>
               <p className="font-kosugi text-[11px] text-text-tertiary">
-                Display shortcut hints inline on action buttons
+                {t("shortcuts.showShortcutsDesc")}
               </p>
             </div>
             <button
@@ -69,18 +71,18 @@ export function ShortcutsTab() {
       </Card>
 
       {shortcutGroups.map((group) => (
-        <Card key={group.category}>
+        <Card key={group.categoryKey}>
           <CardHeader>
-            <CardTitle>{group.category}</CardTitle>
+            <CardTitle>{t(group.categoryKey)}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-0">
             {group.shortcuts.map((shortcut) => (
               <div
-                key={shortcut.description}
+                key={shortcut.descKey}
                 className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
               >
                 <span className="font-mohave text-body text-text-secondary">
-                  {shortcut.description}
+                  {t(shortcut.descKey)}
                 </span>
                 <div className="flex items-center gap-[4px]">
                   {shortcut.keys.map((key, i) => (
@@ -98,7 +100,7 @@ export function ShortcutsTab() {
         </Card>
       ))}
       <p className="font-kosugi text-[11px] text-text-disabled">
-        On Windows/Linux, use Ctrl instead of \u2318
+        {t("shortcuts.footer")}
       </p>
     </div>
   );

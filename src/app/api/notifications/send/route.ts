@@ -19,6 +19,7 @@ interface SendNotificationBody {
   title: string;
   body: string;
   data?: Record<string, unknown>;
+  imageUrl?: string;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { recipientUserIds, title, body, data } =
+    const { recipientUserIds, title, body, data, imageUrl } =
       (await req.json()) as SendNotificationBody;
 
     if (!recipientUserIds?.length || !title || !body) {
@@ -59,6 +60,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (data) {
       payload.data = data;
+    }
+
+    if (imageUrl) {
+      payload.ios_attachments = { photo: imageUrl };
+      payload.big_picture = imageUrl;
     }
 
     // Send via OneSignal REST API

@@ -8,6 +8,9 @@ import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate } from "@/lib/types/pipeline";
 import { useEstimates, useSendEstimate } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -70,33 +73,33 @@ function statusBadgeClasses(status: EstimateStatus): string {
   }
 }
 
-function statusLabel(status: EstimateStatus): string {
+function statusLabel(status: EstimateStatus, t: (key: string) => string): string {
   switch (status) {
     case EstimateStatus.Draft:
-      return "Draft";
+      return t("estimatesOverview.statusDraft");
     case EstimateStatus.Sent:
-      return "Sent";
+      return t("estimatesOverview.statusSent");
     case EstimateStatus.Viewed:
-      return "Viewed";
+      return t("estimatesOverview.statusViewed");
     case EstimateStatus.Approved:
-      return "Approved";
+      return t("estimatesOverview.statusApproved");
     case EstimateStatus.Expired:
-      return "Expired";
+      return t("estimatesOverview.statusExpired");
     case EstimateStatus.ChangesRequested:
-      return "Changes";
+      return t("estimatesOverview.statusChanges");
     case EstimateStatus.Declined:
-      return "Declined";
+      return t("estimatesOverview.statusDeclined");
     case EstimateStatus.Converted:
-      return "Converted";
+      return t("estimatesOverview.statusConverted");
     case EstimateStatus.Superseded:
-      return "Superseded";
+      return t("estimatesOverview.statusSuperseded");
     default:
       return status;
   }
 }
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("en-US", {
+function formatCurrency(amount: number, locale: Locale): string {
+  return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
@@ -104,9 +107,9 @@ function formatCurrency(amount: number): string {
   });
 }
 
-function formatDate(date: Date | string): string {
+function formatDate(date: Date | string, locale: Locale): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
 }
 
 function isExpiringWithin7Days(estimate: Estimate): boolean {
@@ -137,8 +140,19 @@ export function EstimatesOverviewWidget({
   size,
   config,
 }: EstimatesOverviewWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const filter = (config.statusFilter as StatusFilter) ?? "all";
   const { data: estimates, isLoading } = useEstimates();
+
+  const statusFilterLabel: Record<StatusFilter, string> = {
+    all: t("estimatesOverview.filterAll"),
+    draft: t("estimatesOverview.filterDraft"),
+    sent: t("estimatesOverview.filterSent"),
+    viewed: t("estimatesOverview.filterViewed"),
+    approved: t("estimatesOverview.filterApproved"),
+    expired: t("estimatesOverview.filterExpired"),
+  };
 
   const filtered = useMemo(() => {
     if (!estimates) return [];
@@ -162,7 +176,7 @@ export function EstimatesOverviewWidget({
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">
-            {STATUS_FILTER_LABEL[filter]} Estimates
+            {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
@@ -170,7 +184,7 @@ export function EstimatesOverviewWidget({
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("estimatesOverview.loading")}
               </span>
             </div>
           ) : (
@@ -179,7 +193,7 @@ export function EstimatesOverviewWidget({
                 {filtered.length}
               </span>
               <span className="font-mono text-[11px] text-text-tertiary">
-                {formatCurrency(totalValue)}
+                {formatCurrency(totalValue, locale)}
               </span>
             </div>
           )}
@@ -196,12 +210,12 @@ export function EstimatesOverviewWidget({
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">
-            {STATUS_FILTER_LABEL[filter]} Estimates
+            {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
             {isLoading
               ? "..."
-              : `${filtered.length} \u00B7 ${formatCurrency(totalValue)}`}
+              : `${filtered.length} \u00B7 ${formatCurrency(totalValue, locale)}`}
           </span>
         </div>
       </CardHeader>
@@ -210,12 +224,12 @@ export function EstimatesOverviewWidget({
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading estimates...
+              {t("estimatesOverview.loadingEstimates")}
             </span>
           </div>
         ) : filtered.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No {STATUS_FILTER_LABEL[filter].toLowerCase()} estimates
+            {t("estimatesOverview.noEstimates").replace("{filter}", statusFilterLabel[filter].toLowerCase())}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -228,7 +242,7 @@ export function EstimatesOverviewWidget({
             ))}
             {filtered.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{filtered.length - maxItems} more
+                {t("estimatesOverview.more").replace("{count}", String(filtered.length - maxItems))}
               </span>
             )}
           </div>
@@ -249,6 +263,8 @@ function EstimateRow({
   estimate: Estimate;
   showExpiration: boolean;
 }) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const sendEstimate = useSendEstimate();
   const [sendState, setSendState] = useState<"idle" | "sending" | "sent">(
     "idle"
@@ -290,13 +306,13 @@ function EstimateRow({
         </p>
         <div className="flex items-center gap-1">
           <span className="font-mono text-[11px] text-text-tertiary">
-            {formatDate(estimate.issueDate)}
+            {formatDate(estimate.issueDate, locale)}
           </span>
           {expiring && (
             <span className="flex items-center gap-0.5">
               <AlertTriangle className="w-[10px] h-[10px] text-ops-amber" />
               <span className="font-mono text-[10px] text-ops-amber">
-                Expiring soon
+                {t("estimatesOverview.expiringSoon")}
               </span>
             </span>
           )}
@@ -305,7 +321,7 @@ function EstimateRow({
 
       {/* Amount */}
       <span className="font-mono text-[11px] text-text-secondary shrink-0">
-        {formatCurrency(estimate.total)}
+        {formatCurrency(estimate.total, locale)}
       </span>
 
       {/* Status badge */}
@@ -315,7 +331,7 @@ function EstimateRow({
           statusBadgeClasses(estimate.status)
         )}
       >
-        {statusLabel(estimate.status)}
+        {statusLabel(estimate.status, t)}
       </span>
 
       {/* One-click Send (draft only) */}
@@ -328,7 +344,7 @@ function EstimateRow({
             "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
             sendState === "sent" && "text-status-success"
           )}
-          title="Send estimate"
+          title={t("estimatesOverview.sendEstimate")}
         >
           {sendState === "sending" ? (
             <Loader2 className="w-[12px] h-[12px] animate-spin" />
@@ -337,7 +353,7 @@ function EstimateRow({
           ) : (
             <>
               <Send className="w-[12px] h-[12px]" />
-              <span className="font-mohave text-[12px]">Send</span>
+              <span className="font-mohave text-[12px]">{t("estimatesOverview.send")}</span>
             </>
           )}
         </button>

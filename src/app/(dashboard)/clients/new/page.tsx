@@ -16,6 +16,7 @@ import {
   StickyNote,
   AlertCircle,
 } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,6 +80,7 @@ function formatPhoneInput(value: string): string {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function NewClientPage() {
+  const { t } = useDictionary("clients");
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -126,12 +128,12 @@ export default function NewClientPage() {
       },
       {
         onSuccess: (newClientId) => {
-          toast.success("Client created successfully");
+          toast.success(t("toast.created"));
           router.push(`/clients/${newClientId}`);
         },
         onError: () => {
-          setServerError("Failed to create client. Please try again.");
-          toast.error("Failed to create client");
+          setServerError(t("new.createFailed"));
+          toast.error(t("toast.createFailed"));
         },
       }
     );
@@ -166,10 +168,10 @@ export default function NewClientPage() {
           </div>
           <div>
             <h1 className="font-mohave text-display text-text-primary tracking-wide">
-              NEW CLIENT
+              {t("new.heading")}
             </h1>
             <p className="font-kosugi text-caption-sm text-text-tertiary">
-              Add a new client or company to your contacts
+              {t("new.subtitle")}
             </p>
           </div>
         </div>
@@ -189,20 +191,20 @@ export default function NewClientPage() {
           <CardHeader>
             <div className="flex items-center gap-[6px]">
               <User className="w-[14px] h-[14px] text-text-tertiary" />
-              <CardTitle>Basic Info</CardTitle>
+              <CardTitle>{t("new.basicInfo")}</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
             <Input
-              label="Client Name *"
-              placeholder="Full name or company name"
+              label={t("new.nameLabel")}
+              placeholder={t("new.namePlaceholder")}
               prefixIcon={<User className="w-[16px] h-[16px]" />}
               error={errors.name?.message}
               {...register("name")}
             />
             <Input
-              label="Company"
-              placeholder="Company or business name (optional)"
+              label={t("new.companyLabel")}
+              placeholder={t("new.companyPlaceholder")}
               prefixIcon={<Building2 className="w-[16px] h-[16px]" />}
               {...register("company")}
             />
@@ -214,30 +216,30 @@ export default function NewClientPage() {
           <CardHeader>
             <div className="flex items-center gap-[6px]">
               <Phone className="w-[14px] h-[14px] text-text-tertiary" />
-              <CardTitle>Contact Details</CardTitle>
+              <CardTitle>{t("new.contactDetails")}</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
             <Input
-              label="Email"
+              label={t("new.emailLabel")}
               type="email"
-              placeholder="client@email.com"
+              placeholder={t("new.emailPlaceholder")}
               prefixIcon={<Mail className="w-[16px] h-[16px]" />}
               error={errors.email?.message}
               {...register("email")}
             />
             <Input
-              label="Phone"
+              label={t("new.phoneLabel")}
               type="tel"
-              placeholder="(555) 123-4567"
+              placeholder={t("new.phonePlaceholder")}
               prefixIcon={<Phone className="w-[16px] h-[16px]" />}
               value={phoneValue || ""}
               onChange={handlePhoneChange}
-              helperText="US format auto-applied"
+              helperText={t("new.phoneHelper")}
             />
             <Input
-              label="Address"
-              placeholder="123 Main Street, City, State ZIP"
+              label={t("new.addressLabel")}
+              placeholder={t("new.addressPlaceholder")}
               prefixIcon={<MapPin className="w-[16px] h-[16px]" />}
               {...register("address")}
             />
@@ -249,12 +251,12 @@ export default function NewClientPage() {
           <CardHeader>
             <div className="flex items-center gap-[6px]">
               <StickyNote className="w-[14px] h-[14px] text-text-tertiary" />
-              <CardTitle>Notes</CardTitle>
+              <CardTitle>{t("new.notes")}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             <Textarea
-              placeholder="Any notes about this client (gate codes, preferences, payment terms...)"
+              placeholder={t("new.notesPlaceholder")}
               {...register("notes")}
             />
           </CardContent>
@@ -281,7 +283,7 @@ export default function NewClientPage() {
               disabled={!isDirty}
             >
               <Save className="w-[16px] h-[16px]" />
-              Create Client
+              {t("new.createClient")}
             </Button>
           </div>
         </div>

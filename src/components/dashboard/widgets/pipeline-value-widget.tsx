@@ -12,6 +12,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useOpportunities } from "@/lib/hooks";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -39,6 +40,7 @@ const STAGE_OPACITY: Record<string, number> = {
 // ---------------------------------------------------------------------------
 
 export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data: opportunities, isLoading } = useOpportunities();
 
   const activeOpps = useMemo(() => {
@@ -92,10 +94,10 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <BarChart3 className="w-[14px] h-[14px] text-text-tertiary" />
-            <CardTitle className="text-card-subtitle">Pipeline Value</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("pipelineValue.title")}</CardTitle>
           </div>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${activeOpps.length} active`}
+            {isLoading ? "..." : `${activeOpps.length} ${t("pipelineValue.active")}`}
           </span>
         </div>
       </CardHeader>
@@ -104,7 +106,7 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading pipeline...
+              {t("pipelineValue.loading")}
             </span>
           </div>
         ) : (
@@ -145,7 +147,7 @@ export function PipelineValueWidget({ size }: PipelineValueWidgetProps) {
             {/* Weighted total */}
             <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
               <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary">
-                Weighted Total
+                {t("pipelineValue.weightedTotal")}
               </span>
               <span className="font-mono text-[11px] text-text-primary font-medium">
                 ${Math.round(weightedTotal).toLocaleString()}

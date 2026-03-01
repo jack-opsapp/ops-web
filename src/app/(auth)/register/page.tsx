@@ -10,8 +10,10 @@ import { UserService } from "@/lib/api/services/user-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackSignUp } from "@/lib/analytics/analytics";
+import { useDictionary } from "@/i18n/client";
 
 export default function RegisterPage() {
+  const { t } = useDictionary("auth");
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -32,7 +34,7 @@ export default function RegisterPage() {
       trackSignUp("google");
       router.push("/setup");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Google sign-in failed";
+      const message = err instanceof Error ? err.message : t("register.error.googleFailed");
       setError(message);
     } finally {
       setIsLoadingGoogle(false);
@@ -47,7 +49,7 @@ export default function RegisterPage() {
       trackSignUp("apple");
       router.push("/setup");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Apple sign-in failed";
+      const message = err instanceof Error ? err.message : t("register.error.appleFailed");
       setError(message);
     } finally {
       setIsLoadingApple(false);
@@ -57,15 +59,15 @@ export default function RegisterPage() {
   async function handleEmailSignUp(e: React.FormEvent) {
     e.preventDefault();
     if (!fullName.trim()) {
-      setError("Please enter your full name");
+      setError(t("register.error.noName"));
       return;
     }
     if (!email || !password) {
-      setError("Please fill in all fields");
+      setError(t("register.error.emptyFields"));
       return;
     }
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(t("register.error.weakPassword"));
       return;
     }
     setError(null);
@@ -94,13 +96,13 @@ export default function RegisterPage() {
       trackSignUp("email");
       router.push("/setup");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Registration failed";
+      const message = err instanceof Error ? err.message : t("register.error.registrationFailed");
       if (message.includes("auth/email-already-in-use")) {
-        setError("An account already exists with this email");
+        setError(t("register.error.emailExists"));
       } else if (message.includes("auth/weak-password")) {
-        setError("Password is too weak. Use at least 6 characters.");
+        setError(t("register.error.passwordWeak"));
       } else if (message.includes("auth/invalid-email")) {
-        setError("Invalid email address");
+        setError(t("register.error.invalidEmail"));
       } else {
         setError(message);
       }
@@ -115,7 +117,7 @@ export default function RegisterPage() {
       <div className="lg:hidden mb-6">
         <Image
           src="/images/ops-logo-white.png"
-          alt="OPS"
+          alt={t("ops")}
           width={64}
           height={26}
           priority
@@ -125,10 +127,10 @@ export default function RegisterPage() {
       {/* Heading */}
       <div className="mb-6">
         <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text-primary leading-none">
-          Get started
+          {t("register.title")}
         </h1>
         <p className="font-mohave text-body-sm text-text-tertiary mt-1">
-          Create your account and start running your operation.
+          {t("register.subtitle")}
         </p>
       </div>
 
@@ -156,7 +158,7 @@ export default function RegisterPage() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
             <span className="font-mohave text-body text-text-primary flex-1 text-left">
-              Continue with Google
+              {t("register.continueGoogle")}
             </span>
             {isLoadingGoogle && (
               <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
@@ -173,7 +175,7 @@ export default function RegisterPage() {
               <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
             </svg>
             <span className="font-mohave text-body text-text-primary flex-1 text-left">
-              Continue with Apple
+              {t("register.continueApple")}
             </span>
             {isLoadingApple && (
               <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
@@ -183,15 +185,15 @@ export default function RegisterPage() {
 
         {/* Divider */}
         <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
-          or create account with email
+          {t("register.orEmail")}
         </div>
 
         {/* Email form */}
         <form onSubmit={handleEmailSignUp} className="space-y-1.5">
           <Input
             type="text"
-            label="Full Name"
-            placeholder="John Smith"
+            label={t("register.fullName")}
+            placeholder={t("register.namePlaceholder")}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             prefixIcon={<User className="w-[16px] h-[16px]" />}
@@ -200,8 +202,8 @@ export default function RegisterPage() {
           />
           <Input
             type="email"
-            label="Email"
-            placeholder="you@company.com"
+            label={t("register.email")}
+            placeholder={t("register.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             prefixIcon={<Mail className="w-[16px] h-[16px]" />}
@@ -210,8 +212,8 @@ export default function RegisterPage() {
           />
           <Input
             type={showPassword ? "text" : "password"}
-            label="Password"
-            placeholder="Min. 6 characters"
+            label={t("register.password")}
+            placeholder={t("register.passwordPlaceholder")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             prefixIcon={<Lock className="w-[16px] h-[16px]" />}
@@ -239,19 +241,19 @@ export default function RegisterPage() {
             loading={isLoadingEmail}
             disabled={isLoadingGoogle || isLoadingApple}
           >
-            Create Account
+            {t("register.createAccount")}
           </Button>
         </form>
       </div>
 
       {/* Footer link */}
       <p className="mt-4 font-mohave text-body-sm text-text-tertiary">
-        Already have an account?{" "}
+        {t("register.hasAccount")}{" "}
         <Link
           href="/login"
           className="text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
         >
-          Sign in
+          {t("register.signIn")}
         </Link>
       </p>
     </div>

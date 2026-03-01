@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 
 interface PortalPhotoGalleryProps {
   photos: string[];
 }
 
 export function PortalPhotoGallery({ photos }: PortalPhotoGalleryProps) {
+  const { t } = useDictionary("portal");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const isOpen = lightboxIndex !== null;
@@ -120,7 +122,7 @@ export function PortalPhotoGallery({ photos }: PortalPhotoGalleryProps) {
               backgroundColor: "rgba(255,255,255,0.1)",
               color: "#fff",
             }}
-            aria-label="Close lightbox"
+            aria-label={t("gallery.close")}
           >
             <X className="w-6 h-6" />
           </button>
@@ -148,7 +150,7 @@ export function PortalPhotoGallery({ photos }: PortalPhotoGalleryProps) {
                 backgroundColor: "rgba(255,255,255,0.1)",
                 color: "#fff",
               }}
-              aria-label="Previous photo"
+              aria-label={t("gallery.previous")}
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -174,7 +176,7 @@ export function PortalPhotoGallery({ photos }: PortalPhotoGalleryProps) {
                 backgroundColor: "rgba(255,255,255,0.1)",
                 color: "#fff",
               }}
-              aria-label="Next photo"
+              aria-label={t("gallery.next")}
             >
               <ChevronRight className="w-6 h-6" />
             </button>

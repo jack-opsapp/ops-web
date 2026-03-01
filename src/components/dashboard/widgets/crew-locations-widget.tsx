@@ -7,6 +7,7 @@ import { getUserFullName, UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { useTeamMembers } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -20,14 +21,14 @@ interface CrewLocationsWidgetProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function roleLabel(role: UserRole): string {
+function roleLabel(role: UserRole, t: (key: string) => string): string {
   switch (role) {
     case UserRole.Admin:
-      return "Admin";
+      return t("crewLocations.roleAdmin");
     case UserRole.OfficeCrew:
-      return "Office";
+      return t("crewLocations.roleOffice");
     case UserRole.FieldCrew:
-      return "Field";
+      return t("crewLocations.roleField");
     default:
       return role;
   }
@@ -51,6 +52,7 @@ function roleBadgeClasses(role: UserRole): string {
 // ---------------------------------------------------------------------------
 
 export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data, isLoading } = useTeamMembers();
   const members = data?.users ?? [];
 
@@ -62,9 +64,9 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1.5 shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">Crew Locations</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("crewLocations.title")}</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
-              {isLoading ? "..." : `${members.length} members`}
+              {isLoading ? "..." : `${members.length} ${t("crewLocations.members")}`}
             </span>
           </div>
         </CardHeader>
@@ -73,12 +75,12 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
             <div className="flex items-center justify-center py-3">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled ml-1">
-                Loading crew...
+                {t("crewLocations.loading")}
               </span>
             </div>
           ) : members.length === 0 ? (
             <p className="font-mohave text-body-sm text-text-disabled py-2">
-              No team members found
+              {t("crewLocations.empty")}
             </p>
           ) : (
             <div className="space-y-[6px]">
@@ -87,7 +89,7 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
               ))}
               {members.length > maxItems && (
                 <span className="font-mono text-[11px] text-text-disabled block px-1">
-                  +{members.length - maxItems} more
+                  +{members.length - maxItems} {t("crewLocations.more")}
                 </span>
               )}
             </div>
@@ -102,9 +104,9 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Crew Locations</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("crewLocations.title")}</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${members.length} members`}
+            {isLoading ? "..." : `${members.length} ${t("crewLocations.members")}`}
           </span>
         </div>
       </CardHeader>
@@ -113,12 +115,12 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
           <div className="flex items-center justify-center py-3">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading crew...
+              {t("crewLocations.loading")}
             </span>
           </div>
         ) : members.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No team members found
+            {t("crewLocations.empty")}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -127,7 +129,7 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
             ))}
             {members.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{members.length - maxItems} more
+                +{members.length - maxItems} {t("crewLocations.more")}
               </span>
             )}
           </div>
@@ -142,6 +144,7 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
 // ---------------------------------------------------------------------------
 
 function MemberLocationRow({ member }: { member: User }) {
+  const { t } = useDictionary("dashboard");
   const fullName = getUserFullName(member);
   const location = member.locationName ?? null;
 
@@ -156,7 +159,7 @@ function MemberLocationRow({ member }: { member: User }) {
       </div>
 
       <span className="font-mono text-[11px] text-text-tertiary shrink-0">
-        {location ?? "Location unavailable"}
+        {location ?? t("crewLocations.locationUnavailable")}
       </span>
     </div>
   );
@@ -167,6 +170,7 @@ function MemberLocationRow({ member }: { member: User }) {
 // ---------------------------------------------------------------------------
 
 function MemberLocationRowLg({ member }: { member: User }) {
+  const { t } = useDictionary("dashboard");
   const fullName = getUserFullName(member);
   const location = member.locationName ?? null;
 
@@ -185,11 +189,11 @@ function MemberLocationRowLg({ member }: { member: User }) {
               roleBadgeClasses(member.role)
             )}
           >
-            {roleLabel(member.role)}
+            {roleLabel(member.role, t)}
           </span>
         </div>
         <p className="font-kosugi text-[10px] text-text-tertiary truncate">
-          {location ?? "Location unavailable"}
+          {location ?? t("crewLocations.locationUnavailable")}
         </p>
       </div>
     </div>

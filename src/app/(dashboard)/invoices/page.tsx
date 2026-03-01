@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 import {
   Plus,
   Search,
@@ -10,6 +13,8 @@ import {
   Ban,
   Trash2,
   AlertTriangle,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +57,7 @@ import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } f
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
+import { toast } from "sonner";
 
 /** Local helper — replaces the old models.calculateDueDate import */
 function calculateDueDate(issueDate: Date, terms: string): Date {
@@ -63,15 +69,6 @@ function calculateDueDate(issueDate: Date, terms: string): Date {
 }
 
 type FilterStatus = "all" | InvoiceStatus;
-
-const statusFilters: { value: FilterStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: InvoiceStatus.Draft, label: "Draft" },
-  { value: InvoiceStatus.Sent, label: "Sent" },
-  { value: InvoiceStatus.PartiallyPaid, label: "Partial" },
-  { value: InvoiceStatus.Paid, label: "Paid" },
-  { value: InvoiceStatus.PastDue, label: "Past Due" },
-];
 
 function StatusBadgeInvoice({ status }: { status: InvoiceStatus }) {
   const color = INVOICE_STATUS_COLORS[status] ?? "#9CA3AF";
@@ -86,9 +83,9 @@ function StatusBadgeInvoice({ status }: { status: InvoiceStatus }) {
   );
 }
 
-function formatDate(date: Date | null): string {
+function formatDate(date: Date | null, locale: Locale): string {
   if (!date) return "--";
-  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(date).toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric", year: "numeric" });
 }
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
@@ -103,8 +100,19 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
 };
 
 export default function InvoicesPage() {
+  const { t } = useDictionary("pipeline");
+  const { locale } = useLocale();
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+
+  const statusFilters = useMemo<{ value: FilterStatus; label: string }[]>(() => [
+    { value: "all", label: t("invoices.filter.all") },
+    { value: InvoiceStatus.Draft, label: t("invoices.filter.draft") },
+    { value: InvoiceStatus.Sent, label: t("invoices.filter.sent") },
+    { value: InvoiceStatus.PartiallyPaid, label: t("invoices.filter.partial") },
+    { value: InvoiceStatus.Paid, label: t("invoices.filter.paid") },
+    { value: InvoiceStatus.PastDue, label: t("invoices.filter.pastDue") },
+  ], [t]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -126,14 +134,37 @@ export default function InvoicesPage() {
   const voidInvoice = useVoidInvoice();
   const recordPayment = useRecordPayment();
 
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Invoice", icon: Plus, onClick: () => setShowCreateModal(true) },
+      { label: t("invoices.newInvoice"), icon: Plus, onClick: () => setShowCreateModal(true) },
     ]);
     return () => clearActions();
-  }, [setActions, clearActions]);
+  }, [setActions, clearActions, t]);
+
+  async function handleDownloadPdf(invoiceId: string) {
+    setGeneratingPdfId(invoiceId);
+    try {
+      const res = await fetch("/api/documents/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: invoiceId, documentType: "invoice" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "PDF generation failed" }));
+        throw new Error(err.error || "PDF generation failed");
+      }
+      const { pdfUrl } = await res.json();
+      window.open(pdfUrl, "_blank");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate PDF");
+    } finally {
+      setGeneratingPdfId(null);
+    }
+  }
 
   const clientMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -184,17 +215,17 @@ export default function InvoicesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <MetricCard
-          label="Outstanding"
+          label={t("invoices.outstanding")}
           value={formatCurrency(metrics.outstanding)}
           icon={<Receipt className="w-[16px] h-[16px]" />}
         />
         <MetricCard
-          label="Overdue"
+          label={t("invoices.overdue")}
           value={formatCurrency(metrics.overdue)}
           icon={metrics.overdue > 0 ? <AlertTriangle className="w-[16px] h-[16px] text-ops-error" /> : undefined}
         />
-        <MetricCard label="Paid This Month" value={formatCurrency(metrics.paidThisMonth)} />
-        <MetricCard label="Drafts" value={String(metrics.draftCount)} />
+        <MetricCard label={t("invoices.paidThisMonth")} value={formatCurrency(metrics.paidThisMonth)} />
+        <MetricCard label={t("invoices.drafts")} value={String(metrics.draftCount)} />
       </div>
 
       {/* Header */}
@@ -204,7 +235,7 @@ export default function InvoicesPage() {
         </span>
         <Button className="gap-[6px]" onClick={() => setShowCreateModal(true)}>
           <Plus className="w-[16px] h-[16px]" />
-          New Invoice
+          {t("invoices.newInvoice")}
         </Button>
       </div>
 
@@ -212,7 +243,7 @@ export default function InvoicesPage() {
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 max-w-[400px]">
           <Input
-            placeholder="Search invoices..."
+            placeholder={t("invoices.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -236,17 +267,17 @@ export default function InvoicesPage() {
         <div className="flex flex-col items-center justify-center py-8">
           <Receipt className="w-[48px] h-[48px] text-text-disabled mb-2" />
           <h3 className="font-mohave text-heading text-text-primary">
-            {searchQuery || filterStatus !== "all" ? "No matching invoices" : "No invoices yet"}
+            {searchQuery || filterStatus !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.none")}
           </h3>
           <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
             {searchQuery || filterStatus !== "all"
-              ? "Try adjusting your search or filter"
-              : "Create your first invoice to start tracking payments"}
+              ? t("invoices.empty.noMatch")
+              : t("invoices.empty.helper")}
           </p>
           {!searchQuery && filterStatus === "all" && (
             <Button className="mt-3 gap-[6px]" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-[16px] h-[16px]" />
-              Create Invoice
+              {t("invoices.newInvoice")}
             </Button>
           )}
         </div>
@@ -255,16 +286,16 @@ export default function InvoicesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Number</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Client</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">Project</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">Date</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">Due</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Total</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">Paid</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Balance</th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Status</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Actions</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.number")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.client")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">{t("invoices.table.project")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">{t("invoices.table.date")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">{t("invoices.table.due")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.total")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">{t("invoices.table.paid")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.balance")}</th>
+                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.status")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -288,14 +319,14 @@ export default function InvoicesPage() {
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
-                    <span className="font-mono text-data-sm text-text-tertiary">{formatDate(invoice.issueDate)}</span>
+                    <span className="font-mono text-data-sm text-text-tertiary">{formatDate(invoice.issueDate, locale)}</span>
                   </td>
                   <td className="px-1.5 py-1 hidden lg:table-cell">
                     <span className={cn(
                       "font-mono text-data-sm",
                       invoice.status === InvoiceStatus.PastDue ? "text-ops-error" : "text-text-tertiary"
                     )}>
-                      {formatDate(invoice.dueDate)}
+                      {formatDate(invoice.dueDate, locale)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 text-right">
@@ -319,11 +350,23 @@ export default function InvoicesPage() {
                   </td>
                   <td className="px-1.5 py-1 text-right">
                     <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleDownloadPdf(invoice.id)}
+                        disabled={generatingPdfId === invoice.id}
+                        className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
+                        title={t("invoices.actions.downloadPdf")}
+                      >
+                        {generatingPdfId === invoice.id ? (
+                          <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                        ) : (
+                          <Download className="w-[14px] h-[14px]" />
+                        )}
+                      </button>
                       {invoice.status === InvoiceStatus.Draft && (
                         <button
                           onClick={() => sendInvoice.mutate(invoice.id)}
                           className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
-                          title="Send"
+                          title={t("invoices.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />
                         </button>
@@ -332,7 +375,7 @@ export default function InvoicesPage() {
                         <button
                           onClick={() => setPaymentInvoice(invoice)}
                           className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
-                          title="Record Payment"
+                          title={t("invoices.actions.recordPayment")}
                         >
                           <DollarSign className="w-[14px] h-[14px]" />
                         </button>
@@ -341,7 +384,7 @@ export default function InvoicesPage() {
                         <button
                           onClick={() => voidInvoice.mutate(invoice.id)}
                           className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                          title="Void"
+                          title={t("invoices.actions.void")}
                         >
                           <Ban className="w-[14px] h-[14px]" />
                         </button>
@@ -349,7 +392,7 @@ export default function InvoicesPage() {
                       <button
                         onClick={() => deleteInvoice.mutate(invoice.id)}
                         className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                        title="Delete"
+                        title={t("invoices.actions.delete")}
                       >
                         <Trash2 className="w-[14px] h-[14px]" />
                       </button>
@@ -416,6 +459,7 @@ function InvoiceFormModal({
   onCreate: (data: Partial<CreateInvoice> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
   onUpdate: (id: string, data: Partial<CreateInvoice> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
 }) {
+  const { t } = useDictionary("pipeline");
   const isEditing = !!invoice;
 
   const [clientId, setClientId] = useState(invoice?.clientId ?? "");
@@ -532,7 +576,7 @@ function InvoiceFormModal({
       <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
-            {isEditing ? `Edit ${invoice?.invoiceNumber}` : "New Invoice"}
+            {isEditing ? `${t("invoices.modal.edit")} ${invoice?.invoiceNumber}` : t("invoices.modal.new")}
           </DialogTitle>
         </DialogHeader>
 
@@ -540,14 +584,14 @@ function InvoiceFormModal({
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Client</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.client")}</label>
               <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
                 <option value="">Select client...</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Project</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.project")}</label>
               <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
                 <option value="">Select project (optional)...</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
@@ -558,49 +602,49 @@ function InvoiceFormModal({
           {/* Date + Terms + Due Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Date</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.date")}</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Payment Terms</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.paymentTerms")}</label>
               <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
-                {PAYMENT_TERMS_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Due Date</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.dueDate")}</label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
 
           {/* Deposit */}
           <div className="max-w-[200px] space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Deposit / Retainer</label>
+            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.deposit")}</label>
             <Input type="number" min={0} step={0.01} value={depositAmount} onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)} />
           </div>
 
           {/* Line Items */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Line Items</label>
+            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.lineItems")}</label>
             <LineItemEditor items={lineItems} onChange={setLineItems} products={products} />
           </div>
 
           {/* Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Notes / Memo</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.notes")}</label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Payment instructions, thank you note..." rows={3} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Internal Notes</label>
-              <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Internal notes..." rows={3} />
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.internalNotes")}</label>
+              <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder={t("invoices.form.internalNotes")} rows={3} />
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-1 pt-2 border-t border-border">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSubmit}>{isEditing ? "Save Changes" : "Create Invoice"}</Button>
+            <Button onClick={handleSubmit}>{isEditing ? t("invoices.modal.edit") : t("invoices.modal.new")}</Button>
           </div>
         </div>
       </DialogContent>
@@ -623,6 +667,7 @@ function RecordPaymentModal({
   companyId: string;
   onSubmit: (data: CreatePayment) => void;
 }) {
+  const { t } = useDictionary("pipeline");
   const [amount, setAmount] = useState(invoice?.balanceDue ?? 0);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Other);
@@ -646,41 +691,41 @@ function RecordPaymentModal({
       <DialogContent className="max-w-[440px]">
         <DialogHeader>
           <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
-            Record Payment
+            {t("invoices.payment.title")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2 mt-2">
           <div className="bg-background-elevated rounded p-1.5 space-y-0.5">
             <div className="flex justify-between">
-              <span className="font-kosugi text-caption text-text-tertiary">Invoice</span>
+              <span className="font-kosugi text-caption text-text-tertiary">{t("invoices.payment.invoice")}</span>
               <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-kosugi text-caption text-text-tertiary">Total</span>
+              <span className="font-kosugi text-caption text-text-tertiary">{t("invoices.payment.total")}</span>
               <span className="font-mono text-data text-text-primary">{formatCurrency(invoice.total)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-kosugi text-caption text-text-tertiary">Balance Due</span>
+              <span className="font-kosugi text-caption text-text-tertiary">{t("invoices.payment.balanceDue")}</span>
               <span className="font-mono text-data text-ops-error">{formatCurrency(invoice.balanceDue)}</span>
             </div>
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Amount</label>
+            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.amount")}</label>
             <div className="flex gap-1">
               <Input type="number" min={0.01} step={0.01} value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} className="flex-1" />
-              <Button variant="secondary" size="sm" onClick={() => setAmount(invoice.balanceDue)}>Pay in Full</Button>
+              <Button variant="secondary" size="sm" onClick={() => setAmount(invoice.balanceDue)}>{t("invoices.payment.payInFull")}</Button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Date</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.date")}</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Method</label>
+              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.method")}</label>
               <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
                 {Object.entries(paymentMethodLabels).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -690,13 +735,13 @@ function RecordPaymentModal({
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Reference #</label>
+            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.reference")}</label>
             <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder="Check #, transaction ID..." />
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Notes</label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Payment notes..." rows={2} />
+            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.notes")}</label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("invoices.payment.notes")} rows={2} />
           </div>
 
           <div className="flex justify-end gap-1 pt-2 border-t border-border">
@@ -718,7 +763,7 @@ function RecordPaymentModal({
               }}
               disabled={amount <= 0}
             >
-              Record Payment
+              {t("invoices.payment.title")}
             </Button>
           </div>
         </div>

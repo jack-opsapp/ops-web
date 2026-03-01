@@ -1,0 +1,24 @@
+{
+  "nav.dashboard": "Dashboard",
+  "nav.projects": "Projects",
+  "nav.calendar": "Calendar",
+  "nav.clients": "Clients",
+  "nav.jobBoard": "Job Board",
+  "nav.team": "Team",
+  "nav.map": "Map",
+  "nav.pipeline": "Pipeline",
+  "nav.estimates": "Estimates",
+  "nav.invoices": "Invoices",
+  "nav.products": "Products",
+  "nav.accounting": "Accounting",
+  "nav.portalInbox": "Portal Inbox",
+  "nav.settings": "Settings",
+
+  "companyAlt": "Company",
+  "companyFallback": "My Company",
+  "expandSidebar": "Expand sidebar (⌘B)",
+  "collapseSidebar": "Collapse sidebar (⌘B)",
+  "accountSettings": "Account settings",
+  "userFallback": "User",
+  "signOut": "Sign out"
+}

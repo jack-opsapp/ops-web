@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ function WonContent({
   onConfirm: (data: { actualValue?: number }) => void;
   onCancel: () => void;
 }) {
+  const { t } = useDictionary("pipeline");
   const [actualValue, setActualValue] = useState(
     opportunity.estimatedValue?.toString() ?? ""
   );
@@ -58,10 +60,10 @@ function WonContent({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Trophy className="w-[18px] h-[18px] text-status-success" />
-          Deal Won!
+          {t("transition.wonTitle")}
         </DialogTitle>
         <DialogDescription>
-          Congratulations on closing {opportunity.title}
+          {t("transition.wonDescription")} {opportunity.title}
         </DialogDescription>
       </DialogHeader>
 
@@ -69,7 +71,7 @@ function WonContent({
         {/* Final deal value */}
         <div className="space-y-0.5">
           <label className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest">
-            Final Deal Value
+            {t("transition.finalValue")}
           </label>
           <div className="relative">
             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 font-mono text-[11px] text-text-tertiary">
@@ -103,18 +105,18 @@ function WonContent({
             className="w-[14px] h-[14px] rounded border-border bg-background-input accent-ops-accent"
           />
           <span className="font-kosugi text-[11px] text-text-secondary group-hover:text-text-primary transition-colors">
-            Convert to Project
+            {t("transition.convertToProject")}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled">(coming soon)</span>
+          <span className="font-kosugi text-[9px] text-text-disabled">{t("transition.comingSoon")}</span>
         </label>
       </div>
 
       <DialogFooter>
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("transition.cancel")}
         </Button>
         <Button variant="primary" size="sm" onClick={handleConfirm}>
-          Mark Won
+          {t("transition.markWon")}
         </Button>
       </DialogFooter>
     </>
@@ -133,6 +135,7 @@ function LostContent({
   onConfirm: (data: { lostReason?: string; lostNotes?: string }) => void;
   onCancel: () => void;
 }) {
+  const { t } = useDictionary("pipeline");
   const [lostReason, setLostReason] = useState("");
   const [lostNotes, setLostNotes] = useState("");
 
@@ -148,10 +151,10 @@ function LostContent({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <XCircle className="w-[18px] h-[18px] text-ops-error" />
-          Mark as Lost
+          {t("transition.lostTitle")}
         </DialogTitle>
         <DialogDescription>
-          Record why {opportunity.title} was lost
+          {t("transition.lostDescription")} {opportunity.title} {t("transition.lostDescriptionSuffix")}
         </DialogDescription>
       </DialogHeader>
 
@@ -159,7 +162,7 @@ function LostContent({
         {/* Loss reason */}
         <div className="space-y-0.5">
           <label className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest">
-            Reason *
+            {t("transition.reason")}
           </label>
           <select
             value={lostReason}
@@ -172,7 +175,7 @@ function LostContent({
               !lostReason && "text-text-tertiary"
             )}
           >
-            <option value="">Select a reason...</option>
+            <option value="">{t("transition.selectReason")}</option>
             {LOSS_REASONS.map((reason) => (
               <option key={reason} value={reason}>
                 {reason}
@@ -184,12 +187,12 @@ function LostContent({
         {/* Notes */}
         <div className="space-y-0.5">
           <label className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest">
-            Notes (optional)
+            {t("transition.notes")}
           </label>
           <textarea
             value={lostNotes}
             onChange={(e) => setLostNotes(e.target.value)}
-            placeholder="Any additional details..."
+            placeholder={t("transition.notesPlaceholder")}
             rows={3}
             className={cn(
               "w-full bg-background-input text-text-primary font-mohave text-body-sm",
@@ -203,7 +206,7 @@ function LostContent({
 
       <DialogFooter>
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("transition.cancel")}
         </Button>
         <Button
           variant="destructive"
@@ -211,7 +214,7 @@ function LostContent({
           disabled={!lostReason}
           onClick={handleConfirm}
         >
-          Mark Lost
+          {t("transition.markLost")}
         </Button>
       </DialogFooter>
     </>

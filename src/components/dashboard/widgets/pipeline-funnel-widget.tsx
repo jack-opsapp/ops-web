@@ -10,6 +10,7 @@ import {
   PROJECT_STATUS_COLORS,
 } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
+import { useDictionary } from "@/i18n/client";
 
 interface PipelineWidgetProps {
   size: WidgetSize;
@@ -24,6 +25,7 @@ export function PipelineWidget({
   isLoading,
   onNavigate,
 }: PipelineWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const stages = useMemo(() => {
     const activeProjects = projects.filter(
       (p) => !p.deletedAt && isActiveProjectStatus(p.status)
@@ -41,7 +43,7 @@ export function PipelineWidget({
       const count = activeProjects.filter((p) => p.status === status).length;
       const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
       return {
-        label: status === ProjectStatus.InProgress ? "In Progress" : status,
+        label: status === ProjectStatus.InProgress ? t("pipelineFunnel.inProgress") : status,
         count,
         color: PROJECT_STATUS_COLORS[status],
         percentage,
@@ -73,7 +75,7 @@ export function PipelineWidget({
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("pipelineFunnel.title")}</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
               {isLoading ? "..." : `${totalProjects}`}
             </span>
@@ -111,9 +113,9 @@ export function PipelineWidget({
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1.5 shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("pipelineFunnel.title")}</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
-              {isLoading ? "..." : `${totalProjects} active`}
+              {isLoading ? "..." : `${totalProjects} ${t("pipelineFunnel.active")}`}
             </span>
           </div>
         </CardHeader>
@@ -121,7 +123,7 @@ export function PipelineWidget({
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">Loading pipeline...</span>
+              <span className="font-mono text-[11px] text-text-disabled ml-1">{t("pipelineFunnel.loading")}</span>
             </div>
           ) : (
             <>
@@ -175,13 +177,13 @@ export function PipelineWidget({
                         className="pl-[24px] py-[2px] cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded transition-colors"
                       >
                         <span className="font-mohave text-[12px] text-text-tertiary truncate block">
-                          {p.title || "Untitled"}
+                          {p.title || t("pipelineFunnel.untitled")}
                         </span>
                       </div>
                     ))}
                     {(stageProjects[i]?.projects.length ?? 0) > 2 && (
                       <span className="font-mono text-[10px] text-text-disabled pl-[24px]">
-                        +{(stageProjects[i]?.projects.length ?? 0) - 2} more
+                        +{(stageProjects[i]?.projects.length ?? 0) - 2} {t("pipelineFunnel.more")}
                       </span>
                     )}
                   </div>
@@ -199,9 +201,9 @@ export function PipelineWidget({
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Pipeline</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("pipelineFunnel.title")}</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${totalProjects} active`}
+            {isLoading ? "..." : `${totalProjects} ${t("pipelineFunnel.active")}`}
           </span>
         </div>
       </CardHeader>
@@ -209,7 +211,7 @@ export function PipelineWidget({
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">Loading pipeline...</span>
+            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("pipelineFunnel.loading")}</span>
           </div>
         ) : (
           <>

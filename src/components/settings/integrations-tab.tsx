@@ -25,6 +25,7 @@ import {
   useTriggerGmailSync,
 } from "@/lib/hooks";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 function formatTimeAgo(date: Date | null): string {
   if (!date) return "Never";
@@ -36,6 +37,7 @@ function formatTimeAgo(date: Date | null): string {
 }
 
 export function IntegrationsTab() {
+  const { t } = useDictionary("settings");
   const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: connections = [], isLoading: connectionsLoading } = useGmailConnections();
@@ -48,7 +50,7 @@ export function IntegrationsTab() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("tab") === "integrations" && params.get("status") === "connected") {
-      toast.success("Gmail connected successfully");
+      toast.success(t("integrations.toast.gmailConnected"));
       window.history.replaceState({}, "", "/settings?tab=integrations");
     }
   }, []);
@@ -73,15 +75,15 @@ export function IntegrationsTab() {
   function handleCopyForwardingAddress() {
     navigator.clipboard.writeText(forwardingAddress).then(() => {
       setCopied(true);
-      toast.success("Forwarding address copied");
+      toast.success(t("integrations.toast.forwardingCopied"));
       setTimeout(() => setCopied(false), 2000);
     });
   }
 
   function handleDisconnect(id: string) {
     deleteConnection.mutate(id, {
-      onSuccess: () => toast.success("Gmail disconnected"),
-      onError: (err) => toast.error("Failed to disconnect", { description: err.message }),
+      onSuccess: () => toast.success(t("integrations.toast.disconnected")),
+      onError: (err) => toast.error(t("integrations.toast.disconnectFailed"), { description: err.message }),
     });
   }
 
@@ -89,16 +91,16 @@ export function IntegrationsTab() {
     updateConnection.mutate(
       { id, data: { id, syncEnabled: !currentEnabled } },
       {
-        onSuccess: () => toast.success(`Sync ${currentEnabled ? "paused" : "enabled"}`),
-        onError: (err) => toast.error("Failed to update", { description: err.message }),
+        onSuccess: () => toast.success(currentEnabled ? t("integrations.toast.syncPaused") : t("integrations.toast.syncEnabled")),
+        onError: (err) => toast.error(t("integrations.toast.updateFailed"), { description: err.message }),
       }
     );
   }
 
   function handleSync() {
     triggerSync.mutate(undefined, {
-      onSuccess: () => toast.success("Gmail sync triggered"),
-      onError: (err) => toast.error("Sync failed", { description: err.message }),
+      onSuccess: () => toast.success(t("integrations.toast.syncTriggered")),
+      onError: (err) => toast.error(t("integrations.toast.syncFailed"), { description: err.message }),
     });
   }
 
@@ -108,18 +110,18 @@ export function IntegrationsTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Company Gmail</CardTitle>
+            <CardTitle>{t("integrations.companyGmail")}</CardTitle>
             {companyConnections.length > 0 && (
               <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-[10px] uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
                 <Check className="w-[12px] h-[12px]" />
-                Connected
+                {t("integrations.connected")}
               </span>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-secondary">
-            Connect your company Gmail to automatically import leads and log email activity on deal timelines.
+            {t("integrations.companyGmailDesc")}
           </p>
 
           {connectionsLoading ? (
@@ -141,7 +143,7 @@ export function IntegrationsTab() {
                         {conn.email}
                       </span>
                       <span className="font-kosugi text-[10px] text-text-disabled">
-                        Last synced: {formatTimeAgo(conn.lastSyncedAt)}
+                        {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
                       </span>
                     </div>
                   </div>
@@ -150,7 +152,7 @@ export function IntegrationsTab() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleToggleSync(conn.id, conn.syncEnabled)}
-                      title={conn.syncEnabled ? "Pause sync" : "Enable sync"}
+                      title={conn.syncEnabled ? t("integrations.pauseSync") : t("integrations.enableSync")}
                     >
                       {conn.syncEnabled ? (
                         <ToggleRight className="w-[16px] h-[16px] text-[#6B8F71]" />
@@ -173,7 +175,7 @@ export function IntegrationsTab() {
           ) : (
             <Button onClick={() => handleConnectGmail("company")} className="gap-[6px]">
               <ExternalLink className="w-[14px] h-[14px]" />
-              Connect Company Gmail
+              {t("integrations.connectCompanyGmail")}
             </Button>
           )}
 
@@ -187,13 +189,13 @@ export function IntegrationsTab() {
                 className="gap-[6px]"
               >
                 <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
-                Sync Now
+                {t("integrations.syncNow")}
               </Button>
             </div>
           )}
 
           <p className="font-kosugi text-[11px] text-text-disabled">
-            Requires a Google Workspace or Gmail account. Only reads incoming emails.
+            {t("integrations.gmailHelper")}
           </p>
         </CardContent>
       </Card>
@@ -202,18 +204,18 @@ export function IntegrationsTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>My Gmail</CardTitle>
+            <CardTitle>{t("integrations.myGmail")}</CardTitle>
             {individualConnections.length > 0 && (
               <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-[10px] uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
                 <Check className="w-[12px] h-[12px]" />
-                Connected
+                {t("integrations.connected")}
               </span>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-secondary">
-            Connect your personal Gmail to log client emails you send and receive from your own account.
+            {t("integrations.myGmailDesc")}
           </p>
 
           {individualConnections.length > 0 ? (
@@ -230,7 +232,7 @@ export function IntegrationsTab() {
                         {conn.email}
                       </span>
                       <span className="font-kosugi text-[10px] text-text-disabled">
-                        Last synced: {formatTimeAgo(conn.lastSyncedAt)}
+                        {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
                       </span>
                     </div>
                   </div>
@@ -252,7 +254,7 @@ export function IntegrationsTab() {
               className="gap-[6px]"
             >
               <ExternalLink className="w-[14px] h-[14px]" />
-              Connect My Gmail
+              {t("integrations.connectMyGmail")}
             </Button>
           )}
         </CardContent>
@@ -261,11 +263,11 @@ export function IntegrationsTab() {
       {/* Email Forwarding */}
       <Card>
         <CardHeader>
-          <CardTitle>Email Forwarding</CardTitle>
+          <CardTitle>{t("integrations.emailForwarding")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-secondary">
-            Forward emails to your unique OPS address to automatically create leads in your pipeline.
+            {t("integrations.forwardingDesc")}
           </p>
           <div className="flex items-center gap-1">
             <div className="flex-1 bg-background-input border border-border rounded px-1.5 py-[8px]">
@@ -288,7 +290,7 @@ export function IntegrationsTab() {
             </Button>
           </div>
           <p className="font-kosugi text-[11px] text-text-disabled">
-            Set this as a forwarding address in your email client to auto-create RFQ leads.
+            {t("integrations.forwardingHelper")}
           </p>
         </CardContent>
       </Card>
@@ -296,15 +298,15 @@ export function IntegrationsTab() {
       {/* Follow-up Monitoring */}
       <Card>
         <CardHeader>
-          <CardTitle>Follow-up Monitoring</CardTitle>
+          <CardTitle>{t("integrations.followUpMonitoring")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-1.5 py-[4px]">
             <MessageCircle className="w-[24px] h-[24px] text-ops-accent shrink-0" />
             <div>
-              <p className="font-mohave text-body text-text-primary">Active</p>
+              <p className="font-mohave text-body text-text-primary">{t("integrations.active")}</p>
               <p className="font-kosugi text-[11px] text-text-disabled">
-                Automatically tracks quoted deals and creates follow-up reminders. Configure timing in Preferences.
+                {t("integrations.followUpDesc")}
               </p>
             </div>
           </div>

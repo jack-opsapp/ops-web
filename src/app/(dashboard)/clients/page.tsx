@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Building2,
 } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,15 +71,9 @@ function mapClientToListItem(client: Client, projectCount: number): ClientListIt
   };
 }
 
-const filterOptions: { value: FilterMode; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "with-projects", label: "Active" },
-  { value: "no-projects", label: "New" },
-];
-
 // ─── Client Card (Grid View) ────────────────────────────────────────────────
 
-function ClientCard({ client, onClick }: { client: ClientListItem; onClick: () => void }) {
+function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: () => void; t: (key: string) => string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -134,7 +129,7 @@ function ClientCard({ client, onClick }: { client: ClientListItem; onClick: () =
             <div className="flex items-center gap-[4px] text-text-tertiary">
               <FolderKanban className="w-[13px] h-[13px]" />
               <span className="font-mono text-[11px]">
-                {client.projectCount} {client.projectCount === "1" ? "project" : "projects"}
+                {client.projectCount} {t("card.projects")}
               </span>
             </div>
           </div>
@@ -165,7 +160,7 @@ function ClientCard({ client, onClick }: { client: ClientListItem; onClick: () =
           onClick={(e) => e.stopPropagation()}
         >
           <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest">
-            Sub-Clients
+            {t("card.subClients")}
           </span>
           {client.subClients.map((sc) => (
             <div key={sc.id} className="flex items-center justify-between py-[4px]">
@@ -309,12 +304,24 @@ function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ClientsPage() {
+  const { t } = useDictionary("clients");
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const openWindow = useWindowStore((s) => s.openWindow);
-  const openCreateClient = () => openWindow({ id: "create-client", title: "New Client", type: "create-client" });
+  const openCreateClient = () => openWindow({ id: "create-client", title: t("newClient"), type: "create-client" });
+
+  const filterOptions = useMemo(() => [
+    { value: "all" as FilterMode, label: t("filter.all") },
+    { value: "with-projects" as FilterMode, label: t("filter.active") },
+    { value: "no-projects" as FilterMode, label: t("filter.new") },
+  ], [t]);
+
+  const viewOptions = useMemo(() => [
+    { value: "cards" as ViewMode, label: t("view.cards"), icon: LayoutGrid },
+    { value: "table" as ViewMode, label: t("view.table"), icon: List },
+  ], [t]);
 
   // Track screen view
   useEffect(() => { trackScreenView("clients"); }, []);
@@ -324,7 +331,7 @@ export default function ClientsPage() {
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: "New Client", icon: Plus, onClick: openCreateClient, shortcut: "\u2318\u21E7C" },
+      { label: t("newClient"), icon: Plus, onClick: openCreateClient, shortcut: "\u2318\u21E7C" },
     ]);
     return () => clearActions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -388,16 +395,16 @@ export default function ClientsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="font-kosugi text-caption-sm text-text-tertiary">
-            {totalCount} clients
+            {totalCount} {t("title").toLowerCase()}
           </span>
           <span className="text-text-disabled font-mono text-[10px]">|</span>
           <span className="font-kosugi text-caption-sm text-text-tertiary">
-            {totalSubClients} sub-contacts
+            {totalSubClients} {t("subContacts")}
           </span>
         </div>
         <Button className="gap-[6px]" onClick={() => openCreateClient()}>
           <Plus className="w-[16px] h-[16px]" />
-          New Client
+          {t("newClient")}
         </Button>
       </div>
 
@@ -405,7 +412,7 @@ export default function ClientsPage() {
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 max-w-[400px]">
           <Input
-            placeholder="Search clients, companies, contacts..."
+            placeholder={t("search.placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -422,10 +429,7 @@ export default function ClientsPage() {
 
           {/* View toggle */}
           <SegmentedPicker
-            options={[
-              { value: "cards" as ViewMode, label: "Cards", icon: LayoutGrid },
-              { value: "table" as ViewMode, label: "Table", icon: List },
-            ]}
+            options={viewOptions}
             value={viewMode}
             onChange={setViewMode}
             iconOnly
@@ -442,10 +446,10 @@ export default function ClientsPage() {
           <Users className="w-[20px] h-[20px] text-text-disabled shrink-0 mt-[2px]" />
           <div className="flex flex-col items-start gap-0.5">
             <h3 className="font-mohave text-body-lg text-text-secondary">
-              No clients yet
+              {t("empty.title")}
             </h3>
             <p className="font-mohave text-body-sm text-text-tertiary max-w-[360px]">
-              Add your first client to start managing relationships, contacts, and projects.
+              {t("empty.description")}
             </p>
             <Button
               className="mt-1.5 gap-[6px]"
@@ -453,7 +457,7 @@ export default function ClientsPage() {
               onClick={() => openCreateClient()}
             >
               <Plus className="w-[14px] h-[14px]" />
-              Add First Client
+              {t("newClient")}
             </Button>
           </div>
         </div>
@@ -463,10 +467,10 @@ export default function ClientsPage() {
           <Search className="w-[20px] h-[20px] text-text-disabled shrink-0 mt-[2px]" />
           <div>
             <h3 className="font-mohave text-body-lg text-text-secondary">
-              No matching clients
+              {t("empty.noMatch")}
             </h3>
             <p className="font-mohave text-body-sm text-text-tertiary">
-              Try adjusting your search or filter criteria
+              {t("empty.noMatchDesc")}
             </p>
           </div>
         </div>
@@ -478,6 +482,7 @@ export default function ClientsPage() {
               key={client.id}
               client={client}
               onClick={() => router.push(`/clients/${client.id}`)}
+              t={t}
             />
           ))}
         </div>
@@ -488,22 +493,22 @@ export default function ClientsPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Client
+                  {t("table.client")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
-                  Email
+                  {t("table.email")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
-                  Phone
+                  {t("table.phone")}
                 </th>
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
-                  Address
+                  {t("table.address")}
                 </th>
                 <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Projects
+                  {t("table.projects")}
                 </th>
                 <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
-                  Contacts
+                  {t("table.contacts")}
                 </th>
               </tr>
             </thead>

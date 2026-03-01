@@ -22,6 +22,7 @@ import type {
   PortalThemeMode,
 } from "@/lib/types/portal";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Query Keys ──────────────────────────────────────────────────────────────
 
@@ -107,39 +108,40 @@ async function updateBranding(
 // ─── Preset accent colors ────────────────────────────────────────────────────
 
 const ACCENT_PRESETS = [
-  { label: "Steel Blue", value: "#417394" },
-  { label: "Amber Gold", value: "#C4A868" },
-  { label: "Sage", value: "#7D9B76" },
-  { label: "Terracotta", value: "#C07A56" },
-  { label: "Dusty Rose", value: "#C2858A" },
-  { label: "Slate", value: "#7A8B99" },
-  { label: "Sandstone", value: "#B8A68E" },
-  { label: "Forest", value: "#5B7B5E" },
+  { labelKey: "portalBranding.steelBlue", value: "#417394" },
+  { labelKey: "portalBranding.amberGold", value: "#C4A868" },
+  { labelKey: "portalBranding.sage", value: "#7D9B76" },
+  { labelKey: "portalBranding.terracotta", value: "#C07A56" },
+  { labelKey: "portalBranding.dustyRose", value: "#C2858A" },
+  { labelKey: "portalBranding.slate", value: "#7A8B99" },
+  { labelKey: "portalBranding.sandstone", value: "#B8A68E" },
+  { labelKey: "portalBranding.forest", value: "#5B7B5E" },
 ];
 
 // ─── Template configs ────────────────────────────────────────────────────────
 
-const TEMPLATES: { id: PortalTemplate; label: string; description: string }[] = [
+const TEMPLATES: { id: PortalTemplate; labelKey: string; descKey: string }[] = [
   {
     id: "modern",
-    label: "Modern",
-    description: "Clean lines, rounded corners, generous whitespace. Best for professional service companies.",
+    labelKey: "portalBranding.modern",
+    descKey: "portalBranding.modernDesc",
   },
   {
     id: "classic",
-    label: "Classic",
-    description: "Traditional layout with subtle serif accents. Ideal for established businesses.",
+    labelKey: "portalBranding.classic",
+    descKey: "portalBranding.classicDesc",
   },
   {
     id: "bold",
-    label: "Bold",
-    description: "High contrast, sharp edges, strong typography. Great for creative and construction firms.",
+    labelKey: "portalBranding.bold",
+    descKey: "portalBranding.boldDesc",
   },
 ];
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function PortalBrandingTab() {
+  const { t } = useDictionary("settings");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const queryClient = useQueryClient();
@@ -193,11 +195,11 @@ export function PortalBrandingTab() {
         queryKey: portalBrandingKeys.all,
       });
       setIsDirty(false);
-      toast.success("Portal branding saved");
+      toast.success(t("portalBranding.toast.saved"));
     },
     onError: (err) => {
-      toast.error("Failed to save branding", {
-        description: err instanceof Error ? err.message : "Please try again.",
+      toast.error(t("portalBranding.toast.saveFailed"), {
+        description: err instanceof Error ? err.message : t("portalBranding.toast.tryAgain"),
       });
     },
   });
@@ -223,7 +225,7 @@ export function PortalBrandingTab() {
       <Card>
         <CardContent className="py-3">
           <p className="font-mohave text-body text-ops-error">
-            Failed to load branding settings
+            {t("portalBranding.loadFailed")}
             {error instanceof Error ? `: ${error.message}` : ""}
           </p>
         </CardContent>
@@ -239,18 +241,18 @@ export function PortalBrandingTab() {
       {/* ── Logo URL ──────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Company Logo</CardTitle>
+          <CardTitle>{t("portalBranding.logoTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <Input
-            label="Logo URL"
+            label={t("portalBranding.logoUrl")}
             value={logoUrl}
             onChange={(e) => {
               setLogoUrl(e.target.value);
               markDirty();
             }}
-            placeholder="https://example.com/logo.png"
-            helperText="Enter the URL of your company logo. Recommended size: 400x100px, PNG or SVG."
+            placeholder={t("portalBranding.logoPlaceholder")}
+            helperText={t("portalBranding.logoHelper")}
           />
           {logoUrl.trim() && (
             <div className="mt-1 p-1.5 rounded border border-border bg-background-input flex items-center justify-center min-h-[60px]">
@@ -274,7 +276,7 @@ export function PortalBrandingTab() {
       {/* ── Accent Color ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Accent Color</CardTitle>
+          <CardTitle>{t("portalBranding.accentTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
           {/* Preset swatches */}
@@ -298,7 +300,7 @@ export function PortalBrandingTab() {
                   style={{ backgroundColor: preset.value }}
                 />
                 <span className="font-mohave text-body-sm text-text-secondary">
-                  {preset.label}
+                  {t(preset.labelKey)}
                 </span>
                 {accentColor === preset.value && (
                   <Check className="w-[12px] h-[12px] text-ops-accent" />
@@ -316,9 +318,9 @@ export function PortalBrandingTab() {
                   setAccentColor(e.target.value);
                   markDirty();
                 }}
-                placeholder="#417394"
+                placeholder={t("portalBranding.colorPlaceholder")}
                 className="w-[140px] font-mono"
-                error={!isValidHex && accentColor.length > 0 ? "Invalid hex color" : undefined}
+                error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
               />
             </div>
             {isValidHex && (
@@ -334,29 +336,29 @@ export function PortalBrandingTab() {
       {/* ── Template Selector ─────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Portal Template</CardTitle>
+          <CardTitle>{t("portalBranding.templateTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            {TEMPLATES.map((t) => (
+            {TEMPLATES.map((tmpl) => (
               <button
-                key={t.id}
+                key={tmpl.id}
                 onClick={() => {
-                  setTemplate(t.id);
+                  setTemplate(tmpl.id);
                   markDirty();
                 }}
                 className={cn(
                   "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left",
-                  template === t.id
+                  template === tmpl.id
                     ? "bg-ops-accent-muted border-ops-accent"
                     : "bg-background-input border-border hover:border-border-medium"
                 )}
               >
                 <div>
-                  <p className="font-mohave text-body text-text-primary">{t.label}</p>
-                  <p className="font-kosugi text-[11px] text-text-tertiary">{t.description}</p>
+                  <p className="font-mohave text-body text-text-primary">{t(tmpl.labelKey)}</p>
+                  <p className="font-kosugi text-[11px] text-text-tertiary">{t(tmpl.descKey)}</p>
                 </div>
-                {template === t.id && (
+                {template === tmpl.id && (
                   <div className="w-[20px] h-[20px] rounded-full bg-ops-accent flex items-center justify-center shrink-0 ml-1">
                     <Check className="w-[12px] h-[12px] text-white" />
                   </div>
@@ -370,13 +372,13 @@ export function PortalBrandingTab() {
       {/* ── Theme Mode ────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Theme Mode</CardTitle>
+          <CardTitle>{t("portalBranding.themeTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-1">
             {([
-              { id: "light" as PortalThemeMode, label: "Light", icon: Sun },
-              { id: "dark" as PortalThemeMode, label: "Dark", icon: Moon },
+              { id: "light" as PortalThemeMode, label: t("portalBranding.themeLight"), icon: Sun },
+              { id: "dark" as PortalThemeMode, label: t("portalBranding.themeDark"), icon: Moon },
             ]).map((mode) => (
               <button
                 key={mode.id}
@@ -409,7 +411,7 @@ export function PortalBrandingTab() {
             ))}
           </div>
           <p className="font-kosugi text-[11px] text-text-disabled mt-1">
-            Controls how the client portal appears to your customers.
+            {t("portalBranding.themeHelper")}
           </p>
         </CardContent>
       </Card>
@@ -417,7 +419,7 @@ export function PortalBrandingTab() {
       {/* ── Welcome Message ───────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Welcome Message</CardTitle>
+          <CardTitle>{t("portalBranding.welcomeTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -426,8 +428,8 @@ export function PortalBrandingTab() {
               setWelcomeMessage(e.target.value);
               markDirty();
             }}
-            placeholder="Welcome! Here you can view your projects, estimates, and invoices..."
-            helperText="Shown on the portal dashboard when your clients log in. Leave blank for no message."
+            placeholder={t("portalBranding.welcomePlaceholder")}
+            helperText={t("portalBranding.welcomeHelper")}
             className="min-h-[100px]"
           />
         </CardContent>
@@ -437,8 +439,8 @@ export function PortalBrandingTab() {
       <div className="flex items-center justify-between pt-1">
         <p className="font-kosugi text-[11px] text-text-disabled">
           {isDirty
-            ? "You have unsaved changes."
-            : "All changes saved."}
+            ? t("portalBranding.unsavedChanges")
+            : t("portalBranding.allSaved")}
         </p>
         <Button
           variant="primary"
@@ -447,7 +449,7 @@ export function PortalBrandingTab() {
           loading={saveMutation.isPending}
         >
           <Save className="w-[16px] h-[16px]" />
-          Save Branding
+          {t("portalBranding.saveBranding")}
         </Button>
       </div>
     </div>

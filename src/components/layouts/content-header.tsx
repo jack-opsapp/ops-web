@@ -3,33 +3,34 @@
 import { useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
+import { useDictionary } from "@/i18n/client";
 
-const routeTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/projects": "Projects",
-  "/calendar": "Calendar",
-  "/clients": "Clients",
-  "/job-board": "Job Board",
-  "/team": "Team",
-  "/map": "Map",
-  "/pipeline": "Pipeline",
-  "/invoices": "Invoices",
-  "/accounting": "Accounting",
-  "/settings": "Settings",
+const routeKeys: Record<string, string> = {
+  "/dashboard": "route.dashboard",
+  "/projects": "route.projects",
+  "/calendar": "route.calendar",
+  "/clients": "route.clients",
+  "/job-board": "route.jobBoard",
+  "/team": "route.team",
+  "/map": "route.map",
+  "/pipeline": "route.pipeline",
+  "/invoices": "route.invoices",
+  "/accounting": "route.accounting",
+  "/settings": "route.settings",
 };
 
-function getBreadcrumbs(pathname: string): { label: string; href?: string; isEntity?: boolean }[] {
+function getBreadcrumbs(pathname: string, t: (key: string) => string): { label: string; href?: string; isEntity?: boolean }[] {
   const segments = pathname.split("/").filter(Boolean);
   const crumbs: { label: string; href?: string; isEntity?: boolean }[] = [];
 
   let currentPath = "";
   for (const segment of segments) {
     currentPath += `/${segment}`;
-    const title = routeTitles[currentPath];
-    if (title) {
-      crumbs.push({ label: title, href: currentPath });
+    const key = routeKeys[currentPath];
+    if (key) {
+      crumbs.push({ label: t(key), href: currentPath });
     } else if (segment === "new") {
-      crumbs.push({ label: "New" });
+      crumbs.push({ label: t("route.new") });
     } else if (segment.match(/^[a-zA-Z0-9_-]+$/)) {
       crumbs.push({ label: segment, isEntity: true });
     }
@@ -42,8 +43,9 @@ export function ContentHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const entityName = useBreadcrumbStore((s) => s.entityName);
+  const { t } = useDictionary("breadcrumbs");
 
-  const breadcrumbs = useMemo(() => getBreadcrumbs(pathname), [pathname]);
+  const breadcrumbs = useMemo(() => getBreadcrumbs(pathname, t), [pathname, t]);
 
   // Only render breadcrumbs for nested routes (2+ segments).
   // Top-level pages handle their own headers with counts, actions, etc.

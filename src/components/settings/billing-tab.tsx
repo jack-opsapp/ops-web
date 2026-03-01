@@ -20,6 +20,8 @@ import {
 } from "@/lib/hooks/use-billing";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -35,38 +37,37 @@ const stripePromise = loadStripe(
 
 // ─── Card Brand Display ──────────────────────────────────────────────────────
 
-function brandLabel(brand: string): string {
-  const map: Record<string, string> = {
-    visa: "Visa",
-    mastercard: "Mastercard",
-    amex: "American Express",
-    discover: "Discover",
-    diners: "Diners Club",
-    jcb: "JCB",
-    unionpay: "UnionPay",
-  };
-  return map[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1);
-}
+const BRAND_KEYS: Record<string, string> = {
+  visa: "billing.visa",
+  mastercard: "billing.mastercard",
+  amex: "billing.amex",
+  discover: "billing.discover",
+  diners: "billing.diners",
+  jcb: "billing.jcb",
+  unionpay: "billing.unionpay",
+};
 
 // ─── Payment Method Card ─────────────────────────────────────────────────────
 
 function PaymentMethodCard({ method }: { method: PaymentMethod }) {
+  const { t } = useDictionary("settings");
+  const brandDisplay = BRAND_KEYS[method.brand] ? t(BRAND_KEYS[method.brand]) : method.brand.charAt(0).toUpperCase() + method.brand.slice(1);
   return (
     <div className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0">
       <div className="flex items-center gap-1.5">
         <CreditCard className="w-[20px] h-[20px] text-text-secondary" />
         <div>
           <p className="font-mohave text-body text-text-primary">
-            {brandLabel(method.brand)} ending in {method.last4}
+            {brandDisplay} {t("billing.endingIn")} {method.last4}
           </p>
           <p className="font-kosugi text-[11px] text-text-disabled">
-            Expires {String(method.expMonth).padStart(2, "0")}/{method.expYear}
+            {t("billing.expires")} {String(method.expMonth).padStart(2, "0")}/{method.expYear}
           </p>
         </div>
       </div>
       {method.isDefault && (
         <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
-          Default
+          {t("billing.defaultBadge")}
         </span>
       )}
     </div>
@@ -76,6 +77,7 @@ function PaymentMethodCard({ method }: { method: PaymentMethod }) {
 // ─── Add Card Form (inside Elements provider) ────────────────────────────────
 
 function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+  const { t } = useDictionary("settings");
   const stripe = useStripe();
   const elements = useElements();
   const createSetupIntent = useCreateSetupIntent();
@@ -99,14 +101,14 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
       });
 
       if (error) {
-        toast.error(error.message ?? "Failed to add card");
+        toast.error(error.message ?? t("billing.toast.addFailed"));
       } else {
-        toast.success("Payment method added");
+        toast.success(t("billing.toast.added"));
         onSuccess();
       }
     } catch (err) {
-      toast.error("Failed to add card", {
-        description: err instanceof Error ? err.message : "Unknown error",
+      toast.error(t("billing.toast.addFailed"), {
+        description: err instanceof Error ? err.message : t("billing.toast.unknownError"),
       });
     } finally {
       setSubmitting(false);
@@ -137,7 +139,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
           ) : (
             <Check className="w-[14px] h-[14px]" />
           )}
-          Save Card
+          {t("billing.saveCard")}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
           Cancel
@@ -150,6 +152,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
 // ─── Invoice Status Badge ────────────────────────────────────────────────────
 
 function InvoiceStatusBadge({ status }: { status: string | null }) {
+  const { t } = useDictionary("settings");
   const styles: Record<string, string> = {
     paid: "text-status-success bg-status-success/10",
     open: "text-ops-amber bg-ops-amber/10",
@@ -160,10 +163,17 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
 
   const s = status ?? "unknown";
   const className = styles[s] ?? "text-text-disabled bg-background-elevated";
+  const statusLabels: Record<string, string> = {
+    paid: t("billing.paid"),
+    open: t("billing.open"),
+    draft: t("billing.draft"),
+    void: t("billing.void"),
+    uncollectible: t("billing.uncollectible"),
+  };
 
   return (
     <span className={`font-kosugi text-[9px] uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
-      {s}
+      {statusLabels[s] ?? s}
     </span>
   );
 }
@@ -171,6 +181,8 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
 // ─── Main Billing Tab ────────────────────────────────────────────────────────
 
 export function BillingTab() {
+  const { t } = useDictionary("settings");
+  const { locale } = useLocale();
   const { company } = useAuthStore();
   const { data: methods, isLoading: methodsLoading, refetch: refetchMethods } = usePaymentMethods();
   const { data: invoices, isLoading: invoicesLoading } = useStripeInvoices();
@@ -188,7 +200,7 @@ export function BillingTab() {
       {/* Payment Method */}
       <Card>
         <CardHeader>
-          <CardTitle>Payment Method</CardTitle>
+          <CardTitle>{t("billing.paymentMethod")}</CardTitle>
         </CardHeader>
         <CardContent>
           {methodsLoading ? (
@@ -207,7 +219,7 @@ export function BillingTab() {
                   onClick={() => setShowAddCard(true)}
                 >
                   <Plus className="w-[14px] h-[14px]" />
-                  Add Another Card
+                  {t("billing.addAnotherCard")}
                 </Button>
               )}
             </div>
@@ -217,10 +229,10 @@ export function BillingTab() {
                 <CreditCard className="w-[24px] h-[24px] text-text-disabled" />
                 <div>
                   <p className="font-mohave text-body text-text-secondary">
-                    No payment method on file
+                    {t("billing.noPaymentMethod")}
                   </p>
                   <p className="font-kosugi text-[11px] text-text-disabled">
-                    Add a payment method to continue service after your trial ends.
+                    {t("billing.addPaymentHelper")}
                   </p>
                 </div>
               </div>
@@ -231,7 +243,7 @@ export function BillingTab() {
                   onClick={() => setShowAddCard(true)}
                 >
                   <CreditCard className="w-[14px] h-[14px]" />
-                  Add Payment Method
+                  {t("billing.addPaymentMethod")}
                 </Button>
               )}
             </div>
@@ -253,7 +265,7 @@ export function BillingTab() {
       {/* Billing History */}
       <Card>
         <CardHeader>
-          <CardTitle>Billing History</CardTitle>
+          <CardTitle>{t("billing.billingHistory")}</CardTitle>
         </CardHeader>
         <CardContent>
           {invoicesLoading ? (
@@ -275,7 +287,7 @@ export function BillingTab() {
                       </p>
                       <p className="font-kosugi text-[10px] text-text-disabled">
                         {invoice.date
-                          ? new Date(invoice.date).toLocaleDateString("en-US", {
+                          ? new Date(invoice.date).toLocaleDateString(getDateLocale(locale), {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
@@ -316,9 +328,9 @@ export function BillingTab() {
           ) : (
             <div className="flex flex-col items-center py-3">
               <FileText className="w-[32px] h-[32px] text-text-disabled mb-1" />
-              <p className="font-mohave text-body text-text-tertiary">No billing history</p>
+              <p className="font-mohave text-body text-text-tertiary">{t("billing.noBillingHistory")}</p>
               <p className="font-kosugi text-[11px] text-text-disabled mt-0.5">
-                Invoices will appear here after your first payment.
+                {t("billing.invoicesHelper")}
               </p>
             </div>
           )}

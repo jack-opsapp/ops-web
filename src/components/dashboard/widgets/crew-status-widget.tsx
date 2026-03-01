@@ -8,6 +8,7 @@ import type { UserRole as AvatarUserRole } from "@/components/ops/user-avatar";
 import type { User } from "@/lib/types/models";
 import { UserRole, getUserFullName } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
+import { useDictionary } from "@/i18n/client";
 
 function toAvatarRole(role: UserRole): AvatarUserRole {
   switch (role) {
@@ -34,6 +35,7 @@ export function CrewWidget({
   isLoading,
   onNavigate,
 }: CrewWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const activeCount = teamMembers.filter((m) => m.isActive).length;
 
   // sm: avatar row
@@ -42,9 +44,9 @@ export function CrewWidget({
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">Crew</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("crew.titleShort")}</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
-              {activeCount} active
+              {t("crew.activeCount").replace("{count}", String(activeCount))}
             </span>
           </div>
         </CardHeader>
@@ -86,9 +88,9 @@ export function CrewWidget({
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1.5 shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">Crew Status</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("crew.title")}</CardTitle>
             <span className="font-mono text-[11px] text-text-tertiary">
-              {activeCount} active
+              {t("crew.activeCount").replace("{count}", String(activeCount))}
             </span>
           </div>
         </CardHeader>
@@ -96,18 +98,18 @@ export function CrewWidget({
           {isLoading ? (
             <div className="flex items-center justify-center py-3">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">Loading crew...</span>
+              <span className="font-mono text-[11px] text-text-disabled ml-1">{t("crew.loading")}</span>
             </div>
           ) : teamMembers.length === 0 ? (
             <p className="font-mohave text-body-sm text-text-disabled py-2">
-              No team members found
+              {t("crew.noMembers")}
             </p>
           ) : (
             <div className="space-y-[6px]">
               {teamMembers.slice(0, 7).map((member) => {
                 const fullName = getUserFullName(member);
                 const isOnline = member.isActive ?? false;
-                const statusLabel = isOnline ? "Active" : "Off Duty";
+                const statusLabel = isOnline ? t("crew.active") : t("crew.offDuty");
 
                 return (
                   <div
@@ -155,7 +157,7 @@ export function CrewWidget({
               })}
               {teamMembers.length > 7 && (
                 <span className="font-mono text-[11px] text-text-disabled block px-1">
-                  +{teamMembers.length - 7} more
+                  {t("crew.more").replace("{count}", String(teamMembers.length - 7))}
                 </span>
               )}
             </div>
@@ -170,9 +172,9 @@ export function CrewWidget({
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Crew Status</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("crew.title")}</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {activeCount} active
+            {t("crew.activeCount").replace("{count}", String(activeCount))}
           </span>
         </div>
       </CardHeader>
@@ -180,18 +182,18 @@ export function CrewWidget({
         {isLoading ? (
           <div className="flex items-center justify-center py-3">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">Loading crew...</span>
+            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("crew.loading")}</span>
           </div>
         ) : teamMembers.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No team members found
+            {t("crew.noMembers")}
           </p>
         ) : (
           <div className="space-y-[6px]">
             {teamMembers.slice(0, 3).map((member) => {
               const fullName = getUserFullName(member);
               const isOnline = member.isActive ?? false;
-              const statusLabel = isOnline ? "Active" : "Off Duty";
+              const statusLabel = isOnline ? t("crew.active") : t("crew.offDuty");
 
               return (
                 <div
@@ -239,7 +241,7 @@ export function CrewWidget({
             })}
             {teamMembers.length > 3 && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{teamMembers.length - 3} more
+                {t("crew.more").replace("{count}", String(teamMembers.length - 3))}
               </span>
             )}
           </div>

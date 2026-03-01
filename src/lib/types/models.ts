@@ -361,6 +361,16 @@ export interface SubClient {
   deletedAt: Date | null;
 }
 
+/** Setup progress tracking for web onboarding */
+export interface SetupProgress {
+  steps: {
+    identity?: boolean;
+    company?: boolean;
+    starfield?: boolean;
+  };
+  starfield_answers?: Record<string, string | number>;
+}
+
 /** User entity - matches iOS User model */
 export interface User {
   id: string;
@@ -384,6 +394,7 @@ export interface User {
   hasCompletedAppTutorial: boolean;
   isCompanyAdmin: boolean;
   specialPermissions: string[];
+  setupProgress: SetupProgress | null;
   stripeCustomerId: string | null;
   deviceToken: string | null;
   lastSyncedAt: Date | null;

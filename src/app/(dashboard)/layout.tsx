@@ -6,10 +6,12 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { Loader2 } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 
 function DashboardAuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
+  const { t } = useDictionary("common");
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -23,7 +25,7 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="w-[32px] h-[32px] text-ops-accent animate-spin" />
           <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-            Loading
+            {t("loading")}
           </span>
         </div>
       </div>

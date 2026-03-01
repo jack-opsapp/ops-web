@@ -8,6 +8,9 @@ import type { Client } from "@/lib/types/models";
 import type { Estimate } from "@/lib/types/pipeline";
 import { useClients, useProjects, useEstimates } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -33,18 +36,18 @@ interface ActivityItem {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatTimeAgo(date: Date): string {
+function formatTimeAgo(date: Date, locale: Locale, t: (key: string) => string): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (diffMins < 1) return t("clientActivity.justNow");
+  if (diffMins < 60) return `${diffMins}${t("clientActivity.mAgo")}`;
+  if (diffHours < 24) return `${diffHours}${t("clientActivity.hAgo")}`;
+  if (diffDays < 7) return `${diffDays}${t("clientActivity.dAgo")}`;
+  return date.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
 }
 
 function getActivityIcon(type: ActivityItem["type"]) {
@@ -63,6 +66,8 @@ function getActivityIcon(type: ActivityItem["type"]) {
 // ---------------------------------------------------------------------------
 
 export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: estimates, isLoading: estimatesLoading } = useEstimates();
@@ -92,8 +97,8 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
           items.push({
             id: `est-sent-${est.id}`,
             type: "estimate-sent",
-            description: `Estimate sent to ${clientNameMap[est.clientId] ?? "client"}`,
-            clientName: clientNameMap[est.clientId] ?? "Unknown",
+            description: `${t("clientActivity.estimateSentTo")} ${clientNameMap[est.clientId] ?? t("clientActivity.client")}`,
+            clientName: clientNameMap[est.clientId] ?? t("clientActivity.unknown"),
             date: sentDate,
           });
         } else {
@@ -102,8 +107,8 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
           items.push({
             id: `est-created-${est.id}`,
             type: "estimate-created",
-            description: `New estimate for ${clientNameMap[est.clientId] ?? "client"}`,
-            clientName: clientNameMap[est.clientId] ?? "Unknown",
+            description: `${t("clientActivity.newEstimateFor")} ${clientNameMap[est.clientId] ?? t("clientActivity.client")}`,
+            clientName: clientNameMap[est.clientId] ?? t("clientActivity.unknown"),
             date: createdDate,
           });
         }
@@ -123,8 +128,8 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
           items.push({
             id: `proj-${proj.id}`,
             type: "project-created",
-            description: `Project "${proj.title}" for ${clientNameMap[proj.clientId] ?? "client"}`,
-            clientName: clientNameMap[proj.clientId] ?? "Unknown",
+            description: `${t("clientActivity.project")} "${proj.title}" ${t("clientActivity.for")} ${clientNameMap[proj.clientId] ?? t("clientActivity.client")}`,
+            clientName: clientNameMap[proj.clientId] ?? t("clientActivity.unknown"),
             date: startDate,
           });
         }
@@ -144,14 +149,14 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
     return (
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">Client Activity</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("clientActivity.title")}</CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("clientActivity.loadingShort")}
               </span>
             </div>
           ) : latest ? (
@@ -160,12 +165,12 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
                 {latest.description}
               </p>
               <span className="font-mono text-[11px] text-text-tertiary">
-                {formatTimeAgo(latest.date)}
+                {formatTimeAgo(latest.date, locale, t)}
               </span>
             </div>
           ) : (
             <p className="font-mohave text-body-sm text-text-disabled">
-              No recent activity
+              {t("clientActivity.noRecentActivity")}
             </p>
           )}
         </CardContent>
@@ -180,9 +185,9 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Client Activity</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("clientActivity.title")}</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${activities.length} events`}
+            {isLoading ? "..." : `${activities.length} ${t("clientActivity.events")}`}
           </span>
         </div>
       </CardHeader>
@@ -191,12 +196,12 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading activity...
+              {t("clientActivity.loading")}
             </span>
           </div>
         ) : activities.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No recent client activity
+            {t("clientActivity.empty")}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -216,14 +221,14 @@ export function ClientActivityWidget({ size }: ClientActivityWidgetProps) {
                     {item.description}
                   </p>
                   <span className="font-mono text-[11px] text-text-disabled">
-                    {formatTimeAgo(item.date)}
+                    {formatTimeAgo(item.date, locale, t)}
                   </span>
                 </div>
               </div>
             ))}
             {activities.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{activities.length - maxItems} more
+                +{activities.length - maxItems} {t("clientActivity.more")}
               </span>
             )}
           </div>

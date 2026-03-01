@@ -1,0 +1,36 @@
+{
+  "view.month": "Mes",
+  "view.week": "Semana",
+  "view.day": "Día",
+  "today": "Hoy",
+  "previous": "Anterior",
+  "next": "Siguiente",
+
+  "stats.today": "Hoy",
+  "stats.thisWeek": "Esta semana",
+
+  "taskType.installation": "instalación",
+  "taskType.material": "material",
+  "taskType.estimate": "cotización",
+  "taskType.inspection": "inspección",
+  "taskType.quote": "presupuesto",
+  "taskType.completion": "finalización",
+
+  "empty.month": "No hay eventos programados para este mes",
+  "empty.week": "No hay eventos programados para esta semana",
+  "empty.day": "No hay eventos programados para hoy",
+  "empty.helper": "Los eventos aparecerán aquí una vez programados",
+  "loading": "Cargando eventos...",
+
+  "moreEvents": "+{count} más",
+  "eventCount": "{count} evento",
+  "eventCountPlural": "{count} eventos",
+
+  "dayNames.sun": "Dom",
+  "dayNames.mon": "Lun",
+  "dayNames.tue": "Mar",
+  "dayNames.wed": "Mié",
+  "dayNames.thu": "Jue",
+  "dayNames.fri": "Vie",
+  "dayNames.sat": "Sáb"
+}

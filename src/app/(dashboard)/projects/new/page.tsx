@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Save, X, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,11 +41,11 @@ type ProjectFormData = z.infer<typeof projectFormSchema>;
 
 // ─── Status Options ────────────────────────────────────────────────────────────
 
-const statusOptions: { value: ProjectStatus; label: string }[] = [
-  { value: ProjectStatus.RFQ, label: "RFQ" },
-  { value: ProjectStatus.Estimated, label: "Estimated" },
-  { value: ProjectStatus.Accepted, label: "Accepted" },
-  { value: ProjectStatus.InProgress, label: "In Progress" },
+const statusOptions: { value: ProjectStatus; key: string }[] = [
+  { value: ProjectStatus.RFQ, key: "status.rfq" },
+  { value: ProjectStatus.Estimated, key: "status.estimated" },
+  { value: ProjectStatus.Accepted, key: "status.accepted" },
+  { value: ProjectStatus.InProgress, key: "status.inProgress" },
 ];
 
 // ─── Client Selector ───────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ function ClientSelector({
   clients: Client[];
   isLoadingClients: boolean;
 }) {
+  const { t } = useDictionary("projects");
   const [clientSearch, setClientSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -76,7 +78,7 @@ function ClientSelector({
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-        Client
+        {t("new.clientLabel")}
       </label>
       <div className="relative">
         {selectedClient ? (
@@ -98,7 +100,7 @@ function ClientSelector({
         ) : (
           <div>
             <Input
-              placeholder={isLoadingClients ? "Loading clients..." : "Search clients..."}
+              placeholder={isLoadingClients ? t("new.loadingClients") : t("new.searchClients")}
               value={clientSearch}
               onChange={(e) => {
                 setClientSearch(e.target.value);
@@ -114,7 +116,7 @@ function ClientSelector({
                 {filteredClients.length === 0 ? (
                   <div className="px-1.5 py-1 text-left">
                     <p className="font-mohave text-body-sm text-text-tertiary">
-                      {clients.length === 0 ? "No clients found" : "No matching clients"}
+                      {clients.length === 0 ? t("new.noClients") : t("new.noMatchingClients")}
                     </p>
                   </div>
                 ) : (
@@ -155,6 +157,7 @@ function TeamMemberSelector({
   members: User[];
   isLoading: boolean;
 }) {
+  const { t } = useDictionary("projects");
   function toggleMember(id: string) {
     onChange(
       selectedIds.includes(id)
@@ -167,7 +170,7 @@ function TeamMemberSelector({
     return (
       <div className="flex flex-col gap-0.5">
         <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-          Team Members
+          {t("new.teamLabel")}
         </label>
         <div className="flex flex-wrap gap-1">
           {[1, 2, 3].map((i) => (
@@ -185,10 +188,10 @@ function TeamMemberSelector({
     return (
       <div className="flex flex-col gap-0.5">
         <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-          Team Members
+          {t("new.teamLabel")}
         </label>
         <p className="font-mohave text-body-sm text-text-tertiary">
-          No team members available
+          {t("new.noTeam")}
         </p>
       </div>
     );
@@ -197,7 +200,7 @@ function TeamMemberSelector({
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-        Team Members
+        {t("new.teamLabel")}
       </label>
       <div className="flex flex-wrap gap-1">
         {members.map((member) => {
@@ -241,6 +244,7 @@ function TeamMemberSelector({
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NewProjectPage() {
+  const { t } = useDictionary("projects");
   const router = useRouter();
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -279,7 +283,7 @@ export default function NewProjectPage() {
   // Submit handler
   async function onSubmit(data: ProjectFormData) {
     if (!companyId) {
-      setServerError("No company found. Please sign in again.");
+      setServerError(t("new.noCompany"));
       return;
     }
 
@@ -311,7 +315,7 @@ export default function NewProjectPage() {
           setServerError(
             err instanceof Error
               ? err.message
-              : "Failed to create project. Please try again."
+              : t("new.createFailed")
           );
         },
       }
@@ -332,7 +336,7 @@ export default function NewProjectPage() {
           <ArrowLeft className="w-[20px] h-[20px]" />
         </Button>
         <h1 className="font-mohave text-display text-text-primary tracking-wide">
-          NEW PROJECT
+          {t("new.heading")}
         </h1>
       </div>
 
@@ -348,8 +352,8 @@ export default function NewProjectPage() {
         <div className="bg-background-panel border border-border rounded-lg p-3 space-y-3">
           {/* Project Name */}
           <Input
-            label="Project Name"
-            placeholder="e.g., Kitchen Renovation - Smith"
+            label={t("new.nameLabel")}
+            placeholder={t("new.namePlaceholder")}
             {...register("title")}
             error={errors.title?.message}
           />
@@ -370,8 +374,8 @@ export default function NewProjectPage() {
 
           {/* Address */}
           <Input
-            label="Address"
-            placeholder="123 Main Street, City, State ZIP"
+            label={t("new.addressLabel")}
+            placeholder={t("new.addressPlaceholder")}
             {...register("address")}
             error={errors.address?.message}
           />
@@ -383,7 +387,7 @@ export default function NewProjectPage() {
             render={({ field }) => (
               <div className="flex flex-col gap-0.5">
                 <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-                  Status
+                  {t("new.statusLabel")}
                 </label>
                 <div className="flex items-center gap-1">
                   {statusOptions.map((opt) => (
@@ -398,7 +402,7 @@ export default function NewProjectPage() {
                           : "bg-background-input border-border text-text-tertiary hover:text-text-secondary"
                       )}
                     >
-                      {opt.label}
+                      {t(opt.key)}
                     </button>
                   ))}
                 </div>
@@ -409,13 +413,13 @@ export default function NewProjectPage() {
           {/* Date Range */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Input
-              label="Start Date"
+              label={t("new.startDateLabel")}
               type="date"
               {...register("startDate")}
               error={errors.startDate?.message}
             />
             <Input
-              label="End Date"
+              label={t("new.endDateLabel")}
               type="date"
               {...register("endDate")}
               error={errors.endDate?.message}
@@ -438,16 +442,16 @@ export default function NewProjectPage() {
 
           {/* Description */}
           <Textarea
-            label="Description"
-            placeholder="Project description..."
+            label={t("new.descriptionLabel")}
+            placeholder={t("new.descriptionPlaceholder")}
             {...register("projectDescription")}
             error={errors.projectDescription?.message}
           />
 
           {/* Notes */}
           <Textarea
-            label="Notes"
-            placeholder="Project notes, special instructions..."
+            label={t("new.notesLabel")}
+            placeholder={t("new.notesPlaceholder")}
             {...register("notes")}
             error={errors.notes?.message}
           />
@@ -461,7 +465,7 @@ export default function NewProjectPage() {
             onClick={() => router.push("/projects")}
             disabled={isSaving}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             type="submit"
@@ -469,7 +473,7 @@ export default function NewProjectPage() {
             className="gap-[6px]"
           >
             <Save className="w-[16px] h-[16px]" />
-            Create Project
+            {t("new.createProject")}
           </Button>
         </div>
       </form>

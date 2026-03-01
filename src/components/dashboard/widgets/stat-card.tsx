@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDictionary } from "@/i18n/client";
 import { TrendingUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card } from "@/components/ui/card";
@@ -63,6 +64,7 @@ export function StatCard({
   accentColor,
   size,
 }: StatCardProps) {
+  const { t } = useDictionary("dashboard");
   const animatedVal = useAnimatedValue(value);
   const isXs = size === "xs";
   const accent = accentColor ?? null;
@@ -119,7 +121,7 @@ export function StatCard({
           {isLoading ? (
             <div className="flex items-center gap-1 mt-[4px]">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-body-sm text-text-disabled uppercase">Loading...</span>
+              <span className="font-mono text-body-sm text-text-disabled uppercase">{t("stat.loading")}</span>
             </div>
           ) : (
             <>

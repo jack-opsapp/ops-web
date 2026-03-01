@@ -24,6 +24,7 @@ import { getUserFullName } from "@/lib/types/models";
 import type { TaskType } from "@/lib/types/models";
 import type { TaskTemplate } from "@/lib/types/pipeline";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Default Crew Picker ─────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ function CrewPicker({
   selectedIds: string[];
   onChange: (ids: string[]) => void;
 }) {
+  const { t } = useDictionary("settings");
   const { data: teamData } = useTeamMembers();
   const members = teamData?.users ?? [];
   const [open, setOpen] = useState(false);
@@ -61,7 +63,7 @@ function CrewPicker({
         {selectedNames.length > 0 ? (
           <span className="truncate">{selectedNames.join(", ")}</span>
         ) : (
-          <span className="text-text-disabled">Select default crew...</span>
+          <span className="text-text-disabled">{t("taskTypes.crewPlaceholder")}</span>
         )}
       </button>
       {open && (
@@ -95,7 +97,7 @@ function CrewPicker({
           })}
           {members.length === 0 && (
             <p className="px-1.5 py-[8px] font-mohave text-body-sm text-text-disabled">
-              No team members found
+              {t("taskTypes.noMembers")}
             </p>
           )}
         </div>
@@ -107,6 +109,7 @@ function CrewPicker({
 // ─── Task Templates Section ──────────────────────────────────────────────────
 
 function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
+  const { t } = useDictionary("settings");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: templates = [], isLoading } = useTaskTemplates(taskType.id);
@@ -136,9 +139,9 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
         onSuccess: () => {
           setNewTitle("");
           setNewHours("");
-          toast.success("Template added");
+          toast.success(t("taskTypes.toast.templateAdded"));
         },
-        onError: (err) => toast.error("Failed to add template", { description: err.message }),
+        onError: (err) => toast.error(t("taskTypes.toast.templateAddFailed"), { description: err.message }),
       }
     );
   }
@@ -156,17 +159,17 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
       {
         onSuccess: () => {
           setEditingId(null);
-          toast.success("Template updated");
+          toast.success(t("taskTypes.toast.templateUpdated"));
         },
-        onError: (err) => toast.error("Failed to update", { description: err.message }),
+        onError: (err) => toast.error(t("taskTypes.toast.templateUpdateFailed"), { description: err.message }),
       }
     );
   }
 
   function handleDelete(id: string) {
     deleteTemplate.mutate(id, {
-      onSuccess: () => toast.success("Template removed"),
-      onError: (err) => toast.error("Failed to remove", { description: err.message }),
+      onSuccess: () => toast.success(t("taskTypes.toast.templateRemoved")),
+      onError: (err) => toast.error(t("taskTypes.toast.templateRemoveFailed"), { description: err.message }),
     });
   }
 
@@ -180,7 +183,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
     return (
       <div className="flex items-center gap-[6px] py-[4px]">
         <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-        <span className="font-mohave text-body-sm text-text-disabled">Loading templates...</span>
+        <span className="font-mohave text-body-sm text-text-disabled">{t("taskTypes.loadingTemplates")}</span>
       </div>
     );
   }
@@ -188,10 +191,10 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
   return (
     <div className="space-y-1">
       <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-        Task Templates
+        {t("taskTypes.taskTemplates")}
       </label>
       <p className="font-kosugi text-[11px] text-text-disabled">
-        Sub-tasks automatically proposed when an estimate with this task type is approved.
+        {t("taskTypes.templateHelper")}
       </p>
 
       {templates.length > 0 && (
@@ -213,7 +216,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                   <Input
                     value={editHours}
                     onChange={(e) => setEditHours(e.target.value)}
-                    placeholder="hrs"
+                    placeholder={t("taskTypes.hrs")}
                     className="w-[56px] h-[32px]"
                     type="number"
                     step="0.5"
@@ -268,7 +271,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
         <Input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="New template name..."
+          placeholder={t("taskTypes.templatePlaceholder")}
           className="flex-1 h-[32px]"
           onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
         />
@@ -298,13 +301,14 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
 // ─── Task Type Card ──────────────────────────────────────────────────────────
 
 function TaskTypeCard({ taskType }: { taskType: TaskType }) {
+  const { t } = useDictionary("settings");
   const updateTaskType = useUpdateTaskType();
 
   function handleCrewChange(ids: string[]) {
     updateTaskType.mutate(
       { id: taskType.id, data: { defaultTeamMemberIds: ids } },
       {
-        onError: (err) => toast.error("Failed to update crew", { description: err.message }),
+        onError: (err) => toast.error(t("taskTypes.toast.crewUpdateFailed"), { description: err.message }),
       }
     );
   }
@@ -319,14 +323,14 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
         <h4 className="font-mohave text-body text-text-primary flex-1">{taskType.display}</h4>
         {taskType.isDefault && (
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-            Default
+            {t("taskTypes.default")}
           </span>
         )}
       </div>
 
       <div className="space-y-1">
         <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-          Default Crew
+          {t("taskTypes.defaultCrew")}
         </label>
         <CrewPicker
           selectedIds={taskType.defaultTeamMemberIds ?? []}
@@ -342,6 +346,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
 // ─── Main Tab ────────────────────────────────────────────────────────────────
 
 export function TaskTypesTab() {
+  const { t } = useDictionary("settings");
   const { data: taskTypes = [], isLoading } = useTaskTypes();
   const createTaskType = useCreateTaskType();
 
@@ -360,9 +365,9 @@ export function TaskTypesTab() {
           setNewName("");
           setNewColor("#417394");
           setShowCreate(false);
-          toast.success("Task type created");
+          toast.success(t("taskTypes.toast.created"));
         },
-        onError: (err) => toast.error("Failed to create", { description: err.message }),
+        onError: (err) => toast.error(t("taskTypes.toast.createFailed"), { description: err.message }),
       }
     );
   }
@@ -372,7 +377,7 @@ export function TaskTypesTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Task Types ({activeTypes.length})</CardTitle>
+            <CardTitle>{t("taskTypes.title")} ({activeTypes.length})</CardTitle>
             <Button
               variant="secondary"
               size="sm"
@@ -380,28 +385,28 @@ export function TaskTypesTab() {
               className="gap-[4px]"
             >
               <Plus className="w-[14px] h-[14px]" />
-              Add Type
+              {t("taskTypes.addType")}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
           <p className="font-mohave text-body-sm text-text-secondary">
-            Configure task types, assign default crews, and define task templates that auto-generate when estimates are approved.
+            {t("taskTypes.description")}
           </p>
 
           {showCreate && (
             <div className="flex items-end gap-1 p-1.5 bg-[rgba(255,255,255,0.02)] border border-border rounded">
               <Input
-                label="Task Type Name"
+                label={t("taskTypes.nameLabel")}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g., Deck Framing"
+                placeholder={t("taskTypes.namePlaceholder")}
                 className="flex-1"
                 autoFocus
               />
               <div className="flex flex-col gap-0.5">
                 <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-                  Color
+                  {t("taskTypes.color")}
                 </label>
                 <input
                   type="color"
@@ -434,7 +439,7 @@ export function TaskTypesTab() {
             </div>
           ) : activeTypes.length === 0 ? (
             <p className="font-mohave text-body-sm text-text-tertiary py-2">
-              No task types configured. Add one to get started.
+              {t("taskTypes.emptyState")}
             </p>
           ) : (
             <div className="space-y-1.5">

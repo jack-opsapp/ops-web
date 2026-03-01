@@ -18,6 +18,8 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge, type ProjectStatus as StatusBadgeProjectStatus } from "@/components/ops/status-badge";
@@ -77,12 +79,20 @@ import {
 
 type TabId = "overview" | "tasks" | "financial" | "photos" | "notes";
 
-const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "overview", label: "Overview", icon: FileText },
-  { id: "tasks", label: "Tasks", icon: CheckCircle2 },
-  { id: "financial", label: "Financial", icon: DollarSign },
-  { id: "photos", label: "Photos", icon: Camera },
-  { id: "notes", label: "Notes", icon: StickyNote },
+const TAB_KEYS: Record<TabId, string> = {
+  overview: "detail.overview",
+  tasks: "detail.tasks",
+  financial: "detail.financial",
+  photos: "detail.photos",
+  notes: "detail.notes",
+};
+
+const TAB_ICONS: { id: TabId; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "overview", icon: FileText },
+  { id: "tasks", icon: CheckCircle2 },
+  { id: "financial", icon: DollarSign },
+  { id: "photos", icon: Camera },
+  { id: "notes", icon: StickyNote },
 ];
 
 /**
@@ -151,25 +161,26 @@ function DetailSkeleton() {
 // ─── Error State ───────────────────────────────────────────────────────────────
 
 function DetailError({ message, onRetry, onBack }: { message: string; onRetry: () => void; onBack: () => void }) {
+  const { t } = useDictionary("projects");
   return (
     <div className="space-y-3 max-w-[1200px]">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="w-[20px] h-[20px]" />
         </Button>
-        <span className="font-mohave text-body text-text-tertiary uppercase tracking-wider">Project</span>
+        <span className="font-mohave text-body text-text-tertiary uppercase tracking-wider">{t("detail.project")}</span>
       </div>
       <div className="flex flex-col items-center justify-center py-8 text-center">
         <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
           <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
         </div>
-        <h3 className="font-mohave text-heading text-text-primary">Failed to load project</h3>
+        <h3 className="font-mohave text-heading text-text-primary">{t("detail.failedToLoad")}</h3>
         <p className="font-kosugi text-caption text-text-tertiary mt-0.5 max-w-[300px]">{message}</p>
         <div className="flex gap-1 mt-3">
-          <Button variant="ghost" onClick={onBack}>Go Back</Button>
+          <Button variant="ghost" onClick={onBack}>{t("detail.goBack")}</Button>
           <Button variant="secondary" className="gap-[6px]" onClick={onRetry}>
             <RefreshCw className="w-[16px] h-[16px]" />
-            Retry
+            {t("detail.retry")}
           </Button>
         </div>
       </div>
@@ -180,6 +191,8 @@ function DetailError({ message, onRetry, onBack }: { message: string; onRetry: (
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ project }: { project: Project }) {
+  const { t } = useDictionary("projects");
+  const { locale } = useLocale();
   const router = useRouter();
   const { data: client } = useClient(project.clientId ?? undefined);
   const resolvedClient = project.client ?? client;
@@ -200,18 +213,18 @@ function OverviewTab({ project }: { project: Project }) {
       {/* Client Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Client</CardTitle>
+          <CardTitle>{t("detail.client")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
           {resolvedClient ? (
             <>
               <InfoRow
-                label="Name"
+                label={t("detail.name")}
                 value={resolvedClient.name}
               />
               {resolvedClient.email && (
                 <InfoRow
-                  label="Email"
+                  label={t("detail.email")}
                   value={
                     <a
                       href={`mailto:${resolvedClient.email}`}
@@ -225,7 +238,7 @@ function OverviewTab({ project }: { project: Project }) {
               )}
               {resolvedClient.phoneNumber && (
                 <InfoRow
-                  label="Phone"
+                  label={t("detail.phone")}
                   value={
                     <a
                       href={`tel:${resolvedClient.phoneNumber}`}
@@ -239,13 +252,13 @@ function OverviewTab({ project }: { project: Project }) {
               )}
               {resolvedClient.address && (
                 <InfoRow
-                  label="Address"
+                  label={t("detail.address")}
                   value={resolvedClient.address}
                 />
               )}
             </>
           ) : (
-            <p className="font-mohave text-body-sm text-text-tertiary">No client assigned</p>
+            <p className="font-mohave text-body-sm text-text-tertiary">{t("detail.noClient")}</p>
           )}
         </CardContent>
       </Card>
@@ -253,7 +266,7 @@ function OverviewTab({ project }: { project: Project }) {
       {/* Location */}
       <Card>
         <CardHeader>
-          <CardTitle>Location</CardTitle>
+          <CardTitle>{t("detail.location")}</CardTitle>
         </CardHeader>
         <CardContent>
           {project.address ? (
@@ -270,7 +283,7 @@ function OverviewTab({ project }: { project: Project }) {
                   className="inline-flex items-center gap-[6px] mt-1 font-mohave text-body-sm text-ops-accent hover:underline"
                 >
                   <ExternalLink className="w-[14px] h-[14px]" />
-                  Open in Google Maps
+                  {t("detail.openMaps")}
                 </a>
               )}
               {/* Map link */}
@@ -280,12 +293,12 @@ function OverviewTab({ project }: { project: Project }) {
                   className="w-full mt-1.5 h-[120px] bg-background-elevated rounded flex items-center justify-center gap-1 text-text-tertiary hover:text-text-secondary transition-colors"
                 >
                   <MapPin className="w-[16px] h-[16px]" />
-                  <span className="font-mohave text-body-sm">View on Map</span>
+                  <span className="font-mohave text-body-sm">{t("detail.viewOnMap")}</span>
                 </button>
               )}
             </>
           ) : (
-            <p className="font-mohave text-body-sm text-text-tertiary">No address set</p>
+            <p className="font-mohave text-body-sm text-text-tertiary">{t("detail.noAddress")}</p>
           )}
         </CardContent>
       </Card>
@@ -293,7 +306,7 @@ function OverviewTab({ project }: { project: Project }) {
       {/* Team */}
       <Card>
         <CardHeader>
-          <CardTitle>Team</CardTitle>
+          <CardTitle>{t("detail.team")}</CardTitle>
         </CardHeader>
         <CardContent>
           {resolvedTeamMembers.length > 0 ? (
@@ -318,7 +331,7 @@ function OverviewTab({ project }: { project: Project }) {
               ))}
             </div>
           ) : (
-            <p className="font-mohave text-body-sm text-text-tertiary">No team members assigned</p>
+            <p className="font-mohave text-body-sm text-text-tertiary">{t("detail.noTeam")}</p>
           )}
         </CardContent>
       </Card>
@@ -326,41 +339,41 @@ function OverviewTab({ project }: { project: Project }) {
       {/* Dates & Description */}
       <Card>
         <CardHeader>
-          <CardTitle>Details</CardTitle>
+          <CardTitle>{t("detail.details")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5">
           <div className="flex items-center gap-2">
             <div>
-              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Start</span>
+              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("detail.start")}</span>
               <p className="font-mono text-data-sm text-text-primary">
                 {project.startDate
-                  ? new Date(project.startDate).toLocaleDateString("en-US", {
+                  ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     })
-                  : "Not set"}
+                  : t("detail.notSet")}
               </p>
             </div>
             <div className="h-[1px] flex-1 bg-border-subtle" />
             <div>
-              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">End</span>
+              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("detail.end")}</span>
               <p className="font-mono text-data-sm text-text-primary">
                 {project.endDate
-                  ? new Date(project.endDate).toLocaleDateString("en-US", {
+                  ? new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     })
-                  : "TBD"}
+                  : t("detail.tbd")}
               </p>
             </div>
           </div>
           {project.projectDescription && (
             <div>
-              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Description</span>
+              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("detail.description")}</span>
               <p className="font-mohave text-body-sm text-text-secondary mt-[4px]">
                 {project.projectDescription}
               </p>
@@ -368,7 +381,7 @@ function OverviewTab({ project }: { project: Project }) {
           )}
           {project.notes && (
             <div>
-              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Notes</span>
+              <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("detail.notesField")}</span>
               <p className="font-mohave text-body-sm text-text-secondary mt-[4px]">
                 {project.notes}
               </p>
@@ -383,21 +396,22 @@ function OverviewTab({ project }: { project: Project }) {
 // ─── Photos Tab ────────────────────────────────────────────────────────────────
 
 function PhotosTab({ project }: { project: Project }) {
+  const { t } = useDictionary("projects");
   const images = project.projectImages ?? [];
 
   if (images.length === 0) {
     return (
       <EmptyState
         icon={<Camera className="w-[48px] h-[48px]" />}
-        title="No photos uploaded yet"
-        description="Project photos will appear here once uploaded from the mobile app."
+        title={t("detail.noPhotos")}
+        description={t("detail.photosHelper")}
       />
     );
   }
 
   return (
     <div className="space-y-2">
-      <SectionHeader title="Photos" count={images.length} />
+      <SectionHeader title={t("detail.photos")} count={images.length} />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
         {images.map((url, i) => (
           <a
@@ -427,6 +441,7 @@ function PhotosTab({ project }: { project: Project }) {
 // ─── Notes Tab ─────────────────────────────────────────────────────────────────
 
 function NotesTab({ project }: { project: Project }) {
+  const { t } = useDictionary("projects");
   const { currentUser, company } = useAuthStore();
   const { data: notes = [], isLoading } = useProjectNotes(project.id);
   const createNote = useCreateProjectNote();
@@ -484,7 +499,7 @@ function NotesTab({ project }: { project: Project }) {
       },
       {
         onSuccess: (result) => {
-          toast.success("Note posted");
+          toast.success(t("notes.posted"));
           // Cross-post photos to project gallery
           for (const att of attachments) {
             createPhoto.mutate({
@@ -511,7 +526,7 @@ function NotesTab({ project }: { project: Project }) {
             });
           }
         },
-        onError: () => toast.error("Failed to post note"),
+        onError: () => toast.error(t("notes.postFailed")),
       }
     );
   }
@@ -540,10 +555,10 @@ function NotesTab({ project }: { project: Project }) {
       },
       {
         onSuccess: () => {
-          toast.success("Note updated");
+          toast.success(t("notes.updated"));
           setEditingNote(null);
         },
-        onError: () => toast.error("Failed to update note"),
+        onError: () => toast.error(t("notes.updateFailed")),
       }
     );
   }
@@ -554,10 +569,10 @@ function NotesTab({ project }: { project: Project }) {
       { id: deleteTarget, projectId: project.id },
       {
         onSuccess: () => {
-          toast.success("Note deleted");
+          toast.success(t("notes.deleted"));
           setDeleteTarget(null);
         },
-        onError: () => toast.error("Failed to delete note"),
+        onError: () => toast.error(t("notes.deleteFailed")),
       }
     );
   }
@@ -591,10 +606,10 @@ function NotesTab({ project }: { project: Project }) {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={() => setDeleteTarget(null)}
-        title="Delete Note"
-        description="Are you sure you want to delete this note? This cannot be undone."
+        title={t("detail.deleteNote")}
+        description={t("detail.deleteNoteConfirm")}
         onConfirm={handleDeleteConfirm}
-        confirmLabel="Delete"
+        confirmLabel={t("bulk.delete")}
         variant="destructive"
         loading={deleteNote.isPending}
       />
@@ -605,6 +620,8 @@ function NotesTab({ project }: { project: Project }) {
 // ─── Financial Tab ──────────────────────────────────────────────────────────────
 
 function FinancialTab({ project }: { project: Project }) {
+  const { t } = useDictionary("projects");
+  const { locale } = useLocale();
   const router = useRouter();
   const { data: estimates = [] } = useProjectEstimates(project.id);
   const { data: invoices = [] } = useProjectInvoices(project.id);
@@ -631,7 +648,7 @@ function FinancialTab({ project }: { project: Project }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Card className="p-2 space-y-0.5">
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-            Estimated
+            {t("detail.estimated")}
           </span>
           <span className="font-mono text-data-lg text-text-primary block">
             {formatCurrency(totals.estimated)}
@@ -639,7 +656,7 @@ function FinancialTab({ project }: { project: Project }) {
         </Card>
         <Card className="p-2 space-y-0.5">
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-            Invoiced
+            {t("detail.invoiced")}
           </span>
           <span className="font-mono text-data-lg text-text-primary block">
             {formatCurrency(totals.invoiced)}
@@ -647,7 +664,7 @@ function FinancialTab({ project }: { project: Project }) {
         </Card>
         <Card className="p-2 space-y-0.5">
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-            Paid
+            {t("detail.paid")}
           </span>
           <span className="font-mono text-data-lg text-status-success block">
             {formatCurrency(totals.paid)}
@@ -655,7 +672,7 @@ function FinancialTab({ project }: { project: Project }) {
         </Card>
         <Card className="p-2 space-y-0.5">
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-            Outstanding
+            {t("detail.outstanding")}
           </span>
           <span className="font-mono text-data-lg text-ops-amber block">
             {formatCurrency(totals.outstanding)}
@@ -666,7 +683,7 @@ function FinancialTab({ project }: { project: Project }) {
       {/* Estimates Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Estimates</CardTitle>
+          <CardTitle>{t("detail.estimates")}</CardTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -674,12 +691,12 @@ function FinancialTab({ project }: { project: Project }) {
             className="gap-1 text-text-tertiary"
           >
             <Plus className="w-[12px] h-[12px]" />
-            New Estimate
+            {t("detail.newEstimate")}
           </Button>
         </CardHeader>
         <CardContent>
           {estimates.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-tertiary">No estimates for this project</p>
+            <p className="font-mohave text-body-sm text-text-tertiary">{t("detail.noEstimates")}</p>
           ) : (
             <div className="space-y-1">
               {estimates.map((est) => (
@@ -707,7 +724,7 @@ function FinancialTab({ project }: { project: Project }) {
                     </span>
                     {est.issueDate && (
                       <span className="font-mono text-[10px] text-text-disabled">
-                        {new Date(est.issueDate).toLocaleDateString("en-US", {
+                        {new Date(est.issueDate).toLocaleDateString(getDateLocale(locale), {
                           month: "short",
                           day: "numeric",
                         })}
@@ -724,7 +741,7 @@ function FinancialTab({ project }: { project: Project }) {
       {/* Invoices Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Invoices</CardTitle>
+          <CardTitle>{t("detail.invoices")}</CardTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -732,12 +749,12 @@ function FinancialTab({ project }: { project: Project }) {
             className="gap-1 text-text-tertiary"
           >
             <Plus className="w-[12px] h-[12px]" />
-            New Invoice
+            {t("detail.newInvoice")}
           </Button>
         </CardHeader>
         <CardContent>
           {invoices.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-tertiary">No invoices for this project</p>
+            <p className="font-mohave text-body-sm text-text-tertiary">{t("detail.noInvoices")}</p>
           ) : (
             <div className="space-y-1">
               {invoices.map((inv) => (
@@ -766,13 +783,13 @@ function FinancialTab({ project }: { project: Project }) {
                       </span>
                       {inv.balanceDue > 0 && inv.balanceDue !== inv.total && (
                         <span className="font-mono text-[10px] text-ops-amber">
-                          {formatCurrency(inv.balanceDue)} due
+                          {formatCurrency(inv.balanceDue)} {t("detail.due")}
                         </span>
                       )}
                     </div>
                     {inv.dueDate && (
                       <span className="font-mono text-[10px] text-text-disabled">
-                        {new Date(inv.dueDate).toLocaleDateString("en-US", {
+                        {new Date(inv.dueDate).toLocaleDateString(getDateLocale(locale), {
                           month: "short",
                           day: "numeric",
                         })}
@@ -792,6 +809,7 @@ function FinancialTab({ project }: { project: Project }) {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailPage() {
+  const { t } = useDictionary("projects");
   const router = useRouter();
   const params = useParams();
   const projectId = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
@@ -855,7 +873,7 @@ export default function ProjectDetailPage() {
         message={
           error instanceof Error
             ? error.message
-            : "Project not found or could not be loaded."
+            : t("detail.failedToLoadDesc")
         }
         onRetry={() => refetch()}
         onBack={() => router.push("/projects")}
@@ -884,7 +902,7 @@ export default function ProjectDetailPage() {
             <StatusBadge status={statusToKey(project.status) } />
           </div>
           <p className="font-kosugi text-caption text-text-tertiary mt-[2px]">
-            {project.client?.name ?? resolvedClient?.name ?? "No Client"}
+            {project.client?.name ?? resolvedClient?.name ?? t("detail.noClientHeader")}
           </p>
         </div>
 
@@ -896,7 +914,7 @@ export default function ProjectDetailPage() {
             onValueChange={handleStatusChange}
           >
             <SelectTrigger className="w-[160px] h-[40px]">
-              <SelectValue placeholder="Change Status" />
+              <SelectValue placeholder={t("detail.changeStatus")} />
             </SelectTrigger>
             <SelectContent>
               {ALL_PROJECT_STATUSES.map((s) => (
@@ -912,12 +930,12 @@ export default function ProjectDetailPage() {
             size="sm"
             className="gap-[6px]"
             onClick={() => {
-              toast.info("Use the fields below to edit project details");
+              toast.info(t("detail.editHint"));
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           >
             <Edit3 className="w-[14px] h-[14px]" />
-            Edit
+            {t("detail.edit")}
           </Button>
           <Button
             variant="destructive"
@@ -932,7 +950,7 @@ export default function ProjectDetailPage() {
       {/* Tabs */}
       <div className="border-b border-[rgba(255,255,255,0.15)]">
         <SegmentedPicker
-          options={tabs.map((t) => ({ value: t.id, label: t.label, icon: t.icon }))}
+          options={TAB_ICONS.map((tab) => ({ value: tab.id, label: t(TAB_KEYS[tab.id]), icon: tab.icon }))}
           value={activeTab}
           onChange={setActiveTab}
         />
@@ -961,9 +979,9 @@ export default function ProjectDetailPage() {
       <ConfirmDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
-        title="Delete Project"
-        description={`Are you sure you want to delete "${project.title}"? This action can be undone by an administrator.`}
-        confirmLabel="Delete Project"
+        title={t("detail.deleteProject")}
+        description={t("detail.deleteConfirm").replace("{title}", project.title)}
+        confirmLabel={t("detail.deleteProject")}
         variant="destructive"
         onConfirm={handleDelete}
         loading={deleteProjectMutation.isPending}

@@ -1,14 +1,17 @@
 "use client";
 
 import { Database } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 
 export function DeveloperTab() {
+  const { t } = useDictionary("settings");
+
   return (
     <div className="space-y-6 py-4">
       <div>
-        <h2 className="text-lg font-semibold text-[#E5E5E5]">Developer Tools</h2>
+        <h2 className="text-lg font-semibold text-[#E5E5E5]">{t("developer.title")}</h2>
         <p className="text-sm text-[#999] mt-1">
-          These tools are only visible to users with developer permissions.
+          {t("developer.description")}
         </p>
       </div>
 
@@ -17,10 +20,10 @@ export function DeveloperTab() {
           <Database className="h-5 w-5 text-[#417394] mt-0.5 shrink-0" />
           <div className="flex-1">
             <h3 className="text-sm font-medium text-[#E5E5E5]">
-              Database
+              {t("developer.database")}
             </h3>
             <p className="text-sm text-[#999] mt-1">
-              All data is managed via Supabase. No migration tools needed.
+              {t("developer.databaseDesc")}
             </p>
           </div>
         </div>

@@ -7,6 +7,7 @@ import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { OpportunityStage } from "@/lib/types/pipeline";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useOpportunities } from "@/lib/hooks";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -21,6 +22,7 @@ interface PipelineVelocityWidgetProps {
 // ---------------------------------------------------------------------------
 
 export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data: opportunities, isLoading } = useOpportunities();
 
   const metrics = useMemo(() => {
@@ -95,7 +97,7 @@ export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center gap-1">
           <Gauge className="w-[14px] h-[14px] text-text-tertiary" />
-          <CardTitle className="text-card-subtitle">Pipeline Velocity</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("pipelineVelocity.title")}</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
@@ -103,7 +105,7 @@ export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading metrics...
+              {t("pipelineVelocity.loading")}
             </span>
           </div>
         ) : (
@@ -114,7 +116,7 @@ export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
                 {metrics.avgDaysToClose}
               </span>
               <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary mt-0.5">
-                Avg Days to Close
+                {t("pipelineVelocity.avgDaysToClose")}
               </span>
             </div>
 
@@ -124,7 +126,7 @@ export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
                 {metrics.winRate}%
               </span>
               <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary mt-0.5">
-                Win Rate
+                {t("pipelineVelocity.winRate")}
               </span>
             </div>
 
@@ -134,7 +136,7 @@ export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
                 ${metrics.avgDealSize.toLocaleString()}
               </span>
               <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary mt-0.5">
-                Avg Deal Size
+                {t("pipelineVelocity.avgDealSize")}
               </span>
             </div>
 
@@ -144,7 +146,7 @@ export function PipelineVelocityWidget({ size }: PipelineVelocityWidgetProps) {
                 {metrics.activePipeline}
               </span>
               <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary mt-0.5">
-                Active Pipeline
+                {t("pipelineVelocity.activePipeline")}
               </span>
             </div>
           </div>

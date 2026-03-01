@@ -4,21 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 interface PortalNavProps {
   unreadMessages: number;
 }
-
-const navItems = [
-  { href: "/portal/home", label: "Home", icon: Home },
-  { href: "/portal/messages", label: "Messages", icon: MessageSquare },
-];
 
 /**
  * Mobile bottom tab bar for the portal.
  */
 export function PortalNav({ unreadMessages }: PortalNavProps) {
   const pathname = usePathname();
+  const { t } = useDictionary("portal");
+
+  const navItems = [
+    { href: "/portal/home", label: t("nav.home"), icon: Home },
+    { href: "/portal/messages", label: t("nav.messages"), icon: MessageSquare },
+  ];
 
   return (
     <nav

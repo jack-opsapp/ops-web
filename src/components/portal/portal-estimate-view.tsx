@@ -1,26 +1,32 @@
 "use client";
 
-import { Calendar, FileText, Clock, HelpCircle, Tag, Percent, Receipt } from "lucide-react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
+import { Calendar, FileText, Clock, HelpCircle, Tag, Percent, Receipt, Building2, User } from "lucide-react";
 import { PortalStatusBadge } from "./portal-status-badge";
 import { PortalLineItemCard } from "./portal-line-item-card";
 import { formatCurrency } from "@/lib/types/pipeline";
 import type { Estimate, LineItem } from "@/lib/types/pipeline";
 import type { LineItemQuestion } from "@/lib/types/portal";
+import type { FieldVisibility } from "@/lib/types/document-template";
+import { DEFAULT_FIELD_VISIBILITY } from "@/lib/types/document-template";
+import type { DocumentPartyInfo } from "./portal-invoice-view";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(date: Date | string | null): string {
+function formatDate(date: Date | string | null, locale: Locale): string {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString(getDateLocale(locale), {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function formatShortDate(date: Date | string | null): string {
+function formatShortDate(date: Date | string | null, locale: Locale): string {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString(getDateLocale(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -34,6 +40,53 @@ interface PortalEstimateViewProps {
   questions?: LineItemQuestion[];
   /** IDs of line items that have questions */
   lineItemIdsWithQuestions?: Set<string>;
+  fieldVisibility?: FieldVisibility;
+  companyInfo?: DocumentPartyInfo | null;
+  clientInfo?: DocumentPartyInfo | null;
+}
+
+// ─── Party Section ────────────────────────────────────────────────────────────
+
+function PartySection({
+  label,
+  icon: Icon,
+  info,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  info: DocumentPartyInfo;
+}) {
+  return (
+    <div className="flex-1 min-w-[180px]">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon className="w-3.5 h-3.5" style={{ color: "var(--portal-text-tertiary)" }} />
+        <span
+          className="text-xs font-medium uppercase tracking-wider"
+          style={{ color: "var(--portal-text-tertiary)" }}
+        >
+          {label}
+        </span>
+      </div>
+      <p className="text-sm font-medium" style={{ color: "var(--portal-text)" }}>
+        {info.name}
+      </p>
+      {info.address && (
+        <p className="text-xs mt-0.5" style={{ color: "var(--portal-text-secondary)" }}>
+          {info.address}
+        </p>
+      )}
+      {info.phone && (
+        <p className="text-xs mt-0.5" style={{ color: "var(--portal-text-secondary)" }}>
+          {info.phone}
+        </p>
+      )}
+      {info.email && (
+        <p className="text-xs mt-0.5" style={{ color: "var(--portal-text-secondary)" }}>
+          {info.email}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -42,7 +95,14 @@ export function PortalEstimateView({
   estimate,
   questions = [],
   lineItemIdsWithQuestions = new Set(),
+  fieldVisibility = DEFAULT_FIELD_VISIBILITY,
+  companyInfo,
+  clientInfo,
 }: PortalEstimateViewProps) {
+  const { t } = useDictionary("portal");
+  const { locale } = useLocale();
+  const v = fieldVisibility;
+
   const standardItems = estimate.lineItems
     .filter((li) => !li.isOptional)
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -85,7 +145,7 @@ export function PortalEstimateView({
                     "var(--portal-heading-transform)" as React.CSSProperties["textTransform"],
                 }}
               >
-                Estimate #{estimate.estimateNumber}
+                {t("estimate.heading")} #{estimate.estimateNumber}
               </h1>
             </div>
             {estimate.title && (
@@ -107,7 +167,7 @@ export function PortalEstimateView({
         >
           <span className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
-            Issued {formatShortDate(estimate.issueDate)}
+            {t("estimate.issued")} {formatShortDate(estimate.issueDate, locale)}
           </span>
           {estimate.expirationDate && (
             <span
@@ -119,8 +179,8 @@ export function PortalEstimateView({
               }}
             >
               <Clock className="w-3.5 h-3.5" />
-              {isExpired ? "Expired" : "Expires"}{" "}
-              {formatShortDate(estimate.expirationDate)}
+              {isExpired ? t("estimate.expired") : t("estimate.expires")}{" "}
+              {formatShortDate(estimate.expirationDate, locale)}
             </span>
           )}
           {hasQuestions && (
@@ -134,6 +194,27 @@ export function PortalEstimateView({
           )}
         </div>
       </div>
+
+      {/* ── From / To Sections ─────────────────────────────────────────────── */}
+      {(v.showFromSection && companyInfo) || (v.showToSection && clientInfo) ? (
+        <div
+          className="rounded-xl"
+          style={{
+            padding: "var(--portal-card-padding, 24px)",
+            backgroundColor: "var(--portal-card)",
+            border: "1px solid var(--portal-border)",
+          }}
+        >
+          <div className="flex flex-wrap gap-6">
+            {v.showFromSection && companyInfo && (
+              <PartySection label={t("estimate.from")} icon={Building2} info={companyInfo} />
+            )}
+            {v.showToSection && clientInfo && (
+              <PartySection label={t("estimate.to")} icon={User} info={clientInfo} />
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Client Message ─────────────────────────────────────────────────── */}
       {estimate.clientMessage && (
@@ -149,7 +230,7 @@ export function PortalEstimateView({
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Message from your provider
+            {t("estimate.providerMessage")}
           </h2>
           <p
             className="text-sm whitespace-pre-wrap"
@@ -169,18 +250,18 @@ export function PortalEstimateView({
           className="text-sm font-medium uppercase tracking-wider mb-3"
           style={{ color: "var(--portal-text-tertiary)" }}
         >
-          Line Items
+          {t("estimate.lineItems")}
         </h2>
         <div className="space-y-2">
           {standardItems.map((item) => (
             <PortalLineItemCard
               key={item.id}
               name={item.name}
-              description={item.description}
-              quantity={item.quantity}
+              description={v.showDescriptions ? item.description : null}
+              quantity={v.showQuantities ? item.quantity : undefined}
               unit={item.unit}
-              unitPrice={item.unitPrice}
-              lineTotal={item.lineTotal}
+              unitPrice={v.showUnitPrices ? item.unitPrice : undefined}
+              lineTotal={v.showLineTotals ? item.lineTotal : undefined}
               isOptional={false}
               hasQuestions={lineItemIdsWithQuestions.has(item.id)}
             />
@@ -195,18 +276,18 @@ export function PortalEstimateView({
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Optional Items
+            {t("estimate.optionalItems")}
           </h2>
           <div className="space-y-2">
             {optionalItems.map((item) => (
               <PortalLineItemCard
                 key={item.id}
                 name={item.name}
-                description={item.description}
-                quantity={item.quantity}
+                description={v.showDescriptions ? item.description : null}
+                quantity={v.showQuantities ? item.quantity : undefined}
                 unit={item.unit}
-                unitPrice={item.unitPrice}
-                lineTotal={item.lineTotal}
+                unitPrice={v.showUnitPrices ? item.unitPrice : undefined}
+                lineTotal={v.showLineTotals ? item.lineTotal : undefined}
                 isOptional={true}
                 hasQuestions={lineItemIdsWithQuestions.has(item.id)}
               />
@@ -228,7 +309,7 @@ export function PortalEstimateView({
           {/* Subtotal */}
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: "var(--portal-text-secondary)" }}>
-              Subtotal
+              {t("estimate.subtotal")}
             </span>
             <span style={{ color: "var(--portal-text)" }}>
               {formatCurrency(estimate.subtotal)}
@@ -236,14 +317,14 @@ export function PortalEstimateView({
           </div>
 
           {/* Discount */}
-          {estimate.discountAmount > 0 && (
+          {v.showDiscount && estimate.discountAmount > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span
                 className="flex items-center gap-1.5"
                 style={{ color: "var(--portal-text-secondary)" }}
               >
                 <Tag className="w-3.5 h-3.5" />
-                Discount
+                {t("estimate.discount")}
                 {estimate.discountType === "percentage" &&
                   estimate.discountValue != null && (
                     <span className="text-xs">({estimate.discountValue}%)</span>
@@ -256,14 +337,14 @@ export function PortalEstimateView({
           )}
 
           {/* Tax */}
-          {estimate.taxAmount > 0 && (
+          {v.showTax && estimate.taxAmount > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span
                 className="flex items-center gap-1.5"
                 style={{ color: "var(--portal-text-secondary)" }}
               >
                 <Percent className="w-3.5 h-3.5" />
-                Tax
+                {t("estimate.tax")}
                 {estimate.taxRate != null && (
                   <span className="text-xs">
                     ({(estimate.taxRate * 100).toFixed(2)}%)
@@ -294,7 +375,7 @@ export function PortalEstimateView({
                 color: "var(--portal-text)",
               }}
             >
-              Total
+              {t("estimate.total")}
             </span>
             <span
               className="text-lg font-bold"
@@ -315,7 +396,7 @@ export function PortalEstimateView({
                 style={{ color: "var(--portal-warning)" }}
               >
                 <Receipt className="w-3.5 h-3.5" />
-                Deposit required
+                {t("estimate.depositRequired")}
               </span>
               <span style={{ color: "var(--portal-warning)" }}>
                 {formatCurrency(estimate.depositAmount)}
@@ -326,7 +407,7 @@ export function PortalEstimateView({
       </div>
 
       {/* ── Terms & Conditions ──────────────────────────────────────────────── */}
-      {estimate.terms && (
+      {v.showTerms && estimate.terms && (
         <div
           className="rounded-xl"
           style={{
@@ -339,7 +420,7 @@ export function PortalEstimateView({
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            Terms &amp; Conditions
+            {t("estimate.termsConditions")}
           </h2>
           <p
             className="text-sm whitespace-pre-wrap"

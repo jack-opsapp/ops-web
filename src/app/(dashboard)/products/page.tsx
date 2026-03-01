@@ -34,8 +34,10 @@ import type { Product, CreateProduct } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 export default function ProductsPage() {
+  const { t } = useDictionary("dashboard");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
 
@@ -55,13 +57,13 @@ export default function ProductsPage() {
   useEffect(() => {
     setPageActions([
       {
-        label: "New Product",
+        label: t("products.newProduct"),
         icon: Plus,
         onClick: () => setShowModal(true),
       },
     ]);
     return () => setPageActions([]);
-  }, [setPageActions]);
+  }, [setPageActions, t]);
 
   // Filter products
   const filtered = useMemo(() => {
@@ -103,15 +105,15 @@ export default function ProductsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
-            Products & Services
+            {t("products.title")}
           </h1>
           <p className="font-mohave text-body-sm text-text-tertiary">
-            {stats.total} items — {stats.active} active, {stats.inactive} inactive
+            {stats.total} {t("products.items")} — {stats.active} {t("products.active")}, {stats.inactive} {t("products.inactive")}
           </p>
         </div>
         <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
           <Plus className="w-[14px] h-[14px]" />
-          New Item
+          {t("products.newItem")}
         </Button>
       </div>
 
@@ -122,7 +124,7 @@ export default function ProductsPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
+            placeholder={t("products.searchPlaceholder")}
             className="pl-7"
           />
         </div>
@@ -131,16 +133,16 @@ export default function ProductsPage() {
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-kosugi text-caption text-text-disabled">Loading...</span>
+          <span className="font-kosugi text-caption text-text-disabled">{t("products.loading")}</span>
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Package className="w-[32px] h-[32px]" />}
-          title="No products or services"
-          description={search ? "No items match your search." : "Add your first product or service to use in estimates and invoices."}
+          title={t("products.emptyTitle")}
+          description={search ? t("products.emptySearchDescription") : t("products.emptyDescription")}
           action={
             !search
-              ? { label: "Add Item", onClick: () => setShowModal(true) }
+              ? { label: t("products.addItem"), onClick: () => setShowModal(true) }
               : undefined
           }
         />
@@ -150,28 +152,28 @@ export default function ProductsPage() {
             <thead>
               <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Name
+                  {t("products.colName")}
                 </th>
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
-                  Unit
+                  {t("products.colUnit")}
                 </th>
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
-                  Category
+                  {t("products.colCategory")}
                 </th>
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
-                  Task Type
+                  {t("products.colTaskType")}
                 </th>
                 <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Price
+                  {t("products.colPrice")}
                 </th>
                 <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
-                  Cost
+                  {t("products.colCost")}
                 </th>
                 <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
-                  Taxable
+                  {t("products.colTaxable")}
                 </th>
                 <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest w-[80px]">
-                  Actions
+                  {t("products.colActions")}
                 </th>
               </tr>
             </thead>
@@ -250,7 +252,7 @@ export default function ProductsPage() {
                           : "bg-[rgba(156,163,175,0.1)] text-text-disabled"
                       )}
                     >
-                      {product.isTaxable ? "Yes" : "No"}
+                      {product.isTaxable ? t("products.yes") : t("products.no")}
                     </span>
                   </td>
 
@@ -260,18 +262,18 @@ export default function ProductsPage() {
                       <button
                         onClick={() => setEditingProduct(product)}
                         className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                        title="Edit"
+                        title={t("products.edit")}
                       >
                         <Pencil className="w-[14px] h-[14px]" />
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`Delete "${product.name}"?`)) {
+                          if (confirm(`${t("products.deleteConfirm")} "${product.name}"?`)) {
                             deleteProduct.mutate(product.id);
                           }
                         }}
                         className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                        title="Delete"
+                        title={t("products.delete")}
                       >
                         <Trash2 className="w-[14px] h-[14px]" />
                       </button>
@@ -324,6 +326,7 @@ function ProductFormModal({
   onCreate: (data: CreateProduct) => void;
   onUpdate: (id: string, data: Partial<CreateProduct>) => void;
 }) {
+  const { t } = useDictionary("dashboard");
   const isEditing = !!product;
   const { data: taskTypes = [] } = useTaskTypes();
 
@@ -394,7 +397,7 @@ function ProductFormModal({
       <DialogContent className="max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
-            {isEditing ? `Edit ${product?.name}` : "New Product / Service"}
+            {isEditing ? `${t("products.edit")} ${product?.name}` : t("products.newProductService")}
           </DialogTitle>
         </DialogHeader>
 
@@ -402,24 +405,24 @@ function ProductFormModal({
           {/* Name */}
           <div className="space-y-0.5">
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Name *
+              {t("products.labelName")} *
             </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. HVAC Installation"
+              placeholder={t("products.namePlaceholder")}
             />
           </div>
 
           {/* Description */}
           <div className="space-y-0.5">
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Description
+              {t("products.labelDescription")}
             </label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Default description for line items"
+              placeholder={t("products.descriptionPlaceholder")}
               rows={2}
             />
           </div>
@@ -428,7 +431,7 @@ function ProductFormModal({
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Default Price *
+                {t("products.labelDefaultPrice")} *
               </label>
               <Input
                 type="number"
@@ -440,7 +443,7 @@ function ProductFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Unit Cost
+                {t("products.labelUnitCost")}
               </label>
               <Input
                 type="number"
@@ -456,7 +459,7 @@ function ProductFormModal({
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Unit
+                {t("products.labelUnit")}
               </label>
               <select
                 value={unit}
@@ -470,12 +473,12 @@ function ProductFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                Category
+                {t("products.labelCategory")}
               </label>
               <Input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Labor, Materials"
+                placeholder={t("products.categoryPlaceholder")}
               />
             </div>
           </div>
@@ -483,14 +486,14 @@ function ProductFormModal({
           {/* Task Type */}
           <div className="space-y-0.5">
             <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-              Task Type
+              {t("products.labelTaskType")}
             </label>
             <select
               value={taskTypeId ?? ""}
               onChange={(e) => setTaskTypeId(e.target.value || null)}
               className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
             >
-              <option value="">None</option>
+              <option value="">{t("products.none")}</option>
               {taskTypes.map((tt) => (
                 <option key={tt.id} value={tt.id}>
                   {tt.display}
@@ -498,7 +501,7 @@ function ProductFormModal({
               ))}
             </select>
             <p className="font-kosugi text-[10px] text-text-disabled">
-              Associates this product with a task type for automatic assignment
+              {t("products.taskTypeHelp")}
             </p>
           </div>
 
@@ -511,7 +514,7 @@ function ProductFormModal({
                 onChange={(e) => setIsTaxable(e.target.checked)}
                 className="rounded border-border"
               />
-              <span className="font-kosugi text-caption text-text-secondary">Taxable</span>
+              <span className="font-kosugi text-caption text-text-secondary">{t("products.taxable")}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -520,7 +523,7 @@ function ProductFormModal({
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded border-border"
               />
-              <span className="font-kosugi text-caption text-text-secondary">Active</span>
+              <span className="font-kosugi text-caption text-text-secondary">{t("products.activeLabel")}</span>
             </label>
           </div>
 
@@ -528,7 +531,7 @@ function ProductFormModal({
           {margin !== null && (
             <div className="bg-[rgba(255,255,255,0.02)] border border-border rounded p-1.5">
               <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-                Margin:{" "}
+                {t("products.margin")}:{" "}
               </span>
               <span className="font-mono text-data-sm text-status-success">
                 {formatCurrency(defaultPrice - (unitCost || 0))} ({margin.toFixed(1)}%)
@@ -539,10 +542,10 @@ function ProductFormModal({
           {/* Actions */}
           <div className="flex justify-end gap-1.5 pt-1">
             <Button variant="ghost" size="sm" onClick={onClose}>
-              Cancel
+              {t("products.cancel")}
             </Button>
             <Button variant="default" size="sm" onClick={handleSubmit} disabled={!name.trim()}>
-              {isEditing ? "Update" : "Create"}
+              {isEditing ? t("products.update") : t("products.create")}
             </Button>
           </div>
         </div>

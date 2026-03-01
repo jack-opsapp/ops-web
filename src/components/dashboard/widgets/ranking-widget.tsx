@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useDictionary } from "@/i18n/client";
 import { Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useInvoices, useClients, useProjects } from "@/lib/hooks";
@@ -27,6 +28,7 @@ interface ClientRankingWidgetProps {
 }
 
 export function ClientRankingWidget({ size, config }: ClientRankingWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data: invoicesData } = useInvoices();
   const { data: clientsData } = useClients();
   const metric = (config.metric as RankingMetric) ?? "outstanding";
@@ -63,22 +65,22 @@ export function ClientRankingWidget({ size, config }: ClientRankingWidgetProps) 
 
     const entries: RankingEntry[] = [];
     for (const [id, amount] of agg) {
-      const name = clientMap.get(id) ?? "Unknown";
+      const name = clientMap.get(id) ?? t("ranking.unknown");
       entries.push({ id, name, amount });
     }
     entries.sort((a, b) => b.amount - a.amount);
     return entries;
-  }, [invoices, clients, metric]);
+  }, [invoices, clients, metric, t]);
 
   const metricLabels: Record<RankingMetric, string> = {
-    outstanding: "Outstanding",
-    collected: "Collected",
-    invoiced: "Invoiced",
+    outstanding: t("ranking.outstanding"),
+    collected: t("ranking.collected"),
+    invoiced: t("ranking.invoiced"),
   };
 
   return (
     <RankingDisplay
-      title="Top Clients"
+      title={t("ranking.topClients")}
       subtitle={metricLabels[metric]}
       entries={ranked}
       size={size}
@@ -96,6 +98,7 @@ interface ProjectRankingWidgetProps {
 }
 
 export function ProjectRankingWidget({ size, config }: ProjectRankingWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data: invoicesData } = useInvoices();
   const { data: projectsData } = useProjects();
   const metric = (config.metric as RankingMetric) ?? "outstanding";
@@ -132,22 +135,22 @@ export function ProjectRankingWidget({ size, config }: ProjectRankingWidgetProps
 
     const entries: RankingEntry[] = [];
     for (const [id, amount] of agg) {
-      const name = projectMap.get(id) ?? "Unknown";
+      const name = projectMap.get(id) ?? t("ranking.unknown");
       entries.push({ id, name, amount });
     }
     entries.sort((a, b) => b.amount - a.amount);
     return entries;
-  }, [invoices, projects, metric]);
+  }, [invoices, projects, metric, t]);
 
   const metricLabels: Record<RankingMetric, string> = {
-    outstanding: "Outstanding",
-    collected: "Collected",
-    invoiced: "Invoiced",
+    outstanding: t("ranking.outstanding"),
+    collected: t("ranking.collected"),
+    invoiced: t("ranking.invoiced"),
   };
 
   return (
     <RankingDisplay
-      title="Top Projects"
+      title={t("ranking.topProjects")}
       subtitle={metricLabels[metric]}
       entries={ranked}
       size={size}
@@ -168,6 +171,8 @@ interface RankingDisplayProps {
 }
 
 function RankingDisplay({ title, subtitle, entries, size, accentColor }: RankingDisplayProps) {
+  const { t } = useDictionary("dashboard");
+
   // XS — single top entry, left-aligned
   if (size === "xs") {
     const top = entries[0];
@@ -192,7 +197,7 @@ function RankingDisplay({ title, subtitle, entries, size, accentColor }: Ranking
             </p>
           </>
         ) : (
-          <p className="font-mono text-[11px] text-text-disabled">No data</p>
+          <p className="font-mono text-[11px] text-text-disabled">{t("ranking.noData")}</p>
         )}
       </div>
     );
@@ -220,7 +225,7 @@ function RankingDisplay({ title, subtitle, entries, size, accentColor }: Ranking
         <span className="font-mono text-[9px] text-text-disabled uppercase mb-[4px]">{subtitle}</span>
         <div className="flex flex-col gap-[3px] flex-1 min-h-0">
           {top3.length === 0 && (
-            <p className="font-mono text-[11px] text-text-disabled">No data</p>
+            <p className="font-mono text-[11px] text-text-disabled">{t("ranking.noData")}</p>
           )}
           {top3.map((entry, i) => (
             <div key={entry.id} className="flex items-center gap-[6px]">
@@ -265,7 +270,7 @@ function RankingDisplay({ title, subtitle, entries, size, accentColor }: Ranking
       </div>
       <div className="flex flex-col gap-[4px] flex-1 min-h-0 overflow-y-auto scrollbar-thin">
         {entries.length === 0 && (
-          <p className="font-mono text-[11px] text-text-disabled">No data</p>
+          <p className="font-mono text-[11px] text-text-disabled">{t("ranking.noData")}</p>
         )}
         {entries.map((entry, i) => (
           <div key={entry.id} className="flex items-center gap-[8px] py-[2px]">

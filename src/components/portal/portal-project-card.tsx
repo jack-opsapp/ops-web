@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { MapPin, Calendar, Image as ImageIcon } from "lucide-react";
 import { PortalStatusBadge } from "./portal-status-badge";
+import { useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 import type { PortalProject } from "@/lib/types/portal";
 
 interface PortalProjectCardProps {
   project: PortalProject;
 }
 
-function formatDate(date: Date | null): string {
+function formatDate(date: Date | null, locale: Locale): string {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString(getDateLocale(locale), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -19,6 +22,7 @@ function formatDate(date: Date | null): string {
 }
 
 export function PortalProjectCard({ project }: PortalProjectCardProps) {
+  const { locale } = useLocale();
   const thumbnail = project.projectImages?.[0];
 
   return (
@@ -80,8 +84,8 @@ export function PortalProjectCard({ project }: PortalProjectCardProps) {
             >
               <Calendar className="w-3.5 h-3.5 shrink-0" />
               <span>
-                {formatDate(project.startDate)}
-                {project.endDate && ` — ${formatDate(project.endDate)}`}
+                {formatDate(project.startDate, locale)}
+                {project.endDate && ` — ${formatDate(project.endDate, locale)}`}
               </span>
             </p>
           )}

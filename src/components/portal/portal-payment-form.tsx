@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/types/pipeline";
 import { CreditCard, Loader2, CheckCircle, AlertCircle, X } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 
 interface PortalPaymentFormProps {
   invoiceId: string;
@@ -23,6 +24,7 @@ export function PortalPaymentForm({
   onSuccess,
   onCancel,
 }: PortalPaymentFormProps) {
+  const { t } = useDictionary("portal");
   const [amount, setAmount] = useState(balanceDue.toFixed(2));
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -86,10 +88,10 @@ export function PortalPaymentForm({
             fontWeight: "var(--portal-heading-weight)",
           }}
         >
-          Payment Successful
+          {t("payment.success")}
         </h3>
         <p className="text-sm" style={{ color: "var(--portal-text-secondary)" }}>
-          Your payment of {formatCurrency(parsedAmount)} has been processed.
+          {t("payment.successDesc")}
         </p>
       </div>
     );
@@ -118,14 +120,14 @@ export function PortalPaymentForm({
               fontWeight: "var(--portal-heading-weight)",
             }}
           >
-            Make a Payment
+            {t("payment.title")}
           </h3>
         </div>
         <button
           onClick={onCancel}
           className="p-1 rounded transition-colors"
           style={{ color: "var(--portal-text-tertiary)" }}
-          aria-label="Close payment form"
+          aria-label={t("payment.closeForm")}
         >
           <X className="w-5 h-5" />
         </button>
@@ -141,7 +143,7 @@ export function PortalPaymentForm({
           }}
         >
           <span className="text-sm" style={{ color: "var(--portal-text-secondary)" }}>
-            Balance Due
+            {t("payment.balanceDue")}
           </span>
           <span className="text-lg font-bold" style={{ color: "var(--portal-warning)" }}>
             {formatCurrency(balanceDue)}
@@ -155,14 +157,14 @@ export function PortalPaymentForm({
             className="block text-sm font-medium mb-2"
             style={{ color: "var(--portal-text-secondary)" }}
           >
-            Payment Amount
+            {t("payment.amount")}
           </label>
           <div className="relative">
             <span
               className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
               style={{ color: "var(--portal-text-tertiary)" }}
             >
-              $
+              {t("payment.currencySymbol")}
             </span>
             <input
               id="payment-amount"
@@ -190,12 +192,12 @@ export function PortalPaymentForm({
           </div>
           {parsedAmount > balanceDue && (
             <p className="text-xs mt-1" style={{ color: "var(--portal-error)" }}>
-              Amount cannot exceed the balance due of {formatCurrency(balanceDue)}
+              {t("payment.exceedsBalance")} {formatCurrency(balanceDue)}
             </p>
           )}
           {parsedAmount > 0 && parsedAmount < balanceDue && (
             <p className="text-xs mt-1" style={{ color: "var(--portal-text-tertiary)" }}>
-              Partial payment: {formatCurrency(balanceDue - parsedAmount)} will remain
+              {formatCurrency(balanceDue - parsedAmount)} {t("payment.partialPayment")}
             </p>
           )}
         </div>
@@ -215,10 +217,10 @@ export function PortalPaymentForm({
             style={{ color: "var(--portal-text-tertiary)" }}
           />
           <p className="text-sm font-medium mb-1" style={{ color: "var(--portal-text-secondary)" }}>
-            Online payments coming soon
+            {t("payment.comingSoon")}
           </p>
           <p className="text-xs" style={{ color: "var(--portal-text-tertiary)" }}>
-            Contact your service provider for payment instructions.
+            {t("payment.contactProvider")}
           </p>
         </div>
 
@@ -250,7 +252,7 @@ export function PortalPaymentForm({
             cursor: "not-allowed",
           }}
         >
-          Pay {isValidAmount ? formatCurrency(parsedAmount) : ""}
+          {t("payment.pay")} {isValidAmount ? formatCurrency(parsedAmount) : ""}
         </button>
       </form>
     </div>

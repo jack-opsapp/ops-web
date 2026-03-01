@@ -23,6 +23,7 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import {
   useProjects,
@@ -86,22 +87,23 @@ import { ClientRankingWidget, ProjectRankingWidget } from "@/components/dashboar
 // ---------------------------------------------------------------------------
 // Greeting helper
 // ---------------------------------------------------------------------------
-function getGreeting(): string {
+function getGreeting(t: (key: string) => string): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+  if (hour < 12) return t("greeting.morning");
+  if (hour < 17) return t("greeting.afternoon");
+  return t("greeting.evening");
 }
 
 // ---------------------------------------------------------------------------
 // Placeholder widget for types not yet implemented
 // ---------------------------------------------------------------------------
 function PlaceholderWidget({ typeId, label }: { typeId: string; label: string }) {
+  const { t } = useDictionary("dashboard");
   return (
     <div className="h-full rounded-lg bg-background-card border border-border p-2 flex flex-col items-center justify-center">
       <span className="font-mono text-micro text-text-disabled uppercase">{typeId}</span>
       <span className="font-mohave text-body-sm text-text-tertiary mt-[4px]">{label}</span>
-      <span className="font-mono text-[9px] text-text-disabled mt-1">Coming soon</span>
+      <span className="font-mono text-[9px] text-text-disabled mt-1">{t("widgets.comingSoon")}</span>
     </div>
   );
 }
@@ -133,6 +135,7 @@ const customCollisionDetection: CollisionDetection = (args) => {
 // Dashboard Page
 // ---------------------------------------------------------------------------
 export default function DashboardPage() {
+  const { t } = useDictionary("dashboard");
   const [mounted, setMounted] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
@@ -668,11 +671,11 @@ export default function DashboardPage() {
                   (e.target as HTMLElement).classList.add("typewriter-done");
                 }}
               >
-                {getGreeting()}, {firstName}
+                {getGreeting(t)}, {firstName}
               </span>
             </p>
             <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase">
-              Here&apos;s your operational overview for today.
+              {t("greeting.subtitle")}
             </p>
           </div>
           <Button
@@ -687,12 +690,12 @@ export default function DashboardPage() {
             {isCustomizing ? (
               <>
                 <Check className="w-[14px] h-[14px]" />
-                Done
+                {t("widgets.done")}
               </>
             ) : (
               <>
                 <SlidersHorizontal className="w-[14px] h-[14px]" />
-                Customize
+                {t("widgets.customize")}
               </>
             )}
           </Button>
@@ -733,7 +736,7 @@ export default function DashboardPage() {
             onClick={() => setTrayOpen(true)}
             className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-secondary font-mohave text-body-sm hover:text-text-primary hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
           >
-            Open Widget Tray
+            {t("widgets.openTray")}
           </button>
         )}
       </div>

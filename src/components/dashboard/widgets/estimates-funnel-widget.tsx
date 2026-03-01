@@ -8,6 +8,9 @@ import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate } from "@/lib/types/pipeline";
 import { useEstimates } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -23,20 +26,20 @@ interface EstimatesFunnelWidgetProps {
 
 /** Funnel stages in lifecycle order */
 const FUNNEL_STAGES = [
-  { key: EstimateStatus.Draft, label: "Draft" },
-  { key: EstimateStatus.Sent, label: "Sent" },
-  { key: EstimateStatus.Viewed, label: "Viewed" },
-  { key: EstimateStatus.Approved, label: "Approved" },
+  { key: EstimateStatus.Draft, labelKey: "estimatesFunnel.stageDraft" },
+  { key: EstimateStatus.Sent, labelKey: "estimatesFunnel.stageSent" },
+  { key: EstimateStatus.Viewed, labelKey: "estimatesFunnel.stageViewed" },
+  { key: EstimateStatus.Approved, labelKey: "estimatesFunnel.stageApproved" },
 ] as const;
 
 /** Opacity gradient: lightest at Draft, darkest at Approved */
 const STAGE_OPACITY = [0.4, 0.6, 0.8, 1.0];
 
-function formatCurrency(amount: number): string {
+function formatCurrency(amount: number, locale: Locale): string {
   if (amount >= 1000) {
     return `$${(amount / 1000).toFixed(amount >= 10000 ? 0 : 1)}k`;
   }
-  return amount.toLocaleString("en-US", {
+  return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
@@ -57,6 +60,8 @@ function daysBetween(a: Date | string | null, b: Date | string | null): number |
 // ---------------------------------------------------------------------------
 
 export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const { data: estimates, isLoading } = useEstimates();
 
   // Count estimates at each stage (including those that passed through)
@@ -64,6 +69,7 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
     if (!estimates) {
       return FUNNEL_STAGES.map((s) => ({
         ...s,
+        label: t(s.labelKey),
         count: 0,
         totalValue: 0,
       }));
@@ -111,11 +117,12 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
       const matching = activeEstimates.filter((e) => reachedStage(e, stage.key));
       return {
         ...stage,
+        label: t(stage.labelKey),
         count: matching.length,
         totalValue: matching.reduce((sum, e) => sum + e.total, 0),
       };
     });
-  }, [estimates]);
+  }, [estimates, t]);
 
   // Conversion rates between adjacent stages
   const conversions = useMemo(() => {
@@ -177,10 +184,10 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-subtitle">
-            Estimate Conversion
+            {t("estimatesFunnel.title")}
           </CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${funnelData[0]?.count ?? 0} total`}
+            {isLoading ? "..." : `${funnelData[0]?.count ?? 0} ${t("estimatesFunnel.total")}`}
           </span>
         </div>
       </CardHeader>
@@ -189,7 +196,7 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading funnel...
+              {t("estimatesFunnel.loading")}
             </span>
           </div>
         ) : (
@@ -224,7 +231,7 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
                   {/* Value (LG only) */}
                   {size === "lg" && (
                     <span className="font-mono text-[11px] text-text-tertiary w-[50px] shrink-0 text-right">
-                      {formatCurrency(stage.totalValue)}
+                      {formatCurrency(stage.totalValue, locale)}
                     </span>
                   )}
                 </div>
@@ -240,7 +247,7 @@ export function EstimatesFunnelWidget({ size }: EstimatesFunnelWidgetProps) {
                       </span>
                       {avgTimes && avgTimes[i] !== null && (
                         <span className="font-mono text-[10px] text-text-disabled ml-1">
-                          avg {avgTimes[i]}d
+                          {t("estimatesFunnel.avg")} {avgTimes[i]}{t("estimatesFunnel.daysAbbrev")}
                         </span>
                       )}
                     </div>

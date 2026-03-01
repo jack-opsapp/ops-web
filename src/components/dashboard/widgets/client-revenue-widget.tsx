@@ -8,6 +8,9 @@ import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { Invoice } from "@/lib/types/pipeline";
 import { useClients, useInvoices } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -24,14 +27,14 @@ interface ClientRevenueWidgetProps {
 
 type Period = "all-time" | "ytd" | "this-month";
 
-const PERIOD_LABEL: Record<Period, string> = {
-  "all-time": "All Time",
-  ytd: "Year to Date",
-  "this-month": "This Month",
+const PERIOD_LABEL_KEYS: Record<Period, string> = {
+  "all-time": "clientRevenue.periodAllTime",
+  ytd: "clientRevenue.periodYtd",
+  "this-month": "clientRevenue.periodThisMonth",
 };
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("en-US", {
+function formatCurrency(amount: number, locale: Locale): string {
+  return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
@@ -62,6 +65,8 @@ function isInPeriod(paidAt: Date | string | null, period: Period): boolean {
 // ---------------------------------------------------------------------------
 
 export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const period = (config.period as Period) ?? "all-time";
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: invoices, isLoading: invoicesLoading } = useInvoices();
@@ -93,13 +98,13 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
     const entries = Object.entries(revenueMap)
       .map(([clientId, amount]) => ({
         clientId,
-        name: clientNameMap[clientId] ?? "Unknown Client",
+        name: clientNameMap[clientId] ?? t("clientRevenue.unknownClient"),
         amount,
       }))
       .sort((a, b) => b.amount - a.amount);
 
     return entries;
-  }, [invoices, period, clientNameMap]);
+  }, [invoices, period, clientNameMap, t]);
 
   const maxItems = size === "lg" ? 7 : 3;
   const displayed = rankedClients.slice(0, maxItems);
@@ -109,9 +114,9 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Client Revenue</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("clientRevenue.title")}</CardTitle>
           <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-tertiary">
-            {PERIOD_LABEL[period]}
+            {t(PERIOD_LABEL_KEYS[period])}
           </span>
         </div>
       </CardHeader>
@@ -120,12 +125,12 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading revenue...
+              {t("clientRevenue.loading")}
             </span>
           </div>
         ) : displayed.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No paid invoices in this period
+            {t("clientRevenue.empty")}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -146,7 +151,7 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
                       {entry.name}
                     </span>
                     <span className="font-mono text-[11px] text-text-secondary shrink-0 ml-1">
-                      {formatCurrency(entry.amount)}
+                      {formatCurrency(entry.amount, locale)}
                     </span>
                   </div>
 
@@ -169,7 +174,7 @@ export function ClientRevenueWidget({ size, config }: ClientRevenueWidgetProps) 
             ))}
             {rankedClients.length > maxItems && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{rankedClients.length - maxItems} more
+                +{rankedClients.length - maxItems} {t("clientRevenue.more")}
               </span>
             )}
           </div>

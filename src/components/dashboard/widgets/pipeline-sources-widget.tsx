@@ -7,6 +7,7 @@ import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { OpportunitySource } from "@/lib/types/pipeline";
 import { useOpportunities } from "@/lib/hooks";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -42,6 +43,7 @@ function formatSourceLabel(source: string): string {
 // ---------------------------------------------------------------------------
 
 export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const { data: opportunities, isLoading } = useOpportunities();
 
   const sourceData = useMemo(() => {
@@ -79,10 +81,10 @@ export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <PieChart className="w-[14px] h-[14px] text-text-tertiary" />
-            <CardTitle className="text-card-subtitle">Lead Sources</CardTitle>
+            <CardTitle className="text-card-subtitle">{t("pipelineSources.title")}</CardTitle>
           </div>
           <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${sourceData.length} sources`}
+            {isLoading ? "..." : `${sourceData.length} ${t("pipelineSources.sources")}`}
           </span>
         </div>
       </CardHeader>
@@ -91,12 +93,12 @@ export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading sources...
+              {t("pipelineSources.loading")}
             </span>
           </div>
         ) : sourceData.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No opportunity sources
+            {t("pipelineSources.empty")}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -125,7 +127,7 @@ export function PipelineSourcesWidget({ size }: PipelineSourcesWidgetProps) {
             })}
             {sourceData.length > 4 && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{sourceData.length - 4} more
+                +{sourceData.length - 4} {t("pipelineSources.more")}
               </span>
             )}
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus, Target } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ export function PipelineColumn({
   onAddLead,
   narrow = false,
 }: PipelineColumnProps) {
+  const { t } = useDictionary("pipeline");
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
   const stageColor = getStageColor(stage);
@@ -50,9 +52,9 @@ export function PipelineColumn({
   /** Resolve display name for an opportunity */
   const resolveClientName = (opp: Opportunity): string => {
     if (opp.clientId) {
-      return clientMap.get(opp.clientId)?.name ?? opp.contactName ?? "Unknown";
+      return clientMap.get(opp.clientId)?.name ?? opp.contactName ?? t("card.unknown");
     }
-    return opp.contactName ?? "New Lead";
+    return opp.contactName ?? t("newLead");
   };
 
   return (
@@ -83,7 +85,7 @@ export function PipelineColumn({
             <button
               onClick={onAddLead}
               className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors cursor-pointer"
-              title="Add new lead"
+              title={t("column.addNewLead")}
             >
               <Plus className="w-[14px] h-[14px]" />
             </button>
@@ -128,10 +130,10 @@ export function PipelineColumn({
               <Target className="w-[14px] h-[14px] text-text-disabled" />
             </div>
             <span className="font-kosugi text-[11px] text-text-disabled">
-              No deals in this stage
+              {t("column.noDeals")}
             </span>
             <span className="font-kosugi text-[9px] text-text-disabled">
-              Drop here to move
+              {t("column.dropHere")}
             </span>
           </div>
         )}

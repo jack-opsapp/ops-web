@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useInvoices } from "@/lib/hooks";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -29,15 +32,15 @@ interface AgingBucket {
 }
 
 const BUCKET_DEFS = [
-  { label: "Current", color: "var(--ops-accent, #8195B5)", bgClass: "bg-ops-accent" },
-  { label: "1–30", color: "var(--ops-amber, #C4A868)", bgClass: "bg-ops-amber" },
-  { label: "31–60", color: "#F97316", bgClass: "bg-[#F97316]" },
-  { label: "61–90", color: "rgba(var(--ops-error-rgb, 181,130,137), 0.7)", bgClass: "bg-ops-error/70" },
-  { label: "90+", color: "var(--ops-error, #B58289)", bgClass: "bg-ops-error" },
+  { labelKey: "invoiceAging.bucketCurrent", color: "var(--ops-accent, #8195B5)", bgClass: "bg-ops-accent" },
+  { labelKey: "invoiceAging.bucket1to30", color: "var(--ops-amber, #C4A868)", bgClass: "bg-ops-amber" },
+  { labelKey: "invoiceAging.bucket31to60", color: "#F97316", bgClass: "bg-[#F97316]" },
+  { labelKey: "invoiceAging.bucket61to90", color: "rgba(var(--ops-error-rgb, 181,130,137), 0.7)", bgClass: "bg-ops-error/70" },
+  { labelKey: "invoiceAging.bucket90plus", color: "var(--ops-error, #B58289)", bgClass: "bg-ops-error" },
 ] as const;
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("en-US", {
+function formatCurrency(amount: number, locale: Locale): string {
+  return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
@@ -50,6 +53,8 @@ function formatCurrency(amount: number): string {
 // ---------------------------------------------------------------------------
 
 export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
+  const { t } = useDictionary("dashboard");
+  const { locale } = useLocale();
   const { data: invoices, isLoading } = useInvoices();
 
   const buckets: AgingBucket[] = useMemo(() => {
@@ -66,7 +71,9 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
 
     // Initialise buckets
     const result: AgingBucket[] = BUCKET_DEFS.map((def) => ({
-      ...def,
+      label: t(def.labelKey),
+      color: def.color,
+      bgClass: def.bgClass,
       count: 0,
       amount: 0,
     }));
@@ -95,7 +102,7 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
     }
 
     return result;
-  }, [invoices]);
+  }, [invoices, t]);
 
   const totalAmount = useMemo(
     () => buckets.reduce((sum, b) => sum + b.amount, 0),
@@ -112,11 +119,11 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
     <Card className="p-2 h-full flex flex-col">
       <CardHeader className="pb-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Invoice Aging</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("invoiceAging.title")}</CardTitle>
           <span className="font-mono text-[11px] text-text-tertiary">
             {isLoading
               ? "..."
-              : `${totalCount} \u00B7 ${formatCurrency(totalAmount)}`}
+              : `${totalCount} \u00B7 ${formatCurrency(totalAmount, locale)}`}
           </span>
         </div>
       </CardHeader>
@@ -125,12 +132,12 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading aging data...
+              {t("invoiceAging.loading")}
             </span>
           </div>
         ) : totalCount === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No outstanding invoices
+            {t("invoiceAging.empty")}
           </p>
         ) : (
           <>
@@ -173,15 +180,15 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
                     />
                     <span className="font-mohave text-body-sm text-text-secondary">
                       {bucket.label}
-                      {i > 0 ? " days" : ""}
+                      {i > 0 ? ` ${t("invoiceAging.days")}` : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono text-[11px] text-text-tertiary">
-                      {bucket.count} inv
+                      {bucket.count} {t("invoiceAging.inv")}
                     </span>
                     <span className="font-mono text-body-sm text-text-primary font-medium">
-                      {formatCurrency(bucket.amount)}
+                      {formatCurrency(bucket.amount, locale)}
                     </span>
                   </div>
                 </div>
@@ -192,7 +199,7 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
             {size === "lg" && totalAmount > 0 && (
               <div className="mt-2 pt-2 border-t border-border">
                 <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                  Distribution
+                  {t("invoiceAging.distribution")}
                 </span>
                 <div className="space-y-[4px] mt-1">
                   {buckets
@@ -209,7 +216,7 @@ export function InvoiceAgingWidget({ size }: InvoiceAgingWidgetProps) {
                           />
                           <span className="font-mohave text-[12px] text-text-tertiary flex-1">
                             {bucket.label}
-                            {i > 0 ? " days" : ""}
+                            {i > 0 ? ` ${t("invoiceAging.days")}` : ""}
                           </span>
                           <span className="font-mono text-[11px] text-text-secondary">
                             {pct}%

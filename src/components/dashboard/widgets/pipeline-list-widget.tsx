@@ -13,6 +13,7 @@ import {
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useOpportunities } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -35,13 +36,13 @@ type StageFilter =
   | "proposal_sent"
   | "negotiation";
 
-const FILTER_LABEL: Record<StageFilter, string> = {
-  "all-active": "Active Pipeline",
-  new_lead: "New Leads",
-  contacted: "Contacted",
-  qualified: "Qualified",
-  proposal_sent: "Proposal Sent",
-  negotiation: "Negotiation",
+const FILTER_LABEL_KEYS: Record<StageFilter, string> = {
+  "all-active": "pipelineList.filterActivePipeline",
+  new_lead: "pipelineList.filterNewLeads",
+  contacted: "pipelineList.filterContacted",
+  qualified: "pipelineList.filterQualified",
+  proposal_sent: "pipelineList.filterProposalSent",
+  negotiation: "pipelineList.filterNegotiation",
 };
 
 /** Map config filter values to actual OpportunityStage enum values */
@@ -92,6 +93,7 @@ function daysInStage(stageEnteredAt: Date | string): number {
 // ---------------------------------------------------------------------------
 
 export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
+  const { t } = useDictionary("dashboard");
   const filter = (config.stageFilter as StageFilter) ?? "all-active";
   const { data: opportunities, isLoading } = useOpportunities();
 
@@ -112,7 +114,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       <Card className="p-2 h-full flex flex-col">
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">
-            {FILTER_LABEL[filter]}
+            {t(FILTER_LABEL_KEYS[filter])}
           </CardTitle>
         </CardHeader>
         <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
@@ -120,7 +122,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             <div className="flex items-center gap-1">
               <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled">
-                Loading...
+                {t("pipelineList.loadingShort")}
               </span>
             </div>
           ) : (
@@ -159,7 +161,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             <div className="flex items-center gap-1">
               <List className="w-[14px] h-[14px] text-text-tertiary" />
               <CardTitle className="text-card-subtitle">
-                {FILTER_LABEL[filter]}
+                {t(FILTER_LABEL_KEYS[filter])}
               </CardTitle>
             </div>
             <span className="font-mono text-[11px] text-text-tertiary">
@@ -174,12 +176,12 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
               <span className="font-mono text-[11px] text-text-disabled ml-1">
-                Loading pipeline...
+                {t("pipelineList.loading")}
               </span>
             </div>
           ) : filtered.length === 0 ? (
             <p className="font-mohave text-body-sm text-text-disabled py-2">
-              No opportunities
+              {t("pipelineList.empty")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -210,7 +212,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                       ))}
                       {group.items.length > visibleItems.length && (
                         <span className="font-mono text-[11px] text-text-disabled block px-1">
-                          +{group.items.length - visibleItems.length} more
+                          +{group.items.length - visibleItems.length} {t("pipelineList.more")}
                         </span>
                       )}
                     </div>
@@ -232,7 +234,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           <div className="flex items-center gap-1">
             <List className="w-[14px] h-[14px] text-text-tertiary" />
             <CardTitle className="text-card-subtitle">
-              {FILTER_LABEL[filter]}
+              {t(FILTER_LABEL_KEYS[filter])}
             </CardTitle>
           </div>
           <span className="font-mono text-[11px] text-text-tertiary">
@@ -247,12 +249,12 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
             <span className="font-mono text-[11px] text-text-disabled ml-1">
-              Loading pipeline...
+              {t("pipelineList.loading")}
             </span>
           </div>
         ) : filtered.length === 0 ? (
           <p className="font-mohave text-body-sm text-text-disabled py-2">
-            No opportunities
+            {t("pipelineList.empty")}
           </p>
         ) : (
           <div className="space-y-[6px]">
@@ -261,7 +263,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             ))}
             {filtered.length > 3 && (
               <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{filtered.length - 3} more
+                +{filtered.length - 3} {t("pipelineList.more")}
               </span>
             )}
           </div>
@@ -276,6 +278,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
 // ---------------------------------------------------------------------------
 
 function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
+  const { t } = useDictionary("dashboard");
   const days = daysInStage(opportunity.stageEnteredAt);
 
   return (
@@ -285,7 +288,7 @@ function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
           {opportunity.title}
         </p>
         <span className="font-mono text-[11px] text-text-tertiary">
-          {opportunity.contactName ?? "Unknown"}
+          {opportunity.contactName ?? t("pipelineList.unknown")}
         </span>
       </div>
       <span className="font-mono text-[11px] text-text-secondary shrink-0">

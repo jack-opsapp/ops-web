@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import {
   WIDGET_TYPE_REGISTRY,
@@ -19,6 +20,7 @@ interface WidgetTrayCardProps {
 }
 
 export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardProps) {
+  const { t } = useDictionary("dashboard");
   const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -57,7 +59,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
       <div className="flex items-center justify-between mt-[4px]">
         {isAdded ? (
           <div className="flex items-center gap-[4px]">
-            <span className="font-mono text-[8px] text-text-disabled">Added</span>
+            <span className="font-mono text-[8px] text-text-disabled">{t("tray.card.added")}</span>
             {entry.allowMultiple && instanceCount > 1 && (
               <span className="font-mono text-[8px] px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-disabled">
                 {instanceCount}x
@@ -65,7 +67,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
             )}
           </div>
         ) : (
-          <span className="font-mono text-[8px] text-text-disabled">Drag or tap +</span>
+          <span className="font-mono text-[8px] text-text-disabled">{t("tray.card.dragHint")}</span>
         )}
 
         {canAddMore && (
@@ -82,7 +84,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
                 ? "bg-transparent text-text-disabled border-border/50 hover:bg-[rgba(255,255,255,0.06)]"
                 : "bg-ops-accent/10 text-ops-accent border-ops-accent/20 hover:bg-ops-accent/20"
             )}
-            title={`Add ${entry.label}`}
+            title={`${t("tray.card.addTitle")} ${entry.label}`}
           >
             <Plus className="w-[10px] h-[10px]" />
           </button>

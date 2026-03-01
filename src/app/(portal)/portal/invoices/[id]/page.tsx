@@ -5,8 +5,13 @@ import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useDictionary } from "@/i18n/client";
 import { PortalInvoiceView } from "@/components/portal/portal-invoice-view";
 import { PortalPaymentForm } from "@/components/portal/portal-payment-form";
+import { usePortalData } from "@/lib/hooks/use-portal-data";
+import { getFieldVisibility } from "@/lib/portal/resolve-template-branding";
+import type { DocumentTemplate } from "@/lib/types/document-template";
+import type { DocumentPartyInfo } from "@/components/portal/portal-invoice-view";
 
 interface InvoiceLineItem {
   id: string;
@@ -43,13 +48,17 @@ interface InvoiceDetail {
   lineItems: InvoiceLineItem[];
   payments: InvoicePayment[];
   projectId: string | null;
+  template: DocumentTemplate | null;
 }
 
 export default function InvoiceDetailPage() {
+  const { t } = useDictionary("portal");
   const params = useParams();
   const id = params.id as string;
   const queryClient = useQueryClient();
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+
+  const { data: portalData } = usePortalData();
 
   const { data: invoice, isLoading, error } = useQuery<InvoiceDetail>({
     queryKey: ["portal", "invoice", id],
@@ -78,7 +87,7 @@ export default function InvoiceDetailPage() {
     return (
       <div className="text-center py-20">
         <p style={{ color: "var(--portal-text-secondary)" }}>
-          Unable to load this invoice. Please try refreshing.
+          {t("invoice.loadError")}
         </p>
         <Link
           href="/portal/home"
@@ -86,7 +95,7 @@ export default function InvoiceDetailPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t("invoice.backHome")}
         </Link>
       </div>
     );
@@ -98,6 +107,26 @@ export default function InvoiceDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["portal", "data"] });
   }
 
+  // Build company/client info for From/To sections
+  const companyInfo: DocumentPartyInfo | null = portalData?.company
+    ? {
+        name: portalData.company.name,
+        phone: portalData.company.phone,
+        email: portalData.company.email,
+      }
+    : null;
+
+  const clientInfo: DocumentPartyInfo | null = portalData?.client
+    ? {
+        name: portalData.client.name,
+        email: portalData.client.email,
+        phone: portalData.client.phoneNumber,
+        address: portalData.client.address,
+      }
+    : null;
+
+  const fieldVisibility = getFieldVisibility(invoice.template);
+
   return (
     <div className="space-y-6">
       {/* Back navigation */}
@@ -107,11 +136,16 @@ export default function InvoiceDetailPage() {
         style={{ color: "var(--portal-text-secondary)" }}
       >
         <ArrowLeft className="w-4 h-4" />
-        Back
+        {t("invoice.back")}
       </Link>
 
       {/* Invoice content */}
-      <PortalInvoiceView invoice={invoice} />
+      <PortalInvoiceView
+        invoice={invoice}
+        fieldVisibility={fieldVisibility}
+        companyInfo={companyInfo}
+        clientInfo={clientInfo}
+      />
 
       {/* Pay Now button */}
       {invoice.balanceDue > 0 && !showPaymentForm && (
@@ -125,7 +159,7 @@ export default function InvoiceDetailPage() {
               borderRadius: "var(--portal-radius)",
             }}
           >
-            Pay Now
+            {t("invoice.payNow")}
           </button>
         </div>
       )}

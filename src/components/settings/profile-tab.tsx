@@ -9,8 +9,10 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useCurrentUser, useUpdateUser, useImageUpload } from "@/lib/hooks";
 import { getUserFullName } from "@/lib/types/models";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
 export function ProfileTab() {
+  const { t } = useDictionary("settings");
   const { currentUser } = useAuthStore();
   const { data: freshUser, isLoading: isUserLoading } = useCurrentUser();
   const updateUser = useUpdateUser();
@@ -22,11 +24,11 @@ export function ProfileTab() {
       if (user) {
         updateUser.mutate(
           { id: user.id, data: { profileImageURL: url } },
-          { onSuccess: () => toast.success("Profile photo updated") }
+          { onSuccess: () => toast.success(t("profile.toast.photoUpdated")) }
         );
       }
     },
-    onError: () => toast.error("Failed to upload photo"),
+    onError: () => toast.error(t("profile.toast.photoFailed")),
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,11 +63,11 @@ export function ProfileTab() {
       },
       {
         onSuccess: () => {
-          toast.success("Profile updated successfully");
+          toast.success(t("profile.toast.updated"));
         },
         onError: (error) => {
-          toast.error("Failed to update profile", {
-            description: error instanceof Error ? error.message : "Please try again.",
+          toast.error(t("profile.toast.updateFailed"), {
+            description: error instanceof Error ? error.message : t("profile.toast.tryAgain"),
           });
         },
       }
@@ -118,7 +120,7 @@ export function ProfileTab() {
             />
           </div>
           <div>
-            <h3 className="font-mohave text-card-title text-text-primary">{name || "Your Name"}</h3>
+            <h3 className="font-mohave text-card-title text-text-primary">{name || t("profile.defaultName")}</h3>
             <p className="font-mono text-data-sm text-text-tertiary">{email}</p>
           </div>
         </CardContent>
@@ -126,33 +128,33 @@ export function ProfileTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Profile Information</CardTitle>
+          <CardTitle>{t("profile.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Input
-            label="Full Name"
+            label={t("profile.fullName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
+            placeholder={t("profile.namePlaceholder")}
           />
           <Input
-            label="Email"
+            label={t("profile.email")}
             value={email}
             disabled
-            helperText="Email cannot be changed"
+            helperText={t("profile.emailHelper")}
           />
           <Input
-            label="Phone"
+            label={t("profile.phone")}
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="(555) 123-4567"
+            placeholder={t("profile.phonePlaceholder")}
           />
           <Input
-            label="Role"
+            label={t("profile.role")}
             value={useAuthStore.getState().role}
             disabled
-            helperText="Role is managed by your company admin"
+            helperText={t("profile.roleHelper")}
           />
           <div className="pt-1">
             <Button onClick={handleSave} loading={updateUser.isPending} className="gap-[6px]">

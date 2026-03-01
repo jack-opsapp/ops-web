@@ -2,20 +2,22 @@
 
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDictionary } from "@/i18n/client";
 
 export function ActivityWidget() {
+  const { t } = useDictionary("dashboard");
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">Recent Activity</CardTitle>
+          <CardTitle className="text-card-subtitle">{t("activity.title")}</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden min-h-0">
         <div className="space-y-[4px]">
           {[
             {
-              text: "Activity feed coming soon",
+              text: t("activity.comingSoon"),
               time: "--",
               type: "update",
             },

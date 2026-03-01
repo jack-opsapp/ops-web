@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useDictionary } from "@/i18n/client";
 import {
   Loader2,
   ArrowLeft,
@@ -26,6 +27,7 @@ interface QuestionGroup {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EstimateQuestionsPage() {
+  const { t } = useDictionary("portal");
   const params = useParams();
   const id = params.id as string;
 
@@ -161,7 +163,7 @@ export default function EstimateQuestionsPage() {
     return (
       <div className="text-center py-20">
         <p style={{ color: "var(--portal-text-secondary)" }}>
-          Unable to load questions. Please try refreshing the page.
+          {t("questions.loadError")}
         </p>
         <Link
           href={`/portal/estimates/${id}`}
@@ -169,7 +171,7 @@ export default function EstimateQuestionsPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to estimate
+          {t("questions.backToEstimate")}
         </Link>
       </div>
     );
@@ -185,7 +187,7 @@ export default function EstimateQuestionsPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to estimate
+          {t("questions.backToEstimate")}
         </Link>
 
         <div
@@ -200,7 +202,7 @@ export default function EstimateQuestionsPage() {
             className="text-sm"
             style={{ color: "var(--portal-text-secondary)" }}
           >
-            There are no questions for this estimate.
+            {t("questions.empty")}
           </p>
         </div>
       </div>
@@ -217,7 +219,7 @@ export default function EstimateQuestionsPage() {
           style={{ color: "var(--portal-accent)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to estimate
+          {t("questions.backToEstimate")}
         </Link>
 
         <div
@@ -242,13 +244,13 @@ export default function EstimateQuestionsPage() {
               color: "var(--portal-text)",
             }}
           >
-            Thanks! Your answers have been submitted.
+            {t("questions.thankYou")}
           </p>
           <p
             className="text-sm"
             style={{ color: "var(--portal-text-secondary)" }}
           >
-            Your provider has been notified and will follow up if needed.
+            {t("questions.providerNotified")}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
             <Link
@@ -259,14 +261,14 @@ export default function EstimateQuestionsPage() {
                 color: "var(--portal-accent-text, #fff)",
               }}
             >
-              View Estimate
+              {t("questions.viewEstimate")}
             </Link>
             <Link
               href="/portal/home"
               className="inline-flex items-center gap-2 text-sm"
               style={{ color: "var(--portal-accent)" }}
             >
-              Return to portal home
+              {t("questions.returnHome")}
             </Link>
           </div>
         </div>
@@ -289,7 +291,7 @@ export default function EstimateQuestionsPage() {
         style={{ color: "var(--portal-accent)" }}
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to estimate
+        {t("questions.backToEstimate")}
       </Link>
 
       {/* Header */}
@@ -315,14 +317,14 @@ export default function EstimateQuestionsPage() {
                 "var(--portal-heading-transform)" as React.CSSProperties["textTransform"],
             }}
           >
-            Questions
+            {t("questions.title")}
           </h1>
         </div>
         <p
           className="text-sm ml-8"
           style={{ color: "var(--portal-text-secondary)" }}
         >
-          {estimate && `For Estimate #${estimate.estimateNumber}`}
+          {estimate && <>{t("questions.forEstimate")} #{estimate.estimateNumber}</>}
           {estimate?.title && ` — ${estimate.title}`}
         </p>
         {requiredCount > 0 && (
@@ -330,8 +332,7 @@ export default function EstimateQuestionsPage() {
             className="text-xs ml-8 mt-1"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            {answeredRequiredCount} of {requiredCount} required question
-            {requiredCount !== 1 ? "s" : ""} answered
+            {t("questions.progress")}
           </p>
         )}
       </div>
@@ -397,7 +398,7 @@ export default function EstimateQuestionsPage() {
             className="text-sm mb-3 text-center"
             style={{ color: "var(--portal-error)" }}
           >
-            Please answer all required questions before submitting.
+            {t("questions.validationError")}
           </p>
         )}
 
@@ -417,7 +418,7 @@ export default function EstimateQuestionsPage() {
           ) : (
             <Send className="w-4 h-4" />
           )}
-          {submitMutation.isPending ? "Submitting..." : "Submit Answers"}
+          {submitMutation.isPending ? t("questions.submitting") : t("questions.submit")}
         </button>
 
         {submitMutation.isError && (
@@ -426,7 +427,7 @@ export default function EstimateQuestionsPage() {
             style={{ color: "var(--portal-error)" }}
           >
             {(submitMutation.error as Error).message ??
-              "Something went wrong. Please try again."}
+              t("estimate.actionError")}
           </p>
         )}
       </div>

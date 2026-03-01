@@ -2,6 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 import {
   Sheet,
   SheetContent,
@@ -72,7 +75,7 @@ interface DealDetailSheetProps {
 // ---------------------------------------------------------------------------
 
 /** Format a date as relative time string */
-function formatRelativeTime(date: Date | string | null): string {
+function formatRelativeTime(date: Date | string | null, locale: Locale): string {
   if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
   if (isNaN(d.getTime())) return "";
@@ -88,7 +91,7 @@ function formatRelativeTime(date: Date | string | null): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHrs < 24) return `${diffHrs}h ago`;
   if (diffDays < 30) return `${diffDays}d ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
 }
 
 /** Get icon component for an activity type */
@@ -138,6 +141,7 @@ function formatFollowUpCountdown(dueAt: Date | string): string {
 // Contact Info Section
 // ---------------------------------------------------------------------------
 function ContactInfoSection({ opportunity }: { opportunity: Opportunity }) {
+  const { t } = useDictionary("pipeline");
   const hasContact =
     opportunity.contactPhone ||
     opportunity.contactEmail ||
@@ -148,7 +152,7 @@ function ContactInfoSection({ opportunity }: { opportunity: Opportunity }) {
   return (
     <div className="space-y-1 pb-2 border-b border-border">
       <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
-        Contact
+        {t("detail.contact")}
       </h4>
       <div className="space-y-0.5">
         {opportunity.contactName && (
@@ -198,6 +202,7 @@ function ContactInfoSection({ opportunity }: { opportunity: Opportunity }) {
 // Follow-Ups Section
 // ---------------------------------------------------------------------------
 function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
+  const { t } = useDictionary("pipeline");
   const pending = followUps.filter(
     (f) => f.status === FollowUpStatus.Pending
   );
@@ -207,7 +212,7 @@ function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
   return (
     <div className="space-y-1 pb-2 border-b border-border">
       <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
-        Follow-Ups
+        {t("detail.followUps")}
       </h4>
       <div className="space-y-0.5">
         {pending.map((fu) => {
@@ -261,6 +266,8 @@ function FollowUpsSection({ followUps }: { followUps: FollowUp[] }) {
 // Activity Timeline
 // ---------------------------------------------------------------------------
 function ActivityTimeline({ activities, companyId }: { activities: Activity[]; companyId?: string }) {
+  const { t } = useDictionary("pipeline");
+  const { locale } = useLocale();
   const sorted = useMemo(
     () =>
       [...activities].sort(
@@ -275,7 +282,7 @@ function ActivityTimeline({ activities, companyId }: { activities: Activity[]; c
       <div className="flex flex-col items-center justify-center py-4 text-center">
         <MessageSquare className="w-[24px] h-[24px] text-text-disabled mb-1" />
         <span className="font-kosugi text-[11px] text-text-disabled">
-          No activity yet
+          {t("detail.noActivity")}
         </span>
       </div>
     );
@@ -310,7 +317,7 @@ function ActivityTimeline({ activities, companyId }: { activities: Activity[]; c
                   {activity.subject}
                 </span>
                 <span className="font-mono text-[9px] text-text-disabled shrink-0">
-                  {formatRelativeTime(activity.createdAt)}
+                  {formatRelativeTime(activity.createdAt, locale)}
                 </span>
               </div>
               {activity.content && (
@@ -337,6 +344,7 @@ function ActivityTimeline({ activities, companyId }: { activities: Activity[]; c
 // Add Note Form
 // ---------------------------------------------------------------------------
 function AddNoteForm({ opportunityId }: { opportunityId: string }) {
+  const { t } = useDictionary("pipeline");
   const [note, setNote] = useState("");
   const { company, currentUser } = useAuthStore();
   const createActivity = useCreateActivity();
@@ -352,7 +360,7 @@ function AddNoteForm({ opportunityId }: { opportunityId: string }) {
         estimateId: null,
         invoiceId: null,
         type: ActivityType.Note,
-        subject: "Note added",
+        subject: t("detail.noteSubject"),
         content: note.trim(),
         outcome: null,
         direction: null,
@@ -362,10 +370,10 @@ function AddNoteForm({ opportunityId }: { opportunityId: string }) {
       {
         onSuccess: () => {
           setNote("");
-          toast.success("Note added");
+          toast.success(t("detail.noteAddedToast"));
         },
         onError: () => {
-          toast.error("Failed to add note");
+          toast.error(t("detail.noteAddFailed"));
         },
       }
     );
@@ -376,7 +384,7 @@ function AddNoteForm({ opportunityId }: { opportunityId: string }) {
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Add a note..."
+        placeholder={t("detail.addNotePlaceholder")}
         rows={2}
         className={cn(
           "w-full bg-background-input text-text-primary font-kosugi text-[11px]",
@@ -393,7 +401,7 @@ function AddNoteForm({ opportunityId }: { opportunityId: string }) {
       />
       <div className="flex items-center justify-between">
         <span className="font-kosugi text-[9px] text-text-disabled">
-          Cmd+Enter to submit
+          {t("detail.cmdEnterSubmit")}
         </span>
         <Button
           variant="ghost"
@@ -404,7 +412,7 @@ function AddNoteForm({ opportunityId }: { opportunityId: string }) {
           className="gap-[4px] h-auto py-[4px] px-1.5"
         >
           <Send className="w-[12px] h-[12px]" />
-          Add Note
+          {t("detail.addNote")}
         </Button>
       </div>
     </div>
@@ -422,6 +430,8 @@ export function DealDetailSheet({
   onMarkWon,
   onMarkLost,
 }: DealDetailSheetProps) {
+  const { t } = useDictionary("pipeline");
+  const { locale } = useLocale();
   const { company } = useAuthStore();
   const { data: activities } = useOpportunityActivities(opportunity?.id);
   const { data: followUps } = useOpportunityFollowUps(opportunity?.id);
@@ -434,8 +444,8 @@ export function DealDetailSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Deal Details</SheetTitle>
-            <SheetDescription>No deal selected</SheetDescription>
+            <SheetTitle>{t("detail.title")}</SheetTitle>
+            <SheetDescription>{t("detail.noDeal")}</SheetDescription>
           </SheetHeader>
         </SheetContent>
       </Sheet>
@@ -457,7 +467,7 @@ export function DealDetailSheet({
                 {opportunity.title}
               </SheetTitle>
               <SheetDescription className="truncate">
-                {opportunity.contactName ?? "No contact"}
+                {opportunity.contactName ?? t("detail.noContact")}
               </SheetDescription>
             </div>
             <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -486,12 +496,12 @@ export function DealDetailSheet({
             <div className="flex items-center gap-[3px]">
               <Clock className="w-[10px] h-[10px] text-text-disabled" />
               <span className="font-mono text-[10px] text-text-disabled">
-                {daysInStage}d in stage
+                {daysInStage}{t("detail.daysInStage")}
               </span>
             </div>
             {opportunity.source && (
               <span className="font-kosugi text-[10px] text-text-disabled capitalize">
-                via {opportunity.source.replace(/_/g, " ")}
+                {t("detail.via")} {opportunity.source.replace(/_/g, " ")}
               </span>
             )}
           </div>
@@ -511,7 +521,7 @@ export function DealDetailSheet({
                 onClick={onAdvanceStage}
               >
                 <ChevronRight className="w-[14px] h-[14px]" />
-                Advance
+                {t("detail.advance")}
               </Button>
             )}
             <Button
@@ -521,7 +531,7 @@ export function DealDetailSheet({
               onClick={() => setShowCreateSiteVisit(true)}
             >
               <MapPin className="w-[14px] h-[14px]" />
-              Visit
+              {t("detail.visit")}
             </Button>
             {onMarkWon && (
               <Button
@@ -531,7 +541,7 @@ export function DealDetailSheet({
                 onClick={onMarkWon}
               >
                 <Trophy className="w-[14px] h-[14px]" />
-                Won
+                {t("detail.won")}
               </Button>
             )}
             {onMarkLost && (
@@ -542,7 +552,7 @@ export function DealDetailSheet({
                 onClick={onMarkLost}
               >
                 <XCircle className="w-[14px] h-[14px]" />
-                Lost
+                {t("detail.lost")}
               </Button>
             )}
           </div>
@@ -551,7 +561,7 @@ export function DealDetailSheet({
           {opportunity.description && (
             <div className="space-y-0.5 pb-2 border-b border-border">
               <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
-                Description
+                {t("detail.description")}
               </h4>
               <p className="font-kosugi text-[11px] text-text-secondary whitespace-pre-wrap">
                 {opportunity.description}
@@ -566,7 +576,7 @@ export function DealDetailSheet({
           {(siteVisits ?? []).length > 0 && (
             <div className="space-y-1 pb-2 border-b border-border">
               <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
-                Site Visits
+                {t("detail.siteVisits")}
               </h4>
               <div className="space-y-0.5">
                 {(siteVisits ?? []).map((sv) => (
@@ -578,7 +588,7 @@ export function DealDetailSheet({
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-[12px] h-[12px] text-ops-accent shrink-0" />
                       <span className="font-kosugi text-[11px] text-text-secondary">
-                        {new Date(sv.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {new Date(sv.scheduledAt).toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}
                       </span>
                     </div>
                     <span
@@ -601,7 +611,7 @@ export function DealDetailSheet({
           {/* Activity timeline */}
           <div className="space-y-1">
             <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
-              Activity
+              {t("detail.activity")}
             </h4>
             <ActivityTimeline activities={activities ?? []} companyId={company?.id} />
           </div>

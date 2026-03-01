@@ -31,11 +31,12 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { getUserFullName, getInitials, UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { toast } from "sonner";
+import { useDictionary } from "@/i18n/client";
 
-const ROLES: { id: UserRole; label: string }[] = [
-  { id: UserRole.Admin, label: "Admin" },
-  { id: UserRole.OfficeCrew, label: "Office Crew" },
-  { id: UserRole.FieldCrew, label: "Field Crew" },
+const ROLES: { id: UserRole; labelKey: string }[] = [
+  { id: UserRole.Admin, labelKey: "team.roleAdmin" },
+  { id: UserRole.OfficeCrew, labelKey: "team.roleOfficeCrew" },
+  { id: UserRole.FieldCrew, labelKey: "team.roleFieldCrew" },
 ];
 
 function MemberActions({
@@ -49,6 +50,7 @@ function MemberActions({
   isSeated: boolean;
   seatsFull: boolean;
 }) {
+  const { t } = useDictionary("settings");
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const updateRole = useUpdateUserRole();
@@ -61,8 +63,8 @@ function MemberActions({
     updateRole.mutate(
       { id: member.id, role },
       {
-        onSuccess: () => toast.success(`Role updated to ${role}`),
-        onError: (err) => toast.error("Failed to update role", { description: err.message }),
+        onSuccess: () => toast.success(`${t("team.toast.roleUpdated")} ${role}`),
+        onError: (err) => toast.error(t("team.toast.roleUpdateFailed"), { description: err.message }),
       }
     );
   }
@@ -70,17 +72,17 @@ function MemberActions({
   function handleToggleSeat() {
     if (isSeated) {
       removeSeat.mutate(member.id, {
-        onSuccess: () => toast.success("Seat removed"),
-        onError: (err) => toast.error("Failed to remove seat", { description: err.message }),
+        onSuccess: () => toast.success(t("team.toast.seatRemoved")),
+        onError: (err) => toast.error(t("team.toast.seatRemoveFailed"), { description: err.message }),
       });
     } else {
       if (seatsFull) {
-        toast.error("No seats available", { description: "Upgrade your plan or remove another member's seat." });
+        toast.error(t("team.toast.noSeats"), { description: t("team.toast.upgradeSeats") });
         return;
       }
       addSeat.mutate(member.id, {
-        onSuccess: () => toast.success("Seat assigned"),
-        onError: (err) => toast.error("Failed to assign seat", { description: err.message }),
+        onSuccess: () => toast.success(t("team.toast.seatAssigned")),
+        onError: (err) => toast.error(t("team.toast.seatAssignFailed"), { description: err.message }),
       });
     }
   }
@@ -90,10 +92,10 @@ function MemberActions({
       { id: member.id },
       {
         onSuccess: () => {
-          toast.success(`${getUserFullName(member)} has been deactivated`);
+          toast.success(`${getUserFullName(member)} ${t("team.toast.deactivated")}`);
           setConfirmDeactivate(false);
         },
-        onError: (err) => toast.error("Failed to deactivate", { description: err.message }),
+        onError: (err) => toast.error(t("team.toast.deactivateFailed"), { description: err.message }),
       }
     );
   }
@@ -102,8 +104,8 @@ function MemberActions({
     reactivateUser.mutate(
       { id: member.id },
       {
-        onSuccess: () => toast.success(`${getUserFullName(member)} has been reactivated`),
-        onError: (err) => toast.error("Failed to reactivate", { description: err.message }),
+        onSuccess: () => toast.success(`${getUserFullName(member)} ${t("team.toast.reactivated")}`),
+        onError: (err) => toast.error(t("team.toast.reactivateFailed"), { description: err.message }),
       }
     );
   }
@@ -128,7 +130,7 @@ function MemberActions({
             <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[180px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
               {/* Role section */}
               <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
-                <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">Role</p>
+                <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
                 {ROLES.map((role) => (
                   <button
                     key={role.id}
@@ -143,7 +145,7 @@ function MemberActions({
                         : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
                     )}
                   >
-                    {role.label}
+                    {t(role.labelKey)}
                   </button>
                 ))}
               </div>
@@ -157,7 +159,7 @@ function MemberActions({
                 className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors border-b border-[rgba(255,255,255,0.04)]"
               >
                 <Armchair className="w-[14px] h-[14px]" />
-                {isSeated ? "Remove Seat" : "Assign Seat"}
+                {isSeated ? t("team.removeSeat") : t("team.assignSeat")}
               </button>
 
               {/* Deactivate / Reactivate */}
@@ -170,7 +172,7 @@ function MemberActions({
                   className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-background-elevated transition-colors"
                 >
                   <UserX className="w-[14px] h-[14px]" />
-                  Deactivate
+                  {t("team.deactivate")}
                 </button>
               ) : (
                 <button
@@ -181,7 +183,7 @@ function MemberActions({
                   className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-status-success hover:bg-background-elevated transition-colors"
                 >
                   <UserCheck className="w-[14px] h-[14px]" />
-                  Reactivate
+                  {t("team.reactivate")}
                 </button>
               )}
             </div>
@@ -192,9 +194,9 @@ function MemberActions({
       <ConfirmDialog
         open={confirmDeactivate}
         onOpenChange={setConfirmDeactivate}
-        title={`Deactivate ${getUserFullName(member)}?`}
-        description="This will revoke their access to OPS. They will no longer be able to log in or access company data. You can reactivate them later."
-        confirmLabel="Deactivate"
+        title={`${t("team.deactivateConfirmTitle")} ${getUserFullName(member)}?`}
+        description={t("team.deactivateConfirmDesc")}
+        confirmLabel={t("team.deactivate")}
         variant="destructive"
         onConfirm={handleDeactivate}
         loading={deactivateUser.isPending}
@@ -204,6 +206,7 @@ function MemberActions({
 }
 
 export function TeamTab() {
+  const { t } = useDictionary("settings");
   const { data: teamData, isLoading } = useTeamMembers();
   const { data: company } = useCompany();
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -225,7 +228,7 @@ export function TeamTab() {
 
   function handleInvite() {
     if (!inviteValue.trim()) {
-      toast.error(inviteMode === "email" ? "Please enter an email address" : "Please enter a phone number");
+      toast.error(inviteMode === "email" ? t("team.toast.enterEmail") : t("team.toast.enterPhone"));
       return;
     }
 
@@ -235,12 +238,12 @@ export function TeamTab() {
 
     sendInvite.mutate(data, {
       onSuccess: () => {
-        toast.success("Invitation sent", {
-          description: `${inviteMode === "email" ? "Email" : "SMS"} invite sent to ${inviteValue}`,
+        toast.success(t("team.toast.inviteSent"), {
+          description: `${inviteMode === "email" ? t("team.toast.emailInviteSent") : t("team.toast.smsInviteSent")} ${inviteValue}`,
         });
         setInviteValue("");
       },
-      onError: (err) => toast.error("Failed to send invite", { description: err.message }),
+      onError: (err) => toast.error(t("team.toast.inviteFailed"), { description: err.message }),
     });
   }
 
@@ -249,14 +252,14 @@ export function TeamTab() {
       {/* Invite Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Invite Team Member</CardTitle>
+          <CardTitle>{t("team.inviteTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {/* Email / SMS toggle */}
           <div className="flex items-center gap-1">
             {([
-              { id: "email" as const, label: "Email", icon: Mail },
-              { id: "sms" as const, label: "SMS", icon: Phone },
+              { id: "email" as const, label: t("team.emailToggle"), icon: Mail },
+              { id: "sms" as const, label: t("team.smsToggle"), icon: Phone },
             ]).map((mode) => (
               <button
                 key={mode.id}
@@ -280,32 +283,32 @@ export function TeamTab() {
 
           {inviteMode === "email" ? (
             <Input
-              label="Email Address"
+              label={t("team.emailAddress")}
               type="email"
               value={inviteValue}
               onChange={(e) => setInviteValue(e.target.value)}
-              placeholder="teammate@company.com"
+              placeholder={t("team.emailPlaceholder")}
               prefixIcon={<Mail className="w-[16px] h-[16px]" />}
             />
           ) : (
             <Input
-              label="Phone Number"
+              label={t("team.phoneNumber")}
               type="tel"
               value={inviteValue}
               onChange={(e) => setInviteValue(e.target.value)}
-              placeholder="+1 (555) 123-4567"
+              placeholder={t("team.phonePlaceholder")}
               prefixIcon={<Phone className="w-[16px] h-[16px]" />}
             />
           )}
 
           <div className="flex flex-col gap-0.5">
             <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-              Role
+              {t("team.role")}
             </label>
             <div className="flex items-center gap-1">
               {([
-                { id: "field-crew" as const, label: "Field Crew" },
-                { id: "admin" as const, label: "Admin" },
+                { id: "field-crew" as const, label: t("team.roleFieldCrew") },
+                { id: "admin" as const, label: t("team.roleAdmin") },
               ]).map((role) => (
                 <button
                   key={role.id}
@@ -330,7 +333,7 @@ export function TeamTab() {
               ) : (
                 <UserPlus className="w-[16px] h-[16px]" />
               )}
-              Send Invite
+              {t("team.sendInvite")}
             </Button>
           </div>
         </CardContent>
@@ -339,11 +342,11 @@ export function TeamTab() {
       {/* Seat Usage */}
       <Card>
         <CardHeader>
-          <CardTitle>Seat Usage</CardTitle>
+          <CardTitle>{t("team.seatUsage")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mohave text-body text-text-secondary">Active Seats</span>
+            <span className="font-mohave text-body text-text-secondary">{t("team.activeSeats")}</span>
             <span className="font-mono text-data text-text-primary">
               {seatedCount} / {maxSeats}
             </span>
@@ -359,7 +362,7 @@ export function TeamTab() {
           </div>
           {seatsFull && (
             <p className="font-kosugi text-[11px] text-ops-error mt-[6px]">
-              All seats are in use. Upgrade your plan to add more members.
+              {t("team.allSeatsUsed")}
             </p>
           )}
         </CardContent>
@@ -368,7 +371,7 @@ export function TeamTab() {
       {/* Active Team Members */}
       <Card>
         <CardHeader>
-          <CardTitle>Team Members ({activeMembers.length})</CardTitle>
+          <CardTitle>{t("team.membersTitle")} ({activeMembers.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -377,7 +380,7 @@ export function TeamTab() {
             </div>
           ) : activeMembers.length === 0 ? (
             <p className="font-mohave text-body-sm text-text-tertiary py-2">
-              No team members yet. Send an invite to get started.
+              {t("team.emptyState")}
             </p>
           ) : (
             <div className="space-y-0">
@@ -402,7 +405,7 @@ export function TeamTab() {
                           <p className="font-mohave text-body text-text-primary">{fullName}</p>
                           {isCurrentUser && (
                             <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
-                              You
+                              {t("team.you")}
                             </span>
                           )}
                         </div>
@@ -414,7 +417,7 @@ export function TeamTab() {
                     <div className="flex items-center gap-[6px]">
                       {isSeated && (
                         <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full">
-                          Seated
+                          {t("team.seated")}
                         </span>
                       )}
                       {member.isCompanyAdmin && (
@@ -442,7 +445,7 @@ export function TeamTab() {
       {deactivatedMembers.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Deactivated ({deactivatedMembers.length})</CardTitle>
+            <CardTitle>{t("team.deactivatedTitle")} ({deactivatedMembers.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-0">

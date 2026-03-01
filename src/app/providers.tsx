@@ -15,12 +15,15 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { getQueryClient, setOnUnauthorized } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { signOut } from "@/lib/firebase/auth";
+import { LanguageProvider } from "@/i18n/client";
+import type { Locale } from "@/i18n/types";
 
 interface ProvidersProps {
+  locale: Locale;
   children: React.ReactNode;
 }
 
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ locale, children }: ProvidersProps) {
   // Create a stable query client instance per component lifecycle
   const [queryClient] = useState(() => getQueryClient());
   const logout = useAuthStore((s) => s.logout);
@@ -37,12 +40,14 @@ export function Providers({ children }: ProvidersProps) {
   }, [logout]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-      {process.env.NODE_ENV === "development" && (
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
-      )}
-    </QueryClientProvider>
+    <LanguageProvider locale={locale}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        {process.env.NODE_ENV === "development" && (
+          <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+        )}
+      </QueryClientProvider>
+    </LanguageProvider>
   );
 }
 

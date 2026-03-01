@@ -35,6 +35,8 @@ import {
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
 import { UserRole, getUserFullName } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -111,10 +113,9 @@ function userToTeamMember(user: User): TeamMember {
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const roleConfig: Record<
+const roleStyleConfig: Record<
   Role,
   {
-    label: string;
     icon: React.ComponentType<{ className?: string }>;
     color: string;
     bg: string;
@@ -122,21 +123,18 @@ const roleConfig: Record<
   }
 > = {
   admin: {
-    label: "Admin",
     icon: ShieldCheck,
     color: "text-ops-amber",
     bg: "bg-ops-amber-muted",
     borderColor: "border-l-[#C4A868]",
   },
   "office-crew": {
-    label: "Office Crew",
     icon: Shield,
     color: "text-ops-accent",
     bg: "bg-ops-accent-muted",
     borderColor: "border-l-[#417394]",
   },
   "field-crew": {
-    label: "Field Crew",
     icon: HardHat,
     color: "text-text-secondary",
     bg: "bg-background-elevated",
@@ -144,12 +142,18 @@ const roleConfig: Record<
   },
 };
 
+const ROLE_LABEL_KEYS: Record<Role, string> = {
+  admin: "team.role.admin",
+  "office-crew": "team.role.officeCrew",
+  "field-crew": "team.role.fieldCrew",
+};
+
 const roleOptions: Role[] = ["admin", "office-crew", "field-crew"];
 
 // ─── Role Badge ──────────────────────────────────────────────────────────────
 
-function RoleBadge({ role }: { role: Role }) {
-  const config = roleConfig[role];
+function RoleBadge({ role, t }: { role: Role; t: (key: string) => string }) {
+  const config = roleStyleConfig[role];
   const Icon = config.icon;
   return (
     <span
@@ -160,20 +164,20 @@ function RoleBadge({ role }: { role: Role }) {
       )}
     >
       <Icon className="w-[12px] h-[12px]" />
-      {config.label}
+      {t(ROLE_LABEL_KEYS[role])}
     </span>
   );
 }
 
 // ─── Status Indicator ────────────────────────────────────────────────────────
 
-function StatusIndicator({ status }: { status: MemberStatus }) {
+function StatusIndicator({ status, t }: { status: MemberStatus; t: (key: string) => string }) {
   if (status === "active") {
     return (
       <div className="flex items-center gap-[4px]">
         <span className="h-[4px] w-[4px] rounded-full bg-[#6B8F71]" />
         <span className="font-kosugi text-[10px] text-[#6B8F71] uppercase tracking-wider">
-          Active
+          {t("team.active")}
         </span>
       </div>
     );
@@ -182,7 +186,7 @@ function StatusIndicator({ status }: { status: MemberStatus }) {
     <div className="flex items-center gap-[4px]">
       <span className="h-[4px] w-[4px] rounded-full bg-text-disabled" />
       <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-        Inactive
+        {t("team.inactive")}
       </span>
     </div>
   );
@@ -194,10 +198,12 @@ function RoleSelector({
   currentRole,
   onSelect,
   onClose,
+  t,
 }: {
   currentRole: Role;
   onSelect: (role: Role) => void;
   onClose: () => void;
+  t: (key: string) => string;
 }) {
   return (
     <>
@@ -205,11 +211,11 @@ function RoleSelector({
       <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
           <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
-            Change Role
+            {t("team.changeRole")}
           </span>
         </div>
         {roleOptions.map((role) => {
-          const config = roleConfig[role];
+          const config = roleStyleConfig[role];
           const Icon = config.icon;
           const isActive = role === currentRole;
           return (
@@ -227,7 +233,7 @@ function RoleSelector({
               )}
             >
               <Icon className="w-[14px] h-[14px]" />
-              <span className="flex-1 text-left">{config.label}</span>
+              <span className="flex-1 text-left">{t(ROLE_LABEL_KEYS[role])}</span>
               {isActive && <Check className="w-[13px] h-[13px]" />}
             </button>
           );
@@ -244,31 +250,34 @@ function TeamMemberCard({
   isAdmin,
   onChangeRole,
   onRemove,
+  t,
 }: {
   member: TeamMember;
   isAdmin: boolean;
   onChangeRole: (memberId: string, role: Role) => void;
   onRemove: (memberId: string) => void;
+  t: (key: string) => string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
+  const { locale } = useLocale();
 
-  const config = roleConfig[member.role];
+  const config = roleStyleConfig[member.role];
   const isInactive = member.status === "inactive";
 
   function formatLastActive(dateStr: string): string {
     const date = new Date(dateStr);
-    if (isNaN(date.getTime()) || date.getTime() === 0) return "Never";
+    if (isNaN(date.getTime()) || date.getTime() === 0) return t("team.never");
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffHours < 1) return "Just now";
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (diffHours < 1) return t("team.justNow");
+    if (diffHours < 24) return `${diffHours}${t("card.hoursAgo")}`;
+    if (diffDays === 1) return t("card.yesterday");
+    if (diffDays < 7) return `${diffDays}${t("card.daysAgoFull")}`;
+    return date.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
   }
 
   return (
@@ -329,8 +338,8 @@ function TeamMemberCard({
               </h3>
             </div>
             <div className="flex items-center gap-1.5 mt-[2px]">
-              <RoleBadge role={member.role} />
-              <StatusIndicator status={member.status} />
+              <RoleBadge role={member.role} t={t} />
+              <StatusIndicator status={member.status} t={t} />
             </div>
           </div>
 
@@ -360,7 +369,7 @@ function TeamMemberCard({
                       className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors font-mohave text-body-sm"
                     >
                       <UserCog className="w-[14px] h-[14px]" />
-                      Change Role
+                      {t("team.changeRole")}
                     </button>
                     <button
                       onClick={() => {
@@ -370,7 +379,7 @@ function TeamMemberCard({
                       className="flex items-center gap-1 w-full px-1.5 py-[8px] text-ops-error hover:bg-ops-error-muted transition-colors font-mohave text-body-sm"
                     >
                       <UserMinus className="w-[14px] h-[14px]" />
-                      Remove Member
+                      {t("team.removeMember")}
                     </button>
                   </div>
                 </>
@@ -387,6 +396,7 @@ function TeamMemberCard({
                     setMenuOpen(false);
                     setShowRoleSelector(false);
                   }}
+                  t={t}
                 />
               )}
             </div>
@@ -434,9 +444,11 @@ function TeamMemberCard({
 function InviteForm({
   onInvite,
   onClose,
+  t,
 }: {
   onInvite: (email: string) => void;
   onClose: () => void;
+  t: (key: string) => string;
 }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -444,11 +456,11 @@ function InviteForm({
 
   async function handleInvite() {
     if (!email.trim()) {
-      setError("Email is required");
+      setError(t("team.emailRequired"));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email address");
+      setError(t("team.invalidEmail"));
       return;
     }
     setError(null);
@@ -459,11 +471,11 @@ function InviteForm({
           onInvite(email);
           setEmail("");
         } else {
-          setError("Failed to send invite");
+          setError(t("team.failedInvite"));
         }
       },
       onError: (err) => {
-        setError(err instanceof Error ? err.message : "Failed to send invite");
+        setError(err instanceof Error ? err.message : t("team.failedInvite"));
       },
     });
   }
@@ -474,7 +486,7 @@ function InviteForm({
         <div className="flex items-center gap-[6px]">
           <Send className="w-[14px] h-[14px] text-ops-accent" />
           <h3 className="font-mohave text-card-title text-text-primary">
-            Invite Team Member
+            {t("team.inviteTitle")}
           </h3>
         </div>
         <button
@@ -485,13 +497,13 @@ function InviteForm({
         </button>
       </div>
       <p className="font-kosugi text-caption-sm text-text-tertiary">
-        Send an invitation email. They will be added as Field Crew by default.
+        {t("team.inviteDesc")}
       </p>
       <div className="flex items-start gap-1">
         <div className="flex-1">
           <Input
             type="email"
-            placeholder="teammate@company.com"
+            placeholder={t("team.invitePlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             prefixIcon={<Mail className="w-[16px] h-[16px]" />}
@@ -510,7 +522,7 @@ function InviteForm({
           className="gap-[6px] shrink-0"
         >
           <Send className="w-[14px] h-[14px]" />
-          Send Invite
+          {t("team.sendInvite")}
         </Button>
       </div>
     </div>
@@ -545,6 +557,7 @@ function LoadingSkeleton() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function TeamPage() {
+  const { t } = useDictionary("schedule");
   const [searchQuery, setSearchQuery] = useState("");
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
@@ -584,7 +597,7 @@ export default function TeamPage() {
         m.name.toLowerCase().includes(query) ||
         m.email.toLowerCase().includes(query) ||
         m.phone?.includes(query) ||
-        roleConfig[m.role].label.toLowerCase().includes(query)
+        t(ROLE_LABEL_KEYS[m.role]).toLowerCase().includes(query)
     );
   }, [team, searchQuery]);
 
@@ -601,12 +614,12 @@ export default function TeamPage() {
       {
         onSuccess: () => {
           toast.success(
-            `${member?.name ?? "Member"} role updated to ${roleConfig[newRole].label}`
+            `${member?.name ?? "Member"} ${t("team.roleUpdated")} ${t(ROLE_LABEL_KEYS[newRole])}`
           );
         },
         onError: (error) => {
           toast.error(
-            `Failed to update role: ${error instanceof Error ? error.message : "Unknown error"}`
+            `${t("team.roleUpdateFailed")}: ${error instanceof Error ? error.message : ""}`
           );
         },
       }
@@ -619,13 +632,13 @@ export default function TeamPage() {
     removeEmployeeMutation.mutate(removeTarget, {
       onSuccess: () => {
         toast.success(
-          `${member?.name ?? "Member"} has been removed from the team`
+          `${member?.name ?? "Member"} ${t("team.removeSuccess")}`
         );
         setRemoveTarget(null);
       },
       onError: (error) => {
         toast.error(
-          `Failed to remove member: ${error instanceof Error ? error.message : "Unknown error"}`
+          `${t("team.removeFailed")}: ${error instanceof Error ? error.message : ""}`
         );
         setRemoveTarget(null);
       },
@@ -634,7 +647,7 @@ export default function TeamPage() {
 
   function handleInvite(email: string) {
     setShowInviteForm(false);
-    toast.success(`Invitation sent to ${email}`);
+    toast.success(`${t("team.inviteSent")} ${email}`);
   }
 
   const memberForRemoval = team.find((m) => m.id === removeTarget);
@@ -646,7 +659,7 @@ export default function TeamPage() {
         <div>
           <div className="flex items-center gap-2 mt-[4px] flex-wrap">
             <span className="font-kosugi text-caption-sm text-text-tertiary">
-              {team.length} members
+              {team.length} {t("team.members")}
             </span>
 
             {/* Seat indicator */}
@@ -663,7 +676,7 @@ export default function TeamPage() {
                 />
               </div>
               <span className="font-mono text-[11px] text-text-tertiary">
-                {activeCount}/{maxSeats} seats
+                {activeCount}/{maxSeats} {t("team.seats")}
               </span>
             </div>
 
@@ -671,13 +684,13 @@ export default function TeamPage() {
             <div className="hidden sm:flex items-center gap-1.5">
               <span className="text-text-disabled font-mono text-[10px]">|</span>
               <span className="font-mono text-[10px] text-ops-amber">
-                {adminCount} Admin
+                {adminCount} {t("team.admin")}
               </span>
               <span className="font-mono text-[10px] text-ops-accent">
-                {officeCount} Office
+                {officeCount} {t("team.officeCrew")}
               </span>
               <span className="font-mono text-[10px] text-text-tertiary">
-                {fieldCount} Field
+                {fieldCount} {t("team.fieldCrew")}
               </span>
             </div>
           </div>
@@ -689,12 +702,12 @@ export default function TeamPage() {
           {showInviteForm ? (
             <>
               <X className="w-[16px] h-[16px]" />
-              Close
+              {t("team.close")}
             </>
           ) : (
             <>
               <Plus className="w-[16px] h-[16px]" />
-              Invite Member
+              {t("team.inviteMember")}
             </>
           )}
         </Button>
@@ -705,13 +718,14 @@ export default function TeamPage() {
         <InviteForm
           onInvite={handleInvite}
           onClose={() => setShowInviteForm(false)}
+          t={t}
         />
       )}
 
       {/* Search */}
       <div className="max-w-[400px]">
         <Input
-          placeholder="Search by name, email, or role..."
+          placeholder={t("team.search")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           prefixIcon={<Search className="w-[16px] h-[16px]" />}
@@ -725,12 +739,12 @@ export default function TeamPage() {
         <div className="flex flex-col items-center justify-center py-8">
           <Users className="w-[48px] h-[48px] text-text-disabled mb-2" />
           <h3 className="font-mohave text-heading text-text-primary">
-            {searchQuery ? "No team members found" : "No team members yet"}
+            {searchQuery ? t("team.noResults") : t("team.empty")}
           </h3>
           <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
             {searchQuery
-              ? "Try a different search term"
-              : "Invite your first team member to get started"}
+              ? t("team.noResultsHelper")
+              : t("team.emptyHelper")}
           </p>
           {!searchQuery && (
             <Button
@@ -738,7 +752,7 @@ export default function TeamPage() {
               onClick={() => setShowInviteForm(true)}
             >
               <Plus className="w-[16px] h-[16px]" />
-              Invite Member
+              {t("team.inviteMember")}
             </Button>
           )}
         </div>
@@ -750,7 +764,7 @@ export default function TeamPage() {
               <div className="flex items-center gap-1 mb-1">
                 <ShieldCheck className="w-[14px] h-[14px] text-ops-amber" />
                 <h2 className="font-kosugi text-caption-bold text-ops-amber uppercase tracking-widest">
-                  Admins
+                  {t("team.sections.admins")}
                 </h2>
                 <Badge variant="warning" className="text-[10px] px-[6px] py-[1px]">
                   {admins.length}
@@ -764,6 +778,7 @@ export default function TeamPage() {
                     isAdmin={isCurrentUserAdmin}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -776,7 +791,7 @@ export default function TeamPage() {
               <div className="flex items-center gap-1 mb-1">
                 <Shield className="w-[14px] h-[14px] text-ops-accent" />
                 <h2 className="font-kosugi text-caption-bold text-ops-accent uppercase tracking-widest">
-                  Office Crew
+                  {t("team.sections.officeCrew")}
                 </h2>
                 <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
                   {officeCrew.length}
@@ -790,6 +805,7 @@ export default function TeamPage() {
                     isAdmin={isCurrentUserAdmin}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -802,7 +818,7 @@ export default function TeamPage() {
               <div className="flex items-center gap-1 mb-1">
                 <HardHat className="w-[14px] h-[14px] text-text-secondary" />
                 <h2 className="font-kosugi text-caption-bold text-text-secondary uppercase tracking-widest">
-                  Field Crew
+                  {t("team.sections.fieldCrew")}
                 </h2>
                 <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-60">
                   {fieldCrew.length}
@@ -816,6 +832,7 @@ export default function TeamPage() {
                     isAdmin={isCurrentUserAdmin}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -830,13 +847,13 @@ export default function TeamPage() {
         onOpenChange={(open) => {
           if (!open) setRemoveTarget(null);
         }}
-        title="Remove Team Member"
+        title={t("team.removeConfirmTitle")}
         description={
           memberForRemoval
-            ? `Are you sure you want to remove ${memberForRemoval.name} from your team? They will lose access to all company data.`
+            ? t("team.removeConfirmDesc")
             : ""
         }
-        confirmLabel="Remove"
+        confirmLabel={t("team.removeMember")}
         variant="destructive"
         onConfirm={handleRemoveMember}
         loading={removeEmployeeMutation.isPending}

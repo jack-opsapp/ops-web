@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { useDictionary } from "@/i18n/client";
 
 // Routes within (auth) group that authenticated users CAN access
 const authenticatedAllowedRoutes = ["/locked"];
@@ -12,6 +13,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuthStore();
+  const { t } = useDictionary("auth");
 
   const isAllowedWhenAuthenticated = authenticatedAllowedRoutes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
@@ -77,7 +79,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
             OPS
           </p>
           <p className="font-mohave text-body-sm text-white/50 mt-1">
-            Built by trades, for trades.
+            {t("tagline")}
           </p>
         </div>
       </div>

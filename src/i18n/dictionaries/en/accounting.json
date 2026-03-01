@@ -1,0 +1,52 @@
+{
+  "title": "Accounting",
+  "subtitle": "Financial overview and accounting integrations",
+
+  "tabs.dashboard": "Dashboard",
+  "tabs.integrations": "Integrations",
+
+  "metrics.totalOutstanding": "Total Outstanding",
+  "metrics.overdue": "Overdue",
+  "metrics.paidThisMonth": "Paid This Month",
+  "metrics.totalInvoiced": "Total Invoiced",
+
+  "aging.title": "Overdue Aging",
+  "aging.current": "Current",
+  "aging.1to30": "1 – 30 days",
+  "aging.31to60": "31 – 60 days",
+  "aging.61to90": "61 – 90 days",
+  "aging.90plus": "90+ days",
+
+  "topClients.title": "Top Clients by Revenue",
+  "invoiceBreakdown.title": "Invoice Breakdown",
+
+  "integrations.quickbooks": "QuickBooks Online",
+  "integrations.sage": "Sage Business Cloud",
+  "integrations.connected": "Connected",
+  "integrations.notConnected": "Not Connected",
+  "integrations.syncNow": "Sync Now",
+  "integrations.disconnect": "Disconnect",
+  "integrations.connect": "Connect",
+  "integrations.howSyncWorks": "How Sync Works",
+  "integrations.outbound": "Outbound:",
+  "integrations.inbound": "Inbound:",
+  "integrations.conflicts": "Conflicts:",
+  "integrations.syncing": "Syncing...",
+  "integrations.lastSynced": "Last Synced",
+  "integrations.autoSync": "Auto-Sync",
+  "integrations.realmId": "Realm ID",
+  "integrations.never": "Never",
+  "integrations.enabled": "Enabled",
+  "integrations.disabled": "Disabled",
+  "integrations.syncHistory": "Sync History",
+  "integrations.noSyncHistory": "No sync history yet. Connect an accounting provider to get started.",
+  "integrations.outboundDesc": "When you create or update invoices, estimates, or payments in OPS, they are automatically pushed to your connected accounting software.",
+  "integrations.inboundDesc": "Changes made in QuickBooks or Sage are synced back to OPS via webhooks (QuickBooks) or periodic polling (Sage).",
+  "integrations.conflictsDesc": "If both sides change the same record, OPS data takes priority by default. Conflicting changes are flagged for manual review.",
+
+  "integrations.quickbooksDesc": "Sync invoices, estimates, payments, and customers with Intuit QuickBooks Online.",
+  "integrations.sageDesc": "Sync invoices, quotes, payments, and contacts with Sage Business Cloud Accounting.",
+
+  "topClients.noData": "No invoice data yet",
+  "topClients.paid": "{amount} paid"
+}

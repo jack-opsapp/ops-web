@@ -2,16 +2,17 @@
 
 import { HelpCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/types/pipeline";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PortalLineItemCardProps {
   name: string;
   description: string | null;
-  quantity: number;
+  quantity?: number;
   unit: string;
-  unitPrice: number;
-  lineTotal: number;
+  unitPrice?: number;
+  lineTotal?: number;
   isOptional: boolean;
   hasQuestions: boolean;
 }
@@ -28,6 +29,10 @@ export function PortalLineItemCard({
   isOptional,
   hasQuestions,
 }: PortalLineItemCardProps) {
+  const { t } = useDictionary("portal");
+  const showTotal = lineTotal != null;
+  const showQtyPrice = quantity != null || unitPrice != null;
+
   return (
     <div
       className="rounded-lg"
@@ -55,7 +60,7 @@ export function PortalLineItemCard({
                   color: "#C4A868",
                 }}
               >
-                Optional
+                {t("estimate.optional")}
               </span>
             )}
             {hasQuestions && (
@@ -65,7 +70,7 @@ export function PortalLineItemCard({
                   backgroundColor: "rgba(65,115,148,0.15)",
                   color: "var(--portal-accent)",
                 }}
-                title="This item has questions for you"
+                title={t("estimate.hasQuestions")}
               >
                 <HelpCircle className="w-3 h-3" />
               </span>
@@ -80,27 +85,35 @@ export function PortalLineItemCard({
             </p>
           )}
         </div>
-        <span
-          className="text-sm font-semibold shrink-0"
-          style={{ color: "var(--portal-text)" }}
-        >
-          {formatCurrency(lineTotal)}
-        </span>
+        {showTotal && (
+          <span
+            className="text-sm font-semibold shrink-0"
+            style={{ color: "var(--portal-text)" }}
+          >
+            {formatCurrency(lineTotal)}
+          </span>
+        )}
       </div>
 
       {/* Quantity x Price row */}
-      <div
-        className="flex items-center gap-2 mt-2 text-xs"
-        style={{ color: "var(--portal-text-tertiary)" }}
-      >
-        <span>
-          {quantity} {unit}
-        </span>
-        <span style={{ color: "var(--portal-border-strong, var(--portal-border))" }}>
-          &times;
-        </span>
-        <span>{formatCurrency(unitPrice)}</span>
-      </div>
+      {showQtyPrice && (
+        <div
+          className="flex items-center gap-2 mt-2 text-xs"
+          style={{ color: "var(--portal-text-tertiary)" }}
+        >
+          {quantity != null && (
+            <span>
+              {quantity} {unit}
+            </span>
+          )}
+          {quantity != null && unitPrice != null && (
+            <span style={{ color: "var(--portal-border-strong, var(--portal-border))" }}>
+              &times;
+            </span>
+          )}
+          {unitPrice != null && <span>{formatCurrency(unitPrice)}</span>}
+        </div>
+      )}
     </div>
   );
 }

@@ -20,10 +20,11 @@ import {
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { useConnectivity } from "@/lib/hooks/use-connectivity";
+import { useDictionary } from "@/i18n/client";
 
 type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
-function SyncIndicator({ status }: { status: SyncStatus }) {
+function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => string }) {
   return (
     <div
       className={cn(
@@ -33,36 +34,36 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
       )}
       title={
         status === "synced"
-          ? "All data synced"
+          ? t("sync.syncedTitle")
           : status === "syncing"
-            ? "Syncing data..."
+            ? t("sync.syncingTitle")
             : status === "offline"
-              ? "No internet connection"
-              : "Changes pending sync"
+              ? t("sync.offlineTitle")
+              : t("sync.pendingTitle")
       }
     >
       {status === "synced" && (
         <>
           <Check className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline uppercase">Synced</span>
+          <span className="hidden xl:inline uppercase">{t("sync.synced")}</span>
         </>
       )}
       {status === "syncing" && (
         <>
           <RefreshCw className="w-[14px] h-[14px] animate-spin" />
-          <span className="hidden xl:inline uppercase">Syncing</span>
+          <span className="hidden xl:inline uppercase">{t("sync.syncing")}</span>
         </>
       )}
       {status === "pending" && (
         <>
           <Clock className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline uppercase">Pending</span>
+          <span className="hidden xl:inline uppercase">{t("sync.pending")}</span>
         </>
       )}
       {status === "offline" && (
         <>
           <WifiOff className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline uppercase">Offline</span>
+          <span className="hidden xl:inline uppercase">{t("sync.offline")}</span>
         </>
       )}
     </div>
@@ -72,6 +73,7 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
 export function TopBar() {
   const pageActions = usePageActionsStore((s) => s.actions);
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
+  const { t } = useDictionary("topbar");
 
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
@@ -142,23 +144,23 @@ export function TopBar() {
               })
             );
           }}
-          aria-label="Open search"
+          aria-label={t("search.ariaLabel")}
         >
           <Search className="w-[16px] h-[16px] shrink-0" />
-          <span className="font-mohave text-body-sm hidden sm:inline">Search...</span>
+          <span className="font-mohave text-body-sm hidden sm:inline">{t("search.placeholder")}</span>
           <kbd className="ml-auto font-mono text-[10px] text-text-disabled bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
-            ⌘K
+            {t("search.shortcut")}
           </kbd>
         </button>
 
         {/* Sync status */}
-        <SyncIndicator status={syncStatus} />
+        <SyncIndicator status={syncStatus} t={t} />
 
         {/* Notifications */}
         <button
           className="relative p-[10px] rounded text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-all"
-          title="Notifications"
-          aria-label="Notifications"
+          title={t("notifications.title")}
+          aria-label={t("notifications.ariaLabel")}
         >
           <Bell className="w-[18px] h-[18px]" />
         </button>

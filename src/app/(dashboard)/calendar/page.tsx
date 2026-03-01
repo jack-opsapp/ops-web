@@ -10,6 +10,7 @@ import {
   MapPin,
   Loader2,
 } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -157,7 +158,7 @@ function mapApiEventToInternal(event: ApiCalendarEvent): InternalCalendarEvent |
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 6 AM to 10 PM
 const HOUR_HEIGHT = 60; // pixels per hour in week/day view
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// DAY_NAMES moved into MonthView as a translated useMemo
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
 
@@ -289,16 +290,16 @@ function CurrentTimeIndicator() {
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
-function CalendarEmptyState({ view }: { view: CalendarView }) {
-  const label = view === "month" ? "this month" : view === "week" ? "this week" : "today";
+function CalendarEmptyState({ view, t }: { view: CalendarView; t: (key: string) => string }) {
+  const emptyKey = `empty.${view}` as const;
   return (
     <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
       <CalendarIcon className="w-[40px] h-[40px] text-text-disabled" />
       <p className="font-mohave text-body text-text-tertiary">
-        No events scheduled for {label}
+        {t(emptyKey)}
       </p>
       <p className="font-kosugi text-caption-sm text-text-disabled">
-        Events will appear here once scheduled
+        {t("empty.helper")}
       </p>
     </div>
   );
@@ -306,12 +307,12 @@ function CalendarEmptyState({ view }: { view: CalendarView }) {
 
 // ─── Loading Spinner ──────────────────────────────────────────────────────────
 
-function CalendarLoadingOverlay() {
+function CalendarLoadingOverlay({ t }: { t: (key: string) => string }) {
   return (
     <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
       <Loader2 className="w-[32px] h-[32px] text-ops-accent animate-spin" />
       <p className="font-mohave text-body-sm text-text-tertiary">
-        Loading events...
+        {t("loading")}
       </p>
     </div>
   );
@@ -323,11 +324,18 @@ function MonthView({
   currentDate,
   events,
   onSelectDate,
+  t,
 }: {
   currentDate: Date;
   events: InternalCalendarEvent[];
   onSelectDate: (date: Date) => void;
+  t: (key: string) => string;
 }) {
+  const dayNames = useMemo(() => [
+    t("dayNames.sun"), t("dayNames.mon"), t("dayNames.tue"), t("dayNames.wed"),
+    t("dayNames.thu"), t("dayNames.fri"), t("dayNames.sat"),
+  ], [t]);
+
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart);
@@ -339,7 +347,7 @@ function MonthView({
     <div className="flex flex-col flex-1 min-h-0">
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b border-border shrink-0">
-        {DAY_NAMES.map((day) => (
+        {dayNames.map((day) => (
           <div
             key={day}
             className="px-1 py-[10px] text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.15em]"
@@ -430,7 +438,7 @@ function MonthView({
                 })}
                 {dayEvents.length > 3 && (
                   <span className="font-mono text-[10px] text-ops-accent px-[6px] hover:underline">
-                    +{dayEvents.length - 3} more
+                    {t("moreEvents").replace("{count}", String(dayEvents.length - 3))}
                   </span>
                 )}
               </div>
@@ -604,10 +612,12 @@ function WeekView({
   currentDate,
   events,
   onSelectDate,
+  t,
 }: {
   currentDate: Date;
   events: InternalCalendarEvent[];
   onSelectDate: (date: Date) => void;
+  t: (key: string) => string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const weekStart = startOfWeek(currentDate);
@@ -664,7 +674,7 @@ function WeekView({
                     dayIsToday ? "text-ops-accent" : "text-text-disabled"
                   )}
                 >
-                  {dayEventCount} event{dayEventCount !== 1 ? "s" : ""}
+                  {(dayEventCount !== 1 ? t("eventCountPlural") : t("eventCount")).replace("{count}", String(dayEventCount))}
                 </span>
               )}
             </div>
@@ -711,9 +721,11 @@ function WeekView({
 function DayView({
   currentDate,
   events,
+  t,
 }: {
   currentDate: Date;
   events: InternalCalendarEvent[];
+  t: (key: string) => string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dayEvents = getEventsForDay(events, currentDate);
@@ -752,13 +764,13 @@ function DayView({
           </span>
           {dayIsToday && (
             <span className="font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-[8px] py-[2px] rounded-sm uppercase tracking-widest ml-[4px]">
-              Today
+              {t("today")}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1">
           <span className="font-mono text-data-sm text-text-tertiary">
-            {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+            {(dayEvents.length !== 1 ? t("eventCountPlural") : t("eventCount")).replace("{count}", String(dayEvents.length))}
           </span>
         </div>
       </div>
@@ -766,7 +778,7 @@ function DayView({
       {/* Scrollable time grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
         {dayEvents.length === 0 ? (
-          <CalendarEmptyState view="day" />
+          <CalendarEmptyState view="day" t={t} />
         ) : (
           <div className="grid grid-cols-[56px_1fr]">
             {/* Time gutter */}
@@ -802,7 +814,7 @@ function DayView({
 
 // ─── Mini Stats Bar ───────────────────────────────────────────────────────────
 
-function MiniStatsBar({ events, currentDate: _currentDate, view: _view }: { events: InternalCalendarEvent[]; currentDate: Date; view: CalendarView }) {
+function MiniStatsBar({ events, currentDate: _currentDate, view: _view, t }: { events: InternalCalendarEvent[]; currentDate: Date; view: CalendarView; t: (key: string) => string }) {
   const stats = useMemo(() => {
     const today = new Date();
     const todayEvents = events.filter((e) => isSameDay(e.startDate, today));
@@ -830,7 +842,7 @@ function MiniStatsBar({ events, currentDate: _currentDate, view: _view }: { even
       {/* Today / This Week counts */}
       <div className="flex items-center gap-[6px]">
         <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
-          Today
+          {t("stats.today")}
         </span>
         <span className="font-mono text-data-sm text-text-primary">
           {stats.todayCount}
@@ -839,7 +851,7 @@ function MiniStatsBar({ events, currentDate: _currentDate, view: _view }: { even
       <div className="w-[1px] h-[16px] bg-border-subtle" />
       <div className="flex items-center gap-[6px]">
         <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
-          This Week
+          {t("stats.thisWeek")}
         </span>
         <span className="font-mono text-data-sm text-text-primary">
           {stats.weekCount}
@@ -874,6 +886,7 @@ function MiniStatsBar({ events, currentDate: _currentDate, view: _view }: { even
 // ─── Main Calendar Page ───────────────────────────────────────────────────────
 
 export default function CalendarPage() {
+  const { t } = useDictionary("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>("month");
 
@@ -1012,7 +1025,7 @@ export default function CalendarPage() {
             <CalendarIcon className="w-[18px] h-[18px] text-ops-accent" />
           </div>
           <Button variant="secondary" size="sm" onClick={goToToday}>
-            Today
+            {t("today")}
           </Button>
         </div>
 
@@ -1022,7 +1035,7 @@ export default function CalendarPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate("prev")}
-            title="Previous (Left Arrow)"
+            title={`${t("previous")} (Left Arrow)`}
           >
             <ChevronLeft className="w-[18px] h-[18px]" />
           </Button>
@@ -1033,7 +1046,7 @@ export default function CalendarPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate("next")}
-            title="Next (Right Arrow)"
+            title={`${t("next")} (Right Arrow)`}
           >
             <ChevronRight className="w-[18px] h-[18px]" />
           </Button>
@@ -1043,9 +1056,9 @@ export default function CalendarPage() {
         <div className="flex items-center gap-1.5">
           <SegmentedPicker
             options={[
-              { value: "month" as CalendarView, label: "Month" },
-              { value: "week" as CalendarView, label: "Week" },
-              { value: "day" as CalendarView, label: "Day" },
+              { value: "month" as CalendarView, label: t("view.month") },
+              { value: "week" as CalendarView, label: t("view.week") },
+              { value: "day" as CalendarView, label: t("view.day") },
             ]}
             value={view}
             onChange={setView}
@@ -1066,7 +1079,7 @@ export default function CalendarPage() {
       </div>
 
       {/* ── Stats Bar ── */}
-      <MiniStatsBar events={events} currentDate={currentDate} view={view} />
+      <MiniStatsBar events={events} currentDate={currentDate} view={view} t={t} />
 
       {/* ── Calendar Content ── */}
       <div
@@ -1079,12 +1092,13 @@ export default function CalendarPage() {
           backgroundSize: "24px 24px",
         }}
       >
-        {isLoading && <CalendarLoadingOverlay />}
+        {isLoading && <CalendarLoadingOverlay t={t} />}
         {!isLoading && view === "month" && (
           <MonthView
             currentDate={currentDate}
             events={events}
             onSelectDate={handleSelectDate}
+            t={t}
           />
         )}
         {!isLoading && view === "week" && (
@@ -1092,10 +1106,11 @@ export default function CalendarPage() {
             currentDate={currentDate}
             events={events}
             onSelectDate={handleSelectDate}
+            t={t}
           />
         )}
         {!isLoading && view === "day" && (
-          <DayView currentDate={currentDate} events={events} />
+          <DayView currentDate={currentDate} events={events} t={t} />
         )}
       </div>
     </div>

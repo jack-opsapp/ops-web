@@ -11,6 +11,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { useDictionary } from "@/i18n/client";
 import {
   type Opportunity,
   OpportunityStage,
@@ -58,6 +59,7 @@ export function PipelineBoard({
   onSelectOpportunity,
   onAddLead,
 }: PipelineBoardProps) {
+  const { t } = useDictionary("pipeline");
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -117,8 +119,8 @@ export function PipelineBoard({
     ? activeOpportunity.clientId
       ? (clientMap.get(activeOpportunity.clientId)?.name ??
         activeOpportunity.contactName ??
-        "Unknown")
-      : (activeOpportunity.contactName ?? "New Lead")
+        t("card.unknown"))
+      : (activeOpportunity.contactName ?? t("newLead"))
     : "";
 
   // ── Drag handlers ────────────────────────────────────────────────────

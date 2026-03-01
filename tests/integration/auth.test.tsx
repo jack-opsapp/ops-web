@@ -67,13 +67,14 @@ function createMockOpsUser(overrides: Partial<User> = {}): User {
     hasCompletedAppOnboarding: true,
     hasCompletedAppTutorial: true,
     specialPermissions: [],
+    setupProgress: null,
     stripeCustomerId: null,
     deviceToken: null,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: null,
     ...overrides,
-  };
+  } as User;
 }
 
 // ─── Test Components ────────────────────────────────────────────────────────
