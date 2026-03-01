@@ -3,30 +3,193 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// ─── Widget-compatible types (kept for widget-defaults.ts) ──────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-export type WorkType = "recurring" | "emergency" | "project-based" | "single-visit";
-export type TrackingPriority = "revenue" | "efficiency" | "customers" | "pipeline";
-export type TeamSize = "solo" | "2-5" | "6-10" | "11+";
-export type CurrentTool = "quickbooks" | "jobber" | "spreadsheets" | "pen-paper";
-export type NeededFeature = "scheduling" | "invoicing" | "leads" | "expenses" | "crew";
+export type SetupPhase = "identity" | "company" | "starfield" | "launching" | "complete";
+export type ResponseType = "situational" | "likert" | "forced_choice";
 
-// ─── Setup phases ───────────────────────────────────────────────────────────
+export interface StarfieldOption {
+  id: string;
+  label: string;
+}
 
-export type SetupPhase =
-  | "identity-1"
-  | "identity-2"
-  | "starfield"
-  | "launching"
-  | "complete";
+export interface StarfieldQuestion {
+  id: string;
+  label: string;
+  question: string;
+  responseType: ResponseType;
+  options: StarfieldOption[];
+  likertMin?: string;
+  likertMax?: string;
+  position: { x: number; y: number; z: number };
+  conditionalOn?: { questionId: string; excludeAnswer: string };
+}
 
-// ─── State ──────────────────────────────────────────────────────────────────
+export interface SetupSteps {
+  identity: boolean;
+  company: boolean;
+  starfield: boolean;
+}
+
+// ─── Questions ───────────────────────────────────────────────────────────────
+
+export const STARFIELD_QUESTIONS: StarfieldQuestion[] = [
+  {
+    id: "projects",
+    label: "Projects",
+    question: "How many jobs are you running right now?",
+    responseType: "situational",
+    options: [
+      { id: "1-3", label: "1-3" },
+      { id: "4-10", label: "4-10" },
+      { id: "10-20", label: "10-20" },
+      { id: "20+", label: "20+" },
+    ],
+    position: { x: -280, y: -180, z: 100 },
+  },
+  {
+    id: "estimates",
+    label: "Estimates",
+    question: "How do you quote jobs?",
+    responseType: "situational",
+    options: [
+      { id: "software", label: "Software" },
+      { id: "spreadsheets", label: "Spreadsheets" },
+      { id: "text-email", label: "Text / Email" },
+      { id: "pen-paper", label: "Pen & Paper" },
+    ],
+    position: { x: 260, y: -200, z: 60 },
+  },
+  {
+    id: "close_rate",
+    label: "Close Rate",
+    question: "How often do your quotes become jobs?",
+    responseType: "likert",
+    options: [],
+    likertMin: "Rarely",
+    likertMax: "Almost always",
+    position: { x: -160, y: 40, z: 180 },
+  },
+  {
+    id: "invoicing",
+    label: "Invoicing",
+    question: "Are you on top of invoicing?",
+    responseType: "likert",
+    options: [],
+    likertMin: "Falling behind",
+    likertMax: "Locked in",
+    position: { x: 180, y: 80, z: 140 },
+  },
+  {
+    id: "scheduling",
+    label: "Scheduling",
+    question: "How do you schedule work?",
+    responseType: "situational",
+    options: [
+      { id: "calendar-app", label: "Calendar app" },
+      { id: "whiteboard", label: "Whiteboard" },
+      { id: "in-my-head", label: "In my head" },
+      { id: "chaos", label: "Chaos" },
+    ],
+    position: { x: -300, y: 160, z: 80 },
+  },
+  {
+    id: "schedule_detail",
+    label: "Schedule Detail",
+    question: "How do you book jobs?",
+    responseType: "forced_choice",
+    options: [
+      { id: "by-the-hour", label: "By the hour" },
+      { id: "by-the-day", label: "By the day" },
+    ],
+    position: { x: 0, y: -260, z: 120 },
+  },
+  {
+    id: "crew",
+    label: "Crew",
+    question: "Who's on the team?",
+    responseType: "situational",
+    options: [
+      { id: "just-me", label: "Just me" },
+      { id: "small-crew", label: "Small crew" },
+      { id: "multiple-crews", label: "Multiple crews" },
+      { id: "office-and-field", label: "Office and field" },
+    ],
+    position: { x: 220, y: -60, z: 200 },
+  },
+  {
+    id: "crew_morale",
+    label: "Crew Morale",
+    question: "How's your crew doing?",
+    responseType: "likert",
+    options: [],
+    likertMin: "Frustrated and scattered",
+    likertMax: "Dialed in",
+    position: { x: 300, y: 100, z: 60 },
+    conditionalOn: { questionId: "crew", excludeAnswer: "just-me" },
+  },
+  {
+    id: "inquiries",
+    label: "Inquiries",
+    question: "How do leads come in?",
+    responseType: "likert",
+    options: [],
+    likertMin: "All phone/text",
+    likertMax: "All email",
+    position: { x: -200, y: -100, z: 220 },
+  },
+  {
+    id: "time",
+    label: "Time",
+    question: "Is time tracking part of your operation?",
+    responseType: "forced_choice",
+    options: [
+      { id: "bill-on-time", label: "Yes, we bill on time" },
+      { id: "price-by-job", label: "No, we price by the job" },
+    ],
+    position: { x: 100, y: 220, z: 100 },
+  },
+  {
+    id: "inventory",
+    label: "Inventory",
+    question: "Do you need to track materials?",
+    responseType: "forced_choice",
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    position: { x: -100, y: 260, z: 40 },
+  },
+  {
+    id: "numbers",
+    label: "Numbers",
+    question: "How well do you know your numbers?",
+    responseType: "likert",
+    options: [],
+    likertMin: "Flying blind",
+    likertMax: "Down to the penny",
+    position: { x: 240, y: 200, z: 160 },
+  },
+  {
+    id: "growth",
+    label: "Growth",
+    question: "What would move the needle most?",
+    responseType: "situational",
+    options: [
+      { id: "winning-more-work", label: "Winning more work" },
+      { id: "getting-paid-faster", label: "Getting paid faster" },
+      { id: "better-organization", label: "Better organization" },
+      { id: "more-time-back", label: "More time back" },
+    ],
+    position: { x: -260, y: 240, z: 120 },
+  },
+];
+
+// ─── Store ───────────────────────────────────────────────────────────────────
 
 interface SetupState {
-  // Phase tracking
+  // State
   phase: SetupPhase;
-
-  // Identity data (Phase 1)
   firstName: string;
   lastName: string;
   phone: string;
@@ -34,126 +197,58 @@ interface SetupState {
   industry: string;
   companySize: string;
   companyAge: string;
+  starfieldAnswers: Record<string, string | number>;
+  steps: SetupSteps;
 
-  // Starfield answers (Phase 2) — placeholder questions
-  starfieldAnswers: Record<string, string | string[]>;
-
-  // Widget customization (derived from starfield answers)
-  // Kept for compatibility with existing widget-defaults.ts
-  workType: WorkType | null;
-  trackingPriorities: TrackingPriority[];
-  teamSize: TeamSize | null;
-  currentTools: CurrentTool[];
-  neededFeatures: NeededFeature[];
-
-  isComplete: boolean;
-
-  // Actions — phase
+  // Actions
   setPhase: (phase: SetupPhase) => void;
-
-  // Actions — identity
   setIdentity: (data: Partial<Pick<SetupState, "firstName" | "lastName" | "phone">>) => void;
   setCompanyInfo: (
     data: Partial<Pick<SetupState, "companyName" | "industry" | "companySize" | "companyAge">>
   ) => void;
-
-  // Actions — starfield
-  setStarfieldAnswer: (questionId: string, answer: string | string[]) => void;
-
-  // Actions — widget compat (for future starfield → widget mapping)
-  setWorkType: (type: WorkType) => void;
-  toggleTrackingPriority: (priority: TrackingPriority) => void;
-  setTeamSize: (size: TeamSize) => void;
-  toggleCurrentTool: (tool: CurrentTool) => void;
-  toggleNeededFeature: (feature: NeededFeature) => void;
-
-  // Actions — lifecycle
+  setStarfieldAnswer: (questionId: string, answer: string | number) => void;
+  completeStep: (step: keyof SetupSteps) => void;
   completeSetup: () => void;
   reset: () => void;
 }
 
+const initialState = {
+  phase: "identity" as SetupPhase,
+  firstName: "",
+  lastName: "",
+  phone: "",
+  companyName: "",
+  industry: "",
+  companySize: "",
+  companyAge: "",
+  starfieldAnswers: {} as Record<string, string | number>,
+  steps: { identity: false, company: false, starfield: false } as SetupSteps,
+};
+
 export const useSetupStore = create<SetupState>()(
   persist(
     (set) => ({
-      // Phase
-      phase: "identity-1" as SetupPhase,
+      ...initialState,
 
-      // Identity
-      firstName: "",
-      lastName: "",
-      phone: "",
-      companyName: "",
-      industry: "",
-      companySize: "",
-      companyAge: "",
-
-      // Starfield
-      starfieldAnswers: {},
-
-      // Widget compat
-      workType: null,
-      trackingPriorities: [],
-      teamSize: null,
-      currentTools: [],
-      neededFeatures: [],
-
-      isComplete: false,
-
-      // Phase
       setPhase: (phase) => set({ phase }),
 
-      // Identity
       setIdentity: (data) => set(data),
+
       setCompanyInfo: (data) => set(data),
 
-      // Starfield
       setStarfieldAnswer: (questionId, answer) =>
         set((state) => ({
           starfieldAnswers: { ...state.starfieldAnswers, [questionId]: answer },
         })),
 
-      // Widget compat
-      setWorkType: (workType) => set({ workType }),
-      toggleTrackingPriority: (priority) =>
+      completeStep: (step) =>
         set((state) => ({
-          trackingPriorities: state.trackingPriorities.includes(priority)
-            ? state.trackingPriorities.filter((p) => p !== priority)
-            : [...state.trackingPriorities, priority],
-        })),
-      setTeamSize: (teamSize) => set({ teamSize }),
-      toggleCurrentTool: (tool) =>
-        set((state) => ({
-          currentTools: state.currentTools.includes(tool)
-            ? state.currentTools.filter((t) => t !== tool)
-            : [...state.currentTools, tool],
-        })),
-      toggleNeededFeature: (feature) =>
-        set((state) => ({
-          neededFeatures: state.neededFeatures.includes(feature)
-            ? state.neededFeatures.filter((f) => f !== feature)
-            : [...state.neededFeatures, feature],
+          steps: { ...state.steps, [step]: true },
         })),
 
-      // Lifecycle
-      completeSetup: () => set({ isComplete: true, phase: "complete" }),
-      reset: () =>
-        set({
-          phase: "identity-1",
-          firstName: "",
-          lastName: "",
-          phone: "",
-          companyName: "",
-          industry: "",
-          companySize: "",
-          companyAge: "",
-          starfieldAnswers: {},
-          workType: null,
-          trackingPriorities: [],
-          teamSize: null,
-          currentTools: [],
-          neededFeatures: [],
-          isComplete: false,
-        }),
+      completeSetup: () => set({ phase: "complete" }),
+
+      reset: () => set({ ...initialState }),
     }),
     {
       name: "ops-setup-state",
