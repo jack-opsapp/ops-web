@@ -472,3 +472,27 @@ export interface NewsletterContent {
   created_at: string;
   updated_at: string;
 }
+
+export interface LifecycleEmailConfig {
+  email_type_key: string;
+  enabled: boolean;
+  min_days: number;
+  max_days: number;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+export type LifecycleStage =
+  | "no_onboarding"
+  | "no_first_project"
+  | "inactive"
+  | "trial_expiring"
+  | "trial_expired";
+
+export interface LifecycleEmailMeta {
+  key: string;
+  label: string;
+  stage: LifecycleStage;
+  description: string;
+  audience: string;
+}

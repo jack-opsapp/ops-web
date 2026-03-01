@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import type { EmailLogRow } from "@/lib/admin/types";
+import { LifecycleConfigPanel } from "./lifecycle-config-panel";
 
 interface TriggerConfig {
   slug: string;
@@ -167,6 +168,9 @@ export function TriggerSheet({
             <p className="font-kosugi text-[12px] text-[#A0A0A0]">
               {trigger.description}
             </p>
+
+            {/* Lifecycle Email Config — only for lifecycle-emails trigger */}
+            {trigger.slug === "lifecycle-emails" && <LifecycleConfigPanel />}
 
             {/* Last Email Info */}
             {trigger.slug !== "verify-email-domains" && (
