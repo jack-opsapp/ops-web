@@ -65,6 +65,8 @@ export function LikertResponse({
       >
         {/* Baseline + nodes container */}
         <div
+          role="radiogroup"
+          aria-label={`${minLabel} to ${maxLabel}`}
           className="relative flex items-center"
           style={{ width: BASELINE_WIDTH, height: TOUCH_TARGET }}
         >
@@ -85,9 +87,10 @@ export function LikertResponse({
               <button
                 key={pointValue}
                 type="button"
+                role="radio"
                 onClick={() => handleSelect(pointValue)}
-                aria-label={`${pointValue} of ${POINT_COUNT}`}
-                aria-pressed={isSelected}
+                aria-label={`${pointValue} of ${POINT_COUNT}${i === 0 ? `, ${minLabel}` : i === POINT_COUNT - 1 ? `, ${maxLabel}` : ""}`}
+                aria-checked={isSelected}
                 className="absolute flex items-center justify-center focus:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent/50 rounded-full"
                 style={{
                   left: i * spacing - TOUCH_TARGET / 2,

@@ -8,7 +8,7 @@
  * Phase 3: Launch animation → navigate to dashboard
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { getAuth } from "firebase/auth";
@@ -65,6 +65,28 @@ export default function SetupPage() {
   const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
 
   const answeredCount = Object.keys(starfieldAnswers).length;
+
+  // ─── Focus management ──────────────────────────────────────────────────
+
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [phaseAnnouncement, setPhaseAnnouncement] = useState("");
+
+  // Move focus to heading and announce phase changes
+  useEffect(() => {
+    if (phase === "identity") {
+      setPhaseAnnouncement("Step 1 of 2: About You");
+    } else if (phase === "company") {
+      setPhaseAnnouncement("Step 2 of 2: Your Company");
+    } else if (phase === "starfield") {
+      setPhaseAnnouncement("Customization questionnaire");
+    }
+
+    // Focus the heading after a short delay to let the DOM update
+    const timer = setTimeout(() => {
+      headingRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [phase]);
 
   // ─── Analytics timing refs ─────────────────────────────────────────────
 
@@ -255,6 +277,10 @@ export default function SetupPage() {
   if (phase === "starfield") {
     return (
       <div className="fixed inset-0 bg-background">
+        {/* Phase announcement for screen readers */}
+        <div className="sr-only" aria-live="polite" role="status">
+          {phaseAnnouncement}
+        </div>
         <SetupStarfield
           questions={STARFIELD_QUESTIONS}
           starfieldAnswers={starfieldAnswers}
@@ -265,25 +291,28 @@ export default function SetupPage() {
         <div className="absolute top-4 left-4 z-10">
           <button
             onClick={handleBack}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-background-card/80 border border-border text-text-secondary font-mohave text-body-sm hover:border-border-medium transition-colors backdrop-blur-sm"
+            aria-label="Back to company information"
+            className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-lg bg-background-card/80 border border-border text-text-secondary font-mohave text-body-sm hover:border-border-medium transition-colors backdrop-blur-sm"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
             Back
           </button>
         </div>
         <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
           <button
             onClick={handleSkip}
-            className="px-3 py-1.5 font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
+            aria-label="Skip questionnaire and go to dashboard"
+            className="px-3 py-1.5 min-h-[44px] font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
           >
             Skip for now
           </button>
           {answeredCount >= MIN_STARFIELD_ANSWERS && (
             <button
               onClick={handleLaunchFromStarfield}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-ops-accent text-white font-mohave text-body-sm hover:bg-ops-accent/90 transition-colors shadow-[0_0_12px_rgba(65,115,148,0.3)]"
+              aria-label="Launch your personalized dashboard"
+              className="flex items-center gap-1.5 px-4 py-1.5 min-h-[44px] rounded-lg bg-ops-accent text-white font-mohave text-body-sm hover:bg-ops-accent/90 transition-colors shadow-[0_0_12px_rgba(65,115,148,0.3)]"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               Launch
             </button>
           )}
@@ -312,14 +341,23 @@ export default function SetupPage() {
 
   return (
     <div className="w-full max-w-[600px] mx-auto">
+      {/* Phase announcement for screen readers */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {phaseAnnouncement}
+      </div>
+
       {/* Logo */}
       <div className="text-center mb-3">
         <div className="flex items-center justify-center gap-[6px] mb-1">
-          <div className="w-[8px] h-[8px] rounded-full bg-ops-accent shadow-[0_0_8px_rgba(65,115,148,0.5)]" />
-          <span className="font-mohave text-heading text-text-primary tracking-[0.2em]">
+          <div className="w-[8px] h-[8px] rounded-full bg-ops-accent shadow-[0_0_8px_rgba(65,115,148,0.5)]" aria-hidden="true" />
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="font-mohave text-heading text-text-primary tracking-[0.2em] focus:outline-none"
+          >
             OPS
-          </span>
-          <div className="w-[8px] h-[8px] rounded-full bg-ops-accent shadow-[0_0_8px_rgba(65,115,148,0.5)]" />
+          </h1>
+          <div className="w-[8px] h-[8px] rounded-full bg-ops-accent shadow-[0_0_8px_rgba(65,115,148,0.5)]" aria-hidden="true" />
         </div>
         <p className="font-mono text-[10px] text-text-disabled tracking-widest uppercase">
           Command Center Setup
@@ -327,14 +365,25 @@ export default function SetupPage() {
       </div>
 
       {/* Progress bar */}
-      <div className="flex items-center gap-[4px] mb-3">
-        <div className="flex-1 h-[3px] rounded-full bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]" />
+      <div
+        className="flex items-center gap-[4px] mb-3"
+        role="progressbar"
+        aria-valuenow={phase === "identity" ? 1 : 2}
+        aria-valuemin={1}
+        aria-valuemax={2}
+        aria-label={`Setup progress: step ${phase === "identity" ? "1" : "2"} of 2`}
+      >
+        <div
+          className="flex-1 h-[3px] rounded-full bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]"
+          aria-hidden="true"
+        />
         <div
           className={`flex-1 h-[3px] rounded-full transition-all duration-300 ${
             phase === "company"
               ? "bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]"
               : "bg-background-elevated"
           }`}
+          aria-hidden="true"
         />
       </div>
 
@@ -345,7 +394,8 @@ export default function SetupPage() {
         </span>
         <button
           onClick={handleSkip}
-          className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
+          aria-label="Skip setup and go to dashboard"
+          className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors min-h-[44px]"
         >
           Skip for now
         </button>
@@ -378,15 +428,20 @@ export default function SetupPage() {
           variant="ghost"
           onClick={handleBack}
           disabled={phase === "identity"}
+          aria-label={phase === "company" ? "Back to personal information" : "Back"}
           className="gap-[4px]"
         >
-          <ChevronLeft className="w-[16px] h-[16px]" />
+          <ChevronLeft className="w-[16px] h-[16px]" aria-hidden="true" />
           Back
         </Button>
 
-        <Button onClick={handleNext} className="gap-[4px]">
+        <Button
+          onClick={handleNext}
+          aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
+          className="gap-[4px]"
+        >
           Next
-          <ChevronRight className="w-[16px] h-[16px]" />
+          <ChevronRight className="w-[16px] h-[16px]" aria-hidden="true" />
         </Button>
       </div>
     </div>

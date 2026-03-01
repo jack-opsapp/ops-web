@@ -55,6 +55,8 @@ export function ForcedChoiceResponse({
       >
         {/* Nodes container — uses relative positioning with nodes placed from center */}
         <div
+          role="radiogroup"
+          aria-label="Choose an option"
           className="relative flex items-center justify-center"
           style={{
             width: HORIZONTAL_GAP + TOUCH_TARGET,
@@ -113,9 +115,10 @@ export function ForcedChoiceResponse({
                 {/* Touch target button */}
                 <button
                   type="button"
+                  role="radio"
                   onClick={() => handleSelect(option.id)}
                   aria-label={option.label}
-                  aria-pressed={isSelected}
+                  aria-checked={isSelected}
                   className="flex items-center justify-center focus:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent/50 rounded-full"
                   style={{
                     width: TOUCH_TARGET,

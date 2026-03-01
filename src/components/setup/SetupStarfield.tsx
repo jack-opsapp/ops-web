@@ -606,13 +606,42 @@ export function SetupStarfield({
   return (
     <div
       ref={containerRef}
+      role="application"
+      aria-label="Setup questionnaire"
       className="absolute inset-0 cursor-crosshair"
       onClick={handleCanvasClick}
     >
       <canvas
         ref={canvasRef}
+        aria-hidden="true"
         style={{ display: "block", width: "100%", height: "100%" }}
       />
+
+      {/* Screen-reader-only question list */}
+      <div className="sr-only">
+        <h2>Setup Questions</h2>
+        <ul>
+          {visibleQuestions.map((q) => {
+            const answer = starfieldAnswers[q.id];
+            const answerText =
+              answer != null
+                ? q.responseType === "likert"
+                  ? `${answer} of 5`
+                  : q.options.find((o) => o.id === answer)?.label ?? String(answer)
+                : "Not answered";
+            return (
+              <li key={q.id}>
+                {q.question} — {answerText}
+              </li>
+            );
+          })}
+        </ul>
+        <p>
+          {answeredCount} of {visibleQuestions.length} answered.
+          {answeredCount < minRequired &&
+            ` ${minRequired - answeredCount} more needed.`}
+        </p>
+      </div>
 
       {/* Hover tooltip */}
       <AnimatePresence>
@@ -731,7 +760,7 @@ export function SetupStarfield({
       </AnimatePresence>
 
       {/* Progress indicator */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10" aria-hidden="true">
         <div className="flex items-center gap-2">
           {visibleQuestions.map((q) => (
             <div

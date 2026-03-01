@@ -193,7 +193,10 @@ export function SetupInterceptionModal({
       <DialogContent className="max-w-[500px]">
         <DialogHeader>
           {totalSteps > 1 && (
-            <p className="font-mono text-[10px] text-text-disabled tracking-widest uppercase mb-0.5">
+            <p
+              className="font-mono text-[10px] text-text-disabled tracking-widest uppercase mb-0.5"
+              aria-live="polite"
+            >
               Step {stepIndex + 1} of {totalSteps}
             </p>
           )}
@@ -243,6 +246,7 @@ export function SetupInterceptionModal({
             onClick={handleContinue}
             disabled={!canContinue || saving}
             loading={saving}
+            aria-label={saving ? "Saving progress" : buttonLabel}
           >
             {saving ? "Saving..." : buttonLabel}
           </Button>

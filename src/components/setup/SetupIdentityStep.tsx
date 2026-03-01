@@ -74,9 +74,10 @@ function SelectorButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={selected}
       className={cn(
         "px-3 py-2 rounded-lg border text-center transition-all duration-150",
-        "font-mohave text-body-sm",
+        "font-mohave text-body-sm min-h-[44px] min-w-[44px]",
         selected
           ? "bg-ops-accent/10 border-ops-accent text-text-primary shadow-[0_0_8px_rgba(65,115,148,0.15)]"
           : "bg-background-input border-border text-text-secondary hover:border-border-medium"
@@ -99,8 +100,10 @@ function IndustryDropdown({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [customValue, setCustomValue] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
 
   const filtered = INDUSTRIES.filter((ind) =>
     ind.toLowerCase().includes(search.toLowerCase())
@@ -112,6 +115,7 @@ function IndustryDropdown({
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpen(false);
         setSearch("");
+        setHighlightedIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -122,23 +126,78 @@ function IndustryDropdown({
   useEffect(() => {
     if (open && searchInputRef.current) {
       searchInputRef.current.focus();
+      setHighlightedIndex(-1);
     }
   }, [open]);
 
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listboxRef.current) {
+      const options = listboxRef.current.querySelectorAll('[role="option"]');
+      options[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
+
+  const selectOption = useCallback((ind: string) => {
+    if (ind === "Other") {
+      onChange("Other");
+    } else {
+      onChange(ind);
+    }
+    setOpen(false);
+    setSearch("");
+    setHighlightedIndex(-1);
+  }, [onChange]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!open) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < filtered.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : filtered.length - 1
+        );
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+          selectOption(filtered[highlightedIndex]);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        setOpen(false);
+        setSearch("");
+        setHighlightedIndex(-1);
+        break;
+    }
+  }, [open, filtered, highlightedIndex, selectOption]);
+
   const isOther = value === "Other" || (value !== "" && !INDUSTRIES.includes(value as typeof INDUSTRIES[number]));
+  const listboxId = "industry-listbox";
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative" onKeyDown={handleKeyDown}>
       <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
         Industry
       </label>
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
         className={cn(
           "w-full flex items-center justify-between",
           "bg-background-input text-text-primary font-mohave text-body",
-          "px-1.5 py-1.5 rounded-lg",
+          "px-1.5 py-1.5 rounded-lg min-h-[44px]",
           "border border-border",
           "transition-all duration-150",
           "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
@@ -151,6 +210,7 @@ function IndustryDropdown({
             "w-4 h-4 text-text-tertiary transition-transform",
             open && "rotate-180"
           )}
+          aria-hidden="true"
         />
       </button>
 
@@ -159,46 +219,57 @@ function IndustryDropdown({
           {/* Search */}
           <div className="p-1.5 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
+              <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" aria-hidden="true" />
               <input
                 ref={searchInputRef}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setHighlightedIndex(-1);
+                }}
                 placeholder="Search industries..."
+                aria-label="Search industries"
+                aria-controls={listboxId}
+                aria-activedescendant={
+                  highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
+                }
                 className="w-full bg-background-input text-text-primary font-mohave text-body-sm pl-4 pr-1.5 py-1 rounded border border-border focus:border-ops-accent focus:outline-none placeholder:text-text-tertiary"
               />
             </div>
           </div>
 
           {/* Options */}
-          <div className="max-h-[200px] overflow-y-auto">
-            {filtered.map((ind) => (
+          <div
+            ref={listboxRef}
+            id={listboxId}
+            role="listbox"
+            aria-label="Industries"
+            className="max-h-[200px] overflow-y-auto"
+          >
+            {filtered.map((ind, index) => (
               <button
                 key={ind}
+                id={`industry-option-${index}`}
                 type="button"
-                onClick={() => {
-                  if (ind === "Other") {
-                    onChange("Other");
-                  } else {
-                    onChange(ind);
-                  }
-                  setOpen(false);
-                  setSearch("");
-                }}
+                role="option"
+                aria-selected={value === ind}
+                onClick={() => selectOption(ind)}
                 className={cn(
-                  "w-full flex items-center justify-between px-1.5 py-1 text-left",
+                  "w-full flex items-center justify-between px-1.5 py-1 text-left min-h-[44px]",
                   "font-mohave text-body-sm transition-colors",
                   value === ind
                     ? "bg-ops-accent/10 text-ops-accent"
-                    : "text-text-secondary hover:bg-background-elevated hover:text-text-primary"
+                    : highlightedIndex === index
+                      ? "bg-background-elevated text-text-primary"
+                      : "text-text-secondary hover:bg-background-elevated hover:text-text-primary"
                 )}
               >
                 <span>{ind}</span>
-                {value === ind && <Check className="w-3.5 h-3.5" />}
+                {value === ind && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="px-1.5 py-2 font-kosugi text-caption text-text-tertiary text-center">
+              <p className="px-1.5 py-2 font-kosugi text-caption text-text-tertiary text-center" role="status">
                 No industries match &quot;{search}&quot;
               </p>
             )}
@@ -211,6 +282,7 @@ function IndustryDropdown({
         <div className="mt-1">
           <Input
             placeholder="Enter your industry"
+            aria-label="Custom industry name"
             value={value === "Other" ? customValue : value}
             onChange={(e) => {
               setCustomValue(e.target.value);
@@ -326,7 +398,7 @@ export function IdentityStep2({
         />
 
         {/* Company Size */}
-        <div>
+        <div role="group" aria-label="Team Size">
           <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
             Team Size
           </label>
@@ -343,7 +415,7 @@ export function IdentityStep2({
         </div>
 
         {/* Years in Business */}
-        <div>
+        <div role="group" aria-label="Years in Business">
           <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
             Years in Business
           </label>
