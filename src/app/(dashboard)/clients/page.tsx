@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -28,6 +28,8 @@ import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useWindowStore } from "@/stores/window-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 
 type ViewMode = "cards" | "table";
@@ -312,6 +314,21 @@ export default function ClientsPage() {
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateClient = () => openWindow({ id: "create-client", title: t("newClient"), type: "create-client" });
 
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [pendingGatedAction, setPendingGatedAction] = useState<(() => void) | null>(null);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setPendingGatedAction(() => openCreateClient);
+      setShowSetupModal(true);
+      return;
+    }
+    openCreateClient();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupComplete]);
+
   const filterOptions = useMemo(() => [
     { value: "all" as FilterMode, label: t("filter.all") },
     { value: "with-projects" as FilterMode, label: t("filter.active") },
@@ -331,11 +348,11 @@ export default function ClientsPage() {
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: t("newClient"), icon: Plus, onClick: openCreateClient, shortcut: "\u2318\u21E7C" },
+      { label: t("newClient"), icon: Plus, onClick: gatedOpenCreate, shortcut: "\u2318\u21E7C" },
     ]);
     return () => clearActions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions]);
+  }, [setActions, clearActions, gatedOpenCreate]);
 
   const { data, isLoading } = useClients();
   const { data: projectsData } = useProjects();
@@ -525,6 +542,21 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          pendingGatedAction?.();
+          setPendingGatedAction(null);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+          setPendingGatedAction(null);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="clients"
+      />
     </div>
   );
 }

@@ -32,6 +32,8 @@ import { ProjectDetailSheet } from "@/components/ops/project-detail-sheet";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useWindowStore } from "@/stores/window-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
@@ -248,6 +250,21 @@ export default function ProjectsPage() {
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
 
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [pendingGatedAction, setPendingGatedAction] = useState<(() => void) | null>(null);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setPendingGatedAction(() => openCreateProject);
+      setShowSetupModal(true);
+      return;
+    }
+    openCreateProject();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupComplete]);
+
   // Track screen view
   useEffect(() => { trackScreenView("projects"); }, []);
 
@@ -256,11 +273,11 @@ export default function ProjectsPage() {
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: t("newProject"), icon: Plus, onClick: openCreateProject, shortcut: "\u2318\u21E7P" },
+      { label: t("newProject"), icon: Plus, onClick: gatedOpenCreate, shortcut: "\u2318\u21E7P" },
     ]);
     return () => clearActions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions, t]);
+  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   const {
     selectedIds,
@@ -773,6 +790,22 @@ export default function ProjectsPage() {
         onOpenChange={(open) => {
           if (!open) setPreviewProjectId(null);
         }}
+      />
+
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          pendingGatedAction?.();
+          setPendingGatedAction(null);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+          setPendingGatedAction(null);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="projects"
       />
     </div>
   );

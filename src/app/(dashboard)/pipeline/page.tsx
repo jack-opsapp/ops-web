@@ -49,6 +49,8 @@ import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { QuickAddForm } from "./_components/quick-add-form";
 import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 
 // ---------------------------------------------------------------------------
 // Loading Skeleton
@@ -160,6 +162,18 @@ export default function PipelinePage() {
   // ── Auth ───────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();
 
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setShowSetupModal(true);
+      return;
+    }
+    setShowQuickAdd(true);
+  }, [setupComplete]);
+
   // ── Page actions ───────────────────────────────────────────────────────
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
@@ -169,13 +183,13 @@ export default function PipelinePage() {
       {
         label: t("newLead"),
         icon: Plus,
-        onClick: () => setShowQuickAdd(true),
+        onClick: gatedOpenCreate,
         shortcut: "\u2318\u21E7L",
       },
     ]);
     return () => clearActions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions]);
+  }, [setActions, clearActions, gatedOpenCreate]);
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
@@ -816,6 +830,20 @@ export default function PipelinePage() {
         opportunity={transitionOpportunity}
         onConfirm={handleTransitionConfirm}
         onCancel={handleTransitionCancel}
+      />
+
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          setShowQuickAdd(true);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="leads"
       />
     </div>
   );

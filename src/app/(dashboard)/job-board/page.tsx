@@ -39,6 +39,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useWindowStore } from "@/stores/window-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { useDictionary } from "@/i18n/client";
 
 import {
@@ -574,6 +576,21 @@ export default function JobBoardPage() {
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateProject = () => openWindow({ id: "create-project", title: t("newProject"), type: "create-project" });
 
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [pendingGatedAction, setPendingGatedAction] = useState<(() => void) | null>(null);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setPendingGatedAction(() => openCreateProject);
+      setShowSetupModal(true);
+      return;
+    }
+    openCreateProject();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupComplete]);
+
   const columnDefinitions = useMemo<Omit<Column, "cards">[]>(
     () =>
       COLUMN_STYLE_DEFS.map((def) => ({
@@ -588,11 +605,11 @@ export default function JobBoardPage() {
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: t("newProject"), icon: Plus, onClick: openCreateProject },
+      { label: t("newProject"), icon: Plus, onClick: gatedOpenCreate },
     ]);
     return () => clearActions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions, t]);
+  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   // Track optimistic DnD overrides: map of projectId -> target ColumnId
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
@@ -915,6 +932,21 @@ export default function JobBoardPage() {
         </span>
       </div>
 
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          pendingGatedAction?.();
+          setPendingGatedAction(null);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+          setPendingGatedAction(null);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="projects"
+      />
     </div>
   );
 }

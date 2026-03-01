@@ -55,6 +55,8 @@ import {
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
 import { toast } from "sonner";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
@@ -125,15 +127,27 @@ export default function EstimatesPage() {
 
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
 
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setShowSetupModal(true);
+      return;
+    }
+    setShowCreateModal(true);
+  }, [setupComplete]);
+
   // Page actions
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: t("estimates.newEstimate"), icon: Plus, onClick: () => setShowCreateModal(true) },
+      { label: t("estimates.newEstimate"), icon: Plus, onClick: gatedOpenCreate },
     ]);
     return () => clearActions();
-  }, [setActions, clearActions, t]);
+  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   async function handleDownloadPdf(estimateId: string) {
     setGeneratingPdfId(estimateId);
@@ -438,6 +452,20 @@ export default function EstimatesPage() {
             }
           );
         }}
+      />
+
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          setShowCreateModal(true);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="estimates"
       />
     </div>
   );

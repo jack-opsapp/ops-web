@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
@@ -56,6 +56,8 @@ import {
 import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePageActionsStore } from "@/stores/page-actions-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
 import { toast } from "sonner";
 
@@ -136,14 +138,26 @@ export default function InvoicesPage() {
 
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
 
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setShowSetupModal(true);
+      return;
+    }
+    setShowCreateModal(true);
+  }, [setupComplete]);
+
   const setActions = usePageActionsStore((s) => s.setActions);
   const clearActions = usePageActionsStore((s) => s.clearActions);
   useEffect(() => {
     setActions([
-      { label: t("invoices.newInvoice"), icon: Plus, onClick: () => setShowCreateModal(true) },
+      { label: t("invoices.newInvoice"), icon: Plus, onClick: gatedOpenCreate },
     ]);
     return () => clearActions();
-  }, [setActions, clearActions, t]);
+  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   async function handleDownloadPdf(invoiceId: string) {
     setGeneratingPdfId(invoiceId);
@@ -431,6 +445,20 @@ export default function InvoicesPage() {
         onSubmit={(data) => {
           recordPayment.mutate(data, { onSuccess: () => setPaymentInvoice(null) });
         }}
+      />
+
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          setShowCreateModal(true);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="invoices"
       />
     </div>
   );

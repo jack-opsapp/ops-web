@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -13,12 +13,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useWindowStore } from "@/stores/window-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 
 interface FABAction {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   onClick: () => void;
+  triggerAction: string;
 }
 
 export function FloatingActionButton() {
@@ -26,6 +29,25 @@ export function FloatingActionButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const openWindow = useWindowStore((s) => s.openWindow);
+
+  // ── Setup gate ────────────────────────────────────────────────────────
+  const { isComplete, missingSteps } = useSetupGate();
+  const [showInterception, setShowInterception] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [triggerAction, setTriggerAction] = useState("projects");
+
+  const gatedAction = useCallback(
+    (action: () => void, triggerName: string) => {
+      if (!isComplete) {
+        setPendingAction(() => action);
+        setTriggerAction(triggerName);
+        setShowInterception(true);
+        return;
+      }
+      action();
+    },
+    [isComplete]
+  );
 
   // Close on outside click
   useEffect(() => {
@@ -54,8 +76,11 @@ export function FloatingActionButton() {
       id: "project",
       label: "New Project",
       icon: FolderKanban,
+      triggerAction: "projects",
       onClick: () => {
-        openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+        gatedAction(() => {
+          openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+        }, "projects");
         setOpen(false);
       },
     },
@@ -63,8 +88,11 @@ export function FloatingActionButton() {
       id: "client",
       label: "New Client",
       icon: Users,
+      triggerAction: "clients",
       onClick: () => {
-        openWindow({ id: "create-client", title: "New Client", type: "create-client" });
+        gatedAction(() => {
+          openWindow({ id: "create-client", title: "New Client", type: "create-client" });
+        }, "clients");
         setOpen(false);
       },
     },
@@ -72,8 +100,11 @@ export function FloatingActionButton() {
       id: "task",
       label: "New Task",
       icon: ClipboardList,
+      triggerAction: "tasks",
       onClick: () => {
-        openWindow({ id: "create-task", title: "New Task", type: "create-task" });
+        gatedAction(() => {
+          openWindow({ id: "create-task", title: "New Task", type: "create-task" });
+        }, "tasks");
         setOpen(false);
       },
     },
@@ -81,8 +112,11 @@ export function FloatingActionButton() {
       id: "estimate",
       label: "New Estimate",
       icon: Calculator,
+      triggerAction: "estimates",
       onClick: () => {
-        router.push("/estimates?action=new");
+        gatedAction(() => {
+          router.push("/estimates?action=new");
+        }, "estimates");
         setOpen(false);
       },
     },
@@ -90,63 +124,84 @@ export function FloatingActionButton() {
       id: "invoice",
       label: "New Invoice",
       icon: Receipt,
+      triggerAction: "invoices",
       onClick: () => {
-        router.push("/invoices?action=new");
+        gatedAction(() => {
+          router.push("/invoices?action=new");
+        }, "invoices");
         setOpen(false);
       },
     },
   ];
 
   return (
-    <div ref={containerRef} className="fixed bottom-3 right-14 z-[95]">
-      {/* Action items — slide up from FAB */}
-      <div
-        className={cn(
-          "absolute bottom-[52px] right-0 flex flex-col gap-[6px] transition-all duration-200",
-          open
-            ? "opacity-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 translate-y-2 pointer-events-none"
-        )}
-      >
-        {actions.map((action, i) => (
-          <button
-            key={action.id}
-            onClick={action.onClick}
-            className={cn(
-              "flex items-center gap-1.5 pl-1.5 pr-2 py-[8px] rounded-lg",
-              "bg-background-elevated border border-border",
-              "hover:bg-[rgba(255,255,255,0.08)] hover:border-border-medium",
-              "transition-all duration-150 whitespace-nowrap",
-              "shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
-            )}
-            style={{
-              transitionDelay: open ? `${i * 30}ms` : "0ms",
-            }}
-          >
-            <action.icon className="w-[16px] h-[16px] text-ops-accent shrink-0" />
-            <span className="font-mohave text-body-sm text-text-primary">{action.label}</span>
-          </button>
-        ))}
+    <>
+      <div ref={containerRef} className="fixed bottom-3 right-14 z-[95]">
+        {/* Action items — slide up from FAB */}
+        <div
+          className={cn(
+            "absolute bottom-[52px] right-0 flex flex-col gap-[6px] transition-all duration-200",
+            open
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 translate-y-2 pointer-events-none"
+          )}
+        >
+          {actions.map((action, i) => (
+            <button
+              key={action.id}
+              onClick={action.onClick}
+              className={cn(
+                "flex items-center gap-1.5 pl-1.5 pr-2 py-[8px] rounded-lg",
+                "bg-background-elevated border border-border",
+                "hover:bg-[rgba(255,255,255,0.08)] hover:border-border-medium",
+                "transition-all duration-150 whitespace-nowrap",
+                "shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+              )}
+              style={{
+                transitionDelay: open ? `${i * 30}ms` : "0ms",
+              }}
+            >
+              <action.icon className="w-[16px] h-[16px] text-ops-accent shrink-0" />
+              <span className="font-mohave text-body-sm text-text-primary">{action.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* FAB button */}
+        <button
+          onClick={() => setOpen((prev) => !prev)}
+          className={cn(
+            "w-[44px] h-[44px] rounded-full flex items-center justify-center",
+            "bg-ops-accent hover:bg-ops-accent-hover",
+            "shadow-[0_2px_12px_rgba(65,115,148,0.4)]",
+            "transition-all duration-200",
+            open && "rotate-45"
+          )}
+          title="Quick actions"
+        >
+          {open ? (
+            <X className="w-[20px] h-[20px] text-white" />
+          ) : (
+            <Plus className="w-[20px] h-[20px] text-white" />
+          )}
+        </button>
       </div>
 
-      {/* FAB button */}
-      <button
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "w-[44px] h-[44px] rounded-full flex items-center justify-center",
-          "bg-ops-accent hover:bg-ops-accent-hover",
-          "shadow-[0_2px_12px_rgba(65,115,148,0.4)]",
-          "transition-all duration-200",
-          open && "rotate-45"
-        )}
-        title="Quick actions"
-      >
-        {open ? (
-          <X className="w-[20px] h-[20px] text-white" />
-        ) : (
-          <Plus className="w-[20px] h-[20px] text-white" />
-        )}
-      </button>
-    </div>
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showInterception}
+        onComplete={() => {
+          setShowInterception(false);
+          pendingAction?.();
+          setPendingAction(null);
+        }}
+        onDismiss={() => {
+          setShowInterception(false);
+          setPendingAction(null);
+        }}
+        missingSteps={missingSteps}
+        triggerAction={triggerAction}
+      />
+    </>
   );
 }
