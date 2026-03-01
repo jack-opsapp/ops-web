@@ -4,110 +4,7 @@ import { useState, useCallback } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
 import { SetupLaunchAnimation } from "@/components/setup/SetupLaunchAnimation";
-import type { StarfieldQuestion } from "@/stores/setup-store";
-
-// ─── Placeholder questions for testing ─────────────────────────────────────
-
-const TEST_QUESTIONS: StarfieldQuestion[] = [
-  {
-    id: "q1",
-    label: "Work Style",
-    question: "How does your crew typically work?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "Solo jobs" },
-      { id: "b", label: "Small teams" },
-      { id: "c", label: "Large crews" },
-    ],
-    position: { x: -200, y: 150, z: 50 },
-  },
-  {
-    id: "q2",
-    label: "Scheduling",
-    question: "How do you handle scheduling?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "Paper calendar" },
-      { id: "b", label: "Digital tools" },
-      { id: "c", label: "Wing it" },
-    ],
-    position: { x: 180, y: -120, z: -30 },
-  },
-  {
-    id: "q3",
-    label: "Invoicing",
-    question: "How do you invoice clients?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "QuickBooks" },
-      { id: "b", label: "Manual invoices" },
-      { id: "c", label: "No system yet" },
-    ],
-    position: { x: -150, y: -180, z: 80 },
-  },
-  {
-    id: "q4",
-    label: "Growth",
-    question: "What's your top growth goal?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "More clients" },
-      { id: "b", label: "Bigger jobs" },
-      { id: "c", label: "Better margins" },
-    ],
-    position: { x: 220, y: 100, z: -60 },
-  },
-  {
-    id: "q5",
-    label: "Communication",
-    question: "How does your crew communicate?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "Text messages" },
-      { id: "b", label: "Phone calls" },
-      { id: "c", label: "In person" },
-    ],
-    position: { x: -50, y: 200, z: -40 },
-  },
-  {
-    id: "q6",
-    label: "Tracking",
-    question: "What do you track most?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "Hours worked" },
-      { id: "b", label: "Job costs" },
-      { id: "c", label: "Materials" },
-      { id: "d", label: "Nothing yet" },
-    ],
-    position: { x: 100, y: -200, z: 70 },
-  },
-  {
-    id: "q7",
-    label: "Pain Point",
-    question: "Biggest day-to-day headache?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "Paperwork" },
-      { id: "b", label: "Chasing payments" },
-      { id: "c", label: "Crew coordination" },
-    ],
-    position: { x: -180, y: -50, z: -80 },
-  },
-  {
-    id: "q8",
-    label: "Estimates",
-    question: "How do you create estimates?",
-    responseType: "situational",
-    options: [
-      { id: "a", label: "Spreadsheet" },
-      { id: "b", label: "Handwritten" },
-      { id: "c", label: "Software" },
-      { id: "d", label: "Don't estimate" },
-    ],
-    position: { x: 160, y: 160, z: 40 },
-  },
-];
+import { STARFIELD_QUESTIONS } from "@/stores/setup-store";
 
 // ─── Testing Grounds Page ──────────────────────────────────────────────────
 
@@ -192,7 +89,7 @@ export default function TestingGroundsPage() {
           </button>
         </div>
         <p className="font-mono text-[10px] text-text-disabled">
-          {answeredCount}/8 questions answered
+          {answeredCount}/{STARFIELD_QUESTIONS.length} questions answered
         </p>
       </div>
     );
@@ -204,7 +101,7 @@ export default function TestingGroundsPage() {
     return (
       <div className="fixed inset-0 z-50 bg-background">
         <SetupStarfield
-          questions={TEST_QUESTIONS}
+          questions={STARFIELD_QUESTIONS}
           starfieldAnswers={answers}
           onAnswer={handleAnswer}
           minRequired={4}
@@ -212,7 +109,7 @@ export default function TestingGroundsPage() {
         {/* Controls overlay */}
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <span className="font-mono text-[10px] text-text-disabled self-center mr-2">
-            {answeredCount}/8 answered
+            {answeredCount}/{STARFIELD_QUESTIONS.length} answered
           </span>
           {answeredCount >= 4 && (
             <button
@@ -238,7 +135,7 @@ export default function TestingGroundsPage() {
   return (
     <div className="fixed inset-0 z-50 bg-background">
       <SetupLaunchAnimation
-        questions={TEST_QUESTIONS}
+        questions={STARFIELD_QUESTIONS}
         starfieldAnswers={answers}
         onComplete={handleLaunchComplete}
       />
