@@ -8,9 +8,15 @@
  * identity and/or company data before allowing the action to proceed.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
 import { Loader2 } from "lucide-react";
+import {
+  trackInterceptionShown,
+  trackInterceptionStepCompleted,
+  trackInterceptionCompleted,
+  trackInterceptionDismissed,
+} from "@/lib/analytics/analytics";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +75,16 @@ export function SetupInterceptionModal({
   const currentStep = missingSteps[stepIndex] as "identity" | "company" | undefined;
   const totalSteps = missingSteps.length;
   const isLastStep = stepIndex === totalSteps - 1;
+
+  // ── Analytics ──────────────────────────────────────────────────────────
+  const modalStartRef = useRef(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      modalStartRef.current = Date.now();
+      trackInterceptionShown(triggerAction, [...missingSteps]);
+    }
+  }, [isOpen, triggerAction, missingSteps]);
 
   // ── Save step to server ──────────────────────────────────────────────
 
@@ -132,25 +148,30 @@ export function SetupInterceptionModal({
     const success = await saveStep(currentStep);
     if (!success) return;
 
+    const remaining = totalSteps - stepIndex - 1;
+    trackInterceptionStepCompleted(currentStep, remaining);
+
     if (isLastStep) {
-      // Reset step index for next time
+      const totalDuration = Date.now() - modalStartRef.current;
+      trackInterceptionCompleted(totalSteps, triggerAction, totalDuration);
       setStepIndex(0);
       onComplete();
     } else {
       setStepIndex((prev) => prev + 1);
     }
-  }, [currentStep, isLastStep, saveStep, onComplete]);
+  }, [currentStep, isLastStep, saveStep, onComplete, totalSteps, stepIndex, triggerAction]);
 
   // ── Handle dismiss ───────────────────────────────────────────────────
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
+        trackInterceptionDismissed(currentStep ?? "unknown", triggerAction);
         setStepIndex(0);
         onDismiss();
       }
     },
-    [onDismiss]
+    [onDismiss, currentStep, triggerAction]
   );
 
   // ── Validation ───────────────────────────────────────────────────────

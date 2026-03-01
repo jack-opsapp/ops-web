@@ -24,13 +24,13 @@ describe("analytics", () => {
     );
   });
 
-  it("trackBeginTrial logs begin_trial event", async () => {
-    const { trackBeginTrial } = await import("../analytics");
-    trackBeginTrial();
+  it("trackSetupStarted logs setup_started event", async () => {
+    const { trackSetupStarted } = await import("../analytics");
+    trackSetupStarted("direct");
     expect(mockLogEvent).toHaveBeenCalledWith(
       expect.anything(),
-      "begin_trial",
-      expect.any(Object)
+      "setup_started",
+      expect.objectContaining({ source: "direct" })
     );
   });
 

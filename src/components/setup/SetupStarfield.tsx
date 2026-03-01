@@ -17,6 +17,10 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { StarfieldQuestion } from "@/stores/setup-store";
+import {
+  trackStarfieldNodeFocused,
+  trackStarfieldQuestionAnswered,
+} from "@/lib/analytics/analytics";
 import { LikertResponse } from "./starfield/LikertResponse";
 import { ForcedChoiceResponse } from "./starfield/ForcedChoiceResponse";
 
@@ -129,6 +133,9 @@ export function SetupStarfield({
   const starfieldAnswersRef = useRef(starfieldAnswers);
   starfieldAnswersRef.current = starfieldAnswers;
 
+  // Analytics: track time spent on each focused question
+  const nodeFocusTimeRef = useRef(0);
+
   // ─── Conditional visibility ──────────────────────────────────────────────
 
   const visibleQuestions = useMemo(() => {
@@ -166,6 +173,12 @@ export function SetupStarfield({
     camera.targetY = q.position.y;
     camera.targetZ = q.position.z - 250;
     camera.targetZoom = 3.5;
+    nodeFocusTimeRef.current = Date.now();
+    const questionIndex = visibleQuestionsRef.current.findIndex((vq) => vq.id === q.id);
+    const currentAnsweredCount = visibleQuestionsRef.current.filter(
+      (vq) => starfieldAnswersRef.current[vq.id] != null
+    ).length;
+    trackStarfieldNodeFocused(q.id, questionIndex + 1, currentAnsweredCount);
     setFocusedNode(q.id);
     setHoveredNode(null);
   }, []);
@@ -183,10 +196,21 @@ export function SetupStarfield({
   // ─── Handle option select ───────────────────────────────────────────────
 
   const handleOptionSelect = useCallback(
-    (questionId: string, optionId: string) => {
+    (questionId: string, optionId: string | number, zoomOutDelay = 400) => {
+      const timeOnQuestion = Date.now() - nodeFocusTimeRef.current;
+      const questionIndex = visibleQuestionsRef.current.findIndex((q) => q.id === questionId);
+      const currentAnsweredCount = visibleQuestionsRef.current.filter(
+        (q) => starfieldAnswersRef.current[q.id] != null
+      ).length;
+      trackStarfieldQuestionAnswered(
+        questionId,
+        optionId,
+        questionIndex + 1,
+        currentAnsweredCount + (starfieldAnswersRef.current[questionId] == null ? 1 : 0),
+        timeOnQuestion
+      );
       onAnswer(questionId, optionId);
-      // Short delay then zoom out
-      setTimeout(() => zoomOut(), 400);
+      setTimeout(() => zoomOut(), zoomOutDelay);
     },
     [onAnswer, zoomOut]
   );
@@ -677,8 +701,7 @@ export function SetupStarfield({
                       : null
                   }
                   onSelect={(value) => {
-                    onAnswer(focusedQuestion.id, value);
-                    setTimeout(() => zoomOut(), 100);
+                    handleOptionSelect(focusedQuestion.id, value, 100);
                   }}
                 />
               </div>
@@ -698,8 +721,7 @@ export function SetupStarfield({
                       : null
                   }
                   onSelect={(optionId) => {
-                    onAnswer(focusedQuestion.id, optionId);
-                    setTimeout(() => zoomOut(), 100);
+                    handleOptionSelect(focusedQuestion.id, optionId, 100);
                   }}
                 />
               </div>

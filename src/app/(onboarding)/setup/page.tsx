@@ -8,12 +8,21 @@
  * Phase 3: Launch animation → navigate to dashboard
  */
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { Button } from "@/components/ui/button";
-import { trackBeginTrial, trackCompleteOnboarding } from "@/lib/analytics/analytics";
+import {
+  trackSetupStarted,
+  trackSetupStepViewed,
+  trackSetupStepCompleted,
+  trackSetupStepSkipped,
+  trackSetupCompleted,
+  trackStarfieldEntered,
+  trackStarfieldLaunched,
+  trackStarfieldExited,
+} from "@/lib/analytics/analytics";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults";
@@ -48,6 +57,7 @@ export default function SetupPage() {
     setCompanyInfo,
     starfieldAnswers,
     setStarfieldAnswer,
+    steps,
     completeStep,
     completeSetup,
   } = useSetupStore();
@@ -56,10 +66,35 @@ export default function SetupPage() {
 
   const answeredCount = Object.keys(starfieldAnswers).length;
 
+  // ─── Analytics timing refs ─────────────────────────────────────────────
+
+  const setupStartRef = useRef(Date.now());
+  const stepStartRef = useRef(Date.now());
+  const starfieldStartRef = useRef(0);
+
+  // Fire setup_started once on mount
+  useEffect(() => {
+    setupStartRef.current = Date.now();
+    trackSetupStarted("direct");
+  }, []);
+
+  // Fire step_viewed when phase changes (identity / company / starfield)
+  useEffect(() => {
+    if (phase === "identity" || phase === "company" || phase === "starfield") {
+      stepStartRef.current = Date.now();
+      trackSetupStepViewed(phase);
+      if (phase === "starfield") {
+        starfieldStartRef.current = Date.now();
+        trackStarfieldEntered();
+      }
+    }
+  }, [phase]);
+
   // ─── Navigation ────────────────────────────────────────────────────────
 
   const handleIdentityNext = useCallback(async () => {
-    trackBeginTrial();
+    const duration_ms = Date.now() - stepStartRef.current;
+    trackSetupStepCompleted("identity", duration_ms);
     completeStep("identity");
     try {
       const token = await getAuthToken();
@@ -81,6 +116,8 @@ export default function SetupPage() {
   }, [completeStep, setPhase, firstName, lastName, phone]);
 
   const handleCompanyNext = useCallback(async () => {
+    const duration_ms = Date.now() - stepStartRef.current;
+    trackSetupStepCompleted("company", duration_ms);
     completeStep("company");
     try {
       const token = await getAuthToken();
@@ -113,11 +150,18 @@ export default function SetupPage() {
     if (phase === "company") {
       setPhase("identity");
     } else if (phase === "starfield") {
+      trackStarfieldExited(answeredCount, "back");
       setPhase("company");
     }
-  }, [phase, setPhase]);
+  }, [phase, setPhase, answeredCount]);
 
   const handleSkip = useCallback(async () => {
+    if (phase === "starfield") {
+      trackStarfieldExited(answeredCount, "skip");
+    }
+    trackSetupStepSkipped(phase, "button");
+    const totalDuration = Date.now() - setupStartRef.current;
+    trackSetupCompleted("skipped", [], totalDuration);
     try {
       const token = await getAuthToken();
       if (token) {
@@ -131,9 +175,8 @@ export default function SetupPage() {
       // Non-blocking
     }
     completeSetup();
-    trackCompleteOnboarding(false);
     router.push("/dashboard");
-  }, [completeSetup, router, phase]);
+  }, [completeSetup, router, phase, answeredCount]);
 
   const handleStarfieldAnswer = useCallback(
     (questionId: string, answer: string | number) => {
@@ -144,9 +187,15 @@ export default function SetupPage() {
 
   const handleLaunchFromStarfield = useCallback(() => {
     if (answeredCount >= MIN_STARFIELD_ANSWERS) {
+      const starfieldDuration = Date.now() - starfieldStartRef.current;
+      trackStarfieldLaunched(
+        answeredCount,
+        Object.keys(starfieldAnswers),
+        starfieldDuration
+      );
       setPhase("launching");
     }
-  }, [answeredCount, setPhase]);
+  }, [answeredCount, starfieldAnswers, setPhase]);
 
   const handleLaunchComplete = useCallback(async () => {
     // 1. Save starfield answers
@@ -182,7 +231,14 @@ export default function SetupPage() {
     }
 
     completeSetup();
-    trackCompleteOnboarding(false);
+    const stepsCompleted = (Object.entries(steps) as [string, boolean][])
+      .filter(([, done]) => done)
+      .map(([name]) => name);
+    // starfield was just completed above via completeStep
+    if (!stepsCompleted.includes("starfield")) stepsCompleted.push("starfield");
+    const method = stepsCompleted.length >= 3 ? "full" : "partial";
+    const totalDuration = Date.now() - setupStartRef.current;
+    trackSetupCompleted(method, stepsCompleted, totalDuration);
     router.push("/dashboard");
   }, [
     completeStep,
@@ -190,6 +246,7 @@ export default function SetupPage() {
     companySize,
     applyWidgetInstances,
     completeSetup,
+    steps,
     router,
   ]);
 
