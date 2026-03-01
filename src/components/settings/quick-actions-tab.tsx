@@ -1,37 +1,9 @@
 "use client";
 
-import {
-  Receipt,
-  TrendingUp,
-  Calculator,
-  Users,
-  FolderKanban,
-  ClipboardList,
-  Tag,
-} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
-
-// ─── Action registry (duplicated from FAB — will be extracted in Task 7) ─────
-
-interface FABAction {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const ALL_ACTIONS: FABAction[] = [
-  { id: "expense",   label: "Add Expense",   icon: Receipt },
-  { id: "lead",      label: "New Lead",      icon: TrendingUp },
-  { id: "estimate",  label: "New Estimate",  icon: Calculator },
-  { id: "client",    label: "New Client",    icon: Users },
-  { id: "project",   label: "New Project",   icon: FolderKanban },
-  { id: "task",      label: "New Task",      icon: ClipboardList },
-  { id: "task-type", label: "New Task Type", icon: Tag },
-];
-
-const DEFAULT_ACTION_IDS = ALL_ACTIONS.map((a) => a.id);
+import { ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
