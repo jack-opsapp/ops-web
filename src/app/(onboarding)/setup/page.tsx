@@ -292,7 +292,7 @@ export default function SetupPage() {
           <button
             onClick={handleBack}
             aria-label="Back to company information"
-            className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-lg bg-background-card/80 border border-border text-text-secondary font-mohave text-body-sm hover:border-border-medium transition-colors backdrop-blur-sm"
+            className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-secondary font-mohave text-body-sm hover:border-[rgba(255,255,255,0.18)] transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
             Back
@@ -310,7 +310,7 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="flex items-center gap-1.5 px-4 py-1.5 min-h-[44px] rounded-lg bg-ops-accent text-white font-mohave text-body-sm hover:bg-ops-accent/90 transition-colors shadow-[0_0_12px_rgba(65,115,148,0.3)]"
+              className="flex items-center gap-1.5 px-4 py-1.5 min-h-[44px] rounded-sm bg-white text-[#0A0A0A] font-mohave text-body-sm uppercase hover:bg-[rgba(255,255,255,0.85)] transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               Launch
@@ -347,9 +347,9 @@ export default function SetupPage() {
       </div>
 
       {/* Logo */}
-      <div className="text-center mb-3">
-        <div className="flex items-center justify-center gap-[6px] mb-1">
-          <div className="w-[8px] h-[8px] rounded-full bg-ops-accent shadow-[0_0_8px_rgba(65,115,148,0.5)]" aria-hidden="true" />
+      <div className="mb-3">
+        <div className="flex items-center gap-[6px] mb-1">
+          <div className="w-[8px] h-[8px] rounded-full bg-[rgba(255,255,255,0.25)]" aria-hidden="true" />
           <h1
             ref={headingRef}
             tabIndex={-1}
@@ -357,7 +357,7 @@ export default function SetupPage() {
           >
             OPS
           </h1>
-          <div className="w-[8px] h-[8px] rounded-full bg-ops-accent shadow-[0_0_8px_rgba(65,115,148,0.5)]" aria-hidden="true" />
+          <div className="w-[8px] h-[8px] rounded-full bg-[rgba(255,255,255,0.25)]" aria-hidden="true" />
         </div>
         <p className="font-mono text-[10px] text-text-disabled tracking-widest uppercase">
           Command Center Setup
@@ -374,13 +374,13 @@ export default function SetupPage() {
         aria-label={`Setup progress: step ${phase === "identity" ? "1" : "2"} of 2`}
       >
         <div
-          className="flex-1 h-[3px] rounded-full bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]"
+          className="flex-1 h-[3px] rounded-full bg-[rgba(255,255,255,0.40)]"
           aria-hidden="true"
         />
         <div
           className={`flex-1 h-[3px] rounded-full transition-all duration-300 ${
             phase === "company"
-              ? "bg-ops-accent shadow-[0_0_4px_rgba(65,115,148,0.4)]"
+              ? "bg-[rgba(255,255,255,0.40)]"
               : "bg-background-elevated"
           }`}
           aria-hidden="true"

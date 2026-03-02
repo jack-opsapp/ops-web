@@ -76,10 +76,10 @@ function SelectorButton({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "px-3 py-2 rounded-lg border text-center transition-all duration-150",
+        "px-3 py-2 rounded-sm border transition-all duration-150",
         "font-mohave text-body-sm min-h-[44px] min-w-[44px]",
         selected
-          ? "bg-ops-accent/10 border-ops-accent text-text-primary shadow-[0_0_8px_rgba(65,115,148,0.15)]"
+          ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.25)] text-text-primary"
           : "bg-background-input border-border text-text-secondary hover:border-border-medium"
       )}
     >
@@ -197,10 +197,10 @@ function IndustryDropdown({
         className={cn(
           "w-full flex items-center justify-between",
           "bg-background-input text-text-primary font-mohave text-body",
-          "px-1.5 py-1.5 rounded-lg min-h-[44px]",
+          "px-1.5 py-1.5 rounded-sm min-h-[44px]",
           "border border-border",
           "transition-all duration-150",
-          "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
+          "focus:border-[rgba(255,255,255,0.25)] focus:outline-none",
           !value && "text-text-tertiary"
         )}
       >
@@ -215,7 +215,7 @@ function IndustryDropdown({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm overflow-hidden">
           {/* Search */}
           <div className="p-1.5 border-b border-border">
             <div className="relative">
@@ -233,7 +233,7 @@ function IndustryDropdown({
                 aria-activedescendant={
                   highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
                 }
-                className="w-full bg-background-input text-text-primary font-mohave text-body-sm pl-4 pr-1.5 py-1 rounded border border-border focus:border-ops-accent focus:outline-none placeholder:text-text-tertiary"
+                className="w-full bg-background-input text-text-primary font-mohave text-body-sm pl-4 pr-1.5 py-1 rounded-sm border border-border focus:border-[rgba(255,255,255,0.25)] focus:outline-none placeholder:text-text-tertiary"
               />
             </div>
           </div>
@@ -258,7 +258,7 @@ function IndustryDropdown({
                   "w-full flex items-center justify-between px-1.5 py-1 text-left min-h-[44px]",
                   "font-mohave text-body-sm transition-colors",
                   value === ind
-                    ? "bg-ops-accent/10 text-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
                     : highlightedIndex === index
                       ? "bg-background-elevated text-text-primary"
                       : "text-text-secondary hover:bg-background-elevated hover:text-text-primary"
@@ -269,7 +269,7 @@ function IndustryDropdown({
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="px-1.5 py-2 font-kosugi text-caption text-text-tertiary text-center" role="status">
+              <p className="px-1.5 py-2 font-kosugi text-caption text-text-tertiary" role="status">
                 No industries match &quot;{search}&quot;
               </p>
             )}
@@ -311,8 +311,8 @@ export function IdentityStep1({
   onUpdate,
 }: IdentityStep1Props) {
   return (
-    <div className="w-full max-w-[440px] mx-auto">
-      <div className="text-center mb-4">
+    <div className="w-full max-w-[440px]">
+      <div className="mb-4">
         <h2 className="font-mohave text-display text-text-primary">
           About You
         </h2>
@@ -373,8 +373,8 @@ export function IdentityStep2({
   onUpdate,
 }: IdentityStep2Props) {
   return (
-    <div className="w-full max-w-[440px] mx-auto">
-      <div className="text-center mb-4">
+    <div className="w-full max-w-[440px]">
+      <div className="mb-4">
         <h2 className="font-mohave text-display text-text-primary">
           Your Company
         </h2>

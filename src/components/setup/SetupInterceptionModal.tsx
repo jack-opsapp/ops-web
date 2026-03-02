@@ -242,7 +242,7 @@ export function SetupInterceptionModal({
 
         <div className="flex justify-end pt-1 border-t border-border">
           <Button
-            variant="primary"
+            variant="default"
             onClick={handleContinue}
             disabled={!canContinue || saving}
             loading={saving}
