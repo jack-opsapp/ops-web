@@ -28,6 +28,11 @@ export async function POST(
     const session = result;
 
     const { id: invoiceId } = await params;
+
+    if (session.isPreview) {
+      return NextResponse.json({ error: "Payments are disabled in preview mode" }, { status: 400 });
+    }
+
     const body = await req.json();
 
     // Validate amount

@@ -22,6 +22,11 @@ export async function POST(
     const session = result;
 
     const { id } = await params;
+
+    if (session.isPreview) {
+      return NextResponse.json({ success: true });
+    }
+
     const body = await req.json().catch(() => ({}));
     const reason = typeof body.reason === "string" ? body.reason : undefined;
 

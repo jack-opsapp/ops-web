@@ -54,6 +54,16 @@ export async function GET(
 
     const { id } = await params;
 
+    // Preview mode: return demo estimate
+    if (session.isPreview) {
+      const { getDemoEstimateDetail } = await import("@/lib/api/services/portal-demo-data");
+      const demoEstimate = getDemoEstimateDetail(id);
+      if (!demoEstimate) {
+        return NextResponse.json({ error: "Estimate not found" }, { status: 404 });
+      }
+      return NextResponse.json(demoEstimate);
+    }
+
     // Fetch estimate with line items (verifies client ownership)
     const estimate = await PortalService.getEstimateForPortal(
       id,

@@ -53,6 +53,16 @@ export async function GET(
 
     const { id } = await params;
 
+    // Preview mode: return demo invoice
+    if (session.isPreview) {
+      const { getDemoInvoiceDetail } = await import("@/lib/api/services/portal-demo-data");
+      const demoInvoice = getDemoInvoiceDetail(id);
+      if (!demoInvoice) {
+        return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      }
+      return NextResponse.json(demoInvoice);
+    }
+
     const invoice = await PortalService.getInvoiceForPortal(
       id,
       session.clientId

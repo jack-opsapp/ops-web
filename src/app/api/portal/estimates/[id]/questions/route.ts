@@ -25,6 +25,10 @@ export async function GET(
 
     const { id: estimateId } = await params;
 
+    if (session.isPreview) {
+      return NextResponse.json({ questions: [], answers: [] });
+    }
+
     const [questions, answers] = await Promise.all([
       LineItemQuestionService.getQuestionsForEstimate(estimateId),
       LineItemQuestionService.getAnswersForEstimate(estimateId),
@@ -50,6 +54,11 @@ export async function POST(
     const session = result;
 
     const { id: estimateId } = await params;
+
+    if (session.isPreview) {
+      return NextResponse.json({ success: true, answers: [] });
+    }
+
     const body = await req.json();
 
     if (!Array.isArray(body.answers) || body.answers.length === 0) {

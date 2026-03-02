@@ -25,6 +25,16 @@ export async function GET(
 
     const { id } = await params;
 
+    // Preview mode: return demo project
+    if (session.isPreview) {
+      const { getDemoProjectDetail } = await import("@/lib/api/services/portal-demo-data");
+      const demoProject = getDemoProjectDetail(id);
+      if (!demoProject) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
+      return NextResponse.json(demoProject);
+    }
+
     const supabase = getServiceRoleClient();
 
     // Verify the client has estimates or invoices linked to this project

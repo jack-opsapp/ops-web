@@ -10,6 +10,7 @@ export default function MagicLinkLandingPage() {
   const token = params.token as string;
 
   const [status, setStatus] = useState<"loading" | "valid" | "expired" | "error">("loading");
+  const [isPreview, setIsPreview] = useState(false);
   const [email, setEmail] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -22,6 +23,9 @@ export default function MagicLinkLandingPage() {
         const data = await res.json();
         if (data.valid) {
           setStatus("valid");
+          if (data.isPreview) {
+            setIsPreview(true);
+          }
         } else if (data.reason === "expired") {
           setStatus("expired");
         } else {
@@ -33,6 +37,35 @@ export default function MagicLinkLandingPage() {
     }
     validateToken();
   }, [token]);
+
+  // Auto-verify preview tokens (no email needed)
+  useEffect(() => {
+    if (!isPreview || status !== "valid") return;
+
+    async function autoVerify() {
+      setIsVerifying(true);
+      try {
+        const res = await fetch("/api/portal/auth/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, email: "preview@ops.app" }),
+        });
+
+        if (res.ok) {
+          router.push("/portal/home");
+        } else {
+          setStatus("error");
+          setErrorMessage("Preview session could not be created");
+        }
+      } catch {
+        setStatus("error");
+        setErrorMessage("Something went wrong");
+      } finally {
+        setIsVerifying(false);
+      }
+    }
+    autoVerify();
+  }, [isPreview, status, token, router]);
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -83,8 +116,18 @@ export default function MagicLinkLandingPage() {
           </div>
         )}
 
+        {/* Preview: auto-verifying */}
+        {status === "valid" && isPreview && (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--portal-accent, #417394)" }} />
+            <p style={{ color: "var(--portal-text-secondary, #A7A7A7)" }} className="text-sm">
+              Loading preview...
+            </p>
+          </div>
+        )}
+
         {/* Token valid — show email form */}
-        {status === "valid" && (
+        {status === "valid" && !isPreview && (
           <>
             <div className="flex flex-col items-center gap-2 mb-6">
               <div

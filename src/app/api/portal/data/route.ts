@@ -18,6 +18,13 @@ export async function GET(req: NextRequest) {
     if (isErrorResponse(result)) return result;
     const session = result;
 
+    // Preview mode: return demo data with flag
+    if (session.isPreview) {
+      const { getDemoPortalData } = await import("@/lib/api/services/portal-demo-data");
+      const demoData = await getDemoPortalData(session.companyId);
+      return NextResponse.json({ ...demoData, isPreview: true });
+    }
+
     const data = await PortalService.getPortalData(
       session.clientId,
       session.companyId

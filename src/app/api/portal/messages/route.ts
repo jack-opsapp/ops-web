@@ -21,6 +21,12 @@ export async function GET(req: NextRequest) {
     if (isErrorResponse(result)) return result;
     const session = result;
 
+    // Preview mode: return demo messages
+    if (session.isPreview) {
+      const { getDemoPortalMessages } = await import("@/lib/api/services/portal-demo-data");
+      return NextResponse.json({ messages: getDemoPortalMessages(session.companyId) });
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") ?? "50", 10);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
@@ -51,6 +57,16 @@ export async function POST(req: NextRequest) {
     const session = result;
 
     const body = await req.json();
+
+    // Preview mode: no-op, return fake success
+    if (session.isPreview) {
+      return NextResponse.json({
+        id: "preview-msg-new",
+        content: body.content,
+        senderType: "client",
+        createdAt: new Date().toISOString(),
+      }, { status: 201 });
+    }
 
     if (!body.content || typeof body.content !== "string") {
       return NextResponse.json(

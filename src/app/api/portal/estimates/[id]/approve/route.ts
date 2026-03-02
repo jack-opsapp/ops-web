@@ -22,6 +22,10 @@ export async function POST(
 
     const { id } = await params;
 
+    if (session.isPreview) {
+      return NextResponse.json({ success: true });
+    }
+
     await PortalService.approveEstimate(id, session.clientId);
 
     return NextResponse.json({ success: true });
