@@ -780,9 +780,46 @@ export async function updateFeatureRequestStatus(id: string, status: string) {
 export async function getAppMessages(): Promise<AppMessage[]> {
   const { data } = await db()
     .from("app_messages")
-    .select("id, title, body, active, created_at")
+    .select("*")
     .order("created_at", { ascending: false });
   return (data ?? []) as AppMessage[];
+}
+
+export async function createAppMessage(
+  message: Omit<AppMessage, "id" | "created_at">
+): Promise<AppMessage> {
+  if (message.active) {
+    await db().from("app_messages").update({ active: false }).eq("active", true);
+  }
+  const { data, error } = await db()
+    .from("app_messages")
+    .insert(message)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AppMessage;
+}
+
+export async function updateAppMessage(
+  id: string,
+  updates: Partial<Omit<AppMessage, "id" | "created_at">>
+): Promise<AppMessage> {
+  if (updates.active) {
+    await db().from("app_messages").update({ active: false }).eq("active", true).neq("id", id);
+  }
+  const { data, error } = await db()
+    .from("app_messages")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AppMessage;
+}
+
+export async function deleteAppMessage(id: string): Promise<void> {
+  const { error } = await db().from("app_messages").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function getPromoCodes(): Promise<PromoCode[]> {

@@ -131,8 +131,38 @@ export interface AppMessage {
   title: string;
   body: string | null;
   active: boolean;
+  message_type: string;
+  dismissable: boolean;
+  target_user_types: string[] | null;
+  app_store_url: string | null;
   created_at: string;
 }
+
+export const APP_MESSAGE_TYPES = [
+  "mandatory_update",
+  "optional_update",
+  "maintenance",
+  "announcement",
+  "info",
+] as const;
+
+export type AppMessageType = (typeof APP_MESSAGE_TYPES)[number];
+
+export const APP_MESSAGE_TYPE_LABELS: Record<AppMessageType, string> = {
+  mandatory_update: "Required Update",
+  optional_update: "Update Available",
+  maintenance: "Maintenance",
+  announcement: "Announcement",
+  info: "Notice",
+};
+
+export const TARGET_USER_TYPES = ["admin", "officeCrew", "fieldCrew"] as const;
+
+export const TARGET_USER_TYPE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  officeCrew: "Office Crew",
+  fieldCrew: "Field Crew",
+};
 
 export interface PromoCode {
   id: string;

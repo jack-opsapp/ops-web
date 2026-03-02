@@ -6,7 +6,7 @@ import {
   SortableTableHeader,
   useSortState,
 } from "../../_components/sortable-table-header";
-import type { FeatureRequest, AppMessage, PromoCode } from "@/lib/admin/types";
+import type { FeatureRequest, PromoCode } from "@/lib/admin/types";
 
 const STATUS_OPTIONS = ["new", "reviewing", "planned", "in-progress", "done", "wont-fix"] as const;
 const STATUS_COLORS: Record<string, string> = {
@@ -20,16 +20,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 interface FeedbackContentProps {
   featureRequests: FeatureRequest[];
-  appMessages: AppMessage[];
   promoCodes: PromoCode[];
 }
 
-export function FeedbackContent({ featureRequests, appMessages, promoCodes }: FeedbackContentProps) {
+export function FeedbackContent({ featureRequests, promoCodes }: FeedbackContentProps) {
   return (
-    <SubTabs tabs={["Feature Requests", "App Messages", "Promo Codes"]}>
+    <SubTabs tabs={["Feature Requests", "Promo Codes"]}>
       {(tab) => {
         if (tab === "Feature Requests") return <FeatureRequestsTab requests={featureRequests} />;
-        if (tab === "App Messages") return <AppMessagesTab messages={appMessages} />;
         if (tab === "Promo Codes") return <PromoCodesTab codes={promoCodes} />;
         return null;
       }}
@@ -181,35 +179,6 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function AppMessagesTab({ messages }: { messages: AppMessage[] }) {
-  return (
-    <div className="border border-white/[0.08] rounded-lg overflow-hidden">
-      <div className="grid grid-cols-4 px-6 py-3 border-b border-white/[0.08]">
-        {["TITLE", "BODY", "STATUS", "DATE"].map((h) => (
-          <span key={h} className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">{h}</span>
-        ))}
-      </div>
-      {messages.map((m) => (
-        <div key={m.id} className="grid grid-cols-4 px-6 items-center min-h-[56px] border-b border-white/[0.05] last:border-0">
-          <span className="font-mohave text-[14px] text-[#E5E5E5]">{m.title}</span>
-          <span className="font-kosugi text-[12px] text-[#A0A0A0] truncate pr-4">{m.body ?? "—"}</span>
-          <span className={`font-mohave text-[13px] ${m.active ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
-            {m.active ? "ACTIVE" : "INACTIVE"}
-          </span>
-          <span className="font-kosugi text-[12px] text-[#6B6B6B]">
-            [{new Date(m.created_at).toLocaleDateString()}]
-          </span>
-        </div>
-      ))}
-      {messages.length === 0 && (
-        <div className="px-6 py-12 text-center">
-          <p className="font-mohave text-[14px] uppercase text-[#6B6B6B]">No app messages</p>
-        </div>
-      )}
     </div>
   );
 }

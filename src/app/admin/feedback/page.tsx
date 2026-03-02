@@ -1,14 +1,13 @@
-import { getFeatureRequests, getAppMessages, getPromoCodes } from "@/lib/admin/admin-queries";
+import { getFeatureRequests, getPromoCodes } from "@/lib/admin/admin-queries";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { FeedbackContent } from "./_components/feedback-content";
 
 async function fetchFeedbackData() {
-  const [featureRequests, appMessages, promoCodes] = await Promise.all([
+  const [featureRequests, promoCodes] = await Promise.all([
     getFeatureRequests(),
-    getAppMessages(),
     getPromoCodes(),
   ]);
-  return { featureRequests, appMessages, promoCodes };
+  return { featureRequests, promoCodes };
 }
 
 export default async function FeedbackPage() {
@@ -30,12 +29,11 @@ export default async function FeedbackPage() {
     <div>
       <AdminPageHeader
         title="Feedback"
-        caption={`${data.featureRequests.length} requests · ${data.appMessages.length} messages · ${data.promoCodes.length} promos`}
+        caption={`${data.featureRequests.length} requests · ${data.promoCodes.length} promos`}
       />
       <div className="p-8">
         <FeedbackContent
           featureRequests={data.featureRequests}
-          appMessages={data.appMessages}
           promoCodes={data.promoCodes}
         />
       </div>
