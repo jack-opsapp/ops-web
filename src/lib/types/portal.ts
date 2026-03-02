@@ -27,6 +27,7 @@ export interface PortalToken {
   verifiedAt: Date | null;
   createdAt: Date;
   revokedAt: Date | null;
+  isPreview: boolean;
 }
 
 export interface PortalSession {
@@ -38,6 +39,7 @@ export interface PortalSession {
   clientId: string;
   expiresAt: Date;
   createdAt: Date;
+  isPreview: boolean;
 }
 
 // ─── Branding ────────────────────────────────────────────────────────────────

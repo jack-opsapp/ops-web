@@ -73,6 +73,7 @@ export function PortalProviders({ children }: { children: React.ReactNode }) {
             clientId: data.client?.id ?? "",
             expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             createdAt: new Date(),
+            isPreview: false,
           });
         }
       } catch {

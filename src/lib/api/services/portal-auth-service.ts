@@ -22,6 +22,7 @@ function mapTokenFromDb(row: Record<string, unknown>): PortalToken {
     verifiedAt: parseDate(row.verified_at),
     createdAt: parseDateRequired(row.created_at),
     revokedAt: parseDate(row.revoked_at),
+    isPreview: !!(row.is_preview),
   };
 }
 
@@ -35,6 +36,7 @@ function mapSessionFromDb(row: Record<string, unknown>): PortalSession {
     clientId: row.client_id as string,
     expiresAt: parseDateRequired(row.expires_at),
     createdAt: parseDateRequired(row.created_at),
+    isPreview: !!(row.is_preview),
   };
 }
 
