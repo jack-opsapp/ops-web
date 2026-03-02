@@ -200,6 +200,21 @@ export {
   useTriggerGmailSync,
 } from "./use-gmail-connections";
 
+// Roles & Permissions
+export {
+  useRoles,
+  useRolePermissions,
+  useRoleMembers,
+  useAllUserRoles,
+  useCreateRole,
+  useUpdateRole,
+  useDeleteRole,
+  useUpdateRolePermissions,
+  useDuplicateRole,
+  useAssignUserRole,
+  useRemoveUserRole,
+} from "./use-roles";
+
 // Portal — Client-facing hooks (session cookie auth, no useAuthStore)
 export { portalKeys, portalFetch, usePortalData } from "./use-portal-data";
 export {

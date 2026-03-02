@@ -138,3 +138,49 @@ export const actionPromptVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.2 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
+
+// ── Calendar animations ──
+
+/** Calendar drag spring physics */
+export const SPRING_CALENDAR_DRAG = { type: "spring" as const, stiffness: 400, damping: 30 };
+
+/** Calendar view switching — horizontal slide */
+export const calendarViewVariants: Variants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 40 : -40,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.3, ease: EASE_SMOOTH },
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -40 : 40,
+    opacity: 0,
+    transition: { duration: 0.2, ease: EASE_SMOOTH },
+  }),
+};
+
+/** Calendar view switching — reduced motion */
+export const calendarViewVariantsReduced: Variants = {
+  enter: { opacity: 0 },
+  center: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+/** Calendar event appear — scale + fade */
+export const calendarEventVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.15, ease: EASE_SMOOTH },
+  },
+};
+
+/** Calendar event appear — reduced motion */
+export const calendarEventVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.1 } },
+};
