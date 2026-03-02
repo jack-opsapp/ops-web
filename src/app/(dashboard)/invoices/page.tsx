@@ -247,10 +247,6 @@ export default function InvoicesPage() {
         <span className="font-kosugi text-caption-sm text-text-tertiary">
           {filtered.length} invoice{filtered.length !== 1 ? "s" : ""}
         </span>
-        <Button className="gap-[6px]" onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-[16px] h-[16px]" />
-          {t("invoices.newInvoice")}
-        </Button>
       </div>
 
       {/* Search + Filters */}

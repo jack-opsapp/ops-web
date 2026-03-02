@@ -515,10 +515,6 @@ export default function ProjectsPage() {
               {isSelecting ? t("cancel") : t("select")}
             </Button>
           )}
-          <Button className="gap-[6px]" onClick={() => openCreateProject()}>
-            <Plus className="w-[16px] h-[16px]" />
-            {t("newProject")}
-          </Button>
         </div>
       </div>
 

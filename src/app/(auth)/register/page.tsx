@@ -34,6 +34,11 @@ export default function RegisterPage() {
       trackSignUp("google");
       router.push("/setup");
     } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      // User closed the popup — silently reset, no error
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        return;
+      }
       const message = err instanceof Error ? err.message : t("register.error.googleFailed");
       setError(message);
     } finally {
@@ -49,6 +54,11 @@ export default function RegisterPage() {
       trackSignUp("apple");
       router.push("/setup");
     } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      // User closed the popup — silently reset, no error
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        return;
+      }
       const message = err instanceof Error ? err.message : t("register.error.appleFailed");
       setError(message);
     } finally {

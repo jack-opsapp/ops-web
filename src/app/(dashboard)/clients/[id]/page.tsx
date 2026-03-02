@@ -707,14 +707,6 @@ export default function ClientDetailPage() {
                     <Loader2 className="w-[12px] h-[12px] text-text-disabled animate-spin" />
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  className="gap-[6px]"
-                  onClick={() => router.push("/projects/new")}
-                >
-                  <Plus className="w-[14px] h-[14px]" />
-                  New Project
-                </Button>
               </div>
             </CardHeader>
             <CardContent>

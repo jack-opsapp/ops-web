@@ -50,10 +50,16 @@ export async function signInWithGoogle(): Promise<User> {
     return result.user;
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
+    // User dismissed the popup — re-throw so callers can reset loading state
+    if (
+      code === "auth/popup-closed-by-user" ||
+      code === "auth/cancelled-popup-request"
+    ) {
+      throw err;
+    }
+    // Technical failure — fall back to redirect
     if (
       code === "auth/popup-blocked" ||
-      code === "auth/popup-closed-by-user" ||
-      code === "auth/cancelled-popup-request" ||
       code === "auth/network-request-failed" ||
       code === "auth/internal-error"
     ) {
@@ -76,10 +82,16 @@ export async function signInWithApple(): Promise<User> {
     return result.user;
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
+    // User dismissed the popup — re-throw so callers can reset loading state
+    if (
+      code === "auth/popup-closed-by-user" ||
+      code === "auth/cancelled-popup-request"
+    ) {
+      throw err;
+    }
+    // Technical failure — fall back to redirect
     if (
       code === "auth/popup-blocked" ||
-      code === "auth/popup-closed-by-user" ||
-      code === "auth/cancelled-popup-request" ||
       code === "auth/network-request-failed" ||
       code === "auth/internal-error"
     ) {

@@ -66,6 +66,10 @@ function LoginForm() {
       router.push(redirectTo);
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
+      // User closed the popup — silently reset, no error
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        return;
+      }
       let message: string;
       if (code === "auth/unauthorized-domain") {
         message = t("login.error.unauthorizedDomain");

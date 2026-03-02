@@ -419,10 +419,6 @@ export default function ClientsPage() {
             {totalSubClients} {t("subContacts")}
           </span>
         </div>
-        <Button className="gap-[6px]" onClick={() => openCreateClient()}>
-          <Plus className="w-[16px] h-[16px]" />
-          {t("newClient")}
-        </Button>
       </div>
 
       {/* Search + Filters + View Toggle */}

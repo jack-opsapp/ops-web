@@ -52,7 +52,7 @@ class ErrorBoundary extends React.Component<
       return (
         <div
           className={cn(
-            "flex min-h-[400px] flex-col items-center justify-center gap-6 p-8",
+            "flex min-h-[400px] flex-col justify-center gap-6 p-8",
             "bg-background text-text-primary",
             this.props.className
           )}
@@ -61,7 +61,7 @@ class ErrorBoundary extends React.Component<
           {/* Error icon */}
           <div
             className={cn(
-              "flex h-16 w-16 items-center justify-center rounded-full",
+              "flex h-16 w-16 items-center justify-center rounded",
               "border border-ops-error/40 bg-ops-error/10"
             )}
           >
@@ -83,7 +83,7 @@ class ErrorBoundary extends React.Component<
           </div>
 
           {/* Message */}
-          <div className="flex flex-col items-center gap-2 text-center">
+          <div className="flex flex-col gap-2">
             <h2 className="font-mohave text-heading-md text-text-primary">
               Something went wrong
             </h2>
@@ -97,7 +97,7 @@ class ErrorBoundary extends React.Component<
           {this.state.error && (
             <div
               className={cn(
-                "w-full max-w-lg rounded-lg p-4",
+                "w-full max-w-lg rounded p-4",
                 "border border-border-primary bg-background-elevated"
               )}
             >
@@ -112,8 +112,8 @@ class ErrorBoundary extends React.Component<
             type="button"
             onClick={this.handleReset}
             className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3",
-              "font-mohave text-body-md font-medium",
+              "inline-flex items-center gap-2 rounded px-6 py-3 w-fit",
+              "font-kosugi text-[11px] uppercase tracking-widest",
               "bg-ops-accent text-white",
               "transition-colors hover:bg-ops-accent/80",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -133,7 +133,7 @@ class ErrorBoundary extends React.Component<
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
-            Try again
+            TRY AGAIN
           </button>
         </div>
       );
