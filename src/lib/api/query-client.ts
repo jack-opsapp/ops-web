@@ -252,6 +252,24 @@ export const queryKeys = {
         [...queryKeys.inventory.snapshots.all, "items", snapshotId] as const,
     },
   },
+
+  // Roles & Permissions
+  roles: {
+    all: ["roles"] as const,
+    lists: () => [...queryKeys.roles.all, "list"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.roles.lists(), companyId] as const,
+    details: () => [...queryKeys.roles.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.roles.details(), id] as const,
+    permissions: (roleId: string) =>
+      [...queryKeys.roles.all, "permissions", roleId] as const,
+    members: (roleId: string) =>
+      [...queryKeys.roles.all, "members", roleId] as const,
+    userRoles: (companyId: string) =>
+      [...queryKeys.roles.all, "userRoles", companyId] as const,
+    userPermissions: (userId: string) =>
+      [...queryKeys.roles.all, "userPermissions", userId] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending } from "@/lib/firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/config";
 import { UserService } from "@/lib/api/services/user-service";
@@ -37,6 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const setCompany = useAuthStore((s) => s.setCompany);
   const setLoading = useAuthStore((s) => s.setLoading);
+  const fetchPermissions = usePermissionStore((s) => s.fetchPermissions);
+  const clearPermissions = usePermissionStore((s) => s.clear);
   const fetchingRef = useRef(false);
 
   useEffect(() => {
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!authenticated) {
         setAuthCookie(null);
+        clearPermissions();
         console.log("[AuthProvider] Not authenticated");
         setLoading(false);
         return;
@@ -80,6 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const existingUser = useAuthStore.getState().currentUser;
         if (existingUser?.companyId) {
           console.log("[AuthProvider] User already in store, skipping sync.", existingUser.id);
+          // Still load permissions if not initialized
+          const permState = usePermissionStore.getState();
+          if (!permState.initialized) {
+            fetchPermissions(existingUser.id).catch((err) =>
+              console.error("[AuthProvider] Failed to fetch permissions:", err)
+            );
+          }
           setLoading(false);
           return;
         }
@@ -117,6 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
           }
+
+          // Fetch permissions for the authenticated user
+          fetchPermissions(result.user.id).catch((err) =>
+            console.error("[AuthProvider] Failed to fetch permissions:", err)
+          );
         } catch (err) {
           console.error("[AuthProvider] syncUser FAILED:", err);
           toast.error("Failed to load user data", {
@@ -190,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeout);
       if (unsubscribe) unsubscribe();
     };
-  }, [setFirebaseAuth, setUser, setCompany, setLoading]);
+  }, [setFirebaseAuth, setUser, setCompany, setLoading, fetchPermissions, clearPermissions]);
 
   return <>{children}</>;
 }

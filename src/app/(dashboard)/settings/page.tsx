@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useDictionary } from "@/i18n/client";
 import { ProfileTab } from "@/components/settings/profile-tab";
 import { CompanyTab } from "@/components/settings/company-tab";
@@ -37,6 +38,7 @@ import { DeveloperTab } from "@/components/settings/developer-tab";
 import { PortalBrandingTab } from "@/components/settings/portal-branding-tab";
 import { DocumentTemplatesTab } from "@/components/settings/document-templates-tab";
 import { QuickActionsTab } from "@/components/settings/quick-actions-tab";
+import { RolesTab } from "@/components/settings/roles-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +76,7 @@ const BASE_GROUP_DEFS: GroupDef[] = [
     subTabs: [
       { id: "company-details", labelKey: "sections.companyDetails" },
       { id: "team", labelKey: "sections.teamMembers" },
+      { id: "roles", labelKey: "sections.roles" },
       { id: "task-types", labelKey: "sections.taskTypes" },
     ],
   },
@@ -122,6 +125,7 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   shortcuts: { group: "account", sub: "shortcuts" },
   company: { group: "company", sub: "company-details" },
   team: { group: "company", sub: "team" },
+  roles: { group: "company", sub: "roles" },
   "task-types": { group: "company", sub: "task-types" },
   subscription: { group: "billing", sub: "subscription" },
   billing: { group: "billing", sub: "payment" },
@@ -140,6 +144,7 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
   shortcuts: ShortcutsTab,
   "company-details": CompanyTab,
   team: TeamTab,
+  roles: RolesTab,
   "task-types": TaskTypesTab,
   subscription: SubscriptionTab,
   payment: BillingTab,
@@ -154,13 +159,31 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+/** Sub-tab IDs that require a specific permission to be visible */
+const SUB_TAB_PERMISSIONS: Record<string, string> = {
+  roles: "team.assign_roles",
+};
+
 export default function SettingsPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
+  const can = usePermissionStore((s) => s.can);
+  const permReady = usePermissionStore(selectPermissionsReady);
   const { t } = useDictionary("settings");
 
-  const groupDefs = currentUser?.devPermission
-    ? [...BASE_GROUP_DEFS, DEV_GROUP]
+  // Filter sub-tabs based on permissions
+  const baseGroups = permReady
+    ? BASE_GROUP_DEFS.map((group) => ({
+        ...group,
+        subTabs: group.subTabs.filter((sub) => {
+          const required = SUB_TAB_PERMISSIONS[sub.id];
+          return !required || can(required);
+        }),
+      })).filter((group) => group.subTabs.length > 0)
     : BASE_GROUP_DEFS;
+
+  const groupDefs = currentUser?.devPermission
+    ? [...baseGroups, DEV_GROUP]
+    : baseGroups;
 
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
   const [activeSubTab, setActiveSubTab] = useState("profile");

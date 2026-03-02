@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { checkPermission } from "@/lib/supabase/check-permission";
 
 async function fetchTable(
   db: ReturnType<typeof getServiceRoleClient>,
@@ -43,6 +44,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Verify auth
     const firebaseUser = await verifyAuthToken(idToken);
+
+    // Verify user has permission to access company settings
+    const allowed = await checkPermission(firebaseUser.uid, "settings.company");
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "You don't have permission to export data" },
+        { status: 403 }
+      );
+    }
 
     const db = getServiceRoleClient();
 

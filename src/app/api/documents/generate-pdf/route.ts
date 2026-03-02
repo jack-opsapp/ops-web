@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { checkPermission } from "@/lib/supabase/check-permission";
 import { renderDocumentHtml } from "@/lib/pdf/render-document-html";
 import type { InvoiceRenderData, EstimateRenderData } from "@/lib/pdf/render-document-html";
 import type { PortalBranding, PortalTemplate, PortalThemeMode } from "@/lib/types/portal";
@@ -98,15 +99,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { documentId, documentType } = (await req.json()) as {
+    const body = (await req.json()) as {
       documentId?: string;
       documentType?: "invoice" | "estimate";
     };
+    const { documentId, documentType } = body;
 
     if (!documentId || !documentType) {
       return NextResponse.json(
         { error: "Missing required fields: documentId, documentType" },
         { status: 400 }
+      );
+    }
+
+    // Check permission based on document type
+    const requiredPerm = documentType === "invoice" ? "invoices.view" : "estimates.view";
+    const allowed = await checkPermission(user.uid, requiredPerm);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "You don't have permission to generate this document" },
+        { status: 403 }
       );
     }
 

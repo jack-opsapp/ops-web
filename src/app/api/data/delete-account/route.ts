@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { checkPermission } from "@/lib/supabase/check-permission";
 
 function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -65,6 +66,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Verify auth
     const firebaseUser = await verifyAuthToken(idToken);
+
+    // Verify user has permission to manage company settings
+    const allowed = await checkPermission(firebaseUser.uid, "settings.company");
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "You don't have permission to delete accounts" },
+        { status: 403 }
+      );
+    }
+
     const db = getServiceRoleClient();
 
     // Verify user belongs to company and is admin

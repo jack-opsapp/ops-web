@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import Image from "next/image";
 import {
   LayoutDashboard,
@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useCompany } from "@/lib/hooks";
 import { signOut } from "@/lib/firebase/auth";
 import { useDictionary } from "@/i18n/client";
@@ -45,6 +46,8 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Permission required to see this nav item (omit = always visible) */
+  permission?: string;
 }
 
 type NavEntry = NavItem | "divider";
@@ -57,23 +60,23 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
   return [
     { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     "divider",
-    { label: t("nav.projects"), href: "/projects", icon: FolderKanban },
-    { label: t("nav.calendar"), href: "/calendar", icon: CalendarDays },
-    { label: t("nav.clients"), href: "/clients", icon: Users },
-    { label: t("nav.jobBoard"), href: "/job-board", icon: Columns3 },
-    { label: t("nav.team"), href: "/team", icon: UserCog },
-    { label: t("nav.map"), href: "/map", icon: MapPin },
+    { label: t("nav.projects"), href: "/projects", icon: FolderKanban, permission: "projects.view" },
+    { label: t("nav.calendar"), href: "/calendar", icon: CalendarDays, permission: "calendar.view" },
+    { label: t("nav.clients"), href: "/clients", icon: Users, permission: "clients.view" },
+    { label: t("nav.jobBoard"), href: "/job-board", icon: Columns3, permission: "job_board.view" },
+    { label: t("nav.team"), href: "/team", icon: UserCog, permission: "team.view" },
+    { label: t("nav.map"), href: "/map", icon: MapPin, permission: "map.view" },
     "divider",
-    { label: t("nav.pipeline"), href: "/pipeline", icon: GitBranch },
-    { label: t("nav.estimates"), href: "/estimates", icon: FileText },
-    { label: t("nav.invoices"), href: "/invoices", icon: Receipt },
+    { label: t("nav.pipeline"), href: "/pipeline", icon: GitBranch, permission: "pipeline.view" },
+    { label: t("nav.estimates"), href: "/estimates", icon: FileText, permission: "estimates.view" },
+    { label: t("nav.invoices"), href: "/invoices", icon: Receipt, permission: "invoices.view" },
     "divider",
-    { label: t("nav.products"), href: "/products", icon: Package },
+    { label: t("nav.products"), href: "/products", icon: Package, permission: "products.view" },
     ...(opts.inventoryAccess
-      ? [{ label: t("nav.inventory"), href: "/inventory", icon: Boxes } as NavItem]
+      ? [{ label: t("nav.inventory"), href: "/inventory", icon: Boxes, permission: "inventory.view" } as NavItem]
       : []),
-    { label: t("nav.accounting"), href: "/accounting", icon: Calculator },
-    { label: t("nav.portalInbox"), href: "/portal-inbox", icon: MessageSquareText },
+    { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
+    { label: t("nav.portalInbox"), href: "/portal-inbox", icon: MessageSquareText, permission: "portal.view" },
     "divider",
     { label: t("nav.settings"), href: "/settings", icon: Settings },
   ];
@@ -128,8 +131,31 @@ export function Sidebar() {
   const company = freshCompany ?? storeCompany;
   const logout = useAuthStore((s) => s.logout);
   const { t } = useDictionary("sidebar");
+  const can = usePermissionStore((s) => s.can);
+  const permissionsReady = usePermissionStore(selectPermissionsReady);
   const hasInventoryAccess = currentUser?.inventoryAccess ?? false;
-  const navItems = buildNavItems(t, { inventoryAccess: hasInventoryAccess });
+  const allNavItems = useMemo(
+    () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
+    [t, hasInventoryAccess]
+  );
+
+  // Filter nav items by permission (only gate when permissions are loaded)
+  const navItems = useMemo(() => {
+    if (!permissionsReady) return allNavItems;
+
+    const filtered = allNavItems.filter((entry) => {
+      if (entry === "divider") return true;
+      if (!entry.permission) return true;
+      return can(entry.permission);
+    });
+
+    // Clean up consecutive/leading/trailing dividers
+    return filtered.filter((entry, i, arr) => {
+      if (entry !== "divider") return true;
+      if (i === 0 || i === arr.length - 1) return false;
+      return arr[i - 1] !== "divider";
+    });
+  }, [allNavItems, can, permissionsReady]);
 
   const handleSignOut = useCallback(async () => {
     document.cookie = "ops-auth-token=; path=/; max-age=0";

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { checkPermission } from "@/lib/supabase/check-permission";
 import { sendTeamInvite } from "@/lib/email/sendgrid";
 import { sendTeamInviteSMS } from "@/lib/sms/twilio";
 
@@ -51,6 +52,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Verify auth token (Supabase or Firebase)
     const firebaseUser = await verifyAuthToken(idToken);
+
+    // Verify user has permission to manage team
+    const allowed = await checkPermission(firebaseUser.uid, "team.manage");
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "You don't have permission to send invites" },
+        { status: 403 }
+      );
+    }
 
     // Verify the requesting user exists and belongs to the specified company
     const db = getServiceRoleClient();
