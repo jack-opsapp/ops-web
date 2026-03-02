@@ -37,7 +37,7 @@ export function VariantCard({ variant, isWinning }: { variant: VariantData; isWi
           {variant.config?.sections?.map((s, i) => (
             <div key={i}>
               <span className="text-blue-400">{s.type}</span>
-              {s.props.headline && (
+              {!!s.props.headline && (
                 <span className="text-white/60"> — {String(s.props.headline).slice(0, 60)}</span>
               )}
             </div>
