@@ -50,3 +50,5 @@ export { ProjectPhotoService } from "./project-photo-service";
 export { CompanySettingsService } from "./company-settings-service";
 
 export { GmailService } from "./gmail-service";
+
+export { InventoryService } from "./inventory-service";
