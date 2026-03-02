@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2, AlertCircle, Mail } from "lucide-react";
 
@@ -12,6 +12,7 @@ export default function MagicLinkLandingPage() {
   const [status, setStatus] = useState<"loading" | "valid" | "expired" | "error">("loading");
   const [isPreview, setIsPreview] = useState(false);
   const [email, setEmail] = useState("");
+  const autoVerifyCalledRef = useRef(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -41,6 +42,8 @@ export default function MagicLinkLandingPage() {
   // Auto-verify preview tokens (no email needed)
   useEffect(() => {
     if (!isPreview || status !== "valid") return;
+    if (autoVerifyCalledRef.current) return;
+    autoVerifyCalledRef.current = true;
 
     async function autoVerify() {
       setIsVerifying(true);

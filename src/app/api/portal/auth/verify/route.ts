@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: session.isPreview ? 15 * 60 : 30 * 24 * 60 * 60, // 15 min for preview, 30 days for normal
     });
 
     return response;

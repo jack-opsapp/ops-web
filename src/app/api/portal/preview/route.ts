@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { PortalAuthService } from "@/lib/api/services/portal-auth-service";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,6 +31,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Missing required field: companyId" },
         { status: 400 }
+      );
+    }
+
+    // Verify the authenticated user belongs to the requested company
+    const supabase = getServiceRoleClient();
+    const { data: userData } = await supabase
+      .from("users")
+      .select("company_id")
+      .eq("firebase_uid", admin.uid)
+      .maybeSingle();
+
+    if (!userData || userData.company_id !== companyId) {
+      return NextResponse.json(
+        { error: "You do not have access to this company" },
+        { status: 403 }
       );
     }
 
