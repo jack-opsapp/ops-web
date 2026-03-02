@@ -22,6 +22,9 @@ import {
   LogOut,
   Building2,
   MessageSquareText,
+  Globe,
+  GraduationCap,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
@@ -29,6 +32,13 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useCompany } from "@/lib/hooks";
 import { signOut } from "@/lib/firebase/auth";
 import { useDictionary } from "@/i18n/client";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface NavItem {
   label: string;
@@ -223,55 +233,68 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* User section - just avatar + name + sign out */}
-        <div
-          className={cn(
-            "flex items-center rounded bg-[rgba(255,255,255,0.03)] p-1",
-            isCollapsed ? "justify-center" : "gap-1.5"
-          )}
-        >
-          {/* Avatar — when collapsed, clicking opens settings */}
-          <button
-            onClick={isCollapsed ? () => router.push("/settings?tab=profile") : undefined}
-            className={cn(
-              "shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden",
-              isCollapsed && "cursor-pointer hover:ring-1 hover:ring-ops-accent transition-all"
-            )}
-            title={isCollapsed ? t("accountSettings") : undefined}
-          >
-            {currentUser?.profileImageURL ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={currentUser.profileImageURL}
-                alt={currentUser.firstName || t("userFallback")}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <span className="font-mohave text-body-sm text-text-secondary">
-                {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
-              </span>
-            )}
-          </button>
-
-          {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="font-mohave text-body-sm text-text-primary truncate">
-                {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : t("userFallback")}
-              </p>
-            </div>
-          )}
-
-          {!isCollapsed && (
+        {/* User section — avatar dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
-              onClick={handleSignOut}
-              className="shrink-0 p-[6px] rounded text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-              title={t("signOut")}
+              className={cn(
+                "flex items-center rounded bg-[rgba(255,255,255,0.03)] p-1 w-full",
+                "hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer",
+                isCollapsed ? "justify-center" : "gap-1.5"
+              )}
             >
-              <LogOut className="w-[16px] h-[16px]" />
+              <div
+                className="shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden"
+              >
+                {currentUser?.profileImageURL ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={currentUser.profileImageURL}
+                    alt={currentUser.firstName || t("userFallback")}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="font-mohave text-body-sm text-text-secondary">
+                    {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
+                  </span>
+                )}
+              </div>
+
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="font-mohave text-body-sm text-text-primary truncate">
+                    {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : t("userFallback")}
+                  </p>
+                </div>
+              )}
             </button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent side="top" align={isCollapsed ? "center" : "start"} sideOffset={8}>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
+              <Settings className="w-[16px] h-[16px] text-text-tertiary" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.open("https://opsapp.co", "_blank")}>
+              <Globe className="w-[16px] h-[16px] text-text-tertiary" />
+              OPS Website
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.open("https://learn.opsapp.co", "_blank")}>
+              <GraduationCap className="w-[16px] h-[16px] text-text-tertiary" />
+              Courses
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.open("#", "_blank")}>
+              <Smartphone className="w-[16px] h-[16px] text-text-tertiary" />
+              Download iOS App
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="text-ops-error focus:text-ops-error">
+              <LogOut className="w-[16px] h-[16px]" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
