@@ -128,7 +128,7 @@ export function Sidebar() {
   const company = freshCompany ?? storeCompany;
   const logout = useAuthStore((s) => s.logout);
   const { t } = useDictionary("sidebar");
-  const hasInventoryAccess = currentUser?.specialPermissions?.includes("inventoryAccess") ?? false;
+  const hasInventoryAccess = currentUser?.inventoryAccess ?? false;
   const navItems = buildNavItems(t, { inventoryAccess: hasInventoryAccess });
 
   const handleSignOut = useCallback(async () => {

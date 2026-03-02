@@ -393,6 +393,7 @@ export interface User {
   hasCompletedAppOnboarding: boolean;
   hasCompletedAppTutorial: boolean;
   isCompanyAdmin: boolean;
+  inventoryAccess: boolean;
   specialPermissions: string[];
   setupProgress: SetupProgress | null;
   stripeCustomerId: string | null;
