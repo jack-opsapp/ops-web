@@ -268,7 +268,7 @@ export default function SettingsPage() {
                   )}
                 >
                   <Icon className="w-[16px] h-[16px]" />
-                  <span className="font-mohave text-body-sm whitespace-nowrap">
+                  <span className="font-mohave text-body-sm uppercase tracking-[0.04em] whitespace-nowrap">
                     {t(group.labelKey)}
                   </span>
                 </button>
@@ -282,36 +282,46 @@ export default function SettingsPage() {
                     )}
                   >
                     <div className="overflow-hidden min-w-0 flex items-center">
-                      {/* Separator */}
-                      <span
+                      {/* Vertical divider */}
+                      <div
                         className={cn(
-                          "text-text-disabled text-[10px] mx-[2px] transition-opacity duration-200",
+                          "w-px h-[14px] bg-border-default mx-[6px] shrink-0 transition-opacity duration-200",
                           isActive ? "opacity-100" : "opacity-0"
                         )}
-                      >
-                        ›
-                      </span>
+                      />
                       {/* Sub-tab buttons */}
-                      {group.subTabs.map((sub) => (
-                        <button
-                          key={sub.id}
-                          ref={(el) => {
-                            if (el) subTabRefs.current.set(sub.id, el);
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveSubTab(sub.id);
-                          }}
-                          className={cn(
-                            "px-1 py-[8px] font-mohave text-caption-sm whitespace-nowrap",
-                            "transition-colors duration-200 shrink-0",
-                            activeSubTab === sub.id
-                              ? "text-text-primary"
-                              : "text-text-tertiary hover:text-text-secondary"
+                      {group.subTabs.map((sub, i) => (
+                        <Fragment key={sub.id}>
+                          {i > 0 && (
+                            <span
+                              className={cn(
+                                "text-text-disabled text-[8px] mx-[2px] select-none",
+                                "transition-opacity duration-200",
+                                isActive ? "opacity-60" : "opacity-0"
+                              )}
+                            >
+                              /
+                            </span>
                           )}
-                        >
-                          {t(sub.labelKey)}
-                        </button>
+                          <button
+                            ref={(el) => {
+                              if (el) subTabRefs.current.set(sub.id, el);
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveSubTab(sub.id);
+                            }}
+                            className={cn(
+                              "px-1 py-[8px] font-kosugi text-[11px] whitespace-nowrap",
+                              "transition-colors duration-200 shrink-0",
+                              activeSubTab === sub.id
+                                ? "text-text-primary"
+                                : "text-text-disabled hover:text-text-tertiary"
+                            )}
+                          >
+                            {t(sub.labelKey)}
+                          </button>
+                        </Fragment>
                       ))}
                     </div>
                   </div>
