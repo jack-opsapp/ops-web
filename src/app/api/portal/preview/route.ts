@@ -42,11 +42,31 @@ export async function POST(req: NextRequest) {
       .eq("firebase_uid", admin.uid)
       .maybeSingle();
 
-    if (!userData || userData.company_id !== companyId) {
+    if (userData && userData.company_id !== companyId) {
+      // User found but belongs to a different company
       return NextResponse.json(
         { error: "You do not have access to this company" },
         { status: 403 }
       );
+    }
+
+    if (!userData) {
+      // firebase_uid not in users table — verify the company exists as fallback
+      console.warn(
+        `[portal/preview] No user row for firebase_uid=${admin.uid}, falling back to company check`
+      );
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("id", companyId)
+        .maybeSingle();
+
+      if (!companyRow) {
+        return NextResponse.json(
+          { error: "Company not found" },
+          { status: 404 }
+        );
+      }
     }
 
     const portalToken = await PortalAuthService.createPreviewToken(companyId);

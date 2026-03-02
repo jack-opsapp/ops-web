@@ -115,21 +115,21 @@ async function updateBranding(
 
 const ACCENT_PRESETS = [
   { label: "Steel Blue", value: "#417394" },
-  { label: "Navy", value: "#2C4A6E" },
-  { label: "Ocean", value: "#3A7CA5" },
-  { label: "Teal", value: "#2D8A8A" },
-  { label: "Sage", value: "#7D9B76" },
-  { label: "Forest", value: "#5B7B5E" },
-  { label: "Emerald", value: "#3D8B6E" },
-  { label: "Amber Gold", value: "#C4A868" },
-  { label: "Terracotta", value: "#C07A56" },
-  { label: "Copper", value: "#B87333" },
-  { label: "Dusty Rose", value: "#C2858A" },
-  { label: "Berry", value: "#8B4570" },
   { label: "Slate", value: "#7A8B99" },
+  { label: "Mist", value: "#8FA7B8" },
+  { label: "Pewter", value: "#6B7D8D" },
+  { label: "Sage", value: "#7D9B76" },
+  { label: "Olive", value: "#8A8D65" },
+  { label: "Dusty Rose", value: "#C2858A" },
+  { label: "Mauve", value: "#B08B96" },
+  { label: "Blush", value: "#C9A5A5" },
   { label: "Sandstone", value: "#B8A68E" },
-  { label: "Charcoal", value: "#4A4A4A" },
-  { label: "Crimson", value: "#A63D40" },
+  { label: "Quicksand", value: "#C4AA82" },
+  { label: "Warm Taupe", value: "#A89889" },
+  { label: "Terracotta", value: "#B5856A" },
+  { label: "Driftwood", value: "#9E8E78" },
+  { label: "Amber Gold", value: "#C4A868" },
+  { label: "Charcoal", value: "#5A5A5A" },
 ];
 
 // ─── Template configs ────────────────────────────────────────────────────────
@@ -295,8 +295,104 @@ export function PortalBrandingTab() {
   // ── Hex color validation ─────────────────────────────────────────────────
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(accentColor);
 
+  // ── Preview mockup (shared between inline & sidebar) ─────────────────────
+  const previewBlock = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Preview</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div
+          className="rounded-lg overflow-hidden border border-border"
+          style={{
+            background: themeMode === "dark"
+              ? "linear-gradient(135deg, #1a1a1a 0%, #111 100%)"
+              : "linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)",
+          }}
+        >
+          {/* Mini header bar */}
+          <div
+            className="px-3 py-2 flex items-center gap-2"
+            style={{ borderBottom: `2px solid ${isValidHex ? accentColor : "#417394"}` }}
+          >
+            {(useCompanyLogo ? company?.logoURL : logoUrl) ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={(useCompanyLogo ? company?.logoURL : logoUrl) || ""}
+                alt=""
+                className="h-[20px] max-w-[80px] object-contain"
+              />
+            ) : (
+              <div
+                className="h-[20px] w-[60px] rounded"
+                style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.3 }}
+              />
+            )}
+            <div className="flex-1" />
+            <div className="flex gap-1.5">
+              {["Home", "Projects", "Invoices"].map((tab) => (
+                <span
+                  key={tab}
+                  className="font-kosugi text-[9px]"
+                  style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}
+                >
+                  {tab}
+                </span>
+              ))}
+            </div>
+          </div>
+          {/* Mini content area */}
+          <div className="px-3 py-2.5 space-y-1.5">
+            <div
+              className="font-mohave text-[11px] font-medium"
+              style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)" }}
+            >
+              Welcome, Jane
+            </div>
+            <div className="flex gap-1.5">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded p-1.5"
+                  style={{
+                    backgroundColor: themeMode === "dark"
+                      ? "rgba(255,255,255,0.05)"
+                      : "rgba(0,0,0,0.04)",
+                    border: `1px solid ${themeMode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                  }}
+                >
+                  <div
+                    className="h-[6px] w-[50%] rounded-full mb-1"
+                    style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.6 }}
+                  />
+                  <div
+                    className="h-[4px] w-[70%] rounded-full"
+                    style={{ backgroundColor: themeMode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div
+              className="h-[24px] rounded flex items-center justify-center"
+              style={{ backgroundColor: isValidHex ? accentColor : "#417394" }}
+            >
+              <span className="font-kosugi text-[8px] text-white">
+                View Details
+              </span>
+            </div>
+          </div>
+        </div>
+        <p className="font-kosugi text-[11px] text-text-disabled mt-1.5">
+          A live mockup of your client portal. Click Preview Portal below to see the full experience.
+        </p>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="flex gap-3 items-start">
+      {/* ── Left column — settings form ─────────────────────────────────── */}
+      <div className="space-y-3 max-w-[600px] flex-1 min-w-0">
       {/* ── Portal Logo ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -597,97 +693,10 @@ export function PortalBrandingTab() {
         </CardContent>
       </Card>
 
-      {/* ── Inline Preview Mockup ──────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Preview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            className="rounded-lg overflow-hidden border border-border"
-            style={{
-              background: themeMode === "dark"
-                ? "linear-gradient(135deg, #1a1a1a 0%, #111 100%)"
-                : "linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)",
-            }}
-          >
-            {/* Mini header bar */}
-            <div
-              className="px-3 py-2 flex items-center gap-2"
-              style={{ borderBottom: `2px solid ${isValidHex ? accentColor : "#417394"}` }}
-            >
-              {(useCompanyLogo ? company?.logoURL : logoUrl) ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={(useCompanyLogo ? company?.logoURL : logoUrl) || ""}
-                  alt=""
-                  className="h-[20px] max-w-[80px] object-contain"
-                />
-              ) : (
-                <div
-                  className="h-[20px] w-[60px] rounded"
-                  style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.3 }}
-                />
-              )}
-              <div className="flex-1" />
-              <div className="flex gap-1.5">
-                {["Home", "Projects", "Invoices"].map((tab) => (
-                  <span
-                    key={tab}
-                    className="font-kosugi text-[9px]"
-                    style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}
-                  >
-                    {tab}
-                  </span>
-                ))}
-              </div>
-            </div>
-            {/* Mini content area */}
-            <div className="px-3 py-2.5 space-y-1.5">
-              <div
-                className="font-mohave text-[11px] font-medium"
-                style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)" }}
-              >
-                Welcome, Jane
-              </div>
-              <div className="flex gap-1.5">
-                {[1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded p-1.5"
-                    style={{
-                      backgroundColor: themeMode === "dark"
-                        ? "rgba(255,255,255,0.05)"
-                        : "rgba(0,0,0,0.04)",
-                      border: `1px solid ${themeMode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-                    }}
-                  >
-                    <div
-                      className="h-[6px] w-[50%] rounded-full mb-1"
-                      style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.6 }}
-                    />
-                    <div
-                      className="h-[4px] w-[70%] rounded-full"
-                      style={{ backgroundColor: themeMode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div
-                className="h-[24px] rounded flex items-center justify-center"
-                style={{ backgroundColor: isValidHex ? accentColor : "#417394" }}
-              >
-                <span className="font-kosugi text-[8px] text-white">
-                  View Details
-                </span>
-              </div>
-            </div>
-          </div>
-          <p className="font-kosugi text-[11px] text-text-disabled mt-1.5">
-            A live mockup of your client portal. Click Preview Portal below to see the full experience.
-          </p>
-        </CardContent>
-      </Card>
+      {/* ── Inline Preview (visible below xl) ───────────────────────────── */}
+      <div className="xl:hidden">
+        {previewBlock}
+      </div>
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between pt-1">
@@ -716,6 +725,12 @@ export function PortalBrandingTab() {
             {t("portalBranding.saveBranding")}
           </Button>
         </div>
+      </div>
+      </div>
+
+      {/* ── Right column — sticky preview (visible at xl+) ─────────────── */}
+      <div className="hidden xl:block w-[340px] shrink-0 sticky top-3">
+        {previewBlock}
       </div>
     </div>
   );
