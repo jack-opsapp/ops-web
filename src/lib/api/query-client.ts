@@ -212,6 +212,46 @@ export const queryKeys = {
     list: (companyId: string) =>
       [...queryKeys.gmailConnections.all, companyId] as const,
   },
+
+  // Inventory
+  inventory: {
+    all: ["inventory"] as const,
+    items: {
+      all: ["inventory", "items"] as const,
+      lists: () => [...queryKeys.inventory.items.all, "list"] as const,
+      list: (companyId: string, filters?: Record<string, unknown>) =>
+        [...queryKeys.inventory.items.lists(), companyId, filters] as const,
+      details: () => [...queryKeys.inventory.items.all, "detail"] as const,
+      detail: (id: string) =>
+        [...queryKeys.inventory.items.details(), id] as const,
+    },
+    units: {
+      all: ["inventory", "units"] as const,
+      lists: () => [...queryKeys.inventory.units.all, "list"] as const,
+      list: (companyId: string) =>
+        [...queryKeys.inventory.units.lists(), companyId] as const,
+    },
+    tags: {
+      all: ["inventory", "tags"] as const,
+      lists: () => [...queryKeys.inventory.tags.all, "list"] as const,
+      list: (companyId: string) =>
+        [...queryKeys.inventory.tags.lists(), companyId] as const,
+    },
+    itemTags: {
+      all: ["inventory", "itemTags"] as const,
+      lists: () => [...queryKeys.inventory.itemTags.all, "list"] as const,
+      list: (companyId: string) =>
+        [...queryKeys.inventory.itemTags.lists(), companyId] as const,
+    },
+    snapshots: {
+      all: ["inventory", "snapshots"] as const,
+      lists: () => [...queryKeys.inventory.snapshots.all, "list"] as const,
+      list: (companyId: string) =>
+        [...queryKeys.inventory.snapshots.lists(), companyId] as const,
+      items: (snapshotId: string) =>
+        [...queryKeys.inventory.snapshots.all, "items", snapshotId] as const,
+    },
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
