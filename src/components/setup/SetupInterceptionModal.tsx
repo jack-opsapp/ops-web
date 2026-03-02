@@ -194,7 +194,7 @@ export function SetupInterceptionModal({
         <DialogHeader>
           {totalSteps > 1 && (
             <p
-              className="font-mono text-[10px] text-text-disabled tracking-widest uppercase mb-0.5"
+              className="font-kosugi text-[10px] text-text-disabled tracking-widest uppercase mb-0.5"
               aria-live="polite"
             >
               Step {stepIndex + 1} of {totalSteps}

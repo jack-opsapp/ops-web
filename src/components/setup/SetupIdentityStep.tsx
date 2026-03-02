@@ -76,7 +76,7 @@ function SelectorButton({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "px-3 py-2 rounded-sm border transition-all duration-150",
+        "px-3 py-2 rounded-sm border transition-all duration-150 whitespace-nowrap",
         "font-mohave text-body-sm min-h-[44px] min-w-[44px]",
         selected
           ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.25)] text-text-primary"
@@ -313,7 +313,7 @@ export function IdentityStep1({
   return (
     <div className="w-full max-w-[440px]">
       <div className="mb-4">
-        <h2 className="font-mohave text-display text-text-primary">
+        <h2 className="font-mohave text-heading text-text-primary">
           About You
         </h2>
         <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
@@ -375,7 +375,7 @@ export function IdentityStep2({
   return (
     <div className="w-full max-w-[440px]">
       <div className="mb-4">
-        <h2 className="font-mohave text-display text-text-primary">
+        <h2 className="font-mohave text-heading text-text-primary">
           Your Company
         </h2>
         <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
@@ -402,7 +402,7 @@ export function IdentityStep2({
           <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
             Team Size
           </label>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
+          <div className="flex flex-wrap gap-1">
             {COMPANY_SIZES.map((size) => (
               <SelectorButton
                 key={size}
@@ -419,7 +419,7 @@ export function IdentityStep2({
           <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
             Years in Business
           </label>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1">
+          <div className="flex flex-wrap gap-1">
             {COMPANY_AGES.map((age) => (
               <SelectorButton
                 key={age}

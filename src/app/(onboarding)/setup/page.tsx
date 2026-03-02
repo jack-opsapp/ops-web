@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -310,9 +310,8 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="flex items-center gap-1.5 px-4 py-1.5 min-h-[44px] rounded-sm bg-white text-[#0A0A0A] font-mohave text-body-sm uppercase hover:bg-[rgba(255,255,255,0.85)] transition-colors"
+              className="px-4 py-1.5 min-h-[44px] rounded-sm bg-white text-[#0A0A0A] font-kosugi text-body-sm uppercase hover:bg-[rgba(255,255,255,0.85)] transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               Launch
             </button>
           )}
@@ -348,18 +347,14 @@ export default function SetupPage() {
 
       {/* Logo */}
       <div className="mb-3">
-        <div className="flex items-center gap-[6px] mb-1">
-          <div className="w-[8px] h-[8px] rounded-full bg-[rgba(255,255,255,0.25)]" aria-hidden="true" />
-          <h1
-            ref={headingRef}
-            tabIndex={-1}
-            className="font-mohave text-heading text-text-primary tracking-[0.2em] focus:outline-none"
-          >
-            OPS
-          </h1>
-          <div className="w-[8px] h-[8px] rounded-full bg-[rgba(255,255,255,0.25)]" aria-hidden="true" />
-        </div>
-        <p className="font-mono text-[10px] text-text-disabled tracking-widest uppercase">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-mohave text-heading text-text-primary tracking-[0.2em] mb-0.5 focus:outline-none"
+        >
+          OPS
+        </h1>
+        <p className="font-kosugi text-[10px] text-text-disabled tracking-widest uppercase">
           Command Center Setup
         </p>
       </div>
@@ -374,11 +369,11 @@ export default function SetupPage() {
         aria-label={`Setup progress: step ${phase === "identity" ? "1" : "2"} of 2`}
       >
         <div
-          className="flex-1 h-[3px] rounded-full bg-[rgba(255,255,255,0.40)]"
+          className="flex-1 h-[3px] rounded-sm bg-[rgba(255,255,255,0.40)]"
           aria-hidden="true"
         />
         <div
-          className={`flex-1 h-[3px] rounded-full transition-all duration-300 ${
+          className={`flex-1 h-[3px] rounded-sm transition-all duration-300 ${
             phase === "company"
               ? "bg-[rgba(255,255,255,0.40)]"
               : "bg-background-elevated"
@@ -389,7 +384,7 @@ export default function SetupPage() {
 
       {/* Step indicator */}
       <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-[10px] text-text-disabled">
+        <span className="font-kosugi text-[10px] text-text-disabled tracking-widest">
           STEP {stepLabel}
         </span>
         <button
