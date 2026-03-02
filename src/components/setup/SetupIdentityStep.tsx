@@ -16,10 +16,13 @@ import { Check, ChevronDown, Search } from "lucide-react";
 
 const INDUSTRIES = [
   "Architecture",
+  "Auto Detailing",
   "Bricklaying",
   "Cabinetry",
   "Carpentry",
+  "Carpet Cleaning",
   "Ceiling Installations",
+  "Chimney Services",
   "Concrete Finishing",
   "Consulting",
   "Crane Operation",
@@ -29,29 +32,49 @@ const INDUSTRIES = [
   "Drywall",
   "Electrical",
   "Excavation",
+  "Fencing",
   "Flooring",
+  "Garage Doors",
+  "General Contracting",
   "Glazing",
+  "Gutter Installation",
+  "Handyman Services",
+  "House Cleaning",
   "HVAC",
   "Insulation",
+  "Irrigation",
+  "Junk Removal",
   "Landscaping",
+  "Lawn Care",
+  "Locksmith",
   "Masonry",
   "Metal Fabrication",
   "Millwrighting",
+  "Moving Services",
   "Painting",
+  "Paving",
+  "Pest Control",
   "Plumbing",
+  "Pool Services",
+  "Power Washing",
   "Railings",
   "Rebar",
   "Renovations",
   "Roofing",
   "Scaffolding",
+  "Septic Services",
   "Sheet Metal",
   "Siding",
+  "Snow Removal",
+  "Solar Installation",
   "Stonework",
   "Surveying",
   "Tile Setting",
+  "Tree Services",
   "Vinyl Deck Membranes",
   "Waterproofing",
   "Welding",
+  "Window Cleaning",
   "Windows",
   "Other",
 ] as const;
@@ -311,7 +334,7 @@ export function IdentityStep1({
   onUpdate,
 }: IdentityStep1Props) {
   return (
-    <div className="w-full max-w-[440px]">
+    <div className="w-full">
       <div className="mb-4">
         <h2 className="font-mohave text-heading text-text-primary">
           About You
@@ -373,7 +396,7 @@ export function IdentityStep2({
   onUpdate,
 }: IdentityStep2Props) {
   return (
-    <div className="w-full max-w-[440px]">
+    <div className="w-full">
       <div className="mb-4">
         <h2 className="font-mohave text-heading text-text-primary">
           Your Company

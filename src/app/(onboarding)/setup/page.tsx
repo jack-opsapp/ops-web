@@ -350,13 +350,10 @@ export default function SetupPage() {
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="font-mohave text-heading text-text-primary tracking-[0.2em] mb-0.5 focus:outline-none"
+          className="font-mohave text-heading text-text-primary tracking-[0.2em] focus:outline-none"
         >
           OPS
         </h1>
-        <p className="font-kosugi text-[10px] text-text-disabled tracking-widest uppercase">
-          Command Center Setup
-        </p>
       </div>
 
       {/* Progress bar */}
