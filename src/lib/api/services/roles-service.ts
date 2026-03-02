@@ -358,7 +358,7 @@ export const RolesService = {
     }
 
     const permissions = new Map<string, PermissionScope>();
-    const role = data?.roles as Record<string, unknown> | null;
+    const role = (data?.roles ?? null) as unknown as Record<string, unknown> | null;
     let roleId: string | null = null;
     let roleName: string | null = null;
 
