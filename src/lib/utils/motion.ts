@@ -115,3 +115,26 @@ export const fabBadgeVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.2 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
+
+// ── Action prompt toast — slide down from top ──
+export const actionPromptVariants: Variants = {
+  hidden: { opacity: 0, y: -20, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.3, ease: EASE_SMOOTH },
+  },
+  exit: {
+    opacity: 0,
+    y: -20,
+    scale: 0.97,
+    transition: { duration: 0.2, ease: EASE_SMOOTH },
+  },
+};
+
+export const actionPromptVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};

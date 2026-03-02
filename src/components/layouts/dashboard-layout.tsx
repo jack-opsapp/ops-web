@@ -11,11 +11,18 @@ import { FloatingWindow } from "@/components/ops/floating-window";
 import { PreferencesApplier } from "@/components/ops/preferences-applier";
 import { WindowDock } from "@/components/ops/window-dock";
 import { FloatingActionButton } from "@/components/ops/floating-action-button";
+import { ActionPromptRenderer } from "@/components/ops/action-prompt-renderer";
+import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
 import { CreateProjectForm } from "@/components/ops/create-project-modal";
 import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { useSidebarStore } from "@/stores/sidebar-store";
+
+function ActionPromptsInitializer() {
+  useActionPrompts();
+  return null;
+}
 
 function FloatingWindows() {
   const windows = useWindowStore((s) => s.windows);
@@ -82,6 +89,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* Global features */}
       <PreferencesApplier />
+      <ActionPromptsInitializer />
+      <ActionPromptRenderer />
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />
