@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { UploadStep } from "./import/upload-step";
 import {
-  ConfigureStep,
-  type Orientation,
-  type Mode,
-} from "./import/configure-step";
-import {
   MapColumnsStep,
   isMappingValid,
   type ColumnMapping,
@@ -26,10 +21,9 @@ import { ImportStep } from "./import/import-step";
 
 const STEPS = [
   { number: 1, label: "Upload" },
-  { number: 2, label: "Configure" },
-  { number: 3, label: "Map Columns" },
-  { number: 4, label: "Preview" },
-  { number: 5, label: "Import" },
+  { number: 2, label: "Map Columns" },
+  { number: 3, label: "Preview" },
+  { number: 4, label: "Import" },
 ] as const;
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -42,14 +36,10 @@ export function ImportTab() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
 
-  // Step 2: Configure
-  const [orientation, setOrientation] = useState<Orientation>("rows");
-  const [mode, setMode] = useState<Mode>("one-per-row");
-
-  // Step 3: Map Columns
+  // Step 2: Map Columns
   const [mapping, setMapping] = useState<ColumnMapping>({});
 
-  // Step 4: Preview
+  // Step 3: Preview
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
 
   // ── Progress percentage for top bar ────────────────────────────────────────
@@ -98,7 +88,7 @@ export function ImportTab() {
   );
 
   const handleNext = useCallback(() => {
-    if (currentStep === 3) {
+    if (currentStep === 2) {
       // Build preview items from CSV data + mapping
       const items = buildPreviewItems(rows, mapping);
       setPreviewItems(items);
@@ -115,8 +105,6 @@ export function ImportTab() {
     setCurrentStep(1);
     setHeaders([]);
     setRows([]);
-    setOrientation("rows");
-    setMode("one-per-row");
     setMapping({});
     setPreviewItems([]);
   }, []);
@@ -127,10 +115,8 @@ export function ImportTab() {
       case 1:
         return false; // Upload auto-advances
       case 2:
-        return true; // Configure always valid
-      case 3:
         return isMappingValid(mapping);
-      case 4:
+      case 3:
         return previewItems.length > 0;
       default:
         return false;
@@ -186,15 +172,6 @@ export function ImportTab() {
         {currentStep === 1 && <UploadStep onParsed={handleParsed} />}
 
         {currentStep === 2 && (
-          <ConfigureStep
-            orientation={orientation}
-            onOrientationChange={setOrientation}
-            mode={mode}
-            onModeChange={setMode}
-          />
-        )}
-
-        {currentStep === 3 && (
           <MapColumnsStep
             headers={headers}
             rows={rows}
@@ -203,7 +180,7 @@ export function ImportTab() {
           />
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 3 && (
           <PreviewStep
             headers={headers}
             rows={rows}
@@ -213,13 +190,13 @@ export function ImportTab() {
           />
         )}
 
-        {currentStep === 5 && (
+        {currentStep === 4 && (
           <ImportStep items={previewItems} onDone={handleDone} />
         )}
       </div>
 
-      {/* Navigation buttons (hidden on step 1 and step 5) */}
-      {currentStep > 1 && currentStep < 5 && (
+      {/* Navigation buttons (hidden on step 1 and step 4) */}
+      {currentStep > 1 && currentStep < 4 && (
         <div className="flex justify-between items-center pt-2 border-t border-border">
           <Button variant="ghost" onClick={handleBack}>
             Back

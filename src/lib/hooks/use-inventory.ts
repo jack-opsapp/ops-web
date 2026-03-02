@@ -221,6 +221,9 @@ export function useDeleteInventoryTag() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.inventory.tags.all,
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.inventory.itemTags.all,
+      });
     },
   });
 }

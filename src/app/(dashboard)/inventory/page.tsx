@@ -19,31 +19,42 @@ import { TagsUnitsTab } from "@/components/inventory/tags-units-tab";
 import { SnapshotsTab } from "@/components/inventory/snapshots-tab";
 import { ImportTab } from "@/components/inventory/import-tab";
 
+// ─── Permission Gate Wrapper ────────────────────────────────────────────────
+
 export default function InventoryPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { currentUser } = useAuthStore();
 
-  // ─── Permission Gate ────────────────────────────────────────────────────────
   useEffect(() => {
     if (currentUser && !currentUser.inventoryAccess) {
       router.replace("/dashboard");
     }
   }, [currentUser, router]);
 
-  // ─── Data ───────────────────────────────────────────────────────────────────
+  if (!currentUser || !currentUser.inventoryAccess) {
+    return null;
+  }
+
+  return <InventoryContent />;
+}
+
+// ─── Content (only mounts when user has access) ─────────────────────────────
+
+function InventoryContent() {
+  const searchParams = useSearchParams();
+
+  // Data hooks — only called when user has inventoryAccess
   const { data: items = [] } = useInventoryItems();
   const { data: tags = [] } = useInventoryTags();
   const { data: itemTags = [] } = useInventoryItemTags();
 
-  // ─── FAB ?action=new handling ───────────────────────────────────────────────
+  // FAB ?action=new handling
   const action = searchParams.get("action");
   const [activeTab, setActiveTab] = useState(
     action === "new" ? "items" : "overview"
   );
   const [showCreateForm, setShowCreateForm] = useState(action === "new");
 
-  // If the URL param changes after mount (e.g. FAB pressed while on page)
   useEffect(() => {
     if (action === "new") {
       setActiveTab("items");
@@ -51,14 +62,12 @@ export default function InventoryPage() {
     }
   }, [action]);
 
-  // ─── Stats ──────────────────────────────────────────────────────────────────
+  // Stats
   const stats = useMemo(() => {
-    const activeItems = items.filter((i) => !i.deletedAt);
     let warningCount = 0;
     let criticalCount = 0;
 
-    for (const item of activeItems) {
-      // Find tags for this item via the junction table
+    for (const item of items) {
       const itemTagIds = itemTags
         .filter((jt) => jt.itemId === item.id)
         .map((jt) => jt.tagId);
@@ -76,17 +85,11 @@ export default function InventoryPage() {
     }
 
     return {
-      total: activeItems.length,
+      total: items.length,
       warning: warningCount,
       critical: criticalCount,
     };
   }, [items, tags, itemTags]);
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
-  // Don't render until we know the user has access
-  if (!currentUser || !currentUser.inventoryAccess) {
-    return null;
-  }
 
   return (
     <div className="space-y-3 pb-6">
@@ -125,6 +128,7 @@ export default function InventoryPage() {
         <TabsContent value="items">
           <ItemsTab
             showCreateForm={showCreateForm}
+            onCreateFormOpen={() => setShowCreateForm(true)}
             onCreateFormClose={() => setShowCreateForm(false)}
           />
         </TabsContent>

@@ -33,7 +33,7 @@ export function SnapshotCreateDialog({
   const companyId = company?.id ?? "";
   const userId = currentUser?.id ?? "";
 
-  const { data: items = [] } = useInventoryItems();
+  const { data: items = [], isFetching: itemsFetching } = useInventoryItems();
   const { data: units = [] } = useInventoryUnits();
   const { data: itemTags = [] } = useInventoryItemTags();
   const { data: tags = [] } = useInventoryTags();
@@ -43,9 +43,9 @@ export function SnapshotCreateDialog({
   const [notes, setNotes] = useState("");
 
   const handleCreate = () => {
-    if (!companyId || !userId) return;
+    if (!companyId || !userId || itemsFetching) return;
 
-    const activeItems = items.filter((i) => !i.deletedAt);
+    const activeItems = items;
 
     createSnapshot.mutate(
       {
@@ -107,6 +107,7 @@ export function SnapshotCreateDialog({
               variant="default"
               size="sm"
               onClick={handleCreate}
+              disabled={itemsFetching}
               loading={createSnapshot.isPending}
               className="gap-1"
             >

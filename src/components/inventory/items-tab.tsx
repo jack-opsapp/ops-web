@@ -48,6 +48,7 @@ import { toast } from "sonner";
 
 interface ItemsTabProps {
   showCreateForm: boolean;
+  onCreateFormOpen: () => void;
   onCreateFormClose: () => void;
 }
 
@@ -57,7 +58,7 @@ type SortField = "name" | "quantity" | "status" | "updatedAt";
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 
-export function ItemsTab({ showCreateForm, onCreateFormClose }: ItemsTabProps) {
+export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }: ItemsTabProps) {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const isOfficeOrAdmin = useAuthStore(selectIsOfficeOrAdmin);
 
@@ -326,7 +327,7 @@ export function ItemsTab({ showCreateForm, onCreateFormClose }: ItemsTabProps) {
         <Button
           variant="default"
           size="sm"
-          onClick={onCreateFormClose}
+          onClick={onCreateFormOpen}
           className="gap-1 ml-auto"
         >
           <Plus className="w-[14px] h-[14px]" />
@@ -394,7 +395,7 @@ export function ItemsTab({ showCreateForm, onCreateFormClose }: ItemsTabProps) {
             !search && tagFilter === "__all__" && statusFilter === "__all__"
               ? {
                   label: "Add Item",
-                  onClick: onCreateFormClose,
+                  onClick: onCreateFormOpen,
                 }
               : undefined
           }
