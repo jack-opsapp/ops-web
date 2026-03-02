@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { Button } from "@/components/ui/button";
@@ -276,7 +277,12 @@ export default function SetupPage() {
 
   if (phase === "starfield") {
     return (
-      <div className="fixed inset-0 bg-background">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.0, ease: "easeOut" }}
+        className="fixed inset-0 bg-background"
+      >
         {/* Phase announcement for screen readers */}
         <div className="sr-only" aria-live="polite" role="status">
           {phaseAnnouncement}
@@ -287,8 +293,8 @@ export default function SetupPage() {
           onAnswer={handleStarfieldAnswer}
           minRequired={MIN_STARFIELD_ANSWERS}
         />
-        {/* Top controls */}
-        <div className="absolute top-4 left-4 z-10">
+        {/* Top controls — centered */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3">
           <button
             onClick={handleBack}
             aria-label="Back to company information"
@@ -297,8 +303,6 @@ export default function SetupPage() {
             <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
             Back
           </button>
-        </div>
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
           <button
             onClick={handleSkip}
             aria-label="Skip questionnaire and go to dashboard"
@@ -316,7 +320,7 @@ export default function SetupPage() {
             </button>
           )}
         </div>
-      </div>
+      </motion.div>
     );
   }
 

@@ -3,15 +3,12 @@
 /**
  * SetupStarfield — Interactive Canvas 2D galaxy with question nodes
  *
- * Full-screen canvas with:
- * - ~80 ambient particles (small squares, slow random drift)
- * - 8 larger question nodes at fixed 3D positions
- * - Cursor proximity: nearby particles brighten + shift orange
- * - Node hover: label tooltip, nearby particles orbit toward node
- * - Click node: camera zooms in, shows sub-node options radially
- * - Select option: sub-node highlights, auto zoom-out
- * - Answered nodes turn accent blue
- * - Respects prefers-reduced-motion
+ * - ~300 ambient stars with randomized sizes, clusters, gentle drift
+ * - Cursor repulsion: nearby stars push away with a smear effect
+ * - Question nodes: orange glow (unanswered), blue glow (answered)
+ * - All nodes have gentle floating oscillation
+ * - Focus: subtle zoom, other nodes fade + push outward
+ * - Instruction overlay when idle
  */
 
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
@@ -24,6 +21,8 @@ import {
 import { LikertResponse } from "./starfield/LikertResponse";
 import { ForcedChoiceResponse } from "./starfield/ForcedChoiceResponse";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 interface Camera {
   x: number;
   y: number;
@@ -35,7 +34,7 @@ interface Camera {
   targetZoom: number;
 }
 
-interface AmbientParticle {
+interface Star {
   x: number;
   y: number;
   z: number;
@@ -44,24 +43,27 @@ interface AmbientParticle {
   vx: number;
   vy: number;
   vz: number;
+  phase: number;
+  displaceX: number;
+  displaceY: number;
 }
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const ACCENT = { r: 89, g: 119, b: 148 }; // #597794
-const GREY = { r: 160, g: 160, b: 160 };
-const ORANGE = { r: 200, g: 140, b: 60 };
-const PARTICLE_COUNT = 80;
+const ACCENT = { r: 89, g: 119, b: 148 }; // #597794 — answered
+const ORANGE = { r: 242, g: 101, b: 34 }; // #F26522 — unanswered question nodes
+const STAR_COUNT = 300;
+const CLUSTER_COUNT = 6;
 const FOCAL_LENGTH = 600;
-const BRIGHTEN_RADIUS = 80;
-const NODE_RADIUS = 8;
-const NODE_HIT_RADIUS = 24;
-const SUB_NODE_RADIUS = 6;
-const SUB_NODE_ORBIT_RADIUS = 80;
-const CAMERA_SPRING = 0.04;
-const CAMERA_DAMPING = 0.85;
+const REPULSE_RADIUS = 100;
+const REPULSE_STRENGTH = 4;
+const NODE_RADIUS = 5;
+const NODE_HIT_RADIUS = 28;
+const SUB_NODE_RADIUS = 4;
+const SUB_NODE_ORBIT_RADIUS = 140;
+const CAMERA_LERP = 0.06;
 
-// ─── Projection ─────────────────────────────────────────────────────────────
+// ─── Projection ──────────────────────────────────────────────────────────────
 
 function project3D(
   px: number,
@@ -83,7 +85,7 @@ function project3D(
   };
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+// ─── Component ───────────────────────────────────────────────────────────────
 
 interface SetupStarfieldProps {
   questions: StarfieldQuestion[];
@@ -108,9 +110,9 @@ export function SetupStarfield({
     targetX: 0, targetY: 0, targetZ: -400,
     targetZoom: 1,
   });
-  const cameraVelRef = useRef({ x: 0, y: 0, z: 0, zoom: 0 });
-  const particlesRef = useRef<AmbientParticle[]>([]);
+  const starsRef = useRef<Star[]>([]);
   const hoveredNodeRef = useRef<string | null>(null);
+  const focusProgressRef = useRef(0);
   const questionsRef = useRef(questions);
   questionsRef.current = questions;
 
@@ -129,14 +131,12 @@ export function SetupStarfield({
   const focusedNodeRef = useRef<string | null>(null);
   focusedNodeRef.current = focusedNode;
 
-  // Keep a ref to starfieldAnswers so the canvas draw loop can read it
   const starfieldAnswersRef = useRef(starfieldAnswers);
   starfieldAnswersRef.current = starfieldAnswers;
 
-  // Analytics: track time spent on each focused question
   const nodeFocusTimeRef = useRef(0);
 
-  // ─── Conditional visibility ──────────────────────────────────────────────
+  // ─── Conditional visibility ────────────────────────────────────────────
 
   const visibleQuestions = useMemo(() => {
     return questions.filter((q) => {
@@ -149,7 +149,7 @@ export function SetupStarfield({
   const visibleQuestionsRef = useRef(visibleQuestions);
   visibleQuestionsRef.current = visibleQuestions;
 
-  // ─── Canvas resize ──────────────────────────────────────────────────────
+  // ─── Canvas resize ────────────────────────────────────────────────────
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -165,14 +165,14 @@ export function SetupStarfield({
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }, []);
 
-  // ─── Zoom to node ───────────────────────────────────────────────────────
+  // ─── Zoom to node ─────────────────────────────────────────────────────
 
   const zoomToNode = useCallback((q: StarfieldQuestion) => {
     const camera = cameraRef.current;
-    camera.targetX = q.position.x;
-    camera.targetY = q.position.y;
-    camera.targetZ = q.position.z - 250;
-    camera.targetZoom = 3.5;
+    // Subtle drift toward node + slight zoom — no dramatic camera move
+    camera.targetX = q.position.x * 0.2;
+    camera.targetY = q.position.y * 0.2;
+    camera.targetZoom = 1.2;
     nodeFocusTimeRef.current = Date.now();
     const questionIndex = visibleQuestionsRef.current.findIndex((vq) => vq.id === q.id);
     const currentAnsweredCount = visibleQuestionsRef.current.filter(
@@ -187,13 +187,12 @@ export function SetupStarfield({
     const camera = cameraRef.current;
     camera.targetX = 0;
     camera.targetY = 0;
-    camera.targetZ = -400;
     camera.targetZoom = 1;
     setFocusedNode(null);
     setSubNodePositions([]);
   }, []);
 
-  // ─── Handle option select ───────────────────────────────────────────────
+  // ─── Handle option select ─────────────────────────────────────────────
 
   const handleOptionSelect = useCallback(
     (questionId: string, optionId: string | number, zoomOutDelay = 400) => {
@@ -215,7 +214,7 @@ export function SetupStarfield({
     [onAnswer, zoomOut]
   );
 
-  // ─── Main animation loop ───────────────────────────────────────────────
+  // ─── Main animation loop ──────────────────────────────────────────────
 
   useEffect(() => {
     resize();
@@ -227,21 +226,52 @@ export function SetupStarfield({
       observer.observe(container);
     }
 
-    // Generate ambient particles
-    const particles: AmbientParticle[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push({
-        x: (Math.random() - 0.5) * 800,
-        y: (Math.random() - 0.5) * 800,
-        z: (Math.random() - 0.5) * 400,
-        size: 1 + Math.random() * 2,
-        baseAlpha: 0.03 + Math.random() * 0.06,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8,
-        vz: (Math.random() - 0.5) * 4,
+    // Generate cluster centers
+    const clusterCenters = Array.from({ length: CLUSTER_COUNT }, () => ({
+      x: (Math.random() - 0.5) * 600,
+      y: (Math.random() - 0.5) * 600,
+      z: (Math.random() - 0.5) * 300,
+    }));
+
+    // Generate stars — mix of clustered and spread
+    const stars: Star[] = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
+      let x: number, y: number, z: number;
+      if (i < STAR_COUNT * 0.35) {
+        // Clustered around a center
+        const c = clusterCenters[i % CLUSTER_COUNT];
+        const spread = 30 + Math.random() * 80;
+        x = c.x + (Math.random() - 0.5) * spread;
+        y = c.y + (Math.random() - 0.5) * spread;
+        z = c.z + (Math.random() - 0.5) * spread * 0.5;
+      } else {
+        // Spread across the field
+        x = (Math.random() - 0.5) * 1000;
+        y = (Math.random() - 0.5) * 1000;
+        z = (Math.random() - 0.5) * 500;
+      }
+
+      // Randomized sizes: mostly small, some medium, rare large
+      const sizeRoll = Math.random();
+      const size =
+        sizeRoll < 0.6
+          ? 0.5 + Math.random() * 1
+          : sizeRoll < 0.9
+            ? 1.5 + Math.random() * 1.5
+            : 3 + Math.random() * 2;
+
+      stars.push({
+        x, y, z, size,
+        baseAlpha: 0.03 + Math.random() * 0.07,
+        vx: (Math.random() - 0.5) * 3,
+        vy: (Math.random() - 0.5) * 3,
+        vz: (Math.random() - 0.5) * 1.5,
+        phase: Math.random() * Math.PI * 2,
+        displaceX: 0,
+        displaceY: 0,
       });
     }
-    particlesRef.current = particles;
+    starsRef.current = stars;
 
     // Mouse handlers
     const handleMouseMove = (e: MouseEvent) => {
@@ -256,7 +286,6 @@ export function SetupStarfield({
     container?.addEventListener("mouseleave", handleMouseLeave);
 
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     let prevTimestamp: number | null = null;
 
     function draw(timestamp: number) {
@@ -265,15 +294,9 @@ export function SetupStarfield({
       prevTimestamp = timestamp;
 
       const canvas = canvasRef.current;
-      if (!canvas) {
-        animRef.current = requestAnimationFrame(draw);
-        return;
-      }
+      if (!canvas) { animRef.current = requestAnimationFrame(draw); return; }
       const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        animRef.current = requestAnimationFrame(draw);
-        return;
-      }
+      if (!ctx) { animRef.current = requestAnimationFrame(draw); return; }
 
       const w = parseFloat(canvas.style.width) || canvas.width;
       const h = parseFloat(canvas.style.height) || canvas.height;
@@ -281,26 +304,16 @@ export function SetupStarfield({
       const centerY = h / 2;
       const mouse = mouseRef.current;
       const camera = cameraRef.current;
-      const vel = cameraVelRef.current;
       const qs = visibleQuestionsRef.current;
       const answers = starfieldAnswersRef.current;
+      const t = timestamp * 0.001;
 
-      // ── Spring camera toward target ──
+      // ── Lerp camera toward target ──
       if (!prefersReduced) {
-        vel.x += (camera.targetX - camera.x) * CAMERA_SPRING;
-        vel.y += (camera.targetY - camera.y) * CAMERA_SPRING;
-        vel.z += (camera.targetZ - camera.z) * CAMERA_SPRING;
-        vel.zoom += (camera.targetZoom - camera.zoom) * CAMERA_SPRING;
-
-        vel.x *= CAMERA_DAMPING;
-        vel.y *= CAMERA_DAMPING;
-        vel.z *= CAMERA_DAMPING;
-        vel.zoom *= CAMERA_DAMPING;
-
-        camera.x += vel.x;
-        camera.y += vel.y;
-        camera.z += vel.z;
-        camera.zoom += vel.zoom;
+        camera.x += (camera.targetX - camera.x) * CAMERA_LERP;
+        camera.y += (camera.targetY - camera.y) * CAMERA_LERP;
+        camera.z += (camera.targetZ - camera.z) * CAMERA_LERP;
+        camera.zoom += (camera.targetZoom - camera.zoom) * CAMERA_LERP;
       } else {
         camera.x = camera.targetX;
         camera.y = camera.targetY;
@@ -308,53 +321,64 @@ export function SetupStarfield({
         camera.zoom = camera.targetZoom;
       }
 
+      // ── Focus progress (0 = idle, 1 = fully focused) ──
+      const targetFP = focusedNodeRef.current ? 1 : 0;
+      focusProgressRef.current += (targetFP - focusProgressRef.current) * CAMERA_LERP;
+      const fp = focusProgressRef.current;
+
       ctx.clearRect(0, 0, w, h);
 
-      // ── Draw ambient particles ──
-      for (const p of particles) {
+      // ── Draw ambient stars ──
+      for (const star of stars) {
         if (!prefersReduced) {
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
-          p.z += p.vz * dt;
+          // Drift
+          star.x += star.vx * dt;
+          star.y += star.vy * dt;
+          star.z += star.vz * dt;
 
           // Wrap
-          if (p.x < -400) p.x = 400;
-          if (p.x > 400) p.x = -400;
-          if (p.y < -400) p.y = 400;
-          if (p.y > 400) p.y = -400;
-          if (p.z < -200) p.z = 200;
-          if (p.z > 200) p.z = -200;
+          if (star.x < -500) star.x = 500;
+          if (star.x > 500) star.x = -500;
+          if (star.y < -500) star.y = 500;
+          if (star.y > 500) star.y = -500;
+          if (star.z < -250) star.z = 250;
+          if (star.z > 250) star.z = -250;
+
+          // Decay displacement from repulsion
+          star.displaceX *= 0.92;
+          star.displaceY *= 0.92;
         }
 
-        const proj = project3D(p.x, p.y, p.z, camera, centerX, centerY);
+        const proj = project3D(star.x, star.y, star.z, camera, centerX, centerY);
         if (proj.scale <= 0) continue;
 
-        const screenSize = p.size * proj.scale;
-        const sx = proj.x;
-        const sy = proj.y;
+        let sx = proj.x + star.displaceX;
+        let sy = proj.y + star.displaceY;
+        const screenSize = Math.max(star.size * proj.scale, 0.5);
 
-        // Skip if off screen
+        // Skip off-screen
         if (sx < -20 || sx > w + 20 || sy < -20 || sy > h + 20) continue;
 
-        // Cursor proximity: brighten + shift orange
-        let alpha = p.baseAlpha;
-        let r = GREY.r,
-          g = GREY.g,
-          b = GREY.b;
-
-        const mdx = sx - mouse.x;
-        const mdy = sy - mouse.y;
-        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-        if (mDist < BRIGHTEN_RADIUS) {
-          const proximity = 1 - mDist / BRIGHTEN_RADIUS;
-          alpha = Math.min(alpha * (1 + proximity * 2), 0.25);
-          // Shift toward orange
-          r = Math.round(r + (ORANGE.r - r) * proximity * 0.6);
-          g = Math.round(g + (ORANGE.g - g) * proximity * 0.6);
-          b = Math.round(b + (ORANGE.b - b) * proximity * 0.6);
+        // Cursor repulsion — push stars away from cursor
+        if (!prefersReduced) {
+          const mdx = sx - mouse.x;
+          const mdy = sy - mouse.y;
+          const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+          if (mDist < REPULSE_RADIUS && mDist > 1) {
+            const force = (1 - mDist / REPULSE_RADIUS) * REPULSE_STRENGTH;
+            star.displaceX += (mdx / mDist) * force;
+            star.displaceY += (mdy / mDist) * force;
+          }
+          // Recalculate screen position with displacement
+          sx = proj.x + star.displaceX;
+          sy = proj.y + star.displaceY;
         }
 
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        // Twinkle
+        const twinkle = 0.7 + 0.3 * Math.sin(t * 0.5 + star.phase);
+        const alpha = star.baseAlpha * twinkle;
+
+        ctx.fillStyle = `rgba(200, 200, 210, ${alpha})`;
         ctx.fillRect(sx - screenSize / 2, sy - screenSize / 2, screenSize, screenSize);
       }
 
@@ -363,61 +387,92 @@ export function SetupStarfield({
       const isFocused = focusedNodeRef.current !== null;
 
       for (const q of qs) {
+        // Gentle floating oscillation
+        const oscX = Math.sin(t * 0.3 + q.position.x * 0.02) * 4;
+        const oscY = Math.cos(t * 0.25 + q.position.y * 0.02) * 4;
+
         const proj = project3D(
-          q.position.x,
-          q.position.y,
+          q.position.x + oscX,
+          q.position.y + oscY,
           q.position.z,
-          camera,
-          centerX,
-          centerY
+          camera, centerX, centerY
         );
         if (proj.scale <= 0) continue;
 
-        const nodeSize = NODE_RADIUS * proj.scale;
-        const sx = proj.x;
-        const sy = proj.y;
+        let sx = proj.x;
+        let sy = proj.y;
+        const baseNodeSize = NODE_RADIUS * proj.scale;
 
-        // Check hover
+        const isAnswered = answers[q.id] != null;
+        const isFocusedNode = focusedNodeRef.current === q.id;
+
+        // Push non-focused nodes outward during focus
+        if (isFocused && !isFocusedNode) {
+          const pushAmount = 1 + fp * 0.5;
+          sx = centerX + (sx - centerX) * pushAmount;
+          sy = centerY + (sy - centerY) * pushAmount;
+        }
+
+        // Check hover (only when not focused)
         const dx = sx - mouse.x;
         const dy = sy - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const isHovered = dist < NODE_HIT_RADIUS * proj.scale && !isFocused;
+        if (isHovered) newHoveredNode = q.id;
 
-        if (isHovered) {
-          newHoveredNode = q.id;
-        }
+        // Determine color and alpha
+        let nodeAlpha: number;
+        let fillR: number, fillG: number, fillB: number;
+        let glowBlur: number;
 
-        // Node color
-        const isAnswered = answers[q.id] != null;
-        const isFocusedNode = focusedNodeRef.current === q.id;
-        let nodeAlpha = 0.6;
-
-        if (isAnswered) {
-          // Accent blue for answered
-          ctx.fillStyle = `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, 0.8)`;
-          nodeAlpha = 0.8;
-        } else if (isFocusedNode) {
-          ctx.fillStyle = `rgba(255, 255, 255, 0.9)`;
+        if (isFocused && !isFocusedNode) {
+          // Faded while another node is focused
+          nodeAlpha = 0.12;
+          if (isAnswered) {
+            fillR = ACCENT.r; fillG = ACCENT.g; fillB = ACCENT.b;
+          } else {
+            fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          }
+          glowBlur = 0;
+        } else if (isAnswered) {
+          // Blue accent glow
           nodeAlpha = 0.9;
+          fillR = ACCENT.r; fillG = ACCENT.g; fillB = ACCENT.b;
+          glowBlur = 18;
+        } else if (isFocusedNode) {
+          // Bright orange, strong glow
+          nodeAlpha = 1;
+          fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          glowBlur = 24;
         } else if (isHovered) {
-          ctx.fillStyle = `rgba(255, 255, 255, 0.7)`;
-          nodeAlpha = 0.7;
+          // Brighter orange on hover
+          nodeAlpha = 0.9;
+          fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          glowBlur = 22;
         } else {
-          ctx.fillStyle = `rgba(${GREY.r}, ${GREY.g}, ${GREY.b}, 0.4)`;
-          nodeAlpha = 0.4;
+          // Default orange glow — pulsing
+          const pulse = 0.5 + 0.15 * Math.sin(t * 0.8 + q.position.x * 0.01);
+          nodeAlpha = pulse;
+          fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          glowBlur = 14;
         }
 
-        // Glow
-        if (isHovered || isFocusedNode || isAnswered) {
-          const glowColor = isAnswered
-            ? `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, ${nodeAlpha * 0.3})`
-            : `rgba(255, 255, 255, ${nodeAlpha * 0.2})`;
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = isAnswered ? 16 : 12;
+        // Draw glow
+        if (glowBlur > 0) {
+          ctx.shadowColor = `rgba(${fillR}, ${fillG}, ${fillB}, ${nodeAlpha * 0.5})`;
+          ctx.shadowBlur = glowBlur;
         }
 
-        // Draw node as square
-        ctx.fillRect(sx - nodeSize / 2, sy - nodeSize / 2, nodeSize, nodeSize);
+        // Node size — slightly larger when hovered or focused
+        const sizeMultiplier = isFocusedNode ? 1.3 : isHovered ? 1.2 : 1;
+        const nodeSize = baseNodeSize * sizeMultiplier;
+
+        // Draw as circle
+        ctx.fillStyle = `rgba(${fillR}, ${fillG}, ${fillB}, ${nodeAlpha})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, nodeSize, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.shadowColor = "transparent";
         ctx.shadowBlur = 0;
 
@@ -440,28 +495,29 @@ export function SetupStarfield({
             const subX = sx + Math.cos(angle) * orbitRadius;
             const subY = sy + Math.sin(angle) * orbitRadius;
             const subSize = SUB_NODE_RADIUS * proj.scale;
-
             const isSelected = answers[q.id] === options[i].id;
 
-            // Vector line from center to sub-node
+            // Line from center to sub-node
             ctx.strokeStyle = isSelected
               ? `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, 0.6)`
-              : `rgba(255, 255, 255, 0.15)`;
+              : `rgba(255, 255, 255, 0.12)`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(sx, sy);
             ctx.lineTo(subX, subY);
             ctx.stroke();
 
-            // Sub-node
+            // Sub-node dot
             if (isSelected) {
               ctx.fillStyle = `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, 0.9)`;
               ctx.shadowColor = `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, 0.4)`;
               ctx.shadowBlur = 10;
             } else {
-              ctx.fillStyle = `rgba(255, 255, 255, 0.5)`;
+              ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
             }
-            ctx.fillRect(subX - subSize / 2, subY - subSize / 2, subSize, subSize);
+            ctx.beginPath();
+            ctx.arc(subX, subY, subSize, 0, Math.PI * 2);
+            ctx.fill();
             ctx.shadowColor = "transparent";
             ctx.shadowBlur = 0;
 
@@ -474,7 +530,6 @@ export function SetupStarfield({
             });
           }
 
-          // Update DOM sub-node positions (throttled via state)
           setSubNodePositions(subPositions);
         }
       }
@@ -483,15 +538,13 @@ export function SetupStarfield({
       if (newHoveredNode !== hoveredNodeRef.current) {
         hoveredNodeRef.current = newHoveredNode;
         if (newHoveredNode) {
-          const q = qs.find((q) => q.id === newHoveredNode);
+          const q = qs.find((vq) => vq.id === newHoveredNode);
           if (q) {
+            const oscX = Math.sin(t * 0.3 + q.position.x * 0.02) * 4;
+            const oscY = Math.cos(t * 0.25 + q.position.y * 0.02) * 4;
             const proj = project3D(
-              q.position.x,
-              q.position.y,
-              q.position.z,
-              camera,
-              centerX,
-              centerY
+              q.position.x + oscX, q.position.y + oscY, q.position.z,
+              camera, centerX, centerY
             );
             setHoveredNode({
               id: q.id,
@@ -508,7 +561,6 @@ export function SetupStarfield({
       animRef.current = requestAnimationFrame(draw);
     }
 
-    // Static frame for reduced motion
     if (prefersReduced) {
       requestAnimationFrame(draw);
     } else {
@@ -523,7 +575,7 @@ export function SetupStarfield({
     };
   }, [resize]);
 
-  // ─── Click handler ────────────────────────────────────────────────────
+  // ─── Click handler ─────────────────────────────────────────────────────
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -538,20 +590,18 @@ export function SetupStarfield({
       const centerY = h / 2;
       const camera = cameraRef.current;
       const qs = visibleQuestionsRef.current;
+      const t = performance.now() * 0.001;
 
-      // If focused on a node, check sub-node clicks (situational only)
+      // If focused, check sub-node clicks (situational) or zoom out
       if (focusedNodeRef.current) {
-        const q = qs.find((q) => q.id === focusedNodeRef.current);
+        const q = qs.find((vq) => vq.id === focusedNodeRef.current);
         if (q) {
-          // Only check canvas sub-node clicks for situational type
           if (q.responseType === "situational") {
+            const oscX = Math.sin(t * 0.3 + q.position.x * 0.02) * 4;
+            const oscY = Math.cos(t * 0.25 + q.position.y * 0.02) * 4;
             const proj = project3D(
-              q.position.x,
-              q.position.y,
-              q.position.z,
-              camera,
-              centerX,
-              centerY
+              q.position.x + oscX, q.position.y + oscY, q.position.z,
+              camera, centerX, centerY
             );
             const orbitRadius = SUB_NODE_ORBIT_RADIUS * proj.scale;
             const angleStep = (2 * Math.PI) / q.options.length;
@@ -569,22 +619,18 @@ export function SetupStarfield({
               }
             }
           }
-
-          // Click outside sub-nodes / response area? zoom out
           zoomOut();
           return;
         }
       }
 
-      // Check if clicking a node
+      // Check if clicking a question node
       for (const q of qs) {
+        const oscX = Math.sin(t * 0.3 + q.position.x * 0.02) * 4;
+        const oscY = Math.cos(t * 0.25 + q.position.y * 0.02) * 4;
         const proj = project3D(
-          q.position.x,
-          q.position.y,
-          q.position.z,
-          camera,
-          centerX,
-          centerY
+          q.position.x + oscX, q.position.y + oscY, q.position.z,
+          camera, centerX, centerY
         );
         const dx = clickX - proj.x;
         const dy = clickY - proj.y;
@@ -598,7 +644,7 @@ export function SetupStarfield({
     [zoomToNode, zoomOut, handleOptionSelect]
   );
 
-  // ─── Render ───────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────
 
   const focusedQuestion = visibleQuestions.find((q) => q.id === focusedNode) ?? null;
   const answeredCount = visibleQuestions.filter((q) => starfieldAnswers[q.id] != null).length;
@@ -643,6 +689,23 @@ export function SetupStarfield({
         </p>
       </div>
 
+      {/* Instruction — visible when no node is focused */}
+      <AnimatePresence>
+        {!focusedNode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="absolute top-[14%] left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none"
+          >
+            <p className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
+              Click the glowing nodes to customize your dashboard
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hover tooltip */}
       <AnimatePresence>
         {hoveredNode && !focusedNode && (
@@ -659,7 +722,7 @@ export function SetupStarfield({
               transform: "translateX(-50%)",
             }}
           >
-            <div className="px-2 py-1 rounded bg-background-card/90 border border-border backdrop-blur-sm">
+            <div className="px-2 py-1 rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)]">
               <span className="font-mohave text-body-sm text-text-primary whitespace-nowrap">
                 {hoveredNode.label}
               </span>
@@ -680,7 +743,7 @@ export function SetupStarfield({
             className="absolute inset-0 pointer-events-none z-10"
           >
             {/* Question text at top */}
-            <div className="absolute top-[15%] left-1/2 -translate-x-1/2 text-center">
+            <div className="absolute top-[15%] left-1/2 -translate-x-1/2 text-center max-w-[500px] px-4">
               <h2 className="font-mohave text-display text-text-primary">
                 {focusedQuestion.question}
               </h2>
@@ -689,7 +752,7 @@ export function SetupStarfield({
               </p>
             </div>
 
-            {/* Situational: sub-node labels (canvas draws the nodes) */}
+            {/* Situational: sub-node labels */}
             {focusedQuestion.responseType === "situational" &&
               subNodePositions.map((sub) => (
                 <div
@@ -773,9 +836,9 @@ export function SetupStarfield({
             />
           ))}
         </div>
-        <p className="font-mono text-[10px] text-text-disabled text-center mt-2">
+        <p className="font-kosugi text-[10px] text-text-disabled text-center mt-2">
           {answeredCount}/{visibleQuestions.length} answered
-          {answeredCount < minRequired && ` (${minRequired - answeredCount} more needed)`}
+          {answeredCount < minRequired && ` · ${minRequired - answeredCount} more needed`}
         </p>
       </div>
     </div>
