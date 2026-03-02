@@ -12,7 +12,7 @@ export default async function ABConfigPage() {
     <div className="p-8 max-w-3xl">
       <AdminPageHeader
         title="A/B CONFIG"
-        subtitle="System configuration — changes take effect on the next rotation"
+        caption="System configuration — changes take effect on the next rotation"
       />
 
       <div className="mt-6">

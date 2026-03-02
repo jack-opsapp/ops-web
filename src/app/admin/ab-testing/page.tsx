@@ -29,7 +29,7 @@ export default async function ABTestingPage() {
   if (!test) {
     return (
       <div className="p-8">
-        <AdminPageHeader title="A/B TESTING" subtitle="No active test found." />
+        <AdminPageHeader title="A/B TESTING" caption="No active test found." />
         <p className="text-white/40 text-sm mt-4">Run the seed script to initialize the first test.</p>
       </div>
     )
@@ -44,7 +44,7 @@ export default async function ABTestingPage() {
       <div className="flex items-start justify-between mb-6">
         <AdminPageHeader
           title="A/B TESTING"
-          subtitle={`Test started ${daysSinceStart} day${daysSinceStart === 1 ? '' : 's'} ago · ${test.status.toUpperCase()}`}
+          caption={`Test started ${daysSinceStart} day${daysSinceStart === 1 ? '' : 's'} ago · ${test.status.toUpperCase()}`}
         />
         <div className="flex gap-4 text-xs text-white/40 mt-1">
           <Link href="/admin/ab-testing/history" className="hover:text-white/70">History →</Link>

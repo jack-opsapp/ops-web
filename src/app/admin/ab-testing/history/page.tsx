@@ -11,7 +11,7 @@ export default async function ABHistoryPage() {
     <div className="p-8 max-w-5xl">
       <AdminPageHeader
         title="A/B TEST HISTORY"
-        subtitle={`${tests.length} completed cycle${tests.length === 1 ? '' : 's'}`}
+        caption={`${tests.length} completed cycle${tests.length === 1 ? '' : 's'}`}
       />
 
       {tests.length === 0 ? (
