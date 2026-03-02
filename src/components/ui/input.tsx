@@ -39,7 +39,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               "border border-border",
               "transition-all duration-150",
               "placeholder:text-text-tertiary",
-              "focus:border-[rgba(255,255,255,0.25)] focus:outline-none",
+              "focus:border-ops-accent focus:outline-none caret-ops-accent",
               "disabled:cursor-not-allowed disabled:opacity-40",
               prefixIcon && "pl-5",
               suffixIcon && "pr-5",
