@@ -7,6 +7,7 @@ import {
   Save,
   Moon,
   Sun,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import type {
   PortalThemeMode,
 } from "@/lib/types/portal";
 import { toast } from "sonner";
+import { getAuth } from "firebase/auth";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Query Keys ──────────────────────────────────────────────────────────────
@@ -153,6 +155,7 @@ export function PortalBrandingTab() {
   const [themeMode, setThemeMode] = useState<PortalThemeMode>("dark");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [isDirty, setIsDirty] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   // ── Fetch branding ───────────────────────────────────────────────────────
   const {
@@ -207,6 +210,40 @@ export function PortalBrandingTab() {
   // ── Dirty tracking helper ────────────────────────────────────────────────
   function markDirty() {
     if (!isDirty) setIsDirty(true);
+  }
+
+  async function handlePreview() {
+    if (!companyId || isPreviewLoading) return;
+    setIsPreviewLoading(true);
+
+    try {
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch("/api/portal/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ companyId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to create preview");
+      }
+
+      const { token: previewToken } = await res.json();
+      window.open(`/portal/${previewToken}`, "_blank");
+    } catch (err) {
+      toast.error("Failed to open preview", {
+        description: err instanceof Error ? err.message : "Please try again",
+      });
+    } finally {
+      setIsPreviewLoading(false);
+    }
   }
 
   // ── Loading state ────────────────────────────────────────────────────────
@@ -435,22 +472,33 @@ export function PortalBrandingTab() {
         </CardContent>
       </Card>
 
-      {/* ── Save Button ───────────────────────────────────────────────────── */}
+      {/* ── Actions ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between pt-1">
         <p className="font-kosugi text-[11px] text-text-disabled">
           {isDirty
             ? t("portalBranding.unsavedChanges")
             : t("portalBranding.allSaved")}
         </p>
-        <Button
-          variant="primary"
-          onClick={() => saveMutation.mutate()}
-          disabled={!isDirty || saveMutation.isPending || !isValidHex}
-          loading={saveMutation.isPending}
-        >
-          <Save className="w-[16px] h-[16px]" />
-          {t("portalBranding.saveBranding")}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            onClick={handlePreview}
+            disabled={isPreviewLoading}
+            loading={isPreviewLoading}
+          >
+            <Eye className="w-[16px] h-[16px]" />
+            Preview Portal
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => saveMutation.mutate()}
+            disabled={!isDirty || saveMutation.isPending || !isValidHex}
+            loading={saveMutation.isPending}
+          >
+            <Save className="w-[16px] h-[16px]" />
+            {t("portalBranding.saveBranding")}
+          </Button>
+        </div>
       </div>
     </div>
   );

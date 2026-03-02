@@ -15,6 +15,7 @@ export default function PortalLayout({
   const [branding, setBranding] = useState<PortalBranding | null>(null);
   const [company, setCompany] = useState<PortalCompanyInfo | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [isPreview, setIsPreview] = useState(false);
 
   useEffect(() => {
     async function loadBranding() {
@@ -25,6 +26,9 @@ export default function PortalLayout({
           setBranding(data.branding ?? null);
           setCompany(data.company ?? null);
           setUnreadMessages(data.unreadMessages ?? 0);
+          if (data.isPreview) {
+            setIsPreview(true);
+          }
         }
       } catch {
         // Will be handled by middleware redirect
@@ -36,6 +40,17 @@ export default function PortalLayout({
   return (
     <PortalProviders>
       <PortalShell branding={branding}>
+        {isPreview && (
+          <div
+            className="text-center py-2 text-xs font-medium tracking-wide"
+            style={{
+              backgroundColor: "var(--portal-accent, #417394)",
+              color: "#fff",
+            }}
+          >
+            Preview Mode — This is how your clients see your portal
+          </div>
+        )}
         {company && (
           <PortalHeader
             companyName={company.name}
