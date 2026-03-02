@@ -68,6 +68,32 @@ export const PortalAuthService = {
   },
 
   /**
+   * Create a short-lived preview token. No email verification required.
+   * Uses a sentinel email and null client ID — preview sessions only serve demo data.
+   */
+  async createPreviewToken(companyId: string): Promise<PortalToken> {
+    const supabase = getServiceRoleClient();
+
+    // 15-minute expiry
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("portal_tokens")
+      .insert({
+        company_id: companyId,
+        client_id: "00000000-0000-0000-0000-000000000000",
+        email: "preview@ops.app",
+        is_preview: true,
+        expires_at: expiresAt,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create preview token: ${error.message}`);
+    return mapTokenFromDb(data);
+  },
+
+  /**
    * Look up a token by its hex value. Returns null if not found.
    */
   async getTokenByValue(token: string): Promise<PortalToken | null> {
@@ -139,6 +165,41 @@ export const PortalAuthService = {
       .single();
 
     if (error) throw new Error(`Failed to create session: ${error.message}`);
+    return mapSessionFromDb(data);
+  },
+
+  /**
+   * Create a session for a preview token. Skips email validation.
+   * Marks the token as verified and creates a session with is_preview = true.
+   */
+  async createPreviewSession(portalToken: PortalToken): Promise<PortalSession> {
+    const supabase = getServiceRoleClient();
+
+    // Check expiration
+    if (new Date() > portalToken.expiresAt) {
+      throw new Error("This preview link has expired");
+    }
+
+    // Mark token as verified
+    await supabase
+      .from("portal_tokens")
+      .update({ verified_at: new Date().toISOString() })
+      .eq("id", portalToken.id);
+
+    // Create session with preview flag
+    const { data, error } = await supabase
+      .from("portal_sessions")
+      .insert({
+        portal_token_id: portalToken.id,
+        email: portalToken.email,
+        company_id: portalToken.companyId,
+        client_id: portalToken.clientId,
+        is_preview: true,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create preview session: ${error.message}`);
     return mapSessionFromDb(data);
   },
 

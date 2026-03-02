@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       valid: true,
       companyId: portalToken.companyId,
+      isPreview: portalToken.isPreview,
     });
   } catch (error) {
     console.error("[portal/auth/validate-token] Error:", error);

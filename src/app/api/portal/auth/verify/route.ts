@@ -25,8 +25,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate token + email and create session
-    const session = await PortalAuthService.verifyAndCreateSession(token, email);
+    // Look up the token to check if it's a preview token
+    const portalToken = await PortalAuthService.getTokenByValue(token);
+
+    let session;
+    if (portalToken?.isPreview) {
+      // Preview tokens bypass email validation — auto-create session
+      session = await PortalAuthService.createPreviewSession(portalToken);
+    } else {
+      // Normal flow: validate email and create session
+      session = await PortalAuthService.verifyAndCreateSession(token, email);
+    }
 
     // Set session cookie
     const response = NextResponse.json({
