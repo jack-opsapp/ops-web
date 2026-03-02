@@ -720,21 +720,21 @@ export default function PipelinePage() {
       </div>
 
       {/* Bottom summary bar */}
-      <div className="shrink-0 flex items-center justify-between px-2 py-1 rounded bg-background-panel border border-border">
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 flex items-center justify-between gap-2 px-2 py-1 rounded bg-background-panel border border-border min-w-0">
+        <div className="flex items-center gap-3 flex-wrap min-w-0">
           {getAllStages().map((stage) => (
             <div key={stage} className="flex items-center gap-[6px]">
               <span
-                className="w-[6px] h-[6px] rounded-full"
+                className="w-[6px] h-[6px] rounded-full shrink-0"
                 style={{ backgroundColor: getStageColor(stage) }}
               />
-              <span className="font-mono text-[10px] text-text-disabled">
+              <span className="font-mono text-[10px] text-text-disabled whitespace-nowrap">
                 {getStageDisplayName(stage)}: {stageCounts.get(stage) ?? 0}
               </span>
             </div>
           ))}
         </div>
-        <span className="font-kosugi text-[10px] text-text-disabled uppercase">
+        <span className="font-kosugi text-[10px] text-text-disabled uppercase shrink-0">
           {t("bottomBar")}
         </span>
       </div>
