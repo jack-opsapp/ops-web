@@ -51,7 +51,7 @@ interface Star {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ACCENT = { r: 89, g: 119, b: 148 }; // #597794 — answered
-const ORANGE = { r: 242, g: 101, b: 34 }; // #F26522 — unanswered question nodes
+const AMBER = { r: 196, g: 168, b: 104 }; // #C4A868 — unanswered question nodes (secondary accent)
 const STAR_COUNT = 300;
 const CLUSTER_COUNT = 6;
 const FOCAL_LENGTH = 600;
@@ -254,15 +254,15 @@ export function SetupStarfield({
       // Randomized sizes: mostly small, some medium, rare large
       const sizeRoll = Math.random();
       const size =
-        sizeRoll < 0.6
-          ? 0.5 + Math.random() * 1
-          : sizeRoll < 0.9
-            ? 1.5 + Math.random() * 1.5
-            : 3 + Math.random() * 2;
+        sizeRoll < 0.5
+          ? 1 + Math.random() * 1.5
+          : sizeRoll < 0.85
+            ? 2 + Math.random() * 2
+            : 4 + Math.random() * 3;
 
       stars.push({
         x, y, z, size,
-        baseAlpha: 0.03 + Math.random() * 0.07,
+        baseAlpha: 0.08 + Math.random() * 0.15,
         vx: (Math.random() - 0.5) * 3,
         vy: (Math.random() - 0.5) * 3,
         vz: (Math.random() - 0.5) * 1.5,
@@ -375,10 +375,10 @@ export function SetupStarfield({
         }
 
         // Twinkle
-        const twinkle = 0.7 + 0.3 * Math.sin(t * 0.5 + star.phase);
+        const twinkle = 0.8 + 0.2 * Math.sin(t * 0.5 + star.phase);
         const alpha = star.baseAlpha * twinkle;
 
-        ctx.fillStyle = `rgba(200, 200, 210, ${alpha})`;
+        ctx.fillStyle = `rgba(220, 220, 230, ${alpha})`;
         ctx.fillRect(sx - screenSize / 2, sy - screenSize / 2, screenSize, screenSize);
       }
 
@@ -431,7 +431,7 @@ export function SetupStarfield({
           if (isAnswered) {
             fillR = ACCENT.r; fillG = ACCENT.g; fillB = ACCENT.b;
           } else {
-            fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+            fillR = AMBER.r; fillG = AMBER.g; fillB = AMBER.b;
           }
           glowBlur = 0;
         } else if (isAnswered) {
@@ -442,18 +442,18 @@ export function SetupStarfield({
         } else if (isFocusedNode) {
           // Bright orange, strong glow
           nodeAlpha = 1;
-          fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          fillR = AMBER.r; fillG = AMBER.g; fillB = AMBER.b;
           glowBlur = 24;
         } else if (isHovered) {
           // Brighter orange on hover
           nodeAlpha = 0.9;
-          fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          fillR = AMBER.r; fillG = AMBER.g; fillB = AMBER.b;
           glowBlur = 22;
         } else {
           // Default orange glow — pulsing
           const pulse = 0.5 + 0.15 * Math.sin(t * 0.8 + q.position.x * 0.01);
           nodeAlpha = pulse;
-          fillR = ORANGE.r; fillG = ORANGE.g; fillB = ORANGE.b;
+          fillR = AMBER.r; fillG = AMBER.g; fillB = AMBER.b;
           glowBlur = 14;
         }
 
