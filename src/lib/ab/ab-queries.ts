@@ -39,7 +39,7 @@ export interface HistoryTest {
   id: string
   started_at: string
   ended_at: string
-  winner_variant: 'a' | 'b'
+  winner_variant: 'a' | 'b' | null
   variant_a: { slot: string; generation: number; conversion_rate: number; visitor_count: number; config: object; ai_reasoning: string }
   variant_b: { slot: string; generation: number; conversion_rate: number; visitor_count: number; config: object; ai_reasoning: string }
 }
@@ -140,7 +140,7 @@ export async function getTestHistory(): Promise<HistoryTest[]> {
     id: t.id,
     started_at: t.started_at,
     ended_at: t.ended_at,
-    winner_variant: t.winner_variant as 'a' | 'b',
+    winner_variant: t.winner_variant as 'a' | 'b' | null,
     variant_a: varMap.get(t.variant_a_id) ?? { slot: 'a', generation: 0, conversion_rate: 0, visitor_count: 0, config: {}, ai_reasoning: '' },
     variant_b: varMap.get(t.variant_b_id) ?? { slot: 'b', generation: 0, conversion_rate: 0, visitor_count: 0, config: {}, ai_reasoning: '' },
   }))
