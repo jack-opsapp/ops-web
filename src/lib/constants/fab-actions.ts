@@ -6,6 +6,7 @@ import {
   FolderKanban,
   ClipboardList,
   Tag,
+  Boxes,
 } from "lucide-react";
 import type React from "react";
 import type { FloatingWindowType } from "@/stores/window-store";
@@ -32,6 +33,7 @@ export const ALL_ACTIONS: FABAction[] = [
   { id: "project",   label: "New Project",   icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "create-project" },
   { id: "task",      label: "New Task",      icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task" },
   { id: "task-type", label: "New Task Type", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company" },
+  { id: "inventory-item", label: "New Item", icon: Boxes, triggerAction: "inventory", handler: "route", target: "/inventory?action=new" },
 ];
 
 export const DEFAULT_ACTION_IDS = ALL_ACTIONS.map((a) => a.id);

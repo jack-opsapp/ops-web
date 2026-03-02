@@ -15,6 +15,7 @@ import {
   FileText,
   Receipt,
   Package,
+  Boxes,
   Calculator,
   Settings,
   ChevronLeft,
@@ -48,7 +49,11 @@ interface NavItem {
 
 type NavEntry = NavItem | "divider";
 
-function buildNavItems(t: (key: string) => string): NavEntry[] {
+interface BuildNavOpts {
+  inventoryAccess?: boolean;
+}
+
+function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): NavEntry[] {
   return [
     { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     "divider",
@@ -64,6 +69,9 @@ function buildNavItems(t: (key: string) => string): NavEntry[] {
     { label: t("nav.invoices"), href: "/invoices", icon: Receipt },
     "divider",
     { label: t("nav.products"), href: "/products", icon: Package },
+    ...(opts.inventoryAccess
+      ? [{ label: t("nav.inventory"), href: "/inventory", icon: Boxes } as NavItem]
+      : []),
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator },
     { label: t("nav.portalInbox"), href: "/portal-inbox", icon: MessageSquareText },
     "divider",
@@ -120,7 +128,8 @@ export function Sidebar() {
   const company = freshCompany ?? storeCompany;
   const logout = useAuthStore((s) => s.logout);
   const { t } = useDictionary("sidebar");
-  const navItems = buildNavItems(t);
+  const hasInventoryAccess = currentUser?.specialPermissions?.includes("inventoryAccess") ?? false;
+  const navItems = buildNavItems(t, { inventoryAccess: hasInventoryAccess });
 
   const handleSignOut = useCallback(async () => {
     document.cookie = "ops-auth-token=; path=/; max-age=0";
