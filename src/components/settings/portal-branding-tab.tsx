@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Check,
   Loader2,
@@ -8,6 +8,9 @@ import {
   Moon,
   Sun,
   Eye,
+  Upload,
+  Building2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
@@ -17,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
+import { useImageUpload } from "@/lib/hooks/use-image-upload";
 import type {
   PortalBranding,
   PortalTemplate,
@@ -110,14 +114,22 @@ async function updateBranding(
 // ─── Preset accent colors ────────────────────────────────────────────────────
 
 const ACCENT_PRESETS = [
-  { labelKey: "portalBranding.steelBlue", value: "#417394" },
-  { labelKey: "portalBranding.amberGold", value: "#C4A868" },
-  { labelKey: "portalBranding.sage", value: "#7D9B76" },
-  { labelKey: "portalBranding.terracotta", value: "#C07A56" },
-  { labelKey: "portalBranding.dustyRose", value: "#C2858A" },
-  { labelKey: "portalBranding.slate", value: "#7A8B99" },
-  { labelKey: "portalBranding.sandstone", value: "#B8A68E" },
-  { labelKey: "portalBranding.forest", value: "#5B7B5E" },
+  { label: "Steel Blue", value: "#417394" },
+  { label: "Navy", value: "#2C4A6E" },
+  { label: "Ocean", value: "#3A7CA5" },
+  { label: "Teal", value: "#2D8A8A" },
+  { label: "Sage", value: "#7D9B76" },
+  { label: "Forest", value: "#5B7B5E" },
+  { label: "Emerald", value: "#3D8B6E" },
+  { label: "Amber Gold", value: "#C4A868" },
+  { label: "Terracotta", value: "#C07A56" },
+  { label: "Copper", value: "#B87333" },
+  { label: "Dusty Rose", value: "#C2858A" },
+  { label: "Berry", value: "#8B4570" },
+  { label: "Slate", value: "#7A8B99" },
+  { label: "Sandstone", value: "#B8A68E" },
+  { label: "Charcoal", value: "#4A4A4A" },
+  { label: "Crimson", value: "#A63D40" },
 ];
 
 // ─── Template configs ────────────────────────────────────────────────────────
@@ -150,12 +162,21 @@ export function PortalBrandingTab() {
 
   // ── Local form state ─────────────────────────────────────────────────────
   const [logoUrl, setLogoUrl] = useState("");
+  const [useCompanyLogo, setUseCompanyLogo] = useState(true);
   const [accentColor, setAccentColor] = useState("#417394");
   const [template, setTemplate] = useState<PortalTemplate>("modern");
   const [themeMode, setThemeMode] = useState<PortalThemeMode>("dark");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [isDirty, setIsDirty] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const logoUpload = useImageUpload({
+    onSuccess: (url) => {
+      setLogoUrl(url);
+      markDirty();
+    },
+    onError: () => toast.error("Failed to upload logo"),
+  });
 
   // ── Fetch branding ───────────────────────────────────────────────────────
   const {
@@ -173,8 +194,9 @@ export function PortalBrandingTab() {
   // ── Seed form from fetched data ──────────────────────────────────────────
   useEffect(() => {
     if (branding) {
-      // Default portal logo to company logo if not explicitly set
-      setLogoUrl(branding.logoUrl ?? company?.logoURL ?? "");
+      const hasCustomLogo = !!branding.logoUrl && branding.logoUrl !== company?.logoURL;
+      setUseCompanyLogo(!hasCustomLogo);
+      setLogoUrl(hasCustomLogo ? branding.logoUrl! : (company?.logoURL ?? ""));
       setAccentColor(branding.accentColor);
       setTemplate(branding.template);
       setThemeMode(branding.themeMode);
@@ -187,7 +209,7 @@ export function PortalBrandingTab() {
   const saveMutation = useMutation({
     mutationFn: () =>
       updateBranding(companyId, {
-        logoUrl: logoUrl.trim() || null,
+        logoUrl: useCompanyLogo ? null : (logoUrl.trim() || null),
         accentColor,
         template,
         themeMode,
@@ -275,36 +297,138 @@ export function PortalBrandingTab() {
 
   return (
     <div className="space-y-3 max-w-[600px]">
-      {/* ── Logo URL ──────────────────────────────────────────────────────── */}
+      {/* ── Portal Logo ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle>{t("portalBranding.logoTitle")}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1.5">
-          <Input
-            label={t("portalBranding.logoUrl")}
-            value={logoUrl}
-            onChange={(e) => {
-              setLogoUrl(e.target.value);
-              markDirty();
-            }}
-            placeholder={t("portalBranding.logoPlaceholder")}
-            helperText={t("portalBranding.logoHelper")}
-          />
-          {logoUrl.trim() && (
-            <div className="mt-1 p-1.5 rounded border border-border bg-background-input flex items-center justify-center min-h-[60px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoUrl.trim()}
-                alt="Logo preview"
-                className="max-h-[48px] max-w-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+        <CardContent className="space-y-2">
+          {/* Toggle: use company logo vs custom */}
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              onClick={() => {
+                setUseCompanyLogo(true);
+                setLogoUrl(company?.logoURL ?? "");
+                markDirty();
+              }}
+              className={cn(
+                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left",
+                useCompanyLogo
+                  ? "bg-ops-accent-muted border-ops-accent"
+                  : "bg-background-input border-border hover:border-border-medium"
+              )}
+            >
+              <Building2 className={cn("w-[16px] h-[16px] shrink-0", useCompanyLogo ? "text-ops-accent" : "text-text-tertiary")} />
+              <span className={cn("font-mohave text-body-sm", useCompanyLogo ? "text-ops-accent" : "text-text-secondary")}>
+                Company Logo
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setUseCompanyLogo(false);
+                if (logoUrl === company?.logoURL) setLogoUrl("");
+                markDirty();
+              }}
+              className={cn(
+                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left",
+                !useCompanyLogo
+                  ? "bg-ops-accent-muted border-ops-accent"
+                  : "bg-background-input border-border hover:border-border-medium"
+              )}
+            >
+              <Upload className={cn("w-[16px] h-[16px] shrink-0", !useCompanyLogo ? "text-ops-accent" : "text-text-tertiary")} />
+              <span className={cn("font-mohave text-body-sm", !useCompanyLogo ? "text-ops-accent" : "text-text-secondary")}>
+                Custom Logo
+              </span>
+            </button>
+          </div>
+
+          {/* Logo preview / upload area */}
+          {useCompanyLogo ? (
+            <div className="p-2 rounded border border-border bg-background-input flex items-center gap-2 min-h-[64px]">
+              {company?.logoURL ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={company.logoURL}
+                    alt="Company logo"
+                    className="max-h-[48px] max-w-[120px] object-contain"
+                  />
+                  <span className="font-kosugi text-[11px] text-text-disabled">
+                    Using your company logo
+                  </span>
+                </>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-[20px] h-[20px] text-text-disabled" />
+                  <span className="font-kosugi text-[11px] text-text-disabled">
+                    No company logo set — upload one in Company Details
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div
+                className={cn(
+                  "relative rounded-lg border-2 border-dashed border-border p-3 flex items-center gap-2 cursor-pointer",
+                  "hover:border-ops-accent transition-colors group",
+                  logoUpload.isUploading && "pointer-events-none"
+                )}
+                onClick={() => logoInputRef.current?.click()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) logoUpload.selectFile(file);
                 }}
-                onLoad={(e) => {
-                  (e.target as HTMLImageElement).style.display = "block";
-                }}
-              />
+                onDragOver={(e) => e.preventDefault()}
+              >
+                {logoUrl ? (
+                  <div className="flex items-center gap-2 w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={logoUpload.preview || logoUrl}
+                      alt="Portal logo"
+                      className="max-h-[48px] max-w-[120px] object-contain"
+                    />
+                    {logoUpload.isUploading ? (
+                      <Loader2 className="w-[16px] h-[16px] text-ops-accent animate-spin" />
+                    ) : (
+                      <span className="font-kosugi text-[11px] text-text-disabled flex-1">
+                        Click or drag to replace
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLogoUrl("");
+                        logoUpload.clearPreview();
+                        markDirty();
+                      }}
+                      className="w-[20px] h-[20px] rounded-full bg-[rgba(255,255,255,0.1)] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-[12px] h-[12px] text-text-tertiary" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-[4px] w-full py-2 text-text-disabled group-hover:text-text-tertiary transition-colors">
+                    <Upload className="w-[20px] h-[20px]" />
+                    <span className="font-kosugi text-[11px]">
+                      Click or drag to upload logo
+                    </span>
+                  </div>
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) logoUpload.selectFile(file);
+                  }}
+                />
+              </div>
             </div>
           )}
         </CardContent>
@@ -315,9 +439,9 @@ export function PortalBrandingTab() {
         <CardHeader>
           <CardTitle>{t("portalBranding.accentTitle")}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1.5">
-          {/* Preset swatches */}
-          <div className="flex flex-wrap gap-1.5">
+        <CardContent className="space-y-2">
+          {/* Preset swatches — grid of larger color chips */}
+          <div className="grid grid-cols-4 gap-1.5">
             {ACCENT_PRESETS.map((preset) => (
               <button
                 key={preset.value}
@@ -326,46 +450,47 @@ export function PortalBrandingTab() {
                   markDirty();
                 }}
                 className={cn(
-                  "flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
+                  "relative flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all",
                   accentColor === preset.value
                     ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
                     : "border-border hover:border-border-medium"
                 )}
               >
                 <span
-                  className="w-[16px] h-[16px] rounded-full border border-[rgba(255,255,255,0.2)]"
+                  className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)]"
                   style={{ backgroundColor: preset.value }}
                 />
-                <span className="font-mohave text-body-sm text-text-secondary">
-                  {t(preset.labelKey)}
+                <span className="font-kosugi text-[10px] text-text-tertiary leading-tight">
+                  {preset.label}
                 </span>
                 {accentColor === preset.value && (
-                  <Check className="w-[12px] h-[12px] text-ops-accent" />
+                  <div className="absolute top-1 right-1 w-[14px] h-[14px] rounded-full bg-white/20 flex items-center justify-center">
+                    <Check className="w-[10px] h-[10px] text-white" />
+                  </div>
                 )}
               </button>
             ))}
           </div>
 
           {/* Custom hex input */}
-          <div className="flex items-center gap-1.5 mt-1">
-            <div className="relative">
-              <Input
-                value={accentColor}
-                onChange={(e) => {
-                  setAccentColor(e.target.value);
-                  markDirty();
-                }}
-                placeholder={t("portalBranding.colorPlaceholder")}
-                className="w-[140px] font-mono"
-                error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
-              />
-            </div>
-            {isValidHex && (
-              <div
-                className="w-7 h-7 rounded border border-[rgba(255,255,255,0.2)] shrink-0"
-                style={{ backgroundColor: accentColor }}
-              />
-            )}
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <div
+              className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)] shrink-0"
+              style={{ backgroundColor: isValidHex ? accentColor : "#333" }}
+            />
+            <Input
+              value={accentColor}
+              onChange={(e) => {
+                setAccentColor(e.target.value);
+                markDirty();
+              }}
+              placeholder={t("portalBranding.colorPlaceholder")}
+              className="w-[140px] font-mono"
+              error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
+            />
+            <span className="font-kosugi text-[10px] text-text-disabled">
+              Custom
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -469,6 +594,98 @@ export function PortalBrandingTab() {
             helperText={t("portalBranding.welcomeHelper")}
             className="min-h-[100px]"
           />
+        </CardContent>
+      </Card>
+
+      {/* ── Inline Preview Mockup ──────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Preview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div
+            className="rounded-lg overflow-hidden border border-border"
+            style={{
+              background: themeMode === "dark"
+                ? "linear-gradient(135deg, #1a1a1a 0%, #111 100%)"
+                : "linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)",
+            }}
+          >
+            {/* Mini header bar */}
+            <div
+              className="px-3 py-2 flex items-center gap-2"
+              style={{ borderBottom: `2px solid ${isValidHex ? accentColor : "#417394"}` }}
+            >
+              {(useCompanyLogo ? company?.logoURL : logoUrl) ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={(useCompanyLogo ? company?.logoURL : logoUrl) || ""}
+                  alt=""
+                  className="h-[20px] max-w-[80px] object-contain"
+                />
+              ) : (
+                <div
+                  className="h-[20px] w-[60px] rounded"
+                  style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.3 }}
+                />
+              )}
+              <div className="flex-1" />
+              <div className="flex gap-1.5">
+                {["Home", "Projects", "Invoices"].map((tab) => (
+                  <span
+                    key={tab}
+                    className="font-kosugi text-[9px]"
+                    style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}
+                  >
+                    {tab}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {/* Mini content area */}
+            <div className="px-3 py-2.5 space-y-1.5">
+              <div
+                className="font-mohave text-[11px] font-medium"
+                style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)" }}
+              >
+                Welcome, Jane
+              </div>
+              <div className="flex gap-1.5">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded p-1.5"
+                    style={{
+                      backgroundColor: themeMode === "dark"
+                        ? "rgba(255,255,255,0.05)"
+                        : "rgba(0,0,0,0.04)",
+                      border: `1px solid ${themeMode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                    }}
+                  >
+                    <div
+                      className="h-[6px] w-[50%] rounded-full mb-1"
+                      style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.6 }}
+                    />
+                    <div
+                      className="h-[4px] w-[70%] rounded-full"
+                      style={{ backgroundColor: themeMode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div
+                className="h-[24px] rounded flex items-center justify-center"
+                style={{ backgroundColor: isValidHex ? accentColor : "#417394" }}
+              >
+                <span className="font-kosugi text-[8px] text-white">
+                  View Details
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="font-kosugi text-[11px] text-text-disabled mt-1.5">
+            A live mockup of your client portal. Click Preview Portal below to see the full experience.
+          </p>
         </CardContent>
       </Card>
 

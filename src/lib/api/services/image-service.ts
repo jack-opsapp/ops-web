@@ -1,8 +1,7 @@
 /**
  * OPS Web - Image Upload Service
  *
- * Handles image uploads to S3 via direct presigned URLs from /api/uploads/presign.
- * Uses S3 presigned URLs via /api/uploads/presign.
+ * Handles image uploads to Supabase Storage via /api/uploads/presign.
  * Includes client-side validation, compression, and multi-image support.
  */
 
@@ -100,45 +99,33 @@ export async function uploadImage(
   }
 
   try {
-    // Get presigned URL from our API route
-    const presignResponse = await fetch("/api/uploads/presign", {
+    // Upload file directly to our API (Supabase Storage backend)
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([uploadBlob], file.name, { type: contentType })
+    );
+    if (folder) formData.append("folder", folder);
+
+    const response = await fetch("/api/uploads/presign", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: file.name,
-        contentType,
-        folder,
-      }),
+      body: formData,
     });
 
-    if (!presignResponse.ok) {
-      const err = await presignResponse.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
       throw new ImageUploadError(
-        (err as Record<string, string>).error || "Failed to get upload URL",
+        (err as Record<string, string>).error || "Upload failed",
         "UPLOAD_FAILED"
       );
     }
 
-    const { uploadUrl, publicUrl } = (await presignResponse.json()) as {
-      uploadUrl: string;
-      publicUrl: string;
+    const { url, publicUrl } = (await response.json()) as {
+      url?: string;
+      publicUrl?: string;
     };
 
-    // Upload directly to S3
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body: uploadBlob,
-    });
-
-    if (!uploadResponse.ok) {
-      throw new ImageUploadError(
-        `S3 upload failed with status ${uploadResponse.status}`,
-        "UPLOAD_FAILED"
-      );
-    }
-
-    return publicUrl;
+    return url || publicUrl || "";
   } catch (error) {
     if (error instanceof ImageUploadError) throw error;
     throw new ImageUploadError(

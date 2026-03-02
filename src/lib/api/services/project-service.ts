@@ -7,7 +7,37 @@
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import type { Project, ProjectStatus } from "../../types/models";
+import { ProjectStatus } from "../../types/models";
+import type { Project } from "../../types/models";
+
+// ─── Status Mapping (DB snake_case ↔ TypeScript enum) ────────────────────────
+
+function parseProjectStatus(raw: unknown): ProjectStatus {
+  if (typeof raw !== "string") return ProjectStatus.RFQ;
+  switch (raw.toLowerCase().replace(/\s+/g, "_")) {
+    case "rfq": return ProjectStatus.RFQ;
+    case "estimated": return ProjectStatus.Estimated;
+    case "accepted": return ProjectStatus.Accepted;
+    case "in_progress": return ProjectStatus.InProgress;
+    case "completed": return ProjectStatus.Completed;
+    case "closed": return ProjectStatus.Closed;
+    case "archived": return ProjectStatus.Archived;
+    default: return ProjectStatus.RFQ;
+  }
+}
+
+function serializeProjectStatus(status: ProjectStatus): string {
+  switch (status) {
+    case ProjectStatus.RFQ: return "rfq";
+    case ProjectStatus.Estimated: return "estimated";
+    case ProjectStatus.Accepted: return "accepted";
+    case ProjectStatus.InProgress: return "in_progress";
+    case ProjectStatus.Completed: return "completed";
+    case ProjectStatus.Closed: return "closed";
+    case ProjectStatus.Archived: return "archived";
+    default: return "rfq";
+  }
+}
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -21,7 +51,7 @@ function mapFromDb(row: Record<string, unknown>): Project {
     startDate: parseDate(row.start_date),
     endDate: parseDate(row.end_date),
     duration: (row.duration as number) ?? null,
-    status: (row.status as ProjectStatus) ?? "RFQ",
+    status: parseProjectStatus(row.status),
     notes: (row.notes as string) ?? null,
     companyId: row.company_id as string,
     clientId: (row.client_id as string) ?? null,
@@ -48,7 +78,7 @@ function mapToDb(data: Partial<Project>): Record<string, unknown> {
   if (data.endDate !== undefined)
     row.end_date = data.endDate?.toISOString() ?? null;
   if (data.duration !== undefined) row.duration = data.duration;
-  if (data.status !== undefined) row.status = data.status;
+  if (data.status !== undefined) row.status = serializeProjectStatus(data.status);
   if (data.notes !== undefined) row.notes = data.notes;
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.clientId !== undefined) row.client_id = data.clientId;
@@ -102,7 +132,7 @@ export const ProjectService = {
       .is("deleted_at", null);
 
     if (options.status) {
-      query = query.eq("status", options.status);
+      query = query.eq("status", serializeProjectStatus(options.status));
     }
 
     if (options.clientId) {
@@ -156,7 +186,7 @@ export const ProjectService = {
       .is("deleted_at", null);
 
     if (options.status) {
-      query = query.eq("status", options.status);
+      query = query.eq("status", serializeProjectStatus(options.status));
     }
 
     if (options.startDateFrom) {
@@ -242,7 +272,7 @@ export const ProjectService = {
 
     const { error } = await supabase
       .from("projects")
-      .update({ status })
+      .update({ status: serializeProjectStatus(status) })
       .eq("id", id);
 
     if (error) throw new Error(`Failed to update project status: ${error.message}`);

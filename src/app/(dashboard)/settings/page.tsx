@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import {
   User,
   Building2,
@@ -19,10 +19,9 @@ import {
   FileText,
   Zap,
 } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useDictionary } from "@/i18n/client";
-import { SegmentedPicker } from "@/components/ops/segmented-picker";
-import { SettingsSection } from "@/components/settings/settings-section";
 import { ProfileTab } from "@/components/settings/profile-tab";
 import { CompanyTab } from "@/components/settings/company-tab";
 import { SubscriptionTab } from "@/components/settings/subscription-tab";
@@ -39,148 +38,303 @@ import { PortalBrandingTab } from "@/components/settings/portal-branding-tab";
 import { DocumentTemplatesTab } from "@/components/settings/document-templates-tab";
 import { QuickActionsTab } from "@/components/settings/quick-actions-tab";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 type SettingsGroup = "account" | "company" | "billing" | "integrations" | "preferences" | "developer";
 
-// Legacy tab IDs that might come from URL params — map to new groups
-const legacyTabMap: Record<string, SettingsGroup> = {
-  profile: "account",
-  appearance: "account",
-  shortcuts: "account",
-  company: "company",
-  team: "company",
-  "task-types": "company",
-  subscription: "billing",
-  billing: "billing",
-  integrations: "integrations",
-  portal: "integrations",
-  preferences: "preferences",
-  "data-privacy": "preferences",
-  developer: "developer",
-};
+interface SubTab {
+  id: string;
+  labelKey: string;
+}
 
-const baseGroupDefs: { id: SettingsGroup; labelKey: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "account", labelKey: "tabs.account", icon: User },
-  { id: "company", labelKey: "tabs.company", icon: Building2 },
-  { id: "billing", labelKey: "tabs.billing", icon: CreditCard },
-  { id: "integrations", labelKey: "tabs.integrations", icon: Plug },
-  { id: "preferences", labelKey: "tabs.preferences", icon: SlidersHorizontal },
+interface GroupDef {
+  id: SettingsGroup;
+  labelKey: string;
+  icon: React.ComponentType<{ className?: string }>;
+  subTabs: SubTab[];
+}
+
+// ─── Tab definitions ─────────────────────────────────────────────────────────
+
+const BASE_GROUP_DEFS: GroupDef[] = [
+  {
+    id: "account",
+    labelKey: "tabs.account",
+    icon: User,
+    subTabs: [
+      { id: "profile", labelKey: "sections.profile" },
+      { id: "appearance", labelKey: "sections.appearance" },
+      { id: "shortcuts", labelKey: "sections.shortcuts" },
+    ],
+  },
+  {
+    id: "company",
+    labelKey: "tabs.company",
+    icon: Building2,
+    subTabs: [
+      { id: "company-details", labelKey: "sections.companyDetails" },
+      { id: "team", labelKey: "sections.teamMembers" },
+      { id: "task-types", labelKey: "sections.taskTypes" },
+    ],
+  },
+  {
+    id: "billing",
+    labelKey: "tabs.billing",
+    icon: CreditCard,
+    subTabs: [
+      { id: "subscription", labelKey: "sections.subscription" },
+      { id: "payment", labelKey: "sections.payment" },
+    ],
+  },
+  {
+    id: "integrations",
+    labelKey: "tabs.integrations",
+    icon: Plug,
+    subTabs: [
+      { id: "email", labelKey: "sections.email" },
+      { id: "portal", labelKey: "sections.portal" },
+      { id: "templates", labelKey: "sections.templates" },
+    ],
+  },
+  {
+    id: "preferences",
+    labelKey: "tabs.preferences",
+    icon: SlidersHorizontal,
+    subTabs: [
+      { id: "preferences-general", labelKey: "sections.preferences" },
+      { id: "quick-actions", labelKey: "sections.quickActions" },
+      { id: "data-privacy", labelKey: "sections.dataPrivacy" },
+    ],
+  },
 ];
 
+const DEV_GROUP: GroupDef = {
+  id: "developer",
+  labelKey: "tabs.developer",
+  icon: Code2,
+  subTabs: [{ id: "developer", labelKey: "sections.developer" }],
+};
+
+// Legacy tab IDs from URL params
+const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
+  profile: { group: "account", sub: "profile" },
+  appearance: { group: "account", sub: "appearance" },
+  shortcuts: { group: "account", sub: "shortcuts" },
+  company: { group: "company", sub: "company-details" },
+  team: { group: "company", sub: "team" },
+  "task-types": { group: "company", sub: "task-types" },
+  subscription: { group: "billing", sub: "subscription" },
+  billing: { group: "billing", sub: "payment" },
+  integrations: { group: "integrations", sub: "email" },
+  portal: { group: "integrations", sub: "portal" },
+  preferences: { group: "preferences", sub: "preferences-general" },
+  "data-privacy": { group: "preferences", sub: "data-privacy" },
+  developer: { group: "developer", sub: "developer" },
+};
+
+// ─── Content map ─────────────────────────────────────────────────────────────
+
+const CONTENT_MAP: Record<string, React.ComponentType> = {
+  profile: ProfileTab,
+  appearance: AppearanceTab,
+  shortcuts: ShortcutsTab,
+  "company-details": CompanyTab,
+  team: TeamTab,
+  "task-types": TaskTypesTab,
+  subscription: SubscriptionTab,
+  payment: BillingTab,
+  email: IntegrationsTab,
+  portal: PortalBrandingTab,
+  templates: DocumentTemplatesTab,
+  "preferences-general": PreferencesTab,
+  "quick-actions": QuickActionsTab,
+  "data-privacy": DataPrivacyTab,
+  developer: DeveloperTab,
+};
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export default function SettingsPage() {
-  const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
   const currentUser = useAuthStore((s) => s.currentUser);
   const { t } = useDictionary("settings");
 
-  const baseGroups = baseGroupDefs.map((g) => ({ id: g.id, label: t(g.labelKey), icon: g.icon }));
-  const groups = currentUser?.devPermission
-    ? [...baseGroups, { id: "developer" as const, label: t("tabs.developer"), icon: Code2 }]
-    : baseGroups;
+  const groupDefs = currentUser?.devPermission
+    ? [...BASE_GROUP_DEFS, DEV_GROUP]
+    : BASE_GROUP_DEFS;
 
-  // Handle URL params (supports both new group IDs and legacy tab IDs)
+  const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
+  const [activeSubTab, setActiveSubTab] = useState("profile");
+  const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0, opacity: 0 });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const majorTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const subTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // ── Group change handler ───────────────────────────────────────────────
+  function handleGroupChange(groupId: SettingsGroup) {
+    if (groupId === activeGroup) return;
+    const def = groupDefs.find((g) => g.id === groupId);
+    if (!def) return;
+    setActiveGroup(groupId);
+    setActiveSubTab(def.subTabs[0].id);
+  }
+
+  // ── Underline position calculation ─────────────────────────────────────
+  const updateUnderline = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const activeGroupDef = groupDefs.find((g) => g.id === activeGroup);
+    const hasMultipleSubs = (activeGroupDef?.subTabs.length ?? 0) > 1;
+
+    // Target: sub-tab button if expanded, major tab if single sub-tab
+    const el = hasMultipleSubs
+      ? subTabRefs.current.get(activeSubTab)
+      : majorTabRefs.current.get(activeGroup);
+
+    if (el) {
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      if (elRect.width > 0) {
+        const padding = hasMultipleSubs ? 16 : 24;
+        setUnderlineStyle({
+          left: elRect.left - containerRect.left + padding / 2,
+          width: elRect.width - padding,
+          opacity: 1,
+        });
+      }
+    }
+  }, [activeGroup, activeSubTab, groupDefs]);
+
+  // Recalculate underline after group/sub changes (after expand animation)
+  useEffect(() => {
+    setUnderlineStyle((prev) => ({ ...prev, opacity: 0 }));
+    const timer = setTimeout(() => updateUnderline(), 320);
+    return () => clearTimeout(timer);
+  }, [activeGroup, activeSubTab, updateUnderline]);
+
+  // ResizeObserver for responsive updates
+  useEffect(() => {
+    const observer = new ResizeObserver(() => updateUnderline());
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [updateUnderline]);
+
+  // Handle URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
     if (tab) {
-      // Try as a group ID first
-      if (groups.some((g) => g.id === tab)) {
-        setActiveGroup(tab as SettingsGroup);
+      if (groupDefs.some((g) => g.id === tab)) {
+        handleGroupChange(tab as SettingsGroup);
       } else if (legacyTabMap[tab]) {
-        // Map legacy tab to new group
-        setActiveGroup(legacyTabMap[tab]);
+        setActiveGroup(legacyTabMap[tab].group);
+        setActiveSubTab(legacyTabMap[tab].sub);
       }
     }
-  }, [groups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Render ─────────────────────────────────────────────────────────────
+  const ContentComponent = CONTENT_MAP[activeSubTab];
 
   return (
     <div className="space-y-3 max-w-[1000px]">
+      {/* ── Tab bar ───────────────────────────────────────────────────── */}
       <div className="border-b border-[rgba(255,255,255,0.15)] overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <SegmentedPicker
-          options={groups.map((g) => ({ value: g.id, label: g.label, icon: g.icon }))}
-          value={activeGroup}
-          onChange={setActiveGroup}
-          className="min-w-max"
-        />
+        <div
+          ref={containerRef}
+          className="relative flex items-center min-w-max"
+        >
+          {groupDefs.map((group) => {
+            const isActive = activeGroup === group.id;
+            const Icon = group.icon;
+            const hasMultipleSubs = group.subTabs.length > 1;
+
+            return (
+              <Fragment key={group.id}>
+                {/* Major tab button */}
+                <button
+                  ref={(el) => {
+                    if (el) majorTabRefs.current.set(group.id, el);
+                  }}
+                  onClick={() => handleGroupChange(group.id)}
+                  className={cn(
+                    "relative flex items-center justify-center gap-[6px] px-1.5 py-[8px]",
+                    "transition-colors duration-200 shrink-0",
+                    isActive
+                      ? "text-text-primary"
+                      : "text-text-tertiary hover:text-text-secondary"
+                  )}
+                >
+                  <Icon className="w-[16px] h-[16px]" />
+                  <span className="font-mohave text-body-sm whitespace-nowrap">
+                    {t(group.labelKey)}
+                  </span>
+                </button>
+
+                {/* Expandable sub-tabs (only for groups with 2+ sub-tabs) */}
+                {hasMultipleSubs && (
+                  <div
+                    className={cn(
+                      "grid transition-[grid-template-columns] duration-300 ease-out",
+                      isActive ? "grid-cols-[1fr]" : "grid-cols-[0fr]"
+                    )}
+                  >
+                    <div className="overflow-hidden min-w-0 flex items-center">
+                      {/* Separator */}
+                      <span
+                        className={cn(
+                          "text-text-disabled text-[10px] mx-[2px] transition-opacity duration-200",
+                          isActive ? "opacity-100" : "opacity-0"
+                        )}
+                      >
+                        ›
+                      </span>
+                      {/* Sub-tab buttons */}
+                      {group.subTabs.map((sub) => (
+                        <button
+                          key={sub.id}
+                          ref={(el) => {
+                            if (el) subTabRefs.current.set(sub.id, el);
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSubTab(sub.id);
+                          }}
+                          className={cn(
+                            "px-1 py-[8px] font-mohave text-caption-sm whitespace-nowrap",
+                            "transition-colors duration-200 shrink-0",
+                            activeSubTab === sub.id
+                              ? "text-text-primary"
+                              : "text-text-tertiary hover:text-text-secondary"
+                          )}
+                        >
+                          {t(sub.labelKey)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
+
+          {/* Sliding underline */}
+          <div
+            className="absolute bottom-0 h-[2px] bg-text-primary rounded-full transition-all duration-300 ease-out"
+            style={{
+              left: underlineStyle.left,
+              width: underlineStyle.width,
+              opacity: underlineStyle.opacity,
+            }}
+          />
+        </div>
       </div>
 
-      <div className="space-y-1.5 animate-fade-in" key={activeGroup}>
-        {/* ── Account ─────────────────────────────────────────────────────── */}
-        {activeGroup === "account" && (
-          <>
-            <SettingsSection title={t("sections.profile")} icon={User} defaultOpen>
-              <ProfileTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.appearance")} icon={Palette}>
-              <AppearanceTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.shortcuts")} icon={Keyboard}>
-              <ShortcutsTab />
-            </SettingsSection>
-          </>
-        )}
-
-        {/* ── Company ────────────────────────────────────────────────────── */}
-        {activeGroup === "company" && (
-          <>
-            <SettingsSection title={t("sections.companyDetails")} icon={Building2} defaultOpen>
-              <CompanyTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.teamMembers")} icon={Users}>
-              <TeamTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.taskTypes")} icon={ListChecks}>
-              <TaskTypesTab />
-            </SettingsSection>
-          </>
-        )}
-
-        {/* ── Billing ────────────────────────────────────────────────────── */}
-        {activeGroup === "billing" && (
-          <>
-            <SettingsSection title={t("sections.subscription")} icon={CreditCard} defaultOpen>
-              <SubscriptionTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.payment")} icon={Receipt}>
-              <BillingTab />
-            </SettingsSection>
-          </>
-        )}
-
-        {/* ── Integrations ───────────────────────────────────────────────── */}
-        {activeGroup === "integrations" && (
-          <>
-            <SettingsSection title={t("sections.email")} icon={Mail} defaultOpen>
-              <IntegrationsTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.portal")} icon={Globe}>
-              <PortalBrandingTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.templates")} icon={FileText}>
-              <DocumentTemplatesTab />
-            </SettingsSection>
-          </>
-        )}
-
-        {/* ── Preferences ────────────────────────────────────────────────── */}
-        {activeGroup === "preferences" && (
-          <>
-            <SettingsSection title={t("sections.preferences")} icon={SlidersHorizontal} defaultOpen>
-              <PreferencesTab />
-            </SettingsSection>
-            <SettingsSection title="Quick Actions" icon={Zap}>
-              <QuickActionsTab />
-            </SettingsSection>
-            <SettingsSection title={t("sections.dataPrivacy")} icon={Database}>
-              <DataPrivacyTab />
-            </SettingsSection>
-          </>
-        )}
-
-        {/* ── Developer ──────────────────────────────────────────────────── */}
-        {activeGroup === "developer" && (
-          <SettingsSection title={t("sections.developer")} icon={Code2} defaultOpen>
-            <DeveloperTab />
-          </SettingsSection>
-        )}
+      {/* ── Content ───────────────────────────────────────────────────── */}
+      <div className="animate-slide-up" key={activeSubTab}>
+        {ContentComponent && <ContentComponent />}
       </div>
     </div>
   );

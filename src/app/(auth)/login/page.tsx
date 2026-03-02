@@ -63,7 +63,11 @@ function LoginForm() {
         setCompany(result.company);
       }
       trackLogin(provider);
-      router.push(redirectTo);
+      if (!result.user.hasCompletedAppOnboarding) {
+        router.push("/setup");
+      } else {
+        router.push(redirectTo);
+      }
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       // User closed the popup — silently reset, no error
@@ -106,7 +110,11 @@ function LoginForm() {
         setCompany(result.company);
       }
       trackLogin("email");
-      router.push(redirectTo);
+      if (!result.user.hasCompletedAppOnboarding) {
+        router.push("/setup");
+      } else {
+        router.push(redirectTo);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("login.error.providerFailed");
       if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid") || message.includes("auth/invalid-credential")) {

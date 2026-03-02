@@ -39,12 +39,14 @@ export function SegmentedPicker<T extends string = string>({
     if (el && container) {
       const containerRect = container.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
+      // Inset by horizontal padding to underline just the content
+      const padding = iconOnly ? 10 : 24;
       setUnderlineStyle({
-        left: elRect.left - containerRect.left,
-        width: elRect.width,
+        left: elRect.left - containerRect.left + padding / 2,
+        width: elRect.width - padding,
       });
     }
-  }, [value]);
+  }, [value, iconOnly]);
 
   useEffect(() => {
     updateUnderline();

@@ -17,10 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  DocumentTemplateService,
-  documentTemplateKeys,
-} from "@/lib/api/services/document-template-service";
+import { documentTemplateKeys } from "@/lib/api/services/document-template-service";
 import type {
   DocumentTemplate,
   DocumentType,
@@ -70,6 +67,110 @@ const TEMPLATES: { id: PortalTemplate; labelKey: string }[] = [
   { id: "bold", labelKey: "portalBranding.bold" },
 ];
 
+// ─── API Helpers ──────────────────────────────────────────────────────────────
+
+function mapFromApi(row: Record<string, unknown>): DocumentTemplate {
+  return {
+    id: row.id as string,
+    companyId: row.company_id as string,
+    name: row.name as string,
+    documentType: row.document_type as DocumentType,
+    isDefault: (row.is_default as boolean) ?? false,
+    showQuantities: (row.show_quantities as boolean) ?? true,
+    showUnitPrices: (row.show_unit_prices as boolean) ?? true,
+    showLineTotals: (row.show_line_totals as boolean) ?? true,
+    showDescriptions: (row.show_descriptions as boolean) ?? true,
+    showTax: (row.show_tax as boolean) ?? true,
+    showDiscount: (row.show_discount as boolean) ?? true,
+    showTerms: (row.show_terms as boolean) ?? true,
+    showFooter: (row.show_footer as boolean) ?? true,
+    showPaymentInfo: (row.show_payment_info as boolean) ?? true,
+    showFromSection: (row.show_from_section as boolean) ?? true,
+    showToSection: (row.show_to_section as boolean) ?? true,
+    overrideLogoUrl: (row.override_logo_url as string) ?? null,
+    overrideAccentColor: (row.override_accent_color as string) ?? null,
+    overrideTemplate: (row.override_template as "modern" | "classic" | "bold") ?? null,
+    overrideThemeMode: (row.override_theme_mode as "light" | "dark") ?? null,
+    overrideFontCombo: (row.override_font_combo as "modern" | "classic" | "bold") ?? null,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+function mapToApi(data: Partial<CreateDocumentTemplate>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (data.companyId !== undefined) row.company_id = data.companyId;
+  if (data.name !== undefined) row.name = data.name;
+  if (data.documentType !== undefined) row.document_type = data.documentType;
+  if (data.isDefault !== undefined) row.is_default = data.isDefault;
+  if (data.showQuantities !== undefined) row.show_quantities = data.showQuantities;
+  if (data.showUnitPrices !== undefined) row.show_unit_prices = data.showUnitPrices;
+  if (data.showLineTotals !== undefined) row.show_line_totals = data.showLineTotals;
+  if (data.showDescriptions !== undefined) row.show_descriptions = data.showDescriptions;
+  if (data.showTax !== undefined) row.show_tax = data.showTax;
+  if (data.showDiscount !== undefined) row.show_discount = data.showDiscount;
+  if (data.showTerms !== undefined) row.show_terms = data.showTerms;
+  if (data.showFooter !== undefined) row.show_footer = data.showFooter;
+  if (data.showPaymentInfo !== undefined) row.show_payment_info = data.showPaymentInfo;
+  if (data.showFromSection !== undefined) row.show_from_section = data.showFromSection;
+  if (data.showToSection !== undefined) row.show_to_section = data.showToSection;
+  if (data.overrideLogoUrl !== undefined) row.override_logo_url = data.overrideLogoUrl;
+  if (data.overrideAccentColor !== undefined) row.override_accent_color = data.overrideAccentColor;
+  if (data.overrideTemplate !== undefined) row.override_template = data.overrideTemplate;
+  if (data.overrideThemeMode !== undefined) row.override_theme_mode = data.overrideThemeMode;
+  if (data.overrideFontCombo !== undefined) row.override_font_combo = data.overrideFontCombo;
+  return row;
+}
+
+async function apiFetchTemplates(): Promise<DocumentTemplate[]> {
+  const res = await fetch("/api/documents/templates");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to fetch templates");
+  }
+  const rows = await res.json();
+  return (rows as Record<string, unknown>[]).map(mapFromApi);
+}
+
+async function apiCreateTemplate(data: CreateDocumentTemplate): Promise<DocumentTemplate> {
+  const res = await fetch("/api/documents/templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mapToApi(data)),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to create template");
+  }
+  return mapFromApi(await res.json());
+}
+
+async function apiUpdateTemplate(
+  id: string,
+  data: Partial<CreateDocumentTemplate>
+): Promise<DocumentTemplate> {
+  const res = await fetch(`/api/documents/templates/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mapToApi(data)),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to update template");
+  }
+  return mapFromApi(await res.json());
+}
+
+async function apiDeleteTemplate(id: string): Promise<void> {
+  const res = await fetch(`/api/documents/templates/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to delete template");
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function DocumentTemplatesTab() {
@@ -104,7 +205,7 @@ export function DocumentTemplatesTab() {
     error,
   } = useQuery({
     queryKey: documentTemplateKeys.list(companyId),
-    queryFn: () => DocumentTemplateService.fetchTemplates(companyId),
+    queryFn: () => apiFetchTemplates(),
     enabled: !!companyId,
     staleTime: 10 * 60 * 1000,
   });
@@ -145,7 +246,7 @@ export function DocumentTemplatesTab() {
   // ── Create mutation ──────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentTemplate) =>
-      DocumentTemplateService.createTemplate(data),
+      apiCreateTemplate(data),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: documentTemplateKeys.list(companyId) });
       setSelectedId(created.id);
@@ -166,7 +267,7 @@ export function DocumentTemplatesTab() {
     }: {
       id: string;
       data: Partial<CreateDocumentTemplate>;
-    }) => DocumentTemplateService.updateTemplate(id, data),
+    }) => apiUpdateTemplate(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentTemplateKeys.list(companyId) });
       setIsDirty(false);
@@ -181,7 +282,7 @@ export function DocumentTemplatesTab() {
 
   // ── Delete mutation ──────────────────────────────────────────────────────
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => DocumentTemplateService.deleteTemplate(id),
+    mutationFn: (id: string) => apiDeleteTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentTemplateKeys.list(companyId) });
       setSelectedId(null);

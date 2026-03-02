@@ -24,7 +24,7 @@ export function SettingsSection({
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "w-full flex items-center gap-1.5 px-2 py-1.5 transition-colors",
+          "w-full flex items-center gap-1.5 px-2 py-1.5 transition-colors duration-200",
           "hover:bg-[rgba(255,255,255,0.03)]",
           open && "border-b border-border"
         )}
@@ -35,16 +35,28 @@ export function SettingsSection({
         </span>
         <ChevronDown
           className={cn(
-            "w-[16px] h-[16px] text-text-disabled transition-transform duration-200",
+            "w-[16px] h-[16px] text-text-disabled transition-transform duration-300 ease-out",
             open && "rotate-180"
           )}
         />
       </button>
-      {open && (
-        <div className="p-2 animate-fade-in">
-          {children}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        <div className="overflow-hidden">
+          <div
+            className={cn(
+              "p-2 transition-opacity duration-300 ease-out",
+              open ? "opacity-100" : "opacity-0"
+            )}
+          >
+            {children}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

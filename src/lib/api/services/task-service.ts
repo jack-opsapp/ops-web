@@ -7,7 +7,32 @@
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import type { CalendarEvent, ProjectTask, TaskStatus } from "../../types/models";
+import { TaskStatus } from "../../types/models";
+import type { CalendarEvent, ProjectTask } from "../../types/models";
+
+// ─── Status Mapping (DB snake_case ↔ TypeScript enum) ────────────────────────
+
+function parseTaskStatus(raw: unknown): TaskStatus {
+  if (typeof raw !== "string") return TaskStatus.Booked;
+  switch (raw.toLowerCase().replace(/\s+/g, "_")) {
+    case "booked":
+    case "active": return TaskStatus.Booked;
+    case "in_progress": return TaskStatus.InProgress;
+    case "completed": return TaskStatus.Completed;
+    case "cancelled": return TaskStatus.Cancelled;
+    default: return TaskStatus.Booked;
+  }
+}
+
+function serializeTaskStatus(status: TaskStatus): string {
+  switch (status) {
+    case TaskStatus.Booked: return "active";
+    case TaskStatus.InProgress: return "in_progress";
+    case TaskStatus.Completed: return "completed";
+    case TaskStatus.Cancelled: return "cancelled";
+    default: return "active";
+  }
+}
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -38,7 +63,7 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     projectId: row.project_id as string,
     calendarEventId: (row.calendar_event_id as string) ?? null,
     companyId: row.company_id as string,
-    status: (row.status as TaskStatus) ?? "Booked",
+    status: parseTaskStatus(row.status),
     taskColor: (row.task_color as string) ?? "#417394",
     taskNotes: (row.task_notes as string) ?? null,
     taskTypeId: (row.task_type_id as string) ?? "",
@@ -59,7 +84,7 @@ function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   if (data.projectId !== undefined) row.project_id = data.projectId;
   if (data.calendarEventId !== undefined) row.calendar_event_id = data.calendarEventId;
   if (data.companyId !== undefined) row.company_id = data.companyId;
-  if (data.status !== undefined) row.status = data.status;
+  if (data.status !== undefined) row.status = serializeTaskStatus(data.status);
   if (data.taskColor !== undefined) row.task_color = data.taskColor;
   if (data.taskNotes !== undefined) row.task_notes = data.taskNotes;
   if (data.taskTypeId !== undefined) row.task_type_id = data.taskTypeId;
@@ -133,7 +158,7 @@ export const TaskService = {
     }
 
     if (options.status) {
-      query = query.eq("status", options.status);
+      query = query.eq("status", serializeTaskStatus(options.status));
     }
 
     if (options.teamMemberId) {
@@ -299,7 +324,7 @@ export const TaskService = {
 
     const { error } = await supabase
       .from("project_tasks")
-      .update({ status })
+      .update({ status: serializeTaskStatus(status) })
       .eq("id", id);
 
     if (error) throw new Error(`Failed to update task status: ${error.message}`);
