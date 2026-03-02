@@ -12,7 +12,7 @@ export function WindowDock() {
   if (minimized.length === 0) return null;
 
   return (
-    <div className="fixed bottom-3 right-3 flex items-center gap-1 z-[90]">
+    <div className="fixed bottom-3 right-3 flex items-center gap-1 z-[96]">
       {minimized.map((win) => (
         <div
           key={win.id}

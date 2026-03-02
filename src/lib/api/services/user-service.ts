@@ -72,6 +72,7 @@ function mapToDb(data: Partial<User>): Record<string, unknown> {
   if (data.setupProgress !== undefined) row.setup_progress = data.setupProgress;
   if (data.stripeCustomerId !== undefined) row.stripe_customer_id = data.stripeCustomerId;
   if (data.deviceToken !== undefined) row.device_token = data.deviceToken;
+  if (data.fabActions !== undefined) row.fab_actions = data.fabActions;
   return row;
 }
 

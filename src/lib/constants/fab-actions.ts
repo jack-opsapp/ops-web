@@ -8,6 +8,7 @@ import {
   Tag,
 } from "lucide-react";
 import type React from "react";
+import type { FloatingWindowType } from "@/stores/window-store";
 
 export interface FABAction {
   id: string;
@@ -15,7 +16,12 @@ export interface FABAction {
   icon: React.ComponentType<{ className?: string }>;
   triggerAction: string;
   handler: "window" | "route";
-  target: string;
+  target: FloatingWindowType | string;
+}
+
+/** Type guard: true when action.target is a valid FloatingWindowType */
+export function isWindowAction(action: FABAction): action is FABAction & { target: FloatingWindowType } {
+  return action.handler === "window";
 }
 
 export const ALL_ACTIONS: FABAction[] = [

@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Plus, Minus } from "lucide-react";
-import { type FABAction, ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
+import { type FABAction, ALL_ACTIONS, DEFAULT_ACTION_IDS, isWindowAction } from "@/lib/constants/fab-actions";
 import { cn } from "@/lib/utils/cn";
-import { useWindowStore, type FloatingWindowType } from "@/stores/window-store";
+import { useWindowStore } from "@/stores/window-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -95,28 +95,29 @@ export function FloatingActionButton() {
   const handleAction = (action: FABAction) => {
     if (editMode) return;
     gatedAction(() => {
-      if (action.handler === "window") {
+      if (isWindowAction(action)) {
         openWindow({
           id: action.target,
           title: action.label,
-          type: action.target as FloatingWindowType,
+          type: action.target,
         });
       } else {
         router.push(action.target);
       }
+      setOpen(false);
     }, action.triggerAction);
-    setOpen(false);
   };
 
   // ── Edit mode: remove / add actions ─────────────────────────────────────
   const removeAction = (id: string) => {
-    const updated = userActionIds.filter((a) => a !== id);
-    updateFabActions(updated);
+    // Read fresh state to avoid stale closure on rapid clicks
+    const fresh = useAuthStore.getState().currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
+    updateFabActions(fresh.filter((a) => a !== id));
   };
 
   const addAction = (id: string) => {
-    const updated = [...userActionIds, id];
-    updateFabActions(updated);
+    const fresh = useAuthStore.getState().currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
+    updateFabActions([...fresh, id]);
     setShowAddDropdown(false);
   };
 
@@ -134,6 +135,11 @@ export function FloatingActionButton() {
       longPressTimer.current = null;
     }
   };
+
+  // Cancel long-press timer on unmount
+  useEffect(() => {
+    return () => cancelLongPress();
+  }, []);
 
   return (
     <>
@@ -276,6 +282,7 @@ export function FloatingActionButton() {
           onPointerDown={startLongPress}
           onPointerUp={cancelLongPress}
           onPointerLeave={cancelLongPress}
+          onPointerCancel={cancelLongPress}
           className={cn(
             "w-[52px] h-[52px] rounded-full flex items-center justify-center",
             "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",

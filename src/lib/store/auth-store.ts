@@ -155,14 +155,31 @@ export const useAuthStore = create<AuthState>()(
         const { currentUser } = get();
         if (!currentUser) return;
 
-        const supabase = requireSupabase();
-        const { error } = await supabase
-          .from("users")
-          .update({ fab_actions: actions })
-          .eq("id", currentUser.id);
+        // Optimistic update — apply immediately, revert on failure
+        const previousActions = currentUser.fabActions;
+        set({ currentUser: { ...currentUser, fabActions: actions } });
 
-        if (!error) {
-          set({ currentUser: { ...currentUser, fabActions: actions } });
+        try {
+          const supabase = requireSupabase();
+          const { error } = await supabase
+            .from("users")
+            .update({ fab_actions: actions })
+            .eq("id", currentUser.id);
+
+          if (error) {
+            console.error("Failed to save FAB actions:", error.message);
+            // Revert optimistic update
+            const current = get().currentUser;
+            if (current) {
+              set({ currentUser: { ...current, fabActions: previousActions } });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to save FAB actions:", err);
+          const current = get().currentUser;
+          if (current) {
+            set({ currentUser: { ...current, fabActions: previousActions } });
+          }
         }
       },
     }),
