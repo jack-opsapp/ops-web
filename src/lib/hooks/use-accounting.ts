@@ -9,6 +9,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { queryKeys } from "../api/query-client";
 import { AccountingService } from "../api/services";
 import type { AccountingProvider } from "../types/pipeline";
@@ -36,6 +37,9 @@ export function useInitiateOAuth() {
     }) => AccountingService.initiateOAuth(companyId, provider),
     onSuccess: (data) => {
       window.location.href = data.authUrl;
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to connect accounting provider");
     },
   });
 }

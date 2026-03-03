@@ -62,7 +62,10 @@ export const AccountingService = {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to initiate ${provider} OAuth`);
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(
+        errorBody?.error || `Failed to initiate ${provider} OAuth`
+      );
     }
 
     return response.json();
