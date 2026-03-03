@@ -82,7 +82,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       >
         <TopBar />
         <ContentHeader />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-3">
           {children}
         </div>
       </main>

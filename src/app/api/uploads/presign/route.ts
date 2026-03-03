@@ -1,12 +1,8 @@
 /**
- * OPS Web - Image Upload via Supabase Storage
+ * OPS Web - Image Upload API Route
  *
- * Accepts a file via FormData, uploads to Supabase Storage bucket,
- * returns the public URL.
- *
- * POST /api/uploads/presign
- * Body: FormData with "file" and optional "folder"
- * Returns: { uploadUrl: string, publicUrl: string }
+ * Accepts multipart form data with a file, uploads to Supabase Storage
+ * bucket "images", and returns the public URL.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,148 +14,66 @@ const ALLOWED_TYPES = [
   "image/png",
   "image/webp",
   "image/heic",
-  "application/pdf",
 ];
-const MAX_FILENAME_LENGTH = 200;
-
-function sanitizeFilename(name: string): string {
-  return name
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, MAX_FILENAME_LENGTH);
-}
 
 export async function POST(req: NextRequest) {
   try {
-    const contentType = req.headers.get("content-type") || "";
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    const folder = (formData.get("folder") as string) || "uploads";
 
-    // Support both FormData (new) and JSON (legacy presign)
-    if (contentType.includes("multipart/form-data")) {
-      return handleFormDataUpload(req);
-    } else {
-      return handlePresignUpload(req);
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
-  } catch (error) {
-    console.error("[uploads] Error:", error);
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: `Invalid file type: ${file.type}` },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "File too large (max 10MB)" },
+        { status: 400 }
+      );
+    }
+
+    // Generate unique filename
+    const ext = file.name.split(".").pop() || "jpg";
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).slice(2, 8);
+    const filePath = `${folder}/${timestamp}-${random}.${ext}`;
+
+    const supabase = getServiceRoleClient();
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const { error: uploadError } = await supabase.storage
+      .from("images")
+      .upload(filePath, buffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("[uploads/presign] Upload failed:", uploadError.message);
+      return NextResponse.json(
+        { error: uploadError.message },
+        { status: 500 }
+      );
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("images")
+      .getPublicUrl(filePath);
+
+    return NextResponse.json({ url: urlData.publicUrl, publicUrl: urlData.publicUrl });
+  } catch (err) {
+    console.error("[uploads/presign] Error:", err);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Upload failed" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
-}
-
-/**
- * New path: accept file via FormData, upload to Supabase Storage
- */
-async function handleFormDataUpload(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  const folder = (formData.get("folder") as string) || "uploads";
-
-  if (!file) {
-    return NextResponse.json({ error: "No file provided" }, { status: 400 });
-  }
-
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json(
-      { error: `Invalid file type: ${file.type}. Allowed: ${ALLOWED_TYPES.join(", ")}` },
-      { status: 400 }
-    );
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: "File too large (max 10MB)" },
-      { status: 400 }
-    );
-  }
-
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).slice(2, 10);
-  const safeName = sanitizeFilename(file.name);
-  const path = `${folder}/${timestamp}-${randomId}-${safeName}`;
-
-  const supabase = getServiceRoleClient();
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error } = await supabase.storage
-    .from("images")
-    .upload(path, buffer, {
-      contentType: file.type,
-      upsert: false,
-    });
-
-  if (error) {
-    console.error("[uploads] Supabase storage error:", error);
-    return NextResponse.json(
-      { error: `Upload failed: ${error.message}` },
-      { status: 500 }
-    );
-  }
-
-  const { data: urlData } = supabase.storage
-    .from("images")
-    .getPublicUrl(path);
-
-  // Return both formats for compatibility
-  return NextResponse.json({
-    url: urlData.publicUrl,
-    uploadUrl: "", // Not needed for direct upload
-    publicUrl: urlData.publicUrl,
-  });
-}
-
-/**
- * Legacy path: JSON body with filename/contentType — now uses Supabase signed upload URLs
- */
-async function handlePresignUpload(req: NextRequest) {
-  const body = await req.json();
-  const { filename, contentType, folder } = body as {
-    filename?: string;
-    contentType?: string;
-    folder?: string;
-  };
-
-  if (!filename || !contentType) {
-    return NextResponse.json(
-      { error: "Missing required fields: filename, contentType" },
-      { status: 400 }
-    );
-  }
-
-  if (!ALLOWED_TYPES.includes(contentType)) {
-    return NextResponse.json(
-      { error: `Invalid content type: ${contentType}` },
-      { status: 400 }
-    );
-  }
-
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).slice(2, 10);
-  const safeName = sanitizeFilename(filename);
-  const prefix = folder ? `${folder}/` : "uploads/";
-  const path = `${prefix}${timestamp}-${randomId}-${safeName}`;
-
-  const supabase = getServiceRoleClient();
-
-  const { data, error } = await supabase.storage
-    .from("images")
-    .createSignedUploadUrl(path);
-
-  if (error) {
-    console.error("[uploads] Signed URL error:", error);
-    return NextResponse.json(
-      { error: `Failed to create upload URL: ${error.message}` },
-      { status: 500 }
-    );
-  }
-
-  const { data: urlData } = supabase.storage
-    .from("images")
-    .getPublicUrl(path);
-
-  return NextResponse.json({
-    uploadUrl: data.signedUrl,
-    publicUrl: urlData.publicUrl,
-  });
 }
