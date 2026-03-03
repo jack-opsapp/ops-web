@@ -11,6 +11,8 @@
 import { create } from "zustand";
 import { RolesService } from "@/lib/api/services/roles-service";
 import type { PermissionScope } from "@/lib/types/permissions";
+import { ALL_PERMISSIONS, PRESET_ROLE_IDS } from "@/lib/types/permissions";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +76,26 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
     set({ loading: true });
 
     try {
+      // Account holder and company admins get all permissions by default
+      const authState = useAuthStore.getState();
+      const isAccountHolder = authState.company?.accountHolderId === userId;
+      const isCompanyAdmin = authState.company?.adminIds?.includes(userId) ?? false;
+
+      if (isAccountHolder || isCompanyAdmin) {
+        const allPerms = new Map<string, PermissionScope>();
+        for (const perm of ALL_PERMISSIONS) {
+          allPerms.set(perm, "all");
+        }
+        set({
+          permissions: allPerms,
+          roleId: PRESET_ROLE_IDS.ADMIN,
+          roleName: "Admin",
+          loading: false,
+          initialized: true,
+        });
+        return;
+      }
+
       const result = await RolesService.fetchUserPermissions(userId);
       set({
         permissions: result.permissions,
