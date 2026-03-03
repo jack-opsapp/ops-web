@@ -565,6 +565,24 @@ export function SetupStarfield({
         burstNodeRef.current = null;
       }
 
+      // ── Pre-compute likert repulsion zones (when a likert question is focused) ──
+      const likertRepulseNodes: { x: number; y: number }[] = [];
+      if (focusedNodeRef.current) {
+        const focQ = qs.find((q) => q.id === focusedNodeRef.current);
+        if (focQ && focQ.responseType === "likert") {
+          // Match the LikertResponse layout: container is 580x300, centered
+          const cw = 580, ch = 300;
+          const cl = centerX - cw / 2;
+          const ct = centerY - ch / 2;
+          const blY = ct + ch * 0.45;
+          const lsX = cl + cw * 0.1;
+          const lW = cw * 0.8;
+          for (let i = 0; i < 5; i++) {
+            likertRepulseNodes.push({ x: lsX + (i / 4) * lW, y: blY });
+          }
+        }
+      }
+
       // ── Draw ambient stars ──
       for (const star of stars) {
         if (!prefersReduced) {
@@ -715,6 +733,20 @@ export function SetupStarfield({
               (1 - mDist / REPULSE_RADIUS) * REPULSE_STRENGTH;
             star.displaceX += (mdx / mDist) * force;
             star.displaceY += (mdy / mDist) * force;
+          }
+        }
+
+        // Likert node repulsion — push particles away from response nodes
+        if (likertRepulseNodes.length > 0 && !star.bursting && !prefersReduced) {
+          for (const ln of likertRepulseNodes) {
+            const ldx = sx - ln.x;
+            const ldy = sy - ln.y;
+            const lDist = Math.sqrt(ldx * ldx + ldy * ldy);
+            if (lDist < 60 && lDist > 1) {
+              const force = (1 - lDist / 60) * 5;
+              star.displaceX += (ldx / lDist) * force;
+              star.displaceY += (ldy / lDist) * force;
+            }
           }
         }
 
