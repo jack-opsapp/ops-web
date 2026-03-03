@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils/cn";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
@@ -18,6 +19,22 @@ import { CreateProjectForm } from "@/components/ops/create-project-modal";
 import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { useSidebarStore } from "@/stores/sidebar-store";
+
+// Leaflet map background + filter rail — client-only (no SSR)
+const DashboardMapBackground = dynamic(
+  () =>
+    import("@/components/dashboard/map/dashboard-map-background").then(
+      (m) => m.DashboardMapBackground
+    ),
+  { ssr: false }
+);
+const MapFilterRail = dynamic(
+  () =>
+    import("@/components/dashboard/map/map-filter-rail").then(
+      (m) => m.MapFilterRail
+    ),
+  { ssr: false }
+);
 
 function ActionPromptsInitializer() {
   useActionPrompts();
@@ -82,10 +99,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       >
         <TopBar />
         <ContentHeader />
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-3">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]">
           {children}
         </div>
       </main>
+
+      {/* Map background layer (dashboard route only, z-0 behind content) */}
+      <DashboardMapBackground />
+      <MapFilterRail />
 
       {/* Global features */}
       <PreferencesApplier />

@@ -9,6 +9,7 @@ export type WidgetSize = "xs" | "sm" | "md" | "lg" | "full";
 // ---------------------------------------------------------------------------
 
 export type WidgetCategory =
+  | "layout"
   | "stats"
   | "schedule"
   | "financial"
@@ -34,6 +35,8 @@ export type WidgetTag =
 // ---------------------------------------------------------------------------
 
 export type WidgetTypeId =
+  // Layout
+  | "spacer"
   // Stats — generic (9)
   | "stat-projects"
   | "stat-tasks"
@@ -165,6 +168,7 @@ export const WIDGET_SIZE_LABELS: Record<WidgetSize, string> = {
 };
 
 export const CATEGORY_LABELS: Record<WidgetCategory, string> = {
+  layout: "Layout",
   stats: "Statistics",
   schedule: "Schedule",
   financial: "Financial",
@@ -180,6 +184,7 @@ export const CATEGORY_LABELS: Record<WidgetCategory, string> = {
 // Category display order for sidebar
 // ---------------------------------------------------------------------------
 export const CATEGORY_ORDER: WidgetCategory[] = [
+  "layout",
   "stats",
   "schedule",
   "financial",
@@ -196,6 +201,19 @@ export const CATEGORY_ORDER: WidgetCategory[] = [
 // ---------------------------------------------------------------------------
 
 export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
+  // ── LAYOUT ─────────────────────────────────────────────────────────────
+  spacer: {
+    label: "Spacer",
+    description: "Empty space between widgets",
+    category: "layout",
+    tags: [],
+    icon: "Maximize2",
+    supportedSizes: ["xs"],
+    defaultSize: "xs",
+    allowMultiple: true,
+    configSchema: [],
+  },
+
   // ── STATISTICS (9) ──────────────────────────────────────────────────────
   "stat-projects": {
     label: "Active Projects",

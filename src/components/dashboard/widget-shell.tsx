@@ -39,6 +39,7 @@ interface WidgetShellProps {
   instanceId: string;
   typeId: WidgetTypeId;
   size: WidgetSize;
+  config?: Record<string, unknown>;
   isCustomizing?: boolean;
   isDragActive?: boolean;
   isBeingDragged?: boolean;
@@ -49,6 +50,7 @@ export function WidgetShell({
   instanceId,
   typeId,
   size,
+  config,
   isCustomizing,
   isDragActive,
   isBeingDragged,
@@ -69,7 +71,12 @@ export function WidgetShell({
   });
 
   const entry = WIDGET_TYPE_REGISTRY[typeId];
-  const hasMultipleSizes = entry && entry.supportedSizes.length > 1;
+  const isSpacer = typeId === "spacer";
+  const hasMultipleSizes = !isSpacer && entry && entry.supportedSizes.length > 1;
+
+  // Spacer uses custom grid spans from config instead of preset size classes
+  const spacerColSpan = isSpacer ? ((config?.colSpan as number) ?? 2) : undefined;
+  const spacerRowSpan = isSpacer ? ((config?.rowSpan as number) ?? 1) : undefined;
 
   // Compute animation state — GPU-composited only (transform, opacity, filter)
   const animateState = useMemo(() => {
@@ -101,11 +108,15 @@ export function WidgetShell({
       animate={animateState}
       transition={SPRING_REORDER}
       className={cn(
-        COL_SPAN_CLASSES[size],
-        ROW_SPAN_CLASSES[size],
+        !isSpacer && COL_SPAN_CLASSES[size],
+        !isSpacer && ROW_SPAN_CLASSES[size],
         "relative group/widget h-full overflow-hidden",
         isCustomizing && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing"
       )}
+      style={isSpacer ? {
+        gridColumn: `span ${spacerColSpan}`,
+        gridRow: `span ${spacerRowSpan}`,
+      } : undefined}
       data-widget-id={instanceId}
       data-widget-type={typeId}
       data-widget-size={size}

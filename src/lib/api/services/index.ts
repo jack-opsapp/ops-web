@@ -52,3 +52,7 @@ export { CompanySettingsService } from "./company-settings-service";
 export { GmailService } from "./gmail-service";
 
 export { InventoryService } from "./inventory-service";
+
+export { CrewLocationService } from "./crew-location-service";
+export type { CrewLocation, CrewStatus } from "./crew-location-service";
+export { resolveCrewStatus } from "./crew-location-service";

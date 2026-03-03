@@ -83,6 +83,7 @@ import { FollowUpsDueWidget } from "@/components/dashboard/widgets/follow-ups-du
 import { SiteVisitsWidget } from "@/components/dashboard/widgets/site-visits-widget";
 import { CrewLocationsWidget } from "@/components/dashboard/widgets/crew-locations-widget";
 import { ClientRankingWidget, ProjectRankingWidget } from "@/components/dashboard/widgets/ranking-widget";
+import { SpacerWidget } from "@/components/dashboard/widgets/spacer-widget";
 
 // ---------------------------------------------------------------------------
 // Greeting helper
@@ -431,6 +432,16 @@ export default function DashboardPage() {
     const { typeId, size, config } = instance;
 
     switch (typeId as WidgetTypeId) {
+      // ── LAYOUT ──
+      case "spacer":
+        return (
+          <SpacerWidget
+            instanceId={instance.id}
+            config={config}
+            isCustomizing={isCustomizing}
+          />
+        );
+
       // ── STAT WIDGETS (self-contained — fetch own data) ──
       case "stat-projects":
       case "stat-tasks":
@@ -664,7 +675,10 @@ export default function DashboardPage() {
         {/* Header with greeting + customize toggle */}
         <div className="animate-fade-in flex items-start justify-between gap-2">
           <div>
-            <p className="font-mohave text-body-lg text-text-secondary tracking-wide">
+            <p
+              className="font-mohave text-body-lg text-text-secondary tracking-wide"
+              style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
+            >
               <span
                 className={mounted ? "typewriter" : ""}
                 onAnimationEnd={(e) => {
@@ -674,7 +688,10 @@ export default function DashboardPage() {
                 {getGreeting(t)}, {firstName}
               </span>
             </p>
-            <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase">
+            <p
+              className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase"
+              style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
+            >
               {t("greeting.subtitle")}
             </p>
           </div>

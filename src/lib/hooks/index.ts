@@ -83,7 +83,6 @@ export {
   useCreateTaskType,
   useUpdateTaskType,
   useDeleteTaskType,
-  useCreateDefaultTaskTypes,
 } from "./use-task-types";
 
 // Image Upload
@@ -235,3 +234,6 @@ export {
   usePortalQuestions,
   useSubmitPortalAnswers,
 } from "./use-portal-questions";
+
+// Crew Locations (real-time map tracking)
+export { useCrewLocations } from "./use-crew-locations";

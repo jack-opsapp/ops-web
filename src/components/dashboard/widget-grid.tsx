@@ -81,6 +81,7 @@ export function WidgetGrid({
               instanceId={instance.id}
               typeId={instance.typeId}
               size={instance.size}
+              config={instance.config}
               isCustomizing={isCustomizing}
               isDragActive={activeId !== null}
               isBeingDragged={activeId === instance.id}
