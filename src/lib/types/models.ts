@@ -28,9 +28,15 @@ export enum TaskStatus {
 
 /** User role - matches iOS UserRole enum exactly */
 export enum UserRole {
-  FieldCrew = "Field Crew",
-  OfficeCrew = "Office Crew",
   Admin = "Admin",
+  Owner = "Owner",
+  Office = "Office",
+  Operator = "Operator",
+  Crew = "Crew",
+  /** @deprecated Use Crew instead */
+  FieldCrew = "Field Crew",
+  /** @deprecated Use Office instead */
+  OfficeCrew = "Office Crew",
 }
 
 /** User type - matches iOS UserType enum exactly */
@@ -656,12 +662,18 @@ export function getUserRoleDisplay(role: UserRole): string {
   switch (role) {
     case UserRole.Admin:
       return "Admin";
+    case UserRole.Owner:
+      return "Owner";
+    case UserRole.Office:
     case UserRole.OfficeCrew:
-      return "Office Crew";
+      return "Office";
+    case UserRole.Operator:
+      return "Operator";
+    case UserRole.Crew:
     case UserRole.FieldCrew:
-      return "Field Crew";
+      return "Crew";
     default:
-      return "Field Crew";
+      return "Crew";
   }
 }
 
@@ -781,7 +793,7 @@ export const DEFAULT_TASK_TYPES: DefaultTaskType[] = [
  * Detect user role using iOS priority logic:
  * 1. user.id IN company.adminIds[] -> Admin
  * 2. user.employeeType -> mapped role
- * 3. default -> FieldCrew
+ * 3. default -> Crew
  */
 export function detectUserRole(
   userId: string,
@@ -796,17 +808,23 @@ export function detectUserRole(
   // Priority 2: Map from employee type
   if (employeeType) {
     switch (employeeType) {
-      case "Office Crew":
-        return UserRole.OfficeCrew;
-      case "Field Crew":
-        return UserRole.FieldCrew;
       case "Admin":
         return UserRole.Admin;
+      case "Owner":
+        return UserRole.Owner;
+      case "Office":
+      case "Office Crew":
+        return UserRole.Office;
+      case "Operator":
+        return UserRole.Operator;
+      case "Crew":
+      case "Field Crew":
+        return UserRole.Crew;
     }
   }
 
-  // Priority 3: Default to field crew
-  return UserRole.FieldCrew;
+  // Priority 3: Default to crew
+  return UserRole.Crew;
 }
 
 // ─── Utility Types ────────────────────────────────────────────────────────────

@@ -35,8 +35,10 @@ import { useDictionary } from "@/i18n/client";
 
 const ROLES: { id: UserRole; labelKey: string }[] = [
   { id: UserRole.Admin, labelKey: "team.roleAdmin" },
-  { id: UserRole.OfficeCrew, labelKey: "team.roleOfficeCrew" },
-  { id: UserRole.FieldCrew, labelKey: "team.roleFieldCrew" },
+  { id: UserRole.Owner, labelKey: "team.roleOwner" },
+  { id: UserRole.Office, labelKey: "team.roleOffice" },
+  { id: UserRole.Operator, labelKey: "team.roleOperator" },
+  { id: UserRole.Crew, labelKey: "team.roleCrew" },
 ];
 
 function MemberActions({
@@ -215,7 +217,7 @@ export function TeamTab() {
 
   const [inviteValue, setInviteValue] = useState("");
   const [inviteMode, setInviteMode] = useState<"email" | "sms">("email");
-  const [inviteRole, setInviteRole] = useState<"field-crew" | "admin">("field-crew");
+  const [inviteRole, setInviteRole] = useState<string>("crew");
 
   const seatedIds = company?.seatedEmployeeIds ?? [];
   const maxSeats = company?.maxSeats ?? 10;
@@ -307,8 +309,11 @@ export function TeamTab() {
             </label>
             <div className="flex items-center gap-1">
               {([
-                { id: "field-crew" as const, label: t("team.roleFieldCrew") },
-                { id: "admin" as const, label: t("team.roleAdmin") },
+                { id: "admin", label: t("team.roleAdmin") },
+                { id: "owner", label: t("team.roleOwner") },
+                { id: "office", label: t("team.roleOffice") },
+                { id: "operator", label: t("team.roleOperator") },
+                { id: "crew", label: t("team.roleCrew") },
               ]).map((role) => (
                 <button
                   key={role.id}
@@ -424,7 +429,7 @@ export function TeamTab() {
                         <Shield className="w-[14px] h-[14px] text-ops-amber" />
                       )}
                       <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
-                        {member.isCompanyAdmin ? "Admin" : member.role || "Field Crew"}
+                        {member.isCompanyAdmin ? "Admin" : member.role || "Crew"}
                       </span>
                       <MemberActions
                         member={member}

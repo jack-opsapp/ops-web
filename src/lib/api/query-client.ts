@@ -206,6 +206,20 @@ export const queryKeys = {
       [...queryKeys.companySettings.all, companyId] as const,
   },
 
+  // Expense Settings
+  expenseSettings: {
+    all: ["expenseSettings"] as const,
+    detail: (companyId: string) =>
+      [...queryKeys.expenseSettings.all, companyId] as const,
+  },
+
+  // Notification Preferences
+  notificationPreferences: {
+    all: ["notificationPreferences"] as const,
+    detail: (userId: string, companyId: string) =>
+      [...queryKeys.notificationPreferences.all, userId, companyId] as const,
+  },
+
   // Gmail
   gmailConnections: {
     all: ["gmailConnections"] as const,

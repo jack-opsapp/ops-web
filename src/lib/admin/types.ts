@@ -156,12 +156,14 @@ export const APP_MESSAGE_TYPE_LABELS: Record<AppMessageType, string> = {
   info: "Notice",
 };
 
-export const TARGET_USER_TYPES = ["admin", "officeCrew", "fieldCrew"] as const;
+export const TARGET_USER_TYPES = ["admin", "owner", "office", "operator", "crew"] as const;
 
 export const TARGET_USER_TYPE_LABELS: Record<string, string> = {
   admin: "Admin",
-  officeCrew: "Office Crew",
-  fieldCrew: "Field Crew",
+  owner: "Owner",
+  office: "Office",
+  operator: "Operator",
+  crew: "Crew",
 };
 
 export interface PromoCode {

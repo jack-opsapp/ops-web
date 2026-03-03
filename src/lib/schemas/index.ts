@@ -28,7 +28,7 @@ export const taskStatusSchema = z.enum([
   "Cancelled",
 ]);
 
-export const userRoleSchema = z.enum(["Field Crew", "Office Crew", "Admin"]);
+export const userRoleSchema = z.enum(["Admin", "Owner", "Office", "Operator", "Crew", "Field Crew", "Office Crew"]);
 
 export const userTypeSchema = z.enum(["Employee", "Company"]);
 

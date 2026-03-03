@@ -82,15 +82,38 @@ export const AccountingService = {
     });
   },
 
+  async updateSyncEnabled(
+    companyId: string,
+    provider: AccountingProvider,
+    syncEnabled: boolean
+  ): Promise<void> {
+    const supabase = requireSupabase();
+    const { error } = await supabase
+      .from("accounting_connections")
+      .update({ sync_enabled: syncEnabled, updated_at: new Date().toISOString() })
+      .eq("company_id", companyId)
+      .eq("provider", provider);
+    if (error) throw new Error(`Failed to update sync enabled: ${error.message}`);
+  },
+
   async triggerSync(
     companyId: string,
     provider: AccountingProvider
   ): Promise<void> {
-    await fetch("/api/sync", {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch("/api/sync", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
       body: JSON.stringify({ companyId, provider }),
     });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || "Sync failed");
+    }
   },
 
   async getSyncHistory(
@@ -104,7 +127,13 @@ export const AccountingService = {
       details: string | null;
     }>
   > {
-    const response = await fetch(`/api/sync?companyId=${companyId}`);
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch(`/api/sync?companyId=${companyId}`, {
+      headers: {
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+    });
     if (!response.ok) return [];
     return response.json();
   },

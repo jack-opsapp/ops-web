@@ -63,6 +63,27 @@ export function useDisconnectProvider() {
   });
 }
 
+export function useUpdateSyncEnabled() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      companyId,
+      provider,
+      syncEnabled,
+    }: {
+      companyId: string;
+      provider: AccountingProvider;
+      syncEnabled: boolean;
+    }) => AccountingService.updateSyncEnabled(companyId, provider, syncEnabled),
+    onSuccess: (_data, { companyId }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.accounting.connections(companyId),
+      });
+    },
+  });
+}
+
 export function useTriggerSync() {
   const queryClient = useQueryClient();
 

@@ -39,6 +39,11 @@ import { PortalBrandingTab } from "@/components/settings/portal-branding-tab";
 import { DocumentTemplatesTab } from "@/components/settings/document-templates-tab";
 import { QuickActionsTab } from "@/components/settings/quick-actions-tab";
 import { RolesTab } from "@/components/settings/roles-tab";
+import { AccountingTab } from "@/components/settings/accounting-tab";
+import { ExpenseSettingsTab } from "@/components/settings/expense-settings-tab";
+import { NotificationsTab } from "@/components/settings/notifications-tab";
+import { MapPreferencesTab } from "@/components/settings/map-preferences-tab";
+import { InventoryTab } from "@/components/settings/inventory-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +83,7 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "team", labelKey: "sections.teamMembers" },
       { id: "roles", labelKey: "sections.roles" },
       { id: "task-types", labelKey: "sections.taskTypes" },
+      { id: "inventory", labelKey: "sections.inventory" },
     ],
   },
   {
@@ -97,6 +103,7 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "email", labelKey: "sections.email" },
       { id: "portal", labelKey: "sections.portal" },
       { id: "templates", labelKey: "sections.templates" },
+      { id: "accounting", labelKey: "sections.accounting" },
     ],
   },
   {
@@ -105,6 +112,9 @@ const BASE_GROUP_DEFS: GroupDef[] = [
     icon: SlidersHorizontal,
     subTabs: [
       { id: "preferences-general", labelKey: "sections.preferences" },
+      { id: "notifications", labelKey: "sections.notifications" },
+      { id: "map", labelKey: "sections.map" },
+      { id: "expenses", labelKey: "sections.expenses" },
       { id: "quick-actions", labelKey: "sections.quickActions" },
       { id: "data-privacy", labelKey: "sections.dataPrivacy" },
     ],
@@ -133,6 +143,11 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   portal: { group: "integrations", sub: "portal" },
   preferences: { group: "preferences", sub: "preferences-general" },
   "data-privacy": { group: "preferences", sub: "data-privacy" },
+  accounting: { group: "integrations", sub: "accounting" },
+  inventory: { group: "company", sub: "inventory" },
+  notifications: { group: "preferences", sub: "notifications" },
+  map: { group: "preferences", sub: "map" },
+  expenses: { group: "preferences", sub: "expenses" },
   developer: { group: "developer", sub: "developer" },
 };
 
@@ -146,12 +161,17 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
   team: TeamTab,
   roles: RolesTab,
   "task-types": TaskTypesTab,
+  inventory: InventoryTab,
   subscription: SubscriptionTab,
   payment: BillingTab,
   email: IntegrationsTab,
   portal: PortalBrandingTab,
   templates: DocumentTemplatesTab,
+  accounting: AccountingTab,
   "preferences-general": PreferencesTab,
+  notifications: NotificationsTab,
+  map: MapPreferencesTab,
+  expenses: ExpenseSettingsTab,
   "quick-actions": QuickActionsTab,
   "data-privacy": DataPrivacyTab,
   developer: DeveloperTab,

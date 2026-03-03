@@ -148,6 +148,7 @@ export {
   useAccountingConnections,
   useInitiateOAuth,
   useDisconnectProvider,
+  useUpdateSyncEnabled,
   useTriggerSync,
   useSyncHistory,
 } from "./use-accounting";
@@ -190,6 +191,18 @@ export {
   useCompanySettings,
   useUpdateCompanySettings,
 } from "./use-company-settings";
+
+// Expense Settings
+export {
+  useExpenseSettings,
+  useUpdateExpenseSettings,
+} from "./use-expense-settings";
+
+// Notification Preferences
+export {
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from "./use-notification-preferences";
 
 // Gmail Connections
 export {

@@ -49,6 +49,12 @@ export { ProjectPhotoService } from "./project-photo-service";
 
 export { CompanySettingsService } from "./company-settings-service";
 
+export { ExpenseSettingsService } from "./expense-settings-service";
+export type { ExpenseSettings, UpdateExpenseSettings } from "./expense-settings-service";
+
+export { NotificationPreferencesService } from "./notification-preferences-service";
+export type { NotificationPreferences, UpdateNotificationPreferences } from "./notification-preferences-service";
+
 export { GmailService } from "./gmail-service";
 
 export { InventoryService } from "./inventory-service";

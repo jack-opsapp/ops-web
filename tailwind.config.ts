@@ -204,6 +204,10 @@ const config: Config = {
           "0%, 100%": { borderColor: "transparent" },
           "50%": { borderColor: "rgba(255,255,255,0.3)" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(350%)" },
+        },
       },
       animation: {
         "pulse-live": "pulse-live 3s ease-in-out infinite",
@@ -216,6 +220,7 @@ const config: Config = {
         "accordion-up": "accordion-up 0.2s ease-out",
         typewriter: "typewriter 1.5s steps(30) forwards",
         "blink-caret": "blink-caret 0.75s step-end infinite",
+        shimmer: "shimmer 1.5s ease-in-out infinite",
       },
 
       // === Backdrop Blur ===

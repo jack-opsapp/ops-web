@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompanySettings, useUpdateCompanySettings } from "@/lib/hooks";
 import { usePreferencesStore, type DashboardLayoutId, type SchedulingTypeId } from "@/stores/preferences-store";
+// Note: Notification preferences moved to dedicated notifications-tab.tsx (server-persisted)
 import { toast } from "sonner";
 import { useLocale, useDictionary } from "@/i18n/client";
 import type { Locale } from "@/i18n/types";
@@ -174,9 +175,6 @@ export function PreferencesTab() {
   const setDashboardLayout = usePreferencesStore((s) => s.setDashboardLayout);
   const schedulingType = usePreferencesStore((s) => s.schedulingType);
   const setSchedulingType = usePreferencesStore((s) => s.setSchedulingType);
-  const notificationPrefs = usePreferencesStore((s) => s.notificationPrefs);
-  const setNotificationPref = usePreferencesStore((s) => s.setNotificationPref);
-
   const schedulingTypes: { id: SchedulingTypeId; label: string; description: string }[] = [
     { id: "all-day", label: t("preferences.schedAllDay"), description: t("preferences.schedAllDayDesc") },
     { id: "time-slots", label: t("preferences.schedTimeSlots"), description: t("preferences.schedTimeSlotsDesc") },
@@ -264,36 +262,6 @@ export function PreferencesTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("preferences.notifications")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5">
-          {Object.entries(notificationPrefs).map(([item, enabled]) => (
-            <div key={item} className="flex items-center justify-between py-[6px]">
-              <span className="font-mohave text-body text-text-secondary">{item}</span>
-              <button
-                onClick={() => {
-                  const newValue = !enabled;
-                  setNotificationPref(item, newValue);
-                  toast.success(`${item} ${newValue ? t("preferences.toast.notificationsEnabled") : t("preferences.toast.notificationsDisabled")}`);
-                }}
-                className={cn(
-                  "w-[40px] h-[22px] rounded-full transition-colors relative",
-                  enabled ? "bg-ops-accent" : "bg-background-elevated"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                    enabled ? "right-[2px]" : "left-[2px]"
-                  )}
-                />
-              </button>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   );
 }

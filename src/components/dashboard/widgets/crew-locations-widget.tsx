@@ -25,8 +25,14 @@ function roleLabel(role: UserRole, t: (key: string) => string): string {
   switch (role) {
     case UserRole.Admin:
       return t("crewLocations.roleAdmin");
+    case UserRole.Owner:
+      return t("crewLocations.roleAdmin");
+    case UserRole.Office:
     case UserRole.OfficeCrew:
       return t("crewLocations.roleOffice");
+    case UserRole.Operator:
+      return t("crewLocations.roleOperator");
+    case UserRole.Crew:
     case UserRole.FieldCrew:
       return t("crewLocations.roleField");
     default:
@@ -37,9 +43,13 @@ function roleLabel(role: UserRole, t: (key: string) => string): string {
 function roleBadgeClasses(role: UserRole): string {
   switch (role) {
     case UserRole.Admin:
+    case UserRole.Owner:
       return "bg-ops-accent/15 text-ops-accent";
+    case UserRole.Office:
     case UserRole.OfficeCrew:
+    case UserRole.Operator:
       return "bg-[rgba(255,255,255,0.06)] text-text-secondary";
+    case UserRole.Crew:
     case UserRole.FieldCrew:
       return "bg-[rgba(107,143,113,0.15)] text-[#6B8F71]";
     default:

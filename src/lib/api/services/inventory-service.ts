@@ -157,23 +157,6 @@ function mapSnapshotItemFromDb(
   };
 }
 
-// ─── Default Units ───────────────────────────────────────────────────────────
-
-const DEFAULT_UNITS = [
-  "ea",
-  "box",
-  "ft",
-  "m",
-  "kg",
-  "lb",
-  "gal",
-  "L",
-  "roll",
-  "sheet",
-  "bag",
-  "pallet",
-];
-
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export const InventoryService = {
@@ -339,26 +322,6 @@ export const InventoryService = {
 
     if (error)
       throw new Error(`Failed to delete inventory unit: ${error.message}`);
-  },
-
-  async createDefaultUnits(companyId: string): Promise<InventoryUnit[]> {
-    const supabase = requireSupabase();
-
-    const rows = DEFAULT_UNITS.map((display, index) => ({
-      company_id: companyId,
-      display,
-      is_default: true,
-      sort_order: index,
-    }));
-
-    const { data, error } = await supabase
-      .from("inventory_units")
-      .insert(rows)
-      .select();
-
-    if (error)
-      throw new Error(`Failed to create default units: ${error.message}`);
-    return (data ?? []).map(mapUnitFromDb);
   },
 
   // ── Tags ─────────────────────────────────────────────────────────────────────

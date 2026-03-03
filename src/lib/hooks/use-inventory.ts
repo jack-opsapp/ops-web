@@ -157,20 +157,6 @@ export function useDeleteInventoryUnit() {
   });
 }
 
-export function useCreateDefaultUnits() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (companyId: string) =>
-      InventoryService.createDefaultUnits(companyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.inventory.units.lists(),
-      });
-    },
-  });
-}
-
 // ─── Tags ─────────────────────────────────────────────────────────────────────
 
 export function useInventoryTags() {

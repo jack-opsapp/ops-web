@@ -120,31 +120,6 @@ export const TaskTypeService = {
 
     if (error) throw new Error(`Failed to delete task type: ${error.message}`);
   },
-
-  /**
-   * Create default task types for a new company.
-   * Returns array of created IDs.
-   */
-  async createDefaultTaskTypes(companyId: string): Promise<string[]> {
-    const supabase = requireSupabase();
-
-    const rows = [
-      { company_id: companyId, display: "Quote", color: "#B5A381", is_default: true, display_order: 0 },
-      { company_id: companyId, display: "Installation", color: "#8195B5", is_default: true, display_order: 1 },
-      { company_id: companyId, display: "Repair", color: "#B58289", is_default: true, display_order: 2 },
-      { company_id: companyId, display: "Inspection", color: "#9DB582", is_default: true, display_order: 3 },
-      { company_id: companyId, display: "Consultation", color: "#A182B5", is_default: true, display_order: 4 },
-      { company_id: companyId, display: "Follow-up", color: "#C4A868", is_default: true, display_order: 5 },
-    ];
-
-    const { data, error } = await supabase
-      .from("task_types")
-      .insert(rows)
-      .select("id");
-
-    if (error) throw new Error(`Failed to create default task types: ${error.message}`);
-    return (data ?? []).map((r) => r.id as string);
-  },
 };
 
 export default TaskTypeService;

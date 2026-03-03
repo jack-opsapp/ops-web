@@ -30,17 +30,6 @@ export const FONT_SIZE_SCALES: Record<FontSizeId, number> = {
   large: 1.1,
 };
 
-export const DEFAULT_NOTIFICATION_PREFS: Record<string, boolean> = {
-  "Task assignments": true,
-  "Project updates": true,
-  "Team activity": true,
-  "Sync alerts": false,
-  "Client messages": true,
-  "Schedule changes": true,
-  "Invoice reminders": false,
-  "Pipeline movement": true,
-};
-
 // ---------------------------------------------------------------------------
 // Default widget instances — shown for new users / reset
 // ---------------------------------------------------------------------------
@@ -98,9 +87,15 @@ interface PreferencesState {
   schedulingType: SchedulingTypeId;
   setSchedulingType: (type: SchedulingTypeId) => void;
 
-  // Notifications
-  notificationPrefs: Record<string, boolean>;
-  setNotificationPref: (key: string, enabled: boolean) => void;
+  // Map
+  mapDefaultZoom: number;
+  mapDefaultCenter: { lat: number; lng: number } | null;
+  mapShowTraffic: boolean;
+  mapShowCrewLabels: boolean;
+  setMapDefaultZoom: (zoom: number) => void;
+  setMapDefaultCenter: (center: { lat: number; lng: number } | null) => void;
+  setMapShowTraffic: (show: boolean) => void;
+  setMapShowCrewLabels: (show: boolean) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -211,18 +206,28 @@ export const usePreferencesStore = create<PreferencesState>()(
       schedulingType: "both",
       setSchedulingType: (type) => set({ schedulingType: type }),
 
-      notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS },
-      setNotificationPref: (key, enabled) =>
-        set((state) => ({
-          notificationPrefs: { ...state.notificationPrefs, [key]: enabled },
-        })),
+      mapDefaultZoom: 12,
+      mapDefaultCenter: null,
+      mapShowTraffic: false,
+      mapShowCrewLabels: true,
+      setMapDefaultZoom: (zoom) => set({ mapDefaultZoom: zoom }),
+      setMapDefaultCenter: (center) => set({ mapDefaultCenter: center }),
+      setMapShowTraffic: (show) => set({ mapShowTraffic: show }),
+      setMapShowCrewLabels: (show) => set({ mapShowCrewLabels: show }),
     }),
     {
       name: "ops-preferences",
-      version: 6,
+      version: 8,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
+
+        // ── v7 → v8: Remove dead notificationPrefs (moved to server-persisted notification_preferences) ──
+        if (version < 8) {
+          delete state.notificationPrefs;
+        }
+
+        // ── v6 → v7: Add map preferences — no data migration needed, defaults apply ──
 
         // ── v5 → v6: Grid & stat widget overhaul — existing instances are valid, just bump ──
         // No data migration needed: new widget types are additive.

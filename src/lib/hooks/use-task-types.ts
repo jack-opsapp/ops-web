@@ -138,20 +138,3 @@ export function useDeleteTaskType() {
   });
 }
 
-/**
- * Create default task types for a new company.
- */
-export function useCreateDefaultTaskTypes() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (companyId: string) =>
-      TaskTypeService.createDefaultTaskTypes(companyId),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.taskTypes.all,
-      });
-    },
-  });
-}

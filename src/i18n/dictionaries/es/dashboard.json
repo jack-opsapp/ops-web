@@ -264,6 +264,7 @@
   "crewLocations.locationUnavailable": "Ubicación no disponible",
   "crewLocations.roleAdmin": "Admin",
   "crewLocations.roleOffice": "Oficina",
+  "crewLocations.roleOperator": "Operador",
   "crewLocations.roleField": "Campo",
 
   "clientActivity.title": "Actividad de clientes",

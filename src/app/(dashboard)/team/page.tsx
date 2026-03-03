@@ -40,7 +40,7 @@ import { getDateLocale } from "@/i18n/date-utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Role = "admin" | "office-crew" | "field-crew";
+type Role = "admin" | "owner" | "office" | "operator" | "crew";
 type MemberStatus = "active" | "inactive";
 
 interface TeamMember {
@@ -57,31 +57,41 @@ interface TeamMember {
 
 // ─── Role Mapping Helpers ────────────────────────────────────────────────────
 
-/** Map UserRole enum to the internal lowercase dash format used by the page */
+/** Map UserRole enum to the internal lowercase format used by the page */
 function userRoleToDisplayRole(role: UserRole): Role {
   switch (role) {
     case UserRole.Admin:
       return "admin";
+    case UserRole.Owner:
+      return "owner";
+    case UserRole.Office:
     case UserRole.OfficeCrew:
-      return "office-crew";
+      return "office";
+    case UserRole.Operator:
+      return "operator";
+    case UserRole.Crew:
     case UserRole.FieldCrew:
-      return "field-crew";
+      return "crew";
     default:
-      return "field-crew";
+      return "crew";
   }
 }
 
-/** Map internal lowercase dash format back to UserRole enum */
+/** Map internal lowercase format back to UserRole enum */
 function displayRoleToUserRole(role: Role): UserRole {
   switch (role) {
     case "admin":
       return UserRole.Admin;
-    case "office-crew":
-      return UserRole.OfficeCrew;
-    case "field-crew":
-      return UserRole.FieldCrew;
+    case "owner":
+      return UserRole.Owner;
+    case "office":
+      return UserRole.Office;
+    case "operator":
+      return UserRole.Operator;
+    case "crew":
+      return UserRole.Crew;
     default:
-      return UserRole.FieldCrew;
+      return UserRole.Crew;
   }
 }
 
@@ -128,13 +138,25 @@ const roleStyleConfig: Record<
     bg: "bg-ops-amber-muted",
     borderColor: "border-l-[#C4A868]",
   },
-  "office-crew": {
+  owner: {
+    icon: ShieldCheck,
+    color: "text-ops-amber",
+    bg: "bg-ops-amber-muted",
+    borderColor: "border-l-[#C4A868]",
+  },
+  office: {
     icon: Shield,
     color: "text-ops-accent",
     bg: "bg-ops-accent-muted",
     borderColor: "border-l-[#417394]",
   },
-  "field-crew": {
+  operator: {
+    icon: Shield,
+    color: "text-ops-accent",
+    bg: "bg-ops-accent-muted",
+    borderColor: "border-l-[#417394]",
+  },
+  crew: {
     icon: HardHat,
     color: "text-text-secondary",
     bg: "bg-background-elevated",
@@ -144,11 +166,13 @@ const roleStyleConfig: Record<
 
 const ROLE_LABEL_KEYS: Record<Role, string> = {
   admin: "team.role.admin",
-  "office-crew": "team.role.officeCrew",
-  "field-crew": "team.role.fieldCrew",
+  owner: "team.role.owner",
+  office: "team.role.office",
+  operator: "team.role.operator",
+  crew: "team.role.crew",
 };
 
-const roleOptions: Role[] = ["admin", "office-crew", "field-crew"];
+const roleOptions: Role[] = ["admin", "owner", "office", "operator", "crew"];
 
 // ─── Role Badge ──────────────────────────────────────────────────────────────
 
@@ -585,9 +609,9 @@ export default function TeamPage() {
   const maxSeats = company?.maxSeats ?? 10;
 
   const activeCount = team.filter((m) => m.status === "active").length;
-  const adminCount = team.filter((m) => m.role === "admin").length;
-  const officeCount = team.filter((m) => m.role === "office-crew").length;
-  const fieldCount = team.filter((m) => m.role === "field-crew").length;
+  const adminCount = team.filter((m) => m.role === "admin" || m.role === "owner").length;
+  const officeCount = team.filter((m) => m.role === "office" || m.role === "operator").length;
+  const fieldCount = team.filter((m) => m.role === "crew").length;
 
   const filteredTeam = useMemo(() => {
     if (!searchQuery.trim()) return team;
@@ -602,9 +626,9 @@ export default function TeamPage() {
   }, [team, searchQuery]);
 
   // Group by role for display
-  const admins = filteredTeam.filter((m) => m.role === "admin");
-  const officeCrew = filteredTeam.filter((m) => m.role === "office-crew");
-  const fieldCrew = filteredTeam.filter((m) => m.role === "field-crew");
+  const admins = filteredTeam.filter((m) => m.role === "admin" || m.role === "owner");
+  const officeCrew = filteredTeam.filter((m) => m.role === "office" || m.role === "operator");
+  const fieldCrew = filteredTeam.filter((m) => m.role === "crew");
 
   function handleChangeRole(memberId: string, newRole: Role) {
     const userRole = displayRoleToUserRole(newRole);

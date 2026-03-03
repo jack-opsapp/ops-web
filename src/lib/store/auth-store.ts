@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: true,
-      role: UserRole.FieldCrew,
+      role: UserRole.Crew,
 
       // Login: set user, token, and update auth state
       login: (user: User, token: string) => {
@@ -73,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           isAuthenticated: false,
           isLoading: false,
-          role: UserRole.FieldCrew,
+          role: UserRole.Crew,
         });
       },
 
@@ -115,7 +115,7 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             isLoading: false,
-            role: UserRole.FieldCrew,
+            role: UserRole.Crew,
           });
         }
       },
@@ -128,7 +128,7 @@ export const useAuthStore = create<AuthState>()(
         const { currentUser, company } = get();
         if (!currentUser) return;
 
-        let role = UserRole.FieldCrew;
+        let role = UserRole.Crew;
 
         // Priority 1: Check company admin IDs
         if (company?.adminIds?.includes(currentUser.id)) {
@@ -218,13 +218,13 @@ export const useAuthStore = create<AuthState>()(
 export const selectIsAdmin = (state: AuthState) =>
   state.role === UserRole.Admin;
 
-/** Check if user has office crew or admin role */
+/** Check if user has office or higher role */
 export const selectIsOfficeOrAdmin = (state: AuthState) =>
-  state.role === UserRole.Admin || state.role === UserRole.OfficeCrew;
+  state.role === UserRole.Admin || state.role === UserRole.Owner || state.role === UserRole.Office;
 
-/** Check if user is field crew */
+/** Check if user is field crew (crew or operator) */
 export const selectIsFieldCrew = (state: AuthState) =>
-  state.role === UserRole.FieldCrew;
+  state.role === UserRole.Crew || state.role === UserRole.Operator;
 
 /** Get the company ID */
 export const selectCompanyId = (state: AuthState) =>
