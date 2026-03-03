@@ -61,6 +61,7 @@ interface Star {
   tintR: number;
   tintG: number;
   tintB: number;
+  orbitStrength: number; // 0 = free, 1 = fully orbiting (smooth ramp)
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -68,8 +69,9 @@ interface Star {
 const ACCENT = { r: 89, g: 119, b: 148 }; // #597794 — answered
 const AMBER = { r: 196, g: 168, b: 104 }; // #C4A868 — unanswered
 const BLUE_BURST = { r: 120, g: 170, b: 220 }; // burst color
-const STAR_COUNT = 600;
+const STAR_COUNT = 1000;
 const CLUSTER_COUNT = 8;
+const STARS_PER_NODE = 25; // extra stars spawned near each question node
 const FOCAL_LENGTH = 600;
 const REPULSE_RADIUS = 100;
 const REPULSE_STRENGTH = 4;
@@ -137,6 +139,7 @@ export function SetupStarfield({
   const starsRef = useRef<Star[]>([]);
   const hoveredNodeRef = useRef<string | null>(null);
   const focusProgressRef = useRef(0);
+  const nodeSpreadRef = useRef(1);
   const questionsRef = useRef(questions);
   questionsRef.current = questions;
 
@@ -194,8 +197,9 @@ export function SetupStarfield({
 
   const zoomToNode = useCallback((q: StarfieldQuestion) => {
     const camera = cameraRef.current;
-    camera.targetX = q.position.x * 0.2;
-    camera.targetY = q.position.y * 0.2;
+    const ns = nodeSpreadRef.current;
+    camera.targetX = q.position.x * ns * 0.2;
+    camera.targetY = q.position.y * ns * 0.2;
     camera.targetZoom = 1.2;
     nodeFocusTimeRef.current = Date.now();
     const questionIndex = visibleQuestionsRef.current.findIndex(
@@ -269,6 +273,10 @@ export function SetupStarfield({
     const containerW = container?.getBoundingClientRect().width ?? 800;
     const spreadScale = Math.max(1, containerW / 800);
 
+    // Node spread: push question nodes further apart on wider screens
+    const nodeSpread = Math.min(1.6, 1 + Math.max(0, containerW - 600) / 2000);
+    nodeSpreadRef.current = nodeSpread;
+
     // Generate cluster centers
     const clusterCenters = Array.from({ length: CLUSTER_COUNT }, () => ({
       x: (Math.random() - 0.5) * 900 * spreadScale,
@@ -276,41 +284,27 @@ export function SetupStarfield({
       z: (Math.random() - 0.5) * 400,
     }));
 
-    // Generate stars
-    const stars: Star[] = [];
-    for (let i = 0; i < STAR_COUNT; i++) {
-      let x: number, y: number, z: number;
-      if (i < STAR_COUNT * 0.35) {
-        const c = clusterCenters[i % CLUSTER_COUNT];
-        const spread = 40 + Math.random() * 120;
-        x = c.x + (Math.random() - 0.5) * spread;
-        y = c.y + (Math.random() - 0.5) * spread;
-        z = c.z + (Math.random() - 0.5) * spread * 0.5;
-      } else {
-        x = (Math.random() - 0.5) * 1600 * spreadScale;
-        y = (Math.random() - 0.5) * 1200 * spreadScale;
-        z = (Math.random() - 0.5) * 600;
-      }
+    // Helper: create a star at given position with optional spread
+    function makeStar(bx: number, by: number, bz: number, spread: number): Star {
+      const x = bx + (Math.random() - 0.5) * spread;
+      const y = by + (Math.random() - 0.5) * spread;
+      const z = bz + (Math.random() - 0.5) * spread * 0.3;
 
       const sizeRoll = Math.random();
       const size =
         sizeRoll < 0.5
-          ? 2 + Math.random() * 2.5 // Small: 2-4.5px
+          ? 2 + Math.random() * 2.5
           : sizeRoll < 0.85
-            ? 4.5 + Math.random() * 3.5 // Medium: 4.5-8px
-            : 8 + Math.random() * 6; // Large: 8-14px
+            ? 4.5 + Math.random() * 3.5
+            : 8 + Math.random() * 6;
 
-      // Varying speed: some stars crawl (0.3x), most normal, some fast (2.5x)
       const speedRoll = Math.random();
       const speedMult = speedRoll < 0.3 ? 0.3 + Math.random() * 0.4
         : speedRoll < 0.8 ? 0.8 + Math.random() * 0.6
         : 1.5 + Math.random() * 1.0;
 
-      stars.push({
-        x,
-        y,
-        z,
-        size,
+      return {
+        x, y, z, size,
         baseAlpha: 0.12 + Math.random() * 0.25,
         vx: (Math.random() - 0.5) * 3 * speedMult,
         vy: (Math.random() - 0.5) * 3 * speedMult,
@@ -330,8 +324,40 @@ export function SetupStarfield({
         tintR: 220,
         tintG: 220,
         tintB: 230,
-      });
+        orbitStrength: 0,
+      };
     }
+
+    // Generate base stars (cluster + ambient)
+    const stars: Star[] = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
+      if (i < STAR_COUNT * 0.35) {
+        const c = clusterCenters[i % CLUSTER_COUNT];
+        const spread = 40 + Math.random() * 120;
+        stars.push(makeStar(c.x, c.y, c.z, spread));
+      } else {
+        stars.push(makeStar(
+          (Math.random() - 0.5) * 1600 * spreadScale,
+          (Math.random() - 0.5) * 1200 * spreadScale,
+          (Math.random() - 0.5) * 600,
+          0
+        ));
+      }
+    }
+
+    // Extra stars near each question node (denser particle field around nodes)
+    const qs = questionsRef.current;
+    for (const q of qs) {
+      for (let j = 0; j < STARS_PER_NODE; j++) {
+        stars.push(makeStar(
+          q.position.x * nodeSpread,
+          q.position.y * nodeSpread,
+          q.position.z,
+          120 // spread radius around node
+        ));
+      }
+    }
+
     starsRef.current = stars;
 
     // Mouse handlers
@@ -414,13 +440,15 @@ export function SetupStarfield({
 
       const isFocused = focusedNodeRef.current !== null;
 
+      const ns = nodeSpreadRef.current;
+
       for (const q of qs) {
         const oscX = Math.sin(t * 0.3 + q.position.x * 0.02) * 4;
         const oscY = Math.cos(t * 0.25 + q.position.y * 0.02) * 4;
 
         const proj = project3D(
-          q.position.x + oscX,
-          q.position.y + oscY,
+          q.position.x * ns + oscX,
+          q.position.y * ns + oscY,
           q.position.z,
           camera,
           centerX,
@@ -606,23 +634,26 @@ export function SetupStarfield({
           continue;
         }
 
-        // Orbit logic — varying gravity per star via mass
+        // Orbit logic — smooth acceleration into orbit, smooth release
         if (orbitTarget && !star.bursting) {
           const dx = sx - orbitTarget.sx;
           const dy = sy - orbitTarget.sy;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          // Wider capture radius, scaled by mass (heavier = captured from further)
+          // Capture radius scaled by mass (heavier = captured from further)
           const captureR = CAPTURE_RADIUS * (0.8 + star.mass * 0.3);
 
           if (dist < captureR) {
+            // Smoothly ramp orbit strength up (heavier stars accelerate faster)
+            const accelRate = (0.8 + star.mass * 0.4) * dt;
+            star.orbitStrength = Math.min(1, star.orbitStrength + accelRate);
             star.captured = true;
 
-            // Orbit speed varies by mass — lighter = faster orbit
+            // Orbit speed ramps with orbitStrength — starts slow, reaches full speed
             const massOrbitSpeed = ORBIT_SPEED * (2.2 - star.mass * 0.6);
-            star.orbitAngle += massOrbitSpeed * dt;
+            star.orbitAngle += massOrbitSpeed * dt * star.orbitStrength;
 
-            // Orbit radius varies: heavier stars orbit closer (more pull)
+            // Orbit radius varies: heavier stars orbit closer
             const massOrbitRadius = orbitTarget.radius * (0.6 + (1 - star.mass / 2) * 0.8);
 
             // Target orbit position
@@ -633,38 +664,48 @@ export function SetupStarfield({
               orbitTarget.sy +
               Math.sin(star.orbitAngle) * massOrbitRadius;
 
-            // Gravitational pull lerp: heavier = snappier pull
-            const pullStrength = 0.03 + star.mass * 0.03;
+            // Pull strength ramps with orbitStrength — gradual pull-in
+            const pullStrength = (0.03 + star.mass * 0.03) * star.orbitStrength;
             const targetDx = targetOrbitX - proj.x;
             const targetDy = targetOrbitY - proj.y;
             star.displaceX += (targetDx - star.displaceX) * pullStrength;
             star.displaceY += (targetDy - star.displaceY) * pullStrength;
 
-            // Tint toward orbit color
-            star.tintAmount = Math.min(1, star.tintAmount + dt * 2);
+            // Tint ramps with orbit strength
+            star.tintAmount = Math.min(1, star.tintAmount + dt * 2 * star.orbitStrength);
             star.tintR = orbitTarget.tintR;
             star.tintG = orbitTarget.tintG;
             star.tintB = orbitTarget.tintB;
           } else {
-            star.captured = false;
-            star.tintAmount = Math.max(0, star.tintAmount - dt * 3);
+            // Outside capture range — smoothly decelerate
+            star.orbitStrength = Math.max(0, star.orbitStrength - dt * 1.8);
+            if (star.orbitStrength < 0.01) {
+              star.captured = false;
+              star.orbitStrength = 0;
+            }
+            star.tintAmount = Math.max(0, star.tintAmount - dt * 2);
           }
         } else if (!star.bursting) {
-          // No orbit target — release captured stars
-          if (star.captured) {
+          // No orbit target — smoothly release (not instant uncapture)
+          star.orbitStrength = Math.max(0, star.orbitStrength - dt * 1.2);
+          if (star.orbitStrength < 0.01) {
             star.captured = false;
+            star.orbitStrength = 0;
           }
-          star.tintAmount = Math.max(0, star.tintAmount - dt * 3);
+          star.tintAmount = Math.max(0, star.tintAmount - dt * 2);
         }
 
-        // Decay displacement (when not orbiting)
-        if (!star.captured && !star.bursting && !prefersReduced) {
-          star.displaceX *= 0.92;
-          star.displaceY *= 0.92;
+        // Decay displacement — rate depends on orbit strength (orbiting stars hold position)
+        if (!star.bursting && !prefersReduced) {
+          const decayRate = star.captured ? (0.98 - star.orbitStrength * 0.06) : 0.92;
+          if (!star.captured || star.orbitStrength < 0.5) {
+            star.displaceX *= decayRate;
+            star.displaceY *= decayRate;
+          }
         }
 
-        // Cursor repulsion — disabled when hovering/focusing a node (orbit takes over)
-        if (!star.captured && !star.bursting && !prefersReduced && !orbitTarget) {
+        // Cursor repulsion — disabled when orbiting or when an orbit target exists
+        if (star.orbitStrength < 0.1 && !star.bursting && !prefersReduced && !orbitTarget) {
           const mdx = sx - mouse.x;
           const mdy = sy - mouse.y;
           const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
@@ -872,12 +913,13 @@ export function SetupStarfield({
       }
 
       // Check if clicking a question node
+      const clickNs = nodeSpreadRef.current;
       for (const q of qs) {
         const oscX = Math.sin(t * 0.3 + q.position.x * 0.02) * 4;
         const oscY = Math.cos(t * 0.25 + q.position.y * 0.02) * 4;
         const proj = project3D(
-          q.position.x + oscX,
-          q.position.y + oscY,
+          q.position.x * clickNs + oscX,
+          q.position.y * clickNs + oscY,
           q.position.z,
           camera,
           centerX,
