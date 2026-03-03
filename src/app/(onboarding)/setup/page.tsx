@@ -26,6 +26,7 @@ import {
 } from "@/lib/analytics/analytics";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults";
 import { IdentityStep1, IdentityStep2 } from "@/components/setup/SetupIdentityStep";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
@@ -51,7 +52,7 @@ export default function SetupPage() {
     lastName,
     phone,
     companyName,
-    industry,
+    industries,
     companySize,
     companyAge,
     setIdentity,
@@ -65,7 +66,39 @@ export default function SetupPage() {
 
   const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
 
+  // Pre-populate from auth store if available
+  const authUser = useAuthStore((s) => s.currentUser);
+  const authCompany = useAuthStore((s) => s.company);
+  const hasPrePopulated = useRef(false);
+
+  useEffect(() => {
+    if (hasPrePopulated.current) return;
+    hasPrePopulated.current = true;
+
+    // Pre-fill identity fields from auth user (only if empty)
+    if (authUser) {
+      const identityUpdates: Record<string, string> = {};
+      if (!firstName && authUser.firstName) identityUpdates.firstName = authUser.firstName;
+      if (!lastName && authUser.lastName) identityUpdates.lastName = authUser.lastName;
+      if (!phone && authUser.phone) identityUpdates.phone = authUser.phone;
+      if (Object.keys(identityUpdates).length > 0) setIdentity(identityUpdates);
+    }
+
+    // Pre-fill company fields from auth company (only if empty)
+    if (authCompany) {
+      const companyUpdates: Record<string, unknown> = {};
+      if (!companyName && authCompany.name) companyUpdates.companyName = authCompany.name;
+      if (industries.length === 0 && authCompany.industries?.length > 0) companyUpdates.industries = authCompany.industries;
+      if (!companySize && authCompany.companySize) companyUpdates.companySize = authCompany.companySize;
+      if (!companyAge && authCompany.companyAge) companyUpdates.companyAge = authCompany.companyAge;
+      if (Object.keys(companyUpdates).length > 0) setCompanyInfo(companyUpdates as Parameters<typeof setCompanyInfo>[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, authCompany]);
+
   const answeredCount = Object.keys(starfieldAnswers).length;
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+  const workspacePromiseRef = useRef<Promise<void> | null>(null);
 
   // ─── Focus management ──────────────────────────────────────────────────
 
@@ -151,7 +184,7 @@ export default function SetupPage() {
           body: JSON.stringify({
             token,
             step: "company",
-            data: { companyName, industry, companySize, companyAge },
+            data: { companyName, industries, companySize, companyAge },
           }),
         });
       }
@@ -159,7 +192,7 @@ export default function SetupPage() {
       // Non-blocking
     }
     setPhase("starfield");
-  }, [completeStep, setPhase, companyName, industry, companySize, companyAge]);
+  }, [completeStep, setPhase, companyName, industries, companySize, companyAge]);
 
   const handleNext = useCallback(() => {
     if (phase === "identity") {
@@ -208,7 +241,7 @@ export default function SetupPage() {
     [setStarfieldAnswer]
   );
 
-  const handleLaunchFromStarfield = useCallback(() => {
+  const handleLaunchFromStarfield = useCallback(async () => {
     if (answeredCount >= MIN_STARFIELD_ANSWERS) {
       const starfieldDuration = Date.now() - starfieldStartRef.current;
       trackStarfieldLaunched(
@@ -217,10 +250,35 @@ export default function SetupPage() {
         starfieldDuration
       );
       setPhase("launching");
+
+      // Fire workspace setup in parallel with animation (safety-net, idempotent)
+      workspacePromiseRef.current = (async () => {
+        try {
+          const token = await getAuthToken();
+          if (token) {
+            const res = await fetch("/api/setup/initialize-workspace", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token }),
+            });
+            if (res.ok) setWorkspaceReady(true);
+          }
+        } catch {
+          // Non-blocking — primary call happens server-side in /api/setup/progress
+        }
+      })();
     }
   }, [answeredCount, starfieldAnswers, setPhase]);
 
   const handleLaunchComplete = useCallback(async () => {
+    // 0. Wait for workspace setup (max 3s so we don't block forever)
+    if (workspacePromiseRef.current) {
+      await Promise.race([
+        workspacePromiseRef.current,
+        new Promise((r) => setTimeout(r, 3000)),
+      ]);
+    }
+
     // 1. Save starfield answers
     completeStep("starfield");
 
@@ -333,6 +391,7 @@ export default function SetupPage() {
           questions={STARFIELD_QUESTIONS}
           starfieldAnswers={starfieldAnswers}
           onComplete={handleLaunchComplete}
+          workspaceReady={workspaceReady}
         />
       </div>
     );
@@ -410,7 +469,7 @@ export default function SetupPage() {
         {phase === "company" && (
           <IdentityStep2
             companyName={companyName}
-            industry={industry}
+            industries={industries}
             companySize={companySize}
             companyAge={companyAge}
             onUpdate={(data) => setCompanyInfo(data)}

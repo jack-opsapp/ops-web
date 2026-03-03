@@ -55,16 +55,27 @@ function generateParticles(): Particle[] {
   const particles: Particle[] = [];
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     particles.push({
-      x: Math.random(),
-      y: Math.random(),
-      vx: (Math.random() - 0.5) * 0.0003,
-      vy: (Math.random() - 0.5) * 0.0003,
+      x: -0.3 + Math.random() * 1.6,
+      y: -0.3 + Math.random() * 1.6,
+      vx: (Math.random() - 0.5) * 0.00012,
+      vy: (Math.random() - 0.5) * 0.00012,
       size: 2 + Math.random() * 3.5,
       baseAlpha: 0.15 + Math.random() * 0.15,
       phase: Math.random() * Math.PI * 2,
     });
   }
   return particles;
+}
+
+/** Alpha multiplier: 1.0 in center, fades to 0 at boundary edges */
+function edgeTaper(x: number, y: number): number {
+  const EDGE = 0.3; // taper zone width (matches expanded boundary)
+  let taper = 1;
+  if (x < 0)       taper = Math.min(taper, 1 - Math.min(1, -x / EDGE));
+  if (x > 1)       taper = Math.min(taper, 1 - Math.min(1, (x - 1) / EDGE));
+  if (y < 0)       taper = Math.min(taper, 1 - Math.min(1, -y / EDGE));
+  if (y > 1)       taper = Math.min(taper, 1 - Math.min(1, (y - 1) / EDGE));
+  return taper * taper; // quadratic falloff for smoother taper
 }
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
@@ -229,9 +240,9 @@ export function ForcedChoiceResponse({
           if (distToNode < -0.1) { p.vy += Math.sin(time * 1.5 + p.phase) * 0.0003 * (1 - approachT); p.vx += Math.cos(time * 0.8 + p.phase * 2) * 0.00008 * (1 - approachT); }
           else { p.vy += Math.sin(time * 2 + p.phase) * 0.00005; }
           p.x += p.vx; p.y += p.vy;
-          if (flowDir < 0 && p.x < -0.02) { p.x = 1.0 + Math.random() * 0.15; p.y = selNode.ny + (Math.random() - 0.5) * 0.8; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0005; }
-          else if (flowDir > 0 && p.x > 1.02) { p.x = -0.15 + Math.random() * 0.15; p.y = selNode.ny + (Math.random() - 0.5) * 0.8; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0005; }
-          if (p.y < -0.05) p.y = 1.05; if (p.y > 1.05) p.y = -0.05;
+          if (flowDir < 0 && p.x < -0.3) { p.x = 1.0 + Math.random() * 0.25; p.y = selNode.ny + (Math.random() - 0.5) * 0.8; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0005; }
+          else if (flowDir > 0 && p.x > 1.3) { p.x = -0.25 + Math.random() * 0.25; p.y = selNode.ny + (Math.random() - 0.5) * 0.8; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0005; }
+          if (p.y < -0.3) p.y = 1.3; if (p.y > 1.3) p.y = -0.3;
         } else if (hoverIdx >= 0) {
           const hovNode = hoverIdx === 0 ? LEFT_NODE : RIGHT_NODE;
           const dx = hovNode.nx - p.x, dy = hovNode.ny - p.y;
@@ -239,11 +250,11 @@ export function ForcedChoiceResponse({
           if (dist > 0.01) { p.vx += (dx / dist) * 0.00025; p.vy += (dy / dist) * 0.00025; p.vx += (-dy / dist) * 0.00012; p.vy += (dx / dist) * 0.00012; }
           p.vx += Math.sin(time * 0.2 + p.phase) * 0.00003; p.vy += Math.cos(time * 0.15 + p.phase * 1.3) * 0.00003;
           p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx; p.y += p.vy;
-          if (p.x < -0.05) p.x = 1.05; if (p.x > 1.05) p.x = -0.05; if (p.y < -0.05) p.y = 1.05; if (p.y > 1.05) p.y = -0.05;
+          if (p.x < -0.3) p.x = 1.3; if (p.x > 1.3) p.x = -0.3; if (p.y < -0.3) p.y = 1.3; if (p.y > 1.3) p.y = -0.3;
         } else {
           p.vx += Math.sin(time * 0.2 + p.phase) * 0.00008; p.vy += Math.cos(time * 0.15 + p.phase * 1.3) * 0.00008;
           p.vx *= 0.99; p.vy *= 0.99; p.x += p.vx; p.y += p.vy;
-          if (p.x < -0.05) p.x = 1.05; if (p.x > 1.05) p.x = -0.05; if (p.y < -0.05) p.y = 1.05; if (p.y > 1.05) p.y = -0.05;
+          if (p.x < -0.3) p.x = 1.3; if (p.x > 1.3) p.x = -0.3; if (p.y < -0.3) p.y = 1.3; if (p.y > 1.3) p.y = -0.3;
         }
 
         // Color + alpha
@@ -264,6 +275,8 @@ export function ForcedChoiceResponse({
           const c = lerpColor(NEUTRAL, hoverIdx === 0 ? BLUE : ORANGE, proximity * 0.8); cr = c.r; cg = c.g; cb = c.b;
           alpha = p.baseAlpha + proximity * 0.2;
         } else { cr = NEUTRAL.r; cg = NEUTRAL.g; cb = NEUTRAL.b; alpha = p.baseAlpha + Math.sin(time * 0.5 + p.phase) * 0.03; }
+        // Apply edge taper — particles fade out at expanded boundary edges
+        alpha *= edgeTaper(p.x, p.y);
         ctx.fillStyle = `rgba(${cr | 0}, ${cg | 0}, ${cb | 0}, ${Math.max(0, Math.min(1, alpha))})`;
         ctx.fillRect(px - p.size / 2, py - p.size / 2, p.size, p.size);
       }
@@ -292,10 +305,10 @@ export function ForcedChoiceResponse({
         let labelAlpha: number;
         if (isSelected) labelAlpha = 0.95; else if (isHovered && hasSelection) labelAlpha = 0.75;
         else if (isHovered) labelAlpha = 0.90; else if (hasSelection) labelAlpha = 0.30; else labelAlpha = 0.65;
-        ctx.font = '400 12px "Kosugi", sans-serif'; ctx.textAlign = 'center';
+        ctx.font = '400 14px "Kosugi", sans-serif'; ctx.textAlign = 'center';
         ctx.fillStyle = `rgba(255, 255, 255, ${labelAlpha})`;
-        const lines = wrapText(ctx, optionsRef.current[i].label, w * 0.30);
-        for (let l = 0; l < lines.length; l++) ctx.fillText(lines[l], nodeX, nodeY + 18 + l * 15);
+        const lines = wrapText(ctx, optionsRef.current[i].label.toUpperCase(), w * 0.30);
+        for (let l = 0; l < lines.length; l++) ctx.fillText(lines[l], nodeX, nodeY + 20 + l * 18);
       }
 
       animRef.current = requestAnimationFrame(draw);

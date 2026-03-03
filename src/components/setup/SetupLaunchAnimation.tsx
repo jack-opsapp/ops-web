@@ -15,7 +15,8 @@
  * Total: ~5-6 seconds
  */
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
+import { Check } from "lucide-react";
 import type { StarfieldQuestion } from "@/stores/setup-store";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -38,12 +39,14 @@ interface SetupLaunchAnimationProps {
   questions: StarfieldQuestion[];
   starfieldAnswers: Record<string, string | number>;
   onComplete: () => void;
+  workspaceReady?: boolean;
 }
 
 export function SetupLaunchAnimation({
   questions,
   starfieldAnswers,
   onComplete,
+  workspaceReady,
 }: SetupLaunchAnimationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,6 +54,13 @@ export function SetupLaunchAnimation({
   const startTimeRef = useRef<number | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+
+  // Workspace overlay: fade in after 500ms delay
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setOverlayVisible(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -337,6 +347,29 @@ export function SetupLaunchAnimation({
         ref={canvasRef}
         style={{ display: "block", width: "100%", height: "100%" }}
       />
+
+      {/* Workspace setup overlay */}
+      <div
+        className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 transition-opacity duration-500"
+        style={{ opacity: overlayVisible ? 1 : 0 }}
+      >
+        <div className="flex items-center gap-1.5">
+          {workspaceReady && (
+            <Check className="w-3 h-3 text-ops-accent" />
+          )}
+          <span className="font-kosugi text-[11px] text-text-disabled uppercase tracking-widest">
+            {workspaceReady ? "Ready" : "Setting up your workspace\u2026"}
+          </span>
+        </div>
+        <div className="w-32 h-[2px] rounded-full bg-[rgba(255,255,255,0.06)] overflow-hidden">
+          <div
+            className={`h-full bg-ops-accent rounded-full transition-all duration-500 ${
+              workspaceReady ? "w-full" : "animate-shimmer"
+            }`}
+            style={workspaceReady ? undefined : { width: "40%" }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

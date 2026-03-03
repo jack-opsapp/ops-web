@@ -10,7 +10,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { getAuth } from "firebase/auth";
-import { Loader2 } from "lucide-react";
 import {
   trackInterceptionShown,
   trackInterceptionStepCompleted,
@@ -68,7 +67,7 @@ export function SetupInterceptionModal({
 
   // ── Company form state ───────────────────────────────────────────────
   const [companyName, setCompanyName] = useState("");
-  const [industry, setIndustry] = useState("");
+  const [industries, setIndustries] = useState<string[]>([]);
   const [companySize, setCompanySize] = useState("");
   const [companyAge, setCompanyAge] = useState("");
 
@@ -101,7 +100,7 @@ export function SetupInterceptionModal({
         const data =
           step === "identity"
             ? { firstName, lastName, phone }
-            : { companyName, industry, companySize, companyAge };
+            : { companyName, industries, companySize, companyAge };
 
         const res = await fetch("/api/setup/progress", {
           method: "POST",
@@ -137,7 +136,7 @@ export function SetupInterceptionModal({
         return false;
       }
     },
-    [firstName, lastName, phone, companyName, industry, companySize, companyAge, currentUser, setUser]
+    [firstName, lastName, phone, companyName, industries, companySize, companyAge, currentUser, setUser]
   );
 
   // ── Handle continue ──────────────────────────────────────────────────
@@ -227,12 +226,12 @@ export function SetupInterceptionModal({
           {currentStep === "company" && (
             <IdentityStep2
               companyName={companyName}
-              industry={industry}
+              industries={industries}
               companySize={companySize}
               companyAge={companyAge}
               onUpdate={(data) => {
                 if (data.companyName !== undefined) setCompanyName(data.companyName);
-                if (data.industry !== undefined) setIndustry(data.industry);
+                if (data.industries !== undefined) setIndustries(data.industries);
                 if (data.companySize !== undefined) setCompanySize(data.companySize);
                 if (data.companyAge !== undefined) setCompanyAge(data.companyAge);
               }}

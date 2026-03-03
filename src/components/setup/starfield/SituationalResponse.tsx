@@ -364,7 +364,7 @@ export function SituationalResponse({
                 : hasSelection
                   ? 0.25
                   : 0.6;
-          ctx.font = '400 12px "Kosugi", sans-serif';
+          ctx.font = '400 14px "Kosugi", sans-serif';
           const labelR = (200 + (ACCENT.r - 200) * tint) | 0;
           const labelG = (200 + (ACCENT.g - 200) * tint) | 0;
           const labelB = (200 + (ACCENT.b - 200) * tint) | 0;
@@ -377,7 +377,7 @@ export function SituationalResponse({
 
           if (isLeftSide) {
             ctx.textAlign = "right";
-            const lines = wrapText(ctx, options[i].label, maxWidth);
+            const lines = wrapText(ctx, options[i].label.toUpperCase(), maxWidth);
             const lineHeight = 15;
             const blockHeight = (lines.length - 1) * lineHeight;
             const startY = pos.y - blockHeight / 2;
@@ -390,7 +390,7 @@ export function SituationalResponse({
             }
           } else {
             ctx.textAlign = "left";
-            const lines = wrapText(ctx, options[i].label, maxWidth);
+            const lines = wrapText(ctx, options[i].label.toUpperCase(), maxWidth);
             const lineHeight = 15;
             const blockHeight = (lines.length - 1) * lineHeight;
             const startY = pos.y - blockHeight / 2;
@@ -575,7 +575,7 @@ export function SituationalResponse({
                 : hasSelection
                   ? 0.25
                   : 0.6;
-          ctx.font = '400 12px "Kosugi", sans-serif';
+          ctx.font = '400 14px "Kosugi", sans-serif';
           const labelR = (200 + (ACCENT.r - 200) * tint) | 0;
           const labelG = (200 + (ACCENT.g - 200) * tint) | 0;
           const labelB = (200 + (ACCENT.b - 200) * tint) | 0;
@@ -599,7 +599,7 @@ export function SituationalResponse({
             textX = pos.x + 20;
           }
 
-          const lines = wrapText(ctx, options[i].label, maxWidth);
+          const lines = wrapText(ctx, options[i].label.toUpperCase(), maxWidth);
           const blockHeight = (lines.length - 1) * lineHeight;
           const blockStartY = pos.y - blockHeight / 2;
 

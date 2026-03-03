@@ -117,8 +117,8 @@ function IndustryDropdown({
   value,
   onChange,
 }: {
-  value: string;
-  onChange: (val: string) => void;
+  value: string[];
+  onChange: (val: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -161,16 +161,23 @@ function IndustryDropdown({
     }
   }, [highlightedIndex]);
 
-  const selectOption = useCallback((ind: string) => {
+  const toggleOption = useCallback((ind: string) => {
     if (ind === "Other") {
-      onChange("Other");
+      // "Other" is exclusive — selecting it replaces all
+      if (value.includes("Other")) {
+        onChange(value.filter((v) => v !== "Other"));
+      } else {
+        onChange([...value, "Other"]);
+      }
     } else {
-      onChange(ind);
+      if (value.includes(ind)) {
+        onChange(value.filter((v) => v !== ind));
+      } else {
+        // Remove "Other" placeholder when selecting a real industry
+        onChange([...value.filter((v) => v !== "Other"), ind]);
+      }
     }
-    setOpen(false);
-    setSearch("");
-    setHighlightedIndex(-1);
-  }, [onChange]);
+  }, [onChange, value]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!open) return;
@@ -191,7 +198,7 @@ function IndustryDropdown({
       case "Enter":
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
-          selectOption(filtered[highlightedIndex]);
+          toggleOption(filtered[highlightedIndex]);
         }
         break;
       case "Escape":
@@ -201,10 +208,16 @@ function IndustryDropdown({
         setHighlightedIndex(-1);
         break;
     }
-  }, [open, filtered, highlightedIndex, selectOption]);
+  }, [open, filtered, highlightedIndex, toggleOption]);
 
-  const isOther = value === "Other" || (value !== "" && !INDUSTRIES.includes(value as typeof INDUSTRIES[number]));
+  const hasOther = value.includes("Other") || value.some((v) => !INDUSTRIES.includes(v as typeof INDUSTRIES[number]));
   const listboxId = "industry-listbox";
+
+  const displayText = value.length === 0
+    ? ""
+    : value.length <= 2
+      ? value.join(", ")
+      : `${value.slice(0, 2).join(", ")} +${value.length - 2}`;
 
   return (
     <div ref={dropdownRef} className="relative" onKeyDown={handleKeyDown}>
@@ -224,18 +237,40 @@ function IndustryDropdown({
           "border border-border",
           "transition-all duration-150",
           "focus:border-[rgba(255,255,255,0.25)] focus:outline-none",
-          !value && "text-text-tertiary"
+          value.length === 0 && "text-text-tertiary"
         )}
       >
-        <span>{value || "Select your industry"}</span>
+        <span className="truncate">{displayText || "Select industries"}</span>
         <ChevronDown
           className={cn(
-            "w-4 h-4 text-text-tertiary transition-transform",
+            "w-4 h-4 text-text-tertiary transition-transform flex-shrink-0",
             open && "rotate-180"
           )}
           aria-hidden="true"
         />
       </button>
+
+      {/* Selected chips */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {value.filter((v) => v !== "Other").map((ind) => (
+            <span
+              key={ind}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption text-text-secondary"
+            >
+              {ind}
+              <button
+                type="button"
+                onClick={() => toggleOption(ind)}
+                className="text-text-disabled hover:text-text-primary transition-colors"
+                aria-label={`Remove ${ind}`}
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm overflow-hidden">
@@ -267,30 +302,34 @@ function IndustryDropdown({
             id={listboxId}
             role="listbox"
             aria-label="Industries"
+            aria-multiselectable="true"
             className="max-h-[200px] overflow-y-auto"
           >
-            {filtered.map((ind, index) => (
-              <button
-                key={ind}
-                id={`industry-option-${index}`}
-                type="button"
-                role="option"
-                aria-selected={value === ind}
-                onClick={() => selectOption(ind)}
-                className={cn(
-                  "w-full flex items-center justify-between px-1.5 py-1 text-left min-h-[44px]",
-                  "font-mohave text-body-sm transition-colors",
-                  value === ind
-                    ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-                    : highlightedIndex === index
-                      ? "bg-background-elevated text-text-primary"
-                      : "text-text-secondary hover:bg-background-elevated hover:text-text-primary"
-                )}
-              >
-                <span>{ind}</span>
-                {value === ind && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
-              </button>
-            ))}
+            {filtered.map((ind, index) => {
+              const isSelected = value.includes(ind);
+              return (
+                <button
+                  key={ind}
+                  id={`industry-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => toggleOption(ind)}
+                  className={cn(
+                    "w-full flex items-center justify-between px-1.5 py-1 text-left min-h-[44px]",
+                    "font-mohave text-body-sm transition-colors",
+                    isSelected
+                      ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
+                      : highlightedIndex === index
+                        ? "bg-background-elevated text-text-primary"
+                        : "text-text-secondary hover:bg-background-elevated hover:text-text-primary"
+                  )}
+                >
+                  <span>{ind}</span>
+                  {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+                </button>
+              );
+            })}
             {filtered.length === 0 && (
               <p className="px-1.5 py-2 font-kosugi text-caption text-text-tertiary" role="status">
                 No industries match &quot;{search}&quot;
@@ -301,15 +340,14 @@ function IndustryDropdown({
       )}
 
       {/* Custom input for "Other" */}
-      {isOther && (
+      {hasOther && (
         <div className="mt-1">
           <Input
             placeholder="Enter your industry"
             aria-label="Custom industry name"
-            value={value === "Other" ? customValue : value}
+            value={customValue}
             onChange={(e) => {
               setCustomValue(e.target.value);
-              onChange(e.target.value || "Other");
             }}
           />
         </div>
@@ -377,12 +415,12 @@ export function IdentityStep1({
 
 interface IdentityStep2Props {
   companyName: string;
-  industry: string;
+  industries: string[];
   companySize: string;
   companyAge: string;
   onUpdate: (data: {
     companyName?: string;
-    industry?: string;
+    industries?: string[];
     companySize?: string;
     companyAge?: string;
   }) => void;
@@ -390,7 +428,7 @@ interface IdentityStep2Props {
 
 export function IdentityStep2({
   companyName,
-  industry,
+  industries,
   companySize,
   companyAge,
   onUpdate,
@@ -416,8 +454,8 @@ export function IdentityStep2({
         />
 
         <IndustryDropdown
-          value={industry}
-          onChange={(val) => onUpdate({ industry: val })}
+          value={industries}
+          onChange={(val) => onUpdate({ industries: val })}
         />
 
         {/* Company Size */}

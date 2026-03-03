@@ -48,6 +48,8 @@ interface Star {
   phase: number;
   displaceX: number;
   displaceY: number;
+  speedMult: number; // per-star drift speed multiplier (0.3–2.5)
+  mass: number; // per-star mass for orbit gravity variance (0.5–2.0)
   // Orbit/burst state
   captured: boolean;
   orbitAngle: number;
@@ -298,18 +300,26 @@ export function SetupStarfield({
             ? 4.5 + Math.random() * 3.5 // Medium: 4.5-8px
             : 8 + Math.random() * 6; // Large: 8-14px
 
+      // Varying speed: some stars crawl (0.3x), most normal, some fast (2.5x)
+      const speedRoll = Math.random();
+      const speedMult = speedRoll < 0.3 ? 0.3 + Math.random() * 0.4
+        : speedRoll < 0.8 ? 0.8 + Math.random() * 0.6
+        : 1.5 + Math.random() * 1.0;
+
       stars.push({
         x,
         y,
         z,
         size,
         baseAlpha: 0.12 + Math.random() * 0.25,
-        vx: (Math.random() - 0.5) * 3,
-        vy: (Math.random() - 0.5) * 3,
-        vz: (Math.random() - 0.5) * 1.5,
+        vx: (Math.random() - 0.5) * 3 * speedMult,
+        vy: (Math.random() - 0.5) * 3 * speedMult,
+        vz: (Math.random() - 0.5) * 1.5 * speedMult,
         phase: Math.random() * Math.PI * 2,
         displaceX: 0,
         displaceY: 0,
+        speedMult,
+        mass: 0.5 + Math.random() * 1.5,
         captured: false,
         orbitAngle: Math.random() * Math.PI * 2,
         bursting: false,
@@ -596,31 +606,39 @@ export function SetupStarfield({
           continue;
         }
 
-        // Orbit logic
+        // Orbit logic — varying gravity per star via mass
         if (orbitTarget && !star.bursting) {
           const dx = sx - orbitTarget.sx;
           const dy = sy - orbitTarget.sy;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < CAPTURE_RADIUS) {
+          // Wider capture radius, scaled by mass (heavier = captured from further)
+          const captureR = CAPTURE_RADIUS * (0.8 + star.mass * 0.3);
+
+          if (dist < captureR) {
             star.captured = true;
 
-            // Advance orbit angle
-            star.orbitAngle += ORBIT_SPEED * dt;
+            // Orbit speed varies by mass — lighter = faster orbit
+            const massOrbitSpeed = ORBIT_SPEED * (2.2 - star.mass * 0.6);
+            star.orbitAngle += massOrbitSpeed * dt;
+
+            // Orbit radius varies: heavier stars orbit closer (more pull)
+            const massOrbitRadius = orbitTarget.radius * (0.6 + (1 - star.mass / 2) * 0.8);
 
             // Target orbit position
             const targetOrbitX =
               orbitTarget.sx +
-              Math.cos(star.orbitAngle) * orbitTarget.radius;
+              Math.cos(star.orbitAngle) * massOrbitRadius;
             const targetOrbitY =
               orbitTarget.sy +
-              Math.sin(star.orbitAngle) * orbitTarget.radius;
+              Math.sin(star.orbitAngle) * massOrbitRadius;
 
-            // Lerp displacement toward orbit position
+            // Gravitational pull lerp: heavier = snappier pull
+            const pullStrength = 0.03 + star.mass * 0.03;
             const targetDx = targetOrbitX - proj.x;
             const targetDy = targetOrbitY - proj.y;
-            star.displaceX += (targetDx - star.displaceX) * 0.04;
-            star.displaceY += (targetDy - star.displaceY) * 0.04;
+            star.displaceX += (targetDx - star.displaceX) * pullStrength;
+            star.displaceY += (targetDy - star.displaceY) * pullStrength;
 
             // Tint toward orbit color
             star.tintAmount = Math.min(1, star.tintAmount + dt * 2);
@@ -645,8 +663,8 @@ export function SetupStarfield({
           star.displaceY *= 0.92;
         }
 
-        // Cursor repulsion (only when not captured/bursting)
-        if (!star.captured && !star.bursting && !prefersReduced) {
+        // Cursor repulsion — disabled when hovering/focusing a node (orbit takes over)
+        if (!star.captured && !star.bursting && !prefersReduced && !orbitTarget) {
           const mdx = sx - mouse.x;
           const mdy = sy - mouse.y;
           const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
@@ -717,12 +735,12 @@ export function SetupStarfield({
           fillB = ACCENT.b;
           glowBlur = 18;
         } else if (isFocusedNode) {
-          // Bright amber, strong glow
-          nodeAlpha = 1;
+          // Focused node — visible but NO glow (question is open)
+          nodeAlpha = 0.85;
           fillR = AMBER.r;
           fillG = AMBER.g;
           fillB = AMBER.b;
-          glowBlur = 24;
+          glowBlur = 0;
         } else if (isHovered) {
           // Brighter amber on hover
           nodeAlpha = 0.9;
@@ -993,7 +1011,7 @@ export function SetupStarfield({
             {focusedQuestion.responseType === "situational" && (
               <div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-                style={{ width: 450, height: 420 }}
+                style={{ width: 550, height: 480 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <SituationalResponse
@@ -1014,7 +1032,7 @@ export function SetupStarfield({
             {focusedQuestion.responseType === "likert" && (
               <div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-                style={{ width: 500, height: 250 }}
+                style={{ width: 580, height: 300 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <LikertResponse
@@ -1036,7 +1054,7 @@ export function SetupStarfield({
             {focusedQuestion.responseType === "forced_choice" && (
               <div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-                style={{ width: 500, height: 350 }}
+                style={{ width: 580, height: 420 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <ForcedChoiceResponse

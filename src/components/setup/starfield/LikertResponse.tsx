@@ -535,7 +535,7 @@ export function LikertResponse({
 
       // ── Draw labels (min + max only) ──
 
-      ctx.font = '400 11px "Kosugi", sans-serif';
+      ctx.font = '400 13px "Kosugi", sans-serif';
       ctx.textBaseline = "top";
 
       // Min label (left)
@@ -554,7 +554,7 @@ export function LikertResponse({
 
         ctx.textAlign = "left";
         ctx.fillStyle = `rgba(255, 255, 255, ${labelAlpha})`;
-        ctx.fillText(minLabel, node.x, node.y + 16);
+        ctx.fillText(minLabel.toUpperCase(), node.x, node.y + 16);
       }
 
       // Max label (right)
@@ -573,7 +573,7 @@ export function LikertResponse({
 
         ctx.textAlign = "right";
         ctx.fillStyle = `rgba(255, 255, 255, ${labelAlpha})`;
-        ctx.fillText(maxLabel, node.x, node.y + 16);
+        ctx.fillText(maxLabel.toUpperCase(), node.x, node.y + 16);
       }
 
       animRef.current = requestAnimationFrame(draw);

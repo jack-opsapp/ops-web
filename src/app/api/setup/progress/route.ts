@@ -21,7 +21,7 @@ interface ProgressBody {
     lastName?: string;
     phone?: string;
     companyName?: string;
-    industry?: string;
+    industries?: string[];
     companySize?: string;
     companyAge?: string;
     starfieldAnswers?: Record<string, string | number>;
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updated_at: new Date().toISOString(),
         };
         if (data.companyName) companyUpdates.name = data.companyName;
-        if (data.industry) companyUpdates.industries = [data.industry];
+        if (data.industries?.length) companyUpdates.industries = data.industries;
         if (data.companySize) companyUpdates.company_size = data.companySize;
         if (data.companyAge) companyUpdates.company_age = data.companyAge;
 
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .from("companies")
           .insert({
             name: data.companyName ?? "Untitled Company",
-            industries: data.industry ? [data.industry] : [],
+            industries: data.industries?.length ? data.industries : [],
             company_size: data.companySize ?? null,
             company_age: data.companyAge ?? null,
             admin_ids: [userId],
@@ -143,6 +143,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         companyId = newCompany.id as string;
+
+        // Seed default task types, inventory units, and company settings
+        const { error: rpcError } = await db.rpc("initialize_company_defaults", {
+          p_company_id: companyId,
+        });
+        if (rpcError) {
+          console.error("[api/setup/progress] Failed to initialize company defaults:", rpcError);
+        }
 
         // Link user to company
         await db
