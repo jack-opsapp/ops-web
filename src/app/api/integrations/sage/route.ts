@@ -1,26 +1,81 @@
 /**
- * OPS Web - Sage Integration (Placeholder)
+ * OPS Web - Sage Accounting OAuth Initiation & Disconnect
  *
- * POST /api/integrations/sage  — Initiate Sage OAuth (not yet implemented)
- * DELETE /api/integrations/sage — Disconnect Sage
- *
- * Sage integration is deferred per design doc. These routes return
- * user-friendly errors until Sage OAuth credentials are configured.
+ * POST /api/integrations/sage  — Generate Sage OAuth URL
+ * DELETE /api/integrations/sage — Disconnect & revoke tokens
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import crypto from "crypto";
+
+const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID;
+const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+const SAGE_REDIRECT_URI =
+  process.env.SAGE_REDIRECT_URI ?? `${BASE_URL}/api/integrations/sage/callback`;
+
+const SAGE_AUTH_URL =
+  "https://www.sageone.com/oauth2/auth/central?filter=apiv3.1";
+const SAGE_REVOKE_URL = "https://oauth.accounting.sage.com/revoke";
 
 // ─── POST: Initiate OAuth ──────────────────────────────────────────────────────
 
-export async function POST() {
-  return NextResponse.json(
-    {
-      error: "Sage integration is coming soon. Please use QuickBooks for now.",
-      comingSoon: true,
-    },
-    { status: 501 }
-  );
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const companyId = body.companyId as string | undefined;
+
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "companyId is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!SAGE_CLIENT_ID) {
+      return NextResponse.json(
+        {
+          error:
+            "Sage integration not configured. SAGE_CLIENT_ID is missing.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Generate CSRF state token: companyId:randomHex
+    const stateToken = `${companyId}:${crypto.randomBytes(16).toString("hex")}`;
+
+    // Store state token temporarily in the connection row for CSRF validation
+    const supabase = getServiceRoleClient();
+    await supabase.from("accounting_connections").upsert(
+      {
+        company_id: companyId,
+        provider: "sage",
+        webhook_verifier_token: stateToken,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "company_id,provider" }
+    );
+
+    const params = new URLSearchParams({
+      client_id: SAGE_CLIENT_ID,
+      redirect_uri: SAGE_REDIRECT_URI,
+      response_type: "code",
+      scope: "full_access",
+      state: stateToken,
+    });
+
+    const authUrl = `${SAGE_AUTH_URL}&${params.toString()}`;
+
+    return NextResponse.json({ authUrl });
+  } catch (err) {
+    console.error("Sage OAuth initiation error:", err);
+    return NextResponse.json(
+      { error: "Failed to initiate Sage OAuth" },
+      { status: 500 }
+    );
+  }
 }
 
 // ─── DELETE: Disconnect ────────────────────────────────────────────────────────
@@ -39,6 +94,32 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = getServiceRoleClient();
 
+    // Fetch current connection to revoke token
+    const { data: connection } = await supabase
+      .from("accounting_connections")
+      .select("refresh_token")
+      .eq("company_id", companyId)
+      .eq("provider", "sage")
+      .single();
+
+    // Attempt to revoke refresh token at Sage
+    if (connection?.refresh_token && SAGE_CLIENT_ID && SAGE_CLIENT_SECRET) {
+      try {
+        await fetch(SAGE_REVOKE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            token: connection.refresh_token,
+            client_id: SAGE_CLIENT_ID,
+            client_secret: SAGE_CLIENT_SECRET,
+          }),
+        });
+      } catch {
+        // Non-critical — continue with local disconnect
+      }
+    }
+
+    // Clear tokens and mark disconnected
     const { error } = await supabase
       .from("accounting_connections")
       .update({
