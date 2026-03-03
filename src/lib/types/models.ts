@@ -5,6 +5,8 @@
  * Includes all enums, computed property helpers, and utility types.
  */
 
+import type { TaskTypeDependency } from './scheduling';
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 /** Project status - matches iOS Status enum exactly */
@@ -278,6 +280,9 @@ export interface ProjectTask {
   sourceLineItemId: string | null;
   sourceEstimateId: string | null;
   teamMemberIds: string[];
+  dependencyOverrides?: TaskTypeDependency[] | null;
+  startTime?: string | null;
+  endTime?: string | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;
@@ -323,6 +328,7 @@ export interface TaskType {
   isDefault: boolean;
   companyId: string;
   displayOrder: number;
+  dependencies?: TaskTypeDependency[];
   defaultTeamMemberIds: string[];
   lastSyncedAt: Date | null;
   needsSync: boolean;
@@ -449,6 +455,8 @@ export interface Company {
   dataSetupCompleted: boolean;
   dataSetupScheduledDate: Date | null;
   stripeCustomerId: string | null;
+  preciseSchedulingEnabled?: boolean;
+  skipWeekendsInAutoSchedule?: boolean;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;
