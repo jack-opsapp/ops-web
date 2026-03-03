@@ -70,7 +70,7 @@ const ACCENT = { r: 89, g: 119, b: 148 }; // #597794 — answered
 const AMBER = { r: 196, g: 168, b: 104 }; // #C4A868 — unanswered
 const BLUE_BURST = { r: 120, g: 170, b: 220 }; // burst color
 const STAR_COUNT = 1000;
-const CLUSTER_COUNT = 8;
+const CLUSTER_COUNT = 4;
 const STARS_PER_NODE = 25; // extra stars spawned near each question node
 const FOCAL_LENGTH = 600;
 const REPULSE_RADIUS = 100;
@@ -292,11 +292,11 @@ export function SetupStarfield({
 
       const sizeRoll = Math.random();
       const size =
-        sizeRoll < 0.5
-          ? 2 + Math.random() * 2.5
-          : sizeRoll < 0.85
-            ? 4.5 + Math.random() * 3.5
-            : 8 + Math.random() * 6;
+        sizeRoll < 0.6
+          ? 1 + Math.random() * 1.5       // 60%: 1–2.5px (tiny dots)
+          : sizeRoll < 0.9
+            ? 2.5 + Math.random() * 2      // 30%: 2.5–4.5px (small)
+            : 4.5 + Math.random() * 2.5;   // 10%: 4.5–7px (medium accent)
 
       const speedRoll = Math.random();
       const speedMult = speedRoll < 0.3 ? 0.3 + Math.random() * 0.4
@@ -328,12 +328,13 @@ export function SetupStarfield({
       };
     }
 
-    // Generate base stars (cluster + ambient)
+    // Generate base stars (mostly ambient, light clustering)
     const stars: Star[] = [];
     for (let i = 0; i < STAR_COUNT; i++) {
-      if (i < STAR_COUNT * 0.35) {
+      if (i < STAR_COUNT * 0.15) {
+        // 15% loosely clustered — wider spread so they blend in
         const c = clusterCenters[i % CLUSTER_COUNT];
-        const spread = 40 + Math.random() * 120;
+        const spread = 120 + Math.random() * 200;
         stars.push(makeStar(c.x, c.y, c.z, spread));
       } else {
         stars.push(makeStar(
