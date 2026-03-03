@@ -192,6 +192,7 @@ export default function SettingsPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const majorTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const subTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const groupContainerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // ── Group change handler ───────────────────────────────────────────────
   function handleGroupChange(groupId: SettingsGroup) {
@@ -210,19 +211,20 @@ export default function SettingsPage() {
     const activeGroupDef = groupDefs.find((g) => g.id === activeGroup);
     const hasMultipleSubs = (activeGroupDef?.subTabs.length ?? 0) > 1;
 
-    // Target: sub-tab button if expanded, major tab if single sub-tab
+    // When group has multiple sub-tabs, span the entire group container
+    // Otherwise just the major tab button
     const el = hasMultipleSubs
-      ? subTabRefs.current.get(activeSubTab)
+      ? groupContainerRefs.current.get(activeGroup)
       : majorTabRefs.current.get(activeGroup);
 
     if (el) {
       const containerRect = container.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
       if (elRect.width > 0) {
-        const padding = hasMultipleSubs ? 16 : 24;
+        const inset = hasMultipleSubs ? 4 : 12;
         setUnderlineStyle({
-          left: elRect.left - containerRect.left + padding / 2,
-          width: elRect.width - padding,
+          left: elRect.left - containerRect.left + inset,
+          width: elRect.width - inset * 2,
           opacity: 1,
         });
       }
@@ -275,7 +277,16 @@ export default function SettingsPage() {
             const hasMultipleSubs = group.subTabs.length > 1;
 
             return (
-              <Fragment key={group.id}>
+              <div
+                key={group.id}
+                ref={(el) => {
+                  if (el) groupContainerRefs.current.set(group.id, el);
+                }}
+                className={cn(
+                  "flex items-center shrink-0",
+                  isActive && hasMultipleSubs && "mr-2"
+                )}
+              >
                 {/* Major tab button */}
                 <button
                   ref={(el) => {
@@ -308,7 +319,7 @@ export default function SettingsPage() {
                       {/* Vertical divider */}
                       <div
                         className={cn(
-                          "w-px h-[14px] bg-border-default mx-[6px] shrink-0 transition-opacity duration-200",
+                          "w-px h-[14px] bg-border-default mx-[3px] shrink-0 transition-opacity duration-200",
                           isActive ? "opacity-100" : "opacity-0"
                         )}
                       />
@@ -335,10 +346,10 @@ export default function SettingsPage() {
                               setActiveSubTab(sub.id);
                             }}
                             className={cn(
-                              "px-1 py-[8px] font-kosugi text-[11px] whitespace-nowrap",
-                              "transition-colors duration-200 shrink-0",
+                              "px-1.5 py-[6px] font-kosugi text-[11px] whitespace-nowrap rounded-sm",
+                              "transition-all duration-200 shrink-0",
                               activeSubTab === sub.id
-                                ? "text-text-primary"
+                                ? "text-text-primary bg-[rgba(255,255,255,0.06)]"
                                 : "text-text-disabled hover:text-text-tertiary"
                             )}
                           >
@@ -349,7 +360,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
-              </Fragment>
+              </div>
             );
           })}
 

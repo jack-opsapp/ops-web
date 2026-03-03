@@ -26,6 +26,7 @@ import type {
   PortalTemplate,
   PortalThemeMode,
 } from "@/lib/types/portal";
+import { PORTAL_TEMPLATES } from "@/lib/portal/templates";
 import { toast } from "sonner";
 import { getAuth } from "firebase/auth";
 import { useDictionary } from "@/i18n/client";
@@ -296,16 +297,28 @@ export function PortalBrandingTab() {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(accentColor);
 
   // ── Preview mockup (shared between inline & sidebar) ─────────────────────
+  const templateConfig = PORTAL_TEMPLATES[template] ?? PORTAL_TEMPLATES.modern;
+  const accent = isValidHex ? accentColor : "#417394";
+  const isDark = themeMode === "dark";
+
   const previewBlock = (
     <Card>
       <CardHeader>
         <CardTitle>Preview</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Load template fonts for the preview */}
+        {[templateConfig.headingFontImport, templateConfig.bodyFontImport]
+          .filter(Boolean)
+          .map((url) => (
+            // eslint-disable-next-line @next/next/no-page-custom-font
+            <link key={url} rel="stylesheet" href={url} />
+          ))}
         <div
-          className="rounded-lg overflow-hidden border border-border"
+          className="overflow-hidden border border-border"
           style={{
-            background: themeMode === "dark"
+            borderRadius: templateConfig.borderRadiusLg,
+            background: isDark
               ? "linear-gradient(135deg, #1a1a1a 0%, #111 100%)"
               : "linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)",
           }}
@@ -313,7 +326,7 @@ export function PortalBrandingTab() {
           {/* Mini header bar */}
           <div
             className="px-3 py-2 flex items-center gap-2"
-            style={{ borderBottom: `2px solid ${isValidHex ? accentColor : "#417394"}` }}
+            style={{ borderBottom: `2px solid ${accent}` }}
           >
             {(useCompanyLogo ? company?.logoURL : logoUrl) ? (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -324,8 +337,13 @@ export function PortalBrandingTab() {
               />
             ) : (
               <div
-                className="h-[20px] w-[60px] rounded"
-                style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.3 }}
+                style={{
+                  height: 20,
+                  width: 60,
+                  borderRadius: templateConfig.borderRadiusSm,
+                  backgroundColor: accent,
+                  opacity: 0.3,
+                }}
               />
             )}
             <div className="flex-1" />
@@ -333,8 +351,12 @@ export function PortalBrandingTab() {
               {["Home", "Projects", "Invoices"].map((tab) => (
                 <span
                   key={tab}
-                  className="font-kosugi text-[9px]"
-                  style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}
+                  style={{
+                    fontFamily: templateConfig.bodyFont,
+                    fontSize: "9px",
+                    letterSpacing: templateConfig.letterSpacing,
+                    color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+                  }}
                 >
                   {tab}
                 </span>
@@ -344,8 +366,14 @@ export function PortalBrandingTab() {
           {/* Mini content area */}
           <div className="px-3 py-2.5 space-y-1.5">
             <div
-              className="font-mohave text-[11px] font-medium"
-              style={{ color: themeMode === "dark" ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)" }}
+              style={{
+                fontFamily: templateConfig.headingFont,
+                fontSize: "11px",
+                fontWeight: templateConfig.headingWeight,
+                textTransform: templateConfig.headingTransform as React.CSSProperties["textTransform"],
+                letterSpacing: templateConfig.letterSpacing,
+                color: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)",
+              }}
             >
               Welcome, Jane
             </div>
@@ -353,30 +381,50 @@ export function PortalBrandingTab() {
               {[1, 2].map((i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded p-1.5"
+                  className="flex-1 p-1.5"
                   style={{
-                    backgroundColor: themeMode === "dark"
+                    borderRadius: templateConfig.borderRadiusSm,
+                    backgroundColor: isDark
                       ? "rgba(255,255,255,0.05)"
                       : "rgba(0,0,0,0.04)",
-                    border: `1px solid ${themeMode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                    border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
                   }}
                 >
                   <div
-                    className="h-[6px] w-[50%] rounded-full mb-1"
-                    style={{ backgroundColor: isValidHex ? accentColor : "#417394", opacity: 0.6 }}
+                    className="h-[6px] w-[50%] mb-1"
+                    style={{
+                      borderRadius: templateConfig.borderRadiusSm,
+                      backgroundColor: accent,
+                      opacity: 0.6,
+                    }}
                   />
                   <div
-                    className="h-[4px] w-[70%] rounded-full"
-                    style={{ backgroundColor: themeMode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
+                    className="h-[4px] w-[70%]"
+                    style={{
+                      borderRadius: templateConfig.borderRadiusSm,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                    }}
                   />
                 </div>
               ))}
             </div>
             <div
-              className="h-[24px] rounded flex items-center justify-center"
-              style={{ backgroundColor: isValidHex ? accentColor : "#417394" }}
+              className="h-[24px] flex items-center justify-center"
+              style={{
+                borderRadius: templateConfig.borderRadius,
+                backgroundColor: accent,
+              }}
             >
-              <span className="font-kosugi text-[8px] text-white">
+              <span
+                style={{
+                  fontFamily: templateConfig.bodyFont,
+                  fontSize: "8px",
+                  fontWeight: templateConfig.headingWeight,
+                  textTransform: templateConfig.headingTransform as React.CSSProperties["textTransform"],
+                  letterSpacing: templateConfig.letterSpacing,
+                  color: "#fff",
+                }}
+              >
                 View Details
               </span>
             </div>
