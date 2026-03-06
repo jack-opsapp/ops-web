@@ -13,5 +13,11 @@
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/gmail-sync",
+      "schedule": "*/15 * * * *"
+    }
   ]
 }

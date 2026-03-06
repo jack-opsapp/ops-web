@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { queryKeys } from "../api/query-client";
 import { GmailService } from "../api/services";
 import { useAuthStore } from "../store/auth-store";
@@ -80,9 +81,24 @@ export function useTriggerGmailSync() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: {
+      ok: boolean;
+      results: Array<{
+        matched?: number;
+        needsReview?: number;
+        newLeads?: number;
+      }>;
+    }) => {
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", company?.id] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
+
+      const results = data.results ?? [];
+      const totalMatched = results.reduce((sum, r) => sum + (r.matched ?? 0), 0);
+      const totalReview = results.reduce((sum, r) => sum + (r.needsReview ?? 0), 0);
+      const totalNew = results.reduce((sum, r) => sum + (r.newLeads ?? 0), 0);
+      toast.success(
+        `Synced — ${totalMatched} matched, ${totalReview} need review, ${totalNew} new leads`
+      );
     },
   });
 }

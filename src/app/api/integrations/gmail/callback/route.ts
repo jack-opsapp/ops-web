@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=connected`
+      `${BASE_URL}/settings?tab=integrations&status=connected&firstConnect=true`
     );
   } catch (err) {
     console.error("Gmail OAuth callback error:", err);

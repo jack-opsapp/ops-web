@@ -19,6 +19,7 @@ import { CreateProjectForm } from "@/components/ops/create-project-modal";
 import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -38,6 +39,11 @@ const MapFilterRail = dynamic(
 
 function ActionPromptsInitializer() {
   useActionPrompts();
+  return null;
+}
+
+function GmailSyncNotifier() {
+  useGmailSyncNotifications();
   return null;
 }
 
@@ -111,6 +117,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* Global features */}
       <PreferencesApplier />
       <ActionPromptsInitializer />
+      <GmailSyncNotifier />
       <ActionPromptRenderer />
       <CommandPalette />
       <KeyboardShortcuts />

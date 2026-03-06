@@ -1,9 +1,6 @@
 /**
- * OPS Web - Gmail Manual Sync
- *
- * POST /api/integrations/gmail/manual-sync
- * Triggered by the user from the Settings UI to manually sync Gmail inbox.
- * Does NOT require cron secret — uses companyId from request body.
+ * POST /api/cron/gmail-sync
+ * Vercel cron: runs every 15 min, syncs connections that are due.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -12,38 +9,44 @@ import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { GmailService } from "@/lib/api/services";
 
 export async function POST(request: NextRequest) {
-  // Set the service-role client so all requireSupabase() calls use it
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
+
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
 
   try {
-    const body = await request.json();
-    const companyId = body.companyId as string | undefined;
-
-    if (!companyId) {
-      return NextResponse.json({ error: "companyId is required" }, { status: 400 });
-    }
-
-    // Load active connections for this company only
     const { data: connections, error } = await supabase
       .from("gmail_connections")
-      .select("id, company_id, email")
-      .eq("company_id", companyId)
+      .select("id, company_id, email, sync_interval_minutes, last_synced_at")
       .eq("sync_enabled", true);
 
     if (error) throw error;
 
+    const now = Date.now();
     const results: Array<{
       connectionId: string;
       email: string;
       activitiesCreated: number;
       matched: number;
-      needsReview: number;
-      newLeads: number;
       error?: string;
     }> = [];
 
     for (const conn of connections ?? []) {
+      const intervalMs = ((conn.sync_interval_minutes as number) ?? 60) * 60 * 1000;
+      const lastSynced = conn.last_synced_at
+        ? new Date(conn.last_synced_at as string).getTime()
+        : 0;
+
+      if (now - lastSynced < intervalMs) continue;
+
       try {
         const result = await GmailService.syncInbox(conn.id as string);
         results.push({
@@ -51,8 +54,6 @@ export async function POST(request: NextRequest) {
           email: conn.email as string,
           activitiesCreated: result.activitiesCreated,
           matched: result.matched,
-          needsReview: result.needsReview,
-          newLeads: result.newLeads,
         });
       } catch (err) {
         results.push({
@@ -60,25 +61,20 @@ export async function POST(request: NextRequest) {
           email: conn.email as string,
           activitiesCreated: 0,
           matched: 0,
-          needsReview: 0,
-          newLeads: 0,
           error: err instanceof Error ? err.message : "Unknown error",
         });
       }
     }
 
-    const totalActivities = results.reduce((s, r) => s + r.activitiesCreated, 0);
-
     return NextResponse.json({
       ok: true,
-      connectionsProcessed: results.length,
-      totalActivitiesCreated: totalActivities,
+      synced: results.length,
       results,
     });
   } catch (err) {
-    console.error("[gmail-manual-sync]", err);
+    console.error("[gmail-cron-sync]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal error" },
+      { error: err instanceof Error ? err.message : "Sync failed" },
       { status: 500 }
     );
   } finally {

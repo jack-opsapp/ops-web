@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Search,
   Plus,
@@ -49,6 +50,7 @@ import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { QuickAddForm } from "./_components/quick-add-form";
 import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
+import { EmailReviewPanel } from "@/components/ops/email-review-panel";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 
@@ -139,6 +141,7 @@ export default function PipelinePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showInboxLeads, setShowInboxLeads] = useState(false);
+  const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
   const [gmailBannerDismissed, setGmailBannerDismissed] = useState(false);
 
   // Detail sheet
@@ -195,6 +198,20 @@ export default function PipelinePage() {
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: gmailConnections = [] } = useGmailConnections();
+
+  const { data: reviewCount = 0 } = useQuery({
+    queryKey: ["emailReviewCount", company?.id],
+    queryFn: async () => {
+      const resp = await fetch(
+        `/api/integrations/gmail/review-items?companyId=${encodeURIComponent(company!.id)}`
+      );
+      if (!resp.ok) return 0;
+      const json = (await resp.json()) as { ok: boolean; items: unknown[] };
+      return Array.isArray(json.items) ? json.items.length : 0;
+    },
+    enabled: !!company?.id,
+    refetchInterval: 30000, // refresh every 30s
+  });
 
   const isLoading = oppsLoading || clientsLoading;
 
@@ -509,6 +526,18 @@ export default function PipelinePage() {
               <Mail className="w-[14px] h-[14px]" />
               {t("inbox")}
             </Button>
+            {reviewCount > 0 && (
+              <button
+                onClick={() => setReviewPanelOpen(true)}
+                className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#417394]/15 text-[#8BB8D4] text-xs font-medium hover:bg-[#417394]/25 transition-colors"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                Review Emails
+                <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#417394] text-[9px] font-bold text-white">
+                  {reviewCount > 99 ? "99+" : reviewCount}
+                </span>
+              </button>
+            )}
             <Button
               variant="default"
               size="sm"
@@ -830,6 +859,49 @@ export default function PipelinePage() {
         opportunity={transitionOpportunity}
         onConfirm={handleTransitionConfirm}
         onCancel={handleTransitionCancel}
+      />
+
+      {/* Email Review Panel */}
+      <EmailReviewPanel
+        open={reviewPanelOpen}
+        onClose={() => setReviewPanelOpen(false)}
+        onCreateLead={(prefill) => {
+          setReviewPanelOpen(false);
+          if (company) {
+            createOpportunity.mutate(
+              {
+                companyId: company.id,
+                clientId: null,
+                title: prefill.title,
+                description: prefill.notes || null,
+                contactName: null,
+                contactEmail: prefill.sourceEmail || null,
+                contactPhone: null,
+                stage: OpportunityStage.NewLead,
+                source: OpportunitySource.Email,
+                assignedTo: currentUser?.id ?? null,
+                priority: null,
+                estimatedValue: null,
+                actualValue: null,
+                winProbability: 10,
+                expectedCloseDate: null,
+                actualCloseDate: null,
+                projectId: null,
+                lostReason: null,
+                lostNotes: null,
+                address: null,
+                tags: [],
+              },
+              {
+                onSuccess: () => {
+                  toast.success(t("toast.leadFromEmail"), {
+                    description: prefill.title,
+                  });
+                },
+              }
+            );
+          }
+        }}
       />
 
       {/* Setup interception modal */}

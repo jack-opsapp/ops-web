@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
@@ -23,6 +23,7 @@ import {
   Clock,
   MessageSquare,
   ChevronRight,
+  ChevronDown,
   Trophy,
   XCircle,
   Send,
@@ -31,6 +32,8 @@ import {
   FileText,
   DollarSign,
   User,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   type Opportunity,
@@ -57,6 +60,7 @@ import { toast } from "@/components/ui/toast";
 import { CreateSiteVisitModal } from "@/components/ops/site-visit/create-site-visit-modal";
 import { SiteVisitDetail } from "@/components/ops/site-visit/site-visit-detail";
 import { ActivityCommentSection } from "@/components/ops/activity/activity-comment";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -420,6 +424,220 @@ function AddNoteForm({ opportunityId }: { opportunityId: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Email Thread Types & Helpers
+// ---------------------------------------------------------------------------
+
+interface EmailThread {
+  threadId: string;
+  subject: string;
+  messages: Activity[];
+  latestMessage: Activity;
+  messageCount: number;
+}
+
+/** Group email activities by thread ID, sort threads by most recent message */
+function groupEmailsByThread(emailActivities: Activity[]): EmailThread[] {
+  const threadMap = new Map<string, Activity[]>();
+
+  for (const activity of emailActivities) {
+    const threadId = activity.emailThreadId ?? activity.id; // fallback to activity id if no thread
+    const existing = threadMap.get(threadId);
+    if (existing) {
+      existing.push(activity);
+    } else {
+      threadMap.set(threadId, [activity]);
+    }
+  }
+
+  const threads: EmailThread[] = [];
+  for (const [threadId, messages] of threadMap.entries()) {
+    // Sort messages within thread oldest-first
+    const sorted = [...messages].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const latestMessage = sorted[sorted.length - 1];
+    threads.push({
+      threadId,
+      subject: latestMessage.subject || "No subject",
+      messages: sorted,
+      latestMessage,
+      messageCount: sorted.length,
+    });
+  }
+
+  // Sort threads by most recent message (newest first)
+  threads.sort(
+    (a, b) =>
+      new Date(b.latestMessage.createdAt).getTime() -
+      new Date(a.latestMessage.createdAt).getTime()
+  );
+
+  return threads;
+}
+
+// ---------------------------------------------------------------------------
+// Email Threads Panel
+// ---------------------------------------------------------------------------
+function EmailThreadsPanel({
+  activities,
+  locale,
+}: {
+  activities: Activity[];
+  locale: Locale;
+}) {
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(
+    new Set()
+  );
+
+  const emailActivities = useMemo(
+    () => activities.filter((a) => a.type === ActivityType.Email),
+    [activities]
+  );
+
+  const threads = useMemo(
+    () => groupEmailsByThread(emailActivities),
+    [emailActivities]
+  );
+
+  const toggleThread = useCallback((threadId: string) => {
+    setExpandedThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(threadId)) {
+        next.delete(threadId);
+      } else {
+        next.add(threadId);
+      }
+      return next;
+    });
+  }, []);
+
+  if (threads.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-4 text-center">
+        <Mail className="w-[24px] h-[24px] text-text-disabled mb-1" />
+        <span className="font-kosugi text-[11px] text-text-disabled">
+          No email conversations yet
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {threads.map((thread) => {
+        const isExpanded = expandedThreads.has(thread.threadId);
+        const latest = thread.latestMessage;
+        const directionIcon =
+          latest.direction === "inbound" ? ArrowDownLeft : ArrowUpRight;
+        const DirectionIcon = directionIcon;
+
+        return (
+          <div key={thread.threadId} className="rounded border border-border">
+            {/* Thread header - clickable */}
+            <button
+              onClick={() => toggleThread(thread.threadId)}
+              className="w-full flex items-start gap-1.5 px-1.5 py-[6px] hover:bg-[rgba(255,255,255,0.02)] transition-colors text-left"
+            >
+              {/* Email icon */}
+              <div
+                className="w-[20px] h-[20px] rounded-full flex items-center justify-center shrink-0 mt-[1px]"
+                style={{ backgroundColor: "#8195B515" }}
+              >
+                <Mail className="w-[10px] h-[10px] text-[#8195B5]" />
+              </div>
+
+              {/* Thread info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="font-mohave text-[11px] text-text-primary truncate">
+                    {thread.subject}
+                  </span>
+                  {/* Message count badge */}
+                  {thread.messageCount > 1 && (
+                    <span className="font-mono text-[9px] text-text-disabled bg-background-elevated px-[4px] py-[1px] rounded-sm shrink-0">
+                      {thread.messageCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 mt-[1px]">
+                  {/* Direction indicator */}
+                  <DirectionIcon
+                    className={cn(
+                      "w-[9px] h-[9px] shrink-0",
+                      latest.direction === "inbound"
+                        ? "text-[#9DB582]"
+                        : "text-[#8195B5]"
+                    )}
+                  />
+                  <span className="font-kosugi text-[10px] text-text-tertiary truncate">
+                    {latest.fromEmail ?? "Unknown sender"}
+                  </span>
+                  <span className="font-mono text-[9px] text-text-disabled shrink-0 ml-auto">
+                    {formatRelativeTime(latest.createdAt, locale)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Expand/collapse chevron */}
+              <ChevronDown
+                className={cn(
+                  "w-[12px] h-[12px] text-text-disabled shrink-0 mt-[2px] transition-transform duration-150",
+                  isExpanded && "rotate-180"
+                )}
+              />
+            </button>
+
+            {/* Expanded thread messages */}
+            {isExpanded && (
+              <div className="border-t border-border">
+                {thread.messages.map((msg, idx) => {
+                  const MsgDirIcon =
+                    msg.direction === "inbound"
+                      ? ArrowDownLeft
+                      : ArrowUpRight;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={cn(
+                        "px-1.5 py-[5px]",
+                        idx < thread.messages.length - 1 &&
+                          "border-b border-border/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-1 mb-[2px]">
+                        <MsgDirIcon
+                          className={cn(
+                            "w-[9px] h-[9px] shrink-0",
+                            msg.direction === "inbound"
+                              ? "text-[#9DB582]"
+                              : "text-[#8195B5]"
+                          )}
+                        />
+                        <span className="font-kosugi text-[10px] text-text-secondary truncate">
+                          {msg.fromEmail ?? "Unknown"}
+                        </span>
+                        <span className="font-mono text-[9px] text-text-disabled shrink-0 ml-auto">
+                          {formatRelativeTime(msg.createdAt, locale)}
+                        </span>
+                      </div>
+                      {msg.content && (
+                        <p className="font-kosugi text-[10px] text-text-tertiary line-clamp-3 pl-[13px]">
+                          {msg.content}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Deal Detail Sheet
 // ---------------------------------------------------------------------------
 export function DealDetailSheet({
@@ -608,16 +826,31 @@ export function DealDetailSheet({
             </div>
           )}
 
-          {/* Activity timeline */}
-          <div className="space-y-1">
-            <h4 className="font-mohave text-[10px] text-text-disabled uppercase tracking-widest">
-              {t("detail.activity")}
-            </h4>
-            <ActivityTimeline activities={activities ?? []} companyId={company?.id} />
-          </div>
+          {/* Tabbed section: Activity / Emails */}
+          <Tabs defaultValue="activity" className="w-full">
+            <TabsList>
+              <TabsTrigger value="activity">
+                {t("detail.activity")}
+              </TabsTrigger>
+              <TabsTrigger value="emails">
+                Emails
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Add note */}
-          <AddNoteForm opportunityId={opportunity.id} />
+            <TabsContent value="activity">
+              <div className="space-y-1">
+                <ActivityTimeline activities={activities ?? []} companyId={company?.id} />
+              </div>
+              <AddNoteForm opportunityId={opportunity.id} />
+            </TabsContent>
+
+            <TabsContent value="emails">
+              <EmailThreadsPanel
+                activities={activities ?? []}
+                locale={locale}
+              />
+            </TabsContent>
+          </Tabs>
         </SheetBody>
 
         {/* Site Visit Modals */}

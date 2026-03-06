@@ -62,3 +62,8 @@ export { InventoryService } from "./inventory-service";
 export { CrewLocationService } from "./crew-location-service";
 export type { CrewLocation, CrewStatus } from "./crew-location-service";
 export { resolveCrewStatus } from "./crew-location-service";
+
+export { EmailFilterService } from "./email-filter-service";
+
+export { EmailMatchingService } from "./email-matching-service";
+export type { MatchResult } from "./email-matching-service";

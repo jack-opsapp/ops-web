@@ -1361,6 +1361,8 @@ export interface GmailConnection {
   historyId: string | null;
   syncEnabled: boolean;
   lastSyncedAt: Date | null;
+  syncIntervalMinutes: number;
+  syncFilters: GmailSyncFilters;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1385,4 +1387,58 @@ export interface UpdateGmailConnection {
   historyId?: string | null;
   syncEnabled?: boolean;
   lastSyncedAt?: Date | string;
+  syncIntervalMinutes?: number;
+  syncFilters?: GmailSyncFilters;
 }
+
+// ─── Email CRM Integration Types ─────────────────────────────────────────────
+
+export type MatchConfidence = "exact" | "domain" | "phone" | "manual" | "unmatched";
+
+export interface GmailSyncFilters {
+  labelIds: string[];
+  excludeDomains: string[];
+  excludeAddresses: string[];
+  excludeSubjectKeywords: string[];
+  includeSentMail: boolean;
+  usePresetBlocklist: boolean;
+}
+
+export interface GmailImportJob {
+  id: string;
+  companyId: string;
+  connectionId: string;
+  status: "pending" | "running" | "completed" | "failed";
+  importAfter: Date;
+  totalEmails: number;
+  processed: number;
+  matched: number;
+  unmatched: number;
+  needsReview: number;
+  errorMessage: string | null;
+  createdAt: Date;
+  completedAt: Date | null;
+}
+
+export interface EmailFilterPreset {
+  id: string;
+  type: "domain" | "keyword";
+  value: string;
+  category: string;
+}
+
+export const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com",
+  "icloud.com", "protonmail.com", "live.com", "comcast.net", "att.net",
+  "verizon.net", "msn.com", "me.com", "mac.com", "ymail.com",
+  "mail.com", "zoho.com", "gmx.com", "inbox.com",
+]);
+
+export const DEFAULT_SYNC_FILTERS: GmailSyncFilters = {
+  labelIds: ["INBOX", "SENT"],
+  excludeDomains: [],
+  excludeAddresses: [],
+  excludeSubjectKeywords: [],
+  includeSentMail: true,
+  usePresetBlocklist: true,
+};

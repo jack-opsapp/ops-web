@@ -13,8 +13,10 @@ import {
   Loader2,
   ToggleLeft,
   ToggleRight,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import type { GmailSyncFilters } from "@/lib/types/pipeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -23,6 +25,7 @@ import {
   useDeleteGmailConnection,
   useUpdateGmailConnection,
   useTriggerGmailSync,
+  useGmailImport,
 } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -44,16 +47,39 @@ export function IntegrationsTab() {
   const deleteConnection = useDeleteGmailConnection();
   const updateConnection = useUpdateGmailConnection();
   const triggerSync = useTriggerGmailSync();
+  const gmailImport = useGmailImport();
 
   const [copied, setCopied] = useState(false);
+  const [importStarted, setImportStarted] = useState(false);
+
+  const [isFirstConnect, setIsFirstConnect] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("tab") === "integrations" && params.get("status") === "connected") {
       toast.success(t("integrations.toast.gmailConnected"));
+      if (params.get("firstConnect") === "true") {
+        setIsFirstConnect(true);
+      }
       window.history.replaceState({}, "", "/settings?tab=integrations");
     }
   }, []);
+
+  useEffect(() => {
+    if (!isFirstConnect) return;
+    // Wait for connections to load, then scroll to import section
+    const timer = setTimeout(() => {
+      const importSection = document.getElementById("gmail-import-section");
+      if (importSection) {
+        importSection.scrollIntoView({ behavior: "smooth", block: "center" });
+        importSection.classList.add("ring-2", "ring-ops-accent", "ring-opacity-50");
+        setTimeout(() => {
+          importSection.classList.remove("ring-2", "ring-ops-accent", "ring-opacity-50");
+        }, 3000);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isFirstConnect]);
 
   const forwardingAddress = companyId
     ? `leads-${companyId.slice(0, 8)}@inbound.opsapp.co`
@@ -102,6 +128,47 @@ export function IntegrationsTab() {
       onSuccess: () => toast.success(t("integrations.toast.syncTriggered")),
       onError: (err) => toast.error(t("integrations.toast.syncFailed"), { description: err.message }),
     });
+  }
+
+  function handleUpdateSyncInterval(id: string, minutes: number) {
+    updateConnection.mutate(
+      { id, data: { id, syncIntervalMinutes: minutes } },
+      {
+        onSuccess: () => toast.success("Sync frequency updated"),
+        onError: (err) => toast.error("Failed to update", { description: err.message }),
+      }
+    );
+  }
+
+  function handleUpdateFilters(id: string, filters: GmailSyncFilters) {
+    updateConnection.mutate(
+      { id, data: { id, syncFilters: filters } },
+      {
+        onSuccess: () => toast.success("Email filters updated"),
+        onError: (err) => toast.error("Failed to update filters", { description: err.message }),
+      }
+    );
+  }
+
+  function handleStartImport(daysBack: number) {
+    const firstConnection = connections[0];
+    if (!firstConnection) return;
+
+    const importAfter = new Date();
+    importAfter.setDate(importAfter.getDate() - daysBack);
+    const dateStr = importAfter.toISOString().split("T")[0];
+
+    setImportStarted(true);
+    gmailImport.startImport.mutate(
+      { connectionId: firstConnection.id, importAfter: dateStr },
+      {
+        onSuccess: () => toast.success("Historical import started"),
+        onError: (err) => {
+          toast.error("Failed to start import", { description: err.message });
+          setImportStarted(false);
+        },
+      }
+    );
   }
 
   return (
@@ -191,6 +258,151 @@ export function IntegrationsTab() {
                 <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
                 {t("integrations.syncNow")}
               </Button>
+            </div>
+          )}
+
+          {companyConnections.length > 0 && (
+            <div className="pt-[4px]">
+              <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
+                <Clock className="w-[14px] h-[14px] text-text-disabled" />
+                Sync Frequency
+              </label>
+              <select
+                className="mt-[4px] w-full bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
+                value={companyConnections[0].syncIntervalMinutes}
+                onChange={(e) =>
+                  handleUpdateSyncInterval(companyConnections[0].id, Number(e.target.value))
+                }
+              >
+                <option value={15}>Every 15 min</option>
+                <option value={30}>Every 30 min</option>
+                <option value={60}>Every hour</option>
+                <option value={240}>Every 4 hours</option>
+                <option value={0}>Manual only</option>
+              </select>
+            </div>
+          )}
+
+          {/* Advanced Filters */}
+          {hasAnyConnection && (
+            <details className="pt-[4px]">
+              <summary className="font-kosugi text-[11px] text-text-disabled cursor-pointer hover:text-text-secondary">
+                Advanced email filters
+              </summary>
+              <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
+                {/* Blocked Domains */}
+                <div>
+                  <label className="font-kosugi text-[10px] text-text-disabled block mb-[2px]">
+                    Blocked domains (one per line)
+                  </label>
+                  <textarea
+                    defaultValue={(companyConnections[0]?.syncFilters.excludeDomains ?? []).join("\n")}
+                    onBlur={(e) => {
+                      const conn = companyConnections[0];
+                      if (!conn) return;
+                      const domains = e.target.value
+                        .split("\n")
+                        .map((d) => d.trim().toLowerCase())
+                        .filter(Boolean);
+                      handleUpdateFilters(conn.id, { ...conn.syncFilters, excludeDomains: domains });
+                    }}
+                    rows={3}
+                    className="w-full bg-background-input border border-border rounded px-1.5 py-[6px] font-mono text-[11px] text-text-primary resize-y"
+                    placeholder="example.com&#10;spammer.com"
+                  />
+                </div>
+
+                {/* Subject Keyword Exclusions */}
+                <div>
+                  <label className="font-kosugi text-[10px] text-text-disabled block mb-[2px]">
+                    Exclude subjects containing (one per line)
+                  </label>
+                  <textarea
+                    defaultValue={(companyConnections[0]?.syncFilters.excludeSubjectKeywords ?? []).join("\n")}
+                    onBlur={(e) => {
+                      const conn = companyConnections[0];
+                      if (!conn) return;
+                      const keywords = e.target.value
+                        .split("\n")
+                        .map((k) => k.trim())
+                        .filter(Boolean);
+                      handleUpdateFilters(conn.id, { ...conn.syncFilters, excludeSubjectKeywords: keywords });
+                    }}
+                    rows={2}
+                    className="w-full bg-background-input border border-border rounded px-1.5 py-[6px] font-mono text-[11px] text-text-primary resize-y"
+                    placeholder="unsubscribe&#10;out of office"
+                  />
+                </div>
+
+                {/* Preset blocklist toggle */}
+                <div className="flex items-center gap-[6px]">
+                  <button
+                    onClick={() => {
+                      const conn = companyConnections[0];
+                      if (!conn) return;
+                      handleUpdateFilters(conn.id, {
+                        ...conn.syncFilters,
+                        usePresetBlocklist: !conn.syncFilters.usePresetBlocklist,
+                      });
+                    }}
+                    className="shrink-0"
+                  >
+                    {companyConnections[0]?.syncFilters.usePresetBlocklist ? (
+                      <ToggleRight className="w-[16px] h-[16px] text-[#6B8F71]" />
+                    ) : (
+                      <ToggleLeft className="w-[16px] h-[16px] text-text-disabled" />
+                    )}
+                  </button>
+                  <span className="font-kosugi text-[11px] text-text-secondary">
+                    Block known newsletter & notification domains (60+ pre-configured)
+                  </span>
+                </div>
+              </div>
+            </details>
+          )}
+
+          {hasAnyConnection && !importStarted && (
+            <div id="gmail-import-section" className="pt-[4px] space-y-[6px] transition-all duration-300">
+              <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
+                <Mail className="w-[14px] h-[14px] text-text-disabled" />
+                Import Historical Emails
+              </label>
+              <p className="font-mohave text-body-sm text-text-disabled">
+                Scan past emails for leads that may already be in your inbox.
+              </p>
+              <div className="flex flex-wrap gap-[6px]">
+                {[
+                  { label: "Last 7 days", days: 7 },
+                  { label: "Last 30 days", days: 30 },
+                  { label: "Last 90 days", days: 90 },
+                  { label: "6 months", days: 180 },
+                ].map((preset) => (
+                  <Button
+                    key={preset.days}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleStartImport(preset.days)}
+                    disabled={gmailImport.isImporting}
+                    className="font-kosugi text-[11px]"
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {importStarted && gmailImport.isImporting && (
+            <div className="flex items-center gap-[6px] pt-[4px]">
+              <Loader2 className="w-[14px] h-[14px] text-ops-accent animate-spin" />
+              <span className="font-mohave text-body-sm text-text-secondary">
+                Importing emails&hellip;{" "}
+                {gmailImport.status?.processedEmails != null && (
+                  <span className="text-text-disabled">
+                    ({gmailImport.status.processedEmails} processed)
+                  </span>
+                )}
+              </span>
             </div>
           )}
 

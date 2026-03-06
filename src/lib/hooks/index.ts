@@ -212,6 +212,12 @@ export {
   useTriggerGmailSync,
 } from "./use-gmail-connections";
 
+// Gmail Import
+export { useGmailImport } from "./use-gmail-import";
+
+// Gmail Sync Notifications
+export { useGmailSyncNotifications } from "./use-gmail-sync-notifications";
+
 // Roles & Permissions
 export {
   useRoles,

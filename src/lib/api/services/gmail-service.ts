@@ -11,10 +11,12 @@ import type {
   GmailConnection,
   CreateGmailConnection,
   UpdateGmailConnection,
+  GmailSyncFilters,
 } from "@/lib/types/pipeline";
-import { ActivityType, OpportunityStage } from "@/lib/types/pipeline";
+import { ActivityType, OpportunityStage, DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import { OpportunityService } from "./opportunity-service";
-import { ClientService } from "./client-service";
+import { EmailFilterService } from "./email-filter-service";
+import { EmailMatchingService } from "./email-matching-service";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -31,6 +33,8 @@ function mapFromDb(row: Record<string, unknown>): GmailConnection {
     historyId: (row.history_id as string) ?? null,
     syncEnabled: (row.sync_enabled as boolean) ?? true,
     lastSyncedAt: parseDate(row.last_synced_at),
+    syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
+    syncFilters: (row.sync_filters as GmailSyncFilters) ?? DEFAULT_SYNC_FILTERS,
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
   };
@@ -149,6 +153,8 @@ export const GmailService = {
     }
     if (data.historyId !== undefined) row.history_id = data.historyId;
     if (data.syncEnabled !== undefined) row.sync_enabled = data.syncEnabled;
+    if (data.syncIntervalMinutes !== undefined) row.sync_interval_minutes = data.syncIntervalMinutes;
+    if (data.syncFilters !== undefined) row.sync_filters = data.syncFilters;
     if (data.lastSyncedAt !== undefined) {
       row.last_synced_at = data.lastSyncedAt instanceof Date
         ? data.lastSyncedAt.toISOString()
@@ -179,11 +185,17 @@ export const GmailService = {
 
   /**
    * Sync inbox for a single connection using Gmail History API.
-   * Creates Activity records for emails matched to known clients.
-   * Returns count of new activities created.
+   * Uses noise filtering and 3-tier matching to auto-log Activities.
+   * Returns stats on activities created and matching outcomes.
    */
-  async syncInbox(connectionId: string): Promise<{ activitiesCreated: number }> {
+  async syncInbox(connectionId: string): Promise<{
+    activitiesCreated: number;
+    matched: number;
+    needsReview: number;
+    newLeads: number;
+  }> {
     const supabase = requireSupabase();
+    const stats = { activitiesCreated: 0, matched: 0, needsReview: 0, newLeads: 0 };
 
     // Load connection
     const { data: connRow, error: connError } = await supabase
@@ -195,9 +207,18 @@ export const GmailService = {
     if (connError) throw new Error(`Connection not found: ${connError.message}`);
     const connection = mapFromDb(connRow);
 
-    if (!connection.syncEnabled) return { activitiesCreated: 0 };
+    if (!connection.syncEnabled) return stats;
 
     const token = await getValidToken(connection);
+
+    // Parse sync_filters from the connection row (JSONB column)
+    const syncFilters: GmailSyncFilters =
+      connRow.sync_filters && typeof connRow.sync_filters === "object"
+        ? (connRow.sync_filters as GmailSyncFilters)
+        : DEFAULT_SYNC_FILTERS;
+
+    // Build blocklist from presets + user filters
+    const blocklist = await EmailFilterService.buildBlocklist(syncFilters);
 
     // First sync: fetch current historyId from Gmail profile as a baseline,
     // store it, and return 0 activities. Subsequent syncs use incremental history.
@@ -213,7 +234,7 @@ export const GmailService = {
           .update({ history_id: profile.historyId, last_synced_at: new Date().toISOString() })
           .eq("id", connectionId);
       }
-      return { activitiesCreated: 0 };
+      return stats;
     }
 
     // Fetch history since last sync
@@ -224,7 +245,6 @@ export const GmailService = {
     });
     const history: GmailHistoryResponse = await historyResp.json();
 
-    let activitiesCreated = 0;
     const newHistoryId = history.historyId;
 
     const messageIds: string[] = [];
@@ -234,85 +254,23 @@ export const GmailService = {
       }
     }
 
-    // Load all clients for matching
-    const { clients } = await ClientService.fetchClients(connection.companyId);
-    const emailToClientId = new Map<string, string>();
-    for (const client of clients) {
-      if (client.email) emailToClientId.set(client.email.toLowerCase(), client.id);
-    }
-
+    // Process each message with noise filtering and 3-tier matching
     for (const msgId of messageIds) {
       try {
-        const msgResp = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
-          { headers: { Authorization: `Bearer ${token}` } }
+        const result = await this._processMessage(
+          msgId,
+          token,
+          connection.companyId,
+          syncFilters,
+          blocklist,
+          supabase,
         );
-        const msg: GmailMessage = await msgResp.json();
-
-        const headers = msg.payload?.headers ?? [];
-        const from = headers.find((h) => h.name === "From")?.value ?? "";
-        const to = headers.find((h) => h.name === "To")?.value ?? "";
-        const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
-        const threadId = msg.threadId;
-
-        // Extract email address from "Name <email>" format
-        const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
-        const toEmail = (to.match(/<(.+?)>/) ?? [, to])[1]?.toLowerCase() ?? "";
-
-        const isInbound = !!emailToClientId.get(fromEmail);
-        const matchedEmail = isInbound ? fromEmail : emailToClientId.has(toEmail) ? toEmail : null;
-        const clientId = matchedEmail ? emailToClientId.get(matchedEmail) ?? null : null;
-
-        // Dedup: check if we already have this message
-        const { data: existing } = await supabase
-          .from("activities")
-          .select("id")
-          .eq("email_message_id", msgId)
-          .limit(1);
-
-        if ((existing ?? []).length > 0) continue;
-
-        // Find open opportunity for matched client
-        let opportunityId: string | null = null;
-        if (clientId) {
-          const opps = await OpportunityService.fetchOpportunities(connection.companyId, {
-            clientId,
-            stages: [
-              OpportunityStage.NewLead,
-              OpportunityStage.Qualifying,
-              OpportunityStage.Quoting,
-              OpportunityStage.Quoted,
-              OpportunityStage.FollowUp,
-              OpportunityStage.Negotiation,
-            ],
-          });
-          opportunityId = opps[0]?.id ?? null;
+        if (result) {
+          stats.activitiesCreated++;
+          if (result.matched) stats.matched++;
+          if (result.needsReview) stats.needsReview++;
+          if (result.newLead) stats.newLeads++;
         }
-
-        // Create activity (with or without client match — unmatched become inbox leads)
-        await OpportunityService.createActivity({
-          companyId: connection.companyId,
-          opportunityId,
-          clientId,
-          estimateId: null,
-          invoiceId: null,
-          projectId: null,
-          siteVisitId: null,
-          type: ActivityType.Email,
-          subject,
-          content: msg.snippet ?? null,
-          outcome: null,
-          direction: isInbound ? "inbound" : "outbound",
-          durationMinutes: null,
-          attachments: [],
-          emailThreadId: threadId,
-          emailMessageId: msgId,
-          isRead: !!clientId, // Unmatched emails are unread (show in inbox leads)
-          fromEmail: fromEmail || null,
-          createdBy: null,
-        });
-
-        activitiesCreated++;
       } catch {
         // Skip individual message failures
       }
@@ -329,7 +287,140 @@ export const GmailService = {
         .eq("id", connectionId);
     }
 
-    return { activitiesCreated };
+    return stats;
+  },
+
+  /**
+   * Process a single Gmail message: dedup, filter noise, match, create activity.
+   * Returns null if skipped, or an object describing the outcome.
+   */
+  async _processMessage(
+    msgId: string,
+    token: string,
+    companyId: string,
+    syncFilters: GmailSyncFilters,
+    blocklist: { domains: Set<string>; keywords: string[] },
+    supabase: ReturnType<typeof requireSupabase>,
+  ): Promise<{ matched: boolean; needsReview: boolean; newLead: boolean } | null> {
+    // Dedup: check if we already have this message
+    const { data: existing } = await supabase
+      .from("activities")
+      .select("id")
+      .eq("email_message_id", msgId)
+      .limit(1);
+
+    if ((existing ?? []).length > 0) return null;
+
+    // Fetch message metadata
+    const msgResp = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const msg: GmailMessage = await msgResp.json();
+
+    const headers = msg.payload?.headers ?? [];
+    const from = headers.find((h) => h.name === "From")?.value ?? "";
+    const to = headers.find((h) => h.name === "To")?.value ?? "";
+    const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+    const threadId = msg.threadId;
+
+    // Extract email address from "Name <email>" format
+    const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+
+    // Noise filter: skip automated/marketing emails
+    if (EmailFilterService.shouldFilter(fromEmail, subject, blocklist, syncFilters)) {
+      return null;
+    }
+
+    // 3-tier matching via EmailMatchingService
+    const matchResult = await EmailMatchingService.matchEmail(
+      companyId,
+      from,
+      to,
+      msg.snippet ?? "",
+      threadId ?? null,
+    );
+
+    const clientId = matchResult.clientId;
+
+    // Determine direction: if we have a matched client, it's inbound (from client);
+    // unmatched emails default to inbound (new inquiry from unknown sender)
+    const direction: "inbound" | "outbound" = clientId
+      ? (matchResult.confidence !== "unmatched" ? "inbound" : "outbound")
+      : "inbound";
+
+    // Find open opportunity for matched client
+    let opportunityId: string | null = null;
+    if (clientId) {
+      const opps = await OpportunityService.fetchOpportunities(companyId, {
+        clientId,
+        stages: [
+          OpportunityStage.NewLead,
+          OpportunityStage.Qualifying,
+          OpportunityStage.Quoting,
+          OpportunityStage.Quoted,
+          OpportunityStage.FollowUp,
+          OpportunityStage.Negotiation,
+        ],
+      });
+      opportunityId = opps[0]?.id ?? null;
+    }
+
+    // Create activity
+    const activity = await OpportunityService.createActivity({
+      companyId,
+      opportunityId,
+      clientId,
+      estimateId: null,
+      invoiceId: null,
+      projectId: null,
+      siteVisitId: null,
+      type: ActivityType.Email,
+      subject,
+      content: msg.snippet ?? null,
+      outcome: null,
+      direction,
+      durationMinutes: null,
+      attachments: [],
+      emailThreadId: threadId,
+      emailMessageId: msgId,
+      isRead: !!clientId, // Unmatched emails are unread (show in inbox leads)
+      fromEmail: fromEmail || null,
+      createdBy: null,
+    });
+
+    // Update matching metadata columns (not in TypeScript Activity type yet)
+    await supabase
+      .from("activities")
+      .update({
+        match_confidence: matchResult.confidence,
+        match_needs_review: matchResult.needsReview,
+        suggested_client_id: matchResult.suggestedClientId,
+      })
+      .eq("id", activity.id);
+
+    const isMatched = matchResult.confidence !== "unmatched";
+    const isNewLead = !clientId && matchResult.confidence === "unmatched";
+
+    return {
+      matched: isMatched,
+      needsReview: matchResult.needsReview,
+      newLead: isNewLead,
+    };
+  },
+
+  /**
+   * Get a client's email address by client ID.
+   */
+  async _getClientEmail(clientId: string): Promise<string | null> {
+    const supabase = requireSupabase();
+    const { data } = await supabase
+      .from("clients")
+      .select("email")
+      .eq("id", clientId)
+      .single();
+
+    return (data?.email as string) ?? null;
   },
 
   /**
@@ -343,12 +434,13 @@ export const GmailService = {
     snippet: string;
     fromEmail: string;
     activityId: string;
+    needsReview: boolean;
   }>> {
     const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("activities")
-      .select("id, email_message_id, email_thread_id, subject, content, from_email")
+      .select("id, email_message_id, email_thread_id, subject, content, from_email, match_needs_review")
       .eq("company_id", companyId)
       .eq("type", "email")
       .is("opportunity_id", null)
@@ -365,6 +457,7 @@ export const GmailService = {
       subject: (row.subject as string) ?? "(no subject)",
       snippet: (row.content as string) ?? "",
       fromEmail: (row.from_email as string) ?? "",
+      needsReview: (row.match_needs_review as boolean) ?? false,
     }));
   },
 
