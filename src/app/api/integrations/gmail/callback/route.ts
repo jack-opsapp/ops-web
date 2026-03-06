@@ -53,7 +53,16 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
-      console.error("Token exchange failed:", errorData);
+      console.error("[Gmail OAuth] Token exchange failed");
+      console.error("[Gmail OAuth] Status:", tokenResponse.status);
+      console.error("[Gmail OAuth] Response:", errorData);
+      console.error("[Gmail OAuth] Redirect URI used:", `${BASE_URL}/api/integrations/gmail/callback`);
+      // Try to parse specific Google error
+      try {
+        const parsed = JSON.parse(errorData);
+        console.error("[Gmail OAuth] Error code:", parsed.error);
+        console.error("[Gmail OAuth] Error description:", parsed.error_description);
+      } catch { /* not JSON */ }
       return NextResponse.redirect(
         `${BASE_URL}/settings?tab=integrations&status=error&message=token_exchange_failed`
       );
