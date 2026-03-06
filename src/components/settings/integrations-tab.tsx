@@ -325,16 +325,20 @@ export function IntegrationsTab() {
               <summary className="font-kosugi text-[11px] text-text-disabled cursor-pointer hover:text-text-secondary">
                 Advanced email filters
               </summary>
-              <div className="mt-1 mb-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openWizard("filters")}
-                  className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
-                >
-                  Filter Wizard
-                </Button>
-              </div>
+              <button
+                onClick={() => openWizard("filters")}
+                className="mt-1 mb-1 w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+              >
+                <Mail className="w-[16px] h-[16px] text-ops-accent shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-mohave text-body-sm text-ops-accent block">
+                    Email Import Filter Setup
+                  </span>
+                  <span className="font-kosugi text-[10px] text-text-disabled">
+                    Scan your inbox and configure which emails get imported
+                  </span>
+                </div>
+              </button>
               <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
                 {/* Filter Builder */}
                 {companyConnections[0] && (
