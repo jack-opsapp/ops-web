@@ -8,12 +8,6 @@ import {
   endOfWeek,
   startOfDay,
   endOfDay,
-  addMonths,
-  addWeeks,
-  addDays,
-  subMonths,
-  subWeeks,
-  subDays,
 } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -23,6 +17,7 @@ import {
   useCalendarEventsForRange,
   useTeamMembers,
 } from "@/lib/hooks";
+import { useSchedulerShortcuts } from "@/lib/hooks/use-scheduler-shortcuts";
 import {
   type InternalCalendarEvent,
   mapApiEventToInternal,
@@ -52,9 +47,7 @@ export default function CalendarPage() {
     view,
     setView,
     setCurrentDate,
-    goToToday,
     setSidePanelTask,
-    closeSidePanel,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,
@@ -62,6 +55,9 @@ export default function CalendarPage() {
     isConfirmBarVisible,
     ghostPreviews,
   } = useCalendarStore();
+
+  // Keyboard shortcuts (replaces inline handler)
+  useSchedulerShortcuts();
 
   useEffect(() => {
     trackScreenView("calendar");
@@ -195,107 +191,6 @@ export default function CalendarPage() {
     },
     [setSidePanelTask]
   );
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return;
-
-      switch (e.key) {
-        case "ArrowLeft":
-          e.preventDefault();
-          {
-            const d = useCalendarStore.getState().currentDate;
-            const v = useCalendarStore.getState().view;
-            if (v === "month") setCurrentDate(subMonths(d, 1));
-            else if (v === "timeline") setCurrentDate(subWeeks(d, 1));
-            else setCurrentDate(subDays(d, 1));
-          }
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          {
-            const d = useCalendarStore.getState().currentDate;
-            const v = useCalendarStore.getState().view;
-            if (v === "month") setCurrentDate(addMonths(d, 1));
-            else if (v === "timeline") setCurrentDate(addWeeks(d, 1));
-            else setCurrentDate(addDays(d, 1));
-          }
-          break;
-        // View switching: T/M/D
-        case "t":
-        case "T":
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault();
-            setView("timeline");
-          }
-          break;
-        case "m":
-        case "M":
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault();
-            setView("month");
-          }
-          break;
-        case "d":
-        case "D":
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault();
-            setView("day");
-          }
-          break;
-        // Today
-        case "y":
-        case "Y":
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault();
-            goToToday();
-          }
-          break;
-        // Tab — cycle through events
-        case "Tab": {
-          if (events.length === 0) break;
-          e.preventDefault();
-          const { selectedTaskId } = useCalendarStore.getState();
-          const currentIndex = selectedTaskId
-            ? events.findIndex((ev) => ev.id === selectedTaskId)
-            : -1;
-          const direction = e.shiftKey ? -1 : 1;
-          const nextIndex =
-            (currentIndex + direction + events.length) % events.length;
-          setSidePanelTask(events[nextIndex].id);
-          break;
-        }
-        // Enter — open detail for selected task
-        case "Enter": {
-          const { selectedTaskId } = useCalendarStore.getState();
-          if (selectedTaskId) {
-            e.preventDefault();
-            setSidePanelTask(selectedTaskId);
-          }
-          break;
-        }
-        // Escape — close panels
-        case "Escape":
-          closeSidePanel();
-          break;
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    setCurrentDate,
-    goToToday,
-    setView,
-    setSidePanelTask,
-    closeSidePanel,
-    events,
-  ]);
 
   // Timeline start date (week start)
   const timelineStartDate = useMemo(
