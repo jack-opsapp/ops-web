@@ -7,6 +7,8 @@ import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
 import { TimelineHeader } from "./timeline-header";
 import { TimelineRow } from "./timeline-row";
+import { TimelineTaskBlock } from "./timeline-task-block";
+import { useCalendarStore } from "@/stores/calendar-store";
 import {
   TIMELINE_DAYS_SHOWN,
   TIMELINE_DAY_MIN_WIDTH,
@@ -88,6 +90,37 @@ export function TimelineGrid({
   daysShown = TIMELINE_DAYS_SHOWN,
   onEventClick,
 }: TimelineGridProps) {
+  // ── Store ────────────────────────────────────────────────────────────────
+
+  const selectedTaskId = useCalendarStore((s) => s.selectedTaskId);
+  const selectedTaskIds = useCalendarStore((s) => s.selectedTaskIds);
+  const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
+
+  // ── Event handlers ───────────────────────────────────────────────────────
+
+  const handleEventClick = useCallback(
+    (event: InternalCalendarEvent) => {
+      setSidePanelTask(event.id);
+      onEventClick?.(event);
+    },
+    [setSidePanelTask, onEventClick]
+  );
+
+  const handleContextMenu = useCallback(
+    (_event: InternalCalendarEvent, _x: number, _y: number) => {
+      // Context menu will be wired in a future task
+    },
+    []
+  );
+
+  // ── Helper: check if a task is selected ──────────────────────────────────
+
+  const isTaskSelected = useCallback(
+    (eventId: string) =>
+      selectedTaskId === eventId || selectedTaskIds.includes(eventId),
+    [selectedTaskId, selectedTaskIds]
+  );
+
   // Group events by team member ID
   const eventsByMember = useCallback(() => {
     const map = new Map<string, InternalCalendarEvent[]>();
@@ -133,26 +166,54 @@ export function TimelineGrid({
         )}
 
         {/* Team member rows */}
-        {teamMembers.map((member) => (
-          <TimelineRow
-            key={member.id}
-            teamMember={member}
-            startDate={startDate}
-            daysShown={daysShown}
-          >
-            {/* Task blocks will be rendered here in Task 6 */}
-          </TimelineRow>
-        ))}
+        {teamMembers.map((member) => {
+          const memberEvents = grouped.get(member.id) ?? [];
+          return (
+            <TimelineRow
+              key={member.id}
+              teamMember={member}
+              startDate={startDate}
+              daysShown={daysShown}
+            >
+              {memberEvents.map((event) => (
+                <TimelineTaskBlock
+                  key={event.id}
+                  event={event}
+                  startDate={startDate}
+                  daysShown={daysShown}
+                  isSelected={isTaskSelected(event.id)}
+                  onClick={handleEventClick}
+                  onContextMenu={handleContextMenu}
+                />
+              ))}
+            </TimelineRow>
+          );
+        })}
 
         {/* Unassigned row */}
-        <TimelineRow
-          teamMember={UNASSIGNED_MEMBER}
-          startDate={startDate}
-          daysShown={daysShown}
-          isLast
-        >
-          {/* Unassigned task blocks will be rendered here in Task 6 */}
-        </TimelineRow>
+        {(() => {
+          const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
+          return (
+            <TimelineRow
+              teamMember={UNASSIGNED_MEMBER}
+              startDate={startDate}
+              daysShown={daysShown}
+              isLast
+            >
+              {unassignedEvents.map((event) => (
+                <TimelineTaskBlock
+                  key={event.id}
+                  event={event}
+                  startDate={startDate}
+                  daysShown={daysShown}
+                  isSelected={isTaskSelected(event.id)}
+                  onClick={handleEventClick}
+                  onContextMenu={handleContextMenu}
+                />
+              ))}
+            </TimelineRow>
+          );
+        })()}
       </div>
     </div>
   );
