@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
-import { differenceInCalendarDays, format } from "date-fns";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { differenceInCalendarDays, addDays, format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDraggable } from "@dnd-kit/core";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { getEventColors } from "@/lib/utils/calendar-utils";
 import { TIMELINE_ROW_HEIGHT } from "@/lib/utils/timeline-constants";
@@ -21,6 +22,7 @@ interface TimelineTaskBlockProps {
     x: number,
     y: number
   ) => void;
+  onResize?: (event: InternalCalendarEvent, newStartDate: Date, newEndDate: Date) => void;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -63,11 +65,31 @@ export function TimelineTaskBlock({
   isGhost = false,
   onClick,
   onContextMenu,
+  onResize,
 }: TimelineTaskBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const blockRef = useRef<HTMLDivElement>(null);
 
-  // ── Color computation ────────────────────────────────────────────────────
+  // ── Resize state ────────────────────────────────────────────────────────
+
+  const [resizeState, setResizeState] = useState<{
+    edge: "left" | "right";
+    initialX: number;
+    dayDelta: number;
+  } | null>(null);
+
+  const resizeRef = useRef(resizeState);
+  resizeRef.current = resizeState;
+
+  // ── dnd-kit draggable ─────────────────────────────────────────────────
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `timeline-event-${event.id}`,
+    data: { type: "timeline-event", event },
+    disabled: isGhost || !!resizeState,
+  });
+
+  // ── Color computation ─────────────────────────────────────────────────
 
   const colors = useMemo(() => getEventColors(event.taskType), [event.taskType]);
   const borderColor = colors.border;
@@ -77,7 +99,7 @@ export function TimelineTaskBlock({
   const rgb = useMemo(() => hexToRgb(borderColor), [borderColor]);
   const rgbStr = rgb ? `${rgb.r}, ${rgb.g}, ${rgb.b}` : "89, 119, 159";
 
-  // ── Positioning ──────────────────────────────────────────────────────────
+  // ── Positioning ───────────────────────────────────────────────────────
 
   const { leftPercent, widthPercent } = useMemo(() => {
     const eventStart = differenceInCalendarDays(event.startDate, startDate);
@@ -95,37 +117,64 @@ export function TimelineTaskBlock({
     return { leftPercent: left, widthPercent: width };
   }, [event.startDate, event.endDate, startDate, daysShown]);
 
+  // ── Resize preview adjustments ────────────────────────────────────────
+
+  const resizeAdjusted = useMemo(() => {
+    if (!resizeState) return { leftPercent, widthPercent };
+
+    const oneDayPercent = 100 / daysShown;
+
+    if (resizeState.edge === "right") {
+      // Extend/shrink right edge
+      const newWidth = Math.max(widthPercent + resizeState.dayDelta * oneDayPercent, oneDayPercent);
+      return { leftPercent, widthPercent: newWidth };
+    }
+
+    // Left edge: move start, keep end fixed
+    const newLeft = leftPercent + resizeState.dayDelta * oneDayPercent;
+    const newWidth = widthPercent - resizeState.dayDelta * oneDayPercent;
+
+    // Enforce minimum 1-day width
+    if (newWidth < oneDayPercent) {
+      return {
+        leftPercent: leftPercent + widthPercent - oneDayPercent,
+        widthPercent: oneDayPercent,
+      };
+    }
+
+    return { leftPercent: newLeft, widthPercent: newWidth };
+  }, [resizeState, leftPercent, widthPercent, daysShown]);
+
   // Don't render if completely outside visible range
-  if (widthPercent <= 0) return null;
+  if (resizeAdjusted.widthPercent <= 0) return null;
 
   const blockHeight = TIMELINE_ROW_HEIGHT - 16; // 56px (8px padding top + bottom)
 
-  // ── Determine if block is narrow ─────────────────────────────────────────
+  // ── Determine if block is narrow ──────────────────────────────────────
 
   // Approximate: if the block spans less than ~0.6 of a day column it's "narrow"
-  // We use percentage threshold — 100/daysShown is one day column width
   const oneDayPercent = 100 / daysShown;
-  const isNarrow = widthPercent < oneDayPercent * 0.6;
+  const isNarrow = resizeAdjusted.widthPercent < oneDayPercent * 0.6;
 
-  // ── Label content ────────────────────────────────────────────────────────
+  // ── Label content ─────────────────────────────────────────────────────
 
   const projectName = event.title;
   const clientName = event.project ?? null;
   const taskTypeLabel = event.taskType.toUpperCase();
 
-  // ── Date range for tooltip ───────────────────────────────────────────────
+  // ── Date range for tooltip ────────────────────────────────────────────
 
   const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
 
-  // ── Event handlers ───────────────────────────────────────────────────────
+  // ── Event handlers ────────────────────────────────────────────────────
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isGhost) return;
+      if (isGhost || isDragging || resizeState) return;
       e.stopPropagation();
       onClick?.(event);
     },
-    [event, onClick, isGhost]
+    [event, onClick, isGhost, isDragging, resizeState]
   );
 
   const handleContextMenu = useCallback(
@@ -138,7 +187,82 @@ export function TimelineTaskBlock({
     [event, onContextMenu, isGhost]
   );
 
-  // ── Reduced motion ───────────────────────────────────────────────────────
+  // ── Resize handlers ───────────────────────────────────────────────────
+
+  const handleResizeStart = useCallback(
+    (edge: "left" | "right", e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      setResizeState({ edge, initialX: e.clientX, dayDelta: 0 });
+    },
+    []
+  );
+
+  // Global mouse move/up for resize — attached via effect when resizing
+  useEffect(() => {
+    if (!resizeState) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return;
+
+      // Get the parent grid container width to calculate day column width in pixels
+      const container = blockRef.current?.parentElement;
+      if (!container) return;
+
+      const gridWidth = container.getBoundingClientRect().width;
+      const dayColumnWidth = gridWidth / daysShown;
+
+      const pixelDelta = e.clientX - resizeRef.current.initialX;
+      const dayDelta = Math.round(pixelDelta / dayColumnWidth);
+
+      setResizeState((prev) => (prev ? { ...prev, dayDelta } : null));
+    };
+
+    const handleMouseUp = () => {
+      const state = resizeRef.current;
+      if (!state || !onResize) {
+        setResizeState(null);
+        return;
+      }
+
+      const durationDays = differenceInCalendarDays(event.endDate, event.startDate);
+
+      if (state.edge === "right") {
+        // Extend/shrink right edge — minimum 1 day duration
+        const newDuration = Math.max(durationDays + state.dayDelta, 1);
+        const newEnd = addDays(event.startDate, newDuration);
+        onResize(event, event.startDate, newEnd);
+      } else {
+        // Left edge: move start, keep end fixed — minimum 1 day duration
+        const maxLeftDelta = durationDays - 1; // can't move start past end - 1 day
+        const clampedDelta = Math.min(state.dayDelta, maxLeftDelta);
+        const newStart = addDays(event.startDate, clampedDelta);
+        onResize(event, newStart, event.endDate);
+      }
+
+      setResizeState(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizeState, event, daysShown, onResize]);
+
+  // ── Drag transform style ──────────────────────────────────────────────
+
+  const dragStyle = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: 0.6,
+        cursor: "grabbing" as const,
+      }
+    : {};
+
+  // ── Reduced motion ────────────────────────────────────────────────────
 
   const tooltipVariants = {
     hidden: { opacity: 0, y: 4 },
@@ -146,27 +270,54 @@ export function TimelineTaskBlock({
     exit: { opacity: 0, y: 4 },
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div
-      ref={blockRef}
+      ref={(node) => {
+        // Merge dnd-kit ref with our local ref
+        setNodeRef(node);
+        (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
       className="absolute flex items-stretch"
       style={{
-        left: `${leftPercent}%`,
-        width: `${widthPercent}%`,
+        left: `${resizeAdjusted.leftPercent}%`,
+        width: `${resizeAdjusted.widthPercent}%`,
         top: 8,
         height: blockHeight,
-        zIndex: isSelected ? 5 : isHovered ? 4 : 2,
+        zIndex: isDragging ? 20 : resizeState ? 15 : isSelected ? 5 : isHovered ? 4 : 2,
         pointerEvents: isGhost ? "none" : "auto",
-        cursor: isGhost ? "default" : "grab",
+        cursor: isGhost ? "default" : resizeState ? "col-resize" : "grab",
         opacity: isGhost ? 0.5 : 1,
+        ...dragStyle,
       }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      onMouseEnter={() => !isGhost && setIsHovered(true)}
+      onMouseEnter={() => !isGhost && !isDragging && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      {...attributes}
+      {...listeners}
     >
+      {/* Left resize handle */}
+      {!isGhost && onResize && (
+        <div
+          className="absolute left-0 top-0 bottom-0 z-10"
+          style={{ width: 8, cursor: "col-resize" }}
+          onMouseDown={(e) => handleResizeStart("left", e)}
+          onPointerDown={(e) => e.stopPropagation()} // prevent dnd-kit from capturing
+        />
+      )}
+
+      {/* Right resize handle */}
+      {!isGhost && onResize && (
+        <div
+          className="absolute right-0 top-0 bottom-0 z-10"
+          style={{ width: 8, cursor: "col-resize" }}
+          onMouseDown={(e) => handleResizeStart("right", e)}
+          onPointerDown={(e) => e.stopPropagation()} // prevent dnd-kit from capturing
+        />
+      )}
+
       {/* Left color stripe */}
       <div
         className="shrink-0 rounded-l-[3px]"
@@ -235,7 +386,7 @@ export function TimelineTaskBlock({
 
       {/* Hover tooltip */}
       <AnimatePresence>
-        {isHovered && !isGhost && (
+        {isHovered && !isGhost && !isDragging && !resizeState && (
           <motion.div
             initial="hidden"
             animate="visible"

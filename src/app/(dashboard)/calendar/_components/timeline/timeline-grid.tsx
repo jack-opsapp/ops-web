@@ -2,6 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { isToday, differenceInCalendarDays, getHours, getMinutes } from "date-fns";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+} from "@dnd-kit/core";
 import type { TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
@@ -9,6 +16,8 @@ import { TimelineHeader } from "./timeline-header";
 import { TimelineRow } from "./timeline-row";
 import { TimelineTaskBlock } from "./timeline-task-block";
 import { useCalendarStore } from "@/stores/calendar-store";
+import { useUpdateCalendarEvent } from "@/lib/hooks";
+import { useTimelineDnd } from "@/lib/hooks/use-timeline-dnd";
 import {
   TIMELINE_DAYS_SHOWN,
   TIMELINE_DAY_MIN_WIDTH,
@@ -38,6 +47,70 @@ interface TimelineGridProps {
   startDate: Date;
   daysShown?: number;
   onEventClick?: (event: InternalCalendarEvent) => void;
+}
+
+// ─── Droppable Row Wrapper ──────────────────────────────────────────────────
+
+/** Wraps each TimelineRow so it is a valid droppable target for DnD */
+function DroppableTimelineRow({
+  teamMember,
+  startDate,
+  daysShown,
+  isLast,
+  children,
+}: {
+  teamMember: TeamMember;
+  startDate: Date;
+  daysShown: number;
+  isLast?: boolean;
+  children: React.ReactNode;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+
+  // Measure the row's grid area (excluding the gutter) for pixel-to-day calculations
+  useEffect(() => {
+    if (!rowRef.current) return;
+    const resizeObserver = new ResizeObserver(() => {
+      if (rowRef.current) {
+        const totalWidth = rowRef.current.getBoundingClientRect().width;
+        setGridWidth(Math.max(totalWidth - TIMELINE_GUTTER_WIDTH, 0));
+      }
+    });
+    resizeObserver.observe(rowRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const { setNodeRef, isOver } = useDroppable({
+    id: `timeline-row-${teamMember.id}`,
+    data: {
+      type: "timeline-row",
+      teamMemberId: teamMember.id,
+      gridWidth,
+    },
+  });
+
+  return (
+    <div
+      ref={(node) => {
+        setNodeRef(node);
+        (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
+      style={{
+        outline: isOver ? "1px solid rgba(89,119,148,0.4)" : "none",
+        outlineOffset: -1,
+      }}
+    >
+      <TimelineRow
+        teamMember={teamMember}
+        startDate={startDate}
+        daysShown={daysShown}
+        isLast={isLast}
+      >
+        {children}
+      </TimelineRow>
+    </div>
+  );
 }
 
 // ─── Current Time Indicator ─────────────────────────────────────────────────
@@ -90,13 +163,41 @@ export function TimelineGrid({
   daysShown = TIMELINE_DAYS_SHOWN,
   onEventClick,
 }: TimelineGridProps) {
-  // ── Store ────────────────────────────────────────────────────────────────
+  // ── Store ─────────────────────────────────────────────────────────────
 
   const selectedTaskId = useCalendarStore((s) => s.selectedTaskId);
   const selectedTaskIds = useCalendarStore((s) => s.selectedTaskIds);
   const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
 
-  // ── Event handlers ───────────────────────────────────────────────────────
+  // ── Mutations ─────────────────────────────────────────────────────────
+
+  const updateCalendarEvent = useUpdateCalendarEvent();
+
+  // ── DnD ───────────────────────────────────────────────────────────────
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const { handleDragStart, handleDragEnd, handleDragCancel } = useTimelineDnd({
+    events,
+    startDate,
+    daysShown,
+  });
+
+  // ── Resize callback ───────────────────────────────────────────────────
+
+  const handleResize = useCallback(
+    (event: InternalCalendarEvent, newStart: Date, newEnd: Date) => {
+      updateCalendarEvent.mutate({
+        id: event.id,
+        data: { startDate: newStart, endDate: newEnd },
+      });
+    },
+    [updateCalendarEvent]
+  );
+
+  // ── Event handlers ────────────────────────────────────────────────────
 
   const handleEventClick = useCallback(
     (event: InternalCalendarEvent) => {
@@ -113,7 +214,7 @@ export function TimelineGrid({
     []
   );
 
-  // ── Helper: check if a task is selected ──────────────────────────────────
+  // ── Helper: check if a task is selected ───────────────────────────────
 
   const isTaskSelected = useCallback(
     (eventId: string) =>
@@ -154,67 +255,76 @@ export function TimelineGrid({
   });
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative">
-      {/* Header row — day labels */}
-      <TimelineHeader startDate={startDate} daysShown={daysShown} />
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="flex flex-col h-full overflow-hidden relative">
+        {/* Header row — day labels */}
+        <TimelineHeader startDate={startDate} daysShown={daysShown} />
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-auto relative">
-        {/* Current time indicator spans full height */}
-        {todayVisible && (
-          <CurrentTimeIndicator startDate={startDate} daysShown={daysShown} />
-        )}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-auto relative">
+          {/* Current time indicator spans full height */}
+          {todayVisible && (
+            <CurrentTimeIndicator startDate={startDate} daysShown={daysShown} />
+          )}
 
-        {/* Team member rows */}
-        {teamMembers.map((member) => {
-          const memberEvents = grouped.get(member.id) ?? [];
-          return (
-            <TimelineRow
-              key={member.id}
-              teamMember={member}
-              startDate={startDate}
-              daysShown={daysShown}
-            >
-              {memberEvents.map((event) => (
-                <TimelineTaskBlock
-                  key={event.id}
-                  event={event}
-                  startDate={startDate}
-                  daysShown={daysShown}
-                  isSelected={isTaskSelected(event.id)}
-                  onClick={handleEventClick}
-                  onContextMenu={handleContextMenu}
-                />
-              ))}
-            </TimelineRow>
-          );
-        })}
+          {/* Team member rows */}
+          {teamMembers.map((member) => {
+            const memberEvents = grouped.get(member.id) ?? [];
+            return (
+              <DroppableTimelineRow
+                key={member.id}
+                teamMember={member}
+                startDate={startDate}
+                daysShown={daysShown}
+              >
+                {memberEvents.map((event) => (
+                  <TimelineTaskBlock
+                    key={event.id}
+                    event={event}
+                    startDate={startDate}
+                    daysShown={daysShown}
+                    isSelected={isTaskSelected(event.id)}
+                    onClick={handleEventClick}
+                    onContextMenu={handleContextMenu}
+                    onResize={handleResize}
+                  />
+                ))}
+              </DroppableTimelineRow>
+            );
+          })}
 
-        {/* Unassigned row */}
-        {(() => {
-          const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
-          return (
-            <TimelineRow
-              teamMember={UNASSIGNED_MEMBER}
-              startDate={startDate}
-              daysShown={daysShown}
-              isLast
-            >
-              {unassignedEvents.map((event) => (
-                <TimelineTaskBlock
-                  key={event.id}
-                  event={event}
-                  startDate={startDate}
-                  daysShown={daysShown}
-                  isSelected={isTaskSelected(event.id)}
-                  onClick={handleEventClick}
-                  onContextMenu={handleContextMenu}
-                />
-              ))}
-            </TimelineRow>
-          );
-        })()}
+          {/* Unassigned row */}
+          {(() => {
+            const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
+            return (
+              <DroppableTimelineRow
+                teamMember={UNASSIGNED_MEMBER}
+                startDate={startDate}
+                daysShown={daysShown}
+                isLast
+              >
+                {unassignedEvents.map((event) => (
+                  <TimelineTaskBlock
+                    key={event.id}
+                    event={event}
+                    startDate={startDate}
+                    daysShown={daysShown}
+                    isSelected={isTaskSelected(event.id)}
+                    onClick={handleEventClick}
+                    onContextMenu={handleContextMenu}
+                    onResize={handleResize}
+                  />
+                ))}
+              </DroppableTimelineRow>
+            );
+          })()}
+        </div>
       </div>
-    </div>
+    </DndContext>
   );
 }
