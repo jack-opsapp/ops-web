@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils/cn";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
 import { Button } from "@/components/ui/button";
 import { EmailFilterBuilder } from "@/components/settings/email-filter-builder";
+import { EmailSetupWizard } from "@/components/settings/email-setup-wizard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -55,6 +56,8 @@ export function IntegrationsTab() {
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customDate, setCustomDate] = useState("");
 
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardInitialStep, setWizardInitialStep] = useState<string | undefined>();
   const [isFirstConnect, setIsFirstConnect] = useState(false);
 
   useEffect(() => {
@@ -184,8 +187,20 @@ export function IntegrationsTab() {
     );
   }
 
+  function openWizard(step?: string) {
+    setWizardInitialStep(step);
+    setWizardOpen(true);
+  }
+
   return (
     <div className="space-y-3 max-w-[600px]">
+      {/* Email Setup Wizard */}
+      <EmailSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initialStep={wizardInitialStep}
+      />
+
       {/* Company Gmail */}
       <Card>
         <CardHeader>
@@ -260,7 +275,7 @@ export function IntegrationsTab() {
           )}
 
           {hasAnyConnection && (
-            <div className="pt-[4px]">
+            <div className="pt-[4px] flex items-center gap-[6px]">
               <Button
                 variant="secondary"
                 size="sm"
@@ -270,6 +285,14 @@ export function IntegrationsTab() {
               >
                 <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
                 {t("integrations.syncNow")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openWizard()}
+                className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
+              >
+                Setup Wizard
               </Button>
             </div>
           )}
@@ -302,6 +325,16 @@ export function IntegrationsTab() {
               <summary className="font-kosugi text-[11px] text-text-disabled cursor-pointer hover:text-text-secondary">
                 Advanced email filters
               </summary>
+              <div className="mt-1 mb-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openWizard("filters")}
+                  className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
+                >
+                  Filter Wizard
+                </Button>
+              </div>
               <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
                 {/* Filter Builder */}
                 {companyConnections[0] && (
