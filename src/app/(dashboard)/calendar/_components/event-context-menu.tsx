@@ -267,7 +267,7 @@ export function EventContextMenu({
         aria-label={`Actions for ${event.title}`}
         tabIndex={-1}
         className={cn(
-          "min-w-[200px] rounded-lg py-[4px] outline-none",
+          "min-w-[200px] rounded py-[4px] outline-none",
           "bg-[rgba(13,13,13,0.92)] backdrop-blur-xl",
           "border border-[rgba(255,255,255,0.12)] shadow-floating",
           "animate-in fade-in-0 zoom-in-95"

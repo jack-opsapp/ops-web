@@ -219,7 +219,7 @@ export default function CalendarPage() {
 
           {/* View canvas */}
           <div
-            className="flex-1 bg-background-panel border border-border rounded-lg overflow-hidden flex flex-col min-h-0"
+            className="flex-1 bg-background-panel border border-border rounded overflow-hidden flex flex-col min-h-0"
             style={{
               backgroundImage: [
                 "linear-gradient(rgba(65, 115, 148, 0.015) 1px, transparent 1px)",
