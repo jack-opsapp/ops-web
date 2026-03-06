@@ -328,7 +328,7 @@ export const GmailService = {
     const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
 
     // Noise filter: skip automated/marketing emails
-    if (EmailFilterService.shouldFilter(fromEmail, subject, blocklist, syncFilters)) {
+    if (EmailFilterService.shouldFilter(fromEmail, subject, blocklist, syncFilters, msg.labelIds, msg.snippet)) {
       return null;
     }
 

@@ -1402,6 +1402,22 @@ export interface GmailSyncFilters {
   excludeSubjectKeywords: string[];
   includeSentMail: boolean;
   usePresetBlocklist: boolean;
+  /** Structured filter rules — replaces legacy textarea filters when present */
+  rules?: EmailFilterRule[];
+  /** How to combine rules: "all" = AND, "any" = OR */
+  ruleLogic?: "all" | "any";
+}
+
+// ─── Structured Filter Rules ─────────────────────────────────────────────────
+
+export type EmailFilterField = "subject" | "from_email" | "from_domain" | "label" | "body";
+export type EmailFilterOperator = "contains" | "not_contains" | "equals" | "not_equals" | "starts_with" | "ends_with";
+
+export interface EmailFilterRule {
+  id: string;
+  field: EmailFilterField;
+  operator: EmailFilterOperator;
+  value: string;
 }
 
 export interface GmailImportJob {

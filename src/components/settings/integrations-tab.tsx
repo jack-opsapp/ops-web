@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
 import { Button } from "@/components/ui/button";
+import { EmailFilterBuilder } from "@/components/settings/email-filter-builder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -51,6 +52,8 @@ export function IntegrationsTab() {
 
   const [copied, setCopied] = useState(false);
   const [importStarted, setImportStarted] = useState(false);
+  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [customDate, setCustomDate] = useState("");
 
   const [isFirstConnect, setIsFirstConnect] = useState(false);
 
@@ -158,9 +161,19 @@ export function IntegrationsTab() {
     importAfter.setDate(importAfter.getDate() - daysBack);
     const dateStr = importAfter.toISOString().split("T")[0];
 
+    startImportFromDate(firstConnection.id, dateStr);
+  }
+
+  function handleStartImportCustom() {
+    const firstConnection = connections[0];
+    if (!firstConnection || !customDate) return;
+    startImportFromDate(firstConnection.id, customDate);
+  }
+
+  function startImportFromDate(connectionId: string, dateStr: string) {
     setImportStarted(true);
     gmailImport.startImport.mutate(
-      { connectionId: firstConnection.id, importAfter: dateStr },
+      { connectionId, importAfter: dateStr },
       {
         onSuccess: () => toast.success("Historical import started"),
         onError: (err) => {
@@ -290,52 +303,24 @@ export function IntegrationsTab() {
                 Advanced email filters
               </summary>
               <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
-                {/* Blocked Domains */}
-                <div>
-                  <label className="font-kosugi text-[10px] text-text-disabled block mb-[2px]">
-                    Blocked domains (one per line)
-                  </label>
-                  <textarea
-                    defaultValue={(companyConnections[0]?.syncFilters.excludeDomains ?? []).join("\n")}
-                    onBlur={(e) => {
-                      const conn = companyConnections[0];
-                      if (!conn) return;
-                      const domains = e.target.value
-                        .split("\n")
-                        .map((d) => d.trim().toLowerCase())
-                        .filter(Boolean);
-                      handleUpdateFilters(conn.id, { ...conn.syncFilters, excludeDomains: domains });
-                    }}
-                    rows={3}
-                    className="w-full bg-background-input border border-border rounded px-1.5 py-[6px] font-mono text-[11px] text-text-primary resize-y"
-                    placeholder="example.com&#10;spammer.com"
-                  />
-                </div>
-
-                {/* Subject Keyword Exclusions */}
-                <div>
-                  <label className="font-kosugi text-[10px] text-text-disabled block mb-[2px]">
-                    Exclude subjects containing (one per line)
-                  </label>
-                  <textarea
-                    defaultValue={(companyConnections[0]?.syncFilters.excludeSubjectKeywords ?? []).join("\n")}
-                    onBlur={(e) => {
-                      const conn = companyConnections[0];
-                      if (!conn) return;
-                      const keywords = e.target.value
-                        .split("\n")
-                        .map((k) => k.trim())
-                        .filter(Boolean);
-                      handleUpdateFilters(conn.id, { ...conn.syncFilters, excludeSubjectKeywords: keywords });
-                    }}
-                    rows={2}
-                    className="w-full bg-background-input border border-border rounded px-1.5 py-[6px] font-mono text-[11px] text-text-primary resize-y"
-                    placeholder="unsubscribe&#10;out of office"
-                  />
-                </div>
+                {/* Filter Builder */}
+                {companyConnections[0] && (
+                  <div>
+                    <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px]">
+                      Filter rules — only import/sync emails that match
+                    </label>
+                    <EmailFilterBuilder
+                      filters={companyConnections[0].syncFilters}
+                      connectionId={companyConnections[0].id}
+                      onUpdate={(updated) =>
+                        handleUpdateFilters(companyConnections[0].id, updated)
+                      }
+                    />
+                  </div>
+                )}
 
                 {/* Preset blocklist toggle */}
-                <div className="flex items-center gap-[6px]">
+                <div className="flex items-center gap-[6px] pt-[4px]">
                   <button
                     onClick={() => {
                       const conn = companyConnections[0];
@@ -388,7 +373,36 @@ export function IntegrationsTab() {
                     {preset.label}
                   </Button>
                 ))}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowCustomDate(!showCustomDate)}
+                  disabled={gmailImport.isImporting}
+                  className="font-kosugi text-[11px]"
+                >
+                  Custom
+                </Button>
               </div>
+              {showCustomDate && (
+                <div className="flex items-center gap-[6px] mt-[6px]">
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={(e) => setCustomDate(e.target.value)}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleStartImportCustom}
+                    disabled={!customDate || gmailImport.isImporting}
+                    className="font-kosugi text-[11px]"
+                  >
+                    Import
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

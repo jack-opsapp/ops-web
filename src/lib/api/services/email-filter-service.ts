@@ -6,7 +6,7 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
-import type { EmailFilterPreset, GmailSyncFilters } from "@/lib/types/pipeline";
+import type { EmailFilterPreset, GmailSyncFilters, EmailFilterRule } from "@/lib/types/pipeline";
 
 export const EmailFilterService = {
   /** Fetch all pre-seeded filter presets */
@@ -49,7 +49,9 @@ export const EmailFilterService = {
     fromEmail: string,
     subject: string,
     blocklist: { domains: Set<string>; keywords: string[] },
-    syncFilters: GmailSyncFilters
+    syncFilters: GmailSyncFilters,
+    labelIds?: string[],
+    body?: string,
   ): boolean {
     const domain = fromEmail.split("@")[1]?.toLowerCase() ?? "";
 
@@ -78,6 +80,95 @@ export const EmailFilterService = {
       if (subjectLower.includes(keyword.toLowerCase())) return true;
     }
 
+    // Evaluate structured filter rules (include-style: if rules exist and don't match, filter out)
+    if (syncFilters.rules && syncFilters.rules.length > 0) {
+      const matchesRules = this.evaluateRules(
+        syncFilters.rules,
+        syncFilters.ruleLogic ?? "all",
+        { fromEmail, subject, domain, labelIds: labelIds ?? [], body: body ?? "" },
+      );
+      if (!matchesRules) return true;
+    }
+
     return false;
+  },
+
+  /** Evaluate structured filter rules against an email */
+  evaluateRules(
+    rules: EmailFilterRule[],
+    logic: "all" | "any",
+    email: { fromEmail: string; subject: string; domain: string; labelIds: string[]; body: string },
+  ): boolean {
+    if (rules.length === 0) return true;
+
+    const results = rules.map((rule) => this.evaluateRule(rule, email));
+    return logic === "all" ? results.every(Boolean) : results.some(Boolean);
+  },
+
+  /** Evaluate a single filter rule */
+  evaluateRule(
+    rule: EmailFilterRule,
+    email: { fromEmail: string; subject: string; domain: string; labelIds: string[]; body: string },
+  ): boolean {
+    let fieldValue: string;
+    switch (rule.field) {
+      case "subject":
+        fieldValue = email.subject;
+        break;
+      case "from_email":
+        fieldValue = email.fromEmail;
+        break;
+      case "from_domain":
+        fieldValue = email.domain;
+        break;
+      case "label":
+        // For labels, check membership
+        return this.evaluateLabelRule(rule.operator, rule.value, email.labelIds);
+      case "body":
+        fieldValue = email.body;
+        break;
+      default:
+        return true;
+    }
+
+    const val = fieldValue.toLowerCase();
+    const ruleVal = rule.value.toLowerCase();
+
+    switch (rule.operator) {
+      case "contains":
+        return val.includes(ruleVal);
+      case "not_contains":
+        return !val.includes(ruleVal);
+      case "equals":
+        return val === ruleVal;
+      case "not_equals":
+        return val !== ruleVal;
+      case "starts_with":
+        return val.startsWith(ruleVal);
+      case "ends_with":
+        return val.endsWith(ruleVal);
+      default:
+        return true;
+    }
+  },
+
+  /** Evaluate label-specific rules */
+  evaluateLabelRule(
+    operator: string,
+    value: string,
+    labelIds: string[],
+  ): boolean {
+    const labelUpper = value.toUpperCase();
+    const has = labelIds.some((l) => l.toUpperCase() === labelUpper);
+    switch (operator) {
+      case "equals":
+      case "contains":
+        return has;
+      case "not_equals":
+      case "not_contains":
+        return !has;
+      default:
+        return true;
+    }
   },
 };
