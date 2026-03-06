@@ -22,11 +22,8 @@ interface UseCalendarDndOptions {
   events: InternalCalendarEvent[];
 }
 
-// Team timeline uses a different pixel-to-time ratio (horizontal axis)
-const TEAM_HOUR_COLUMN_WIDTH = 80;
-
 export function useCalendarDnd({ events }: UseCalendarDndOptions) {
-  const { setDragState, view } = useCalendarStore();
+  const { setDragState } = useCalendarStore();
   const { company } = useAuthStore();
   const updateMutation = useUpdateCalendarEvent();
   const createMutation = useCreateCalendarEvent();
@@ -48,17 +45,14 @@ export function useCalendarDnd({ events }: UseCalendarDndOptions) {
 
       const durationMinutes = differenceInMinutes(calEvent.endDate, calEvent.startDate);
 
-      // Team view: horizontal axis maps to time; others: vertical axis
-      const deltaMinutes = view === "team"
-        ? (delta.x / TEAM_HOUR_COLUMN_WIDTH) * 60
-        : (delta.y / HOUR_HEIGHT) * 60;
+      const deltaMinutes = (delta.y / HOUR_HEIGHT) * 60;
 
       const rawNewStart = addMinutes(calEvent.startDate, deltaMinutes);
       const newStart = snapToGrid(rawNewStart);
 
       setDragState(activeId, { date: newStart, duration: durationMinutes });
     },
-    [events, setDragState, view]
+    [events, setDragState]
   );
 
   const handleDragEnd = useCallback(
@@ -106,10 +100,8 @@ export function useCalendarDnd({ events }: UseCalendarDndOptions) {
       // Preserve event duration
       const durationMinutes = differenceInMinutes(calEvent.endDate, calEvent.startDate);
 
-      // Convert pixel delta to time delta — team view uses horizontal axis
-      const deltaMinutes = view === "team"
-        ? (delta.x / TEAM_HOUR_COLUMN_WIDTH) * 60
-        : (delta.y / HOUR_HEIGHT) * 60;
+      // Convert pixel delta to time delta
+      const deltaMinutes = (delta.y / HOUR_HEIGHT) * 60;
 
       // Apply time delta to original start, then snap
       const rawNewStart = addMinutes(calEvent.startDate, deltaMinutes);
@@ -132,7 +124,7 @@ export function useCalendarDnd({ events }: UseCalendarDndOptions) {
         },
       });
     },
-    [events, setDragState, updateMutation, createMutation, company?.id, view]
+    [events, setDragState, updateMutation, createMutation, company?.id]
   );
 
   const handleDragCancel = useCallback(() => {

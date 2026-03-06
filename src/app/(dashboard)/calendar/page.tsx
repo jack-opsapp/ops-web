@@ -8,7 +8,6 @@ import {
   endOfWeek,
   startOfDay,
   endOfDay,
-  addHours,
   addMonths,
   addWeeks,
   addDays,
@@ -20,31 +19,31 @@ import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
-import { useCalendarEventsForRange, useDeleteCalendarEvent, useUpdateCalendarEvent } from "@/lib/hooks";
+import {
+  useCalendarEventsForRange,
+  useTeamMembers,
+} from "@/lib/hooks";
 import {
   type InternalCalendarEvent,
   mapApiEventToInternal,
-  snapToGrid,
-  detectConflicts,
 } from "@/lib/utils/calendar-utils";
 import {
   calendarViewVariants,
   calendarViewVariantsReduced,
 } from "@/lib/utils/motion";
 import { useCalendarStore } from "@/stores/calendar-store";
+import type { TeamMember } from "@/lib/types/models";
 
 import { CalendarHeader } from "./_components/calendar-header";
 import { CalendarToolbar } from "./_components/calendar-toolbar";
 import { CalendarGridMonth } from "./_components/calendar-grid-month";
-import { CalendarGridWeek } from "./_components/calendar-grid-week";
 import { CalendarGridDay } from "./_components/calendar-grid-day";
-import { CalendarGridTeam } from "./_components/calendar-grid-team";
-import { CalendarAgenda } from "./_components/calendar-agenda";
-import { EventDetailPanel } from "./_components/event-detail-panel";
-import { EventQuickCreate } from "./_components/event-quick-create";
-import { CalendarDndContext } from "./_components/calendar-dnd-context";
-import { EventContextMenu } from "./_components/event-context-menu";
+import { TimelineGrid } from "./_components/timeline/timeline-grid";
 import { FilterSidebar } from "./_components/filter-sidebar";
+import { TaskDetailPanel } from "./_components/side-panel/task-detail-panel";
+import { ProjectDrawerPanel } from "./_components/side-panel/project-drawer-panel";
+import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
+import { GhostOverlay } from "./_components/cascade/ghost-overlay";
 
 export default function CalendarPage() {
   const { t } = useDictionary("calendar");
@@ -54,29 +53,27 @@ export default function CalendarPage() {
     setView,
     setCurrentDate,
     goToToday,
-    selectedEventId,
-    selectEvent,
-    setQuickCreateAnchor,
+    setSidePanelTask,
+    closeSidePanel,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,
     filterStatuses,
+    isConfirmBarVisible,
+    ghostPreviews,
   } = useCalendarStore();
 
-  const deleteMutation = useDeleteCalendarEvent();
-  const updateMutation = useUpdateCalendarEvent();
+  useEffect(() => {
+    trackScreenView("calendar");
+  }, []);
 
-  // Context menu state
-  const [contextMenuEvent, setContextMenuEvent] = useState<InternalCalendarEvent | null>(null);
-  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
-
-  useEffect(() => { trackScreenView("calendar"); }, []);
-
-  // Animation: reduced motion preference + view direction tracking
+  // Animation: reduced motion preference
   const prefersReducedMotion = useReducedMotion();
-  const viewVariants = prefersReducedMotion ? calendarViewVariantsReduced : calendarViewVariants;
+  const viewVariants = prefersReducedMotion
+    ? calendarViewVariantsReduced
+    : calendarViewVariants;
 
-  // Responsive: track window width for layout adjustments
+  // Responsive: track window width
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
@@ -87,12 +84,11 @@ export default function CalendarPage() {
   }, []);
 
   const isMobile = windowWidth < 768;
-  const isTablet = windowWidth >= 768 && windowWidth < 1200;
 
-  // On mobile, default to agenda view
+  // On mobile, force day view
   useEffect(() => {
-    if (isMobile && view !== "agenda") {
-      setView("agenda");
+    if (isMobile && view !== "day") {
+      setView("day");
     }
   }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -104,18 +100,42 @@ export default function CalendarPage() {
         const me = endOfMonth(currentDate);
         return { rangeStart: startOfWeek(ms), rangeEnd: endOfWeek(me) };
       }
-      case "week":
-        return { rangeStart: startOfWeek(currentDate), rangeEnd: endOfWeek(currentDate) };
-      case "agenda":
-        return { rangeStart: startOfDay(currentDate), rangeEnd: endOfDay(addDays(currentDate, 13)) };
+      case "timeline":
+        return {
+          rangeStart: startOfWeek(currentDate),
+          rangeEnd: endOfWeek(currentDate),
+        };
       case "day":
-      case "team":
       default:
-        return { rangeStart: startOfDay(currentDate), rangeEnd: endOfDay(currentDate) };
+        return {
+          rangeStart: startOfDay(currentDate),
+          rangeEnd: endOfDay(currentDate),
+        };
     }
   }, [currentDate, view]);
 
-  const { data: apiEvents, isLoading } = useCalendarEventsForRange(rangeStart, rangeEnd);
+  const { data: apiEvents, isLoading } = useCalendarEventsForRange(
+    rangeStart,
+    rangeEnd
+  );
+
+  // Team members for timeline
+  const { data: teamData } = useTeamMembers();
+  const teamMembers: TeamMember[] = useMemo(() => {
+    const users = teamData?.users ?? [];
+    return users.map((u) => ({
+      id: u.id,
+      userId: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      phone: u.phone,
+      profileImageURL: u.profileImageURL,
+      role: u.role,
+      userColor: u.userColor,
+      isActive: u.isActive ?? true,
+    }));
+  }, [teamData]);
 
   // Map + filter events
   const events: InternalCalendarEvent[] = useMemo(() => {
@@ -133,7 +153,9 @@ export default function CalendarPage() {
       );
     }
     if (filterProjectIds.length > 0) {
-      mapped = mapped.filter((e) => e.projectId && filterProjectIds.includes(e.projectId));
+      mapped = mapped.filter(
+        (e) => e.projectId && filterProjectIds.includes(e.projectId)
+      );
     }
     if (filterStatuses.length > 0) {
       const now = new Date();
@@ -150,10 +172,13 @@ export default function CalendarPage() {
     }
 
     return mapped;
-  }, [apiEvents, filterTaskTypes, filterTeamMemberIds, filterProjectIds, filterStatuses]);
-
-  // Conflict detection
-  const conflictIds = useMemo(() => detectConflicts(events), [events]);
+  }, [
+    apiEvents,
+    filterTaskTypes,
+    filterTeamMemberIds,
+    filterProjectIds,
+    filterStatuses,
+  ]);
 
   // Handlers
   const handleSelectDate = useCallback(
@@ -166,154 +191,138 @@ export default function CalendarPage() {
 
   const handleEventClick = useCallback(
     (event: InternalCalendarEvent) => {
-      selectEvent(event.id);
+      setSidePanelTask(event.id);
     },
-    [selectEvent]
-  );
-
-  const handleEventContextMenu = useCallback(
-    (event: InternalCalendarEvent, x: number, y: number) => {
-      setContextMenuEvent(event);
-      setContextMenuPos({ x, y });
-    },
-    []
-  );
-
-  const handleEmptySlotClick = useCallback(
-    (date: Date, clientX: number, clientY: number) => {
-      const snapped = snapToGrid(date);
-      setQuickCreateAnchor({
-        x: clientX,
-        y: clientY,
-        date: snapped,
-        endDate: addHours(snapped, 1),
-      });
-    },
-    [setQuickCreateAnchor]
-  );
-
-  const handleRangeSelect = useCallback(
-    (startDate: Date, endDate: Date, clientX: number, clientY: number) => {
-      setQuickCreateAnchor({
-        x: clientX,
-        y: clientY,
-        date: startDate,
-        endDate,
-      });
-    },
-    [setQuickCreateAnchor]
-  );
-
-  const handleEventResize = useCallback(
-    (event: InternalCalendarEvent, newEndDate: Date) => {
-      updateMutation.mutate({
-        id: event.id,
-        data: { endDate: newEndDate },
-      });
-    },
-    [updateMutation]
+    [setSidePanelTask]
   );
 
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
 
       switch (e.key) {
-        case "ArrowLeft": e.preventDefault(); {
-          const d = useCalendarStore.getState().currentDate;
-          if (view === "month") setCurrentDate(subMonths(d, 1));
-          else if (view === "week") setCurrentDate(subWeeks(d, 1));
-          else setCurrentDate(subDays(d, 1));
-        } break;
-        case "ArrowRight": e.preventDefault(); {
-          const d = useCalendarStore.getState().currentDate;
-          if (view === "month") setCurrentDate(addMonths(d, 1));
-          else if (view === "week") setCurrentDate(addWeeks(d, 1));
-          else setCurrentDate(addDays(d, 1));
-        } break;
-        // View switching: D/W/M/T/A
-        case "d": case "D": if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setView("day"); } break;
-        case "w": case "W": if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setView("week"); } break;
-        case "m": case "M": if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setView("month"); } break;
-        case "t": case "T": if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setView("team"); } break;
-        case "a": case "A": if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); setView("agenda"); } break;
-        // Navigation
-        case "y": case "Y": if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); goToToday(); } break;
-        // Create — open quick-create at current date center of viewport
-        case "c": case "C": if (!e.ctrlKey && !e.metaKey) {
+        case "ArrowLeft":
           e.preventDefault();
-          const now = new Date();
-          const snapped = snapToGrid(now);
-          setQuickCreateAnchor({
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 3,
-            date: snapped,
-            endDate: addHours(snapped, 1),
-          });
-        } break;
-        // Edit — open detail panel for selected event
-        case "e": case "E": if (!e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          const { selectedEventId, isDetailPanelOpen } = useCalendarStore.getState();
-          if (selectedEventId && !isDetailPanelOpen) {
-            selectEvent(selectedEventId); // re-trigger to open panel
+          {
+            const d = useCalendarStore.getState().currentDate;
+            const v = useCalendarStore.getState().view;
+            if (v === "month") setCurrentDate(subMonths(d, 1));
+            else if (v === "timeline") setCurrentDate(subWeeks(d, 1));
+            else setCurrentDate(subDays(d, 1));
           }
-        } break;
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          {
+            const d = useCalendarStore.getState().currentDate;
+            const v = useCalendarStore.getState().view;
+            if (v === "month") setCurrentDate(addMonths(d, 1));
+            else if (v === "timeline") setCurrentDate(addWeeks(d, 1));
+            else setCurrentDate(addDays(d, 1));
+          }
+          break;
+        // View switching: T/M/D
+        case "t":
+        case "T":
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setView("timeline");
+          }
+          break;
+        case "m":
+        case "M":
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setView("month");
+          }
+          break;
+        case "d":
+        case "D":
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setView("day");
+          }
+          break;
+        // Today
+        case "y":
+        case "Y":
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            goToToday();
+          }
+          break;
         // Tab — cycle through events
         case "Tab": {
           if (events.length === 0) break;
           e.preventDefault();
-          const { selectedEventId } = useCalendarStore.getState();
-          const currentIndex = selectedEventId
-            ? events.findIndex((ev) => ev.id === selectedEventId)
+          const { selectedTaskId } = useCalendarStore.getState();
+          const currentIndex = selectedTaskId
+            ? events.findIndex((ev) => ev.id === selectedTaskId)
             : -1;
           const direction = e.shiftKey ? -1 : 1;
-          const nextIndex = (currentIndex + direction + events.length) % events.length;
-          selectEvent(events[nextIndex].id);
-        } break;
-        // Enter — open detail panel for selected event
+          const nextIndex =
+            (currentIndex + direction + events.length) % events.length;
+          setSidePanelTask(events[nextIndex].id);
+          break;
+        }
+        // Enter — open detail for selected task
         case "Enter": {
-          const { selectedEventId } = useCalendarStore.getState();
-          if (selectedEventId) {
+          const { selectedTaskId } = useCalendarStore.getState();
+          if (selectedTaskId) {
             e.preventDefault();
-            selectEvent(selectedEventId);
+            setSidePanelTask(selectedTaskId);
           }
-        } break;
-        // Delete — delete selected event
-        case "Delete": case "Backspace": {
-          const { selectedEventId } = useCalendarStore.getState();
-          if (selectedEventId) {
-            e.preventDefault();
-            deleteMutation.mutate(selectedEventId);
-            selectEvent(null);
-          }
-        } break;
+          break;
+        }
+        // Escape — close panels
         case "Escape":
-          selectEvent(null);
-          setQuickCreateAnchor(null);
-          setContextMenuEvent(null);
-          setContextMenuPos(null);
+          closeSidePanel();
           break;
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view, setCurrentDate, goToToday, setView, selectEvent, setQuickCreateAnchor, deleteMutation]);
+  }, [
+    setCurrentDate,
+    goToToday,
+    setView,
+    setSidePanelTask,
+    closeSidePanel,
+    events,
+  ]);
+
+  // Timeline start date (week start)
+  const timelineStartDate = useMemo(
+    () => startOfWeek(currentDate),
+    [currentDate]
+  );
 
   return (
     <div className="flex flex-col h-full gap-1.5">
       <CalendarHeader t={t} />
       <CalendarToolbar events={events} t={t} />
 
-      {/* Calendar Content — wrapped in DnD context */}
-      <CalendarDndContext events={events}>
-        <div className="flex flex-1 min-h-0 gap-1.5">
-          {/* Filter sidebar (left) — hidden on mobile */}
-          {!isMobile && <FilterSidebar />}
+      {/* Main content area */}
+      <div className="flex flex-1 min-h-0 gap-1.5">
+        {/* Filter sidebar (left) — hidden on mobile */}
+        {!isMobile && <FilterSidebar />}
 
-          {/* Main calendar grid */}
+        {/* Main calendar grid */}
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
+          {/* Cascade confirm bar — sits above the view */}
+          {isConfirmBarVisible && (
+            <div className="shrink-0 mb-1">
+              <CascadeConfirmBar />
+            </div>
+          )}
+
+          {/* View canvas */}
           <div
             className="flex-1 bg-background-panel border border-border rounded-lg overflow-hidden flex flex-col min-h-0"
             style={{
@@ -327,7 +336,9 @@ export default function CalendarPage() {
             {isLoading && (
               <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
                 <Loader2 className="w-[32px] h-[32px] text-ops-accent animate-spin" />
-                <p className="font-mohave text-body-sm text-text-tertiary">{t("loading")}</p>
+                <p className="font-mohave text-body-sm text-text-tertiary">
+                  {t("loading")}
+                </p>
               </div>
             )}
             {!isLoading && (
@@ -340,6 +351,14 @@ export default function CalendarPage() {
                   exit="exit"
                   className="flex flex-col flex-1 min-h-0"
                 >
+                  {view === "timeline" && (
+                    <TimelineGrid
+                      events={events}
+                      teamMembers={teamMembers}
+                      startDate={timelineStartDate}
+                      onEventClick={handleEventClick}
+                    />
+                  )}
                   {view === "month" && (
                     <CalendarGridMonth
                       currentDate={currentDate}
@@ -349,47 +368,8 @@ export default function CalendarPage() {
                       t={t}
                     />
                   )}
-                  {view === "week" && (
-                    <CalendarGridWeek
-                      currentDate={currentDate}
-                      events={events}
-                      conflictIds={conflictIds}
-                      onSelectDate={handleSelectDate}
-                      onEventClick={handleEventClick}
-                      onEventContextMenu={handleEventContextMenu}
-                      onEventResize={handleEventResize}
-                      onEmptySlotClick={handleEmptySlotClick}
-                      onRangeSelect={handleRangeSelect}
-                      selectedEventId={selectedEventId}
-                      t={t}
-                    />
-                  )}
                   {view === "day" && (
                     <CalendarGridDay
-                      currentDate={currentDate}
-                      events={events}
-                      conflictIds={conflictIds}
-                      onEventClick={handleEventClick}
-                      onEventContextMenu={handleEventContextMenu}
-                      onEventResize={handleEventResize}
-                      onEmptySlotClick={handleEmptySlotClick}
-                      onRangeSelect={handleRangeSelect}
-                      selectedEventId={selectedEventId}
-                      t={t}
-                    />
-                  )}
-                  {view === "team" && (
-                    <CalendarGridTeam
-                      currentDate={currentDate}
-                      events={events}
-                      conflictIds={conflictIds}
-                      onEventClick={handleEventClick}
-                      onEventContextMenu={handleEventContextMenu}
-                      t={t}
-                    />
-                  )}
-                  {view === "agenda" && (
-                    <CalendarAgenda
                       currentDate={currentDate}
                       events={events}
                       onEventClick={handleEventClick}
@@ -400,20 +380,26 @@ export default function CalendarPage() {
               </AnimatePresence>
             )}
           </div>
-        </div>
-      </CalendarDndContext>
 
-      {/* Interactive overlays */}
-      <EventDetailPanel />
-      <EventQuickCreate />
-      <EventContextMenu
-        event={contextMenuEvent}
-        position={contextMenuPos}
-        onClose={() => {
-          setContextMenuEvent(null);
-          setContextMenuPos(null);
-        }}
-      />
+          {/* Ghost overlay — only visible in timeline view with active previews */}
+          {view === "timeline" && ghostPreviews.length > 0 && (
+            <GhostOverlay
+              startDate={timelineStartDate}
+              daysShown={7}
+              teamMembers={teamMembers}
+              events={events}
+            />
+          )}
+        </div>
+
+        {/* Side panels (right) — hidden on mobile */}
+        {!isMobile && (
+          <>
+            <TaskDetailPanel />
+            <ProjectDrawerPanel />
+          </>
+        )}
+      </div>
     </div>
   );
 }

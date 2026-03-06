@@ -26,7 +26,7 @@ type MenuItemId = (typeof MENU_ITEMS)[number];
 
 export function EventContextMenu({ event, position, onClose }: EventContextMenuProps) {
   const { company } = useAuthStore();
-  const { selectEvent } = useCalendarStore();
+  const { setSidePanelTask } = useCalendarStore();
   const deleteMutation = useDeleteCalendarEvent();
   const duplicateMutation = useCreateCalendarEvent();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -34,9 +34,9 @@ export function EventContextMenu({ event, position, onClose }: EventContextMenuP
 
   const handleEdit = useCallback(() => {
     if (!event) return;
-    selectEvent(event.id);
+    setSidePanelTask(event.id);
     onClose();
-  }, [event, selectEvent, onClose]);
+  }, [event, setSidePanelTask, onClose]);
 
   const handleDuplicate = useCallback(() => {
     if (!event || !company?.id) return;
