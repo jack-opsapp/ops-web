@@ -181,7 +181,7 @@ export function TimelineTaskBlock({
         className="flex-1 flex items-center min-w-0 px-[8px] rounded-r-[3px] transition-colors duration-150"
         style={{
           background: `rgba(${rgbStr}, 0.15)`,
-          border: `1px solid rgba(${rgbStr}, ${isHovered ? 0.5 : 0.3})`,
+          border: `1px ${isGhost ? "dashed" : "solid"} rgba(${rgbStr}, ${isHovered ? 0.5 : 0.3})`,
           borderLeft: "none",
           borderRadius: "0 3px 3px 0",
           outline: isSelected ? "1px solid #597794" : "none",
