@@ -17,7 +17,7 @@
   "crons": [
     {
       "path": "/api/cron/gmail-sync",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
