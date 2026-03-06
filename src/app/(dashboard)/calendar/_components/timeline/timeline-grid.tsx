@@ -15,6 +15,8 @@ import { UserRole } from "@/lib/types/models";
 import { TimelineHeader } from "./timeline-header";
 import { TimelineRow } from "./timeline-row";
 import { TimelineTaskBlock } from "./timeline-task-block";
+import { EventContextMenu } from "../event-context-menu";
+import { InlineEditor } from "../inline-editor";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useUpdateCalendarEvent } from "@/lib/hooks";
 import { useTimelineDnd } from "@/lib/hooks/use-timeline-dnd";
@@ -169,6 +171,15 @@ export function TimelineGrid({
   const selectedTaskIds = useCalendarStore((s) => s.selectedTaskIds);
   const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
 
+  // ── Context menu state ──────────────────────────────────────────────
+
+  const [contextMenuEvent, setContextMenuEvent] =
+    useState<InternalCalendarEvent | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   // ── Mutations ─────────────────────────────────────────────────────────
 
   const updateCalendarEvent = useUpdateCalendarEvent();
@@ -208,11 +219,17 @@ export function TimelineGrid({
   );
 
   const handleContextMenu = useCallback(
-    (_event: InternalCalendarEvent, _x: number, _y: number) => {
-      // Context menu will be wired in a future task
+    (event: InternalCalendarEvent, x: number, y: number) => {
+      setContextMenuEvent(event);
+      setContextMenuPosition({ x, y });
     },
     []
   );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenuEvent(null);
+    setContextMenuPosition(null);
+  }, []);
 
   // ── Helper: check if a task is selected ───────────────────────────────
 
@@ -325,6 +342,17 @@ export function TimelineGrid({
           })()}
         </div>
       </div>
+
+      {/* Context menu */}
+      <EventContextMenu
+        event={contextMenuEvent}
+        position={contextMenuPosition}
+        onClose={handleCloseContextMenu}
+        allEvents={events}
+      />
+
+      {/* Inline editor overlay */}
+      <InlineEditor />
     </DndContext>
   );
 }
