@@ -20,6 +20,7 @@ function mapFromDb(row: Record<string, unknown>): TaskType {
     companyId: row.company_id as string,
     displayOrder: (row.display_order as number) ?? 0,
     defaultTeamMemberIds: (row.default_team_member_ids as string[]) ?? [],
+    dependencies: (row.dependencies as TaskType["dependencies"]) ?? [],
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -36,6 +37,7 @@ function mapToDb(data: Partial<TaskType>): Record<string, unknown> {
   if (data.displayOrder !== undefined) row.display_order = data.displayOrder;
   if (data.defaultTeamMemberIds !== undefined)
     row.default_team_member_ids = data.defaultTeamMemberIds;
+  if (data.dependencies !== undefined) row.dependencies = data.dependencies;
   return row;
 }
 

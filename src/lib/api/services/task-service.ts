@@ -73,6 +73,9 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     teamMemberIds: (row.team_member_ids as string[]) ?? [],
     sourceLineItemId: (row.source_line_item_id as string) ?? null,
     sourceEstimateId: (row.source_estimate_id as string) ?? null,
+    dependencyOverrides: (row.dependency_overrides as ProjectTask["dependencyOverrides"]) ?? null,
+    startTime: (row.start_time as string) ?? null,
+    endTime: (row.end_time as string) ?? null,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -92,6 +95,9 @@ function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
   if (data.sourceLineItemId !== undefined) row.source_line_item_id = data.sourceLineItemId;
   if (data.sourceEstimateId !== undefined) row.source_estimate_id = data.sourceEstimateId;
+  if (data.dependencyOverrides !== undefined) row.dependency_overrides = data.dependencyOverrides;
+  if (data.startTime !== undefined) row.start_time = data.startTime;
+  if (data.endTime !== undefined) row.end_time = data.endTime;
   // Map both taskIndex and displayOrder to display_order
   if (data.displayOrder !== undefined) row.display_order = data.displayOrder;
   else if (data.taskIndex !== undefined) row.display_order = data.taskIndex;

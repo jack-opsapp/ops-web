@@ -50,6 +50,8 @@ function mapFromDb(row: Record<string, unknown>): Company {
     dataSetupCompleted: (row.data_setup_completed as boolean) ?? false,
     dataSetupScheduledDate: parseDate(row.data_setup_scheduled),
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
+    preciseSchedulingEnabled: (row.precise_scheduling_enabled as boolean) ?? false,
+    skipWeekendsInAutoSchedule: (row.skip_weekends_in_auto_schedule as boolean) ?? true,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -96,6 +98,8 @@ function mapToDb(data: Partial<Company>): Record<string, unknown> {
   if (data.dataSetupScheduledDate !== undefined)
     row.data_setup_scheduled = data.dataSetupScheduledDate?.toISOString() ?? null;
   if (data.stripeCustomerId !== undefined) row.stripe_customer_id = data.stripeCustomerId;
+  if (data.preciseSchedulingEnabled !== undefined) row.precise_scheduling_enabled = data.preciseSchedulingEnabled;
+  if (data.skipWeekendsInAutoSchedule !== undefined) row.skip_weekends_in_auto_schedule = data.skipWeekendsInAutoSchedule;
   return row;
 }
 
