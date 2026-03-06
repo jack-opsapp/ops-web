@@ -145,9 +145,6 @@ export function TimelineTaskBlock({
     return { leftPercent: newLeft, widthPercent: newWidth };
   }, [resizeState, leftPercent, widthPercent, daysShown]);
 
-  // Don't render if completely outside visible range
-  if (resizeAdjusted.widthPercent <= 0) return null;
-
   const blockHeight = TIMELINE_ROW_HEIGHT - 16; // 56px (8px padding top + bottom)
 
   // ── Determine if block is narrow ──────────────────────────────────────
@@ -270,6 +267,9 @@ export function TimelineTaskBlock({
     exit: { opacity: 0, y: 4 },
   };
 
+  // Don't render if completely outside visible range
+  if (resizeAdjusted.widthPercent <= 0) return null;
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -279,6 +279,7 @@ export function TimelineTaskBlock({
         setNodeRef(node);
         (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
+      data-task-id={event.id}
       className="absolute flex items-stretch"
       style={{
         left: `${resizeAdjusted.leftPercent}%`,
