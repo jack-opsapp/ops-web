@@ -65,16 +65,32 @@ export function CalendarGridDay({
           borderColor: "rgba(255, 255, 255, 0.10)",
         }}
       >
-        {/* Left: Day name + date */}
+        {/* Left: Day name + date + TODAY badge */}
         <div className="flex flex-col">
-          <span
-            className={cn(
-              "font-mohave font-bold text-[22px] leading-tight",
-              dayIsToday ? "text-ops-accent" : "text-white"
+          <div className="flex items-center gap-[8px]">
+            <span
+              className={cn(
+                "font-mohave font-bold text-[22px] leading-tight",
+                dayIsToday ? "text-ops-accent" : "text-white"
+              )}
+            >
+              {format(currentDate, "EEEE").toUpperCase()}
+            </span>
+            {dayIsToday && (
+              <span
+                className="font-kosugi text-[9px] uppercase tracking-wider leading-tight"
+                style={{
+                  color: "#597794",
+                  background: "rgba(89,119,148,0.15)",
+                  border: "1px solid rgba(89,119,148,0.30)",
+                  borderRadius: 2,
+                  padding: "2px 6px",
+                }}
+              >
+                TODAY
+              </span>
             )}
-          >
-            {format(currentDate, "EEEE").toUpperCase()}
-          </span>
+          </div>
           <span
             className="font-kosugi text-[12px] uppercase tracking-wider mt-[2px] leading-tight"
             style={{ color: "#999999" }}

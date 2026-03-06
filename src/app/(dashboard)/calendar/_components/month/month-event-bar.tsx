@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 import { type InternalCalendarEvent, getEventColors } from "@/lib/utils/calendar-utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -21,6 +24,78 @@ interface MonthEventBarProps {
   onClick?: (event: InternalCalendarEvent) => void;
 }
 
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+
+const tooltipVariants = {
+  hidden: { opacity: 0, y: 4 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 4 },
+};
+
+function EventTooltip({ event }: { event: InternalCalendarEvent }) {
+  const colors = getEventColors(event.taskType);
+  const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      variants={tooltipVariants}
+      transition={{ duration: 0.15 }}
+      className="absolute z-50 pointer-events-none"
+      style={{
+        bottom: "calc(100% + 6px)",
+        left: 0,
+        minWidth: 180,
+        maxWidth: 240,
+        background: "rgba(10, 10, 10, 0.70)",
+        backdropFilter: "blur(20px) saturate(1.2)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        borderRadius: 3,
+        padding: "8px 10px",
+      }}
+    >
+      {/* Project name */}
+      <div
+        className="font-mohave font-semibold text-[12px] leading-tight truncate"
+        style={{ color: "#FFFFFF" }}
+      >
+        {event.project || event.title}
+      </div>
+
+      {/* Divider */}
+      <div
+        className="my-[4px]"
+        style={{ height: 1, background: "rgba(255, 255, 255, 0.08)" }}
+      />
+
+      {/* Task type */}
+      <div className="flex items-center gap-[6px]">
+        <div
+          className="w-[6px] h-[6px] rounded-[1px] shrink-0"
+          style={{ background: colors.border }}
+        />
+        <span
+          className="font-kosugi text-[10px] uppercase tracking-wider leading-tight"
+          style={{ color: colors.text }}
+        >
+          {event.taskType.toUpperCase()}
+        </span>
+      </div>
+
+      {/* Date range */}
+      <div
+        className="font-kosugi text-[10px] uppercase tracking-wider leading-tight mt-[3px]"
+        style={{ color: "#999999" }}
+      >
+        {dateRangeStr}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function MonthEventBar({
@@ -29,6 +104,7 @@ export function MonthEventBar({
   span,
   onClick,
 }: MonthEventBarProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const colors = getEventColors(event.taskType);
 
   // Corner rounding logic for multi-day bars
@@ -48,7 +124,7 @@ export function MonthEventBar({
   if (displayLevel === "compact") {
     return (
       <div
-        className="cursor-pointer transition-opacity duration-100 hover:opacity-80 shrink-0"
+        className="cursor-pointer transition-opacity duration-100 hover:opacity-80 shrink-0 relative"
         style={{
           width: 10,
           height: 10,
@@ -56,8 +132,13 @@ export function MonthEventBar({
           backgroundColor: colors.border,
         }}
         onClick={handleClick}
-        title={event.project || event.title}
-      />
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <AnimatePresence>
+          {isHovered && <EventTooltip event={event} />}
+        </AnimatePresence>
+      </div>
     );
   }
 
@@ -65,7 +146,7 @@ export function MonthEventBar({
   if (displayLevel === "standard") {
     return (
       <div
-        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate"
+        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
         style={{
           height: 14,
           backgroundColor: colors.bg,
@@ -76,10 +157,11 @@ export function MonthEventBar({
           paddingRight: 4,
           display: "flex",
           alignItems: "center",
-          overflow: "hidden",
+          overflow: "visible",
         }}
         onClick={handleClick}
-        title={event.project || event.title}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <span
           className="font-mohave truncate"
@@ -87,6 +169,9 @@ export function MonthEventBar({
         >
           {event.project || event.title}
         </span>
+        <AnimatePresence>
+          {isHovered && <EventTooltip event={event} />}
+        </AnimatePresence>
       </div>
     );
   }
@@ -97,7 +182,7 @@ export function MonthEventBar({
   if (!span.isSingleDay) {
     return (
       <div
-        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate"
+        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
         style={{
           height: 14,
           backgroundColor: colors.bg,
@@ -108,10 +193,11 @@ export function MonthEventBar({
           paddingRight: 4,
           display: "flex",
           alignItems: "center",
-          overflow: "hidden",
+          overflow: "visible",
         }}
         onClick={handleClick}
-        title={event.project || event.title}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <span
           className="font-mohave truncate"
@@ -119,6 +205,9 @@ export function MonthEventBar({
         >
           {event.project || event.title}
         </span>
+        <AnimatePresence>
+          {isHovered && <EventTooltip event={event} />}
+        </AnimatePresence>
       </div>
     );
   }
@@ -126,7 +215,7 @@ export function MonthEventBar({
   // Single-day expanded: 42px tall, 2 lines (project name + task type)
   return (
     <div
-      className="cursor-pointer transition-all duration-100 hover:brightness-125 overflow-hidden"
+      className="cursor-pointer transition-all duration-100 hover:brightness-125 relative"
       style={{
         height: 42,
         backgroundColor: colors.bg,
@@ -140,9 +229,11 @@ export function MonthEventBar({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "visible",
       }}
       onClick={handleClick}
-      title={event.project || event.title}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <span
         className="font-mohave truncate"
@@ -156,6 +247,9 @@ export function MonthEventBar({
       >
         {event.taskType}
       </span>
+      <AnimatePresence>
+        {isHovered && <EventTooltip event={event} />}
+      </AnimatePresence>
     </div>
   );
 }
