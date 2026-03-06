@@ -250,3 +250,6 @@ export {
 
 // Crew Locations (real-time map tracking)
 export { useCrewLocations } from "./use-crew-locations";
+
+// Cascade Preview
+export { useCascade } from "./use-cascade";
