@@ -253,3 +253,6 @@ export { useCrewLocations } from "./use-crew-locations";
 
 // Cascade Preview
 export { useCascade } from "./use-cascade";
+
+// Smart Insert
+export { useSmartInsert } from "./use-smart-insert";

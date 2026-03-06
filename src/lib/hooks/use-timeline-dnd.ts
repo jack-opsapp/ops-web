@@ -5,19 +5,25 @@
  * - Drag to move: reposition task blocks across days / team member rows
  * - Drop from unscheduled tray: accept data.type === 'unscheduled-task'
  * - Drop from project drawer: accept data.type === 'project-drawer-task'
+ * - Dependency enforcement: validates moves against dependency constraints
+ * - Smart insert: detects insert-between scenarios and cascades push offsets
  *
  * Edge-resize is handled locally inside TimelineTaskBlock (mousedown/move/up)
  * and committed through an `onResize` callback that calls useUpdateCalendarEvent.
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { addDays, differenceInCalendarDays } from "date-fns";
+import { addDays, differenceInCalendarDays, isAfter } from "date-fns";
+import { toast } from "sonner";
 import { useCreateCalendarEvent, useUpdateCalendarEvent } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useCalendarStore } from "@/stores/calendar-store";
+import { useCascade } from "@/lib/hooks/use-cascade";
+import { useSmartInsert } from "@/lib/hooks/use-smart-insert";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import type { ProjectTask } from "@/lib/types/models";
+import type { SchedulableTask } from "@/lib/types/scheduling";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,18 +31,106 @@ interface UseTimelineDndOptions {
   events: InternalCalendarEvent[];
   startDate: Date;
   daysShown: number;
+  /** All project tasks converted to SchedulableTask for dependency checking */
+  schedulableTasks?: SchedulableTask[];
+  /** Whether the company skips weekends in scheduling */
+  skipWeekends?: boolean;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-export function useTimelineDnd({ events, startDate, daysShown }: UseTimelineDndOptions) {
+export function useTimelineDnd({
+  events,
+  startDate,
+  daysShown,
+  schedulableTasks = [],
+  skipWeekends = false,
+}: UseTimelineDndOptions) {
   const { setDragState } = useCalendarStore();
   const { company } = useAuthStore();
   const updateMutation = useUpdateCalendarEvent();
   const createMutation = useCreateCalendarEvent();
+  const { previewCascade } = useCascade();
+  const { detectInsertPoint, calculatePushOffsets } = useSmartInsert();
 
   /** Ref to store the grid container width at drag start for pixel-to-day math */
   const gridWidthRef = useRef<number>(0);
+
+  /** Track whether Alt key is held during drop (bypass dependency enforcement) */
+  const altKeyRef = useRef<boolean>(false);
+
+  // ── Alt key tracking ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Alt" || e.altKey) {
+        altKeyRef.current = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Alt" || !e.altKey) {
+        altKeyRef.current = false;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  // ── Dependency violation check ──────────────────────────────────────────
+
+  /**
+   * Checks if moving a task to newStart violates any dependency constraints.
+   * Returns the name of the violated predecessor if found, null otherwise.
+   */
+  const checkDependencyViolation = useCallback(
+    (
+      taskId: string,
+      newStart: Date
+    ): { violated: boolean; predecessorName: string; taskName: string } | null => {
+      if (schedulableTasks.length === 0) return null;
+
+      const task = schedulableTasks.find((t) => t.id === taskId);
+      if (!task || task.effectiveDependencies.length === 0) return null;
+
+      for (const dep of task.effectiveDependencies) {
+        // Find all predecessor tasks matching this dependency's task type
+        const predecessors = schedulableTasks.filter(
+          (t) => t.taskTypeId === dep.depends_on_task_type_id
+        );
+
+        for (const pred of predecessors) {
+          if (!pred.startDate || !pred.endDate) continue;
+
+          // Calculate the earliest allowed start for the dependent task
+          const clampedOverlap = Math.max(0, Math.min(100, dep.overlap_percentage));
+          const completedFraction = (100 - clampedOverlap) / 100;
+          const daysToWait = Math.ceil(pred.duration * completedFraction);
+          const earliestAllowed = addDays(pred.startDate, daysToWait);
+
+          // If the new start is before the earliest allowed, it's a violation
+          if (isAfter(earliestAllowed, newStart)) {
+            // Look up display names from the events array
+            const predEvent = events.find((e) => e.id === pred.id);
+            const taskEvent = events.find((e) => e.id === task.id);
+
+            return {
+              violated: true,
+              predecessorName: predEvent?.title ?? pred.taskTypeId,
+              taskName: taskEvent?.title ?? task.taskTypeId,
+            };
+          }
+        }
+      }
+
+      return null;
+    },
+    [schedulableTasks, events]
+  );
 
   // ── Drag start ──────────────────────────────────────────────────────────
 
@@ -62,7 +156,6 @@ export function useTimelineDnd({ events, startDate, daysShown }: UseTimelineDndO
       setDragState(null);
 
       const { active, over, delta } = event;
-      const activeId = active.id as string;
       const activeData = active.data?.current as
         | {
             type?: string;
@@ -100,6 +193,36 @@ export function useTimelineDnd({ events, startDate, daysShown }: UseTimelineDndO
         const targetDate = addDays(startDate, Math.max(0, Math.min(dayDelta, daysShown - 1)));
         const targetEndDate = addDays(targetDate, 1); // Default 1-day duration
 
+        // Smart insert: check if dropping between existing events
+        if (overData.teamMemberId) {
+          const insertPoint = detectInsertPoint(
+            task.id,
+            overData.teamMemberId,
+            targetDate,
+            events,
+            startDate,
+            daysShown
+          );
+
+          if (insertPoint && insertPoint.after) {
+            const pushOffsets = calculatePushOffsets(
+              1, // Default 1-day duration for new tasks
+              insertPoint.before,
+              insertPoint.after,
+              events,
+              overData.teamMemberId
+            );
+
+            // Apply push offsets to surrounding events
+            for (const offset of pushOffsets) {
+              updateMutation.mutate({
+                id: offset.eventId,
+                data: { startDate: offset.newStart, endDate: offset.newEnd },
+              });
+            }
+          }
+        }
+
         createMutation.mutate({
           title: task.customTitle || task.taskType?.display || "Untitled Task",
           projectId: task.projectId,
@@ -127,6 +250,35 @@ export function useTimelineDnd({ events, startDate, daysShown }: UseTimelineDndO
         const dayDelta = dayColumnWidth > 0 ? Math.round(delta.x / dayColumnWidth) : 0;
         const targetDate = addDays(startDate, Math.max(0, Math.min(dayDelta, daysShown - 1)));
         const targetEndDate = addDays(targetDate, 1);
+
+        // Smart insert: check if dropping between existing events
+        if (overData.teamMemberId) {
+          const insertPoint = detectInsertPoint(
+            task.id,
+            overData.teamMemberId,
+            targetDate,
+            events,
+            startDate,
+            daysShown
+          );
+
+          if (insertPoint && insertPoint.after) {
+            const pushOffsets = calculatePushOffsets(
+              1,
+              insertPoint.before,
+              insertPoint.after,
+              events,
+              overData.teamMemberId
+            );
+
+            for (const offset of pushOffsets) {
+              updateMutation.mutate({
+                id: offset.eventId,
+                data: { startDate: offset.newStart, endDate: offset.newEnd },
+              });
+            }
+          }
+        }
 
         createMutation.mutate({
           title: task.customTitle || task.taskType?.display || "Untitled Task",
@@ -175,6 +327,104 @@ export function useTimelineDnd({ events, startDate, daysShown }: UseTimelineDndO
 
         if (dateUnchanged && memberUnchanged) return;
 
+        // ── Dependency enforcement ────────────────────────────────────
+        // Check if the new position violates dependency constraints.
+        // Alt key held during drop skips enforcement.
+        if (!altKeyRef.current && schedulableTasks.length > 0) {
+          const violation = checkDependencyViolation(calEvent.id, newStart);
+
+          if (violation) {
+            toast.warning(
+              `${violation.taskName} depends on ${violation.predecessorName} — will auto-correct.`,
+              { duration: 3000 }
+            );
+
+            // Use cascade preview to show the correction — the confirm bar
+            // lets the user apply or cancel
+            const cascadeResult = previewCascade(
+              calEvent.id,
+              newStart,
+              newEnd,
+              schedulableTasks,
+              skipWeekends
+            );
+
+            if (cascadeResult && cascadeResult.changes.length > 0) {
+              // Don't apply the move yet — let confirm bar handle it
+              // But still apply the primary move + team member change
+              updateMutation.mutate({
+                id: calEvent.id,
+                data: {
+                  startDate: newStart,
+                  endDate: newEnd,
+                  ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
+                },
+              });
+              return;
+            }
+          }
+        }
+
+        // ── Cascade check for dependents ─────────────────────────────
+        // Even if no violation, check if this move cascades to downstream tasks
+        if (schedulableTasks.length > 0) {
+          const cascadeResult = previewCascade(
+            calEvent.id,
+            newStart,
+            newEnd,
+            schedulableTasks,
+            skipWeekends
+          );
+
+          if (cascadeResult && cascadeResult.changes.length > 0) {
+            // Apply the primary move, let confirm bar handle cascade changes
+            updateMutation.mutate({
+              id: calEvent.id,
+              data: {
+                startDate: newStart,
+                endDate: newEnd,
+                ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
+              },
+            });
+            return;
+          }
+        }
+
+        // ── Smart insert check ───────────────────────────────────────
+        // Check if this move inserts the task between existing events
+        const targetTeamMemberId =
+          newTeamMemberIds?.[0] ?? calEvent.teamMemberIds[0];
+
+        if (targetTeamMemberId) {
+          const insertPoint = detectInsertPoint(
+            calEvent.id,
+            targetTeamMemberId,
+            newStart,
+            events,
+            startDate,
+            daysShown
+          );
+
+          if (insertPoint && insertPoint.after) {
+            const pushOffsets = calculatePushOffsets(
+              durationDays || 1,
+              insertPoint.before,
+              insertPoint.after,
+              events,
+              targetTeamMemberId
+            );
+
+            // Apply push offsets to make room
+            for (const offset of pushOffsets) {
+              updateMutation.mutate({
+                id: offset.eventId,
+                data: { startDate: offset.newStart, endDate: offset.newEnd },
+              });
+            }
+          }
+        }
+
+        // No cascade needed — apply the move directly
         updateMutation.mutate({
           id: calEvent.id,
           data: {
@@ -186,7 +436,21 @@ export function useTimelineDnd({ events, startDate, daysShown }: UseTimelineDndO
         return;
       }
     },
-    [events, setDragState, updateMutation, createMutation, company?.id, startDate, daysShown]
+    [
+      events,
+      setDragState,
+      updateMutation,
+      createMutation,
+      company?.id,
+      startDate,
+      daysShown,
+      schedulableTasks,
+      skipWeekends,
+      checkDependencyViolation,
+      previewCascade,
+      detectInsertPoint,
+      calculatePushOffsets,
+    ]
   );
 
   // ── Drag cancel ─────────────────────────────────────────────────────────
