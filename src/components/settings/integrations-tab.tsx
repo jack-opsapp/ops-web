@@ -235,9 +235,9 @@ export function IntegrationsTab() {
                       title={conn.syncEnabled ? t("integrations.pauseSync") : t("integrations.enableSync")}
                     >
                       {conn.syncEnabled ? (
-                        <ToggleRight className="w-[16px] h-[16px] text-[#6B8F71]" />
+                        <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
                       ) : (
-                        <ToggleLeft className="w-[16px] h-[16px] text-text-disabled" />
+                        <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
                       )}
                     </Button>
                     <Button
@@ -333,9 +333,9 @@ export function IntegrationsTab() {
                     className="shrink-0"
                   >
                     {companyConnections[0]?.syncFilters.usePresetBlocklist ? (
-                      <ToggleRight className="w-[16px] h-[16px] text-[#6B8F71]" />
+                      <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
                     ) : (
-                      <ToggleLeft className="w-[16px] h-[16px] text-text-disabled" />
+                      <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
                     )}
                   </button>
                   <span className="font-kosugi text-[11px] text-text-secondary">
