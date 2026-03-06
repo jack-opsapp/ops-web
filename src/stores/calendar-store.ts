@@ -2,10 +2,14 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type {
+  SchedulerView,
+  SidePanelMode,
+  GhostPreview,
+  InlineEditState,
+} from "@/lib/types/scheduling";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-export type CalendarView = "month" | "week" | "day" | "team" | "agenda";
 
 export interface QuickCreateAnchor {
   x: number;
@@ -19,11 +23,14 @@ export interface QuickCreateAnchor {
 interface CalendarStoreState {
   // View
   currentDate: Date;
-  view: CalendarView;
+  view: SchedulerView;
 
-  // Panels
-  selectedEventId: string | null;
-  isDetailPanelOpen: boolean;
+  // Side Panel
+  sidePanelMode: SidePanelMode;
+  selectedTaskId: string | null;
+  sidePanelProjectId: string | null;
+
+  // Filter sidebar
   isFilterSidebarOpen: boolean;
 
   // Quick create
@@ -35,29 +42,69 @@ interface CalendarStoreState {
   filterProjectIds: string[];
   filterStatuses: string[];
 
-  // DnD (Phase 2)
+  // DnD
   draggedEventId: string | null;
   dragPreview: { date: Date; duration: number } | null;
 
+  // Cascade / Ghost previews
+  ghostPreviews: GhostPreview[];
+  isConfirmBarVisible: boolean;
+  confirmBarMessage: string;
+  pendingCascadeAction: (() => Promise<void>) | null;
+
+  // Multi-select
+  selectedTaskIds: string[];
+
+  // Inline edit
+  inlineEdit: InlineEditState | null;
+
   // Actions — View
-  setView: (view: CalendarView) => void;
+  setView: (view: SchedulerView) => void;
   setCurrentDate: (date: Date) => void;
   goToToday: () => void;
 
-  // Actions — Selection
-  selectEvent: (id: string | null) => void;
-  closeDetailPanel: () => void;
+  // Actions — Side Panel
+  setSidePanelTask: (taskId: string) => void;
+  setSidePanelProject: (projectId: string) => void;
+  closeSidePanel: () => void;
 
   // Actions — Quick Create
   setQuickCreateAnchor: (anchor: QuickCreateAnchor | null) => void;
 
   // Actions — Filters
   toggleFilterSidebar: () => void;
-  updateFilters: (filters: Partial<Pick<CalendarStoreState, "filterTeamMemberIds" | "filterTaskTypes" | "filterProjectIds" | "filterStatuses">>) => void;
+  updateFilters: (
+    filters: Partial<
+      Pick<
+        CalendarStoreState,
+        | "filterTeamMemberIds"
+        | "filterTaskTypes"
+        | "filterProjectIds"
+        | "filterStatuses"
+      >
+    >
+  ) => void;
   clearFilters: () => void;
 
-  // Actions — DnD (Phase 2)
-  setDragState: (eventId: string | null, preview?: { date: Date; duration: number } | null) => void;
+  // Actions — DnD
+  setDragState: (
+    eventId: string | null,
+    preview?: { date: Date; duration: number } | null
+  ) => void;
+
+  // Actions — Multi-select
+  toggleTaskSelection: (taskId: string) => void;
+  selectTaskRange: (taskIds: string[]) => void;
+  clearSelection: () => void;
+
+  // Actions — Cascade / Ghost
+  setGhostPreviews: (previews: GhostPreview[]) => void;
+  clearGhostPreviews: () => void;
+  showConfirmBar: (message: string, action: () => Promise<void>) => void;
+  hideConfirmBar: () => void;
+
+  // Actions — Inline edit
+  setInlineEdit: (state: InlineEditState | null) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -67,11 +114,14 @@ export const useCalendarStore = create<CalendarStoreState>()(
     (set) => ({
       // View
       currentDate: new Date(),
-      view: "week",
+      view: "timeline",
 
-      // Panels
-      selectedEventId: null,
-      isDetailPanelOpen: false,
+      // Side Panel
+      sidePanelMode: null,
+      selectedTaskId: null,
+      sidePanelProjectId: null,
+
+      // Filter sidebar
       isFilterSidebarOpen: false,
 
       // Quick create
@@ -87,27 +137,51 @@ export const useCalendarStore = create<CalendarStoreState>()(
       draggedEventId: null,
       dragPreview: null,
 
+      // Cascade / Ghost
+      ghostPreviews: [],
+      isConfirmBarVisible: false,
+      confirmBarMessage: "",
+      pendingCascadeAction: null,
+
+      // Multi-select
+      selectedTaskIds: [],
+
+      // Inline edit
+      inlineEdit: null,
+
       // Actions — View
       setView: (view) => set({ view }),
       setCurrentDate: (currentDate) => set({ currentDate }),
       goToToday: () => set({ currentDate: new Date() }),
 
-      // Actions — Selection
-      selectEvent: (id) =>
+      // Actions — Side Panel
+      setSidePanelTask: (taskId) =>
         set({
-          selectedEventId: id,
-          isDetailPanelOpen: id !== null,
+          sidePanelMode: "task-detail",
+          selectedTaskId: taskId,
+          sidePanelProjectId: null,
           quickCreateAnchor: null,
         }),
-      closeDetailPanel: () =>
-        set({ selectedEventId: null, isDetailPanelOpen: false }),
+      setSidePanelProject: (projectId) =>
+        set({
+          sidePanelMode: "project-drawer",
+          sidePanelProjectId: projectId,
+          selectedTaskId: null,
+        }),
+      closeSidePanel: () =>
+        set({
+          sidePanelMode: null,
+          selectedTaskId: null,
+          sidePanelProjectId: null,
+        }),
 
       // Actions — Quick Create
       setQuickCreateAnchor: (anchor) =>
         set({
           quickCreateAnchor: anchor,
-          selectedEventId: null,
-          isDetailPanelOpen: false,
+          sidePanelMode: null,
+          selectedTaskId: null,
+          sidePanelProjectId: null,
         }),
 
       // Actions — Filters
@@ -128,6 +202,35 @@ export const useCalendarStore = create<CalendarStoreState>()(
           draggedEventId: eventId,
           dragPreview: preview ?? null,
         }),
+
+      // Actions — Multi-select
+      toggleTaskSelection: (taskId) =>
+        set((state) => ({
+          selectedTaskIds: state.selectedTaskIds.includes(taskId)
+            ? state.selectedTaskIds.filter((id) => id !== taskId)
+            : [...state.selectedTaskIds, taskId],
+        })),
+      selectTaskRange: (taskIds) => set({ selectedTaskIds: taskIds }),
+      clearSelection: () => set({ selectedTaskIds: [] }),
+
+      // Actions — Cascade / Ghost
+      setGhostPreviews: (previews) => set({ ghostPreviews: previews }),
+      clearGhostPreviews: () => set({ ghostPreviews: [] }),
+      showConfirmBar: (message, action) =>
+        set({
+          isConfirmBarVisible: true,
+          confirmBarMessage: message,
+          pendingCascadeAction: action,
+        }),
+      hideConfirmBar: () =>
+        set({
+          isConfirmBarVisible: false,
+          confirmBarMessage: "",
+          pendingCascadeAction: null,
+        }),
+
+      // Actions — Inline edit
+      setInlineEdit: (inlineEdit) => set({ inlineEdit }),
     }),
     {
       name: "ops-calendar",
