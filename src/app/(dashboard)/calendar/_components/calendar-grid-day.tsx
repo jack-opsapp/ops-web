@@ -1,15 +1,16 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { format, isToday, getHours } from "date-fns";
+import { useMemo } from "react";
+import { format, isToday } from "date-fns";
+import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
-import { HOURS, HOUR_HEIGHT, FIRST_HOUR } from "@/lib/utils/calendar-constants";
 import {
   type InternalCalendarEvent,
-  formatHour,
   getEventsForDay,
 } from "@/lib/utils/calendar-utils";
-import { TimeGridColumn } from "./time-grid-column";
+import { DayTaskCard } from "./day/day-task-card";
+
+// ── Props ──────────────────────────────────────────────────────────────────
 
 interface CalendarGridDayProps {
   currentDate: Date;
@@ -24,100 +25,104 @@ interface CalendarGridDayProps {
   t: (key: string) => string;
 }
 
+// ── Component ──────────────────────────────────────────────────────────────
+
 export function CalendarGridDay({
   currentDate,
   events,
-  conflictIds,
-  onEventClick,
-  onEventContextMenu,
-  onEventResize,
-  onEmptySlotClick,
-  onRangeSelect,
-  selectedEventId,
   t,
 }: CalendarGridDayProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const dayEvents = getEventsForDay(events, currentDate);
   const dayIsToday = isToday(currentDate);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      const now = new Date();
-      const hour = getHours(now);
-      const scrollTo = Math.max(0, (hour - 7) * HOUR_HEIGHT);
-      scrollRef.current.scrollTop = scrollTo;
-    }
-  }, []);
+  // ── Filter and sort events for this day ───────────────────────────────
+
+  const dayEvents = useMemo(() => {
+    const filtered = getEventsForDay(events, currentDate);
+    // Sort by start time, then by title for consistent ordering
+    return [...filtered].sort((a, b) => {
+      const timeDiff = a.startDate.getTime() - b.startDate.getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return a.title.localeCompare(b.title);
+    });
+  }, [events, currentDate]);
+
+  // ── Task count label ──────────────────────────────────────────────────
+
+  const taskCountLabel = useMemo(() => {
+    const count = dayEvents.length;
+    const template = count !== 1 ? t("eventCountPlural") : t("eventCount");
+    return template.replace("{count}", String(count));
+  }, [dayEvents.length, t]);
+
+  // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Day header */}
       <div
-        className={cn(
-          "px-2 py-1.5 border-b border-border shrink-0 flex items-center justify-between",
-          dayIsToday && "bg-ops-accent-muted/15"
-        )}
+        className="px-[16px] py-[14px] border-b shrink-0 flex items-start justify-between"
+        style={{
+          borderColor: "rgba(255, 255, 255, 0.10)",
+        }}
       >
-        <div className="flex items-center gap-1.5">
+        {/* Left: Day name + date */}
+        <div className="flex flex-col">
           <span
             className={cn(
-              "font-mohave text-heading text-text-primary",
-              dayIsToday && "text-ops-accent"
+              "font-mohave font-bold text-[22px] leading-tight",
+              dayIsToday ? "text-ops-accent" : "text-white"
             )}
           >
-            {format(currentDate, "EEEE")}
+            {format(currentDate, "EEEE").toUpperCase()}
           </span>
-          <span className="font-mono text-data text-text-secondary">
-            {format(currentDate, "MMMM d, yyyy")}
+          <span
+            className="font-kosugi text-[12px] uppercase tracking-wider mt-[2px] leading-tight"
+            style={{ color: "#999999" }}
+          >
+            {format(currentDate, "MMMM d, yyyy").toUpperCase()}
           </span>
-          {dayIsToday && (
-            <span className="font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-[8px] py-[2px] rounded-sm uppercase tracking-widest ml-[4px]">
-              {t("today")}
-            </span>
-          )}
         </div>
-        <div className="flex items-center gap-1">
-          <span className="font-mono text-data-sm text-text-tertiary">
-            {(dayEvents.length !== 1 ? t("eventCountPlural") : t("eventCount")).replace("{count}", String(dayEvents.length))}
+
+        {/* Right: Task count */}
+        <div className="flex items-center mt-[4px]">
+          <span
+            className="font-kosugi text-[12px] uppercase tracking-wider leading-tight"
+            style={{ color: "#999999" }}
+          >
+            {taskCountLabel}
           </span>
         </div>
       </div>
 
-      {/* Scrollable time grid — always show grid so users can click to create */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-        <div className="grid grid-cols-[56px_1fr]">
-          {/* Time gutter */}
-          <div className="relative border-r border-border-subtle" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="absolute left-0 right-0 flex items-start justify-end pr-[6px]"
-                style={{ top: `${(hour - FIRST_HOUR) * HOUR_HEIGHT}px` }}
+      {/* Scrollable card list */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-[16px] py-[12px]">
+        <AnimatePresence mode="wait">
+          {dayEvents.length === 0 ? (
+            /* Empty state */
+            <div
+              className="flex items-center justify-start pt-[48px]"
+              key="empty"
+            >
+              <span
+                className="font-kosugi text-[12px] uppercase tracking-wider"
+                style={{ color: "rgba(255, 255, 255, 0.30)" }}
               >
-                <span className="font-mono text-[11px] text-text-disabled -mt-[6px] select-none">
-                  {formatHour(hour)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Single day column */}
-          <div>
-            <TimeGridColumn
-              day={currentDate}
-              events={events}
-              isToday={dayIsToday}
-              showFullDetail
-              conflictIds={conflictIds}
-              onEventClick={onEventClick}
-              onEventContextMenu={onEventContextMenu}
-              onEventResize={onEventResize}
-              onEmptyClick={(date, x, y) => onEmptySlotClick?.(date, x, y)}
-              onRangeSelect={onRangeSelect}
-              selectedEventId={selectedEventId}
-            />
-          </div>
-        </div>
+                NO TASKS SCHEDULED
+              </span>
+            </div>
+          ) : (
+            /* Card list */
+            <div className="flex flex-col gap-[8px]" key="cards">
+              {dayEvents.map((event, index) => (
+                <DayTaskCard
+                  key={event.id}
+                  event={event}
+                  index={index}
+                />
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
