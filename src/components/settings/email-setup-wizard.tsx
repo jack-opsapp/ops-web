@@ -161,25 +161,29 @@ export function EmailSetupWizard({
   const syncFiltersJson = JSON.stringify(firstConnection?.syncFilters ?? null);
   useEffect(() => {
     if (firstConnection?.syncFilters) {
-      setFilters(firstConnection.syncFilters);
+      setFilters((prev) => {
+        const next = JSON.stringify(firstConnection.syncFilters);
+        return JSON.stringify(prev) === next ? prev : firstConnection.syncFilters;
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncFiltersJson]);
 
-  // Reset when opened
+  // Reset when opened — use ref to fire only on open *transition*
+  const prevOpenRef = useRef(open);
   useEffect(() => {
-    if (open) {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+
+    // Only reset when transitioning from closed → open
+    if (open && !wasOpen) {
       const idx = initialStep
         ? Math.max(0, STEPS.findIndex((s) => s.id === initialStep))
         : 0;
-      setStepIndex(idx);
+      const targetIdx = idx === 0 && hasConnection && !initialStep ? 1 : idx;
+      setStepIndex(targetIdx);
       setDirection(1);
       setImportStarted(false);
-
-      // Skip connect step if already connected
-      if (idx === 0 && hasConnection && !initialStep) {
-        setStepIndex(1);
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);

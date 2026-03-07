@@ -20,7 +20,7 @@ export function useGmailSyncNotifications() {
   const { company } = useAuthStore();
   const companyId = company?.id;
   const lastCountRef = useRef<number | null>(null);
-  const { showPrompt } = useActionPromptStore();
+  const showPrompt = useActionPromptStore((s) => s.showPrompt);
 
   useEffect(() => {
     if (!companyId) return;

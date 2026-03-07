@@ -38,7 +38,8 @@ export function useGmailImport() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<ImportStatusResponse | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { showPrompt, removePrompt } = useActionPromptStore();
+  const showPrompt = useActionPromptStore((s) => s.showPrompt);
+  const removePrompt = useActionPromptStore((s) => s.removePrompt);
 
   // ── Start import mutation ──────────────────────────────────────────────
 
