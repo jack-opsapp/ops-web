@@ -157,12 +157,14 @@ export function EmailSetupWizard({
   const [customDate, setCustomDate] = useState("");
   const [importStarted, setImportStarted] = useState(false);
 
-  // Update filters when connection loads
+  // Update filters when connection loads (use stringified comparison to avoid object ref loops)
+  const syncFiltersJson = JSON.stringify(firstConnection?.syncFilters ?? null);
   useEffect(() => {
     if (firstConnection?.syncFilters) {
       setFilters(firstConnection.syncFilters);
     }
-  }, [firstConnection?.syncFilters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncFiltersJson]);
 
   // Reset when opened
   useEffect(() => {
@@ -173,15 +175,14 @@ export function EmailSetupWizard({
       setStepIndex(idx);
       setDirection(1);
       setImportStarted(false);
-    }
-  }, [open, initialStep]);
 
-  // Skip connect step if already connected
-  useEffect(() => {
-    if (open && stepIndex === 0 && hasConnection && !initialStep) {
-      setStepIndex(1);
+      // Skip connect step if already connected
+      if (idx === 0 && hasConnection && !initialStep) {
+        setStepIndex(1);
+      }
     }
-  }, [open, hasConnection, stepIndex, initialStep]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const currentStep = STEPS[stepIndex];
 
