@@ -27,6 +27,7 @@ interface ImportStatusResponse {
 }
 
 interface StartImportParams {
+  companyId: string;
   connectionId: string;
   importAfter: string; // YYYY-MM-DD
 }

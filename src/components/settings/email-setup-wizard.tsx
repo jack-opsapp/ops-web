@@ -277,7 +277,7 @@ export function EmailSetupWizard({
 
     setImportStarted(true);
     gmailImport.startImport.mutate(
-      { connectionId: firstConnection.id, importAfter },
+      { companyId, connectionId: firstConnection.id, importAfter },
       {
         onSuccess: () => {
           toast.success("Import started");

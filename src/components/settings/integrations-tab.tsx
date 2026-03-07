@@ -176,7 +176,7 @@ export function IntegrationsTab() {
   function startImportFromDate(connectionId: string, dateStr: string) {
     setImportStarted(true);
     gmailImport.startImport.mutate(
-      { connectionId, importAfter: dateStr },
+      { companyId, connectionId, importAfter: dateStr },
       {
         onSuccess: () => toast.success("Historical import started"),
         onError: (err) => {
