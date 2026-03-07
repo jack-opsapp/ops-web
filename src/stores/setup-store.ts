@@ -110,10 +110,10 @@ export const STARFIELD_QUESTIONS: StarfieldQuestion[] = [
     question: "Who's on the team?",
     responseType: "situational",
     options: [
-      { id: "just-me", label: "Just me" },
-      { id: "small-crew", label: "Small crew" },
-      { id: "multiple-crews", label: "Multiple crews" },
-      { id: "office-and-field", label: "Office and field" },
+      { id: "office-multi-field", label: "Office team and multiple field teams" },
+      { id: "field-with-admin", label: "Field team with an office admin" },
+      { id: "all-from-field", label: "Running it all from the field" },
+      { id: "solo", label: "Solo operation" },
     ],
     position: { x: 220, y: -60, z: 200 },
   },
@@ -126,7 +126,7 @@ export const STARFIELD_QUESTIONS: StarfieldQuestion[] = [
     likertMin: "Frustrated and scattered",
     likertMax: "Dialed in",
     position: { x: 300, y: 100, z: 60 },
-    conditionalOn: { questionId: "crew", excludeAnswer: "just-me" },
+    conditionalOn: { questionId: "crew", excludeAnswer: "solo" },
   },
   {
     id: "inquiries",
