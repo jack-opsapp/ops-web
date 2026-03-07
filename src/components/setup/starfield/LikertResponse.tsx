@@ -535,7 +535,7 @@ export function LikertResponse({
 
       // ── Draw labels (min + max only) ──
 
-      ctx.font = '400 13px "Kosugi", sans-serif';
+      ctx.font = '400 17px "Kosugi", sans-serif';
       ctx.textBaseline = "top";
 
       // Min label (left)

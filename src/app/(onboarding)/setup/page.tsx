@@ -8,7 +8,7 @@
  * Phase 3: Launch animation → navigate to dashboard
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
@@ -72,6 +72,8 @@ export default function SetupPage() {
   const hasPrePopulated = useRef(false);
 
   useEffect(() => {
+    // Wait until auth data is available before pre-populating
+    if (!authUser && !authCompany) return;
     if (hasPrePopulated.current) return;
     hasPrePopulated.current = true;
 
@@ -97,6 +99,19 @@ export default function SetupPage() {
   }, [authUser, authCompany]);
 
   const answeredCount = Object.keys(starfieldAnswers).length;
+
+  // Compute visible questions (accounting for conditional visibility)
+  const visibleQuestions = useMemo(() => {
+    return STARFIELD_QUESTIONS.filter((q) => {
+      if (!q.conditionalOn) return true;
+      const depAnswer = starfieldAnswers[q.conditionalOn.questionId];
+      return depAnswer != null && depAnswer !== q.conditionalOn.excludeAnswer;
+    });
+  }, [starfieldAnswers]);
+
+  const allAnswered = visibleQuestions.length > 0 &&
+    visibleQuestions.every((q) => starfieldAnswers[q.id] != null);
+
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const workspacePromiseRef = useRef<Promise<void> | null>(null);
 
@@ -368,7 +383,7 @@ export default function SetupPage() {
           >
             Skip for now
           </button>
-          {answeredCount >= MIN_STARFIELD_ANSWERS && (
+          {answeredCount >= MIN_STARFIELD_ANSWERS && !allAnswered && (
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
@@ -378,6 +393,27 @@ export default function SetupPage() {
             </button>
           )}
         </div>
+
+        {/* Centered launch button — appears when all questions answered */}
+        {allAnswered && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-3"
+          >
+            <p className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
+              All set
+            </p>
+            <button
+              onClick={handleLaunchFromStarfield}
+              aria-label="Launch your personalized dashboard"
+              className="px-10 py-3 rounded-sm bg-white text-[#0A0A0A] font-kosugi text-body uppercase tracking-wider hover:bg-[rgba(255,255,255,0.85)] hover:scale-105 transition-all duration-200"
+            >
+              Launch
+            </button>
+          </motion.div>
+        )}
       </motion.div>
     );
   }

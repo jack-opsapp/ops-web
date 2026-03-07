@@ -144,8 +144,8 @@ export const STARFIELD_QUESTIONS: StarfieldQuestion[] = [
     question: "Is time tracking part of your operation?",
     responseType: "forced_choice",
     options: [
-      { id: "bill-on-time", label: "Yes, we bill on time" },
-      { id: "price-by-job", label: "No, we price by the job" },
+      { id: "bill-hourly", label: "Bill on labor hours" },
+      { id: "fixed-price", label: "Bill fixed price, 1@" },
     ],
     position: { x: 100, y: 220, z: 100 },
   },
@@ -182,6 +182,16 @@ export const STARFIELD_QUESTIONS: StarfieldQuestion[] = [
       { id: "more-time-back", label: "More time back" },
     ],
     position: { x: -260, y: 240, z: 120 },
+  },
+  {
+    id: "weather",
+    label: "Weather",
+    question: "How weather dependent is your work?",
+    responseType: "likert",
+    options: [],
+    likertMin: "Not at all",
+    likertMax: "Completely",
+    position: { x: 60, y: -120, z: 160 },
   },
 ];
 

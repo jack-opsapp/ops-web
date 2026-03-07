@@ -55,10 +55,10 @@ function generateParticles(): Particle[] {
   const particles: Particle[] = [];
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     particles.push({
-      x: -0.3 + Math.random() * 1.6,
-      y: -0.3 + Math.random() * 1.6,
-      vx: (Math.random() - 0.5) * 0.00012,
-      vy: (Math.random() - 0.5) * 0.00012,
+      x: -0.5 + Math.random() * 2.0,
+      y: -0.5 + Math.random() * 2.0,
+      vx: (Math.random() - 0.5) * 0.00005,
+      vy: (Math.random() - 0.5) * 0.00005,
       size: 2 + Math.random() * 3.5,
       baseAlpha: 0.15 + Math.random() * 0.15,
       phase: Math.random() * Math.PI * 2,
@@ -69,7 +69,7 @@ function generateParticles(): Particle[] {
 
 /** Alpha multiplier: 1.0 in center, fades to 0 at boundary edges */
 function edgeTaper(x: number, y: number): number {
-  const EDGE = 0.3; // taper zone width (matches expanded boundary)
+  const EDGE = 0.5; // taper zone width (matches expanded boundary)
   let taper = 1;
   if (x < 0)       taper = Math.min(taper, 1 - Math.min(1, -x / EDGE));
   if (x > 1)       taper = Math.min(taper, 1 - Math.min(1, (x - 1) / EDGE));
@@ -230,31 +230,31 @@ export function ForcedChoiceResponse({
       // Update + draw particles
       for (const p of particles) {
         if (selected >= 0) {
-          const baseFlowSpeed = 0.003 * (0.3 + selProgress * 0.7) * flowSpeedMult;
+          const baseFlowSpeed = 0.002 * (0.3 + selProgress * 0.7) * flowSpeedMult;
           const flowVx = flowDir * baseFlowSpeed;
           const distToNode = flowDir < 0 ? (selNode.nx - p.x) : (p.x - selNode.nx);
           const approachT = Math.max(0, Math.min(1, (distToNode + 0.5) / 0.5));
-          const funnelStrength = (0.0003 + approachT * 0.004) * selProgress;
+          const funnelStrength = (0.0002 + approachT * 0.003) * selProgress;
           p.vy += (selNode.ny - p.y) * funnelStrength; p.vy *= 0.92;
           p.vx += (flowVx * (0.4 + approachT * 0.6) - p.vx) * (0.03 + selProgress * 0.06);
-          if (distToNode < -0.1) { p.vy += Math.sin(time * 1.5 + p.phase) * 0.0003 * (1 - approachT); p.vx += Math.cos(time * 0.8 + p.phase * 2) * 0.00008 * (1 - approachT); }
-          else { p.vy += Math.sin(time * 2 + p.phase) * 0.00005; }
+          if (distToNode < -0.1) { p.vy += Math.sin(time * 1.5 + p.phase) * 0.0002 * (1 - approachT); p.vx += Math.cos(time * 0.8 + p.phase * 2) * 0.00005 * (1 - approachT); }
+          else { p.vy += Math.sin(time * 2 + p.phase) * 0.00003; }
           p.x += p.vx; p.y += p.vy;
-          if (flowDir < 0 && p.x < -0.3) { p.x = 1.0 + Math.random() * 0.25; p.y = selNode.ny + (Math.random() - 0.5) * 0.8; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0005; }
-          else if (flowDir > 0 && p.x > 1.3) { p.x = -0.25 + Math.random() * 0.25; p.y = selNode.ny + (Math.random() - 0.5) * 0.8; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0005; }
-          if (p.y < -0.3) p.y = 1.3; if (p.y > 1.3) p.y = -0.3;
+          if (flowDir < 0 && p.x < -0.5) { p.x = 1.2 + Math.random() * 0.3; p.y = selNode.ny + (Math.random() - 0.5) * 1.0; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0003; }
+          else if (flowDir > 0 && p.x > 1.5) { p.x = -0.5 + Math.random() * 0.3; p.y = selNode.ny + (Math.random() - 0.5) * 1.0; p.vx = flowDir * baseFlowSpeed * 0.3; p.vy = (Math.random() - 0.5) * 0.0003; }
+          if (p.y < -0.5) p.y = 1.5; if (p.y > 1.5) p.y = -0.5;
         } else if (hoverIdx >= 0) {
           const hovNode = hoverIdx === 0 ? LEFT_NODE : RIGHT_NODE;
           const dx = hovNode.nx - p.x, dy = hovNode.ny - p.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 0.01) { p.vx += (dx / dist) * 0.00025; p.vy += (dy / dist) * 0.00025; p.vx += (-dy / dist) * 0.00012; p.vy += (dx / dist) * 0.00012; }
-          p.vx += Math.sin(time * 0.2 + p.phase) * 0.00003; p.vy += Math.cos(time * 0.15 + p.phase * 1.3) * 0.00003;
+          if (dist > 0.01) { p.vx += (dx / dist) * 0.00015; p.vy += (dy / dist) * 0.00015; p.vx += (-dy / dist) * 0.00008; p.vy += (dx / dist) * 0.00008; }
+          p.vx += Math.sin(time * 0.15 + p.phase) * 0.00001; p.vy += Math.cos(time * 0.1 + p.phase * 1.3) * 0.00001;
           p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx; p.y += p.vy;
-          if (p.x < -0.3) p.x = 1.3; if (p.x > 1.3) p.x = -0.3; if (p.y < -0.3) p.y = 1.3; if (p.y > 1.3) p.y = -0.3;
+          if (p.x < -0.5) p.x = 1.5; if (p.x > 1.5) p.x = -0.5; if (p.y < -0.5) p.y = 1.5; if (p.y > 1.5) p.y = -0.5;
         } else {
-          p.vx += Math.sin(time * 0.2 + p.phase) * 0.00008; p.vy += Math.cos(time * 0.15 + p.phase * 1.3) * 0.00008;
+          p.vx += Math.sin(time * 0.15 + p.phase) * 0.00003; p.vy += Math.cos(time * 0.1 + p.phase * 1.3) * 0.00003;
           p.vx *= 0.99; p.vy *= 0.99; p.x += p.vx; p.y += p.vy;
-          if (p.x < -0.3) p.x = 1.3; if (p.x > 1.3) p.x = -0.3; if (p.y < -0.3) p.y = 1.3; if (p.y > 1.3) p.y = -0.3;
+          if (p.x < -0.5) p.x = 1.5; if (p.x > 1.5) p.x = -0.5; if (p.y < -0.5) p.y = 1.5; if (p.y > 1.5) p.y = -0.5;
         }
 
         // Color + alpha
@@ -305,10 +305,10 @@ export function ForcedChoiceResponse({
         let labelAlpha: number;
         if (isSelected) labelAlpha = 0.95; else if (isHovered && hasSelection) labelAlpha = 0.75;
         else if (isHovered) labelAlpha = 0.90; else if (hasSelection) labelAlpha = 0.30; else labelAlpha = 0.65;
-        ctx.font = '400 14px "Kosugi", sans-serif'; ctx.textAlign = 'center';
+        ctx.font = '400 18px "Kosugi", sans-serif'; ctx.textAlign = 'center';
         ctx.fillStyle = `rgba(255, 255, 255, ${labelAlpha})`;
         const lines = wrapText(ctx, optionsRef.current[i].label.toUpperCase(), w * 0.30);
-        for (let l = 0; l < lines.length; l++) ctx.fillText(lines[l], nodeX, nodeY + 20 + l * 18);
+        for (let l = 0; l < lines.length; l++) ctx.fillText(lines[l], nodeX, nodeY + 22 + l * 22);
       }
 
       animRef.current = requestAnimationFrame(draw);

@@ -84,6 +84,9 @@ const ORBIT_RADIUS_FOCUS = 40; // tighter orbit when focused
 const ORBIT_SPEED = 1.2; // radians per second
 const BURST_SPEED = 250; // px/s outward velocity
 const BURST_FADE_RATE = 1.5; // alpha fade per second
+const AMBIENT_ORBIT_RADIUS = 60; // screen-space capture radius for idle orbit
+const AMBIENT_ORBIT_SPEED = 0.3; // slow orbit around unanswered nodes
+const AMBIENT_ORBIT_STRENGTH = 0.012; // gentle pull
 
 // ─── Projection ──────────────────────────────────────────────────────────────
 
@@ -142,6 +145,9 @@ export function SetupStarfield({
   const nodeSpreadRef = useRef(1);
   const questionsRef = useRef(questions);
   questionsRef.current = questions;
+
+  // Completion animation (all questions answered → push nodes outward)
+  const completionProgressRef = useRef(0);
 
   // Track which node just got answered for burst effect
   const burstNodeRef = useRef<string | null>(null);
@@ -420,6 +426,13 @@ export function SetupStarfield({
         camera.zoom = camera.targetZoom;
       }
 
+      // ── Completion progress (all questions answered → push nodes) ──
+      const allQAnswered = visibleQuestionsRef.current.length > 0 &&
+        visibleQuestionsRef.current.every(q => starfieldAnswersRef.current[q.id] != null);
+      const completionTarget = allQAnswered ? 1 : 0;
+      completionProgressRef.current += (completionTarget - completionProgressRef.current) * 0.015;
+      const completionProgress = completionProgressRef.current;
+
       // ── Focus progress (0 = idle, 1 = fully focused) ──
       const targetFP = focusedNodeRef.current ? 1 : 0;
       focusProgressRef.current +=
@@ -469,6 +482,13 @@ export function SetupStarfield({
           sy = centerY + (sy - centerY) * pushAmount;
         }
 
+        // Push all nodes outward when all questions answered
+        if (completionProgress > 0.01) {
+          const pushAmount = 1 + completionProgress * 2.5;
+          sx = centerX + (sx - centerX) * pushAmount;
+          sy = centerY + (sy - centerY) * pushAmount;
+        }
+
         // Check hover
         const dx = sx - mouse.x;
         const dy = sy - mouse.y;
@@ -511,7 +531,7 @@ export function SetupStarfield({
           tintB: AMBER.b,
         };
       } else if (hoveredNodeScreen) {
-        // Hovered: wider orbit, accent tint
+        // Hovered: wider orbit, accent tint — accelerated gravity like ForcedChoice
         orbitTarget = {
           sx: hoveredNodeScreen.sx,
           sy: hoveredNodeScreen.sy,
@@ -521,6 +541,9 @@ export function SetupStarfield({
           tintB: ACCENT.b,
         };
       }
+
+      // When hovering a node, disable cursor repulsion entirely
+      const suppressRepulsor = orbitTarget !== null;
 
       // Check for burst trigger
       const burstNodeId = burstNodeRef.current;
@@ -664,7 +687,10 @@ export function SetupStarfield({
 
           if (dist < captureR) {
             // Smoothly ramp orbit strength up (heavier stars accelerate faster)
-            const accelRate = (0.8 + star.mass * 0.4) * dt;
+            // Faster acceleration when hovering (2x), like ForcedChoice gravity
+            const isHoverOrbit = !focusedNodeRef.current && hoveredNodeScreen;
+            const accelMult = isHoverOrbit ? 2.5 : 1.0;
+            const accelRate = (0.8 + star.mass * 0.4) * dt * accelMult;
             star.orbitStrength = Math.min(1, star.orbitStrength + accelRate);
             star.captured = true;
 
@@ -723,8 +749,35 @@ export function SetupStarfield({
           }
         }
 
-        // Cursor repulsion — disabled when orbiting or when an orbit target exists
-        if (star.orbitStrength < 0.1 && !star.bursting && !prefersReduced && !orbitTarget) {
+        // Ambient orbit — gentle swirl around nearby unanswered nodes (idle state only)
+        if (!orbitTarget && !star.bursting && !star.captured && !prefersReduced) {
+          for (const ns of nodeScreenPositions) {
+            if (ns.isAnswered) continue;
+            const adx = sx - ns.sx;
+            const ady = sy - ns.sy;
+            const aDist = Math.sqrt(adx * adx + ady * ady);
+            if (aDist < AMBIENT_ORBIT_RADIUS && aDist > 2) {
+              const proximity = 1 - aDist / AMBIENT_ORBIT_RADIUS;
+              // Tangential force (perpendicular to radial direction) for orbital motion
+              const tx = -ady / aDist;
+              const ty = adx / aDist;
+              const orbitForce = proximity * AMBIENT_ORBIT_SPEED * star.speedMult;
+              star.displaceX += tx * orbitForce;
+              star.displaceY += ty * orbitForce;
+              // Slight inward pull to keep stars from drifting away
+              star.displaceX -= (adx / aDist) * proximity * AMBIENT_ORBIT_STRENGTH;
+              star.displaceY -= (ady / aDist) * proximity * AMBIENT_ORBIT_STRENGTH;
+              // Subtle amber tint near unanswered nodes
+              star.tintAmount = Math.min(star.tintAmount + proximity * dt * 0.5, 0.3);
+              star.tintR = AMBER.r;
+              star.tintG = AMBER.g;
+              star.tintB = AMBER.b;
+            }
+          }
+        }
+
+        // Cursor repulsion — disabled when orbiting or when hovering/focusing a node
+        if (star.orbitStrength < 0.1 && !star.bursting && !prefersReduced && !suppressRepulsor) {
           const mdx = sx - mouse.x;
           const mdy = sy - mouse.y;
           const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
@@ -1052,8 +1105,8 @@ export function SetupStarfield({
               transform: "translateX(-50%)",
             }}
           >
-            <div className="px-2 py-1 rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)]">
-              <span className="font-mohave text-body-sm text-text-primary whitespace-nowrap">
+            <div className="px-2.5 py-1.5 rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)]">
+              <span className="font-kosugi text-body text-text-primary whitespace-nowrap uppercase tracking-wider">
                 {hoveredNode.label}
               </span>
             </div>
@@ -1159,7 +1212,7 @@ export function SetupStarfield({
             <button
               key={q.id}
               type="button"
-              className={`w-2 h-2 rounded-sm transition-colors duration-300 cursor-pointer hover:scale-150 ${
+              className={`w-4 h-[2px] rounded-full transition-colors duration-300 cursor-pointer hover:scale-y-[2] ${
                 starfieldAnswers[q.id] != null
                   ? "bg-ops-accent shadow-[0_0_6px_rgba(65,115,148,0.4)]"
                   : "bg-white/10 hover:bg-white/25"
