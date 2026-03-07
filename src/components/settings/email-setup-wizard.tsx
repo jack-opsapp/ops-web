@@ -258,11 +258,12 @@ export function EmailSetupWizard({
   async function applyFiltersAndImport() {
     if (!firstConnection) return;
 
-    // Save filters to the connection
+    // Save filters + mark wizard as completed
+    const finalFilters = { ...filters, wizardCompleted: true };
     try {
       await updateConnection.mutateAsync({
         id: firstConnection.id,
-        data: { id: firstConnection.id, syncFilters: filters },
+        data: { id: firstConnection.id, syncFilters: finalFilters },
       });
     } catch {
       // Non-fatal — filters may not persist but import can proceed
@@ -289,6 +290,31 @@ export function EmailSetupWizard({
         },
       },
     );
+  }
+
+  // ── Skip wizard ────────────────────────────────────────────────────────
+
+  async function skipWizard() {
+    if (!firstConnection) {
+      onOpenChange(false);
+      return;
+    }
+
+    // Mark wizard as completed with current (default) filters
+    try {
+      await updateConnection.mutateAsync({
+        id: firstConnection.id,
+        data: {
+          id: firstConnection.id,
+          syncFilters: { ...filters, wizardCompleted: true },
+        },
+      });
+    } catch {
+      // Non-fatal
+    }
+
+    toast.info("Wizard skipped — you can configure filters anytime from Settings");
+    onOpenChange(false);
   }
 
   // ── Can proceed? ─────────────────────────────────────────────────────────
@@ -466,16 +492,24 @@ export function EmailSetupWizard({
 
         {/* ── Footer navigation ───────────────────────────────────────── */}
         <div className="flex items-center justify-between px-3 py-2 border-t border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={goBack}
-            disabled={stepIndex === 0}
-            className="gap-[4px] font-kosugi text-[11px]"
-          >
-            <ArrowLeft className="w-[14px] h-[14px]" />
-            Back
-          </Button>
+          <div className="flex items-center gap-[6px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={goBack}
+              disabled={stepIndex === 0}
+              className="gap-[4px] font-kosugi text-[11px]"
+            >
+              <ArrowLeft className="w-[14px] h-[14px]" />
+              Back
+            </Button>
+            <button
+              onClick={skipWizard}
+              className="font-kosugi text-[10px] text-text-disabled hover:text-text-secondary transition-colors px-[6px] py-[4px]"
+            >
+              Skip
+            </button>
+          </div>
 
           <span className="font-kosugi text-[10px] text-text-disabled">
             {stepIndex + 1} / {STEPS.length}

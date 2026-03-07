@@ -1406,6 +1406,8 @@ export interface GmailSyncFilters {
   rules?: EmailFilterRule[];
   /** How to combine rules: "all" = AND, "any" = OR */
   ruleLogic?: "all" | "any";
+  /** True after user completes or skips the email setup wizard */
+  wizardCompleted?: boolean;
 }
 
 // ─── Structured Filter Rules ─────────────────────────────────────────────────

@@ -94,6 +94,7 @@ export function IntegrationsTab() {
   const companyConnections = connections.filter((c) => c.type === "company");
   const individualConnections = connections.filter((c) => c.type === "individual");
   const hasAnyConnection = connections.length > 0;
+  const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
 
   function handleConnectGmail(type: "company" | "individual") {
     const params = new URLSearchParams({
@@ -319,128 +320,144 @@ export function IntegrationsTab() {
             </div>
           )}
 
-          {/* Advanced Filters */}
-          {hasAnyConnection && (
-            <details className="pt-[4px]">
-              <summary className="font-kosugi text-[11px] text-text-disabled cursor-pointer hover:text-text-secondary">
-                Advanced email filters
-              </summary>
-              <button
-                onClick={() => openWizard("filters")}
-                className="mt-1 mb-1 w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
-              >
-                <Mail className="w-[16px] h-[16px] text-ops-accent shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-mohave text-body-sm text-ops-accent block">
-                    Email Import Filter Setup
-                  </span>
-                  <span className="font-kosugi text-[10px] text-text-disabled">
-                    Scan your inbox and configure which emails get imported
-                  </span>
-                </div>
-              </button>
-              <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
-                {/* Filter Builder */}
-                {companyConnections[0] && (
-                  <div>
-                    <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px]">
-                      Filter rules — only import/sync emails that match
-                    </label>
-                    <EmailFilterBuilder
-                      filters={companyConnections[0].syncFilters}
-                      connectionId={companyConnections[0].id}
-                      onUpdate={(updated) =>
-                        handleUpdateFilters(companyConnections[0].id, updated)
-                      }
-                    />
-                  </div>
-                )}
-
-                {/* Preset blocklist toggle */}
-                <div className="flex items-center gap-[6px] pt-[4px]">
-                  <button
-                    onClick={() => {
-                      const conn = companyConnections[0];
-                      if (!conn) return;
-                      handleUpdateFilters(conn.id, {
-                        ...conn.syncFilters,
-                        usePresetBlocklist: !conn.syncFilters.usePresetBlocklist,
-                      });
-                    }}
-                    className="shrink-0"
-                  >
-                    {companyConnections[0]?.syncFilters.usePresetBlocklist ? (
-                      <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
-                    ) : (
-                      <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
-                    )}
-                  </button>
-                  <span className="font-kosugi text-[11px] text-text-secondary">
-                    Block known newsletter & notification domains (60+ pre-configured)
-                  </span>
-                </div>
+          {/* Before wizard: show setup CTA */}
+          {hasAnyConnection && !wizardDone && (
+            <button
+              onClick={() => openWizard()}
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+            >
+              <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="font-mohave text-body text-ops-accent block">
+                  Set Up Email Import
+                </span>
+                <span className="font-kosugi text-[10px] text-text-disabled">
+                  Configure filters and import historical emails from your inbox
+                </span>
               </div>
-            </details>
+            </button>
           )}
 
-          {hasAnyConnection && !importStarted && (
-            <div id="gmail-import-section" className="pt-[4px] space-y-[6px] transition-all duration-300">
-              <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
-                <Mail className="w-[14px] h-[14px] text-text-disabled" />
-                Import Historical Emails
-              </label>
-              <p className="font-mohave text-body-sm text-text-disabled">
-                Scan past emails for leads that may already be in your inbox.
-              </p>
-              <div className="flex flex-wrap gap-[6px]">
-                {[
-                  { label: "Last 7 days", days: 7 },
-                  { label: "Last 30 days", days: 30 },
-                  { label: "Last 90 days", days: 90 },
-                  { label: "6 months", days: 180 },
-                ].map((preset) => (
+          {/* After wizard: show advanced filters + import */}
+          {hasAnyConnection && wizardDone && (
+            <>
+              <details className="pt-[4px]">
+                <summary className="font-kosugi text-[11px] text-text-disabled cursor-pointer hover:text-text-secondary">
+                  Advanced email filters
+                </summary>
+                <div className="mt-1 mb-1">
                   <Button
-                    key={preset.days}
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => handleStartImport(preset.days)}
-                    disabled={gmailImport.isImporting}
-                    className="font-kosugi text-[11px]"
+                    onClick={() => openWizard("filters")}
+                    className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
                   >
-                    {preset.label}
-                  </Button>
-                ))}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowCustomDate(!showCustomDate)}
-                  disabled={gmailImport.isImporting}
-                  className="font-kosugi text-[11px]"
-                >
-                  Custom
-                </Button>
-              </div>
-              {showCustomDate && (
-                <div className="flex items-center gap-[6px] mt-[6px]">
-                  <input
-                    type="date"
-                    value={customDate}
-                    onChange={(e) => setCustomDate(e.target.value)}
-                    max={new Date().toISOString().split("T")[0]}
-                    className="bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleStartImportCustom}
-                    disabled={!customDate || gmailImport.isImporting}
-                    className="font-kosugi text-[11px]"
-                  >
-                    Import
+                    Re-run Filter Wizard
                   </Button>
                 </div>
+                <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
+                  {/* Filter Builder */}
+                  {companyConnections[0] && (
+                    <div>
+                      <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px]">
+                        Filter rules — only import/sync emails that match
+                      </label>
+                      <EmailFilterBuilder
+                        filters={companyConnections[0].syncFilters}
+                        connectionId={companyConnections[0].id}
+                        onUpdate={(updated) =>
+                          handleUpdateFilters(companyConnections[0].id, updated)
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {/* Preset blocklist toggle */}
+                  <div className="flex items-center gap-[6px] pt-[4px]">
+                    <button
+                      onClick={() => {
+                        const conn = companyConnections[0];
+                        if (!conn) return;
+                        handleUpdateFilters(conn.id, {
+                          ...conn.syncFilters,
+                          usePresetBlocklist: !conn.syncFilters.usePresetBlocklist,
+                        });
+                      }}
+                      className="shrink-0"
+                    >
+                      {companyConnections[0]?.syncFilters.usePresetBlocklist ? (
+                        <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
+                      ) : (
+                        <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
+                      )}
+                    </button>
+                    <span className="font-kosugi text-[11px] text-text-secondary">
+                      Block known newsletter & notification domains (60+ pre-configured)
+                    </span>
+                  </div>
+                </div>
+              </details>
+
+              {!importStarted && (
+                <div id="gmail-import-section" className="pt-[4px] space-y-[6px] transition-all duration-300">
+                  <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
+                    <Mail className="w-[14px] h-[14px] text-text-disabled" />
+                    Import Historical Emails
+                  </label>
+                  <p className="font-mohave text-body-sm text-text-disabled">
+                    Scan past emails for leads that may already be in your inbox.
+                  </p>
+                  <div className="flex flex-wrap gap-[6px]">
+                    {[
+                      { label: "Last 7 days", days: 7 },
+                      { label: "Last 30 days", days: 30 },
+                      { label: "Last 90 days", days: 90 },
+                      { label: "6 months", days: 180 },
+                    ].map((preset) => (
+                      <Button
+                        key={preset.days}
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleStartImport(preset.days)}
+                        disabled={gmailImport.isImporting}
+                        className="font-kosugi text-[11px]"
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowCustomDate(!showCustomDate)}
+                      disabled={gmailImport.isImporting}
+                      className="font-kosugi text-[11px]"
+                    >
+                      Custom
+                    </Button>
+                  </div>
+                  {showCustomDate && (
+                    <div className="flex items-center gap-[6px] mt-[6px]">
+                      <input
+                        type="date"
+                        value={customDate}
+                        onChange={(e) => setCustomDate(e.target.value)}
+                        max={new Date().toISOString().split("T")[0]}
+                        className="bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleStartImportCustom}
+                        disabled={!customDate || gmailImport.isImporting}
+                        className="font-kosugi text-[11px]"
+                      >
+                        Import
+                      </Button>
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {importStarted && gmailImport.isImporting && (
