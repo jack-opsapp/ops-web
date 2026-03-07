@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import {
   User,
   Building2,
@@ -190,20 +190,20 @@ export default function SettingsPage() {
   const permReady = usePermissionStore(selectPermissionsReady);
   const { t } = useDictionary("settings");
 
-  // Filter sub-tabs based on permissions
-  const baseGroups = permReady
-    ? BASE_GROUP_DEFS.map((group) => ({
-        ...group,
-        subTabs: group.subTabs.filter((sub) => {
-          const required = SUB_TAB_PERMISSIONS[sub.id];
-          return !required || can(required);
-        }),
-      })).filter((group) => group.subTabs.length > 0)
-    : BASE_GROUP_DEFS;
+  // Filter sub-tabs based on permissions (memoize to prevent infinite re-render loop)
+  const groupDefs = useMemo(() => {
+    const base = permReady
+      ? BASE_GROUP_DEFS.map((group) => ({
+          ...group,
+          subTabs: group.subTabs.filter((sub) => {
+            const required = SUB_TAB_PERMISSIONS[sub.id];
+            return !required || can(required);
+          }),
+        })).filter((group) => group.subTabs.length > 0)
+      : BASE_GROUP_DEFS;
 
-  const groupDefs = currentUser?.devPermission
-    ? [...baseGroups, DEV_GROUP]
-    : baseGroups;
+    return currentUser?.devPermission ? [...base, DEV_GROUP] : base;
+  }, [permReady, can, currentUser?.devPermission]);
 
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
   const [activeSubTab, setActiveSubTab] = useState("profile");
