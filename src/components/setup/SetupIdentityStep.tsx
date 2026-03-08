@@ -99,8 +99,8 @@ function SelectorButton({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "px-3 py-2 rounded-sm border transition-all duration-150 whitespace-nowrap cursor-pointer",
-        "font-mohave text-body-sm min-h-[44px] min-w-[44px]",
+        "px-3 py-2 rounded-sm border transition-all duration-150 whitespace-nowrap cursor-pointer text-center",
+        "font-mohave text-body-sm min-h-[44px] min-w-[56px] flex-1",
         selected
           ? "bg-white border-white text-[#0A0A0A]"
           : "bg-background-input border-border text-text-secondary hover:border-[rgba(255,255,255,0.25)] hover:text-text-primary"
@@ -463,7 +463,7 @@ export function IdentityStep2({
           <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
             Team Size
           </label>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1 scrollbar-none">
             {COMPANY_SIZES.map((size) => (
               <SelectorButton
                 key={size}
@@ -480,7 +480,7 @@ export function IdentityStep2({
           <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
             Years in Business
           </label>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1 scrollbar-none">
             {COMPANY_AGES.map((age) => (
               <SelectorButton
                 key={age}

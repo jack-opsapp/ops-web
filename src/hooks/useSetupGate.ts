@@ -15,8 +15,17 @@ export function useSetupGate() {
   const missingSteps: ("identity" | "company")[] = [];
   const progress = currentUser?.setupProgress;
 
-  if (!progress?.steps?.identity) missingSteps.push("identity");
-  if (!progress?.steps?.company) missingSteps.push("company");
+  // Identity: skip if user already has first+last name (e.g. Bubble import)
+  const hasIdentity =
+    progress?.steps?.identity ||
+    (currentUser?.firstName && currentUser?.lastName);
+  if (!hasIdentity) missingSteps.push("identity");
+
+  // Company: skip if user already belongs to a company (e.g. Bubble import)
+  const hasCompany =
+    progress?.steps?.company ||
+    !!currentUser?.companyId;
+  if (!hasCompany) missingSteps.push("company");
 
   return {
     isComplete: missingSteps.length === 0,
