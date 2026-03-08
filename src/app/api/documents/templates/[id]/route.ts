@@ -21,12 +21,37 @@ async function getAuthenticatedCompanyId(
   }
 
   const db = getServiceRoleClient();
-  const { data: dbUser } = await db
+
+  // Try auth_id first, then firebase_uid, then email fallback
+  let dbUser: { company_id: string } | null = null;
+
+  const { data: byAuthId } = await db
     .from("users")
     .select("company_id")
     .eq("auth_id", user.uid)
     .is("deleted_at", null)
     .maybeSingle();
+  dbUser = byAuthId;
+
+  if (!dbUser) {
+    const { data: byFirebaseUid } = await db
+      .from("users")
+      .select("company_id")
+      .eq("firebase_uid", user.uid)
+      .is("deleted_at", null)
+      .maybeSingle();
+    dbUser = byFirebaseUid;
+  }
+
+  if (!dbUser && user.email) {
+    const { data: byEmail } = await db
+      .from("users")
+      .select("company_id")
+      .eq("email", user.email)
+      .is("deleted_at", null)
+      .maybeSingle();
+    dbUser = byEmail;
+  }
 
   if (!dbUser?.company_id) {
     return NextResponse.json({ error: "No company found" }, { status: 403 });

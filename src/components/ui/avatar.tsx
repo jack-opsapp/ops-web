@@ -6,13 +6,14 @@ const Avatar = React.forwardRef<
   React.ComponentRef<typeof AvatarPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & {
     size?: "sm" | "md" | "lg";
+    borderColor?: string;
   }
->(({ className, size = "md", ...props }, ref) => (
+>(({ className, size = "md", borderColor, style, ...props }, ref) => (
   <AvatarPrimitive.Root
     ref={ref}
     className={cn(
       "relative flex shrink-0 overflow-hidden rounded-full",
-      "border border-border",
+      "border-2 border-ops-accent",
       {
         "h-[32px] w-[32px]": size === "sm",
         "h-5 w-5": size === "md",
@@ -20,6 +21,7 @@ const Avatar = React.forwardRef<
       },
       className
     )}
+    style={borderColor ? { ...style, borderColor } : style}
     {...props}
   />
 ));
@@ -50,11 +52,11 @@ const AvatarFallback = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-full w-full items-center justify-center rounded-full",
-      "bg-ops-accent-muted text-ops-accent",
+      "text-ops-accent",
       "font-mohave text-caption-bold uppercase",
       className
     )}
-    style={color ? { ...style, backgroundColor: `${color}20`, color } : style}
+    style={color ? { ...style, color } : style}
     {...props}
   />
 ));

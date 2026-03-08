@@ -617,7 +617,7 @@ function RoleEditor({
                     onClick={() => handleAssignMember(member.id)}
                     className="w-full flex items-center gap-1 px-1 py-[6px] rounded font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                   >
-                    <div className="w-[24px] h-[24px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
+                    <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-ops-accent">
                       <span className="font-mohave text-[10px] text-ops-accent">
                         {getInitials(getUserFullName(member))}
                       </span>
@@ -644,7 +644,7 @@ function RoleEditor({
                     className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                   >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-[28px] h-[28px] rounded-full bg-ops-accent-muted flex items-center justify-center">
+                      <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center border border-ops-accent">
                         <span className="font-mohave text-[10px] text-ops-accent">
                           {getInitials(fullName)}
                         </span>
@@ -760,7 +760,7 @@ function RoleRow({
 
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
                 <button
                   type="button"

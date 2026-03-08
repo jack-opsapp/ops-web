@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
-  ArrowLeft,
   Edit3,
   Trash2,
   Phone,
@@ -360,18 +359,10 @@ export default function ClientDetailPage() {
     <div className="space-y-3 max-w-[1000px]">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push("/clients")}
-          className="shrink-0 mt-[4px]"
-        >
-          <ArrowLeft className="w-[20px] h-[20px]" />
-        </Button>
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            <div className="w-[52px] h-[52px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
-              <span className="font-mohave text-display text-ops-accent">
+            <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
+              <span className="font-mohave text-display text-text-secondary">
                 {getInitials(clientData.name) || "?"}
               </span>
             </div>
@@ -637,7 +628,7 @@ export default function ClientDetailPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
-                          <div className="w-[28px] h-[28px] rounded-full bg-background-elevated flex items-center justify-center shrink-0">
+                          <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
                             <span className="font-mohave text-[11px] text-text-secondary">
                               {getInitials(sc.name)}
                             </span>
@@ -727,7 +718,7 @@ export default function ClientDetailPage() {
                     return (
                       <div
                         key={project.id}
-                        onClick={() => router.push(`/projects/${project.id}`)}
+                        onClick={() => router.push(`/projects/${project.id}?fromClient=${clientId}`)}
                         className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/50 hover:bg-background-elevated cursor-pointer transition-all group"
                       >
                         <div className="flex items-center gap-1 min-w-0">
@@ -782,7 +773,7 @@ export default function ClientDetailPage() {
                     return (
                       <div
                         key={project.id}
-                        onClick={() => router.push(`/projects/${project.id}`)}
+                        onClick={() => router.push(`/projects/${project.id}?fromClient=${clientId}`)}
                         className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/30 hover:bg-background-elevated cursor-pointer transition-all opacity-70 hover:opacity-100"
                       >
                         <div className="flex items-center gap-1 min-w-0">

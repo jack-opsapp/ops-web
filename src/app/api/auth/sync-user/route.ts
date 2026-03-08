@@ -151,7 +151,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const db = getServiceRoleClient();
 
-    // Look up existing user by auth_id first, then by email
+    // Look up existing user by auth_id, firebase_uid, then email
     const { data: byAuthId } = await db
       .from("users")
       .select("*")
@@ -160,6 +160,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .maybeSingle();
 
     let existingRow = byAuthId;
+
+    if (!existingRow) {
+      const { data: byFirebaseUid } = await db
+        .from("users")
+        .select("*")
+        .eq("firebase_uid", firebaseUid)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      existingRow = byFirebaseUid;
+    }
 
     if (!existingRow) {
       const { data: byEmail } = await db
@@ -176,9 +187,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (existingRow) {
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-      // Ensure auth_id is set (may be missing on legacy records matched by email)
+      // Ensure auth_id and firebase_uid are set
       if (!existingRow.auth_id) {
         updates.auth_id = firebaseUid;
+      }
+      if (!existingRow.firebase_uid) {
+        updates.firebase_uid = firebaseUid;
       }
 
       // Update profile fields if provided and currently empty
@@ -206,6 +220,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const newRow = {
       auth_id: firebaseUid,
+      firebase_uid: firebaseUid,
       email,
       first_name: derivedFirst,
       last_name: derivedLast,

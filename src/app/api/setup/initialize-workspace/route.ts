@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 
 interface InitWorkspaceBody {
   token: string;
@@ -29,19 +30,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const verifiedUser = await verifyAuthToken(token);
-    const authUid = verifiedUser.uid;
 
     const db = getServiceRoleClient();
 
-    // Look up user → company
-    const { data: userRow, error: userLookupError } = await db
-      .from("users")
-      .select("company_id")
-      .eq("auth_id", authUid)
-      .is("deleted_at", null)
-      .maybeSingle();
+    // Look up user → company (auth_id → firebase_uid → email)
+    const userRow = await findUserByAuth(verifiedUser.uid, verifiedUser.email, "company_id");
 
-    if (userLookupError || !userRow?.company_id) {
+    if (!userRow?.company_id) {
       return NextResponse.json(
         { error: "User or company not found" },
         { status: 404 }

@@ -44,7 +44,7 @@ const UserAvatar = React.forwardRef<HTMLDivElement, UserAvatarProps>(
 
     return (
       <div ref={ref} className={cn("relative inline-flex shrink-0", className)}>
-        <Avatar size={size}>
+        <Avatar size={size} borderColor={fallbackColor}>
           {imageUrl && <AvatarImage src={imageUrl} alt={name} />}
           <AvatarFallback color={fallbackColor}>{initials}</AvatarFallback>
         </Avatar>

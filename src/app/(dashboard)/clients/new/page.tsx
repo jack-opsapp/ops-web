@@ -161,8 +161,8 @@ export default function NewClientPage() {
           <ArrowLeft className="w-[20px] h-[20px]" />
         </Button>
         <div className="flex items-center gap-1.5">
-          <div className="w-[40px] h-[40px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
-            <span className="font-mohave text-body-lg text-ops-accent">
+          <div className="w-[40px] h-[40px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
+            <span className="font-mohave text-body-lg text-text-secondary">
               {initials}
             </span>
           </div>

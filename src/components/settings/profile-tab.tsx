@@ -87,7 +87,7 @@ export function ProfileTab() {
       <Card>
         <CardContent className="flex items-center gap-2 p-2">
           <div className="relative">
-            <div className="w-[72px] h-[72px] rounded-full bg-ops-accent-muted flex items-center justify-center overflow-hidden">
+            <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 border-ops-accent">
               {user?.profileImageURL ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img

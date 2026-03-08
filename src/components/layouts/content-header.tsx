@@ -43,9 +43,26 @@ export function ContentHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const entityName = useBreadcrumbStore((s) => s.entityName);
+  const parentCrumbs = useBreadcrumbStore((s) => s.parentCrumbs);
   const { t } = useDictionary("breadcrumbs");
 
-  const breadcrumbs = useMemo(() => getBreadcrumbs(pathname, t), [pathname, t]);
+  const defaultBreadcrumbs = useMemo(() => getBreadcrumbs(pathname, t), [pathname, t]);
+
+  // Build final breadcrumbs: if parentCrumbs are set, replace auto-generated parents
+  const breadcrumbs = useMemo(() => {
+    if (parentCrumbs && parentCrumbs.length > 0) {
+      // Use parent crumbs + the current entity as the last crumb
+      const lastDefault = defaultBreadcrumbs[defaultBreadcrumbs.length - 1];
+      const lastCrumb = lastDefault
+        ? { ...lastDefault, label: entityName ?? lastDefault.label }
+        : { label: entityName ?? "" };
+      return [
+        ...parentCrumbs.map((c) => ({ label: c.label, href: c.href, isEntity: false })),
+        { label: lastCrumb.label, isEntity: true },
+      ];
+    }
+    return defaultBreadcrumbs;
+  }, [parentCrumbs, defaultBreadcrumbs, entityName]);
 
   // Only render breadcrumbs for nested routes (2+ segments).
   // Top-level pages handle their own headers with counts, actions, etc.
@@ -57,7 +74,7 @@ export function ContentHeader() {
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1;
           const displayLabel =
-            crumb.isEntity && entityName
+            crumb.isEntity && entityName && !parentCrumbs
               ? entityName
               : crumb.isEntity
                 ? crumb.label.length > 16

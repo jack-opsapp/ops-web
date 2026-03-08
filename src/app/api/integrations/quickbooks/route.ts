@@ -9,12 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import crypto from "crypto";
 
-const QB_CLIENT_ID = process.env.QB_CLIENT_ID;
-const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET;
-const QB_ENVIRONMENT = process.env.QB_ENVIRONMENT ?? "sandbox";
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+const QB_CLIENT_ID = process.env.QB_CLIENT_ID?.trim();
+const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET?.trim();
+const QB_ENVIRONMENT = process.env.QB_ENVIRONMENT?.trim() ?? "sandbox";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL?.trim() ?? "http://localhost:3000";
 const QB_REDIRECT_URI =
-  process.env.QB_REDIRECT_URI ?? `${BASE_URL}/api/integrations/quickbooks/callback`;
+  process.env.QB_REDIRECT_URI?.trim() ?? `${BASE_URL}/api/integrations/quickbooks/callback`;
 
 const INTUIT_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
 const INTUIT_REVOKE_URL =

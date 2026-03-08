@@ -158,8 +158,15 @@ async function findUserByFirebaseUid(
     .eq("auth_id", uid)
     .is("deleted_at", null)
     .maybeSingle();
-
   if (byAuthId) return byAuthId;
+
+  const { data: byFirebaseUid } = await db
+    .from("users")
+    .select("*")
+    .eq("firebase_uid", uid)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (byFirebaseUid) return byFirebaseUid;
 
   if (email) {
     const { data: byEmail } = await db
@@ -168,7 +175,6 @@ async function findUserByFirebaseUid(
       .eq("email", email)
       .is("deleted_at", null)
       .maybeSingle();
-
     if (byEmail) return byEmail;
   }
 

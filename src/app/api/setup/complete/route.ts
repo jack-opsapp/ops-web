@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -34,19 +35,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Verify auth token
     const verifiedUser = await verifyAuthToken(token);
-    const authUid = verifiedUser.uid;
 
     const db = getServiceRoleClient();
 
-    // Find the user by auth_id
-    const { data: userRow, error: userLookupError } = await db
-      .from("users")
-      .select("id")
-      .eq("auth_id", authUid)
-      .is("deleted_at", null)
-      .maybeSingle();
+    // Find the user by auth credentials (auth_id → firebase_uid → email)
+    const userRow = await findUserByAuth(verifiedUser.uid, verifiedUser.email, "id");
 
-    if (userLookupError || !userRow) {
+    if (!userRow) {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }

@@ -72,12 +72,12 @@ export function TimelineRow({
           />
         ) : (
           <div
-            className="shrink-0 flex items-center justify-center rounded-full font-mohave font-semibold text-[11px] text-text-secondary"
+            className="shrink-0 flex items-center justify-center rounded-full font-mohave font-semibold text-[11px]"
             style={{
               width: 28,
               height: 28,
-              background: "#141414",
-              border: "1px solid rgba(255,255,255,0.10)",
+              border: "2px solid #59779F",
+              color: "#59779F",
             }}
           >
             {initials}

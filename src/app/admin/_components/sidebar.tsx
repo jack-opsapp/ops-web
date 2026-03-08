@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/admin/blog", label: "BLOG" },
   { href: "/admin/email", label: "EMAIL" },
   { href: "/admin/system", label: "SYSTEM" },
+  { href: "/admin/feature-releases", label: "FEATURE RELEASES" },
   { href: "/admin/learn", label: "OPS LEARN" },
 ];
 

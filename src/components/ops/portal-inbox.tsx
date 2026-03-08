@@ -69,8 +69,8 @@ function ConversationItem({
     >
       <div className="flex items-start gap-1.5">
         {/* Avatar */}
-        <div className="w-[36px] h-[36px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0 mt-[2px]">
-          <User className="w-[16px] h-[16px] text-ops-accent" />
+        <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center shrink-0 mt-[2px] border border-[rgba(255,255,255,0.15)]">
+          <User className="w-[16px] h-[16px] text-text-secondary" />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -203,8 +203,8 @@ function ThreadView({
             <ArrowLeft className="w-[18px] h-[18px]" />
           </Button>
         )}
-        <div className="w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
-          <User className="w-[14px] h-[14px] text-ops-accent" />
+        <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
+          <User className="w-[14px] h-[14px] text-text-secondary" />
         </div>
         <div>
           <h3 className="font-mohave text-body text-text-primary">{clientName}</h3>

@@ -22,5 +22,6 @@ export function useCrewLocations() {
     enabled: !!orgId,
     refetchInterval: POLL_INTERVAL_MS,
     staleTime: POLL_INTERVAL_MS - 1000, // consider stale just before next poll
+    retry: false, // Don't retry on 400 (table may not exist yet)
   });
 }

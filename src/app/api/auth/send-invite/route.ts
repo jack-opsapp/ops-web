@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { sendTeamInvite } from "@/lib/email/sendgrid";
 import { sendTeamInviteSMS } from "@/lib/sms/twilio";
 
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const firebaseUser = await verifyAuthToken(idToken);
 
     // Verify user has permission to manage team
-    const allowed = await checkPermission(firebaseUser.uid, "team.manage");
+    const allowed = await checkPermission(firebaseUser.uid, "team.manage", firebaseUser.email);
     if (!allowed) {
       return NextResponse.json(
         { error: "You don't have permission to send invites" },
@@ -64,12 +65,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Verify the requesting user exists and belongs to the specified company
     const db = getServiceRoleClient();
-    const { data: requestingUser } = await db
-      .from("users")
-      .select("id, company_id")
-      .eq("auth_id", firebaseUser.uid)
-      .is("deleted_at", null)
-      .maybeSingle();
+    const requestingUser = await findUserByAuth(firebaseUser.uid, firebaseUser.email, "id, company_id");
 
     if (!requestingUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

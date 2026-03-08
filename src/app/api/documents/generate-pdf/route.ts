@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { renderDocumentHtml } from "@/lib/pdf/render-document-html";
 import type { InvoiceRenderData, EstimateRenderData } from "@/lib/pdf/render-document-html";
 import type { PortalBranding, PortalTemplate, PortalThemeMode } from "@/lib/types/portal";
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
 
     // Check permission based on document type
     const requiredPerm = documentType === "invoice" ? "invoices.view" : "estimates.view";
-    const allowed = await checkPermission(user.uid, requiredPerm);
+    const allowed = await checkPermission(user.uid, requiredPerm, user.email);
     if (!allowed) {
       return NextResponse.json(
         { error: "You don't have permission to generate this document" },
@@ -154,11 +155,7 @@ export async function POST(req: NextRequest) {
 
     // Verify company ownership — look up user's company from the users table
     const companyId = docData.company_id as string;
-    const { data: userRow } = await supabase
-      .from("users")
-      .select("company_id")
-      .eq("auth_id", user.uid)
-      .single();
+    const userRow = await findUserByAuth(user.uid, user.email, "company_id");
     if (!userRow || userRow.company_id !== companyId) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }

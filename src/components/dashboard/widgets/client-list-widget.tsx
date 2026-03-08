@@ -195,7 +195,7 @@ function ClientRow({
   return (
     <div className="flex items-center gap-1.5 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group">
       {/* Avatar */}
-      <div className="w-[28px] h-[28px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center shrink-0">
+      <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
         <span className="font-mohave text-[13px] text-text-secondary">
           {initial}
         </span>

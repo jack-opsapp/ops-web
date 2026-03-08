@@ -128,7 +128,7 @@ function MemberActions({
 
         {menuOpen && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+            <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
             <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[180px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
               {/* Role section */}
               <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
@@ -400,7 +400,7 @@ export function TeamTab() {
                     className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                   >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center">
+                      <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center border-2 border-ops-accent">
                         <span className="font-mohave text-body-sm text-ops-accent">
                           {getInitials(fullName)}
                         </span>
@@ -464,7 +464,7 @@ export function TeamTab() {
                     className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0 opacity-60"
                   >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-[32px] h-[32px] rounded-full bg-background-elevated flex items-center justify-center">
+                      <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center border-2 border-border-subtle">
                         <span className="font-mohave text-body-sm text-text-disabled">
                           {getInitials(fullName)}
                         </span>

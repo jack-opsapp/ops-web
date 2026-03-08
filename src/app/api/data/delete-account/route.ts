@@ -12,6 +12,7 @@ import Stripe from "stripe";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 
 function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const firebaseUser = await verifyAuthToken(idToken);
 
     // Verify user has permission to manage company settings
-    const allowed = await checkPermission(firebaseUser.uid, "settings.company");
+    const allowed = await checkPermission(firebaseUser.uid, "settings.company", firebaseUser.email);
     if (!allowed) {
       return NextResponse.json(
         { error: "You don't have permission to delete accounts" },
@@ -79,12 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const db = getServiceRoleClient();
 
     // Verify user belongs to company and is admin
-    const { data: user } = await db
-      .from("users")
-      .select("id, company_id, is_company_admin")
-      .eq("auth_id", firebaseUser.uid)
-      .is("deleted_at", null)
-      .maybeSingle();
+    const user = await findUserByAuth(firebaseUser.uid, firebaseUser.email, "id, company_id, is_company_admin");
 
     if (!user || user.company_id !== companyId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -103,7 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const adminIds = (company.admin_ids as string[]) ?? [];
-    const isAdmin = user.is_company_admin || adminIds.includes(user.id);
+    const isAdmin = user.is_company_admin || adminIds.includes(user.id as string);
 
     if (!isAdmin) {
       return NextResponse.json(

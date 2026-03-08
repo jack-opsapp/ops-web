@@ -11,26 +11,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { runSyncForConnection } from "@/lib/api/services/sync-orchestrator";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── Auth Helper ──────────────────────────────────────────────────────────────
 
-async function verifyRequestAuth(request: NextRequest): Promise<{ uid: string } | null> {
+async function verifyRequestAuth(request: NextRequest): Promise<{ uid: string; email?: string } | null> {
   const user = await verifyAdminAuth(request);
   if (!user) return null;
-  return { uid: user.uid };
+  return { uid: user.uid, email: user.email };
 }
 
 /** Verify the user belongs to the company they're requesting to sync */
-async function verifyCompanyAccess(supabase: SupabaseClient, authUid: string, companyId: string): Promise<boolean> {
-  const { data } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_id", authUid)
-    .eq("company_id", companyId)
-    .maybeSingle();
-  return !!data;
+async function verifyCompanyAccess(authUid: string, email: string | undefined, companyId: string): Promise<boolean> {
+  const user = await findUserByAuth(authUid, email, "id, company_id");
+  return !!user && (user.company_id as string) === companyId;
 }
 
 // ─── POST: Trigger Manual Sync ─────────────────────────────────────────────────
@@ -55,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getServiceRoleClient();
 
-    const hasAccess = await verifyCompanyAccess(supabase, authUser.uid, companyId);
+    const hasAccess = await verifyCompanyAccess(authUser.uid, authUser.email, companyId);
     if (!hasAccess) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -134,7 +129,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getServiceRoleClient();
 
-    const hasAccess = await verifyCompanyAccess(supabase, authUser.uid, companyId);
+    const hasAccess = await verifyCompanyAccess(authUser.uid, authUser.email, companyId);
     if (!hasAccess) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

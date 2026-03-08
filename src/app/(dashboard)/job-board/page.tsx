@@ -265,7 +265,7 @@ function SortableKanbanCard({
             card.teamMembers.slice(0, 3).map((member, i) => (
               <div
                 key={i}
-                className="w-[20px] h-[20px] rounded-full bg-ops-accent-muted border border-background-card-dark flex items-center justify-center"
+                className="w-[20px] h-[20px] rounded-full border-2 border-ops-accent flex items-center justify-center"
                 title={member}
               >
                 <span className="font-mohave text-[9px] text-ops-accent">

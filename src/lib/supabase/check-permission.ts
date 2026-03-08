@@ -15,6 +15,7 @@
  */
 
 import { getServiceRoleClient } from "./server-client";
+import { findUserByAuth } from "./find-user-by-auth";
 
 /**
  * Check if a user (by Firebase auth_id) has a specific permission.
@@ -22,21 +23,16 @@ import { getServiceRoleClient } from "./server-client";
  */
 export async function checkPermission(
   authId: string,
-  permission: string
+  permission: string,
+  email?: string
 ): Promise<boolean> {
-  const db = getServiceRoleClient();
-
-  // Look up the user's Supabase UUID from their Firebase auth_id
-  const { data: user } = await db
-    .from("users")
-    .select("id")
-    .eq("auth_id", authId)
-    .is("deleted_at", null)
-    .maybeSingle();
+  // Look up the user's Supabase UUID from their auth credentials
+  const user = await findUserByAuth(authId, email, "id");
 
   if (!user) return false;
 
   // Use the has_permission() function from the migration
+  const db = getServiceRoleClient();
   const { data, error } = await db.rpc("has_permission", {
     p_user_id: user.id,
     p_permission: permission,

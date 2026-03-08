@@ -70,38 +70,42 @@ export function ShortcutsTab() {
         </CardContent>
       </Card>
 
-      {shortcutGroups.map((group) => (
-        <Card key={group.categoryKey}>
-          <CardHeader>
-            <CardTitle>{t(group.categoryKey)}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-0">
-            {group.shortcuts.map((shortcut) => (
-              <div
-                key={shortcut.descKey}
-                className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
-              >
-                <span className="font-mohave text-body text-text-secondary">
-                  {t(shortcut.descKey)}
-                </span>
-                <div className="flex items-center gap-[4px]">
-                  {shortcut.keys.map((key, i) => (
-                    <kbd
-                      key={i}
-                      className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-[11px] text-text-tertiary"
-                    >
-                      {key}
-                    </kbd>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
-      <p className="font-kosugi text-[11px] text-text-disabled">
-        {t("shortcuts.footer")}
-      </p>
+      {showShortcutHints && (
+        <>
+          {shortcutGroups.map((group) => (
+            <Card key={group.categoryKey}>
+              <CardHeader>
+                <CardTitle>{t(group.categoryKey)}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                {group.shortcuts.map((shortcut) => (
+                  <div
+                    key={shortcut.descKey}
+                    className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+                  >
+                    <span className="font-mohave text-body text-text-secondary">
+                      {t(shortcut.descKey)}
+                    </span>
+                    <div className="flex items-center gap-[4px]">
+                      {shortcut.keys.map((key, i) => (
+                        <kbd
+                          key={i}
+                          className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-[11px] text-text-tertiary"
+                        >
+                          {key}
+                        </kbd>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+          <p className="font-kosugi text-[11px] text-text-disabled">
+            {t("shortcuts.footer")}
+          </p>
+        </>
+      )}
     </div>
   );
 }

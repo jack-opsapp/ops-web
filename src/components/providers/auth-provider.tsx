@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending } from "@/lib/firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/config";
 import { UserService } from "@/lib/api/services/user-service";
@@ -40,6 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setLoading = useAuthStore((s) => s.setLoading);
   const fetchPermissions = usePermissionStore((s) => s.fetchPermissions);
   const clearPermissions = usePermissionStore((s) => s.clear);
+  const fetchFlags = useFeatureFlagsStore((s) => s.fetchFlags);
+  const clearFlags = useFeatureFlagsStore((s) => s.clear);
   const fetchingRef = useRef(false);
 
   useEffect(() => {
@@ -70,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!authenticated) {
         setAuthCookie(null);
         clearPermissions();
+        clearFlags();
         console.log("[AuthProvider] Not authenticated");
         setLoading(false);
         return;
@@ -84,11 +88,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const existingUser = useAuthStore.getState().currentUser;
         if (existingUser?.companyId) {
           console.log("[AuthProvider] User already in store, skipping sync.", existingUser.id);
-          // Still load permissions if not initialized
+          // Still load permissions + feature flags if not initialized
           const permState = usePermissionStore.getState();
           if (!permState.initialized) {
             fetchPermissions(existingUser.id).catch((err) =>
               console.error("[AuthProvider] Failed to fetch permissions:", err)
+            );
+          }
+          const flagsState = useFeatureFlagsStore.getState();
+          if (!flagsState.initialized) {
+            fetchFlags(existingUser.id).catch((err) =>
+              console.error("[AuthProvider] Failed to fetch feature flags:", err)
             );
           }
           setLoading(false);
@@ -129,9 +139,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.warn("[AuthProvider] NO COMPANY returned - hooks will be disabled!");
           }
 
-          // Fetch permissions for the authenticated user
+          // Fetch permissions + feature flags for the authenticated user
           fetchPermissions(result.user.id).catch((err) =>
             console.error("[AuthProvider] Failed to fetch permissions:", err)
+          );
+          fetchFlags(result.user.id).catch((err) =>
+            console.error("[AuthProvider] Failed to fetch feature flags:", err)
           );
         } catch (err) {
           console.error("[AuthProvider] syncUser FAILED:", err);
@@ -206,7 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeout);
       if (unsubscribe) unsubscribe();
     };
-  }, [setFirebaseAuth, setUser, setCompany, setLoading, fetchPermissions, clearPermissions]);
+  }, [setFirebaseAuth, setUser, setCompany, setLoading, fetchPermissions, clearPermissions, fetchFlags, clearFlags]);
 
   return <>{children}</>;
 }

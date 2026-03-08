@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flags-store";
+import { getSlugForRoute } from "@/lib/feature-flags/feature-flag-definitions";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { Loader2 } from "lucide-react";
@@ -46,6 +48,8 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore();
   const can = usePermissionStore((s) => s.can);
   const permissionsReady = usePermissionStore(selectPermissionsReady);
+  const isRouteUnlocked = useFeatureFlagsStore((s) => s.isRouteUnlocked);
+  const flagsReady = useFeatureFlagsStore(selectFlagsReady);
   const { t } = useDictionary("common");
 
   // Redirect to login if not authenticated
@@ -54,6 +58,14 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
       router.replace("/login");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Redirect to dashboard if feature flag gates this route
+  useEffect(() => {
+    if (!flagsReady) return;
+    if (!isRouteUnlocked(pathname)) {
+      router.replace("/dashboard");
+    }
+  }, [pathname, flagsReady, isRouteUnlocked, router]);
 
   // Redirect to dashboard if user lacks permission for this route
   useEffect(() => {
@@ -79,6 +91,13 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  // Block render while feature flags are loading for a flag-gated route
+  const flagSlug = getSlugForRoute(pathname);
+  if (flagSlug) {
+    if (!flagsReady) return null;
+    if (!isRouteUnlocked(pathname)) return null;
   }
 
   // Block render while permissions are loading for a gated route

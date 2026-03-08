@@ -188,7 +188,7 @@ function PaymentRow({
   return (
     <div className="flex items-center gap-1.5 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
       {/* Avatar placeholder */}
-      <div className="w-[24px] h-[24px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center shrink-0">
+      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
         <User className="w-[12px] h-[12px] text-text-disabled" />
       </div>
 

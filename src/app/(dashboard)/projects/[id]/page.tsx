@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Edit3,
@@ -810,8 +810,11 @@ function FinancialTab({ project }: { project: Project }) {
 
 export default function ProjectDetailPage() {
   const { t } = useDictionary("projects");
+  const tBreadcrumbs = useDictionary("breadcrumbs").t;
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
+  const fromClientId = searchParams.get("fromClient");
   const projectId = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -831,16 +834,32 @@ export default function ProjectDetailPage() {
   // Fetch client separately since project.client isn't populated by the query
   const { data: resolvedClient } = useClient(project?.clientId ?? undefined);
 
+  // Also fetch the referring client if navigating from a client page
+  const { data: fromClient } = useClient(fromClientId ?? undefined);
+
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
 
-  // Set breadcrumb entity name
+  // Set breadcrumb entity name and parent crumbs when coming from client page
   const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
   const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
+  const setParentCrumbs = useBreadcrumbStore((s) => s.setParentCrumbs);
+  const clearParentCrumbs = useBreadcrumbStore((s) => s.clearParentCrumbs);
   useEffect(() => {
     if (project) setEntityName(project.title);
     return () => clearEntityName();
   }, [project, setEntityName, clearEntityName]);
+
+  // Set parent crumbs for client → project navigation path
+  useEffect(() => {
+    if (fromClientId && fromClient) {
+      setParentCrumbs([
+        { label: tBreadcrumbs("route.clients"), href: "/clients" },
+        { label: fromClient.name, href: `/clients/${fromClientId}` },
+      ]);
+    }
+    return () => clearParentCrumbs();
+  }, [fromClientId, fromClient, setParentCrumbs, clearParentCrumbs, tBreadcrumbs]);
 
   // Handle status change
   function handleStatusChange(newStatus: string) {
@@ -885,15 +904,6 @@ export default function ProjectDetailPage() {
     <div className="space-y-3 max-w-[1200px]">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push("/projects")}
-          className="shrink-0 mt-[4px]"
-        >
-          <ArrowLeft className="w-[20px] h-[20px]" />
-        </Button>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h1 className="font-mohave text-display-lg text-text-primary tracking-wide">

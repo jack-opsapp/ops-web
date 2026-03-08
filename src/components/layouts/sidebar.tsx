@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useCompany } from "@/lib/hooks";
 import { signOut } from "@/lib/firebase/auth";
 import { useDictionary } from "@/i18n/client";
@@ -133,6 +134,7 @@ export function Sidebar() {
   const { t } = useDictionary("sidebar");
   const can = usePermissionStore((s) => s.can);
   const permissionsReady = usePermissionStore(selectPermissionsReady);
+  const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
   const hasInventoryAccess = currentUser?.inventoryAccess ?? false;
   const allNavItems = useMemo(
     () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
@@ -146,6 +148,7 @@ export function Sidebar() {
     const filtered = allNavItems.filter((entry) => {
       if (entry === "divider") return true;
       if (!entry.permission) return true;
+      if (!isPermissionUnlocked(entry.permission)) return false;
       return can(entry.permission);
     });
 
@@ -155,7 +158,7 @@ export function Sidebar() {
       if (i === 0 || i === arr.length - 1) return false;
       return arr[i - 1] !== "divider";
     });
-  }, [allNavItems, can, permissionsReady]);
+  }, [allNavItems, can, permissionsReady, isPermissionUnlocked]);
 
   const handleSignOut = useCallback(async () => {
     document.cookie = "ops-auth-token=; path=/; max-age=0";
@@ -173,7 +176,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-screen z-40",
+        "fixed left-0 top-0 h-screen z-[45]",
         "ultrathin-material-dark border-r border-border",
         "flex flex-col transition-all duration-200 ease-out",
         isCollapsed ? "w-[72px]" : "w-[256px]"
@@ -279,7 +282,7 @@ export function Sidebar() {
               )}
             >
               <div
-                className="shrink-0 w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden"
+                className="shrink-0 w-[32px] h-[32px] rounded-full flex items-center justify-center overflow-hidden border-2 border-ops-accent"
               >
                 {currentUser?.profileImageURL ? (
                   /* eslint-disable-next-line @next/next/no-img-element */

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 
 async function fetchTable(
   db: ReturnType<typeof getServiceRoleClient>,
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const firebaseUser = await verifyAuthToken(idToken);
 
     // Verify user has permission to access company settings
-    const allowed = await checkPermission(firebaseUser.uid, "settings.company");
+    const allowed = await checkPermission(firebaseUser.uid, "settings.company", firebaseUser.email);
     if (!allowed) {
       return NextResponse.json(
         { error: "You don't have permission to export data" },
@@ -57,12 +58,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const db = getServiceRoleClient();
 
     // Verify user belongs to company
-    const { data: user } = await db
-      .from("users")
-      .select("id, company_id")
-      .eq("auth_id", firebaseUser.uid)
-      .is("deleted_at", null)
-      .maybeSingle();
+    const user = await findUserByAuth(firebaseUser.uid, firebaseUser.email, "id, company_id");
 
     if (!user || user.company_id !== companyId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
