@@ -112,26 +112,14 @@ async function updateBranding(
   return mapBrandingFromDb(data);
 }
 
-// ─── Preset accent colors ────────────────────────────────────────────────────
+// ─── Preset accent colors (derived from shared preferences store) ────────────
 
-const ACCENT_PRESETS = [
-  { label: "Steel Blue", value: "#417394" },
-  { label: "Slate", value: "#7A8B99" },
-  { label: "Mist", value: "#8FA7B8" },
-  { label: "Pewter", value: "#6B7D8D" },
-  { label: "Sage", value: "#7D9B76" },
-  { label: "Olive", value: "#8A8D65" },
-  { label: "Dusty Rose", value: "#C2858A" },
-  { label: "Mauve", value: "#B08B96" },
-  { label: "Blush", value: "#C9A5A5" },
-  { label: "Sandstone", value: "#B8A68E" },
-  { label: "Quicksand", value: "#C4AA82" },
-  { label: "Warm Taupe", value: "#A89889" },
-  { label: "Terracotta", value: "#B5856A" },
-  { label: "Driftwood", value: "#9E8E78" },
-  { label: "Amber Gold", value: "#C4A868" },
-  { label: "Charcoal", value: "#5A5A5A" },
-];
+import { ACCENT_COLOR_VALUES } from "@/stores/preferences-store";
+
+const ACCENT_PRESETS = Object.entries(ACCENT_COLOR_VALUES).map(([id, hex]) => ({
+  label: id.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+  value: hex,
+}));
 
 // ─── Template configs ────────────────────────────────────────────────────────
 

@@ -98,8 +98,7 @@ export type WidgetTypeId =
   | "activity-feed"
   | "follow-ups-due"
   | "site-visits"
-  // Alerts (4)
-  | "action-bar"
+  // Alerts (3)
   | "overdue-tasks"
   | "past-due-invoices"
   | "notifications";
@@ -1050,18 +1049,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     ],
   },
 
-  // ── ALERTS & NOTIFICATIONS (4) ─────────────────────────────────────────
-  "action-bar": {
-    label: "Action Items",
-    description: "Aggregated action items banner",
-    category: "alerts",
-    tags: ["essential"],
-    icon: "AlertTriangle",
-    supportedSizes: ["full"],
-    defaultSize: "full",
-    allowMultiple: false,
-    configSchema: [],
-  },
+  // ── ALERTS & NOTIFICATIONS (3) ─────────────────────────────────────────
   "overdue-tasks": {
     label: "Overdue Tasks",
     description: "Tasks past due with one-click complete",

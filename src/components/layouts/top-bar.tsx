@@ -130,7 +130,7 @@ export function TopBar() {
         <button
           className={cn(
             "flex items-center gap-[6px] px-1.5 py-[8px] rounded",
-            "bg-transparent border border-[rgba(255,255,255,0.10)]",
+            "bg-[rgba(10,10,10,0.40)] backdrop-blur-sm border border-[rgba(255,255,255,0.10)]",
             "text-text-tertiary hover:border-[rgba(255,255,255,0.18)] hover:text-text-secondary",
             "transition-all duration-150 cursor-pointer",
             "min-w-[140px] sm:min-w-[200px]"

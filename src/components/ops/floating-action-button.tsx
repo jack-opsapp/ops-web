@@ -286,8 +286,8 @@ export function FloatingActionButton() {
           className={cn(
             "w-[52px] h-[52px] rounded-full flex items-center justify-center",
             "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
-            "border border-[rgba(255,255,255,0.08)]",
-            "hover:border-[rgba(255,255,255,0.15)]",
+            "border-2 border-[rgba(255,255,255,0.20)]",
+            "hover:border-[rgba(255,255,255,0.30)]",
             "transition-colors duration-150"
           )}
           animate={{ rotate: open || editMode ? 225 : 0 }}

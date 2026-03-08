@@ -17,7 +17,6 @@ import { TaskListWidget } from "@/components/dashboard/widgets/task-list-widget"
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { PipelineWidget } from "@/components/dashboard/widgets/pipeline-funnel-widget";
 import { RevenueWidget } from "@/components/dashboard/widgets/revenue-chart-widget";
-import { AlertsWidget } from "@/components/dashboard/widgets/action-bar-widget";
 import { InvoiceListWidget } from "@/components/dashboard/widgets/invoice-list-widget";
 import { InvoiceAgingWidget } from "@/components/dashboard/widgets/invoice-aging-widget";
 import { PaymentsRecentWidget } from "@/components/dashboard/widgets/payments-recent-widget";
@@ -151,17 +150,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     case "site-visits":
       return <SiteVisitsWidget size={size} config={config} />;
 
-    // ── ALERTS (need data props → pass stubs) ──
-    case "action-bar":
-      return (
-        <AlertsWidget
-          activeProjectCount={0}
-          weekEventCount={0}
-          teamMemberCount={0}
-          isDataLoading={false}
-          onNavigate={noop}
-        />
-      );
+    // ── ALERTS ──
     case "overdue-tasks":
       return <OverdueTasksWidget size={size} />;
     case "past-due-invoices":

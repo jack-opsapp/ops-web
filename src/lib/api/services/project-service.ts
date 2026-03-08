@@ -60,6 +60,7 @@ function mapFromDb(row: Record<string, unknown>): Project {
     projectDescription: (row.description as string) ?? null,
     projectImages: (row.project_images as string[]) ?? [],
     opportunityId: (row.opportunity_id as string) ?? null,
+    createdAt: parseDate(row.created_at),
     lastSyncedAt: null,
     needsSync: false,
     syncPriority: 0,

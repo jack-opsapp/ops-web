@@ -54,7 +54,7 @@ export function SetupInterceptionModal({
   missingSteps,
   triggerAction,
 }: SetupInterceptionModalProps) {
-  const { currentUser, setUser } = useAuthStore();
+  const { currentUser, company, setUser } = useAuthStore();
 
   // Internal step index (tracks which of the missingSteps we're on)
   const [stepIndex, setStepIndex] = useState(0);
@@ -65,11 +65,12 @@ export function SetupInterceptionModal({
   const [lastName, setLastName] = useState(currentUser?.lastName ?? "");
   const [phone, setPhone] = useState(currentUser?.phone ?? "");
 
-  // ── Company form state ───────────────────────────────────────────────
-  const [companyName, setCompanyName] = useState("");
-  const [industries, setIndustries] = useState<string[]>([]);
-  const [companySize, setCompanySize] = useState("");
-  const [companyAge, setCompanyAge] = useState("");
+  // ── Company form state (pre-populated from existing company if available) ──
+  const [companyName, setCompanyName] = useState(company?.name ?? "");
+  const [industries, setIndustries] = useState<string[]>(company?.industries ?? []);
+  const [companySize, setCompanySize] = useState(company?.companySize ?? "");
+  const [companyAge, setCompanyAge] = useState(company?.companyAge ?? "");
+  const [weatherDependent, setWeatherDependent] = useState("");
 
   const currentStep = missingSteps[stepIndex] as "identity" | "company" | undefined;
   const totalSteps = missingSteps.length;
@@ -100,7 +101,7 @@ export function SetupInterceptionModal({
         const data =
           step === "identity"
             ? { firstName, lastName, phone }
-            : { companyName, industries, companySize, companyAge };
+            : { companyName, industries, companySize, companyAge, weatherDependent };
 
         const res = await fetch("/api/setup/progress", {
           method: "POST",
@@ -136,7 +137,7 @@ export function SetupInterceptionModal({
         return false;
       }
     },
-    [firstName, lastName, phone, companyName, industries, companySize, companyAge, currentUser, setUser]
+    [firstName, lastName, phone, companyName, industries, companySize, companyAge, weatherDependent, currentUser, setUser]
   );
 
   // ── Handle continue ──────────────────────────────────────────────────
@@ -229,11 +230,13 @@ export function SetupInterceptionModal({
               industries={industries}
               companySize={companySize}
               companyAge={companyAge}
+              weatherDependent={weatherDependent}
               onUpdate={(data) => {
                 if (data.companyName !== undefined) setCompanyName(data.companyName);
                 if (data.industries !== undefined) setIndustries(data.industries);
                 if (data.companySize !== undefined) setCompanySize(data.companySize);
                 if (data.companyAge !== undefined) setCompanyAge(data.companyAge);
+                if (data.weatherDependent !== undefined) setWeatherDependent(data.weatherDependent);
               }}
             />
           )}

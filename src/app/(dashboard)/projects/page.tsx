@@ -359,6 +359,13 @@ export default function ProjectsPage() {
       filtered = filtered.filter((p) => p.status === ProjectStatus.Archived);
     }
 
+    // Sort by newest created first
+    filtered.sort((a, b) => {
+      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bDate - aDate;
+    });
+
     return filtered;
   }, [projects, searchQuery, statusFilter]);
 
@@ -661,6 +668,9 @@ export default function ProjectsPage() {
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
                   {t("table.startDate")}
                 </th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  Created
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -714,6 +724,17 @@ export default function ProjectsPage() {
                       <span className="font-mono text-data-sm text-text-tertiary">
                         {project.startDate
                           ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "--"}
+                      </span>
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <span className="font-mono text-data-sm text-text-tertiary">
+                        {project.createdAt
+                          ? new Date(project.createdAt).toLocaleDateString(getDateLocale(locale), {
                               month: "short",
                               day: "numeric",
                               year: "numeric",

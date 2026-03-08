@@ -273,6 +273,8 @@ export function CreateProjectForm({
     control,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors, isDirty },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectFormSchema),
@@ -288,6 +290,22 @@ export function CreateProjectForm({
       teamMemberIds: [],
     },
   });
+
+  // Auto-suggest project name from client or address when title is empty
+  const watchedClientId = watch("clientId");
+  const selectedClientName = clients.find((c) => c.id === watchedClientId)?.name;
+
+  const suggestTitle = () => {
+    const current = getValues("title");
+    if (current.trim()) return; // Don't overwrite user input
+    if (selectedClientName) {
+      setValue("title", `${selectedClientName} Project`, { shouldDirty: true });
+    }
+  };
+
+  // Trigger suggestion when client is selected
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useMemo(() => { if (watchedClientId) suggestTitle(); }, [watchedClientId]);
 
   const [serverError, setServerError] = useState<string | null>(null);
 

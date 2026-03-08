@@ -273,7 +273,8 @@ export function DashboardMapBackground() {
           style={{
             background: `
               radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%),
-              linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 120px)
+              linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 120px),
+              linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 200px)
             `,
           }}
         />

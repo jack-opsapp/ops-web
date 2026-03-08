@@ -61,7 +61,6 @@ import { TaskListWidget } from "@/components/dashboard/widgets/task-list-widget"
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { PipelineWidget } from "@/components/dashboard/widgets/pipeline-funnel-widget";
 import { RevenueWidget } from "@/components/dashboard/widgets/revenue-chart-widget";
-import { AlertsWidget } from "@/components/dashboard/widgets/action-bar-widget";
 import { InvoiceListWidget } from "@/components/dashboard/widgets/invoice-list-widget";
 import { InvoiceAgingWidget } from "@/components/dashboard/widgets/invoice-aging-widget";
 import { PaymentsRecentWidget } from "@/components/dashboard/widgets/payments-recent-widget";
@@ -568,16 +567,6 @@ export default function DashboardPage() {
         return <SiteVisitsWidget size={size} config={config} />;
 
       // ── ALERTS ──
-      case "action-bar":
-        return (
-          <AlertsWidget
-            activeProjectCount={activeProjectCount}
-            weekEventCount={weekEvents.length}
-            teamMemberCount={teamMembers.length}
-            isDataLoading={isDataLoading}
-            onNavigate={navigate}
-          />
-        );
       case "overdue-tasks":
         return <OverdueTasksWidget size={size} />;
       case "past-due-invoices":

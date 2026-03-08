@@ -253,6 +253,7 @@ export interface Project {
   teamMemberIds: string[];
   projectDescription: string | null;
   projectImages: string[];
+  createdAt: Date | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   syncPriority: number;

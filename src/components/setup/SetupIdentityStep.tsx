@@ -413,16 +413,20 @@ export function IdentityStep1({
 
 // ─── Step 2: Your Company ───────────────────────────────────────────────────
 
+const WEATHER_OPTIONS = ["Yes", "No"] as const;
+
 interface IdentityStep2Props {
   companyName: string;
   industries: string[];
   companySize: string;
   companyAge: string;
+  weatherDependent?: string;
   onUpdate: (data: {
     companyName?: string;
     industries?: string[];
     companySize?: string;
     companyAge?: string;
+    weatherDependent?: string;
   }) => void;
 }
 
@@ -431,6 +435,7 @@ export function IdentityStep2({
   industries,
   companySize,
   companyAge,
+  weatherDependent = "",
   onUpdate,
 }: IdentityStep2Props) {
   return (
@@ -487,6 +492,23 @@ export function IdentityStep2({
                 label={age}
                 selected={companyAge === age}
                 onClick={() => onUpdate({ companyAge: age })}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Weather Dependent */}
+        <div role="group" aria-label="Weather Dependent">
+          <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
+            Is your work weather-dependent?
+          </label>
+          <div className="flex gap-1">
+            {WEATHER_OPTIONS.map((opt) => (
+              <SelectorButton
+                key={opt}
+                label={opt}
+                selected={weatherDependent === opt}
+                onClick={() => onUpdate({ weatherDependent: opt })}
               />
             ))}
           </div>
