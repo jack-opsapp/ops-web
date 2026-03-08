@@ -431,6 +431,8 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
       const hasSchedule = values.startDate && values.startDate.length > 0;
 
       if (hasSchedule) {
+        const taskType = taskTypes.find((t) => t.id === values.taskTypeId);
+        const eventTitle = taskType?.display ?? "Task";
         createTaskWithEventMutation.mutate(
           {
             task: {
@@ -439,12 +441,11 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               taskTypeId: values.taskTypeId,
               status: values.status,
               taskColor: values.taskColor || "#59779F",
-              customTitle: values.customTitle,
               teamMemberIds: values.teamMemberIds || [],
               displayOrder: activeTasks.length,
             },
             calendarEvent: {
-              title: values.customTitle,
+              title: eventTitle,
               startDate: new Date(values.startDate!),
               endDate: values.endDate ? new Date(values.endDate) : undefined,
               color: values.taskColor || "#59779F",
@@ -463,7 +464,6 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             taskTypeId: values.taskTypeId,
             status: values.status,
             taskColor: values.taskColor || "#59779F",
-            customTitle: values.customTitle,
             teamMemberIds: values.teamMemberIds || [],
             displayOrder: activeTasks.length,
           },
@@ -473,7 +473,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
         );
       }
     },
-    [projectId, companyId, activeTasks.length, createTaskMutation, createTaskWithEventMutation]
+    [projectId, companyId, activeTasks.length, taskTypes, createTaskMutation, createTaskWithEventMutation]
   );
 
   const handleEditSubmit = useCallback(
@@ -487,7 +487,6 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             status: values.status,
             taskTypeId: values.taskTypeId,
             taskColor: values.taskColor || "#59779F",
-            customTitle: values.customTitle,
             teamMemberIds: values.teamMemberIds || [],
           },
         },

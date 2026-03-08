@@ -16,7 +16,7 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       "flex h-7 w-full items-center justify-between gap-1",
       "bg-background-input text-text-primary font-mohave text-body",
-      "px-1.5 py-1.5 rounded-lg",
+      "px-1.5 py-1.5 rounded-sm",
       "border border-border",
       "transition-all duration-150",
       "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
@@ -71,7 +71,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-[300px] min-w-[8rem] overflow-hidden",
+        "relative z-[60] max-h-[300px] min-w-[8rem] overflow-hidden",
         "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
         "data-[state=open]:animate-scale-in",
         position === "popper" &&

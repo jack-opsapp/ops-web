@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CalendarDays, Clock, Users, Loader2 } from "lucide-react";
+import { CalendarDays, Clock, Users, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils/cn";
 import { toast } from "sonner";
 import { useCreateSiteVisit } from "@/lib/hooks/use-site-visits";
 import { useTeamMembers } from "@/lib/hooks";
@@ -34,6 +34,7 @@ import { OpportunityService } from "@/lib/api/services";
 import { ActivityType, OpportunityStage, SiteVisitStatus } from "@/lib/types/pipeline";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
+import { getUserFullName, getInitials } from "@/lib/types/models";
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
 
@@ -194,79 +195,75 @@ export function CreateSiteVisitModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#0A0A0A] border border-[#2A2A2A] max-w-md">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-[#E5E5E5] font-['Mohave'] text-lg">
+          <DialogTitle className="uppercase tracking-wider">
             Book Site Visit
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 mt-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 mt-1">
           {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#9CA3AF] flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" /> Date
-              </Label>
-              <Input
-                type="date"
-                {...register("scheduledDate")}
-                className="bg-[#111] border-[#333] text-[#E5E5E5]"
-              />
-              {errors.scheduledDate && (
-                <p className="text-xs text-[#93321A]">{errors.scheduledDate.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-[#9CA3AF] flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" /> Time
-              </Label>
-              <Input
-                type="time"
-                {...register("scheduledTime")}
-                className="bg-[#111] border-[#333] text-[#E5E5E5]"
-              />
-              {errors.scheduledTime && (
-                <p className="text-xs text-[#93321A]">{errors.scheduledTime.message}</p>
-              )}
-            </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Input
+              label="Date"
+              type="date"
+              prefixIcon={<CalendarDays className="w-[16px] h-[16px]" />}
+              {...register("scheduledDate")}
+              error={errors.scheduledDate?.message}
+            />
+            <Input
+              label="Time"
+              type="time"
+              prefixIcon={<Clock className="w-[16px] h-[16px]" />}
+              {...register("scheduledTime")}
+              error={errors.scheduledTime?.message}
+            />
           </div>
 
           {/* Duration */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-[#9CA3AF]">Duration (minutes)</Label>
-            <Input
-              type="number"
-              min={15}
-              step={15}
-              {...register("durationMinutes", { valueAsNumber: true })}
-              className="bg-[#111] border-[#333] text-[#E5E5E5]"
-            />
-            {errors.durationMinutes && (
-              <p className="text-xs text-[#93321A]">{errors.durationMinutes.message}</p>
-            )}
-          </div>
+          <Input
+            label="Duration (minutes)"
+            type="number"
+            min={15}
+            step={15}
+            {...register("durationMinutes", { valueAsNumber: true })}
+            error={errors.durationMinutes?.message}
+          />
 
           {/* Assignees */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-[#9CA3AF] flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" /> Assignees
-            </Label>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-0.5">
+            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest flex items-center gap-[6px]">
+              <Users className="w-[14px] h-[14px]" /> Assignees
+            </label>
+            <div className="flex flex-wrap gap-1">
               {teamMembers.map((member) => {
                 const selected = assigneeIds.includes(member.id);
+                const fullName = getUserFullName(member);
                 return (
                   <button
                     key={member.id}
                     type="button"
                     onClick={() => toggleAssignee(member.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    className={cn(
+                      "flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border transition-all",
+                      "font-mohave text-body-sm",
                       selected
-                        ? "bg-[#417394] text-white"
-                        : "bg-[#1A1A1A] text-[#9CA3AF] hover:text-[#E5E5E5]"
-                    }`}
+                        ? "bg-ops-accent-muted border-ops-accent text-text-primary"
+                        : "bg-background-input border-border text-text-tertiary hover:text-text-secondary hover:border-border-medium"
+                    )}
                   >
-                    {member.firstName} {member.lastName}
+                    <span
+                      className="w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-mohave text-white shrink-0"
+                      style={{ backgroundColor: member.userColor ?? "#59779F" }}
+                    >
+                      {selected ? (
+                        <Check className="w-[12px] h-[12px]" />
+                      ) : (
+                        getInitials(fullName)
+                      )}
+                    </span>
+                    {fullName}
                   </button>
                 );
               })}
@@ -274,35 +271,27 @@ export function CreateSiteVisitModal({
           </div>
 
           {/* Notes */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-[#9CA3AF]">Notes (optional)</Label>
-            <Textarea
-              {...register("notes")}
-              placeholder="Anything to note before the visit…"
-              rows={3}
-              className="bg-[#111] border-[#333] text-[#E5E5E5] resize-none text-sm"
-            />
-          </div>
+          <Textarea
+            label="Notes (optional)"
+            {...register("notes")}
+            placeholder="Anything to note before the visit..."
+            rows={3}
+          />
 
-          <div className="flex gap-3 pt-1">
+          <div className="flex items-center justify-end gap-1 pt-1">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="flex-1 text-[#9CA3AF]"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
-              className="flex-1 bg-[#417394] hover:bg-[#4f8aae] text-white"
+              loading={isSubmitting}
+              className="gap-[6px]"
             >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Book Site Visit"
-              )}
+              Book Site Visit
             </Button>
           </div>
         </form>
