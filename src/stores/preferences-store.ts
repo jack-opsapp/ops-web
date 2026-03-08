@@ -10,18 +10,44 @@ import {
   createWidgetInstance,
 } from "@/lib/types/dashboard-widgets";
 
-export type AccentColorId = "steel-blue" | "amber-gold" | "emerald" | "violet" | "rose" | "cyan";
+export type AccentColorId =
+  | "steel-blue"
+  | "slate"
+  | "mist"
+  | "pewter"
+  | "sage"
+  | "olive"
+  | "dusty-rose"
+  | "mauve"
+  | "blush"
+  | "sandstone"
+  | "quicksand"
+  | "warm-taupe"
+  | "terracotta"
+  | "driftwood"
+  | "amber-gold"
+  | "charcoal";
 export type FontSizeId = "small" | "default" | "large";
 export type DashboardLayoutId = "default" | "compact" | "data-dense";
 export type SchedulingTypeId = "all-day" | "time-slots" | "both";
 
 export const ACCENT_COLOR_VALUES: Record<AccentColorId, string> = {
   "steel-blue": "#417394",
+  "slate": "#7A8B99",
+  "mist": "#8FA7B8",
+  "pewter": "#6B7D8D",
+  "sage": "#7D9B76",
+  "olive": "#8A8D65",
+  "dusty-rose": "#C2858A",
+  "mauve": "#B08B96",
+  "blush": "#C9A5A5",
+  "sandstone": "#B8A68E",
+  "quicksand": "#C4AA82",
+  "warm-taupe": "#A89889",
+  "terracotta": "#B5856A",
+  "driftwood": "#9E8E78",
   "amber-gold": "#C4A868",
-  "emerald": "#10B981",
-  "violet": "#8B5CF6",
-  "rose": "#F43F5E",
-  "cyan": "#06B6D4",
+  "charcoal": "#5A5A5A",
 };
 
 export const FONT_SIZE_SCALES: Record<FontSizeId, number> = {
@@ -49,7 +75,6 @@ const DEFAULT_WIDGET_INSTANCES: WidgetInstance[] = [
   createWidgetInstance("pipeline-funnel"),
   createWidgetInstance("revenue-chart", { period: "6mo" }),
   createWidgetInstance("activity-feed", { entityFilter: "all" }),
-  createWidgetInstance("action-bar"),
 ];
 
 // ---------------------------------------------------------------------------
@@ -217,10 +242,19 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
+
+        // ── v8 → v9: Accent color palette expanded to 16 muted earth tones ──
+        if (version < 9) {
+          const old = state.accentColor as string | undefined;
+          const removed = ["emerald", "violet", "rose", "cyan"];
+          if (old && removed.includes(old)) {
+            state.accentColor = "steel-blue";
+          }
+        }
 
         // ── v7 → v8: Remove dead notificationPrefs (moved to server-persisted notification_preferences) ──
         if (version < 8) {
@@ -254,7 +288,6 @@ export const usePreferencesStore = create<PreferencesState>()(
               pipeline: { typeId: "pipeline-funnel" },
               revenue: { typeId: "revenue-chart", config: { period: "6mo" } },
               activity: { typeId: "activity-feed", config: { entityFilter: "all" } },
-              alerts: { typeId: "action-bar" },
             };
 
             const instances: WidgetInstance[] = [];

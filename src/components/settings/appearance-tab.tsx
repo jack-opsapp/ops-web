@@ -15,11 +15,21 @@ import {
 
 const ACCENT_COLORS: { id: AccentColorId; labelKey: string }[] = [
   { id: "steel-blue", labelKey: "appearance.steelBlue" },
+  { id: "slate", labelKey: "appearance.slate" },
+  { id: "mist", labelKey: "appearance.mist" },
+  { id: "pewter", labelKey: "appearance.pewter" },
+  { id: "sage", labelKey: "appearance.sage" },
+  { id: "olive", labelKey: "appearance.olive" },
+  { id: "dusty-rose", labelKey: "appearance.dustyRose" },
+  { id: "mauve", labelKey: "appearance.mauve" },
+  { id: "blush", labelKey: "appearance.blush" },
+  { id: "sandstone", labelKey: "appearance.sandstone" },
+  { id: "quicksand", labelKey: "appearance.quicksand" },
+  { id: "warm-taupe", labelKey: "appearance.warmTaupe" },
+  { id: "terracotta", labelKey: "appearance.terracotta" },
+  { id: "driftwood", labelKey: "appearance.driftwood" },
   { id: "amber-gold", labelKey: "appearance.amberGold" },
-  { id: "emerald", labelKey: "appearance.emerald" },
-  { id: "violet", labelKey: "appearance.violet" },
-  { id: "rose", labelKey: "appearance.rose" },
-  { id: "cyan", labelKey: "appearance.cyan" },
+  { id: "charcoal", labelKey: "appearance.charcoal" },
 ];
 
 const FONT_SIZES: { id: FontSizeId; labelKey: string; scale: string }[] = [
@@ -83,9 +93,10 @@ export function AppearanceTab() {
           <CardTitle>{t("appearance.accentColor")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {ACCENT_COLORS.map((color) => {
               const colorLabel = t(color.labelKey);
+              const isActive = accentColor === color.id;
               return (
               <button
                 key={color.id}
@@ -94,19 +105,22 @@ export function AppearanceTab() {
                   toast.success(`${t("appearance.toast.accent")} ${colorLabel}`);
                 }}
                 className={cn(
-                  "flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
-                  accentColor === color.id
+                  "relative flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
+                  isActive
                     ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
                     : "border-border hover:border-border-medium"
                 )}
               >
                 <span
-                  className="w-[16px] h-[16px] rounded-full border border-[rgba(255,255,255,0.2)]"
+                  className={cn(
+                    "w-[16px] h-[16px] rounded-full shrink-0",
+                    isActive ? "ring-2 ring-white/40 ring-offset-1 ring-offset-background-card" : "border border-[rgba(255,255,255,0.2)]"
+                  )}
                   style={{ backgroundColor: ACCENT_COLOR_VALUES[color.id] }}
                 />
-                <span className="font-mohave text-body-sm text-text-secondary">{colorLabel}</span>
-                {accentColor === color.id && (
-                  <Check className="w-[12px] h-[12px] text-ops-accent" />
+                <span className="font-mohave text-body-sm text-text-secondary truncate">{colorLabel}</span>
+                {isActive && (
+                  <Check className="w-[12px] h-[12px] text-ops-accent absolute right-[6px] shrink-0" />
                 )}
               </button>
               );

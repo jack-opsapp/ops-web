@@ -18,6 +18,7 @@ import {
   Plug,
   FileText,
   Zap,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -47,7 +48,7 @@ import { InventoryTab } from "@/components/settings/inventory-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type SettingsGroup = "account" | "company" | "billing" | "integrations" | "preferences" | "developer";
+type SettingsGroup = "account" | "company" | "operations" | "billing" | "integrations" | "preferences" | "developer";
 
 interface SubTab {
   id: string;
@@ -71,6 +72,7 @@ const BASE_GROUP_DEFS: GroupDef[] = [
     subTabs: [
       { id: "profile", labelKey: "sections.profile" },
       { id: "appearance", labelKey: "sections.appearance" },
+      { id: "notifications", labelKey: "sections.notifications" },
       { id: "shortcuts", labelKey: "sections.shortcuts" },
     ],
   },
@@ -82,8 +84,17 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "company-details", labelKey: "sections.companyDetails" },
       { id: "team", labelKey: "sections.teamMembers" },
       { id: "roles", labelKey: "sections.roles" },
+    ],
+  },
+  {
+    id: "operations",
+    labelKey: "tabs.operations",
+    icon: Wrench,
+    subTabs: [
       { id: "task-types", labelKey: "sections.taskTypes" },
       { id: "inventory", labelKey: "sections.inventory" },
+      { id: "expenses", labelKey: "sections.expenses" },
+      { id: "quick-actions", labelKey: "sections.quickActions" },
     ],
   },
   {
@@ -112,10 +123,7 @@ const BASE_GROUP_DEFS: GroupDef[] = [
     icon: SlidersHorizontal,
     subTabs: [
       { id: "preferences-general", labelKey: "sections.preferences" },
-      { id: "notifications", labelKey: "sections.notifications" },
       { id: "map", labelKey: "sections.map" },
-      { id: "expenses", labelKey: "sections.expenses" },
-      { id: "quick-actions", labelKey: "sections.quickActions" },
       { id: "data-privacy", labelKey: "sections.dataPrivacy" },
     ],
   },
@@ -133,21 +141,22 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   profile: { group: "account", sub: "profile" },
   appearance: { group: "account", sub: "appearance" },
   shortcuts: { group: "account", sub: "shortcuts" },
+  notifications: { group: "account", sub: "notifications" },
   company: { group: "company", sub: "company-details" },
   team: { group: "company", sub: "team" },
   roles: { group: "company", sub: "roles" },
-  "task-types": { group: "company", sub: "task-types" },
+  "task-types": { group: "operations", sub: "task-types" },
+  inventory: { group: "operations", sub: "inventory" },
+  expenses: { group: "operations", sub: "expenses" },
+  "quick-actions": { group: "operations", sub: "quick-actions" },
   subscription: { group: "billing", sub: "subscription" },
   billing: { group: "billing", sub: "payment" },
   integrations: { group: "integrations", sub: "email" },
   portal: { group: "integrations", sub: "portal" },
-  preferences: { group: "preferences", sub: "preferences-general" },
-  "data-privacy": { group: "preferences", sub: "data-privacy" },
   accounting: { group: "integrations", sub: "accounting" },
-  inventory: { group: "company", sub: "inventory" },
-  notifications: { group: "preferences", sub: "notifications" },
+  preferences: { group: "preferences", sub: "preferences-general" },
   map: { group: "preferences", sub: "map" },
-  expenses: { group: "preferences", sub: "expenses" },
+  "data-privacy": { group: "preferences", sub: "data-privacy" },
   developer: { group: "developer", sub: "developer" },
 };
 
