@@ -194,7 +194,7 @@ export function IntegrationsTab() {
   }
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3">
       {/* Email Setup Wizard */}
       <EmailSetupWizard
         open={wizardOpen}
@@ -480,6 +480,7 @@ export function IntegrationsTab() {
         </CardContent>
       </Card>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* Personal Gmail */}
       <Card>
         <CardHeader>
@@ -574,6 +575,7 @@ export function IntegrationsTab() {
           </p>
         </CardContent>
       </Card>
+      </div>
 
       {/* Follow-up Monitoring */}
       <Card>

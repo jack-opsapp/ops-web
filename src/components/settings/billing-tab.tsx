@@ -196,7 +196,7 @@ export function BillingTab() {
   const hasPaymentMethod = methods && methods.length > 0;
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* Payment Method */}
       <Card>
         <CardHeader>

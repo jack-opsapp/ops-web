@@ -48,7 +48,7 @@ export function AppearanceTab() {
   const setCompactMode = usePreferencesStore((s) => s.setCompactMode);
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card>
         <CardHeader>
           <CardTitle>{t("appearance.theme")}</CardTitle>
@@ -88,12 +88,12 @@ export function AppearanceTab() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>{t("appearance.accentColor")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
             {ACCENT_COLORS.map((color) => {
               const colorLabel = t(color.labelKey);
               const isActive = accentColor === color.id;

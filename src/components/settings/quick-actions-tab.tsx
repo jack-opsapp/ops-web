@@ -27,7 +27,7 @@ export function QuickActionsTab() {
   }
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3 max-w-3xl">
       <p className="font-kosugi text-[11px] text-text-tertiary">
         Choose which actions appear in the quick-add menu. Long-press the FAB on desktop to reorder.
       </p>

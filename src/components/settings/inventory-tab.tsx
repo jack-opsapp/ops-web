@@ -60,7 +60,7 @@ export function InventoryTab() {
   const sortedUnits = [...(units ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3 max-w-3xl">
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">

@@ -118,7 +118,7 @@ export function NotificationsTab() {
   const quietHoursWarning = localStart && localEnd && localStart === localEnd;
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* Global Channels */}
       <Card>
         <CardHeader>

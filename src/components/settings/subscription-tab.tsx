@@ -51,7 +51,7 @@ export function SubscriptionTab() {
     : `$${planInfo.monthlyPrice}${t("subscription.perMonth")}`;
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card variant="accent">
         <CardContent className="p-2">
           <div className="flex items-center justify-between">

@@ -428,7 +428,7 @@ export function PortalBrandingTab() {
   return (
     <div className="flex gap-3 items-start">
       {/* ── Left column — settings form ─────────────────────────────────── */}
-      <div className="space-y-3 max-w-[600px] flex-1 min-w-0">
+      <div className="space-y-3 flex-1 min-w-0">
       {/* ── Portal Logo ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>

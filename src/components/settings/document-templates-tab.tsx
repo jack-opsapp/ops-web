@@ -365,7 +365,7 @@ export function DocumentTemplatesTab() {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(accentColor);
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3">
       {/* ── Template List ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

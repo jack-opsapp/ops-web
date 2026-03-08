@@ -18,7 +18,7 @@ export function MapPreferencesTab() {
   const setMapShowCrewLabels = usePreferencesStore((s) => s.setMapShowCrewLabels);
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3 max-w-3xl">
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">

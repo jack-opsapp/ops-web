@@ -250,7 +250,9 @@ export function TeamTab() {
   }
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3">
+      {/* Top section: Invite + Seat Usage side by side on wide screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
       {/* Invite Section */}
       <Card>
         <CardHeader>
@@ -372,6 +374,7 @@ export function TeamTab() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       {/* Active Team Members */}
       <Card>

@@ -89,7 +89,7 @@ export function CompanyTab() {
   }
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3 max-w-3xl">
       <Card>
         <CardHeader>
           <CardTitle>{t("company.title")}</CardTitle>
@@ -131,8 +131,10 @@ export function CompanyTab() {
 
           <Input label={t("company.name")} value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
           <Input label={t("company.address")} value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
-          <Input label={t("company.phone")} type="tel" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} placeholder={t("company.phonePlaceholder")} />
-          <Input label={t("company.email")} type="email" value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} placeholder={t("company.emailPlaceholder")} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <Input label={t("company.phone")} type="tel" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} placeholder={t("company.phonePlaceholder")} />
+            <Input label={t("company.email")} type="email" value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} placeholder={t("company.emailPlaceholder")} />
+          </div>
           <Input label={t("company.website")} type="url" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} placeholder={t("company.websitePlaceholder")} />
           <div className="flex flex-col gap-0.5">
             <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">

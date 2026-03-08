@@ -373,7 +373,7 @@ export function TaskTypesTab() {
   }
 
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

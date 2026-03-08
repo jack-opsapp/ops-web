@@ -293,7 +293,7 @@ export default function SettingsPage() {
   const ContentComponent = CONTENT_MAP[activeSubTab];
 
   return (
-    <div className="space-y-3 max-w-[1000px]">
+    <div className="space-y-3">
       {/* ── Tab bar ───────────────────────────────────────────────────── */}
       <div className="border-b border-[rgba(255,255,255,0.15)] overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div
