@@ -92,7 +92,7 @@ function InventoryContent() {
   }, [items, tags, itemTags]);
 
   return (
-    <div className="space-y-3 pb-6 max-w-[1400px]">
+    <div className="space-y-3 pb-6">
       {/* Header */}
       <div>
         <h1 className="font-mohave text-heading font-semibold uppercase tracking-wider text-text-primary">

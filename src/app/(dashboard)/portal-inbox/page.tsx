@@ -267,7 +267,7 @@ export default function PortalInboxPage() {
   // ─── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-2 max-w-[1400px]">
+    <div className="space-y-2">
       <div>
         <h1 className="font-mohave text-display text-text-primary">
           {t("portalInbox.title")}

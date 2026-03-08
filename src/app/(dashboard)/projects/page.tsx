@@ -488,7 +488,7 @@ export default function ProjectsPage() {
   const noDataAvailable = !isLoading && projects.length === 0 && !isError;
 
   return (
-    <div className="space-y-3 max-w-[1400px]">
+    <div className="space-y-3">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <p className="font-kosugi text-caption-sm text-text-tertiary">

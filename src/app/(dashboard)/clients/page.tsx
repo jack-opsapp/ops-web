@@ -83,8 +83,8 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
       <div className="p-2 space-y-1.5">
         {/* Header: Avatar + Name + Company */}
         <div className="flex items-center gap-1.5">
-          <div className="w-[44px] h-[44px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
-            <span className="font-mohave text-body-lg text-ops-accent">
+          <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
+            <span className="font-mohave text-body-lg text-text-secondary">
               {getInitials(client.name) || "?"}
             </span>
           </div>
@@ -206,8 +206,8 @@ function ClientTableRow({
       {/* Name + Company */}
       <td className="px-1.5 py-1">
         <div className="flex items-center gap-1">
-          <div className="w-[32px] h-[32px] rounded-full bg-ops-accent-muted flex items-center justify-center shrink-0">
-            <span className="font-mohave text-body-sm text-ops-accent">
+          <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
+            <span className="font-mohave text-body-sm text-text-secondary">
               {getInitials(client.name) || "?"}
             </span>
           </div>
@@ -407,7 +407,7 @@ export default function ClientsPage() {
   }, [clients, searchQuery, filterMode]);
 
   return (
-    <div className="space-y-3 max-w-[1400px]">
+    <div className="space-y-3">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

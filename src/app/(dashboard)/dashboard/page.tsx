@@ -667,7 +667,7 @@ export default function DashboardPage() {
     <MotionConfig reducedMotion="user">
       <div
         className={cn(
-          "space-y-3 max-w-[1400px] transition-opacity duration-500",
+          "space-y-3 transition-opacity duration-500",
           mounted ? "opacity-100" : "opacity-0",
           trayOpen && "pb-[340px]"
         )}

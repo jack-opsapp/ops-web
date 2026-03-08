@@ -211,7 +211,7 @@ export default function EstimatesPage() {
   }, [estimates]);
 
   return (
-    <div className="space-y-3 max-w-[1400px]">
+    <div className="space-y-3">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <MetricCard

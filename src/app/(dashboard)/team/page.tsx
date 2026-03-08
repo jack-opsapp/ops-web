@@ -193,29 +193,6 @@ function RoleBadge({ role, t }: { role: Role; t: (key: string) => string }) {
   );
 }
 
-// ─── Status Indicator ────────────────────────────────────────────────────────
-
-function StatusIndicator({ status, t }: { status: MemberStatus; t: (key: string) => string }) {
-  if (status === "active") {
-    return (
-      <div className="flex items-center gap-[4px]">
-        <span className="h-[4px] w-[4px] rounded-full bg-[#6B8F71]" />
-        <span className="font-kosugi text-[10px] text-[#6B8F71] uppercase tracking-wider">
-          {t("team.active")}
-        </span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-[4px]">
-      <span className="h-[4px] w-[4px] rounded-full bg-text-disabled" />
-      <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-        {t("team.inactive")}
-      </span>
-    </div>
-  );
-}
-
 // ─── Role Selector Dropdown ──────────────────────────────────────────────────
 
 function RoleSelector({
@@ -318,12 +295,12 @@ function TeamMemberCard({
           <div className="relative">
             <div
               className={cn(
-                "w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0",
-                isInactive ? "bg-background-elevated" : "bg-ops-accent-muted"
+                "w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0 border-2",
+                isInactive ? "border-border-subtle" : "border-ops-accent"
               )}
               style={
                 member.userColor && !isInactive
-                  ? { backgroundColor: `${member.userColor}20` }
+                  ? { borderColor: member.userColor }
                   : undefined
               }
             >
@@ -363,7 +340,6 @@ function TeamMemberCard({
             </div>
             <div className="flex items-center gap-1.5 mt-[2px]">
               <RoleBadge role={member.role} t={t} />
-              <StatusIndicator status={member.status} t={t} />
             </div>
           </div>
 
@@ -677,7 +653,7 @@ export default function TeamPage() {
   const memberForRemoval = team.find((m) => m.id === removeTarget);
 
   return (
-    <div className="space-y-3 max-w-[1200px]">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

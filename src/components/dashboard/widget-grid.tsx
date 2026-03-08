@@ -42,7 +42,7 @@ export function WidgetGrid({
       variants={gridVariants}
       initial="hidden"
       animate="visible"
-      className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8"
+      className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 2xl:grid-cols-12"
       style={{
         gridAutoFlow: "dense",
         gridAutoRows: "140px",
