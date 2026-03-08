@@ -247,6 +247,149 @@ export function CommandPalette() {
     },
   ];
 
+  const settingsActions: CommandAction[] = [
+    {
+      id: "settings-profile",
+      label: "Profile",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=profile"),
+      keywords: ["settings", "account", "name", "email", "avatar", "personal"],
+    },
+    {
+      id: "settings-appearance",
+      label: "Appearance",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=appearance"),
+      keywords: ["settings", "theme", "dark", "light", "accent", "color", "font", "compact"],
+    },
+    {
+      id: "settings-notifications",
+      label: "Notifications",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=notifications"),
+      keywords: ["settings", "alerts", "email", "push", "notify"],
+    },
+    {
+      id: "settings-shortcuts",
+      label: "Keyboard Shortcuts",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=shortcuts"),
+      keywords: ["settings", "keys", "hotkeys", "bindings"],
+    },
+    {
+      id: "settings-company",
+      label: "Company Details",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=company"),
+      keywords: ["settings", "organization", "business", "logo", "address"],
+    },
+    {
+      id: "settings-team",
+      label: "Team Members",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=team"),
+      keywords: ["settings", "crew", "staff", "employees", "invite", "members"],
+    },
+    {
+      id: "settings-roles",
+      label: "Roles & Permissions",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=roles"),
+      keywords: ["settings", "permissions", "access", "admin", "roles"],
+    },
+    {
+      id: "settings-task-types",
+      label: "Task Types",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=task-types"),
+      keywords: ["settings", "categories", "task", "types", "operations"],
+    },
+    {
+      id: "settings-inventory",
+      label: "Inventory",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=inventory"),
+      keywords: ["settings", "materials", "stock", "supplies", "equipment"],
+    },
+    {
+      id: "settings-expenses",
+      label: "Expenses",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=expenses"),
+      keywords: ["settings", "expense", "categories", "receipts", "costs"],
+    },
+    {
+      id: "settings-quick-actions",
+      label: "Quick Actions",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=quick-actions"),
+      keywords: ["settings", "shortcuts", "actions", "automation"],
+    },
+    {
+      id: "settings-subscription",
+      label: "Subscription",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=subscription"),
+      keywords: ["settings", "plan", "billing", "upgrade", "pricing"],
+    },
+    {
+      id: "settings-billing",
+      label: "Payment",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=billing"),
+      keywords: ["settings", "payment", "card", "invoice", "billing"],
+    },
+    {
+      id: "settings-integrations",
+      label: "Email Integration",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=integrations"),
+      keywords: ["settings", "email", "smtp", "integration", "connect"],
+    },
+    {
+      id: "settings-portal",
+      label: "Client Portal",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=portal"),
+      keywords: ["settings", "portal", "branding", "client", "customer"],
+    },
+    {
+      id: "settings-templates",
+      label: "Document Templates",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=templates"),
+      keywords: ["settings", "templates", "documents", "proposals", "contracts"],
+    },
+    {
+      id: "settings-accounting",
+      label: "Accounting Integration",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=accounting"),
+      keywords: ["settings", "quickbooks", "xero", "accounting", "finance"],
+    },
+    {
+      id: "settings-preferences",
+      label: "General Preferences",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=preferences"),
+      keywords: ["settings", "preferences", "general", "defaults", "dashboard"],
+    },
+    {
+      id: "settings-map",
+      label: "Map Preferences",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=map"),
+      keywords: ["settings", "map", "zoom", "traffic", "location", "gps"],
+    },
+    {
+      id: "settings-data-privacy",
+      label: "Data & Privacy",
+      icon: Settings,
+      onSelect: () => navigate("/settings?tab=data-privacy"),
+      keywords: ["settings", "data", "privacy", "export", "delete", "gdpr"],
+    },
+  ];
+
   const systemActions: CommandAction[] = [
     {
       id: "system-shortcuts",
@@ -385,6 +528,21 @@ export function CommandPalette() {
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
               )}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading="Settings">
+          {settingsActions.map((action) => (
+            <CommandItem
+              key={action.id}
+              value={[action.label, ...(action.keywords || [])].join(" ")}
+              onSelect={action.onSelect}
+            >
+              <action.icon className="w-[16px] h-[16px] text-text-tertiary" />
+              <span>{action.label}</span>
             </CommandItem>
           ))}
         </CommandGroup>

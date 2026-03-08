@@ -1,24 +1,34 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Lock,
   Copy,
   Plus,
-  ChevronRight,
-  Search,
   X,
-  Trash2,
   ArrowLeft,
   MoreHorizontal,
   Loader2,
   UserPlus,
   UserMinus,
+  GripVertical,
+  HelpCircle,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import {
@@ -40,7 +50,12 @@ import { getUserFullName, getInitials } from "@/lib/types/models";
 import {
   PERMISSION_CATEGORIES,
   type PermissionScope,
+  type PermissionTier,
+  type PermissionModule,
   type RolePermission,
+  getActionsForTier,
+  detectModuleTier,
+  getModulesWithScopes,
 } from "@/lib/types/permissions";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -55,187 +70,847 @@ interface PermissionEdit {
   enabled: boolean;
 }
 
-// ─── Scope Segmented Control ─────────────────────────────────────────────────
+// ─── Tier Column Color Helpers ───────────────────────────────────────────────
 
-function ScopeSelector({
-  scopes,
-  value,
-  onChange,
-  disabled,
-}: {
-  scopes: PermissionScope[];
-  value: PermissionScope;
-  onChange: (scope: PermissionScope) => void;
-  disabled?: boolean;
-}) {
-  if (scopes.length <= 1) return null;
+const TIER_BORDER_COLORS: Record<PermissionTier, string> = {
+  view: "border-t-blue-500/60",
+  manage: "border-t-amber-500/60",
+  full: "border-t-emerald-500/60",
+};
+
+const TIER_HEADER_COLORS: Record<PermissionTier, string> = {
+  view: "text-blue-400",
+  manage: "text-amber-400",
+  full: "text-emerald-400",
+};
+
+const TIER_ACTIVE_BG: Record<PermissionTier, string> = {
+  view: "bg-blue-500/10",
+  manage: "bg-amber-500/10",
+  full: "bg-emerald-500/10",
+};
+
+const TIER_CARD_BORDER: Record<PermissionTier, string> = {
+  view: "border-l-blue-500/40",
+  manage: "border-l-amber-500/40",
+  full: "border-l-emerald-500/40",
+};
+
+// ─── Tooltip Component ──────────────────────────────────────────────────────
+
+function Tooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
 
   return (
-    <div className="flex items-center gap-0 animate-fade-in">
-      {scopes.map((scope) => (
+    <div className="relative inline-flex">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        className="text-text-disabled hover:text-text-tertiary transition-colors"
+      >
+        <HelpCircle className="w-[12px] h-[12px]" />
+      </button>
+      {show && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[6px] z-50 px-[10px] py-[6px] bg-background-elevated border border-border rounded shadow-lg max-w-[220px] whitespace-normal">
+          <p className="font-kosugi text-[10px] text-text-secondary leading-tight">
+            {text}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PaletteCard ─────────────────────────────────────────────────────────────
+
+function PaletteCard({
+  moduleId,
+  label,
+  grantedTier,
+  disabled,
+  onClick,
+}: {
+  moduleId: string;
+  label: string;
+  grantedTier: PermissionTier | null;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useDictionary("settings");
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `palette-${moduleId}`,
+      data: { type: "palette", moduleId },
+      disabled: disabled || grantedTier !== null,
+    });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  const isGranted = grantedTier !== null;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-[6px] px-[8px] py-[6px] border border-border rounded transition-all duration-150",
+        "group/palette-card",
+        isDragging && "opacity-20",
+        isGranted
+          ? "opacity-40 cursor-default"
+          : disabled
+            ? "opacity-40 cursor-not-allowed"
+            : "cursor-pointer hover:border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.02)]"
+      )}
+      onClick={() => {
+        if (!disabled && !isGranted) onClick();
+      }}
+    >
+      {/* Drag handle */}
+      {!disabled && !isGranted && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/palette-card:opacity-100 transition-opacity"
+        >
+          <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
+        </div>
+      )}
+      {(disabled || isGranted) && (
+        <div className="shrink-0 w-[12px] h-[12px]" />
+      )}
+
+      <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
+        {label}
+      </span>
+
+      {/* Badge showing current tier if granted */}
+      {isGranted && (
+        <span className="font-mono text-[9px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm shrink-0">
+          {grantedTier === "view"
+            ? t("roles.tierViewOnly")
+            : grantedTier === "manage"
+              ? t("roles.tierManage")
+              : t("roles.tierFullAccess")}
+        </span>
+      )}
+
+      {/* Plus indicator for ungranted */}
+      {!isGranted && !disabled && (
+        <Plus className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover/palette-card:opacity-100 transition-opacity shrink-0" />
+      )}
+    </div>
+  );
+}
+
+// ─── PaletteCategoryHeader ───────────────────────────────────────────────────
+
+function PaletteCategoryHeader({
+  categoryId,
+  label,
+  onBulkAdd,
+  disabled,
+}: {
+  categoryId: string;
+  label: string;
+  onBulkAdd: () => void;
+  disabled?: boolean;
+}) {
+  const { t } = useDictionary("settings");
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `palette-cat-${categoryId}`,
+      data: { type: "palette-category", categoryId },
+      disabled,
+    });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-1 mt-1.5 mb-0.5",
+        isDragging && "opacity-20"
+      )}
+    >
+      <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
+      <div
+        {...attributes}
+        {...listeners}
+        className={cn(
+          "flex items-center gap-[4px] shrink-0",
+          !disabled && "cursor-grab active:cursor-grabbing"
+        )}
+      >
+        <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+      {!disabled && (
         <button
-          key={scope}
           type="button"
-          disabled={disabled}
-          onClick={() => onChange(scope)}
+          onClick={onBulkAdd}
+          className="flex items-center gap-[2px] font-kosugi text-[9px] text-text-disabled hover:text-ops-accent transition-colors shrink-0"
+        >
+          <Plus className="w-[10px] h-[10px]" />
+          {t("roles.bulkAddCategory")}
+        </button>
+      )}
+      <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
+    </div>
+  );
+}
+
+// ─── PermissionPalette ───────────────────────────────────────────────────────
+
+function PermissionPalette({
+  grantedModules,
+  onClickAdd,
+  onBulkAdd,
+  disabled,
+  isDropTarget,
+}: {
+  grantedModules: Map<string, PermissionTier>;
+  onClickAdd: (moduleId: string) => void;
+  onBulkAdd: (categoryId: string, tier: PermissionTier) => void;
+  disabled?: boolean;
+  isDropTarget?: boolean;
+}) {
+  const { t } = useDictionary("settings");
+  const { setNodeRef, isOver } = useDroppable({ id: "palette-drop" });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "w-[280px] shrink-0 border-r border-border overflow-y-auto p-1.5",
+        "transition-colors duration-150",
+        isOver && "bg-[rgba(255,80,80,0.05)]"
+      )}
+    >
+      {/* Header */}
+      <div className="mb-1">
+        <h3 className="font-mohave text-body-sm uppercase tracking-wider text-text-primary">
+          {t("roles.palette")}
+        </h3>
+        <p className="font-kosugi text-[10px] text-text-disabled mt-[2px]">
+          {t("roles.paletteHint")}
+        </p>
+      </div>
+
+      {/* Drop to remove indicator */}
+      {isDropTarget && (
+        <div
           className={cn(
-            "px-[8px] py-[3px] font-kosugi text-[10px] uppercase tracking-wider",
-            "border transition-colors duration-150",
-            "first:rounded-l last:rounded-r",
-            "disabled:opacity-40 disabled:cursor-not-allowed",
-            value === scope
-              ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-              : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+            "flex items-center justify-center py-[8px] mb-1 border border-dashed rounded transition-colors duration-150",
+            isOver
+              ? "border-ops-error bg-[rgba(255,80,80,0.08)] text-ops-error"
+              : "border-border text-text-disabled"
           )}
         >
-          {scope}
-        </button>
+          <span className="font-kosugi text-[10px]">
+            {t("roles.dragToRemove")}
+          </span>
+        </div>
+      )}
+
+      {/* Categories + modules */}
+      {PERMISSION_CATEGORIES.map((category) => (
+        <div key={category.id}>
+          <PaletteCategoryHeader
+            categoryId={category.id}
+            label={category.label}
+            onBulkAdd={() => onBulkAdd(category.id, "view")}
+            disabled={disabled}
+          />
+          <div className="space-y-[4px]">
+            {category.modules.map((mod) => (
+              <PaletteCard
+                key={mod.id}
+                moduleId={mod.id}
+                label={mod.label}
+                grantedTier={grantedModules.get(mod.id) ?? null}
+                disabled={disabled}
+                onClick={() => onClickAdd(mod.id)}
+              />
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
 }
 
-// ─── Permission Row ──────────────────────────────────────────────────────────
+// ─── TierModuleCard ──────────────────────────────────────────────────────────
 
-function PermissionRow({
-  actionId,
+function TierModuleCard({
+  moduleId,
   label,
-  scopes,
-  enabled,
-  scope,
-  onToggle,
-  onScopeChange,
+  tier,
+  onRemove,
   disabled,
-  searchQuery,
+  isCustom,
 }: {
-  actionId: string;
+  moduleId: string;
   label: string;
-  scopes: PermissionScope[];
-  enabled: boolean;
-  scope: PermissionScope;
-  onToggle: (enabled: boolean) => void;
-  onScopeChange: (scope: PermissionScope) => void;
+  tier: PermissionTier;
+  onRemove: () => void;
   disabled?: boolean;
-  searchQuery?: string;
+  isCustom?: boolean;
 }) {
-  // Highlight matching text
-  const renderedLabel = useMemo(() => {
-    if (!searchQuery) return label;
-    const idx = label.toLowerCase().indexOf(searchQuery.toLowerCase());
-    if (idx === -1) return label;
-    return (
-      <>
-        {label.slice(0, idx)}
-        <span className="bg-ops-accent-muted rounded-sm px-[2px]">
-          {label.slice(idx, idx + searchQuery.length)}
-        </span>
-        {label.slice(idx + searchQuery.length)}
-      </>
-    );
-  }, [label, searchQuery]);
+  const { t } = useDictionary("settings");
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `tier-${moduleId}`,
+      data: { type: "tier", moduleId, tier },
+      disabled,
+    });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
 
   return (
-    <div className="flex items-center justify-between py-[6px] border-b border-[rgba(255,255,255,0.04)] last:border-0">
-      <span className="font-kosugi text-caption text-text-secondary flex-1 min-w-0">
-        {renderedLabel}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-[6px] px-[8px] py-[6px] border rounded border-l-2 transition-all duration-150",
+        "group/tier-card",
+        TIER_CARD_BORDER[tier],
+        "border-border bg-[rgba(255,255,255,0.02)]",
+        isDragging && "opacity-20",
+        !disabled &&
+          "hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)]"
+      )}
+    >
+      {/* Drag handle */}
+      {!disabled && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/tier-card:opacity-100 transition-opacity"
+        >
+          <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
+        </div>
+      )}
+
+      <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
+        {label}
       </span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {enabled && scopes.length > 1 && (
-          <ScopeSelector
-            scopes={scopes}
-            value={scope}
-            onChange={onScopeChange}
-            disabled={disabled}
-          />
+
+      {/* Custom badge for non-standard tier mapping */}
+      {isCustom && (
+        <span className="font-mono text-[9px] text-ops-accent bg-ops-accent-muted px-[4px] py-[1px] rounded-sm shrink-0">
+          {t("roles.customPermissions")}
+        </span>
+      )}
+
+      {/* Remove button */}
+      {!disabled && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-disabled hover:text-ops-error transition-all"
+          title={t("roles.removePermission")}
+        >
+          <X className="w-[12px] h-[12px]" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── TierColumn ──────────────────────────────────────────────────────────────
+
+function TierColumn({
+  tier,
+  modules,
+  onRemove,
+  disabled,
+}: {
+  tier: PermissionTier;
+  modules: { moduleId: string; label: string; isCustom?: boolean }[];
+  onRemove: (moduleId: string) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useDictionary("settings");
+  const { setNodeRef, isOver } = useDroppable({ id: `tier-${tier}` });
+
+  const tierLabel =
+    tier === "view"
+      ? t("roles.tierViewOnly")
+      : tier === "manage"
+        ? t("roles.tierManage")
+        : t("roles.tierFullAccess");
+
+  const tierTooltip =
+    tier === "view"
+      ? t("roles.tierTooltipView")
+      : tier === "manage"
+        ? t("roles.tierTooltipManage")
+        : t("roles.tierTooltipFull");
+
+  return (
+    <div className="flex flex-col flex-1 min-w-0">
+      {/* Column header */}
+      <div
+        className={cn(
+          "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-elevated border border-border border-b-0",
+          TIER_BORDER_COLORS[tier]
         )}
-        <Switch
-          checked={enabled}
-          onCheckedChange={onToggle}
-          disabled={disabled}
-        />
+      >
+        <div className="flex items-center gap-[6px]">
+          <h3
+            className={cn(
+              "font-mohave text-body-sm font-medium uppercase tracking-wider",
+              TIER_HEADER_COLORS[tier]
+            )}
+          >
+            {tierLabel}
+          </h3>
+          <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
+            {modules.length}
+          </span>
+          <Tooltip text={tierTooltip} />
+        </div>
+      </div>
+
+      {/* Droppable area */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 border border-border border-t-0 rounded-b p-1 space-y-[4px] min-h-[160px] transition-colors duration-150",
+          isOver
+            ? cn("border-ops-accent", TIER_ACTIVE_BG[tier])
+            : "bg-[rgba(10,10,10,0.5)]"
+        )}
+      >
+        {modules.map((mod) => (
+          <TierModuleCard
+            key={mod.moduleId}
+            moduleId={mod.moduleId}
+            label={mod.label}
+            tier={tier}
+            onRemove={() => onRemove(mod.moduleId)}
+            disabled={disabled}
+            isCustom={mod.isCustom}
+          />
+        ))}
+
+        {modules.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-[120px] border border-dashed border-border rounded gap-1">
+            <span className="font-kosugi text-[10px] text-text-disabled text-center px-1">
+              {t("roles.noPermissionsGranted")}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Module Accordion ────────────────────────────────────────────────────────
+// ─── PermissionBoard (Desktop DnD Board) ─────────────────────────────────────
 
-function ModuleAccordion({
-  module,
+function PermissionBoard({
   permissionEdits,
-  onToggle,
-  onScopeChange,
+  grantedModules,
+  onAddModule,
+  onMoveModule,
+  onRemoveModule,
+  onBulkAdd,
   disabled,
-  searchQuery,
-  forceExpanded,
 }: {
-  module: (typeof PERMISSION_CATEGORIES)[number]["modules"][number];
   permissionEdits: Map<string, PermissionEdit>;
-  onToggle: (permission: string, enabled: boolean) => void;
-  onScopeChange: (permission: string, scope: PermissionScope) => void;
+  grantedModules: Map<string, PermissionTier | "custom">;
+  onAddModule: (moduleId: string, tier: PermissionTier) => void;
+  onMoveModule: (moduleId: string, newTier: PermissionTier) => void;
+  onRemoveModule: (moduleId: string) => void;
+  onBulkAdd: (categoryId: string, tier: PermissionTier) => void;
   disabled?: boolean;
-  searchQuery?: string;
-  forceExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const isExpanded = forceExpanded || expanded;
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeDragType, setActiveDragType] = useState<string | null>(null);
+  const [isDraggingTierCard, setIsDraggingTierCard] = useState(false);
 
-  const enabledCount = module.actions.filter(
-    (a) => permissionEdits.get(a.id)?.enabled
-  ).length;
-  const totalCount = module.actions.length;
-  const allEnabled = enabledCount === totalCount;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // Build module lists for each tier column
+  const tierModules = useMemo(() => {
+    const result: Record<
+      PermissionTier,
+      { moduleId: string; label: string; isCustom?: boolean }[]
+    > = {
+      view: [],
+      manage: [],
+      full: [],
+    };
+
+    for (const cat of PERMISSION_CATEGORIES) {
+      for (const mod of cat.modules) {
+        const tier = grantedModules.get(mod.id);
+        if (tier && tier !== "custom") {
+          result[tier].push({ moduleId: mod.id, label: mod.label });
+        } else if (tier === "custom") {
+          // Custom tier: figure out the closest tier for display
+          const enabledActions = mod.actions
+            .filter((a) => permissionEdits.get(a.id)?.enabled)
+            .map((a) => a.id);
+          const detected = detectModuleTier(mod.id, enabledActions);
+          const displayTier = detected ?? "view";
+          result[displayTier].push({
+            moduleId: mod.id,
+            label: mod.label,
+            isCustom: true,
+          });
+        }
+      }
+    }
+
+    return result;
+  }, [grantedModules, permissionEdits]);
+
+  // Palette granted map: convert "custom" to detected tier for display
+  const paletteGranted = useMemo(() => {
+    const map = new Map<string, PermissionTier>();
+    for (const [moduleId, tier] of grantedModules) {
+      if (tier === "custom") {
+        const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
+          (m) => m.id === moduleId
+        );
+        if (mod) {
+          const enabledActions = mod.actions
+            .filter((a) => permissionEdits.get(a.id)?.enabled)
+            .map((a) => a.id);
+          const detected = detectModuleTier(moduleId, enabledActions);
+          if (detected) map.set(moduleId, detected);
+          else map.set(moduleId, "view");
+        }
+      } else {
+        map.set(moduleId, tier);
+      }
+    }
+    return map;
+  }, [grantedModules, permissionEdits]);
+
+  // Active drag info for overlay
+  const activeDragInfo = useMemo(() => {
+    if (!activeId) return null;
+
+    if (activeId.startsWith("palette-cat-")) {
+      const catId = activeId.replace("palette-cat-", "");
+      const cat = PERMISSION_CATEGORIES.find((c) => c.id === catId);
+      return cat ? { type: "category" as const, label: cat.label, catId } : null;
+    }
+
+    if (activeId.startsWith("palette-")) {
+      const modId = activeId.replace("palette-", "");
+      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
+        (m) => m.id === modId
+      );
+      return mod ? { type: "module" as const, label: mod.label, modId } : null;
+    }
+
+    if (activeId.startsWith("tier-") && activeDragType === "tier") {
+      const modId = activeId.replace("tier-", "");
+      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
+        (m) => m.id === modId
+      );
+      return mod ? { type: "tier-module" as const, label: mod.label, modId } : null;
+    }
+
+    return null;
+  }, [activeId, activeDragType]);
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+    const data = event.active.data.current;
+    setActiveDragType(data?.type ?? null);
+    setIsDraggingTierCard(data?.type === "tier");
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    setActiveDragType(null);
+    setIsDraggingTierCard(false);
+
+    if (!over) return;
+
+    const data = active.data.current;
+    const overId = over.id as string;
+
+    // Determine target tier
+    const tiers: PermissionTier[] = ["view", "manage", "full"];
+    const targetTier = overId.startsWith("tier-")
+      ? (overId.replace("tier-", "") as PermissionTier)
+      : null;
+
+    if (data?.type === "palette" && targetTier && tiers.includes(targetTier)) {
+      onAddModule(data.moduleId, targetTier);
+    } else if (data?.type === "palette-category" && targetTier && tiers.includes(targetTier)) {
+      onBulkAdd(data.categoryId, targetTier);
+    } else if (data?.type === "tier") {
+      if (targetTier && tiers.includes(targetTier) && targetTier !== data.tier) {
+        onMoveModule(data.moduleId, targetTier);
+      } else if (overId === "palette-drop") {
+        onRemoveModule(data.moduleId);
+      }
+    }
+  }
 
   return (
-    <div className="border-b border-[rgba(255,255,255,0.06)] last:border-0">
-      <button
-        type="button"
-        onClick={() => setExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between py-[10px] group"
-      >
-        <div className="flex items-center gap-[6px]">
-          <ChevronRight
-            className={cn(
-              "w-[14px] h-[14px] text-text-disabled transition-transform duration-200",
-              isExpanded && "rotate-90"
-            )}
-          />
-          <span className="font-mohave text-body-sm uppercase text-text-primary">
-            {module.label}
-          </span>
-        </div>
-        <span
-          className={cn(
-            "font-mono text-[10px]",
-            allEnabled ? "text-ops-accent" : "text-text-disabled"
-          )}
-        >
-          {enabledCount} of {totalCount}
-        </span>
-      </button>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex gap-0 min-h-[300px]">
+        {/* Palette */}
+        <PermissionPalette
+          grantedModules={paletteGranted}
+          onClickAdd={(moduleId) => onAddModule(moduleId, "view")}
+          onBulkAdd={onBulkAdd}
+          disabled={disabled}
+          isDropTarget={isDraggingTierCard}
+        />
 
-      {isExpanded && (
-        <div className="pl-[20px] pb-[8px] animate-accordion-down">
-          {module.actions.map((action) => {
-            const edit = permissionEdits.get(action.id);
+        {/* Tier columns */}
+        <div className="flex-1 flex gap-1.5 p-1.5 overflow-x-auto">
+          {(["view", "manage", "full"] as PermissionTier[]).map((tier) => (
+            <TierColumn
+              key={tier}
+              tier={tier}
+              modules={tierModules[tier]}
+              onRemove={onRemoveModule}
+              disabled={disabled}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Drag overlay */}
+      <DragOverlay>
+        {activeDragInfo ? (
+          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-kosugi text-[11px] text-text-primary">
+            {activeDragInfo.label}
+            {activeDragInfo.type === "category" && (
+              <span className="ml-[6px] font-mono text-[9px] text-text-disabled">
+                (category)
+              </span>
+            )}
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+// ─── MobilePermissionEditor ──────────────────────────────────────────────────
+
+function MobilePermissionEditor({
+  permissionEdits,
+  grantedModules,
+  onAddModule,
+  onMoveModule,
+  onRemoveModule,
+  onBulkAdd,
+  disabled,
+}: {
+  permissionEdits: Map<string, PermissionEdit>;
+  grantedModules: Map<string, PermissionTier | "custom">;
+  onAddModule: (moduleId: string, tier: PermissionTier) => void;
+  onMoveModule: (moduleId: string, newTier: PermissionTier) => void;
+  onRemoveModule: (moduleId: string) => void;
+  onBulkAdd: (categoryId: string, tier: PermissionTier) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useDictionary("settings");
+
+  const tiers: (PermissionTier | "none")[] = ["none", "view", "manage", "full"];
+  const tierLabels: Record<string, string> = {
+    none: t("roles.tierNone"),
+    view: t("roles.tierViewOnly"),
+    manage: t("roles.tierManage"),
+    full: t("roles.tierFullAccess"),
+  };
+
+  function getModuleTier(
+    moduleId: string
+  ): PermissionTier | "none" | "custom" {
+    const tier = grantedModules.get(moduleId);
+    if (!tier) return "none";
+    return tier;
+  }
+
+  function handleTierChange(
+    moduleId: string,
+    newTier: PermissionTier | "none"
+  ) {
+    const current = grantedModules.get(moduleId);
+    if (newTier === "none") {
+      if (current) onRemoveModule(moduleId);
+    } else if (!current) {
+      onAddModule(moduleId, newTier);
+    } else {
+      onMoveModule(moduleId, newTier);
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      {PERMISSION_CATEGORIES.map((category) => (
+        <div key={category.id}>
+          {/* Category header */}
+          <div className="flex items-center gap-1 mt-1.5 mb-0.5">
+            <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
+            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider shrink-0">
+              {category.label}
+            </span>
+            <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
+          </div>
+
+          {/* Module rows */}
+          {category.modules.map((mod) => {
+            const currentTier = getModuleTier(mod.id);
+            const displayTier = currentTier === "custom" ? "view" : currentTier;
+
             return (
-              <PermissionRow
-                key={action.id}
-                actionId={action.id}
-                label={action.label}
-                scopes={action.scopes}
-                enabled={edit?.enabled ?? false}
-                scope={edit?.scope ?? "all"}
-                onToggle={(enabled) => onToggle(action.id, enabled)}
-                onScopeChange={(scope) => onScopeChange(action.id, scope)}
-                disabled={disabled}
-                searchQuery={searchQuery}
-              />
+              <div
+                key={mod.id}
+                className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+              >
+                <span className="font-kosugi text-[11px] text-text-secondary min-w-0 flex-1 truncate mr-1">
+                  {mod.label}
+                </span>
+
+                {/* Segmented picker */}
+                <div className="flex items-center gap-0 shrink-0">
+                  {tiers.map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleTierChange(mod.id, tier)}
+                      className={cn(
+                        "px-[6px] py-[3px] font-kosugi text-[9px] uppercase tracking-wider",
+                        "border transition-colors duration-150",
+                        "first:rounded-l last:rounded-r",
+                        "disabled:opacity-40 disabled:cursor-not-allowed",
+                        displayTier === tier
+                          ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                          : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                      )}
+                    >
+                      {tierLabels[tier]}
+                    </button>
+                  ))}
+                </div>
+              </div>
             );
           })}
         </div>
-      )}
+      ))}
     </div>
+  );
+}
+
+// ─── DataScopeCard ───────────────────────────────────────────────────────────
+
+function DataScopeCard({
+  grantedModules,
+  scopeEdits,
+  onScopeChange,
+  disabled,
+}: {
+  grantedModules: Map<string, PermissionTier | "custom">;
+  scopeEdits: Map<string, PermissionScope>;
+  onScopeChange: (moduleId: string, scope: PermissionScope) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useDictionary("settings");
+
+  const modulesWithScopes = getModulesWithScopes();
+  const eligibleModules = modulesWithScopes.filter((mod) =>
+    grantedModules.has(mod.id)
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-[6px]">
+          <CardTitle>{t("roles.dataScope")}</CardTitle>
+          <Tooltip text={t("roles.dataScopeHint")} />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {eligibleModules.length === 0 ? (
+          <p className="font-kosugi text-[11px] text-text-disabled py-1">
+            {t("roles.noScopePermissions")}
+          </p>
+        ) : (
+          <div className="space-y-0">
+            {eligibleModules.map((mod) => {
+              const currentScope = scopeEdits.get(mod.id) ?? "all";
+              // Get the unique scopes available across module actions
+              const availableScopes = Array.from(
+                new Set(mod.actions.flatMap((a) => a.scopes))
+              ) as PermissionScope[];
+
+              if (availableScopes.length <= 1) return null;
+
+              const scopeLabels: Record<PermissionScope, string> = {
+                all: t("roles.scopeAll"),
+                assigned: t("roles.scopeAssignedOnly"),
+                own: t("roles.scopeOwn"),
+              };
+
+              return (
+                <div
+                  key={mod.id}
+                  className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+                >
+                  <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate mr-1">
+                    {mod.label}
+                  </span>
+                  <div className="flex items-center gap-0 shrink-0">
+                    {availableScopes.map((scope) => (
+                      <button
+                        key={scope}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onScopeChange(mod.id, scope)}
+                        className={cn(
+                          "px-[8px] py-[3px] font-kosugi text-[10px] uppercase tracking-wider",
+                          "border transition-colors duration-150",
+                          "first:rounded-l last:rounded-r",
+                          "disabled:opacity-40 disabled:cursor-not-allowed",
+                          currentScope === scope
+                            ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                            : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                        )}
+                      >
+                        {scopeLabels[scope]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -255,7 +930,8 @@ function RoleEditor({
 
   const { data: roles } = useRoles();
   const role = roles?.find((r) => r.id === roleId);
-  const { data: permissions, isLoading: permLoading } = useRolePermissions(roleId);
+  const { data: permissions, isLoading: permLoading } =
+    useRolePermissions(roleId);
   const { data: roleMembers } = useRoleMembers(roleId);
   const { data: teamData } = useTeamMembers();
   const members = teamData?.users ?? [];
@@ -271,12 +947,25 @@ function RoleEditor({
   // ── Local state ──────────────────────────────────────────────
   const [name, setName] = useState(role?.name ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
-  const [searchQuery, setSearchQuery] = useState("");
   const [showAddMember, setShowAddMember] = useState(false);
   const [confirmBack, setConfirmBack] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Responsive detection
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 799px)");
+    setIsMobile(mql.matches);
+    function handler(e: MediaQueryListEvent) {
+      setIsMobile(e.matches);
+    }
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   // Build permission edits from fetched data
-  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEdit>>(new Map());
+  const [permissionEdits, setPermissionEdits] = useState<
+    Map<string, PermissionEdit>
+  >(new Map());
   const [initializedPerms, setInitializedPerms] = useState(false);
 
   // Initialize permission edits once data loads
@@ -286,7 +975,9 @@ function RoleEditor({
       for (const cat of PERMISSION_CATEGORIES) {
         for (const mod of cat.modules) {
           for (const action of mod.actions) {
-            const existing = permissions.find((p) => p.permission === action.id);
+            const existing = permissions.find(
+              (p) => p.permission === action.id
+            );
             map.set(action.id, {
               permission: action.id,
               scope: existing?.scope ?? action.scopes[0],
@@ -300,51 +991,178 @@ function RoleEditor({
     }
   }, [permissions, initializedPerms]);
 
+  // ── Derived: granted modules map ──────────────────────────────
+  const grantedModules = useMemo(() => {
+    const map = new Map<string, PermissionTier | "custom">();
+    const enabledPermissions = Array.from(permissionEdits.entries())
+      .filter(([, e]) => e.enabled)
+      .map(([key]) => key);
+
+    for (const cat of PERMISSION_CATEGORIES) {
+      for (const mod of cat.modules) {
+        const detected = detectModuleTier(mod.id, enabledPermissions);
+        if (detected) {
+          map.set(mod.id, detected);
+        } else {
+          // Check if ANY permission is enabled for this module
+          const hasAny = mod.actions.some(
+            (a) => permissionEdits.get(a.id)?.enabled
+          );
+          if (hasAny) {
+            map.set(mod.id, "custom");
+          }
+        }
+      }
+    }
+
+    return map;
+  }, [permissionEdits]);
+
+  // ── Derived: scope edits ──────────────────────────────────────
+  const scopeEdits = useMemo(() => {
+    const map = new Map<string, PermissionScope>();
+    for (const cat of PERMISSION_CATEGORIES) {
+      for (const mod of cat.modules) {
+        // Find the dominant scope for the module (from the first scope-eligible enabled action)
+        const scopeActions = mod.actions.filter(
+          (a) => a.scopes.length > 1 && permissionEdits.get(a.id)?.enabled
+        );
+        if (scopeActions.length > 0) {
+          const scope = permissionEdits.get(scopeActions[0].id)?.scope ?? "all";
+          map.set(mod.id, scope);
+        }
+      }
+    }
+    return map;
+  }, [permissionEdits]);
+
   // Track dirty state
   const isDirty = useMemo(() => {
     if (!permissions || !initializedPerms) return false;
-    // Check name/description changes
     if (name !== (role?.name ?? "")) return true;
     if (description !== (role?.description ?? "")) return true;
-    // Check permission changes
     for (const [key, edit] of permissionEdits) {
       const existing = permissions.find((p) => p.permission === key);
       if (edit.enabled && !existing) return true;
       if (!edit.enabled && existing) return true;
-      if (edit.enabled && existing && edit.scope !== existing.scope) return true;
+      if (edit.enabled && existing && edit.scope !== existing.scope)
+        return true;
     }
     return false;
   }, [name, description, permissionEdits, permissions, role, initializedPerms]);
 
   // ── Handlers ─────────────────────────────────────────────────
 
-  function handleToggle(permission: string, enabled: boolean) {
-    setPermissionEdits((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(permission);
-      if (existing) {
-        next.set(permission, { ...existing, enabled });
-      }
-      return next;
-    });
-  }
+  const handleAddModule = useCallback(
+    (moduleId: string, tier: PermissionTier) => {
+      const actions = getActionsForTier(moduleId, tier);
+      setPermissionEdits((prev) => {
+        const next = new Map(prev);
+        // First disable all for this module
+        for (const cat of PERMISSION_CATEGORIES) {
+          for (const mod of cat.modules) {
+            if (mod.id === moduleId) {
+              for (const action of mod.actions) {
+                const existing = next.get(action.id);
+                if (existing) {
+                  next.set(action.id, { ...existing, enabled: false });
+                }
+              }
+            }
+          }
+        }
+        // Then enable the tier actions
+        for (const actionId of actions) {
+          const existing = next.get(actionId);
+          if (existing) {
+            next.set(actionId, { ...existing, enabled: true });
+          }
+        }
+        return next;
+      });
+    },
+    []
+  );
 
-  function handleScopeChange(permission: string, scope: PermissionScope) {
+  const handleMoveModule = useCallback(
+    (moduleId: string, newTier: PermissionTier) => {
+      handleAddModule(moduleId, newTier);
+    },
+    [handleAddModule]
+  );
+
+  const handleRemoveModule = useCallback((moduleId: string) => {
     setPermissionEdits((prev) => {
       const next = new Map(prev);
-      const existing = next.get(permission);
-      if (existing) {
-        next.set(permission, { ...existing, scope });
+      for (const cat of PERMISSION_CATEGORIES) {
+        for (const mod of cat.modules) {
+          if (mod.id === moduleId) {
+            for (const action of mod.actions) {
+              const existing = next.get(action.id);
+              if (existing) {
+                next.set(action.id, { ...existing, enabled: false });
+              }
+            }
+          }
+        }
       }
       return next;
     });
-  }
+  }, []);
+
+  const handleBulkAdd = useCallback(
+    (categoryId: string, tier: PermissionTier) => {
+      const category = PERMISSION_CATEGORIES.find((c) => c.id === categoryId);
+      if (!category) return;
+      setPermissionEdits((prev) => {
+        const next = new Map(prev);
+        for (const mod of category.modules) {
+          // Only add if not already granted (check if any action is enabled)
+          const hasAny = mod.actions.some((a) => next.get(a.id)?.enabled);
+          if (!hasAny) {
+            const actions = getActionsForTier(mod.id, tier);
+            for (const actionId of actions) {
+              const existing = next.get(actionId);
+              if (existing) {
+                next.set(actionId, { ...existing, enabled: true });
+              }
+            }
+          }
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleScopeChange = useCallback(
+    (moduleId: string, scope: PermissionScope) => {
+      setPermissionEdits((prev) => {
+        const next = new Map(prev);
+        for (const cat of PERMISSION_CATEGORIES) {
+          for (const mod of cat.modules) {
+            if (mod.id === moduleId) {
+              for (const action of mod.actions) {
+                if (action.scopes.includes(scope)) {
+                  const existing = next.get(action.id);
+                  if (existing && existing.enabled) {
+                    next.set(action.id, { ...existing, scope });
+                  }
+                }
+              }
+            }
+          }
+        }
+        return next;
+      });
+    },
+    []
+  );
 
   async function handleSave() {
     if (!role || isPreset) return;
 
     try {
-      // Update role name/description if changed
       if (name !== role.name || description !== role.description) {
         await updateRole.mutateAsync({
           roleId: role.id,
@@ -352,7 +1170,6 @@ function RoleEditor({
         });
       }
 
-      // Update permissions
       const enabledPerms = Array.from(permissionEdits.values())
         .filter((e) => e.enabled)
         .map((e) => ({ permission: e.permission, scope: e.scope }));
@@ -387,11 +1204,14 @@ function RoleEditor({
         newName: `${role.name} (Copy)`,
       },
       {
-        onSuccess: (newRole) => {
+        onSuccess: () => {
           toast.success(t("roles.toast.duplicated"));
           onBack();
         },
-        onError: (err) => toast.error(t("roles.toast.duplicateFailed"), { description: err.message }),
+        onError: (err) =>
+          toast.error(t("roles.toast.duplicateFailed"), {
+            description: err.message,
+          }),
       }
     );
   }
@@ -405,7 +1225,10 @@ function RoleEditor({
           toast.success(t("roles.toast.memberAssigned"));
           setShowAddMember(false);
         },
-        onError: (err) => toast.error(t("roles.toast.assignFailed"), { description: err.message }),
+        onError: (err) =>
+          toast.error(t("roles.toast.assignFailed"), {
+            description: err.message,
+          }),
       }
     );
   }
@@ -415,28 +1238,13 @@ function RoleEditor({
       { userId, roleId },
       {
         onSuccess: () => toast.success(t("roles.toast.memberRemoved")),
-        onError: (err) => toast.error(t("roles.toast.removeFailed"), { description: err.message }),
+        onError: (err) =>
+          toast.error(t("roles.toast.removeFailed"), {
+            description: err.message,
+          }),
       }
     );
   }
-
-  // ── Filter permissions by search ─────────────────────────────
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return PERMISSION_CATEGORIES;
-
-    const q = searchQuery.toLowerCase();
-    return PERMISSION_CATEGORIES.map((cat) => ({
-      ...cat,
-      modules: cat.modules
-        .map((mod) => ({
-          ...mod,
-          actions: mod.actions.filter((a) =>
-            a.label.toLowerCase().includes(q)
-          ),
-        }))
-        .filter((mod) => mod.actions.length > 0),
-    })).filter((cat) => cat.modules.length > 0);
-  }, [searchQuery]);
 
   // Members assigned to this role
   const assignedUserIds = new Set(roleMembers?.map((m) => m.userId) ?? []);
@@ -454,7 +1262,7 @@ function RoleEditor({
   }
 
   return (
-    <div className="space-y-3 max-w-[600px] animate-slide-up">
+    <div className="space-y-3 animate-slide-up">
       {/* Header bar */}
       <div className="flex items-center justify-between">
         <button
@@ -518,159 +1326,141 @@ function RoleEditor({
         </CardContent>
       </Card>
 
-      {/* Permissions */}
+      {/* Permissions Board */}
       <Card>
         <CardHeader>
           <CardTitle>{t("roles.permissionsTitle")}</CardTitle>
         </CardHeader>
-        <CardContent>
-          {/* Search */}
-          <div className="relative mb-1.5">
-            <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-text-disabled" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("roles.searchPlaceholder")}
-              className="w-full pl-[32px] pr-[32px] py-[8px] bg-background-input border border-border rounded font-kosugi text-caption text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-ops-accent transition-colors"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-[10px] top-1/2 -translate-y-1/2 text-text-disabled hover:text-text-primary transition-colors"
-              >
-                <X className="w-[14px] h-[14px]" />
-              </button>
-            )}
-          </div>
-
-          {/* Permission categories + modules */}
-          {filteredCategories.length === 0 ? (
-            <p className="font-kosugi text-[11px] text-text-disabled py-2 text-center">
-              {t("roles.noPermissionsMatch")} &ldquo;{searchQuery}&rdquo;
-            </p>
+        <CardContent className="p-0">
+          {isMobile ? (
+            <div className="p-1.5">
+              <MobilePermissionEditor
+                permissionEdits={permissionEdits}
+                grantedModules={grantedModules}
+                onAddModule={handleAddModule}
+                onMoveModule={handleMoveModule}
+                onRemoveModule={handleRemoveModule}
+                onBulkAdd={handleBulkAdd}
+                disabled={isPreset}
+              />
+            </div>
           ) : (
-            filteredCategories.map((category) => (
-              <div key={category.id}>
-                {/* Category header */}
-                <div className="flex items-center gap-1.5 mt-2 mb-0.5">
-                  <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
-                  <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider shrink-0">
-                    {category.label}
-                  </span>
-                  <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
-                </div>
-
-                {/* Modules */}
-                {category.modules.map((module) => (
-                  <ModuleAccordion
-                    key={module.id}
-                    module={module}
-                    permissionEdits={permissionEdits}
-                    onToggle={handleToggle}
-                    onScopeChange={handleScopeChange}
-                    disabled={isPreset}
-                    searchQuery={searchQuery || undefined}
-                    forceExpanded={!!searchQuery}
-                  />
-                ))}
-              </div>
-            ))
+            <PermissionBoard
+              permissionEdits={permissionEdits}
+              grantedModules={grantedModules}
+              onAddModule={handleAddModule}
+              onMoveModule={handleMoveModule}
+              onRemoveModule={handleRemoveModule}
+              onBulkAdd={handleBulkAdd}
+              disabled={isPreset}
+            />
           )}
         </CardContent>
       </Card>
 
-      {/* Assigned Members */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>
-              {t("roles.assignedMembers")} ({assignedMembers.length})
-            </CardTitle>
-            {!isPreset && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowAddMember(!showAddMember)}
-                className="gap-[4px]"
-              >
-                <UserPlus className="w-[14px] h-[14px]" />
-                {t("roles.addMember")}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Add member dropdown */}
-          {showAddMember && (
-            <div className="mb-1.5 p-1 bg-[rgba(255,255,255,0.02)] border border-border rounded animate-scale-in">
-              {unassignedMembers.length === 0 ? (
-                <p className="font-kosugi text-[11px] text-text-disabled px-1 py-[6px]">
-                  {t("roles.allMembersAssigned")}
-                </p>
-              ) : (
-                unassignedMembers.map((member) => (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => handleAssignMember(member.id)}
-                    className="w-full flex items-center gap-1 px-1 py-[6px] rounded font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                  >
-                    <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-ops-accent">
-                      <span className="font-mohave text-[10px] text-ops-accent">
-                        {getInitials(getUserFullName(member))}
-                      </span>
-                    </div>
-                    {getUserFullName(member)}
-                  </button>
-                ))
+      {/* Data Scope + Assigned Members */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Data Scope */}
+        <DataScopeCard
+          grantedModules={grantedModules}
+          scopeEdits={scopeEdits}
+          onScopeChange={handleScopeChange}
+          disabled={isPreset}
+        />
+
+        {/* Assigned Members */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                {t("roles.assignedMembers")} ({assignedMembers.length})
+              </CardTitle>
+              {!isPreset && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowAddMember(!showAddMember)}
+                  className="gap-[4px]"
+                >
+                  <UserPlus className="w-[14px] h-[14px]" />
+                  {t("roles.addMember")}
+                </Button>
               )}
             </div>
-          )}
-
-          {/* Member list */}
-          {assignedMembers.length === 0 ? (
-            <p className="font-kosugi text-[11px] text-text-disabled py-1">
-              {t("roles.noMembersAssigned")}
-            </p>
-          ) : (
-            <div className="space-y-0">
-              {assignedMembers.map((member) => {
-                const fullName = getUserFullName(member);
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center border border-ops-accent">
+          </CardHeader>
+          <CardContent>
+            {/* Add member dropdown */}
+            {showAddMember && (
+              <div className="mb-1.5 p-1 bg-[rgba(255,255,255,0.02)] border border-border rounded animate-scale-in">
+                {unassignedMembers.length === 0 ? (
+                  <p className="font-kosugi text-[11px] text-text-disabled px-1 py-[6px]">
+                    {t("roles.allMembersAssigned")}
+                  </p>
+                ) : (
+                  unassignedMembers.map((member) => (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => handleAssignMember(member.id)}
+                      className="w-full flex items-center gap-1 px-1 py-[6px] rounded font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                    >
+                      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-ops-accent">
                         <span className="font-mohave text-[10px] text-ops-accent">
-                          {getInitials(fullName)}
+                          {getInitials(getUserFullName(member))}
                         </span>
                       </div>
-                      <div>
-                        <p className="font-mohave text-body-sm text-text-primary">{fullName}</p>
-                        <p className="font-mono text-[10px] text-text-disabled">
-                          {member.email ?? ""}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="flex items-center gap-[4px] font-kosugi text-[10px] text-text-disabled hover:text-ops-error transition-colors"
-                    >
-                      <UserMinus className="w-[12px] h-[12px]" />
-                      {t("roles.remove")}
+                      {getUserFullName(member)}
                     </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Member list */}
+            {assignedMembers.length === 0 ? (
+              <p className="font-kosugi text-[11px] text-text-disabled py-1">
+                {t("roles.noMembersAssigned")}
+              </p>
+            ) : (
+              <div className="space-y-0">
+                {assignedMembers.map((member) => {
+                  const fullName = getUserFullName(member);
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center border border-ops-accent">
+                          <span className="font-mohave text-[10px] text-ops-accent">
+                            {getInitials(fullName)}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-mohave text-body-sm text-text-primary">
+                            {fullName}
+                          </p>
+                          <p className="font-mono text-[10px] text-text-disabled">
+                            {member.email ?? ""}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="flex items-center gap-[4px] font-kosugi text-[10px] text-text-disabled hover:text-ops-error transition-colors"
+                      >
+                        <UserMinus className="w-[12px] h-[12px]" />
+                        {t("roles.remove")}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Confirm discard dialog */}
       <ConfirmDialog
@@ -695,7 +1485,12 @@ function RoleRow({
   onDuplicate,
   onDelete,
 }: {
-  role: { id: string; name: string; description: string | null; isPreset: boolean };
+  role: {
+    id: string;
+    name: string;
+    description: string | null;
+    isPreset: boolean;
+  };
   memberCount: number;
   onEdit: () => void;
   onDuplicate: () => void;
@@ -729,11 +1524,17 @@ function RoleRow({
 
       <div className="flex items-center gap-1 shrink-0">
         <span className="font-mono text-[10px] text-text-disabled mr-0.5">
-          {memberCount} {memberCount === 1 ? t("roles.member") : t("roles.members")}
+          {memberCount}{" "}
+          {memberCount === 1 ? t("roles.member") : t("roles.members")}
         </span>
 
         {!role.isPreset && (
-          <Button variant="ghost" size="sm" onClick={onEdit} className="text-text-tertiary">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            className="text-text-tertiary"
+          >
             {t("roles.edit")}
           </Button>
         )}
@@ -760,7 +1561,10 @@ function RoleRow({
 
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setMenuOpen(false)}
+              />
               <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
                 <button
                   type="button"
@@ -770,7 +1574,9 @@ function RoleRow({
                   }}
                   className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors"
                 >
-                  {role.isPreset ? t("roles.viewPermissions") : t("roles.editPermissions")}
+                  {role.isPreset
+                    ? t("roles.viewPermissions")
+                    : t("roles.editPermissions")}
                 </button>
                 {!role.isPreset && onDelete && (
                   <button
@@ -842,7 +1648,10 @@ export function RolesTab() {
       },
       {
         onSuccess: () => toast.success(t("roles.toast.duplicated")),
-        onError: (err) => toast.error(t("roles.toast.duplicateFailed"), { description: err.message }),
+        onError: (err) =>
+          toast.error(t("roles.toast.duplicateFailed"), {
+            description: err.message,
+          }),
       }
     );
   }
@@ -853,7 +1662,10 @@ export function RolesTab() {
         toast.success(t("roles.toast.deleted"));
         setConfirmDelete(null);
       },
-      onError: (err) => toast.error(t("roles.toast.deleteFailed"), { description: err.message }),
+      onError: (err) =>
+        toast.error(t("roles.toast.deleteFailed"), {
+          description: err.message,
+        }),
     });
   }
 
@@ -872,11 +1684,13 @@ export function RolesTab() {
           setNewName("");
           setNewDescription("");
           setShowCreate(false);
-          // Navigate to editor
           setSelectedRoleId(role.id);
           setView("editor");
         },
-        onError: (err) => toast.error(t("roles.toast.createFailed"), { description: err.message }),
+        onError: (err) =>
+          toast.error(t("roles.toast.createFailed"), {
+            description: err.message,
+          }),
       }
     );
   }
@@ -896,7 +1710,7 @@ export function RolesTab() {
 
   // ── List view ────────────────────────────────────────────────
   return (
-    <div className="space-y-3 max-w-[600px]">
+    <div className="space-y-3">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -943,7 +1757,11 @@ export function RolesTab() {
               >
                 {t("roles.create")}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreate(false)}
+              >
                 <X className="w-[14px] h-[14px]" />
               </Button>
             </div>

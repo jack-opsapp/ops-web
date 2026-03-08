@@ -342,3 +342,118 @@ export function getPermissionScopes(permission: string): PermissionScope[] {
   }
   return ["all"];
 }
+
+// ─── Tier Mapping ─────────────────────────────────────────────────────────────
+
+export type PermissionTier = "view" | "manage" | "full";
+
+export const TIER_LABELS: Record<PermissionTier, string> = {
+  view: "View Only",
+  manage: "Manage",
+  full: "Full Access",
+};
+
+/**
+ * Action suffixes considered destructive / admin-only.
+ * These are excluded from the "manage" tier.
+ */
+const DESTRUCTIVE_SUFFIXES = [
+  "delete",
+  "archive",
+  "approve",
+  "import",
+  "assign_roles",
+  "manage_connections",
+  "manage_templates",
+  "manage_branding",
+  "configure_stages",
+  "manage_sections",
+  "company",
+  "billing",
+  "integrations",
+];
+
+function _isDestructive(actionId: string): boolean {
+  const suffix = actionId.split(".").slice(1).join(".");
+  return DESTRUCTIVE_SUFFIXES.includes(suffix);
+}
+
+function _findModule(moduleId: string): PermissionModule | undefined {
+  for (const cat of PERMISSION_CATEGORIES) {
+    const mod = cat.modules.find((m) => m.id === moduleId);
+    if (mod) return mod;
+  }
+  return undefined;
+}
+
+/**
+ * Return action IDs for a given module and tier.
+ *  - "view"   → only actions ending in `.view`
+ *  - "manage" → all actions EXCEPT destructive ones
+ *  - "full"   → all actions
+ */
+export function getActionsForTier(moduleId: string, tier: PermissionTier): string[] {
+  const mod = _findModule(moduleId);
+  if (!mod) return [];
+
+  switch (tier) {
+    case "view":
+      return mod.actions
+        .filter((a) => a.id.endsWith(".view"))
+        .map((a) => a.id);
+    case "manage":
+      return mod.actions
+        .filter((a) => !_isDestructive(a.id))
+        .map((a) => a.id);
+    case "full":
+      return mod.actions.map((a) => a.id);
+  }
+}
+
+/**
+ * Detect the current tier for a module based on which permissions are enabled.
+ * Returns null if no permissions for the module are enabled.
+ */
+export function detectModuleTier(
+  moduleId: string,
+  enabledPermissions: string[]
+): PermissionTier | null {
+  const mod = _findModule(moduleId);
+  if (!mod) return null;
+
+  const allActionIds = mod.actions.map((a) => a.id);
+  const enabled = allActionIds.filter((id) => enabledPermissions.includes(id));
+
+  if (enabled.length === 0) return null;
+
+  // Check full first: every action in the module is enabled
+  const fullActions = getActionsForTier(moduleId, "full");
+  if (fullActions.every((id) => enabled.includes(id))) return "full";
+
+  // Check manage: every non-destructive action is enabled
+  const manageActions = getActionsForTier(moduleId, "manage");
+  if (manageActions.every((id) => enabled.includes(id))) return "manage";
+
+  // Check view: at least the view actions are present
+  const viewActions = getActionsForTier(moduleId, "view");
+  if (viewActions.length > 0 && viewActions.every((id) => enabled.includes(id))) return "view";
+
+  // Enabled permissions don't map cleanly to a tier
+  return null;
+}
+
+/**
+ * Return modules whose actions include at least one action with more than
+ * one scope option (e.g., ["all", "assigned"]).
+ */
+export function getModulesWithScopes(): PermissionModule[] {
+  const result: PermissionModule[] = [];
+  for (const cat of PERMISSION_CATEGORIES) {
+    for (const mod of cat.modules) {
+      if (mod.actions.some((a) => a.scopes.length > 1)) {
+        result.push(mod);
+      }
+    }
+  }
+  return result;
+}
