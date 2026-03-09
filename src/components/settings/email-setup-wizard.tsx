@@ -86,6 +86,8 @@ interface ScannedEmail {
   date: string;
   wouldImport: boolean;
   reason?: string;
+  aiCategory?: string;
+  aiConfidence?: number;
 }
 
 interface DomainGroup {
@@ -230,6 +232,20 @@ export function EmailSetupWizard({
       const emails: ScannedEmail[] = data.emails ?? [];
       setScannedEmails(emails);
 
+      // Auto-apply AI-recommended block domains to filters
+      const aiBlockDomains: string[] = data.recommendedBlockDomains ?? [];
+      if (aiBlockDomains.length > 0) {
+        setFilters((prev) => {
+          const existing = new Set(prev.excludeDomains);
+          const newDomains = aiBlockDomains.filter((d: string) => !existing.has(d));
+          if (newDomains.length === 0) return prev;
+          return {
+            ...prev,
+            excludeDomains: [...prev.excludeDomains, ...newDomains],
+          };
+        });
+      }
+
       // Group by domain
       const domainMap = new Map<string, ScannedEmail[]>();
       for (const email of emails) {
@@ -238,14 +254,33 @@ export function EmailSetupWizard({
         domainMap.set(email.domain, existing);
       }
 
+      // Determine domain suggestion: if majority of emails are importable → "import"
       const groups: DomainGroup[] = Array.from(domainMap.entries())
-        .map(([domain, emails]) => ({
-          domain,
-          count: emails.length,
-          sample: emails.slice(0, 3),
-          suggested: emails[0]?.wouldImport ? "import" as const : "filter" as const,
-          reason: emails[0]?.reason ?? "",
-        }))
+        .map(([domain, domainEmails]) => {
+          const importable = domainEmails.filter((e) => e.wouldImport).length;
+          const suggested = importable > domainEmails.length / 2 ? "import" as const : "filter" as const;
+          // Use the most common AI category as the reason
+          const aiCategories = domainEmails
+            .filter((e) => e.aiCategory)
+            .map((e) => e.aiCategory!);
+          const topCategory = aiCategories.length > 0
+            ? aiCategories.sort((a, b) =>
+                aiCategories.filter((c) => c === b).length -
+                aiCategories.filter((c) => c === a).length
+              )[0]
+            : null;
+          const reason = topCategory
+            ? `AI: ${topCategory.replace("_", " ")}`
+            : domainEmails[0]?.reason ?? "";
+
+          return {
+            domain,
+            count: domainEmails.length,
+            sample: domainEmails.slice(0, 3),
+            suggested,
+            reason,
+          };
+        })
         .sort((a, b) => b.count - a.count);
 
       setDomainGroups(groups);
@@ -437,7 +472,7 @@ export function EmailSetupWizard({
         </div>
 
         {/* ── Step content ────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden min-h-[380px]">
+        <div className="relative overflow-hidden min-h-[480px] overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={currentStep.id}
@@ -840,7 +875,7 @@ function StepScan({
             Scan My Emails
           </Button>
           <p className="font-kosugi text-[10px] text-text-disabled text-left">
-            This reads subject lines and sender info only. No email content is stored.
+            AI analyzes sender info, subjects, and snippets to classify emails. No email content is stored.
           </p>
         </motion.div>
       )}
@@ -863,7 +898,7 @@ function StepScan({
             </span>
           )}
           <span className="font-kosugi text-[10px] text-text-disabled">
-            Analyzing senders, subjects, and patterns
+            AI is analyzing senders, subjects, and patterns
           </span>
         </motion.div>
       )}
@@ -909,7 +944,7 @@ function StepScan({
           {/* Domain breakdown — scrollable, expandable */}
           <motion.div
             variants={staggerItem}
-            className="max-h-[240px] overflow-y-auto space-y-[4px] pr-[4px]"
+            className="max-h-[320px] overflow-y-auto space-y-[4px] pr-[4px]"
           >
             {domainGroups.map((group) => {
               const isExpanded = expandedDomain === group.domain;
@@ -1004,6 +1039,15 @@ function StepScan({
                               {email.from}
                             </span>
                           </div>
+                          {email.aiCategory && (
+                            <span className={`font-kosugi text-[8px] uppercase tracking-wider px-[4px] py-[1px] rounded shrink-0 ${
+                              ["customer", "lead", "website_inquiry"].includes(email.aiCategory)
+                                ? "bg-[rgba(107,143,113,0.1)] text-[#9DB582]"
+                                : "bg-background-card text-text-disabled"
+                            }`}>
+                              {email.aiCategory.replace("_", " ")}
+                            </span>
+                          )}
                           <span className="font-kosugi text-[9px] text-text-disabled shrink-0">
                             {new Date(email.date).toLocaleDateString(undefined, {
                               month: "short",
@@ -1263,7 +1307,7 @@ function StepFilters({
             </div>
 
             {/* Domain list */}
-            <div className="flex-1 overflow-y-auto max-h-[280px] p-[4px] space-y-[2px]">
+            <div className="flex-1 overflow-y-auto max-h-[360px] p-[4px] space-y-[2px]">
               {previewGroups.map((group) => {
                 const isExcluded = group.currentStatus === "filter" && filters.excludeDomains.includes(group.domain);
 

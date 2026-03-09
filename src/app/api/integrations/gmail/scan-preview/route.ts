@@ -12,6 +12,12 @@ import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailFilterService } from "@/lib/api/services/email-filter-service";
 import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
+import {
+  classifyEmails,
+  IMPORT_CATEGORIES,
+  type EmailForClassification,
+  type EmailCategory,
+} from "@/lib/api/services/email-classifier";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -159,17 +165,20 @@ export async function GET(request: NextRequest) {
       allMessageIds.length = MAX_SCAN;
     }
 
-    // Process messages in batches — fetch metadata only
+    // Process messages in batches — fetch metadata + snippet
     const emails: Array<{
       id: string;
       from: string;
       fromEmail: string;
       domain: string;
       subject: string;
+      snippet: string;
       labels: string[];
       date: string;
       wouldImport: boolean;
       reason: string;
+      aiCategory?: EmailCategory;
+      aiConfidence?: number;
     }> = [];
 
     for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
@@ -228,6 +237,7 @@ export async function GET(request: NextRequest) {
               fromEmail,
               domain,
               subject,
+              snippet: msg.snippet ?? "",
               labels: msg.labelIds ?? [],
               date,
               wouldImport: !wouldFilter,
@@ -249,7 +259,56 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, emails, total: allMessageIds.length });
+    // ─── AI Classification ──────────────────────────────────────────────────
+    // Run GPT-4o-mini classification on a sample of emails to generate
+    // tailored filter recommendations (replaces generic preset filters).
+
+    let recommendedBlockDomains: string[] = [];
+    let recommendedKeepDomains: string[] = [];
+
+    try {
+      const emailsForAI: EmailForClassification[] = emails.map((e) => ({
+        id: e.id,
+        from: e.from,
+        fromEmail: e.fromEmail,
+        domain: e.domain,
+        subject: e.subject,
+        snippet: e.snippet,
+      }));
+
+      const aiResult = await classifyEmails(emailsForAI);
+
+      // Merge AI classifications into email results
+      for (const email of emails) {
+        const classified = aiResult.classifications.get(email.id);
+        if (classified) {
+          email.aiCategory = classified.category;
+          email.aiConfidence = classified.confidence;
+
+          // AI overrides rule-based filtering:
+          // If AI says it's a customer/lead/website_inquiry → import
+          // If AI says it's noise → filter out
+          const aiSaysImport = IMPORT_CATEGORIES.includes(classified.category);
+          email.wouldImport = aiSaysImport;
+          email.reason = aiSaysImport
+            ? `AI: ${classified.category.replace("_", " ")}`
+            : `AI: ${classified.category.replace("_", " ")}`;
+        }
+      }
+
+      recommendedBlockDomains = aiResult.recommendedBlockDomains;
+      recommendedKeepDomains = aiResult.recommendedKeepDomains;
+    } catch (err) {
+      console.error("[gmail-scan-preview] AI classification failed, using rule-based only:", err);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      emails,
+      total: allMessageIds.length,
+      recommendedBlockDomains,
+      recommendedKeepDomains,
+    });
   } catch (err) {
     console.error("[gmail-scan-preview]", err);
     return NextResponse.json(
