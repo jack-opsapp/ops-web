@@ -15,6 +15,7 @@ export interface ActionPromptConfig {
   ctaAction: () => void;
   persistent?: boolean; // default true — stays until dismissed
   dismissable?: boolean; // default true — shows X button
+  permanentDismiss?: boolean; // default true — X button adds to dismissedIds; false = temporary remove only
   autoDismissMs?: number; // auto-remove delay (only when persistent=false)
   variant?: "default" | "accent"; // accent = steel-blue left border
 }

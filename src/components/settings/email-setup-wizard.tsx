@@ -163,6 +163,10 @@ export function EmailSetupWizard({
   const [customDate, setCustomDate] = useState("");
   const [importStarted, setImportStarted] = useState(false);
 
+  // Constants for scan — declared early so reset-on-open effect can reference them
+  const SCAN_PROMPT_ID = "email-scan-progress";
+  const SCAN_STEP_INDEX = STEPS.findIndex((s) => s.id === "scan");
+
   // Update filters when connection loads (use stringified comparison to avoid object ref loops)
   const syncFiltersJson = JSON.stringify(firstConnection?.syncFilters ?? null);
   useEffect(() => {
@@ -175,14 +179,27 @@ export function EmailSetupWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncFiltersJson]);
 
+  // Track open state for async callbacks (scan completion)
+  const openRef = useRef(open);
+
   // Reset when opened — use ref to fire only on open *transition*
   const prevOpenRef = useRef(open);
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = open;
+    openRef.current = open;
 
     // Only reset when transitioning from closed → open
     if (open && !wasOpen) {
+      // If a scan is running or just completed, go straight to scan step
+      if (scanning || scanComplete) {
+        setStepIndex(SCAN_STEP_INDEX);
+        setDirection(1);
+        // Clear any in-progress action prompt since wizard is open
+        removePrompt(SCAN_PROMPT_ID);
+        return;
+      }
+
       const idx = initialStep
         ? Math.max(0, STEPS.findIndex((s) => s.id === initialStep))
         : 0;
@@ -216,9 +233,6 @@ export function EmailSetupWizard({
   }
 
   // ── Scan emails (runs in background) ─────────────────────────────────────
-
-  const SCAN_PROMPT_ID = "email-scan-progress";
-  const SCAN_STEP_INDEX = STEPS.findIndex((s) => s.id === "scan");
 
   // AbortController ref to prevent overlapping scans and clean up on unmount
   const scanAbortRef = useRef<AbortController | null>(null);
@@ -320,21 +334,8 @@ export function EmailSetupWizard({
     setScannedEmails([]);
     setDomainGroups([]);
 
-    // Close wizard and show action prompt
-    onOpenChange(false);
-
-    removePrompt(SCAN_PROMPT_ID);
-    showPrompt({
-      id: SCAN_PROMPT_ID,
-      icon: Search,
-      title: "Analyzing your emails...",
-      description: "AI is reviewing your inbox to recommend the best filters. This may take a moment.",
-      ctaLabel: "Dismiss",
-      ctaAction: () => removePrompt(SCAN_PROMPT_ID),
-      persistent: true,
-      dismissable: true,
-      variant: "accent",
-    });
+    // Wizard stays open — user sees spinner in the scan step.
+    // If they close manually, handleOpenChange shows an action prompt.
 
     try {
       const resp = await fetch(
@@ -343,52 +344,44 @@ export function EmailSetupWizard({
       );
 
       if (!resp.ok) throw new Error("Failed to scan emails");
-
-      // Check if this scan was aborted while the fetch was in flight
       if (controller.signal.aborted) return;
 
       const data: ScanResponseData = await resp.json();
       const { emails, ai } = processScanResults(data);
 
-      // Show completion prompt with AI summary
-      const importCount = emails.filter((e) => e.wouldImport).length;
-      const filterCount = emails.length - importCount;
-      const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
+      // If wizard is closed when scan completes, show completion prompt
+      if (!openRef.current) {
+        const importCount = emails.filter((e) => e.wouldImport).length;
+        const filterCount = emails.length - importCount;
+        const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
 
-      removePrompt(SCAN_PROMPT_ID);
-      showPrompt({
-        id: SCAN_PROMPT_ID,
-        icon: CheckCircle,
-        title: "Email scan complete",
-        description: summary,
-        ctaLabel: "Review Filters",
-        ctaAction: () => {
-          removePrompt(SCAN_PROMPT_ID);
-          // Reopen wizard at scan results step
-          onOpenChange(true);
-          // Use functional setters to avoid stale closure issues
-          setDirection(1);
-          setStepIndex(SCAN_STEP_INDEX);
-        },
-        persistent: true,
-        dismissable: true,
-        variant: "accent",
-      });
+        removePrompt(SCAN_PROMPT_ID);
+        showPrompt({
+          id: SCAN_PROMPT_ID,
+          icon: CheckCircle,
+          title: "Email scan complete",
+          description: summary,
+          ctaLabel: "Review Filters",
+          ctaAction: () => {
+            removePrompt(SCAN_PROMPT_ID);
+            onOpenChange(true);
+            setDirection(1);
+            setStepIndex(SCAN_STEP_INDEX);
+          },
+          persistent: true,
+          dismissable: true,
+          permanentDismiss: false,
+          variant: "accent",
+        });
+      }
+      // If wizard is open, results appear automatically via scanComplete state
     } catch (err) {
-      // Ignore abort errors — these are intentional cancellations
       if (err instanceof DOMException && err.name === "AbortError") return;
 
       setScanning(false);
       removePrompt(SCAN_PROMPT_ID);
-      showPrompt({
-        id: SCAN_PROMPT_ID,
-        icon: AlertCircle,
-        title: "Email scan failed",
+      toast.error("Email scan failed", {
         description: err instanceof Error ? err.message : "Something went wrong.",
-        ctaLabel: "Dismiss",
-        ctaAction: () => removePrompt(SCAN_PROMPT_ID),
-        persistent: true,
-        dismissable: true,
       });
     }
   }
@@ -479,10 +472,35 @@ export function EmailSetupWizard({
     }
   }
 
+  // ── Handle close — show progress prompt if scan is running ──────────────
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen && scanning) {
+      // User is closing wizard during active scan — show progress prompt
+      removePrompt(SCAN_PROMPT_ID);
+      showPrompt({
+        id: SCAN_PROMPT_ID,
+        icon: Search,
+        title: "Scan in progress",
+        description: "AI is still analyzing your emails. We\u2019ll notify you when it\u2019s done.",
+        ctaLabel: "Open Wizard",
+        ctaAction: () => {
+          removePrompt(SCAN_PROMPT_ID);
+          onOpenChange(true);
+        },
+        persistent: true,
+        dismissable: true,
+        permanentDismiss: false,
+        variant: "accent",
+      });
+    }
+    onOpenChange(nextOpen);
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className={`${currentStep.id === "filters" && scannedEmails.length > 0 ? "max-w-[1060px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
         hideClose

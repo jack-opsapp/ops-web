@@ -29,6 +29,7 @@ function ActionPromptCard({ prompt }: { prompt: ActionPromptConfig }) {
     ctaAction,
     persistent = true,
     dismissable = true,
+    permanentDismiss = true,
     autoDismissMs,
     variant = "default",
   } = prompt;
@@ -70,7 +71,7 @@ function ActionPromptCard({ prompt }: { prompt: ActionPromptConfig }) {
         <button
           onClick={() => {
             ctaAction();
-            dismissPrompt(id, true);
+            permanentDismiss ? dismissPrompt(id, true) : removePrompt(id);
           }}
           className={cn(
             "mt-2 px-3 py-1 rounded text-button-sm font-mohave",
@@ -85,7 +86,7 @@ function ActionPromptCard({ prompt }: { prompt: ActionPromptConfig }) {
       {/* Dismiss */}
       {dismissable && (
         <button
-          onClick={() => dismissPrompt(id, true)}
+          onClick={() => permanentDismiss ? dismissPrompt(id, true) : removePrompt(id)}
           className="shrink-0 p-0.5 rounded hover:bg-border-subtle transition-colors"
           aria-label="Dismiss"
         >
