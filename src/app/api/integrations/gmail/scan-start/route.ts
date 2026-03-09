@@ -88,12 +88,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    // Check for an existing in-progress scan — return its jobId instead of starting a new one
+    // Check for an existing in-progress scan — return its jobId instead of starting a new one.
+    // Only reuse jobs created in the last 5 minutes to avoid returning stale/crashed jobs.
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
     const { data: existing } = await supabase
       .from("gmail_scan_jobs")
-      .select("id")
+      .select("id, updated_at")
       .eq("connection_id", connectionId)
       .in("status", ["pending", "listing", "fetching", "pre_filtering", "classifying"])
+      .gte("updated_at", fiveMinutesAgo)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -101,6 +104,19 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return NextResponse.json({ jobId: existing.id });
     }
+
+    // Mark any older stuck jobs as expired so they don't interfere
+    await supabase
+      .from("gmail_scan_jobs")
+      .update({
+        status: "error",
+        error_message: "Job expired (no progress for 5+ minutes)",
+        progress: { stage: "error", current: 0, total: 0, message: "Scan expired" },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("connection_id", connectionId)
+      .in("status", ["pending", "listing", "fetching", "pre_filtering", "classifying"])
+      .lt("updated_at", fiveMinutesAgo);
 
     // Create job row
     const { data: job, error: jobError } = await supabase

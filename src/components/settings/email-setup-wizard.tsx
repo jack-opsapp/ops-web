@@ -178,6 +178,7 @@ export function EmailSetupWizard({
   const [domainGroups, setDomainGroups] = useState<DomainGroup[]>([]);
   const [scanComplete, setScanComplete] = useState(false);
   const [scanJobId, setScanJobId] = useState<string | null>(null);
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState<{
     stage: string;
     current: number;
@@ -377,6 +378,7 @@ export function EmailSetupWizard({
     ).length;
 
     setDomainGroups(groups);
+    setScanSummary(ai?.summary ?? null);
     setScanComplete(true);
     setScanning(false);
 
@@ -498,6 +500,7 @@ export function EmailSetupWizard({
     setScanComplete(false);
     setScannedEmails([]);
     setDomainGroups([]);
+    setScanSummary(null);
     setScanProgress({ stage: "pending", current: 0, total: 0, message: "Starting scan..." });
 
     try {
@@ -765,6 +768,7 @@ export function EmailSetupWizard({
                   connectionEmail={firstConnection?.email}
                   filters={filters}
                   scanProgress={scanProgress}
+                  scanSummary={scanSummary}
                   onExcludeDomain={(domain) => {
                     setFilters((prev) => ({
                       ...prev,
@@ -1084,6 +1088,7 @@ function StepScan({
   connectionEmail,
   filters,
   scanProgress,
+  scanSummary,
   onExcludeDomain,
 }: {
   scanning: boolean;
@@ -1095,6 +1100,7 @@ function StepScan({
   connectionEmail?: string;
   filters: GmailSyncFilters;
   scanProgress: { stage: string; current: number; total: number; message: string };
+  scanSummary: string | null;
   onExcludeDomain: (domain: string) => void;
 }) {
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
@@ -1276,6 +1282,15 @@ function StepScan({
               </span>
             </div>
           </motion.div>
+
+          {/* AI summary */}
+          {scanSummary && (
+            <motion.div variants={staggerItem}>
+              <p className="font-mohave text-body-sm text-text-secondary text-left leading-relaxed">
+                {scanSummary}
+              </p>
+            </motion.div>
+          )}
 
           {/* Domain breakdown — scrollable, expandable */}
           <motion.div
