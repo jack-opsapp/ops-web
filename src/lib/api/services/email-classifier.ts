@@ -1,11 +1,9 @@
 /**
  * OPS Web - Email Classifier (OpenAI GPT-4o-mini)
  *
- * Classifies scanned emails as customer conversations, leads, website inquiries,
- * or noise (automated/marketing/transactional). Used during the email setup wizard
- * scan step to generate tailored filter recommendations per customer.
- *
- * Sends a sample of up to 200 emails in batches of 25 to GPT-4o-mini.
+ * Analyzes up to 500 scanned emails in a single API call and returns
+ * a recommended filter configuration tailored to this specific customer.
+ * Big input (~40K tokens), tiny output (~500 tokens). Cost: < 1¢.
  */
 
 import OpenAI from "openai";
@@ -21,129 +19,96 @@ export interface EmailForClassification {
   snippet: string;
 }
 
-export type EmailCategory =
-  | "customer"
-  | "lead"
-  | "website_inquiry"
-  | "automated"
-  | "marketing"
-  | "transactional"
-  | "internal"
-  | "spam";
-
-/** Categories that should be imported into the pipeline */
-export const IMPORT_CATEGORIES: EmailCategory[] = [
-  "customer",
-  "lead",
-  "website_inquiry",
-];
-
-export interface ClassifiedEmail {
-  id: string;
-  category: EmailCategory;
-  confidence: number;
+/** The AI-recommended filter configuration, ready to merge into GmailSyncFilters */
+export interface RecommendedFilters {
+  /** Domains that are 100% noise — block entirely */
+  excludeDomains: string[];
+  /** Specific addresses to block (e.g. noreply@vendor.com) */
+  excludeAddresses: string[];
+  /** Subject keywords/phrases that indicate non-customer email */
+  excludeSubjectKeywords: string[];
+  /** Whether to enable the preset blocklist (newsletters, notifications) */
+  usePresetBlocklist: boolean;
+  /** Gmail label IDs to import from (e.g. ["INBOX"] or ["INBOX", "SENT"]) */
+  labelIds: string[];
+  /** Brief explanation of the filtering strategy for this customer */
+  summary: string;
 }
 
 export interface ClassificationResult {
-  /** Per-email classification (only for sampled emails) */
-  classifications: Map<string, ClassifiedEmail>;
-  /** Domains where 100% of sampled emails are noise → recommend blocking */
-  recommendedBlockDomains: string[];
-  /** Domains with at least one customer/lead email → recommend keeping */
-  recommendedKeepDomains: string[];
+  /** AI-recommended filter config */
+  filters: RecommendedFilters;
+  /** Per-email verdicts: email ID → "import" | "filter" */
+  verdicts: Map<string, "import" | "filter">;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── System Prompt ──────────────────────────────────────────────────────────
 
-const BATCH_SIZE = 25;
-const MAX_SAMPLE = 200;
+const SYSTEM_PROMPT = `You are an email filter advisor for trades and service businesses (construction, landscaping, plumbing, electrical, HVAC, roofing, etc.).
 
-const SYSTEM_PROMPT = `You classify emails for a trades/service business (construction, landscaping, plumbing, electrical, etc.). Your job is to identify which emails are from real customers, potential leads, or website inquiries — and which are automated noise.
-
-Classify each email into exactly one category:
-- "customer": Direct conversation with a customer or client (replies, scheduling, questions about jobs/projects/estimates)
-- "lead": New inquiry from a potential customer reaching out for the first time
-- "website_inquiry": Form submission from a website platform (Wix, Squarespace, WordPress, GoDaddy, etc.) — these are leads even though the sender is a platform address
-- "automated": System notifications, app alerts, software updates, account security, delivery receipts
-- "marketing": Newsletters, promotions, sales emails, social media notifications
-- "transactional": Vendor invoices, payment confirmations, shipping/order updates, subscription receipts, bank notifications
-- "internal": Internal team communications, HR, admin
-- "spam": Obvious spam or unsolicited bulk email
+You will receive a list of up to 500 emails from a business owner's inbox. Your job is to analyze ALL of them and output a recommended filter configuration that will:
+- IMPORT: real customer conversations, leads, website inquiries, estimates, scheduling, project discussions
+- FILTER OUT: marketing, newsletters, automated notifications, transactional receipts, spam, vendor promotions, social media alerts
 
 IMPORTANT RULES:
-- Website form submissions (from addresses like *@customer.wix.com, *@squarespace.info, noreply@wix.com with "New submission" subjects) are "website_inquiry" NOT "automated"
-- Emails from real people at real business/personal domains discussing projects, estimates, scheduling → "customer"
-- When uncertain between customer and lead, prefer "customer"
-- Google/Yelp/HomeAdvisor/Angi review notifications are "marketing" not "lead"
-- QuickBooks, Stripe, Square payment notifications from vendors are "transactional"
+- Website form submissions (from Wix, Squarespace, WordPress, GoDaddy, etc.) are LEADS — their domains should NOT be blocked
+- Emails from real people discussing projects, estimates, scheduling → always import
+- When a domain has BOTH customer emails and automated emails (e.g. a supplier where they also talk to a rep), do NOT block the domain — use address-level or subject-level filters instead
+- Payment notifications from QuickBooks, Stripe, Square → filter out (transactional)
+- Google/Yelp/HomeAdvisor review notifications → filter out (marketing)
+- Be aggressive about filtering noise, but never filter out a real customer conversation
 
-Respond with valid JSON only.`;
-
-// ─── Sampling ────────────────────────────────────────────────────────────────
-
-/**
- * Select a representative sample of emails for AI classification.
- * Ensures domain diversity: at least 1 email per domain, then proportional fill.
- */
-export function sampleEmails(
-  emails: EmailForClassification[],
-  maxSample = MAX_SAMPLE,
-): EmailForClassification[] {
-  if (emails.length <= maxSample) return emails;
-
-  // Group by domain
-  const byDomain = new Map<string, EmailForClassification[]>();
-  for (const email of emails) {
-    const list = byDomain.get(email.domain) ?? [];
-    list.push(email);
-    byDomain.set(email.domain, list);
-  }
-
-  const sampled: EmailForClassification[] = [];
-  const sampledIds = new Set<string>();
-
-  // First pass: 1 email per domain (ensures diversity)
-  for (const [, domainEmails] of byDomain) {
-    sampled.push(domainEmails[0]);
-    sampledIds.add(domainEmails[0].id);
-  }
-
-  // If first pass already exceeds max, trim to max (take from largest domains first)
-  if (sampled.length > maxSample) {
-    const sorted = Array.from(byDomain.entries())
-      .sort((a, b) => b[1].length - a[1].length)
-      .slice(0, maxSample);
-    return sorted.map(([, emails]) => emails[0]);
-  }
-
-  // Second pass: fill remaining slots proportionally from each domain
-  const remaining = maxSample - sampled.length;
-  if (remaining > 0) {
-    const pool = emails.filter((e) => !sampledIds.has(e.id));
-    // Shuffle for randomness
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    sampled.push(...pool.slice(0, remaining));
-  }
-
-  return sampled;
+OUTPUT FORMAT — respond with valid JSON only:
+{
+  "excludeDomains": ["domain1.com", "domain2.com"],
+  "excludeAddresses": ["noreply@specific.com"],
+  "excludeSubjectKeywords": ["unsubscribe", "your order"],
+  "usePresetBlocklist": true,
+  "labelIds": ["INBOX"],
+  "verdicts": { "emailId1": "import", "emailId2": "filter" },
+  "summary": "Brief 1-2 sentence explanation of the strategy"
 }
 
-// ─── Classification ──────────────────────────────────────────────────────────
+RULES FOR EACH FILTER FIELD:
+- excludeDomains: Only domains where 100% of emails are noise. Never block a domain that has even one customer email.
+- excludeAddresses: Specific sender addresses to block from domains you're keeping.
+- excludeSubjectKeywords: Short phrases that reliably indicate noise (case-insensitive match). Be precise — don't use words that might appear in customer emails.
+- usePresetBlocklist: true if the inbox has typical marketing/newsletter senders, false only if the business seems to have very unusual email patterns.
+- labelIds: Usually ["INBOX"]. Add "SENT" only if you see sent-mail replies to customers. Add "IMPORTANT" if the user seems to use Gmail priority inbox.
+- verdicts: For EVERY email in the input, output whether it should be "import" or "filter" based on your recommended filters.`;
+
+// ─── Main Function ──────────────────────────────────────────────────────────
 
 /**
- * Classify a batch of emails using GPT-4o-mini.
+ * Analyze all scanned emails in a single API call and return
+ * a recommended filter configuration + per-email verdicts.
  */
-async function classifyBatch(
-  openai: OpenAI,
+export async function classifyEmails(
   emails: EmailForClassification[],
-): Promise<Array<{ index: number; category: EmailCategory; confidence: number }>> {
+): Promise<ClassificationResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("[email-classifier] OPENAI_API_KEY not set, skipping AI classification");
+    return {
+      filters: {
+        excludeDomains: [],
+        excludeAddresses: [],
+        excludeSubjectKeywords: [],
+        usePresetBlocklist: true,
+        labelIds: ["INBOX", "SENT"],
+        summary: "AI classification unavailable — using default filters.",
+      },
+      verdicts: new Map(),
+    };
+  }
+
+  const openai = new OpenAI({ apiKey });
+
+  // Format all emails as a compact list
   const emailList = emails
     .map(
-      (e, i) =>
-        `[${i}] From: ${e.fromEmail} | Subject: ${e.subject} | Body: ${(e.snippet || "").slice(0, 300)}`,
+      (e) =>
+        `[${e.id}] From: ${e.fromEmail} | Subject: ${e.subject} | Snippet: ${(e.snippet || "").slice(0, 200)}`,
     )
     .join("\n");
 
@@ -156,105 +121,66 @@ async function classifyBatch(
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Classify these ${emails.length} emails. Respond with JSON: { "results": [{ "index": 0, "category": "customer", "confidence": 0.95 }, ...] }\n\n${emailList}`,
+          content: `Analyze these ${emails.length} emails from a trades/service business and recommend the optimal filter configuration.\n\n${emailList}`,
         },
       ],
     });
 
     const content = response.choices[0]?.message?.content;
-    if (!content) return [];
+    if (!content) {
+      console.error("[email-classifier] Empty response from OpenAI");
+      return { filters: defaultFilters(), verdicts: new Map() };
+    }
 
     const parsed = JSON.parse(content) as {
-      results: Array<{ index: number; category: EmailCategory; confidence: number }>;
+      excludeDomains?: string[];
+      excludeAddresses?: string[];
+      excludeSubjectKeywords?: string[];
+      usePresetBlocklist?: boolean;
+      labelIds?: string[];
+      verdicts?: Record<string, "import" | "filter">;
+      summary?: string;
     };
 
-    return parsed.results ?? [];
+    // Build verdicts map
+    const verdicts = new Map<string, "import" | "filter">();
+    if (parsed.verdicts) {
+      for (const [id, verdict] of Object.entries(parsed.verdicts)) {
+        verdicts.set(id, verdict);
+      }
+    }
+
+    const filters: RecommendedFilters = {
+      excludeDomains: parsed.excludeDomains ?? [],
+      excludeAddresses: parsed.excludeAddresses ?? [],
+      excludeSubjectKeywords: parsed.excludeSubjectKeywords ?? [],
+      usePresetBlocklist: parsed.usePresetBlocklist ?? true,
+      labelIds: parsed.labelIds ?? ["INBOX", "SENT"],
+      summary: parsed.summary ?? "",
+    };
+
+    console.log(
+      `[email-classifier] Analyzed ${emails.length} emails → ` +
+      `${filters.excludeDomains.length} blocked domains, ` +
+      `${filters.excludeAddresses.length} blocked addresses, ` +
+      `${filters.excludeSubjectKeywords.length} subject keywords, ` +
+      `${verdicts.size} verdicts`,
+    );
+
+    return { filters, verdicts };
   } catch (err) {
-    console.error("[email-classifier] Batch classification failed:", err);
-    return [];
+    console.error("[email-classifier] Classification failed:", err);
+    return { filters: defaultFilters(), verdicts: new Map() };
   }
 }
 
-/**
- * Classify emails and generate recommended filters.
- *
- * @param emails - All scanned emails (up to 500)
- * @returns Classifications for sampled emails + recommended domain blocks/keeps
- */
-export async function classifyEmails(
-  emails: EmailForClassification[],
-): Promise<ClassificationResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.warn("[email-classifier] OPENAI_API_KEY not set, skipping AI classification");
-    return {
-      classifications: new Map(),
-      recommendedBlockDomains: [],
-      recommendedKeepDomains: [],
-    };
-  }
-
-  const openai = new OpenAI({ apiKey });
-
-  // Sample for classification
-  const sample = sampleEmails(emails, MAX_SAMPLE);
-  const classifications = new Map<string, ClassifiedEmail>();
-
-  // Process in batches
-  for (let i = 0; i < sample.length; i += BATCH_SIZE) {
-    const batch = sample.slice(i, i + BATCH_SIZE);
-    const results = await classifyBatch(openai, batch);
-
-    for (const result of results) {
-      const email = batch[result.index];
-      if (email) {
-        classifications.set(email.id, {
-          id: email.id,
-          category: result.category,
-          confidence: result.confidence,
-        });
-      }
-    }
-  }
-
-  // Generate domain recommendations from classifications
-  const domainCategories = new Map<string, Set<EmailCategory>>();
-  for (const [, classified] of classifications) {
-    const email = sample.find((e) => e.id === classified.id);
-    if (!email) continue;
-
-    const categories = domainCategories.get(email.domain) ?? new Set();
-    categories.add(classified.category);
-    domainCategories.set(email.domain, categories);
-  }
-
-  const recommendedBlockDomains: string[] = [];
-  const recommendedKeepDomains: string[] = [];
-
-  for (const [domain, categories] of domainCategories) {
-    const hasImportable = [...categories].some((c) =>
-      IMPORT_CATEGORIES.includes(c),
-    );
-
-    if (hasImportable) {
-      recommendedKeepDomains.push(domain);
-    } else {
-      recommendedBlockDomains.push(domain);
-    }
-  }
-
-  // Sort block domains by frequency (most emails first)
-  const domainCounts = new Map<string, number>();
-  for (const email of emails) {
-    domainCounts.set(email.domain, (domainCounts.get(email.domain) ?? 0) + 1);
-  }
-  recommendedBlockDomains.sort(
-    (a, b) => (domainCounts.get(b) ?? 0) - (domainCounts.get(a) ?? 0),
-  );
-
+function defaultFilters(): RecommendedFilters {
   return {
-    classifications,
-    recommendedBlockDomains,
-    recommendedKeepDomains,
+    excludeDomains: [],
+    excludeAddresses: [],
+    excludeSubjectKeywords: [],
+    usePresetBlocklist: true,
+    labelIds: ["INBOX", "SENT"],
+    summary: "AI classification failed — using default filters.",
   };
 }

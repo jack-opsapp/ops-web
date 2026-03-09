@@ -14,9 +14,7 @@ import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
 import {
   classifyEmails,
-  IMPORT_CATEGORIES,
   type EmailForClassification,
-  type EmailCategory,
 } from "@/lib/api/services/email-classifier";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -177,8 +175,6 @@ export async function GET(request: NextRequest) {
       date: string;
       wouldImport: boolean;
       reason: string;
-      aiCategory?: EmailCategory;
-      aiConfidence?: number;
     }> = [];
 
     for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
@@ -260,11 +256,10 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── AI Classification ──────────────────────────────────────────────────
-    // Run GPT-4o-mini classification on a sample of emails to generate
-    // tailored filter recommendations (replaces generic preset filters).
+    // Single GPT-4o-mini call: all 500 emails in, recommended filter config out.
+    // Cost: < 1¢ per customer.
 
-    let recommendedBlockDomains: string[] = [];
-    let recommendedKeepDomains: string[] = [];
+    let recommendedFilters = null;
 
     try {
       const emailsForAI: EmailForClassification[] = emails.map((e) => ({
@@ -277,27 +272,16 @@ export async function GET(request: NextRequest) {
       }));
 
       const aiResult = await classifyEmails(emailsForAI);
+      recommendedFilters = aiResult.filters;
 
-      // Merge AI classifications into email results
+      // Apply AI verdicts to override rule-based wouldImport
       for (const email of emails) {
-        const classified = aiResult.classifications.get(email.id);
-        if (classified) {
-          email.aiCategory = classified.category;
-          email.aiConfidence = classified.confidence;
-
-          // AI overrides rule-based filtering:
-          // If AI says it's a customer/lead/website_inquiry → import
-          // If AI says it's noise → filter out
-          const aiSaysImport = IMPORT_CATEGORIES.includes(classified.category);
-          email.wouldImport = aiSaysImport;
-          email.reason = aiSaysImport
-            ? `AI: ${classified.category.replace("_", " ")}`
-            : `AI: ${classified.category.replace("_", " ")}`;
+        const verdict = aiResult.verdicts.get(email.id);
+        if (verdict) {
+          email.wouldImport = verdict === "import";
+          email.reason = verdict === "import" ? "AI: import" : "AI: filtered";
         }
       }
-
-      recommendedBlockDomains = aiResult.recommendedBlockDomains;
-      recommendedKeepDomains = aiResult.recommendedKeepDomains;
     } catch (err) {
       console.error("[gmail-scan-preview] AI classification failed, using rule-based only:", err);
     }
@@ -306,8 +290,7 @@ export async function GET(request: NextRequest) {
       ok: true,
       emails,
       total: allMessageIds.length,
-      recommendedBlockDomains,
-      recommendedKeepDomains,
+      recommendedFilters,
     });
   } catch (err) {
     console.error("[gmail-scan-preview]", err);

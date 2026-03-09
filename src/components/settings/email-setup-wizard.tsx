@@ -86,8 +86,6 @@ interface ScannedEmail {
   date: string;
   wouldImport: boolean;
   reason?: string;
-  aiCategory?: string;
-  aiConfidence?: number;
 }
 
 interface DomainGroup {
@@ -232,16 +230,30 @@ export function EmailSetupWizard({
       const emails: ScannedEmail[] = data.emails ?? [];
       setScannedEmails(emails);
 
-      // Auto-apply AI-recommended block domains to filters
-      const aiBlockDomains: string[] = data.recommendedBlockDomains ?? [];
-      if (aiBlockDomains.length > 0) {
+      // Auto-apply AI-recommended filters
+      const ai = data.recommendedFilters;
+      if (ai) {
         setFilters((prev) => {
-          const existing = new Set(prev.excludeDomains);
-          const newDomains = aiBlockDomains.filter((d: string) => !existing.has(d));
-          if (newDomains.length === 0) return prev;
+          const existingDomains = new Set(prev.excludeDomains);
+          const existingAddresses = new Set(prev.excludeAddresses);
+          const existingKeywords = new Set(prev.excludeSubjectKeywords);
+
           return {
             ...prev,
-            excludeDomains: [...prev.excludeDomains, ...newDomains],
+            excludeDomains: [
+              ...prev.excludeDomains,
+              ...(ai.excludeDomains ?? []).filter((d: string) => !existingDomains.has(d)),
+            ],
+            excludeAddresses: [
+              ...prev.excludeAddresses,
+              ...(ai.excludeAddresses ?? []).filter((a: string) => !existingAddresses.has(a)),
+            ],
+            excludeSubjectKeywords: [
+              ...prev.excludeSubjectKeywords,
+              ...(ai.excludeSubjectKeywords ?? []).filter((k: string) => !existingKeywords.has(k)),
+            ],
+            usePresetBlocklist: ai.usePresetBlocklist ?? prev.usePresetBlocklist,
+            labelIds: ai.labelIds ?? prev.labelIds,
           };
         });
       }
@@ -254,24 +266,11 @@ export function EmailSetupWizard({
         domainMap.set(email.domain, existing);
       }
 
-      // Determine domain suggestion: if majority of emails are importable → "import"
       const groups: DomainGroup[] = Array.from(domainMap.entries())
         .map(([domain, domainEmails]) => {
           const importable = domainEmails.filter((e) => e.wouldImport).length;
           const suggested = importable > domainEmails.length / 2 ? "import" as const : "filter" as const;
-          // Use the most common AI category as the reason
-          const aiCategories = domainEmails
-            .filter((e) => e.aiCategory)
-            .map((e) => e.aiCategory!);
-          const topCategory = aiCategories.length > 0
-            ? aiCategories.sort((a, b) =>
-                aiCategories.filter((c) => c === b).length -
-                aiCategories.filter((c) => c === a).length
-              )[0]
-            : null;
-          const reason = topCategory
-            ? `AI: ${topCategory.replace("_", " ")}`
-            : domainEmails[0]?.reason ?? "";
+          const reason = domainEmails[0]?.reason ?? "";
 
           return {
             domain,
@@ -1039,15 +1038,13 @@ function StepScan({
                               {email.from}
                             </span>
                           </div>
-                          {email.aiCategory && (
-                            <span className={`font-kosugi text-[8px] uppercase tracking-wider px-[4px] py-[1px] rounded shrink-0 ${
-                              ["customer", "lead", "website_inquiry"].includes(email.aiCategory)
-                                ? "bg-[rgba(107,143,113,0.1)] text-[#9DB582]"
-                                : "bg-background-card text-text-disabled"
-                            }`}>
-                              {email.aiCategory.replace("_", " ")}
-                            </span>
-                          )}
+                          <span className={`font-kosugi text-[8px] uppercase tracking-wider px-[4px] py-[1px] rounded shrink-0 ${
+                            email.wouldImport
+                              ? "bg-[rgba(107,143,113,0.1)] text-[#9DB582]"
+                              : "bg-background-card text-text-disabled"
+                          }`}>
+                            {email.wouldImport ? "Import" : "Filter"}
+                          </span>
                           <span className="font-kosugi text-[9px] text-text-disabled shrink-0">
                             {new Date(email.date).toLocaleDateString(undefined, {
                               month: "short",
