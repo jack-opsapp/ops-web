@@ -1021,6 +1021,9 @@ function StepScan({
           <span className="font-kosugi text-[10px] text-text-disabled">
             AI is analyzing senders, subjects, and patterns
           </span>
+          <span className="font-kosugi text-[10px] text-text-disabled/60 mt-1">
+            You can close this window — we'll let you know when it's done.
+          </span>
         </motion.div>
       )}
 
