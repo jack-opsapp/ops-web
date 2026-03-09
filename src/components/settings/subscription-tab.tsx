@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Check, Loader2, ArrowRight, X } from "lucide-react";
+import {
+  Shield,
+  Check,
+  Loader2,
+  ArrowRight,
+  X,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,29 +60,31 @@ const PLAN_FEATURES: Record<SubscriptionPlan, string[]> = {
   ],
 };
 
-// ─── Upgrade Modal ──────────────────────────────────────────────────────────
+// ─── Upgrade Modal (pre-selected plan) ──────────────────────────────────────
 
 function UpgradeModal({
   currentPlan,
+  preSelectedPlan,
   onClose,
 }: {
   currentPlan: SubscriptionPlan;
+  preSelectedPlan: SubscriptionPlan;
   onClose: () => void;
 }) {
   const { t } = useDictionary("settings");
   const { company } = useAuthStore();
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [period, setPeriod] = useState<"Monthly" | "Annual">("Monthly");
   const [isSubscribing, setIsSubscribing] = useState(false);
 
-  const upgradePlans = [
-    SubscriptionPlan.Starter,
-    SubscriptionPlan.Team,
-    SubscriptionPlan.Business,
-  ].filter((p) => p !== currentPlan);
+  const info = SUBSCRIPTION_PLAN_INFO[preSelectedPlan];
+  const features = PLAN_FEATURES[preSelectedPlan];
+  const price =
+    period === "Monthly"
+      ? info.monthlyPrice
+      : Math.round(info.annualPrice / 12);
 
   async function handleSubscribe() {
-    if (!selectedPlan || !company) return;
+    if (!company) return;
     setIsSubscribing(true);
     try {
       const { getIdToken } = await import("@/lib/firebase/auth");
@@ -87,16 +97,16 @@ function UpgradeModal({
         },
         body: JSON.stringify({
           companyId: company.id,
-          plan: selectedPlan,
+          plan: preSelectedPlan,
           period,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Subscription failed");
-      toast.success(t("subscription.toast.subscribed") ?? "Plan updated successfully!");
+      toast.success(t("subscription.toast.subscribed"));
       onClose();
     } catch (err) {
-      toast.error(t("subscription.toast.subscribeFailed") ?? "Failed to update plan", {
+      toast.error(t("subscription.toast.subscribeFailed"), {
         description: err instanceof Error ? err.message : undefined,
       });
     } finally {
@@ -106,82 +116,75 @@ function UpgradeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-background-card border border-border rounded-lg w-full max-w-[700px] mx-3 max-h-[90vh] overflow-y-auto">
+      <div className="bg-background-card border border-border rounded-lg w-full max-w-[480px] mx-3">
+        {/* Header */}
         <div className="flex items-center justify-between p-2 border-b border-border">
-          <h2 className="font-mohave text-heading text-text-primary">{t("subscription.choosePlan") ?? "Choose a plan"}</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-background-elevated transition-colors">
+          <h2 className="font-mohave text-heading text-text-primary">
+            {t("subscription.upgradeTo")} {info.displayName}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-background-elevated transition-colors"
+          >
             <X className="w-[20px] h-[20px] text-text-tertiary" />
           </button>
         </div>
 
-        {/* Period toggle */}
-        <div className="flex items-center justify-center gap-1 p-2">
-          {(["Monthly", "Annual"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={cn(
-                "px-3 py-1 rounded font-mohave text-body-sm transition-all",
-                period === p
-                  ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-tertiary hover:text-text-secondary"
-              )}
-            >
-              {p}{p === "Annual" ? " (save ~20%)" : ""}
-            </button>
-          ))}
-        </div>
-
-        {/* Plan cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 p-2">
-          {upgradePlans.map((planId) => {
-            const info = SUBSCRIPTION_PLAN_INFO[planId];
-            const features = PLAN_FEATURES[planId];
-            const isSelected = selectedPlan === planId;
-            const price = period === "Monthly" ? info.monthlyPrice : Math.round(info.annualPrice / 12);
-
-            return (
+        {/* Plan summary */}
+        <div className="p-2 space-y-2">
+          {/* Period toggle */}
+          <div className="flex items-center justify-center gap-1">
+            {(["Monthly", "Annual"] as const).map((p) => (
               <button
-                key={planId}
-                onClick={() => setSelectedPlan(planId)}
+                key={p}
+                onClick={() => setPeriod(p)}
                 className={cn(
-                  "text-left p-2 rounded-lg border transition-all",
-                  isSelected
-                    ? "border-ops-accent bg-ops-accent-muted"
-                    : "border-border hover:border-border-medium"
+                  "px-3 py-1 rounded font-mohave text-body-sm transition-all",
+                  period === p
+                    ? "bg-ops-accent-muted text-ops-accent"
+                    : "text-text-tertiary hover:text-text-secondary"
                 )}
               >
-                <h3 className="font-mohave text-card-title text-text-primary">{info.displayName}</h3>
-                <p className="font-mono text-data text-ops-accent mt-0.5">
-                  ${price}/mo
-                  {period === "Annual" && (
-                    <span className="font-kosugi text-[10px] text-text-disabled ml-1">
-                      (${info.annualPrice}/yr)
-                    </span>
-                  )}
-                </p>
-                <p className="font-kosugi text-[11px] text-text-tertiary mt-0.5">
-                  {info.maxSeats} seats
-                </p>
-                <div className="mt-1.5 space-y-[4px]">
-                  {features.map((f) => (
-                    <div key={f} className="flex items-center gap-[4px]">
-                      <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
-                      <span className="font-kosugi text-[11px] text-text-secondary">{f}</span>
-                    </div>
-                  ))}
-                </div>
+                {t(`subscription.${p.toLowerCase()}`)}
+                {p === "Annual" ? ` (${t("subscription.saveAnnual")})` : ""}
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* Price */}
+          <div className="text-center">
+            <span className="font-mono text-[28px] text-text-primary">
+              ${price}
+            </span>
+            <span className="font-kosugi text-[12px] text-text-disabled">
+              {t("subscription.perMonth")}
+            </span>
+            {period === "Annual" && (
+              <p className="font-kosugi text-[11px] text-text-disabled mt-[2px]">
+                ${info.annualPrice}{t("subscription.perYear")}
+              </p>
+            )}
+          </div>
+
+          {/* Features */}
+          <div className="space-y-[6px] py-1">
+            {features.map((f) => (
+              <div key={f} className="flex items-center gap-[6px]">
+                <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                <span className="font-kosugi text-[11px] text-text-secondary">
+                  {f}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Subscribe button */}
         <div className="p-2 border-t border-border">
           <Button
-            variant="accent"
+            variant="primary"
             className="w-full gap-[6px]"
-            disabled={!selectedPlan || isSubscribing}
+            disabled={isSubscribing}
             onClick={handleSubscribe}
           >
             {isSubscribing ? (
@@ -189,12 +192,111 @@ function UpgradeModal({
             ) : (
               <ArrowRight className="w-[16px] h-[16px]" />
             )}
-            {selectedPlan
-              ? `${t("subscription.upgrade") ?? "Upgrade"} to ${SUBSCRIPTION_PLAN_INFO[selectedPlan].displayName}`
-              : t("subscription.selectPlan") ?? "Select a plan"}
+            {t("subscription.upgradeTo")} {info.displayName}
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Expandable Plan Card ───────────────────────────────────────────────────
+
+function PlanCard({
+  planId,
+  isCurrent,
+  isDowngrade,
+  onUpgrade,
+}: {
+  planId: SubscriptionPlan;
+  isCurrent: boolean;
+  isDowngrade: boolean;
+  onUpgrade: () => void;
+}) {
+  const { t } = useDictionary("settings");
+  const [expanded, setExpanded] = useState(isCurrent);
+
+  const info = SUBSCRIPTION_PLAN_INFO[planId];
+  const features = PLAN_FEATURES[planId];
+
+  return (
+    <div
+      className={cn(
+        "border rounded transition-all duration-200",
+        isCurrent
+          ? "border-ops-accent bg-[rgba(89,119,159,0.06)]"
+          : "border-border hover:border-[rgba(255,255,255,0.15)]"
+      )}
+    >
+      {/* Header — always visible, clickable */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-2 py-1.5 text-left"
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          {expanded ? (
+            <ChevronDown className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+          ) : (
+            <ChevronRight className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-mohave text-body text-text-primary">
+                {info.displayName}
+              </h4>
+              {isCurrent && (
+                <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                  {t("subscription.currentBadge")}
+                </span>
+              )}
+            </div>
+            <p className="font-kosugi text-[11px] text-text-disabled">
+              {info.maxSeats} {t("subscription.seats")}
+            </p>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-mono text-data-sm text-text-primary">
+            ${info.monthlyPrice}{t("subscription.perMonth")}
+          </p>
+          {info.annualPrice > 0 && (
+            <p className="font-kosugi text-[10px] text-text-disabled">
+              ${info.annualPrice}{t("subscription.perYear")}
+            </p>
+          )}
+        </div>
+      </button>
+
+      {/* Expanded content — features + upgrade */}
+      {expanded && (
+        <div className="px-2 pb-2 pt-0 border-t border-[rgba(255,255,255,0.04)] animate-scale-in">
+          <div className="space-y-[6px] py-1.5">
+            {features.map((f) => (
+              <div key={f} className="flex items-center gap-[6px]">
+                <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                <span className="font-kosugi text-[11px] text-text-secondary">
+                  {f}
+                </span>
+              </div>
+            ))}
+          </div>
+          {!isCurrent && !isDowngrade && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full gap-[6px] mt-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpgrade();
+              }}
+            >
+              <ArrowRight className="w-[14px] h-[14px]" />
+              {t("subscription.upgradeTo")} {info.displayName}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -204,7 +306,7 @@ function UpgradeModal({
 export function SubscriptionTab() {
   const { t } = useDictionary("settings");
   const { data: company, isLoading: isCompanyLoading } = useCompany();
-  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<SubscriptionPlan | null>(null);
 
   if (isCompanyLoading && !company) {
     return (
@@ -218,20 +320,22 @@ export function SubscriptionTab() {
   const planInfo = SUBSCRIPTION_PLAN_INFO[plan];
   const seatedCount = company?.seatedEmployeeIds?.length ?? 0;
   const maxSeats = company?.maxSeats ?? planInfo.maxSeats;
-  const seatPercentage = maxSeats > 0 ? Math.min(100, Math.round((seatedCount / maxSeats) * 100)) : 0;
+  const seatPercentage =
+    maxSeats > 0 ? Math.min(100, Math.round((seatedCount / maxSeats) * 100)) : 0;
   const seatsRemaining = Math.max(0, maxSeats - seatedCount);
 
-  const isTrial = company?.subscriptionStatus === SubscriptionStatus.Trial || plan === SubscriptionPlan.Trial;
+  const isTrial =
+    company?.subscriptionStatus === SubscriptionStatus.Trial ||
+    plan === SubscriptionPlan.Trial;
   const trialDaysRemaining = company ? getDaysRemainingInTrial(company) : 0;
-  const isMaxPlan = plan === SubscriptionPlan.Business;
 
   const features = PLAN_FEATURES[plan];
 
-  const priceDisplay = planInfo.monthlyPrice === 0
-    ? t("subscription.free")
-    : `$${planInfo.monthlyPrice}${t("subscription.perMonth")}`;
+  const priceDisplay =
+    planInfo.monthlyPrice === 0
+      ? t("subscription.free")
+      : `$${planInfo.monthlyPrice}${t("subscription.perMonth")}`;
 
-  // Next billing date from subscription end
   const nextBillingDate = company?.subscriptionEnd
     ? new Date(company.subscriptionEnd).toLocaleDateString(undefined, {
         month: "short",
@@ -240,19 +344,39 @@ export function SubscriptionTab() {
       })
     : null;
 
+  // Plan order for determining upgrade vs downgrade
+  const planOrder = [
+    SubscriptionPlan.Trial,
+    SubscriptionPlan.Starter,
+    SubscriptionPlan.Team,
+    SubscriptionPlan.Business,
+  ];
+  const currentPlanIndex = planOrder.indexOf(plan);
+
+  const availablePlans = [
+    SubscriptionPlan.Starter,
+    SubscriptionPlan.Team,
+    SubscriptionPlan.Business,
+  ];
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Current plan card */}
+        {/* Current Plan + Features + Seat Usage (combined) */}
         <Card variant="accent">
-          <CardContent className="p-2">
+          <CardContent className="p-2 space-y-2">
+            {/* Plan header */}
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
                   {t("subscription.currentPlan")}
                 </span>
-                <h3 className="font-mohave text-heading text-text-primary">{planInfo.displayName}</h3>
-                <p className="font-mono text-data text-ops-accent">{priceDisplay}</p>
+                <h3 className="font-mohave text-heading text-text-primary">
+                  {planInfo.displayName}
+                </h3>
+                <p className="font-mono text-data text-ops-accent">
+                  {priceDisplay}
+                </p>
                 {isTrial && trialDaysRemaining > 0 && (
                   <p className="font-kosugi text-[11px] text-ops-amber mt-[4px]">
                     {trialDaysRemaining} {t("subscription.trialRemaining")}
@@ -260,7 +384,7 @@ export function SubscriptionTab() {
                 )}
                 {nextBillingDate && !isTrial && (
                   <p className="font-kosugi text-[11px] text-text-disabled mt-[4px]">
-                    Next billing: {nextBillingDate}
+                    {t("subscription.nextBilling")}: {nextBillingDate}
                   </p>
                 )}
               </div>
@@ -268,91 +392,78 @@ export function SubscriptionTab() {
                 <Shield className="w-[24px] h-[24px] text-ops-accent" />
               </div>
             </div>
+
+            {/* Seat usage */}
+            <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                  {t("subscription.seatUsage")}
+                </span>
+                <span className="font-mono text-data-sm text-text-primary">
+                  {seatedCount} / {maxSeats}
+                </span>
+              </div>
+              <div className="h-[6px] bg-background-elevated rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-ops-accent rounded-full transition-all duration-300"
+                  style={{ width: `${seatPercentage}%` }}
+                />
+              </div>
+              <p className="font-kosugi text-[10px] text-text-disabled mt-[4px]">
+                {seatsRemaining} {t("subscription.seatsRemaining")}
+              </p>
+            </div>
+
+            {/* Features */}
+            <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
+              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                {t("subscription.planFeatures")}
+              </span>
+              <div className="space-y-[6px] mt-1">
+                {features.map((feature) => (
+                  <div key={feature} className="flex items-center gap-[6px]">
+                    <Check className="w-[14px] h-[14px] text-ops-accent shrink-0" />
+                    <span className="font-kosugi text-[11px] text-text-secondary">
+                      {feature}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Seat usage */}
+        {/* Available Plans (expandable) */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("subscription.seatUsage")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-mohave text-body text-text-secondary">{t("subscription.activeMembers")}</span>
-              <span className="font-mono text-data text-text-primary">{seatedCount} / {maxSeats}</span>
-            </div>
-            <div className="h-[6px] bg-background-elevated rounded-full overflow-hidden">
-              <div className="h-full bg-ops-accent rounded-full" style={{ width: `${seatPercentage}%` }} />
-            </div>
-            <p className="font-kosugi text-[11px] text-text-tertiary mt-[6px]">
-              {seatsRemaining} {t("subscription.seatsRemaining")}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Plan features */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("subscription.planFeatures")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-[8px]">
-              {features.map((feature) => (
-                <div key={feature} className="flex items-center gap-1">
-                  <Check className="w-[16px] h-[16px] text-ops-accent shrink-0" />
-                  <span className="font-mohave text-body-sm text-text-secondary">{feature}</span>
-                </div>
-              ))}
-            </div>
-            {!isMaxPlan && (
-              <Button variant="accent" className="mt-2 w-full gap-[6px]" onClick={() => setShowUpgrade(true)}>
-                <ArrowRight className="w-[16px] h-[16px]" />
-                {t("subscription.upgrade")}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Available plans at a glance */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Plans</CardTitle>
+            <CardTitle>{t("subscription.availablePlans")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            {([SubscriptionPlan.Starter, SubscriptionPlan.Team, SubscriptionPlan.Business] as const).map((planId) => {
-              const info = SUBSCRIPTION_PLAN_INFO[planId];
+            {availablePlans.map((planId) => {
               const isCurrent = planId === plan;
+              const isDowngrade =
+                planOrder.indexOf(planId) < currentPlanIndex;
+
               return (
-                <div
+                <PlanCard
                   key={planId}
-                  className={cn(
-                    "flex items-center justify-between px-1.5 py-[8px] rounded border",
-                    isCurrent
-                      ? "border-ops-accent bg-ops-accent-muted"
-                      : "border-border"
-                  )}
-                >
-                  <div>
-                    <p className="font-mohave text-body text-text-primary">{info.displayName}</p>
-                    <p className="font-kosugi text-[11px] text-text-disabled">
-                      {info.maxSeats} seats
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-data-sm text-text-primary">${info.monthlyPrice}/mo</p>
-                    {isCurrent && (
-                      <span className="font-kosugi text-[9px] text-ops-accent uppercase tracking-wider">Current</span>
-                    )}
-                  </div>
-                </div>
+                  planId={planId}
+                  isCurrent={isCurrent}
+                  isDowngrade={isDowngrade}
+                  onUpgrade={() => setUpgradePlan(planId)}
+                />
               );
             })}
           </CardContent>
         </Card>
       </div>
 
-      {showUpgrade && (
-        <UpgradeModal currentPlan={plan} onClose={() => setShowUpgrade(false)} />
+      {upgradePlan && (
+        <UpgradeModal
+          currentPlan={plan}
+          preSelectedPlan={upgradePlan}
+          onClose={() => setUpgradePlan(null)}
+        />
       )}
     </>
   );
