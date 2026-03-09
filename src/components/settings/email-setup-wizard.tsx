@@ -71,6 +71,34 @@ const staggerItem = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } },
 };
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Maps scan job stage to a progress percentage for the UI */
+function stageToPercent(stage: string, current: number, total: number): number {
+  switch (stage) {
+    case "pending":
+      return 3;
+    case "listing":
+      return 10;
+    case "fetching": {
+      // 15–60% range, interpolated by current/total
+      if (total <= 0) return 15;
+      const ratio = Math.min(current / total, 1);
+      return Math.round(15 + ratio * 45);
+    }
+    case "pre_filtering":
+      return 65;
+    case "classifying":
+      return 75;
+    case "complete":
+      return 100;
+    case "error":
+      return 0;
+    default:
+      return 0;
+  }
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface ScannedEmail {
@@ -146,6 +174,13 @@ export function EmailSetupWizard({
   const [scannedEmails, setScannedEmails] = useState<ScannedEmail[]>([]);
   const [domainGroups, setDomainGroups] = useState<DomainGroup[]>([]);
   const [scanComplete, setScanComplete] = useState(false);
+  const [scanJobId, setScanJobId] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState<{
+    stage: string;
+    current: number;
+    total: number;
+    message: string;
+  }>({ stage: "pending", current: 0, total: 0, message: "Starting scan..." });
 
   // Filter state
   const [filters, setFilters] = useState<GmailSyncFilters>(
@@ -176,6 +211,9 @@ export function EmailSetupWizard({
   // Track open state for async callbacks (scan completion)
   const openRef = useRef(open);
 
+  // Polling ref — declared early so reset-on-open effect can check it
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Reset when opened — use ref to fire only on open *transition*
   const prevOpenRef = useRef(open);
   useEffect(() => {
@@ -191,6 +229,10 @@ export function EmailSetupWizard({
         setDirection(1);
         // Clear any in-progress action prompt since wizard is open
         removePrompt(SCAN_PROMPT_ID);
+        // Resume polling if scan is running but polling stopped (e.g. unmount/remount)
+        if (scanning && scanJobId && !pollIntervalRef.current) {
+          startPolling(scanJobId);
+        }
         return;
       }
 
@@ -226,19 +268,16 @@ export function EmailSetupWizard({
     setStepIndex(idx);
   }
 
-  // ── Scan emails (runs in background) ─────────────────────────────────────
+  // ── Scan emails (async job with polling) ──────────────────────────────────
 
-  // AbortController ref to prevent overlapping scans and clean up on unmount
-  const scanAbortRef = useRef<AbortController | null>(null);
-
-  // Abort any in-flight scan on unmount
+  // Clean up polling on unmount
   useEffect(() => {
     return () => {
-      scanAbortRef.current?.abort();
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
 
-  interface ScanResponseData {
+  interface ScanResultData {
     emails?: ScannedEmail[];
     recommendedFilters?: {
       excludeDomains?: string[];
@@ -252,7 +291,7 @@ export function EmailSetupWizard({
     aiAnalyzed?: number;
   }
 
-  function processScanResults(data: ScanResponseData) {
+  function processScanResults(data: ScanResultData) {
     const emails: ScannedEmail[] = data.emails ?? [];
     setScannedEmails(emails);
 
@@ -315,76 +354,105 @@ export function EmailSetupWizard({
     return { emails, ai };
   }
 
+  function startPolling(jobId: string) {
+    // Clear any existing poll
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const resp = await fetch(
+          `/api/integrations/gmail/scan-status?jobId=${encodeURIComponent(jobId)}`,
+        );
+        if (!resp.ok) return;
+
+        const data = await resp.json();
+        setScanProgress(data.progress ?? { stage: data.status, current: 0, total: 0, message: "" });
+
+        if (data.status === "complete") {
+          // Stop polling
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+
+          const result: ScanResultData = data.result ?? {};
+
+          if (!result.emails || result.emails.length === 0) {
+            setScanning(false);
+            setScanJobId(null);
+            toast.info("No emails found in the last 30 days.");
+            return;
+          }
+
+          const { emails, ai } = processScanResults(result);
+          const importCount = emails.filter((e: ScannedEmail) => e.wouldImport).length;
+          const filterCount = emails.length - importCount;
+          const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
+
+          toast.success("Email scan complete", { description: summary });
+
+          // If wizard is closed, show action prompt
+          if (!openRef.current) {
+            removePrompt(SCAN_PROMPT_ID);
+            showPrompt({
+              id: SCAN_PROMPT_ID,
+              icon: CheckCircle,
+              title: "Email scan complete",
+              description: summary,
+              ctaLabel: "Review Filters",
+              ctaAction: () => {
+                removePrompt(SCAN_PROMPT_ID);
+                onOpenChange(true);
+                setDirection(1);
+                setStepIndex(SCAN_STEP_INDEX);
+              },
+              persistent: true,
+              dismissable: true,
+              permanentDismiss: false,
+              variant: "accent",
+            });
+          }
+        } else if (data.status === "error") {
+          // Stop polling
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setScanning(false);
+          setScanJobId(null);
+          removePrompt(SCAN_PROMPT_ID);
+          toast.error("Email scan failed", {
+            description: data.error ?? "Something went wrong.",
+          });
+        }
+      } catch {
+        // Network error — keep polling, it may recover
+      }
+    }, 2000);
+  }
+
   async function scanEmails() {
     if (!firstConnection || scanning) return;
-
-    // Abort any previous in-flight scan
-    scanAbortRef.current?.abort();
-    const controller = new AbortController();
-    scanAbortRef.current = controller;
 
     setScanning(true);
     setScanComplete(false);
     setScannedEmails([]);
     setDomainGroups([]);
-
-    // Wizard stays open — user sees spinner in the scan step.
-    // If they close manually, handleOpenChange shows an action prompt.
+    setScanProgress({ stage: "pending", current: 0, total: 0, message: "Starting scan..." });
 
     try {
-      const resp = await fetch(
-        `/api/integrations/gmail/scan-preview?connectionId=${encodeURIComponent(firstConnection.id)}&days=30`,
-        { signal: controller.signal },
-      );
+      const resp = await fetch("/api/integrations/gmail/scan-start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: firstConnection.id, days: 30 }),
+      });
 
       if (!resp.ok) {
         const errBody = await resp.text().catch(() => "");
-        throw new Error(errBody || `Scan failed (${resp.status})`);
-      }
-      if (controller.signal.aborted) return;
-
-      const data: ScanResponseData = await resp.json();
-
-      if (!data.emails || data.emails.length === 0) {
-        setScanning(false);
-        toast.info("No emails found in the last 30 days.");
-        return;
+        throw new Error(errBody || `Failed to start scan (${resp.status})`);
       }
 
-      const { emails, ai } = processScanResults(data);
-      const importCount = emails.filter((e) => e.wouldImport).length;
-      const filterCount = emails.length - importCount;
-      const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
-
-      // Always notify — toast for quick feedback
-      toast.success("Email scan complete", { description: summary });
-
-      // If wizard is closed, also show action prompt with CTA to review
-      if (!openRef.current) {
-        removePrompt(SCAN_PROMPT_ID);
-        showPrompt({
-          id: SCAN_PROMPT_ID,
-          icon: CheckCircle,
-          title: "Email scan complete",
-          description: summary,
-          ctaLabel: "Review Filters",
-          ctaAction: () => {
-            removePrompt(SCAN_PROMPT_ID);
-            onOpenChange(true);
-            setDirection(1);
-            setStepIndex(SCAN_STEP_INDEX);
-          },
-          persistent: true,
-          dismissable: true,
-          permanentDismiss: false,
-          variant: "accent",
-        });
-      }
+      const { jobId } = await resp.json();
+      setScanJobId(jobId);
+      startPolling(jobId);
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-
       setScanning(false);
-      removePrompt(SCAN_PROMPT_ID);
       console.error("[email-scan]", err);
       toast.error("Email scan failed", {
         description: err instanceof Error ? err.message : "Something went wrong.",
@@ -632,6 +700,7 @@ export function EmailSetupWizard({
                   hasConnection={hasConnection}
                   connectionEmail={firstConnection?.email}
                   filters={filters}
+                  scanProgress={scanProgress}
                   onExcludeDomain={(domain) => {
                     setFilters((prev) => ({
                       ...prev,
@@ -950,6 +1019,7 @@ function StepScan({
   hasConnection,
   connectionEmail,
   filters,
+  scanProgress,
   onExcludeDomain,
 }: {
   scanning: boolean;
@@ -960,6 +1030,7 @@ function StepScan({
   hasConnection: boolean;
   connectionEmail?: string;
   filters: GmailSyncFilters;
+  scanProgress: { stage: string; current: number; total: number; message: string };
   onExcludeDomain: (domain: string) => void;
 }) {
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
@@ -1010,23 +1081,94 @@ function StepScan({
       {scanning && (
         <motion.div
           variants={staggerItem}
-          className="flex flex-col items-center gap-1.5 py-4"
+          className="flex flex-col items-center gap-2 py-4"
         >
           <div className="relative w-[48px] h-[48px]">
             <Loader2 className="w-[48px] h-[48px] text-ops-accent/30 animate-spin" />
             <Search className="absolute inset-0 m-auto w-[20px] h-[20px] text-ops-accent" />
           </div>
-          <span className="font-mohave text-body-sm text-text-secondary">
-            Scanning emails...
+
+          <span className="font-mohave text-body-sm text-text-primary">
+            {scanProgress.message || "Scanning emails..."}
           </span>
+
           {connectionEmail && (
             <span className="font-mono text-[11px] text-ops-accent">
               {connectionEmail}
             </span>
           )}
-          <span className="font-kosugi text-[10px] text-text-disabled">
-            AI is analyzing senders, subjects, and patterns
-          </span>
+
+          {/* Progress bar */}
+          <div className="w-full max-w-[320px] space-y-1">
+            <div className="w-full h-[6px] bg-border-subtle rounded-full overflow-hidden">
+              <div
+                className="h-full bg-ops-accent rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${stageToPercent(scanProgress.stage, scanProgress.current, scanProgress.total)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                {scanProgress.stage === "pending" && "Initializing"}
+                {scanProgress.stage === "listing" && "Scanning inbox"}
+                {scanProgress.stage === "fetching" && "Reading emails"}
+                {scanProgress.stage === "pre_filtering" && "Pre-filtering"}
+                {scanProgress.stage === "classifying" && "AI analyzing"}
+              </span>
+              <span className="font-mono text-[10px] text-text-disabled">
+                {stageToPercent(scanProgress.stage, scanProgress.current, scanProgress.total)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Stage checklist */}
+          <div className="flex items-center gap-3 mt-1">
+            {[
+              { key: "listing", label: "Scan" },
+              { key: "fetching", label: "Read" },
+              { key: "pre_filtering", label: "Filter" },
+              { key: "classifying", label: "AI" },
+            ].map((s) => {
+              const stageOrder = ["pending", "listing", "fetching", "pre_filtering", "classifying", "complete"];
+              const currentIdx = stageOrder.indexOf(scanProgress.stage);
+              const thisIdx = stageOrder.indexOf(s.key);
+              const isDone = currentIdx > thisIdx;
+              const isActive = currentIdx === thisIdx;
+
+              return (
+                <div key={s.key} className="flex items-center gap-[3px]">
+                  <div
+                    className={`w-[14px] h-[14px] rounded-full flex items-center justify-center ${
+                      isDone
+                        ? "bg-ops-accent/20"
+                        : isActive
+                          ? "bg-ops-accent/10"
+                          : "bg-border-subtle"
+                    }`}
+                  >
+                    {isDone ? (
+                      <Check className="w-[8px] h-[8px] text-ops-accent" />
+                    ) : isActive ? (
+                      <Loader2 className="w-[8px] h-[8px] text-ops-accent animate-spin" />
+                    ) : (
+                      <div className="w-[4px] h-[4px] rounded-full bg-text-disabled/30" />
+                    )}
+                  </div>
+                  <span
+                    className={`font-kosugi text-[9px] ${
+                      isDone
+                        ? "text-ops-accent"
+                        : isActive
+                          ? "text-text-secondary"
+                          : "text-text-disabled/40"
+                    }`}
+                  >
+                    {s.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
           <span className="font-kosugi text-[10px] text-text-disabled/60 mt-1">
             You can close this window &mdash; we&apos;ll let you know when it&apos;s done.
           </span>
