@@ -13,6 +13,8 @@ import {
   UserMinus,
   GripVertical,
   HelpCircle,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import {
   DndContext,
@@ -63,6 +65,7 @@ import { useDictionary } from "@/i18n/client";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type View = "list" | "editor";
+type ListMode = "rows" | "board";
 
 interface PermissionEdit {
   permission: string;
@@ -112,7 +115,7 @@ function Tooltip({ text }: { text: string }) {
         <HelpCircle className="w-[12px] h-[12px]" />
       </button>
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[6px] z-50 px-[10px] py-[6px] bg-background-elevated border border-border rounded shadow-lg max-w-[220px] whitespace-normal">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-[6px] z-50 px-[10px] py-[6px] bg-background-elevated border border-border rounded shadow-lg max-w-[220px] whitespace-normal">
           <p className="font-kosugi text-[10px] text-text-secondary leading-tight">
             {text}
           </p>
@@ -357,6 +360,9 @@ function TierModuleCard({
   onRemove,
   disabled,
   isCustom,
+  availableScopes,
+  currentScope,
+  onScopeChange,
 }: {
   moduleId: string;
   label: string;
@@ -364,6 +370,9 @@ function TierModuleCard({
   onRemove: () => void;
   disabled?: boolean;
   isCustom?: boolean;
+  availableScopes?: PermissionScope[];
+  currentScope?: PermissionScope;
+  onScopeChange?: (scope: PermissionScope) => void;
 }) {
   const { t } = useDictionary("settings");
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -377,12 +386,20 @@ function TierModuleCard({
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
+  const scopeLabels: Record<PermissionScope, string> = {
+    all: t("roles.scopeAll"),
+    assigned: t("roles.scopeAssignedOnly"),
+    own: t("roles.scopeOwn"),
+  };
+
+  const hasScopes = availableScopes && availableScopes.length > 1;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-[6px] px-[8px] py-[6px] border rounded border-l-2 transition-all duration-150",
+        "flex flex-col gap-[4px] px-[8px] py-[6px] border rounded border-l-2 transition-all duration-150",
         "group/tier-card",
         TIER_CARD_BORDER[tier],
         "border-border bg-[rgba(255,255,255,0.02)]",
@@ -391,38 +408,65 @@ function TierModuleCard({
           "hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)]"
       )}
     >
-      {/* Drag handle */}
-      {!disabled && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/tier-card:opacity-100 transition-opacity"
-        >
-          <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
-        </div>
-      )}
+      <div className="flex items-center gap-[6px]">
+        {/* Drag handle */}
+        {!disabled && (
+          <div
+            {...attributes}
+            {...listeners}
+            className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/tier-card:opacity-100 transition-opacity"
+          >
+            <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
+          </div>
+        )}
 
-      <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
-        {label}
-      </span>
-
-      {/* Custom badge for non-standard tier mapping */}
-      {isCustom && (
-        <span className="font-mono text-[9px] text-ops-accent bg-ops-accent-muted px-[4px] py-[1px] rounded-sm shrink-0">
-          {t("roles.customPermissions")}
+        <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
+          {label}
         </span>
-      )}
 
-      {/* Remove button */}
-      {!disabled && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-disabled hover:text-ops-error transition-all"
-          title={t("roles.removePermission")}
-        >
-          <X className="w-[12px] h-[12px]" />
-        </button>
+        {/* Custom badge for non-standard tier mapping */}
+        {isCustom && (
+          <span className="font-mono text-[9px] text-ops-accent bg-ops-accent-muted px-[4px] py-[1px] rounded-sm shrink-0">
+            {t("roles.customPermissions")}
+          </span>
+        )}
+
+        {/* Remove button */}
+        {!disabled && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-disabled hover:text-ops-error transition-all"
+            title={t("roles.removePermission")}
+          >
+            <X className="w-[12px] h-[12px]" />
+          </button>
+        )}
+      </div>
+
+      {/* Inline scope picker */}
+      {hasScopes && (
+        <div className="flex items-center gap-0">
+          {availableScopes.map((scope) => (
+            <button
+              key={scope}
+              type="button"
+              disabled={disabled}
+              onClick={() => onScopeChange?.(scope)}
+              className={cn(
+                "px-[5px] py-[2px] font-kosugi text-[8px] uppercase tracking-wider",
+                "border transition-colors duration-150",
+                "first:rounded-l last:rounded-r",
+                "disabled:opacity-40 disabled:cursor-not-allowed",
+                currentScope === scope
+                  ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                  : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+              )}
+            >
+              {scopeLabels[scope]}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -435,11 +479,13 @@ function TierColumn({
   modules,
   onRemove,
   disabled,
+  onScopeChange,
 }: {
   tier: PermissionTier;
-  modules: { moduleId: string; label: string; isCustom?: boolean }[];
+  modules: { moduleId: string; label: string; isCustom?: boolean; availableScopes?: PermissionScope[]; currentScope?: PermissionScope }[];
   onRemove: (moduleId: string) => void;
   disabled?: boolean;
+  onScopeChange?: (moduleId: string, scope: PermissionScope) => void;
 }) {
   const { t } = useDictionary("settings");
   const { setNodeRef, isOver } = useDroppable({ id: `tier-${tier}` });
@@ -502,6 +548,9 @@ function TierColumn({
             onRemove={() => onRemove(mod.moduleId)}
             disabled={disabled}
             isCustom={mod.isCustom}
+            availableScopes={mod.availableScopes}
+            currentScope={mod.currentScope}
+            onScopeChange={onScopeChange ? (scope) => onScopeChange(mod.moduleId, scope) : undefined}
           />
         ))}
 
@@ -526,6 +575,7 @@ function PermissionBoard({
   onMoveModule,
   onRemoveModule,
   onBulkAdd,
+  onScopeChange,
   disabled,
 }: {
   permissionEdits: Map<string, PermissionEdit>;
@@ -534,6 +584,7 @@ function PermissionBoard({
   onMoveModule: (moduleId: string, newTier: PermissionTier) => void;
   onRemoveModule: (moduleId: string) => void;
   onBulkAdd: (categoryId: string, tier: PermissionTier) => void;
+  onScopeChange?: (moduleId: string, scope: PermissionScope) => void;
   disabled?: boolean;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -544,11 +595,11 @@ function PermissionBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  // Build module lists for each tier column
+  // Build module lists for each tier column (with scope data)
   const tierModules = useMemo(() => {
     const result: Record<
       PermissionTier,
-      { moduleId: string; label: string; isCustom?: boolean }[]
+      { moduleId: string; label: string; isCustom?: boolean; availableScopes?: PermissionScope[]; currentScope?: PermissionScope }[]
     > = {
       view: [],
       manage: [],
@@ -558,9 +609,19 @@ function PermissionBoard({
     for (const cat of PERMISSION_CATEGORIES) {
       for (const mod of cat.modules) {
         const tier = grantedModules.get(mod.id);
-        if (tier && tier !== "custom") {
-          result[tier].push({ moduleId: mod.id, label: mod.label });
-        } else if (tier === "custom") {
+        if (!tier) continue;
+
+        // Get available scopes for this module
+        const scopeActions = mod.actions.filter((a) => a.scopes.length > 1);
+        const availableScopes = scopeActions.length > 0
+          ? Array.from(new Set(scopeActions.flatMap((a) => a.scopes))) as PermissionScope[]
+          : undefined;
+        const enabledScopeAction = scopeActions.find((a) => permissionEdits.get(a.id)?.enabled);
+        const currentScope = enabledScopeAction ? permissionEdits.get(enabledScopeAction.id)?.scope : undefined;
+
+        if (tier !== "custom") {
+          result[tier].push({ moduleId: mod.id, label: mod.label, availableScopes, currentScope });
+        } else {
           // Custom tier: figure out the closest tier for display
           const enabledActions = mod.actions
             .filter((a) => permissionEdits.get(a.id)?.enabled)
@@ -571,6 +632,8 @@ function PermissionBoard({
             moduleId: mod.id,
             label: mod.label,
             isCustom: true,
+            availableScopes,
+            currentScope,
           });
         }
       }
@@ -694,6 +757,7 @@ function PermissionBoard({
               modules={tierModules[tier]}
               onRemove={onRemoveModule}
               disabled={disabled}
+              onScopeChange={onScopeChange}
             />
           ))}
         </div>
@@ -950,6 +1014,7 @@ function RoleEditor({
   const [showAddMember, setShowAddMember] = useState(false);
   const [confirmBack, setConfirmBack] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [permViewMode, setPermViewMode] = useState<"board" | "list">("board");
 
   // Responsive detection
   useEffect(() => {
@@ -1329,32 +1394,105 @@ function RoleEditor({
       {/* Permissions Board */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("roles.permissionsTitle")}</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>{t("roles.permissionsTitle")}</CardTitle>
+            {/* Board / List toggle */}
+            {!isMobile && (
+              <div className="flex items-center gap-0">
+                <button
+                  type="button"
+                  onClick={() => setPermViewMode("board")}
+                  className={cn(
+                    "px-[8px] py-[3px] font-kosugi text-[10px] uppercase tracking-wider",
+                    "border transition-colors duration-150 rounded-l",
+                    permViewMode === "board"
+                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                  )}
+                >
+                  {t("roles.permViewBoard")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPermViewMode("list")}
+                  className={cn(
+                    "px-[8px] py-[3px] font-kosugi text-[10px] uppercase tracking-wider",
+                    "border transition-colors duration-150 rounded-r",
+                    permViewMode === "list"
+                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                  )}
+                >
+                  {t("roles.permViewList")}
+                </button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          {isMobile ? (
-            <div className="p-1.5">
-              <MobilePermissionEditor
+          {/* Inline preset lock note */}
+          {isPreset && (
+            <div className="flex items-center justify-between px-2 py-1.5 bg-[rgba(255,255,255,0.02)] border-b border-border">
+              <div className="flex items-center gap-[6px]">
+                <Lock className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+                <p className="font-kosugi text-[11px] text-text-disabled">
+                  {t("roles.cannotEditPreset")}
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDuplicate}
+                disabled={duplicateRole.isPending}
+                loading={duplicateRole.isPending}
+                className="gap-[4px] shrink-0"
+              >
+                <Copy className="w-[14px] h-[14px]" />
+                {t("roles.duplicateToEdit")}
+              </Button>
+            </div>
+          )}
+          <div className="relative">
+            {isMobile || permViewMode === "list" ? (
+              <div className="p-1.5">
+                <MobilePermissionEditor
+                  permissionEdits={permissionEdits}
+                  grantedModules={grantedModules}
+                  onAddModule={handleAddModule}
+                  onMoveModule={handleMoveModule}
+                  onRemoveModule={handleRemoveModule}
+                  onBulkAdd={handleBulkAdd}
+                  disabled={isPreset}
+                />
+              </div>
+            ) : (
+              <PermissionBoard
                 permissionEdits={permissionEdits}
                 grantedModules={grantedModules}
                 onAddModule={handleAddModule}
                 onMoveModule={handleMoveModule}
                 onRemoveModule={handleRemoveModule}
                 onBulkAdd={handleBulkAdd}
+                onScopeChange={handleScopeChange}
                 disabled={isPreset}
               />
-            </div>
-          ) : (
-            <PermissionBoard
-              permissionEdits={permissionEdits}
-              grantedModules={grantedModules}
-              onAddModule={handleAddModule}
-              onMoveModule={handleMoveModule}
-              onRemoveModule={handleRemoveModule}
-              onBulkAdd={handleBulkAdd}
-              disabled={isPreset}
-            />
-          )}
+            )}
+            {/* Click-capture overlay for preset roles — shows toast on interaction */}
+            {isPreset && (
+              <div
+                className="absolute inset-0 z-10 cursor-not-allowed"
+                onClick={() => {
+                  toast(t("roles.cannotEditPreset"), {
+                    description: t("roles.presetBanner"),
+                    action: {
+                      label: t("roles.duplicateToEdit"),
+                      onClick: handleDuplicate,
+                    },
+                  });
+                }}
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -1472,6 +1610,309 @@ function RoleEditor({
         variant="destructive"
         onConfirm={onBack}
       />
+    </div>
+  );
+}
+
+// ─── Roles Assignment Board (kanban-style) ───────────────────────────────────
+
+function MemberDragCard({
+  userId,
+  name,
+  email,
+  profileImageURL,
+  userColor,
+  roleId,
+  disabled,
+}: {
+  userId: string;
+  name: string;
+  email?: string;
+  profileImageURL?: string | null;
+  userColor?: string | null;
+  roleId: string;
+  disabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `member-${roleId}-${userId}`,
+      data: { userId, roleId },
+      disabled,
+    });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  const initials = getInitials(name);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "flex items-center gap-1.5 px-[8px] py-[6px] border border-border rounded",
+        "bg-[rgba(255,255,255,0.02)] cursor-grab active:cursor-grabbing",
+        "hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)]",
+        "transition-all duration-150 group/member-card",
+        isDragging && "opacity-20"
+      )}
+    >
+      <div
+        className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border-2 border-ops-accent overflow-hidden"
+        style={userColor ? { borderColor: userColor } : undefined}
+      >
+        {profileImageURL ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={profileImageURL}
+            alt=""
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <span
+            className="font-mohave text-[10px] text-ops-accent"
+            style={userColor ? { color: userColor } : undefined}
+          >
+            {initials}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-mohave text-body-sm text-text-primary truncate">{name}</p>
+        {email && (
+          <p className="font-mono text-[9px] text-text-disabled truncate">{email}</p>
+        )}
+      </div>
+      <GripVertical className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover/member-card:opacity-100 transition-opacity shrink-0" />
+    </div>
+  );
+}
+
+function RoleAssignmentColumn({
+  roleId,
+  roleName,
+  members,
+  isPreset,
+  onClickHeader,
+}: {
+  roleId: string;
+  roleName: string;
+  members: { id: string; name: string; email?: string; profileImageURL?: string | null; userColor?: string | null }[];
+  isPreset: boolean;
+  onClickHeader?: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `role-col-${roleId}` });
+
+  return (
+    <div className="flex flex-col min-w-[220px] w-[220px] shrink-0">
+      {/* Column header */}
+      <div
+        className={cn(
+          "flex items-center gap-[6px] px-1.5 py-1 bg-background-elevated border border-border rounded-t",
+          onClickHeader && "cursor-pointer hover:bg-[rgba(255,255,255,0.06)]"
+        )}
+        onClick={onClickHeader}
+      >
+        {isPreset && <Lock className="w-[10px] h-[10px] text-text-disabled shrink-0" />}
+        <h3 className="font-mohave text-body-sm font-medium text-text-primary uppercase tracking-wider truncate flex-1">
+          {roleName}
+        </h3>
+        <span className="font-mono text-[10px] text-text-disabled shrink-0">
+          {members.length}
+        </span>
+      </div>
+
+      {/* Droppable area */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 border border-border border-t-0 rounded-b p-1 space-y-[4px] min-h-[120px] transition-colors duration-150",
+          isOver
+            ? "bg-[rgba(89,119,159,0.08)] border-ops-accent"
+            : "bg-[rgba(10,10,10,0.5)]"
+        )}
+      >
+        {members.map((member) => (
+          <MemberDragCard
+            key={`${roleId}-${member.id}`}
+            userId={member.id}
+            name={member.name}
+            email={member.email}
+            profileImageURL={member.profileImageURL}
+            userColor={member.userColor}
+            roleId={roleId}
+          />
+        ))}
+        {members.length === 0 && (
+          <div className="flex items-center justify-center h-[80px] border border-dashed border-border rounded">
+            <span className="font-kosugi text-[10px] text-text-disabled">
+              —
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RolesAssignmentBoard({
+  roles,
+  allUserRoles,
+  onEditRole,
+}: {
+  roles: { id: string; name: string; isPreset: boolean }[];
+  allUserRoles: { userId: string; roleId: string }[];
+  onEditRole: (roleId: string) => void;
+}) {
+  const { t } = useDictionary("settings");
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const { data: teamData } = useTeamMembers();
+  const members = teamData?.users ?? [];
+  const assignUserRole = useAssignUserRole();
+  const removeUserRole = useRemoveUserRole();
+
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // Build role → members mapping
+  const roleMembers = useMemo(() => {
+    const userRoleMap = new Map<string, Set<string>>();
+    for (const ur of allUserRoles) {
+      if (!userRoleMap.has(ur.userId)) userRoleMap.set(ur.userId, new Set());
+      userRoleMap.get(ur.userId)!.add(ur.roleId);
+    }
+
+    const result = new Map<string, { id: string; name: string; email?: string; profileImageURL?: string | null; userColor?: string | null }[]>();
+    for (const role of roles) {
+      result.set(role.id, []);
+    }
+    result.set("unassigned", []);
+
+    for (const member of members) {
+      if (member.isActive === false) continue;
+      const memberInfo = {
+        id: member.id,
+        name: getUserFullName(member),
+        email: member.email ?? undefined,
+        profileImageURL: member.profileImageURL,
+        userColor: member.userColor,
+      };
+
+      const assignedRoles = userRoleMap.get(member.id);
+      if (!assignedRoles || assignedRoles.size === 0) {
+        result.get("unassigned")!.push(memberInfo);
+      } else {
+        for (const roleId of assignedRoles) {
+          result.get(roleId)?.push(memberInfo);
+        }
+      }
+    }
+
+    return result;
+  }, [roles, members, allUserRoles]);
+
+  // Active drag info for overlay
+  const activeMember = useMemo(() => {
+    if (!activeId) return null;
+    // activeId format: "member-{roleId}-{userId}"
+    const parts = activeId.replace("member-", "");
+    // Find the member
+    for (const member of members) {
+      if (parts.endsWith(member.id)) {
+        return { name: getUserFullName(member) };
+      }
+    }
+    return null;
+  }, [activeId, members]);
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || !currentUser) return;
+
+    const data = active.data.current;
+    const userId = data?.userId as string;
+    const sourceRoleId = data?.roleId as string;
+    const targetRoleId = (over.id as string).replace("role-col-", "");
+
+    if (sourceRoleId === targetRoleId) return;
+
+    // Remove from source role (if not unassigned)
+    if (sourceRoleId !== "unassigned") {
+      removeUserRole.mutate(
+        { userId, roleId: sourceRoleId },
+        { onError: (err) => toast.error(t("roles.toast.reassignFailed"), { description: err.message }) }
+      );
+    }
+
+    // Assign to target role (if not unassigned)
+    if (targetRoleId !== "unassigned") {
+      assignUserRole.mutate(
+        { userId, roleId: targetRoleId, assignedBy: currentUser.id },
+        {
+          onSuccess: () => toast.success(t("roles.toast.memberReassigned")),
+          onError: (err) => toast.error(t("roles.toast.reassignFailed"), { description: err.message }),
+        }
+      );
+    } else {
+      toast.success(t("roles.toast.memberRemoved"));
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="font-kosugi text-[10px] text-text-disabled">
+        {t("roles.boardHint")}
+      </p>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {/* Unassigned column */}
+          <RoleAssignmentColumn
+            roleId="unassigned"
+            roleName={t("roles.unassigned")}
+            members={roleMembers.get("unassigned") ?? []}
+            isPreset={false}
+          />
+
+          {/* Role columns */}
+          {roles.map((role) => (
+            <RoleAssignmentColumn
+              key={role.id}
+              roleId={role.id}
+              roleName={role.name}
+              members={roleMembers.get(role.id) ?? []}
+              isPreset={role.isPreset}
+              onClickHeader={() => onEditRole(role.id)}
+            />
+          ))}
+        </div>
+
+        {/* Drag overlay */}
+        <DragOverlay>
+          {activeMember ? (
+            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-mohave text-[11px] text-text-primary">
+              {activeMember.name}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
@@ -1612,6 +2053,7 @@ export function RolesTab() {
   const deleteRole = useDeleteRole();
 
   const [view, setView] = useState<View>("list");
+  const [listMode, setListMode] = useState<ListMode>("rows");
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -1715,15 +2157,47 @@ export function RolesTab() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>{t("roles.title")}</CardTitle>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowCreate(!showCreate)}
-              className="gap-[4px]"
-            >
-              <Plus className="w-[14px] h-[14px]" />
-              {t("roles.createRole")}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {/* List / Board toggle */}
+              <div className="flex items-center gap-0">
+                <button
+                  type="button"
+                  onClick={() => setListMode("rows")}
+                  title={t("roles.listView")}
+                  className={cn(
+                    "p-[5px] border transition-colors duration-150 rounded-l",
+                    listMode === "rows"
+                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                  )}
+                >
+                  <List className="w-[14px] h-[14px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListMode("board")}
+                  title={t("roles.boardView")}
+                  className={cn(
+                    "p-[5px] border transition-colors duration-150 rounded-r",
+                    listMode === "board"
+                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                  )}
+                >
+                  <LayoutGrid className="w-[14px] h-[14px]" />
+                </button>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowCreate(!showCreate)}
+                className="gap-[4px]"
+              >
+                <Plus className="w-[14px] h-[14px]" />
+                {t("roles.createRole")}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -1771,6 +2245,12 @@ export function RolesTab() {
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
             </div>
+          ) : listMode === "board" ? (
+            <RolesAssignmentBoard
+              roles={roles ?? []}
+              allUserRoles={allUserRoles ?? []}
+              onEditRole={handleEdit}
+            />
           ) : (
             <>
               {/* Preset roles */}
