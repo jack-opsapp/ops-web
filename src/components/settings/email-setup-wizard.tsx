@@ -14,14 +14,13 @@ import {
   Search,
   X,
   Inbox,
-  Eye,
   Plus,
-  ChevronDown,
   Zap,
   BarChart3,
   Users,
   Shield,
 } from "lucide-react";
+import { FilterFunnelCanvas } from "@/components/settings/filter-funnel-canvas";
 import {
   Dialog,
   DialogContent,
@@ -113,14 +112,6 @@ interface ScannedEmail {
   reason?: string;
 }
 
-interface DomainGroup {
-  domain: string;
-  count: number;
-  sample: ScannedEmail[];
-  suggested: "import" | "filter";
-  reason: string;
-}
-
 interface WizardStep {
   id: string;
   label: string;
@@ -175,16 +166,23 @@ export function EmailSetupWizard({
   // Scan state
   const [scanning, setScanning] = useState(false);
   const [scannedEmails, setScannedEmails] = useState<ScannedEmail[]>([]);
-  const [domainGroups, setDomainGroups] = useState<DomainGroup[]>([]);
   const [scanComplete, setScanComplete] = useState(false);
   const [scanJobId, setScanJobId] = useState<string | null>(null);
   const [scanSummary, setScanSummary] = useState<string | null>(null);
+  const [preFilteredCount, setPreFilteredCount] = useState(0);
   const [scanProgress, setScanProgress] = useState<{
     stage: string;
     current: number;
     total: number;
     message: string;
   }>({ stage: "pending", current: 0, total: 0, message: "Starting scan..." });
+
+  // Store AI-suggested filters separately so categories can be toggled on/off and restored
+  const [aiSuggestedFilters, setAiSuggestedFilters] = useState<{
+    excludeDomains: string[];
+    excludeAddresses: string[];
+    excludeSubjectKeywords: string[];
+  } | null>(null);
 
   // Filter state
   const [filters, setFilters] = useState<GmailSyncFilters>(
@@ -307,54 +305,30 @@ export function EmailSetupWizard({
   function processScanResults(data: ScanResultData) {
     const emails: ScannedEmail[] = data.emails ?? [];
     setScannedEmails(emails);
+    setPreFilteredCount(data.preFiltered ?? 0);
 
     // Auto-apply AI-recommended filters
     const ai = data.recommendedFilters;
 
-    // Group by domain
-    const domainMap = new Map<string, ScannedEmail[]>();
-    for (const email of emails) {
-      const existing = domainMap.get(email.domain) ?? [];
-      existing.push(email);
-      domainMap.set(email.domain, existing);
-    }
+    // Save AI suggestions separately for category toggle restore
+    const aiDomains = ai?.excludeDomains ?? [];
+    const aiAddresses = ai?.excludeAddresses ?? [];
+    const aiKeywords = ai?.excludeSubjectKeywords ?? [];
+    setAiSuggestedFilters({
+      excludeDomains: aiDomains,
+      excludeAddresses: aiAddresses,
+      excludeSubjectKeywords: aiKeywords,
+    });
 
-    const groups: DomainGroup[] = Array.from(domainMap.entries())
-      .map(([domain, domainEmails]) => {
-        const importable = domainEmails.filter((e) => e.wouldImport).length;
-        const suggested = importable > domainEmails.length / 2 ? "import" as const : "filter" as const;
-        const reason = domainEmails[0]?.reason ?? "";
-
-        return {
-          domain,
-          count: domainEmails.length,
-          sample: domainEmails.slice(0, 3),
-          suggested,
-          reason,
-        };
-      })
-      .sort((a, b) => b.count - a.count);
-
-    // Collect all domains the AI suggests filtering — both from recommendedFilters
-    // and from per-email verdicts (domain-level majority vote)
-    const suggestedBlockDomains = groups
-      .filter((g) => g.suggested === "filter")
-      .map((g) => g.domain);
-
-    // Build the complete staged filter state so we can count accurately
-    // and apply it in a single setFilters call
+    // Build the complete staged filter state in a single setFilters call
     setFilters((prev) => {
       const domainSet = new Set(prev.excludeDomains);
       const addressSet = new Set(prev.excludeAddresses);
       const keywordSet = new Set(prev.excludeSubjectKeywords);
 
-      // Merge AI-recommended filters
-      for (const d of ai?.excludeDomains ?? []) domainSet.add(d);
-      for (const a of ai?.excludeAddresses ?? []) addressSet.add(a);
-      for (const k of ai?.excludeSubjectKeywords ?? []) keywordSet.add(k);
-
-      // Merge domain-level suggestions
-      for (const d of suggestedBlockDomains) domainSet.add(d);
+      for (const d of aiDomains) domainSet.add(d);
+      for (const a of aiAddresses) addressSet.add(a);
+      for (const k of aiKeywords) keywordSet.add(k);
 
       return {
         ...prev,
@@ -367,17 +341,14 @@ export function EmailSetupWizard({
     });
 
     // Compute post-filter count synchronously for the toast
-    // (mirrors what the staged filters will look like)
     const allBlockedDomains = new Set([
       ...filters.excludeDomains,
-      ...(ai?.excludeDomains ?? []),
-      ...suggestedBlockDomains,
+      ...aiDomains,
     ]);
     const stagedFilterCount = emails.filter((e) =>
       allBlockedDomains.has(e.domain) || !e.wouldImport,
     ).length;
 
-    setDomainGroups(groups);
     setScanSummary(ai?.summary ?? null);
     setScanComplete(true);
     setScanning(false);
@@ -499,8 +470,9 @@ export function EmailSetupWizard({
     setScanning(true);
     setScanComplete(false);
     setScannedEmails([]);
-    setDomainGroups([]);
     setScanSummary(null);
+    setPreFilteredCount(0);
+    setAiSuggestedFilters(null);
     setScanProgress({ stage: "pending", current: 0, total: 0, message: "Starting scan..." });
 
     try {
@@ -603,7 +575,7 @@ export function EmailSetupWizard({
       case "how-it-works":
         return true;
       case "scan":
-        return scanComplete || scannedEmails.length > 0;
+        return scanComplete;
       case "filters":
         return true;
       case "import":
@@ -643,7 +615,7 @@ export function EmailSetupWizard({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className={`${currentStep.id === "filters" && scannedEmails.length > 0 ? "max-w-[1060px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
+        className={`${currentStep.id === "filters" && scannedEmails.length > 0 ? "max-w-[1100px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
         hideClose
       >
         {/* ── Header with step indicator ─────────────────────────────── */}
@@ -762,22 +734,12 @@ export function EmailSetupWizard({
                   scanning={scanning}
                   scanComplete={scanComplete}
                   scannedEmails={scannedEmails}
-                  domainGroups={domainGroups}
                   onScan={scanEmails}
                   hasConnection={hasConnection}
                   connectionEmail={firstConnection?.email}
                   filters={filters}
                   scanProgress={scanProgress}
                   scanSummary={scanSummary}
-                  onExcludeDomain={(domain) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      excludeDomains: prev.excludeDomains.includes(domain)
-                        ? prev.excludeDomains
-                        : [...prev.excludeDomains, domain],
-                    }));
-                    toast.success(`${domain} added to block list`);
-                  }}
                 />
               )}
 
@@ -786,8 +748,9 @@ export function EmailSetupWizard({
                   filters={filters}
                   connectionId={firstConnection.id}
                   onUpdate={setFilters}
-                  domainGroups={domainGroups}
                   scannedEmails={scannedEmails}
+                  preFilteredCount={preFilteredCount}
+                  aiSuggestedFilters={aiSuggestedFilters}
                 />
               )}
 
@@ -1082,29 +1045,23 @@ function StepScan({
   scanning,
   scanComplete,
   scannedEmails,
-  domainGroups,
   onScan,
   hasConnection,
   connectionEmail,
   filters,
   scanProgress,
   scanSummary,
-  onExcludeDomain,
 }: {
   scanning: boolean;
   scanComplete: boolean;
   scannedEmails: ScannedEmail[];
-  domainGroups: DomainGroup[];
   onScan: () => void;
   hasConnection: boolean;
   connectionEmail?: string;
   filters: GmailSyncFilters;
   scanProgress: { stage: string; current: number; total: number; message: string };
   scanSummary: string | null;
-  onExcludeDomain: (domain: string) => void;
 }) {
-  const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
-
   const importCount = scannedEmails.filter((e) => wouldImportWithFilters(e, filters)).length;
   const filterCount = scannedEmails.length - importCount;
 
@@ -1291,130 +1248,6 @@ function StepScan({
               </p>
             </motion.div>
           )}
-
-          {/* Domain breakdown — scrollable, expandable */}
-          <motion.div
-            variants={staggerItem}
-            className="max-h-[320px] overflow-y-auto space-y-[4px] pr-[4px]"
-          >
-            {domainGroups.map((group) => {
-              const isExpanded = expandedDomain === group.domain;
-              const isExcluded = filters.excludeDomains.includes(group.domain);
-              const wouldImport = !isExcluded && group.suggested === "import";
-              const domainEmails = isExpanded
-                ? scannedEmails.filter((e) => e.domain === group.domain)
-                : [];
-
-              return (
-                <div key={group.domain}>
-                  <div
-                    className={`flex items-center gap-[8px] px-1.5 py-[6px] rounded border transition-colors cursor-pointer ${
-                      isExcluded
-                        ? "border-border-subtle bg-background-card/50 opacity-60"
-                        : "border-border-subtle hover:border-border"
-                    }`}
-                    onClick={() =>
-                      setExpandedDomain(isExpanded ? null : group.domain)
-                    }
-                  >
-                    <ChevronDown
-                      className={`w-[12px] h-[12px] text-text-disabled shrink-0 transition-transform duration-200 ${
-                        isExpanded ? "" : "-rotate-90"
-                      }`}
-                    />
-                    <div
-                      className={`w-[8px] h-[8px] rounded-full shrink-0 ${
-                        wouldImport
-                          ? "bg-[#9DB582]"
-                          : "bg-text-disabled"
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0 text-left">
-                      <span className={`font-mono text-data-sm block truncate ${
-                        isExcluded ? "text-text-disabled line-through" : "text-text-primary"
-                      }`}>
-                        {group.domain}
-                      </span>
-                      <span className="font-kosugi text-[9px] text-text-disabled">
-                        {group.count} email{group.count !== 1 ? "s" : ""} &middot; {group.reason}
-                      </span>
-                    </div>
-
-                    {isExcluded ? (
-                      <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider shrink-0">
-                        Filtered
-                      </span>
-                    ) : (
-                      <>
-                        <span
-                          className={`font-kosugi text-[9px] uppercase tracking-wider shrink-0 ${
-                            wouldImport
-                              ? "text-[#9DB582]"
-                              : "text-text-disabled"
-                          }`}
-                        >
-                          {wouldImport ? "Import" : "Filter"}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onExcludeDomain(group.domain);
-                          }}
-                          className="px-[6px] py-[2px] rounded text-[9px] font-kosugi text-text-disabled hover:text-ops-error hover:bg-ops-error/10 transition-colors shrink-0 uppercase tracking-wider"
-                        >
-                          Exclude
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Expanded email list */}
-                  {isExpanded && domainEmails.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="ml-[20px] border-l border-border-subtle pl-1.5 py-[4px] space-y-[2px]"
-                    >
-                      {domainEmails.slice(0, 10).map((email) => (
-                        <div
-                          key={email.id}
-                          className="flex items-center gap-[8px] py-[3px] px-[6px] rounded hover:bg-background-elevated transition-colors"
-                        >
-                          <div className="flex-1 min-w-0 text-left">
-                            <span className="font-mohave text-[11px] text-text-secondary block truncate">
-                              {email.subject || "(no subject)"}
-                            </span>
-                            <span className="font-mono text-[9px] text-text-disabled truncate block">
-                              {email.from}
-                            </span>
-                          </div>
-                          <span className={`font-kosugi text-[8px] uppercase tracking-wider px-[4px] py-[1px] rounded shrink-0 ${
-                            wouldImportWithFilters(email, filters)
-                              ? "bg-[rgba(107,143,113,0.1)] text-[#9DB582]"
-                              : "bg-background-card text-text-disabled"
-                          }`}>
-                            {wouldImportWithFilters(email, filters) ? "Import" : "Filter"}
-                          </span>
-                          <span className="font-kosugi text-[9px] text-text-disabled shrink-0">
-                            {new Date(email.date).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-                        </div>
-                      ))}
-                      {domainEmails.length > 10 && (
-                        <span className="font-kosugi text-[9px] text-text-disabled px-[6px]">
-                          +{domainEmails.length - 10} more
-                        </span>
-                      )}
-                    </motion.div>
-                  )}
-                </div>
-              );
-            })}
-          </motion.div>
         </>
       )}
     </motion.div>
@@ -1479,56 +1312,105 @@ function StepFilters({
   filters,
   connectionId,
   onUpdate,
-  domainGroups,
   scannedEmails,
+  preFilteredCount,
+  aiSuggestedFilters,
 }: {
   filters: GmailSyncFilters;
   connectionId: string;
   onUpdate: (f: GmailSyncFilters) => void;
-  domainGroups: DomainGroup[];
   scannedEmails: ScannedEmail[];
+  preFilteredCount: number;
+  aiSuggestedFilters: {
+    excludeDomains: string[];
+    excludeAddresses: string[];
+    excludeSubjectKeywords: string[];
+  } | null;
 }) {
+  const [drilledCategory, setDrilledCategory] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(
     (filters.rules?.length ?? 0) > 0,
   );
 
-  const hasPreview = scannedEmails.length > 0;
+  // Compute imported emails with current filters
+  const importedEmails = scannedEmails.filter((e) => wouldImportWithFilters(e, filters));
+  const importCount = importedEmails.length;
 
-  // Re-evaluate domain groups against current filters
-  const previewGroups = hasPreview
-    ? domainGroups.map((g) => {
-        const isExcluded = filters.excludeDomains.includes(g.domain);
-        return {
-          ...g,
-          currentStatus: isExcluded
-            ? "filter" as const
-            : g.suggested,
-        };
-      })
-    : [];
+  function handleToggleCategory(category: string, enabled: boolean) {
+    switch (category) {
+      case "preset":
+        onUpdate({ ...filters, usePresetBlocklist: enabled });
+        break;
+      case "domains":
+        if (!enabled) {
+          // Disable: remove all AI-suggested domains
+          const aiDomains = new Set(aiSuggestedFilters?.excludeDomains ?? []);
+          onUpdate({
+            ...filters,
+            excludeDomains: filters.excludeDomains.filter((d) => !aiDomains.has(d)),
+          });
+        } else {
+          // Enable: restore AI-suggested domains
+          const domainSet = new Set(filters.excludeDomains);
+          for (const d of aiSuggestedFilters?.excludeDomains ?? []) domainSet.add(d);
+          onUpdate({ ...filters, excludeDomains: Array.from(domainSet) });
+        }
+        break;
+      case "addresses":
+        if (!enabled) {
+          const aiAddresses = new Set(aiSuggestedFilters?.excludeAddresses ?? []);
+          onUpdate({
+            ...filters,
+            excludeAddresses: filters.excludeAddresses.filter((a) => !aiAddresses.has(a)),
+          });
+        } else {
+          const addrSet = new Set(filters.excludeAddresses);
+          for (const a of aiSuggestedFilters?.excludeAddresses ?? []) addrSet.add(a);
+          onUpdate({ ...filters, excludeAddresses: Array.from(addrSet) });
+        }
+        break;
+      case "keywords":
+        if (!enabled) {
+          const aiKeywords = new Set(aiSuggestedFilters?.excludeSubjectKeywords ?? []);
+          onUpdate({
+            ...filters,
+            excludeSubjectKeywords: filters.excludeSubjectKeywords.filter((k) => !aiKeywords.has(k)),
+          });
+        } else {
+          const kwSet = new Set(filters.excludeSubjectKeywords);
+          for (const k of aiSuggestedFilters?.excludeSubjectKeywords ?? []) kwSet.add(k);
+          onUpdate({ ...filters, excludeSubjectKeywords: Array.from(kwSet) });
+        }
+        break;
+    }
+  }
 
-  const previewImportCount = hasPreview
-    ? scannedEmails.filter((e) => wouldImportWithFilters(e, filters)).length
-    : 0;
-  const previewFilterCount = scannedEmails.length - previewImportCount;
-
-  // Auto-suggest: add blocked domains from scan
-  function applySuggestions() {
-    const domainsToBlock = domainGroups
-      .filter((g) => g.suggested === "filter")
-      .map((g) => g.domain);
-
-    const existingDomains = new Set(filters.excludeDomains);
-    const newDomains = domainsToBlock.filter((d) => !existingDomains.has(d));
-
-    if (newDomains.length > 0) {
-      onUpdate({
-        ...filters,
-        excludeDomains: [...filters.excludeDomains, ...newDomains],
-      });
-      toast.success(`Added ${newDomains.length} domains to block list`);
-    } else {
-      toast.info("All suggested domains are already blocked");
+  function handleToggleSubItem(category: string, value: string, enabled: boolean) {
+    switch (category) {
+      case "domains":
+        onUpdate({
+          ...filters,
+          excludeDomains: enabled
+            ? [...filters.excludeDomains, value]
+            : filters.excludeDomains.filter((d) => d !== value),
+        });
+        break;
+      case "addresses":
+        onUpdate({
+          ...filters,
+          excludeAddresses: enabled
+            ? [...filters.excludeAddresses, value]
+            : filters.excludeAddresses.filter((a) => a !== value),
+        });
+        break;
+      case "keywords":
+        onUpdate({
+          ...filters,
+          excludeSubjectKeywords: enabled
+            ? [...filters.excludeSubjectKeywords, value]
+            : filters.excludeSubjectKeywords.filter((k) => k !== value),
+        });
+        break;
     }
   }
 
@@ -1537,32 +1419,36 @@ function StepFilters({
       variants={staggerContainer}
       initial="hidden"
       animate="show"
+      className="space-y-2"
     >
-      <motion.div variants={staggerItem} className="mb-2">
+      <motion.div variants={staggerItem}>
         <p className="font-mohave text-body text-text-primary text-left">
           Configure which emails make it into your pipeline.
         </p>
       </motion.div>
 
-      <div className={`flex gap-3 ${hasPreview ? "" : "flex-col"}`}>
-        {/* Left: Filter controls */}
-        <div className="flex-1 min-w-0 space-y-2">
-          {/* Quick actions from scan */}
-          {domainGroups.length > 0 && (
-            <motion.div variants={staggerItem}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={applySuggestions}
-                className="gap-[4px] font-kosugi text-[11px]"
-              >
-                <Zap className="w-[12px] h-[12px]" />
-                Apply scan suggestions
-              </Button>
-            </motion.div>
-          )}
+      {/* Funnel visualization */}
+      {scannedEmails.length > 0 && (
+        <motion.div variants={staggerItem}>
+          <FilterFunnelCanvas
+            filters={filters}
+            scannedEmails={scannedEmails}
+            preFilteredCount={preFilteredCount}
+            onToggleCategory={handleToggleCategory}
+            onDrillDown={setDrilledCategory}
+            drilledCategory={drilledCategory}
+            onZoomOut={() => setDrilledCategory(null)}
+            onToggleSubItem={handleToggleSubItem}
+            className="w-full rounded border border-border-subtle"
+          />
+        </motion.div>
+      )}
 
-          {/* Preset blocklist */}
+      {/* Controls + Email list side by side */}
+      <div className="flex gap-3">
+        {/* Left: Filter controls */}
+        <div className="w-[280px] shrink-0 space-y-2">
+          {/* Preset blocklist toggle */}
           <motion.div variants={staggerItem}>
             <button
               role="switch"
@@ -1593,39 +1479,13 @@ function StepFilters({
                   Block newsletters & notifications
                 </span>
                 <span className="font-kosugi text-[10px] text-text-disabled">
-                  60+ pre-configured domains (Mailchimp, LinkedIn, etc.)
+                  60+ pre-configured domains
                 </span>
               </div>
             </button>
           </motion.div>
 
-          {/* Filter rules builder */}
-          <motion.div variants={staggerItem}>
-            {!showBuilder ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowBuilder(true)}
-                className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
-              >
-                <Plus className="w-[12px] h-[12px]" />
-                Add custom filter rules
-              </Button>
-            ) : (
-              <div className="space-y-[6px]">
-                <label className="font-kosugi text-[10px] text-text-disabled block text-left">
-                  Only import emails matching these rules
-                </label>
-                <EmailFilterBuilder
-                  filters={filters}
-                  connectionId={connectionId}
-                  onUpdate={onUpdate}
-                />
-              </div>
-            )}
-          </motion.div>
-
-          {/* Blocked domains list (from excludeDomains) */}
+          {/* Blocked domains chips */}
           {filters.excludeDomains.length > 0 && (
             <motion.div variants={staggerItem}>
               <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px] text-left">
@@ -1661,90 +1521,147 @@ function StepFilters({
               </div>
             </motion.div>
           )}
+
+          {/* Blocked addresses chips */}
+          {(filters.excludeAddresses?.length ?? 0) > 0 && (
+            <motion.div variants={staggerItem}>
+              <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px] text-left">
+                Blocked addresses ({filters.excludeAddresses.length})
+              </label>
+              <div className="flex flex-wrap gap-[4px]">
+                {filters.excludeAddresses.slice(0, 8).map((a) => (
+                  <span
+                    key={a}
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-disabled"
+                  >
+                    {a}
+                    <button
+                      onClick={() =>
+                        onUpdate({
+                          ...filters,
+                          excludeAddresses: filters.excludeAddresses.filter(
+                            (x) => x !== a,
+                          ),
+                        })
+                      }
+                      className="hover:text-ops-error transition-colors"
+                    >
+                      <X className="w-[10px] h-[10px]" />
+                    </button>
+                  </span>
+                ))}
+                {filters.excludeAddresses.length > 8 && (
+                  <span className="font-kosugi text-[10px] text-text-disabled px-[6px] py-[2px]">
+                    +{filters.excludeAddresses.length - 8} more
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Subject keywords chips */}
+          {(filters.excludeSubjectKeywords?.length ?? 0) > 0 && (
+            <motion.div variants={staggerItem}>
+              <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px] text-left">
+                Subject keywords ({filters.excludeSubjectKeywords.length})
+              </label>
+              <div className="flex flex-wrap gap-[4px]">
+                {filters.excludeSubjectKeywords.slice(0, 8).map((k) => (
+                  <span
+                    key={k}
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-disabled"
+                  >
+                    {k}
+                    <button
+                      onClick={() =>
+                        onUpdate({
+                          ...filters,
+                          excludeSubjectKeywords: filters.excludeSubjectKeywords.filter(
+                            (x) => x !== k,
+                          ),
+                        })
+                      }
+                      className="hover:text-ops-error transition-colors"
+                    >
+                      <X className="w-[10px] h-[10px]" />
+                    </button>
+                  </span>
+                ))}
+                {filters.excludeSubjectKeywords.length > 8 && (
+                  <span className="font-kosugi text-[10px] text-text-disabled px-[6px] py-[2px]">
+                    +{filters.excludeSubjectKeywords.length - 8} more
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Custom filter rules builder */}
+          <motion.div variants={staggerItem}>
+            {!showBuilder ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowBuilder(true)}
+                className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
+              >
+                <Plus className="w-[12px] h-[12px]" />
+                Add custom filter rules
+              </Button>
+            ) : (
+              <div className="space-y-[6px]">
+                <label className="font-kosugi text-[10px] text-text-disabled block text-left">
+                  Custom exclusion rules
+                </label>
+                <EmailFilterBuilder
+                  filters={filters}
+                  connectionId={connectionId}
+                  onUpdate={onUpdate}
+                />
+              </div>
+            )}
+          </motion.div>
         </div>
 
-        {/* Right: Email preview pane */}
-        {hasPreview && (
-          <motion.div
-            variants={staggerItem}
-            className="w-[300px] shrink-0 rounded border border-border-subtle bg-background-card overflow-hidden flex flex-col"
-          >
-            {/* Preview header + stats */}
-            <div className="px-1.5 py-1 border-b border-border-subtle">
-              <div className="flex items-center gap-[6px] mb-[6px]">
-                <Eye className="w-[12px] h-[12px] text-ops-accent" />
-                <span className="font-kosugi text-[10px] text-text-secondary uppercase tracking-wider">
-                  Import preview
+        {/* Right: Email list */}
+        <div className="flex-1 min-w-0 rounded border border-border-subtle bg-background-card overflow-hidden flex flex-col">
+          <div className="px-2 py-1.5 border-b border-border-subtle flex items-center justify-between">
+            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+              {importCount} emails will be imported
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto max-h-[300px]">
+            {importedEmails.length === 0 ? (
+              <div className="flex items-center justify-center py-6">
+                <span className="font-mohave text-body-sm text-text-disabled">
+                  No emails match current filters
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-[4px]">
-                  <div className="w-[6px] h-[6px] rounded-full bg-[#9DB582]" />
-                  <span className="font-mono text-[11px] text-[#9DB582]">
-                    {previewImportCount}
-                  </span>
-                  <span className="font-kosugi text-[9px] text-text-disabled">import</span>
-                </div>
-                <div className="flex items-center gap-[4px]">
-                  <div className="w-[6px] h-[6px] rounded-full bg-text-disabled" />
-                  <span className="font-mono text-[11px] text-text-disabled">
-                    {previewFilterCount}
-                  </span>
-                  <span className="font-kosugi text-[9px] text-text-disabled">filtered</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Domain list */}
-            <div className="flex-1 overflow-y-auto max-h-[360px] p-[4px] space-y-[2px]">
-              {previewGroups.map((group) => {
-                const isExcluded = group.currentStatus === "filter" && filters.excludeDomains.includes(group.domain);
-
-                return (
-                  <div
-                    key={group.domain}
-                    className="flex items-center gap-[6px] px-[6px] py-[4px] rounded hover:bg-background-elevated transition-colors"
-                  >
-                    <div
-                      className={`w-[6px] h-[6px] rounded-full shrink-0 ${
-                        group.currentStatus === "import"
-                          ? "bg-[#9DB582]"
-                          : isExcluded
-                            ? "bg-ops-error"
-                            : "bg-text-disabled"
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0 text-left">
-                      <span className={`font-mono text-[10px] block truncate ${
-                        isExcluded ? "text-text-disabled line-through" : "text-text-primary"
-                      }`}>
-                        {group.domain}
-                      </span>
-                    </div>
-                    <span className="font-mono text-[9px] text-text-disabled shrink-0">
-                      {group.count}
+            ) : (
+              importedEmails.map((email) => (
+                <div
+                  key={email.id}
+                  className="flex items-center gap-[8px] py-[3px] px-2 border-b border-border-subtle/50 hover:bg-background-elevated transition-colors"
+                >
+                  <div className="flex-1 min-w-0 text-left">
+                    <span className="font-mohave text-[11px] text-text-secondary block truncate">
+                      {email.subject || "(no subject)"}
                     </span>
-                    <span
-                      className={`font-kosugi text-[8px] uppercase tracking-wider shrink-0 ${
-                        group.currentStatus === "import"
-                          ? "text-[#9DB582]"
-                          : isExcluded
-                            ? "text-ops-error"
-                            : "text-text-disabled"
-                      }`}
-                    >
-                      {group.currentStatus === "import"
-                        ? "Import"
-                        : isExcluded
-                          ? "Blocked"
-                          : "Filter"}
+                    <span className="font-mono text-[9px] text-text-disabled truncate block">
+                      {email.from}
                     </span>
                   </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
+                  <span className="font-kosugi text-[9px] text-text-disabled shrink-0">
+                    {new Date(email.date).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </motion.div>
   );
