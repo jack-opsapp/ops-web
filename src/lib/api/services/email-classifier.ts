@@ -106,7 +106,7 @@ function sanitizeField(value: string, maxLen: number): string {
 
 // ─── Main Function ──────────────────────────────────────────────────────────
 
-const MAX_EMAILS = 250;
+const MAX_EMAILS = 100;
 
 /**
  * Analyze all scanned emails in a single API call and return

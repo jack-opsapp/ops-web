@@ -110,7 +110,7 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const MAX_SCAN = 250;
+const MAX_SCAN = 100;
 const BATCH_SIZE = 50;
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
