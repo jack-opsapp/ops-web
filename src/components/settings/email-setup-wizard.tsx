@@ -297,31 +297,6 @@ export function EmailSetupWizard({
 
     // Auto-apply AI-recommended filters
     const ai = data.recommendedFilters;
-    if (ai) {
-      setFilters((prev) => {
-        const existingDomains = new Set(prev.excludeDomains);
-        const existingAddresses = new Set(prev.excludeAddresses);
-        const existingKeywords = new Set(prev.excludeSubjectKeywords);
-
-        return {
-          ...prev,
-          excludeDomains: [
-            ...prev.excludeDomains,
-            ...(ai.excludeDomains ?? []).filter((d: string) => !existingDomains.has(d)),
-          ],
-          excludeAddresses: [
-            ...prev.excludeAddresses,
-            ...(ai.excludeAddresses ?? []).filter((a: string) => !existingAddresses.has(a)),
-          ],
-          excludeSubjectKeywords: [
-            ...prev.excludeSubjectKeywords,
-            ...(ai.excludeSubjectKeywords ?? []).filter((k: string) => !existingKeywords.has(k)),
-          ],
-          usePresetBlocklist: ai.usePresetBlocklist ?? prev.usePresetBlocklist,
-          labelIds: ai.labelIds ?? prev.labelIds,
-        };
-      });
-    }
 
     // Group by domain
     const domainMap = new Map<string, ScannedEmail[]>();
@@ -347,11 +322,53 @@ export function EmailSetupWizard({
       })
       .sort((a, b) => b.count - a.count);
 
+    // Collect all domains the AI suggests filtering — both from recommendedFilters
+    // and from per-email verdicts (domain-level majority vote)
+    const suggestedBlockDomains = groups
+      .filter((g) => g.suggested === "filter")
+      .map((g) => g.domain);
+
+    // Build the complete staged filter state so we can count accurately
+    // and apply it in a single setFilters call
+    setFilters((prev) => {
+      const domainSet = new Set(prev.excludeDomains);
+      const addressSet = new Set(prev.excludeAddresses);
+      const keywordSet = new Set(prev.excludeSubjectKeywords);
+
+      // Merge AI-recommended filters
+      for (const d of ai?.excludeDomains ?? []) domainSet.add(d);
+      for (const a of ai?.excludeAddresses ?? []) addressSet.add(a);
+      for (const k of ai?.excludeSubjectKeywords ?? []) keywordSet.add(k);
+
+      // Merge domain-level suggestions
+      for (const d of suggestedBlockDomains) domainSet.add(d);
+
+      return {
+        ...prev,
+        excludeDomains: Array.from(domainSet),
+        excludeAddresses: Array.from(addressSet),
+        excludeSubjectKeywords: Array.from(keywordSet),
+        usePresetBlocklist: ai?.usePresetBlocklist ?? prev.usePresetBlocklist,
+        labelIds: ai?.labelIds ?? prev.labelIds,
+      };
+    });
+
+    // Compute post-filter count synchronously for the toast
+    // (mirrors what the staged filters will look like)
+    const allBlockedDomains = new Set([
+      ...filters.excludeDomains,
+      ...(ai?.excludeDomains ?? []),
+      ...suggestedBlockDomains,
+    ]);
+    const stagedFilterCount = emails.filter((e) =>
+      allBlockedDomains.has(e.domain) || !e.wouldImport,
+    ).length;
+
     setDomainGroups(groups);
     setScanComplete(true);
     setScanning(false);
 
-    return { emails, ai };
+    return { emails, ai, stagedFilterCount };
   }
 
   function startPolling(jobId: string) {
@@ -382,10 +399,9 @@ export function EmailSetupWizard({
             return;
           }
 
-          const { emails, ai } = processScanResults(result);
-          const importCount = emails.filter((e: ScannedEmail) => e.wouldImport).length;
-          const filterCount = emails.length - importCount;
-          const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
+          const { emails, ai, stagedFilterCount } = processScanResults(result);
+          const postFilterImportCount = emails.length - stagedFilterCount;
+          const summary = ai?.summary ?? `${postFilterImportCount} to import, ${stagedFilterCount} filtered out.`;
 
           toast.success("Email scan complete", { description: summary });
 
@@ -1035,7 +1051,7 @@ function StepScan({
 }) {
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
 
-  const importCount = scannedEmails.filter((e) => e.wouldImport).length;
+  const importCount = scannedEmails.filter((e) => wouldImportWithFilters(e, filters)).length;
   const filterCount = scannedEmails.length - importCount;
 
   return (
@@ -1221,6 +1237,7 @@ function StepScan({
             {domainGroups.map((group) => {
               const isExpanded = expandedDomain === group.domain;
               const isExcluded = filters.excludeDomains.includes(group.domain);
+              const wouldImport = !isExcluded && group.suggested === "import";
               const domainEmails = isExpanded
                 ? scannedEmails.filter((e) => e.domain === group.domain)
                 : [];
@@ -1230,7 +1247,7 @@ function StepScan({
                   <div
                     className={`flex items-center gap-[8px] px-1.5 py-[6px] rounded border transition-colors cursor-pointer ${
                       isExcluded
-                        ? "border-ops-error/20 bg-ops-error/5"
+                        ? "border-border-subtle bg-background-card/50 opacity-60"
                         : "border-border-subtle hover:border-border"
                     }`}
                     onClick={() =>
@@ -1244,11 +1261,9 @@ function StepScan({
                     />
                     <div
                       className={`w-[8px] h-[8px] rounded-full shrink-0 ${
-                        isExcluded
-                          ? "bg-ops-error"
-                          : group.suggested === "import"
-                            ? "bg-[#9DB582]"
-                            : "bg-text-disabled"
+                        wouldImport
+                          ? "bg-[#9DB582]"
+                          : "bg-text-disabled"
                       }`}
                     />
                     <div className="flex-1 min-w-0 text-left">
@@ -1263,19 +1278,19 @@ function StepScan({
                     </div>
 
                     {isExcluded ? (
-                      <span className="font-kosugi text-[9px] text-ops-error uppercase tracking-wider shrink-0">
-                        Excluded
+                      <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider shrink-0">
+                        Filtered
                       </span>
                     ) : (
                       <>
                         <span
                           className={`font-kosugi text-[9px] uppercase tracking-wider shrink-0 ${
-                            group.suggested === "import"
+                            wouldImport
                               ? "text-[#9DB582]"
                               : "text-text-disabled"
                           }`}
                         >
-                          {group.suggested === "import" ? "Import" : "Filter"}
+                          {wouldImport ? "Import" : "Filter"}
                         </span>
                         <button
                           onClick={(e) => {
@@ -1312,11 +1327,11 @@ function StepScan({
                             </span>
                           </div>
                           <span className={`font-kosugi text-[8px] uppercase tracking-wider px-[4px] py-[1px] rounded shrink-0 ${
-                            email.wouldImport
+                            wouldImportWithFilters(email, filters)
                               ? "bg-[rgba(107,143,113,0.1)] text-[#9DB582]"
                               : "bg-background-card text-text-disabled"
                           }`}>
-                            {email.wouldImport ? "Import" : "Filter"}
+                            {wouldImportWithFilters(email, filters) ? "Import" : "Filter"}
                           </span>
                           <span className="font-kosugi text-[9px] text-text-disabled shrink-0">
                             {new Date(email.date).toLocaleDateString(undefined, {
