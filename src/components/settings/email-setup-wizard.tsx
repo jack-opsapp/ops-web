@@ -42,6 +42,8 @@ import type {
 } from "@/lib/types/pipeline";
 import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import { toast } from "sonner";
+import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { CheckCircle, AlertCircle } from "lucide-react";
 
 // ─── Animation ───────────────────────────────────────────────────────────────
 
@@ -131,6 +133,8 @@ export function EmailSetupWizard({
   const { data: connections = [], isLoading: connectionsLoading } = useGmailConnections();
   const gmailImport = useGmailImport();
   const updateConnection = useUpdateGmailConnection();
+  const showPrompt = useActionPromptStore((s) => s.showPrompt);
+  const removePrompt = useActionPromptStore((s) => s.removePrompt);
 
   const hasConnection = connections.length > 0;
   const firstConnection = connections[0];
@@ -210,7 +214,84 @@ export function EmailSetupWizard({
     setStepIndex(idx);
   }
 
-  // ── Scan emails ──────────────────────────────────────────────────────────
+  // ── Scan emails (runs in background) ─────────────────────────────────────
+
+  const scanPromptId = "email-scan-progress";
+
+  function processScanResults(data: {
+    emails?: ScannedEmail[];
+    recommendedFilters?: {
+      excludeDomains?: string[];
+      excludeAddresses?: string[];
+      excludeSubjectKeywords?: string[];
+      usePresetBlocklist?: boolean;
+      labelIds?: string[];
+      summary?: string;
+    };
+    preFiltered?: number;
+    aiAnalyzed?: number;
+  }) {
+    const emails: ScannedEmail[] = data.emails ?? [];
+    setScannedEmails(emails);
+
+    // Auto-apply AI-recommended filters
+    const ai = data.recommendedFilters;
+    if (ai) {
+      setFilters((prev) => {
+        const existingDomains = new Set(prev.excludeDomains);
+        const existingAddresses = new Set(prev.excludeAddresses);
+        const existingKeywords = new Set(prev.excludeSubjectKeywords);
+
+        return {
+          ...prev,
+          excludeDomains: [
+            ...prev.excludeDomains,
+            ...(ai.excludeDomains ?? []).filter((d: string) => !existingDomains.has(d)),
+          ],
+          excludeAddresses: [
+            ...prev.excludeAddresses,
+            ...(ai.excludeAddresses ?? []).filter((a: string) => !existingAddresses.has(a)),
+          ],
+          excludeSubjectKeywords: [
+            ...prev.excludeSubjectKeywords,
+            ...(ai.excludeSubjectKeywords ?? []).filter((k: string) => !existingKeywords.has(k)),
+          ],
+          usePresetBlocklist: ai.usePresetBlocklist ?? prev.usePresetBlocklist,
+          labelIds: ai.labelIds ?? prev.labelIds,
+        };
+      });
+    }
+
+    // Group by domain
+    const domainMap = new Map<string, ScannedEmail[]>();
+    for (const email of emails) {
+      const existing = domainMap.get(email.domain) ?? [];
+      existing.push(email);
+      domainMap.set(email.domain, existing);
+    }
+
+    const groups: DomainGroup[] = Array.from(domainMap.entries())
+      .map(([domain, domainEmails]) => {
+        const importable = domainEmails.filter((e) => e.wouldImport).length;
+        const suggested = importable > domainEmails.length / 2 ? "import" as const : "filter" as const;
+        const reason = domainEmails[0]?.reason ?? "";
+
+        return {
+          domain,
+          count: domainEmails.length,
+          sample: domainEmails.slice(0, 3),
+          suggested,
+          reason,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    setDomainGroups(groups);
+    setScanComplete(true);
+    setScanning(false);
+
+    return { emails, ai };
+  }
 
   async function scanEmails() {
     if (!firstConnection) return;
@@ -218,6 +299,22 @@ export function EmailSetupWizard({
     setScanComplete(false);
     setScannedEmails([]);
     setDomainGroups([]);
+
+    // Close wizard and show action prompt
+    onOpenChange(false);
+
+    removePrompt(scanPromptId);
+    showPrompt({
+      id: scanPromptId,
+      icon: Search,
+      title: "Analyzing your emails...",
+      description: "AI is reviewing your inbox to recommend the best filters. This may take a moment.",
+      ctaLabel: "Dismiss",
+      ctaAction: () => removePrompt(scanPromptId),
+      persistent: true,
+      dismissable: true,
+      variant: "accent",
+    });
 
     try {
       const resp = await fetch(
@@ -227,69 +324,43 @@ export function EmailSetupWizard({
       if (!resp.ok) throw new Error("Failed to scan emails");
 
       const data = await resp.json();
-      const emails: ScannedEmail[] = data.emails ?? [];
-      setScannedEmails(emails);
+      const { emails, ai } = processScanResults(data);
 
-      // Auto-apply AI-recommended filters
-      const ai = data.recommendedFilters;
-      if (ai) {
-        setFilters((prev) => {
-          const existingDomains = new Set(prev.excludeDomains);
-          const existingAddresses = new Set(prev.excludeAddresses);
-          const existingKeywords = new Set(prev.excludeSubjectKeywords);
+      // Show completion prompt with AI summary
+      const importCount = emails.filter((e) => e.wouldImport).length;
+      const filterCount = emails.length - importCount;
+      const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
 
-          return {
-            ...prev,
-            excludeDomains: [
-              ...prev.excludeDomains,
-              ...(ai.excludeDomains ?? []).filter((d: string) => !existingDomains.has(d)),
-            ],
-            excludeAddresses: [
-              ...prev.excludeAddresses,
-              ...(ai.excludeAddresses ?? []).filter((a: string) => !existingAddresses.has(a)),
-            ],
-            excludeSubjectKeywords: [
-              ...prev.excludeSubjectKeywords,
-              ...(ai.excludeSubjectKeywords ?? []).filter((k: string) => !existingKeywords.has(k)),
-            ],
-            usePresetBlocklist: ai.usePresetBlocklist ?? prev.usePresetBlocklist,
-            labelIds: ai.labelIds ?? prev.labelIds,
-          };
-        });
-      }
-
-      // Group by domain
-      const domainMap = new Map<string, ScannedEmail[]>();
-      for (const email of emails) {
-        const existing = domainMap.get(email.domain) ?? [];
-        existing.push(email);
-        domainMap.set(email.domain, existing);
-      }
-
-      const groups: DomainGroup[] = Array.from(domainMap.entries())
-        .map(([domain, domainEmails]) => {
-          const importable = domainEmails.filter((e) => e.wouldImport).length;
-          const suggested = importable > domainEmails.length / 2 ? "import" as const : "filter" as const;
-          const reason = domainEmails[0]?.reason ?? "";
-
-          return {
-            domain,
-            count: domainEmails.length,
-            sample: domainEmails.slice(0, 3),
-            suggested,
-            reason,
-          };
-        })
-        .sort((a, b) => b.count - a.count);
-
-      setDomainGroups(groups);
-      setScanComplete(true);
-    } catch (err) {
-      toast.error("Failed to scan emails", {
-        description: err instanceof Error ? err.message : "Unknown error",
+      removePrompt(scanPromptId);
+      showPrompt({
+        id: scanPromptId,
+        icon: CheckCircle,
+        title: "Email scan complete",
+        description: `${summary}`,
+        ctaLabel: "Review Filters",
+        ctaAction: () => {
+          removePrompt(scanPromptId);
+          // Reopen wizard at scan results step
+          onOpenChange(true);
+          setTimeout(() => goToStep(2), 100); // Step 2 = scan
+        },
+        persistent: true,
+        dismissable: true,
+        variant: "accent",
       });
-    } finally {
+    } catch (err) {
       setScanning(false);
+      removePrompt(scanPromptId);
+      showPrompt({
+        id: scanPromptId,
+        icon: AlertCircle,
+        title: "Email scan failed",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        ctaLabel: "Dismiss",
+        ctaAction: () => removePrompt(scanPromptId),
+        persistent: true,
+        dismissable: true,
+      });
     }
   }
 

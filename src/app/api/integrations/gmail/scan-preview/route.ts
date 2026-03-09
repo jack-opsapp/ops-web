@@ -255,14 +255,42 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ─── Pre-filter: strip known noise before AI ────────────────────────────
+    // Emails from preset blocklist domains (mailchimp, linkedin, etc.) are
+    // definitively noise — no need to waste AI tokens on them.
+    // IMPORTANT: We do NOT strip noreply senders — they could be Procore,
+    // BuilderTrend, or other construction platform bid notifications.
+
+    const presetDomains = blocklist.domains; // Set<string> from preset blocklist
+    const preFilteredEmails: typeof emails = [];
+    const autoFilteredEmails: typeof emails = [];
+
+    for (const email of emails) {
+      if (presetDomains.has(email.domain)) {
+        // Definitively noise — mark as filtered, skip AI
+        autoFilteredEmails.push({
+          ...email,
+          wouldImport: false,
+          reason: "Blocked domain (preset)",
+        });
+      } else {
+        preFilteredEmails.push(email);
+      }
+    }
+
+    console.log(
+      `[gmail-scan-preview] Pre-filtered ${autoFilteredEmails.length} emails ` +
+      `from preset blocklist domains. Sending ${preFilteredEmails.length} to AI.`,
+    );
+
     // ─── AI Classification ──────────────────────────────────────────────────
-    // Single GPT-4o-mini call: all 500 emails in, recommended filter config out.
+    // Single GPT-4o-mini call with only ambiguous emails.
     // Cost: < 1¢ per customer.
 
     let recommendedFilters = null;
 
     try {
-      const emailsForAI: EmailForClassification[] = emails.map((e) => ({
+      const emailsForAI: EmailForClassification[] = preFilteredEmails.map((e) => ({
         id: e.id,
         from: e.from,
         fromEmail: e.fromEmail,
@@ -274,8 +302,8 @@ export async function GET(request: NextRequest) {
       const aiResult = await classifyEmails(emailsForAI);
       recommendedFilters = aiResult.filters;
 
-      // Apply AI verdicts to override rule-based wouldImport
-      for (const email of emails) {
+      // Apply AI verdicts to the pre-filtered emails
+      for (const email of preFilteredEmails) {
         const verdict = aiResult.verdicts.get(email.id);
         if (verdict) {
           email.wouldImport = verdict === "import";
@@ -286,10 +314,15 @@ export async function GET(request: NextRequest) {
       console.error("[gmail-scan-preview] AI classification failed, using rule-based only:", err);
     }
 
+    // Combine: auto-filtered (preset noise) + AI-classified (ambiguous)
+    const allResults = [...autoFilteredEmails, ...preFilteredEmails];
+
     return NextResponse.json({
       ok: true,
-      emails,
+      emails: allResults,
       total: allMessageIds.length,
+      preFiltered: autoFilteredEmails.length,
+      aiAnalyzed: preFilteredEmails.length,
       recommendedFilters,
     });
   } catch (err) {
