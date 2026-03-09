@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   User,
   Building2,
@@ -38,7 +39,7 @@ import { TaskTypesTab } from "@/components/settings/task-types-tab";
 import { DeveloperTab } from "@/components/settings/developer-tab";
 import { PortalBrandingTab } from "@/components/settings/portal-branding-tab";
 import { DocumentTemplatesTab } from "@/components/settings/document-templates-tab";
-import { QuickActionsTab } from "@/components/settings/quick-actions-tab";
+// QuickActionsTab merged into PreferencesTab
 import { RolesTab } from "@/components/settings/roles-tab";
 import { AccountingTab } from "@/components/settings/accounting-tab";
 import { ExpenseSettingsTab } from "@/components/settings/expense-settings-tab";
@@ -94,7 +95,6 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "task-types", labelKey: "sections.taskTypes" },
       { id: "inventory", labelKey: "sections.inventory" },
       { id: "expenses", labelKey: "sections.expenses" },
-      { id: "quick-actions", labelKey: "sections.quickActions" },
     ],
   },
   {
@@ -148,7 +148,7 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   "task-types": { group: "operations", sub: "task-types" },
   inventory: { group: "operations", sub: "inventory" },
   expenses: { group: "operations", sub: "expenses" },
-  "quick-actions": { group: "operations", sub: "quick-actions" },
+  "quick-actions": { group: "preferences", sub: "preferences-general" },
   subscription: { group: "billing", sub: "subscription" },
   billing: { group: "billing", sub: "payment" },
   integrations: { group: "integrations", sub: "email" },
@@ -181,7 +181,6 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
   notifications: NotificationsTab,
   map: MapPreferencesTab,
   expenses: ExpenseSettingsTab,
-  "quick-actions": QuickActionsTab,
   "data-privacy": DataPrivacyTab,
   developer: DeveloperTab,
 };
@@ -214,9 +213,12 @@ export default function SettingsPage() {
     return currentUser?.devPermission ? [...base, DEV_GROUP] : base;
   }, [permReady, can, currentUser?.devPermission]);
 
+  const searchParams = useSearchParams();
+
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
   const [activeSubTab, setActiveSubTab] = useState("profile");
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0, opacity: 0 });
+  const [flashContent, setFlashContent] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const majorTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -274,20 +276,30 @@ export default function SettingsPage() {
     return () => observer.disconnect();
   }, [updateUnderline]);
 
-  // Handle URL params
+  // Handle URL params — reacts to searchParams changes (e.g., from command palette)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
-    if (tab) {
-      if (groupDefs.some((g) => g.id === tab)) {
-        handleGroupChange(tab as SettingsGroup);
-      } else if (legacyTabMap[tab]) {
-        setActiveGroup(legacyTabMap[tab].group);
-        setActiveSubTab(legacyTabMap[tab].sub);
-      }
+    const tab = searchParams.get("tab");
+    if (!tab) return;
+
+    let didNavigate = false;
+    if (groupDefs.some((g) => g.id === tab)) {
+      handleGroupChange(tab as SettingsGroup);
+      didNavigate = true;
+    } else if (legacyTabMap[tab]) {
+      setActiveGroup(legacyTabMap[tab].group);
+      setActiveSubTab(legacyTabMap[tab].sub);
+      didNavigate = true;
+    }
+
+    // Flash the content card to draw attention
+    if (didNavigate) {
+      setFlashContent(false);
+      requestAnimationFrame(() => setFlashContent(true));
+      const timer = setTimeout(() => setFlashContent(false), 1200);
+      return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   const ContentComponent = CONTENT_MAP[activeSubTab];
@@ -406,7 +418,13 @@ export default function SettingsPage() {
       </div>
 
       {/* ── Content ───────────────────────────────────────────────────── */}
-      <div className="animate-slide-up" key={activeSubTab}>
+      <div
+        className={cn(
+          "animate-slide-up rounded transition-all duration-500",
+          flashContent && "ring-2 ring-ops-accent ring-offset-2 ring-offset-background"
+        )}
+        key={activeSubTab}
+      >
         {ContentComponent && <ContentComponent />}
       </div>
     </div>
