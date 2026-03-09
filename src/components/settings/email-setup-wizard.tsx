@@ -7,6 +7,8 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
+  CheckCircle,
+  AlertCircle,
   ExternalLink,
   Loader2,
   Filter,
@@ -43,7 +45,6 @@ import type {
 import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import { toast } from "sonner";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
-import { CheckCircle, AlertCircle } from "lucide-react";
 
 // ─── Animation ───────────────────────────────────────────────────────────────
 
@@ -216,9 +217,20 @@ export function EmailSetupWizard({
 
   // ── Scan emails (runs in background) ─────────────────────────────────────
 
-  const scanPromptId = "email-scan-progress";
+  const SCAN_PROMPT_ID = "email-scan-progress";
+  const SCAN_STEP_INDEX = STEPS.findIndex((s) => s.id === "scan");
 
-  function processScanResults(data: {
+  // AbortController ref to prevent overlapping scans and clean up on unmount
+  const scanAbortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight scan on unmount
+  useEffect(() => {
+    return () => {
+      scanAbortRef.current?.abort();
+    };
+  }, []);
+
+  interface ScanResponseData {
     emails?: ScannedEmail[];
     recommendedFilters?: {
       excludeDomains?: string[];
@@ -230,7 +242,9 @@ export function EmailSetupWizard({
     };
     preFiltered?: number;
     aiAnalyzed?: number;
-  }) {
+  }
+
+  function processScanResults(data: ScanResponseData) {
     const emails: ScannedEmail[] = data.emails ?? [];
     setScannedEmails(emails);
 
@@ -294,7 +308,13 @@ export function EmailSetupWizard({
   }
 
   async function scanEmails() {
-    if (!firstConnection) return;
+    if (!firstConnection || scanning) return;
+
+    // Abort any previous in-flight scan
+    scanAbortRef.current?.abort();
+    const controller = new AbortController();
+    scanAbortRef.current = controller;
+
     setScanning(true);
     setScanComplete(false);
     setScannedEmails([]);
@@ -303,14 +323,14 @@ export function EmailSetupWizard({
     // Close wizard and show action prompt
     onOpenChange(false);
 
-    removePrompt(scanPromptId);
+    removePrompt(SCAN_PROMPT_ID);
     showPrompt({
-      id: scanPromptId,
+      id: SCAN_PROMPT_ID,
       icon: Search,
       title: "Analyzing your emails...",
       description: "AI is reviewing your inbox to recommend the best filters. This may take a moment.",
       ctaLabel: "Dismiss",
-      ctaAction: () => removePrompt(scanPromptId),
+      ctaAction: () => removePrompt(SCAN_PROMPT_ID),
       persistent: true,
       dismissable: true,
       variant: "accent",
@@ -319,11 +339,15 @@ export function EmailSetupWizard({
     try {
       const resp = await fetch(
         `/api/integrations/gmail/scan-preview?connectionId=${encodeURIComponent(firstConnection.id)}&days=30`,
+        { signal: controller.signal },
       );
 
       if (!resp.ok) throw new Error("Failed to scan emails");
 
-      const data = await resp.json();
+      // Check if this scan was aborted while the fetch was in flight
+      if (controller.signal.aborted) return;
+
+      const data: ScanResponseData = await resp.json();
       const { emails, ai } = processScanResults(data);
 
       // Show completion prompt with AI summary
@@ -331,33 +355,38 @@ export function EmailSetupWizard({
       const filterCount = emails.length - importCount;
       const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
 
-      removePrompt(scanPromptId);
+      removePrompt(SCAN_PROMPT_ID);
       showPrompt({
-        id: scanPromptId,
+        id: SCAN_PROMPT_ID,
         icon: CheckCircle,
         title: "Email scan complete",
-        description: `${summary}`,
+        description: summary,
         ctaLabel: "Review Filters",
         ctaAction: () => {
-          removePrompt(scanPromptId);
+          removePrompt(SCAN_PROMPT_ID);
           // Reopen wizard at scan results step
           onOpenChange(true);
-          setTimeout(() => goToStep(2), 100); // Step 2 = scan
+          // Use functional setters to avoid stale closure issues
+          setDirection(1);
+          setStepIndex(SCAN_STEP_INDEX);
         },
         persistent: true,
         dismissable: true,
         variant: "accent",
       });
     } catch (err) {
+      // Ignore abort errors — these are intentional cancellations
+      if (err instanceof DOMException && err.name === "AbortError") return;
+
       setScanning(false);
-      removePrompt(scanPromptId);
+      removePrompt(SCAN_PROMPT_ID);
       showPrompt({
-        id: scanPromptId,
+        id: SCAN_PROMPT_ID,
         icon: AlertCircle,
         title: "Email scan failed",
         description: err instanceof Error ? err.message : "Something went wrong.",
         ctaLabel: "Dismiss",
-        ctaAction: () => removePrompt(scanPromptId),
+        ctaAction: () => removePrompt(SCAN_PROMPT_ID),
         persistent: true,
         dismissable: true,
       });
@@ -367,7 +396,10 @@ export function EmailSetupWizard({
   // ── Apply filters & import ───────────────────────────────────────────────
 
   async function applyFiltersAndImport() {
-    if (!firstConnection) return;
+    if (!firstConnection || importStarted) return;
+
+    // Immediately prevent double-clicks
+    setImportStarted(true);
 
     // Save filters + mark wizard as completed
     const finalFilters = { ...filters, wizardCompleted: true };
@@ -378,6 +410,7 @@ export function EmailSetupWizard({
       });
     } catch {
       // Non-fatal — filters may not persist but import can proceed
+      toast.warning("Filters may not have saved — import will proceed with defaults.");
     }
 
     // Start import
@@ -387,7 +420,6 @@ export function EmailSetupWizard({
       return d.toISOString().split("T")[0];
     })();
 
-    setImportStarted(true);
     gmailImport.startImport.mutate(
       { companyId, connectionId: firstConnection.id, importAfter },
       {
@@ -468,6 +500,7 @@ export function EmailSetupWizard({
             </div>
             <button
               onClick={() => onOpenChange(false)}
+              aria-label="Close"
               className="p-[6px] rounded-sm text-text-tertiary hover:text-text-primary transition-colors"
             >
               <X className="w-[18px] h-[18px]" />
@@ -1146,10 +1179,49 @@ function StepScan({
 /** Re-evaluate an email's import status against current filter state */
 function wouldImportWithFilters(
   email: ScannedEmail,
-  excludeDomains: string[],
+  filters: GmailSyncFilters,
 ): boolean {
-  // Currently excluded domain → always filter
-  if (excludeDomains.includes(email.domain)) return false;
+  // Domain exclusion
+  if (filters.excludeDomains.includes(email.domain)) return false;
+
+  // Address exclusion
+  if (filters.excludeAddresses?.some(
+    (addr) => email.fromEmail.toLowerCase() === addr.toLowerCase(),
+  )) return false;
+
+  // Subject keyword exclusion
+  if (filters.excludeSubjectKeywords?.some(
+    (kw) => email.subject.toLowerCase().includes(kw.toLowerCase()),
+  )) return false;
+
+  // Custom filter rules
+  if (filters.rules && filters.rules.length > 0) {
+    const matchesRule = (rule: EmailFilterRule): boolean => {
+      const fieldVal = rule.field === "from_email" ? email.fromEmail
+        : rule.field === "subject" ? email.subject
+        : rule.field === "from_domain" ? email.domain
+        : rule.field === "label" ? (email.labels ?? []).join(",")
+        : "";
+      const ruleVal = rule.value.toLowerCase();
+      const check = fieldVal.toLowerCase();
+      switch (rule.operator) {
+        case "contains": return check.includes(ruleVal);
+        case "not_contains": return !check.includes(ruleVal);
+        case "equals": return check === ruleVal;
+        case "not_equals": return check !== ruleVal;
+        case "starts_with": return check.startsWith(ruleVal);
+        case "ends_with": return check.endsWith(ruleVal);
+        default: return false;
+      }
+    };
+
+    const logic = filters.ruleLogic ?? "any";
+    const ruleMatch = logic === "all"
+      ? filters.rules.every(matchesRule)
+      : filters.rules.some(matchesRule);
+    if (ruleMatch) return false;
+  }
+
   // Was originally blocked only because of domain, but domain is now unblocked
   if (!email.wouldImport && email.reason === "Blocked domain") return true;
   // Otherwise use original evaluation
@@ -1189,7 +1261,7 @@ function StepFilters({
     : [];
 
   const previewImportCount = hasPreview
-    ? scannedEmails.filter((e) => wouldImportWithFilters(e, filters.excludeDomains)).length
+    ? scannedEmails.filter((e) => wouldImportWithFilters(e, filters)).length
     : 0;
   const previewFilterCount = scannedEmails.length - previewImportCount;
 
@@ -1246,6 +1318,8 @@ function StepFilters({
           {/* Preset blocklist */}
           <motion.div variants={staggerItem}>
             <button
+              role="switch"
+              aria-checked={filters.usePresetBlocklist}
               onClick={() =>
                 onUpdate({
                   ...filters,

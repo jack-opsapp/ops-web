@@ -295,12 +295,12 @@ function TeamMemberCard({
           <div className="relative">
             <div
               className={cn(
-                "w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0 border-2",
-                isInactive ? "border-border-subtle" : "border-ops-accent"
+                "w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0",
+                isInactive ? "bg-background-elevated" : "bg-ops-accent-muted"
               )}
               style={
                 member.userColor && !isInactive
-                  ? { borderColor: member.userColor }
+                  ? { backgroundColor: `${member.userColor}20` }
                   : undefined
               }
             >

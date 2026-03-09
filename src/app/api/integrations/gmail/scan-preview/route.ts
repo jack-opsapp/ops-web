@@ -2,8 +2,13 @@
  * OPS Web - Gmail Scan Preview
  *
  * GET /api/integrations/gmail/scan-preview?connectionId=...&days=30
- * Scans recent emails and classifies each as "would import" or "would filter"
- * based on the connection's current sync filters. Used by the Email Setup Wizard.
+ *
+ * 1. Fetches up to 500 emails from Gmail (metadata + snippet)
+ * 2. Pre-filters emails from known noise domains (preset blocklist)
+ * 3. Sends remaining ambiguous emails to GPT-4o-mini for classification
+ * 4. Returns all emails with verdicts + a recommended filter configuration
+ *
+ * Cost: < 1¢ per customer (single OpenAI call).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,6 +21,10 @@ import {
   classifyEmails,
   type EmailForClassification,
 } from "@/lib/api/services/email-classifier";
+
+// Vercel serverless function config — this route fetches 500 emails
+// then calls OpenAI, so it needs more than the default 15s timeout.
+export const maxDuration = 60;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +52,19 @@ interface GmailMessage {
   labelIds?: string[];
 }
 
+interface ScanEmail {
+  id: string;
+  from: string;
+  fromEmail: string;
+  domain: string;
+  subject: string;
+  snippet: string;
+  labels: string[];
+  date: string;
+  wouldImport: boolean;
+  reason: string;
+}
+
 // ─── Token helper ────────────────────────────────────────────────────────────
 
 async function getValidToken(conn: ConnectionRow): Promise<string> {
@@ -62,17 +84,26 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
     }),
   });
 
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Gmail token refresh failed (${response.status}): ${errorBody.slice(0, 200)}`);
+  }
+
   const json = await response.json();
-  if (!json.access_token) throw new Error("Failed to refresh Gmail access token");
+  if (!json.access_token) throw new Error("Gmail token refresh returned no access_token");
 
   const supabase = getServiceRoleClient();
-  await supabase
+  const { error: updateErr } = await supabase
     .from("gmail_connections")
     .update({
       access_token: json.access_token,
       expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
     })
     .eq("id", conn.id);
+
+  if (updateErr) {
+    console.warn("[gmail-scan-preview] Failed to persist refreshed token:", updateErr.message);
+  }
 
   return json.access_token as string;
 }
@@ -94,7 +125,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const connectionId = request.nextUrl.searchParams.get("connectionId");
-    const days = parseInt(request.nextUrl.searchParams.get("days") ?? "30", 10);
+    const rawDays = parseInt(request.nextUrl.searchParams.get("days") ?? "30", 10);
+    const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
 
     if (!connectionId) {
       return NextResponse.json(
@@ -120,12 +152,12 @@ export async function GET(request: NextRequest) {
     const conn = connRow as ConnectionRow;
     const token = await getValidToken(conn);
 
-    const syncFilters: GmailSyncFilters =
-      conn.sync_filters && typeof conn.sync_filters === "object"
-        ? conn.sync_filters
-        : DEFAULT_SYNC_FILTERS;
-
-    const blocklist = await EmailFilterService.buildBlocklist(syncFilters);
+    // Build preset blocklist for pre-filtering
+    const presetFilters: GmailSyncFilters = {
+      ...DEFAULT_SYNC_FILTERS,
+      usePresetBlocklist: true,
+    };
+    const blocklist = await EmailFilterService.buildBlocklist(presetFilters);
 
     // Build date query
     const afterDate = new Date();
@@ -163,19 +195,9 @@ export async function GET(request: NextRequest) {
       allMessageIds.length = MAX_SCAN;
     }
 
-    // Process messages in batches — fetch metadata + snippet
-    const emails: Array<{
-      id: string;
-      from: string;
-      fromEmail: string;
-      domain: string;
-      subject: string;
-      snippet: string;
-      labels: string[];
-      date: string;
-      wouldImport: boolean;
-      reason: string;
-    }> = [];
+    // ─── Fetch email metadata in batches ──────────────────────────────────
+
+    const emails: ScanEmail[] = [];
 
     for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
       const batch = allMessageIds.slice(i, i + BATCH_SIZE);
@@ -198,35 +220,6 @@ export async function GET(request: NextRequest) {
             const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
             const domain = fromEmail.split("@")[1] ?? "";
 
-            const wouldFilter = EmailFilterService.shouldFilter(
-              fromEmail,
-              subject,
-              blocklist,
-              syncFilters,
-              msg.labelIds,
-              msg.snippet,
-            );
-
-            let reason = "";
-            if (wouldFilter) {
-              if (blocklist.domains.has(domain)) {
-                reason = "Blocked domain";
-              } else if (
-                fromEmail.startsWith("noreply") ||
-                fromEmail.startsWith("no-reply") ||
-                fromEmail.startsWith("donotreply") ||
-                fromEmail.startsWith("mailer-daemon")
-              ) {
-                reason = "Automated sender";
-              } else if (syncFilters.excludeAddresses.includes(fromEmail)) {
-                reason = "Blocked address";
-              } else {
-                reason = "Matched filter rule";
-              }
-            } else {
-              reason = "Real conversation";
-            }
-
             return {
               id: msgId,
               from,
@@ -236,8 +229,8 @@ export async function GET(request: NextRequest) {
               snippet: msg.snippet ?? "",
               labels: msg.labelIds ?? [],
               date,
-              wouldImport: !wouldFilter,
-              reason,
+              wouldImport: true, // Default; will be set by pre-filter or AI
+              reason: "",
             };
           } catch {
             return null;
@@ -249,52 +242,46 @@ export async function GET(request: NextRequest) {
         if (r) emails.push(r);
       }
 
-      // Rate limit
+      // Rate limit between batches
       if (i + BATCH_SIZE < allMessageIds.length) {
         await sleep(100);
       }
     }
 
-    // ─── Pre-filter: strip known noise before AI ────────────────────────────
+    // ─── Pre-filter: strip known noise domains before AI ──────────────────
     // Emails from preset blocklist domains (mailchimp, linkedin, etc.) are
     // definitively noise — no need to waste AI tokens on them.
-    // IMPORTANT: We do NOT strip noreply senders — they could be Procore,
-    // BuilderTrend, or other construction platform bid notifications.
+    // IMPORTANT: We do NOT filter by noreply patterns here — noreply senders
+    // could be Procore, BuilderTrend, or other construction bid platforms.
 
-    const presetDomains = blocklist.domains; // Set<string> from preset blocklist
-    const preFilteredEmails: typeof emails = [];
-    const autoFilteredEmails: typeof emails = [];
+    const presetDomains = blocklist.domains;
+    const autoFiltered: ScanEmail[] = [];
+    const ambiguous: ScanEmail[] = [];
 
     for (const email of emails) {
       if (presetDomains.has(email.domain)) {
-        // Definitively noise — mark as filtered, skip AI
-        autoFilteredEmails.push({
-          ...email,
-          wouldImport: false,
-          reason: "Blocked domain (preset)",
-        });
+        email.wouldImport = false;
+        email.reason = "Blocked domain (preset)";
+        autoFiltered.push(email);
       } else {
-        preFilteredEmails.push(email);
+        ambiguous.push(email);
       }
     }
 
     console.log(
-      `[gmail-scan-preview] Pre-filtered ${autoFilteredEmails.length} emails ` +
-      `from preset blocklist domains. Sending ${preFilteredEmails.length} to AI.`,
+      `[gmail-scan-preview] Pre-filtered ${autoFiltered.length} emails ` +
+      `from preset blocklist domains. Sending ${ambiguous.length} to AI.`,
     );
 
-    // ─── AI Classification ──────────────────────────────────────────────────
+    // ─── AI Classification ────────────────────────────────────────────────
     // Single GPT-4o-mini call with only ambiguous emails.
-    // Cost: < 1¢ per customer.
 
     let recommendedFilters = null;
 
     try {
-      const emailsForAI: EmailForClassification[] = preFilteredEmails.map((e) => ({
+      const emailsForAI: EmailForClassification[] = ambiguous.map((e) => ({
         id: e.id,
-        from: e.from,
         fromEmail: e.fromEmail,
-        domain: e.domain,
         subject: e.subject,
         snippet: e.snippet,
       }));
@@ -302,27 +289,32 @@ export async function GET(request: NextRequest) {
       const aiResult = await classifyEmails(emailsForAI);
       recommendedFilters = aiResult.filters;
 
-      // Apply AI verdicts to the pre-filtered emails
-      for (const email of preFilteredEmails) {
+      // Apply AI verdicts to ambiguous emails
+      for (const email of ambiguous) {
         const verdict = aiResult.verdicts.get(email.id);
         if (verdict) {
           email.wouldImport = verdict === "import";
           email.reason = verdict === "import" ? "AI: import" : "AI: filtered";
         }
+        // Emails without a verdict keep wouldImport=true (benefit of the doubt)
       }
     } catch (err) {
-      console.error("[gmail-scan-preview] AI classification failed, using rule-based only:", err);
+      console.error("[gmail-scan-preview] AI classification failed, ambiguous emails default to import:", err);
+      // Ambiguous emails keep wouldImport=true — better to import too much than miss customers
+      for (const email of ambiguous) {
+        email.reason = "Unclassified (AI unavailable)";
+      }
     }
 
-    // Combine: auto-filtered (preset noise) + AI-classified (ambiguous)
-    const allResults = [...autoFilteredEmails, ...preFilteredEmails];
+    // Combine all emails in original order
+    const allResults = [...autoFiltered, ...ambiguous];
 
     return NextResponse.json({
       ok: true,
       emails: allResults,
       total: allMessageIds.length,
-      preFiltered: autoFilteredEmails.length,
-      aiAnalyzed: preFilteredEmails.length,
+      preFiltered: autoFiltered.length,
+      aiAnalyzed: ambiguous.length,
       recommendedFilters,
     });
   } catch (err) {
