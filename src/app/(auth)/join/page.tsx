@@ -208,7 +208,7 @@ export default function JoinPage() {
           Already on a team
         </h1>
         <p className="font-mohave text-body-sm text-text-tertiary">
-          You're currently a member of your organization. To join a different
+          You&apos;re currently a member of your organization. To join a different
           company, contact your admin.
         </p>
         <Link href="/dashboard">
@@ -290,11 +290,11 @@ export default function JoinPage() {
           Join {invite.companyName}
         </h1>
         <p className="font-mohave text-body-sm text-text-tertiary">
-          You've been invited to join {invite.companyName} on OPS
+          You&apos;ve been invited to join {invite.companyName} on OPS
         </p>
         {invite.roleName && (
           <span className="inline-block font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-2 py-1 rounded-full uppercase tracking-wider">
-            You'll join as {invite.roleName}
+            You&apos;ll join as {invite.roleName}
           </span>
         )}
       </div>
@@ -432,7 +432,7 @@ export default function JoinPage() {
             </>
           ) : (
             <>
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <button
                 onClick={() => setMode("signup")}
                 className="text-ops-accent hover:underline"

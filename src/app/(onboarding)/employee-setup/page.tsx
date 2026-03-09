@@ -341,7 +341,7 @@ export default function EmployeeSetupPage() {
               Notifications
             </h2>
             <p className="font-kosugi text-body-sm text-text-secondary">
-              Choose how you'd like to be notified about schedule changes and
+              Choose how you&apos;d like to be notified about schedule changes and
               updates.
             </p>
             <div className="space-y-3">
