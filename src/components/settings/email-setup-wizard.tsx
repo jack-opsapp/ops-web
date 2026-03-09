@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -15,6 +15,7 @@ import {
   X,
   Inbox,
   Plus,
+  ChevronDown,
   Zap,
   BarChart3,
   Users,
@@ -1256,13 +1257,16 @@ function StepScan({
 
 // ─── Step 4: Filters ─────────────────────────────────────────────────────────
 
-/** Re-evaluate an email's import status against current filter state */
+/** Re-evaluate an email's import status purely against current client-side filters.
+ *  Does NOT use email.wouldImport (server-side verdict) — the client owns filter state. */
 function wouldImportWithFilters(
   email: ScannedEmail,
   filters: GmailSyncFilters,
 ): boolean {
   // Domain exclusion
-  if (filters.excludeDomains.includes(email.domain)) return false;
+  if (filters.excludeDomains.some(
+    (d) => email.domain.toLowerCase() === d.toLowerCase(),
+  )) return false;
 
   // Address exclusion
   if (filters.excludeAddresses?.some(
@@ -1302,10 +1306,8 @@ function wouldImportWithFilters(
     if (ruleMatch) return false;
   }
 
-  // Was originally blocked only because of domain, but domain is now unblocked
-  if (!email.wouldImport && email.reason === "Blocked domain") return true;
-  // Otherwise use original evaluation
-  return email.wouldImport;
+  // Email passes all filters — import it
+  return true;
 }
 
 function StepFilters({
@@ -1414,6 +1416,34 @@ function StepFilters({
     }
   }
 
+  // Group imported emails by domain for the collapsible list
+  const importedByDomain = useMemo(() => {
+    const map = new Map<string, ScannedEmail[]>();
+    for (const email of importedEmails) {
+      const existing = map.get(email.domain) ?? [];
+      existing.push(email);
+      map.set(email.domain, existing);
+    }
+    return Array.from(map.entries())
+      .map(([domain, emails]) => ({ domain, emails, count: emails.length }))
+      .sort((a, b) => b.count - a.count);
+  }, [importedEmails]);
+
+  const [emailsExpanded, setEmailsExpanded] = useState(false);
+  const [expandedImportDomain, setExpandedImportDomain] = useState<string | null>(null);
+
+  function applyRecommended() {
+    if (!aiSuggestedFilters) return;
+    onUpdate({
+      ...filters,
+      excludeDomains: [...aiSuggestedFilters.excludeDomains],
+      excludeAddresses: [...aiSuggestedFilters.excludeAddresses],
+      excludeSubjectKeywords: [...aiSuggestedFilters.excludeSubjectKeywords],
+      usePresetBlocklist: true,
+    });
+    toast.success("Recommended filters applied");
+  }
+
   return (
     <motion.div
       variants={staggerContainer}
@@ -1427,27 +1457,25 @@ function StepFilters({
         </p>
       </motion.div>
 
-      {/* Funnel visualization */}
-      {scannedEmails.length > 0 && (
-        <motion.div variants={staggerItem}>
-          <FilterFunnelCanvas
-            filters={filters}
-            scannedEmails={scannedEmails}
-            preFilteredCount={preFilteredCount}
-            onToggleCategory={handleToggleCategory}
-            onDrillDown={setDrilledCategory}
-            drilledCategory={drilledCategory}
-            onZoomOut={() => setDrilledCategory(null)}
-            onToggleSubItem={handleToggleSubItem}
-            className="w-full rounded border border-border-subtle"
-          />
-        </motion.div>
-      )}
-
-      {/* Controls + Email list side by side */}
+      {/* Main layout: filters left, galaxy + email list right */}
       <div className="flex gap-3">
         {/* Left: Filter controls */}
-        <div className="w-[280px] shrink-0 space-y-2">
+        <div className="w-[280px] shrink-0 space-y-2 overflow-y-auto max-h-[520px] pr-1">
+          {/* Apply recommended button */}
+          {aiSuggestedFilters && (
+            <motion.div variants={staggerItem}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={applyRecommended}
+                className="gap-[4px] font-kosugi text-[11px] w-full"
+              >
+                <Zap className="w-[12px] h-[12px]" />
+                Apply recommended settings
+              </Button>
+            </motion.div>
+          )}
+
           {/* Preset blocklist toggle */}
           <motion.div variants={staggerItem}>
             <button
@@ -1623,42 +1651,108 @@ function StepFilters({
           </motion.div>
         </div>
 
-        {/* Right: Email list */}
-        <div className="flex-1 min-w-0 rounded border border-border-subtle bg-background-card overflow-hidden flex flex-col">
-          <div className="px-2 py-1.5 border-b border-border-subtle flex items-center justify-between">
-            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-              {importCount} emails will be imported
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto max-h-[300px]">
-            {importedEmails.length === 0 ? (
-              <div className="flex items-center justify-center py-6">
-                <span className="font-mohave text-body-sm text-text-disabled">
-                  No emails match current filters
+        {/* Right: Galaxy + Email list */}
+        <div className="flex-1 min-w-0 space-y-2">
+          {/* Funnel visualization */}
+          {scannedEmails.length > 0 && (
+            <FilterFunnelCanvas
+              filters={filters}
+              scannedEmails={scannedEmails}
+              preFilteredCount={preFilteredCount}
+              onToggleCategory={handleToggleCategory}
+              onDrillDown={setDrilledCategory}
+              drilledCategory={drilledCategory}
+              onZoomOut={() => setDrilledCategory(null)}
+              onToggleSubItem={handleToggleSubItem}
+              className="w-full rounded border border-border-subtle"
+            />
+          )}
+
+          {/* Collapsible email import list */}
+          <div className="rounded border border-border-subtle bg-background-card overflow-hidden">
+            <button
+              onClick={() => setEmailsExpanded(!emailsExpanded)}
+              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-background-elevated transition-colors text-left"
+            >
+              <div className="flex items-center gap-[6px]">
+                <div className="w-[6px] h-[6px] rounded-full bg-[#9DB582]" />
+                <span className="font-mono text-data-sm text-[#9DB582]">
+                  {importCount}
+                </span>
+                <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                  emails to import
                 </span>
               </div>
-            ) : (
-              importedEmails.map((email) => (
-                <div
-                  key={email.id}
-                  className="flex items-center gap-[8px] py-[3px] px-2 border-b border-border-subtle/50 hover:bg-background-elevated transition-colors"
-                >
-                  <div className="flex-1 min-w-0 text-left">
-                    <span className="font-mohave text-[11px] text-text-secondary block truncate">
-                      {email.subject || "(no subject)"}
-                    </span>
-                    <span className="font-mono text-[9px] text-text-disabled truncate block">
-                      {email.from}
+              <ChevronDown
+                className={`w-[12px] h-[12px] text-text-disabled transition-transform duration-200 ${
+                  emailsExpanded ? "" : "-rotate-90"
+                }`}
+              />
+            </button>
+
+            {emailsExpanded && (
+              <div className="border-t border-border-subtle overflow-y-auto max-h-[260px]">
+                {importedByDomain.length === 0 ? (
+                  <div className="flex items-center justify-center py-4">
+                    <span className="font-mohave text-body-sm text-text-disabled">
+                      No emails pass current filters
                     </span>
                   </div>
-                  <span className="font-kosugi text-[9px] text-text-disabled shrink-0">
-                    {new Date(email.date).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-              ))
+                ) : (
+                  importedByDomain.map(({ domain, emails, count }) => (
+                    <div key={domain}>
+                      <button
+                        onClick={() =>
+                          setExpandedImportDomain(
+                            expandedImportDomain === domain ? null : domain,
+                          )
+                        }
+                        className="w-full flex items-center gap-[8px] px-2 py-[5px] hover:bg-background-elevated transition-colors text-left border-b border-border-subtle/50"
+                      >
+                        <ChevronDown
+                          className={`w-[10px] h-[10px] text-text-disabled shrink-0 transition-transform duration-200 ${
+                            expandedImportDomain === domain ? "" : "-rotate-90"
+                          }`}
+                        />
+                        <span className="font-mono text-[10px] text-text-primary flex-1 truncate">
+                          {domain}
+                        </span>
+                        <span className="font-mono text-[10px] text-[#9DB582] shrink-0">
+                          {count}
+                        </span>
+                      </button>
+
+                      {expandedImportDomain === domain && (
+                        <div className="pl-[28px] pr-2 py-[2px] space-y-[1px]">
+                          {emails.slice(0, 15).map((email) => (
+                            <div
+                              key={email.id}
+                              className="flex items-center gap-[6px] py-[2px]"
+                            >
+                              <div className="flex-1 min-w-0 text-left">
+                                <span className="font-mohave text-[10px] text-text-secondary block truncate">
+                                  {email.subject || "(no subject)"}
+                                </span>
+                              </div>
+                              <span className="font-kosugi text-[8px] text-text-disabled shrink-0">
+                                {new Date(email.date).toLocaleDateString(
+                                  undefined,
+                                  { month: "short", day: "numeric" },
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                          {emails.length > 15 && (
+                            <span className="font-kosugi text-[9px] text-text-disabled block py-[2px]">
+                              +{emails.length - 15} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         </div>

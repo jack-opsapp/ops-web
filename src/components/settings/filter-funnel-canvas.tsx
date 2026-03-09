@@ -129,13 +129,14 @@ const AMBER: RGB = { r: 196, g: 168, b: 104 }; // #C4A868 — active filter
 const GREEN: RGB = { r: 157, g: 181, b: 130 }; // #9DB582 — result
 const DIM: RGB = { r: 80, g: 80, b: 80 }; // disabled/inactive
 
-const NODE_SIZE = 10; // half-size of square node
-const NODE_HIT_RADIUS = 28;
+const NODE_SIZE = 5; // half-size of square node (smaller)
+const NODE_HIT_RADIUS = 22;
 const STAR_COUNT = 150;
 const CAMERA_LERP = 0.06;
-const CANVAS_HEIGHT = 220;
-const SUB_NODE_SIZE = 6;
-const SUB_NODE_HIT_RADIUS = 18;
+const CANVAS_HEIGHT = 240;
+const SUB_NODE_SIZE = 4;
+const SUB_NODE_HIT_RADIUS = 16;
+const VECTOR_WIDTH = 1; // constant thin vector width
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,17 +164,23 @@ function createBackgroundStars(w: number, h: number): BackgroundStar[] {
   return stars;
 }
 
-function createFlowParticles(nodeCount: number): FlowParticle[] {
+/** Create flow particles — density proportional to remaining email count at each stage.
+ *  totalSource is the total emails, nodeCounts[i] is the count after node i. */
+function createFlowParticles(nodeCount: number, nodeCounts?: number[], totalSource?: number): FlowParticle[] {
   const particles: FlowParticle[] = [];
+  const total = totalSource ?? 300;
   for (let i = 0; i < nodeCount - 1; i++) {
-    const count = 2 + Math.floor(Math.random() * 2);
+    // Particle density proportional to how many emails remain after this node
+    const remaining = nodeCounts ? (nodeCounts[i + 1] ?? total) : total;
+    const ratio = Math.max(0.1, remaining / Math.max(total, 1));
+    const count = Math.max(1, Math.round(ratio * 8));
     for (let j = 0; j < count; j++) {
       particles.push({
         fromIdx: i,
         toIdx: i + 1,
         progress: Math.random(),
-        speed: 0.15 + Math.random() * 0.2,
-        size: 1.0 + Math.random() * 1.0,
+        speed: 0.12 + Math.random() * 0.18,
+        size: 0.8 + Math.random() * 0.8,
       });
     }
   }
@@ -534,24 +541,27 @@ export function FilterFunnelCanvas({
 
   // ─── Node position layout ──────────────────────────────────────────
 
+  // Organic Y offsets for each node — gives a natural, non-linear feel
+  const nodeYOffsets = useMemo(() => [0, -18, 12, -8, 20, -14], []);
+
   const computeNodePositions = useCallback(
     (
       pipelineNodes: PipelineNode[],
       w: number,
       h: number
     ): PipelineNode[] => {
-      const paddingX = 50;
+      const paddingX = 44;
       const usableW = w - paddingX * 2;
       const step = usableW / (pipelineNodes.length - 1);
-      const centerY = h * 0.42;
+      const centerY = h * 0.45;
 
       return pipelineNodes.map((node, i) => ({
         ...node,
         x: paddingX + step * i,
-        y: centerY,
+        y: centerY + (nodeYOffsets[i] ?? 0),
       }));
     },
-    []
+    [nodeYOffsets]
   );
 
   const computeSubNodePositions = useCallback(
@@ -594,11 +604,12 @@ export function FilterFunnelCanvas({
 
     const { w, h } = canvasSizeRef.current;
     starsRef.current = createBackgroundStars(w || 800, h || CANVAS_HEIGHT);
-    flowParticlesRef.current = createFlowParticles(nodes.length);
+    const nodeCounts = nodes.map((n) => n.count);
+    flowParticlesRef.current = createFlowParticles(nodes.length, nodeCounts, totalSource);
     orbitParticlesRef.current = createOrbitParticles(nodes.length);
 
     return () => ro.disconnect();
-  }, [resize, nodes.length]);
+  }, [resize, nodes, totalSource]);
 
   // ─── Drill-down camera targeting ──────────────────────────────────
 
@@ -724,12 +735,6 @@ export function FilterFunnelCanvas({
         const { sx: tx, sy: ty } = transform(to.x, to.y);
 
         const nextNode = positioned[i + 1];
-        const remaining = nextNode.count;
-        const thickness = Math.max(
-          1,
-          (remaining / Math.max(totalSource, 1)) * 8
-        );
-        const isActive = nextNode.enabled && nextNode.removed > 0 || nextNode.isResult || nextNode.isSource;
         const isDisabled = !nextNode.enabled;
 
         // Node alpha for this flow line
@@ -739,14 +744,12 @@ export function FilterFunnelCanvas({
             : 1;
 
         ctx.save();
-        ctx.lineWidth = thickness;
+        ctx.lineWidth = VECTOR_WIDTH;
         if (isDisabled) {
           ctx.strokeStyle = rgba(DIM, 0.15 * nodeAlpha);
           ctx.setLineDash([4, 4]);
         } else {
-          // Use the destination node color for the flow line
-          const flowColor = nextNode.isResult ? GREEN : nextNode.color;
-          ctx.strokeStyle = rgba(flowColor, 0.3 * nodeAlpha);
+          ctx.strokeStyle = rgba(ACCENT, 0.25 * nodeAlpha);
           ctx.setLineDash([]);
         }
         ctx.beginPath();
