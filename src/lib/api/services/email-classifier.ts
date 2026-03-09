@@ -91,7 +91,7 @@ OUTPUT FORMAT — respond with valid JSON only:
 Do NOT include per-email verdicts. Only return the filter configuration above.
 
 RULES FOR EACH FILTER FIELD:
-- excludeDomains: Only domains where 100% of emails are noise. Never block a domain that has even one customer email.
+- excludeDomains: Use ROOT domains only (e.g. "marks.com" not "email.marks.com"). We match subdomains automatically, so "marks.com" catches "email.marks.com", "promo.marks.com", etc. Only domains where 100% of emails are noise. Never block a domain that has even one customer email. Be thorough — if you see marketing/retail/notification emails from ANY domain, block it. Common misses: retail stores, shipping notifications, SaaS tools, bank alerts, insurance, HR/payroll, utilities.
 - excludeAddresses: Specific sender addresses to block from domains you're keeping.
 - excludeSubjectKeywords: Short phrases that reliably indicate noise (case-insensitive match). Be precise — don't use words that might appear in customer emails like "estimate", "quote", or "project".
 - usePresetBlocklist: true if the inbox has typical marketing/newsletter senders, false only if the business seems to have very unusual email patterns.
@@ -133,7 +133,7 @@ export async function classifyEmails(
   const emailList = capped
     .map(
       (e) =>
-        `[${e.id}] From: ${sanitizeField(e.fromEmail, 100)} | Subject: ${sanitizeField(e.subject, 200)} | Snippet: ${sanitizeField(e.snippet || "", 200)}`,
+        `[${e.id}] From: ${sanitizeField(e.fromEmail, 100)} | Subject: ${sanitizeField(e.subject, 300)} | Snippet: ${sanitizeField(e.snippet || "", 500)}`,
     )
     .join("\n");
 

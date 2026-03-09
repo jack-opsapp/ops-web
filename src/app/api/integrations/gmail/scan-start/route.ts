@@ -334,12 +334,18 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       recommendedFilters = aiResult.filters;
 
       // Apply AI-recommended filters to determine per-email import/filter status
-      const blockedDomains = new Set(aiResult.filters.excludeDomains.map((d) => d.toLowerCase()));
+      // Subdomain-aware: "marks.com" catches "email.marks.com"
+      const blockedDomainList = aiResult.filters.excludeDomains.map((d) => d.toLowerCase());
       const blockedAddresses = new Set(aiResult.filters.excludeAddresses.map((a) => a.toLowerCase()));
       const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) => k.toLowerCase());
 
+      const isDomainBlocked = (emailDomain: string): boolean => {
+        const d = emailDomain.toLowerCase();
+        return blockedDomainList.some((blocked) => d === blocked || d.endsWith("." + blocked));
+      };
+
       for (const email of ambiguous) {
-        const domainBlocked = blockedDomains.has(email.domain.toLowerCase());
+        const domainBlocked = isDomainBlocked(email.domain);
         const addressBlocked = blockedAddresses.has(email.fromEmail.toLowerCase());
         const keywordBlocked = blockedKeywords.some((kw) =>
           email.subject.toLowerCase().includes(kw),

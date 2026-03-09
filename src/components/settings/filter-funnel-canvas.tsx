@@ -309,13 +309,17 @@ export function FilterFunnelCanvas({
     };
 
     // Work only with non-preset emails for remaining AI filters
-    const domainSet = new Set(
-      filters.excludeDomains.map((d) => d.toLowerCase())
-    );
+    const blockedDomains = filters.excludeDomains.map((d) => d.toLowerCase());
     const addressSet = new Set(
       filters.excludeAddresses.map((a) => a.toLowerCase())
     );
     const keywords = filters.excludeSubjectKeywords.map((k) => k.toLowerCase());
+
+    // Subdomain-aware match: "marks.com" catches "email.marks.com"
+    const matchesDomain = (emailDomain: string): boolean => {
+      const d = emailDomain.toLowerCase();
+      return blockedDomains.some((blocked) => d === blocked || d.endsWith("." + blocked));
+    };
 
     const caughtByDomain = new Set<string>();
     const caughtByAddress = new Set<string>();
@@ -323,7 +327,7 @@ export function FilterFunnelCanvas({
 
     for (const email of scannedEmails) {
       if (presetBlockedIds.has(email.id)) continue; // skip preset-blocked
-      if (domainSet.has(email.domain.toLowerCase())) {
+      if (matchesDomain(email.domain)) {
         caughtByDomain.add(email.id);
       }
     }

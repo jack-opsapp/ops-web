@@ -55,8 +55,12 @@ export const EmailFilterService = {
   ): boolean {
     const domain = fromEmail.split("@")[1]?.toLowerCase() ?? "";
 
-    // Check domain blocklist
+    // Check domain blocklist — subdomain-aware
+    // e.g. blocklist contains "marks.com" → catches "email.marks.com"
     if (blocklist.domains.has(domain)) return true;
+    for (const blocked of blocklist.domains) {
+      if (domain.endsWith("." + blocked)) return true;
+    }
 
     // Check noreply-style patterns
     const localPart = fromEmail.split("@")[0]?.toLowerCase() ?? "";

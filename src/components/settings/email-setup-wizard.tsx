@@ -1282,12 +1282,16 @@ function computeImportedIds(
     }
   }
 
-  // 2. Domain exclusion (only non-preset emails)
-  const domainSet = new Set(filters.excludeDomains.map((d) => d.toLowerCase()));
+  // 2. Domain exclusion — subdomain-aware (only non-preset emails)
+  const blockedDomains = filters.excludeDomains.map((d) => d.toLowerCase());
+  const matchesDomain = (emailDomain: string): boolean => {
+    const d = emailDomain.toLowerCase();
+    return blockedDomains.some((blocked) => d === blocked || d.endsWith("." + blocked));
+  };
   const caughtByDomain = new Set<string>();
   for (const e of emails) {
     if (presetBlockedIds.has(e.id)) continue;
-    if (domainSet.has(e.domain.toLowerCase())) {
+    if (matchesDomain(e.domain)) {
       caughtByDomain.add(e.id);
     }
   }
@@ -1355,9 +1359,13 @@ function wouldImportWithFilters(
   // If we have a pre-computed set, use it for consistency
   if (importedIds) return importedIds.has(email.id);
 
-  // Fallback: inline check
+  // Fallback: inline check with subdomain matching
   if (filters.usePresetBlocklist && email.reason === "Blocked domain (preset)") return false;
-  if (filters.excludeDomains.some((d) => email.domain.toLowerCase() === d.toLowerCase())) return false;
+  const emailDomain = email.domain.toLowerCase();
+  if (filters.excludeDomains.some((d) => {
+    const blocked = d.toLowerCase();
+    return emailDomain === blocked || emailDomain.endsWith("." + blocked);
+  })) return false;
   if (filters.excludeAddresses?.some((addr) => email.fromEmail.toLowerCase() === addr.toLowerCase())) return false;
   if (filters.excludeSubjectKeywords?.some((kw) => email.subject.toLowerCase().includes(kw.toLowerCase()))) return false;
   return true;
