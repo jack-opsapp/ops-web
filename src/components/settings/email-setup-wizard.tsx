@@ -142,6 +142,8 @@ interface EmailSetupWizardProps {
   onOpenChange: (open: boolean) => void;
   /** Start at a specific step (e.g., "filters" from the filter section) */
   initialStep?: string;
+  /** Called when scan state changes — parent can show in-progress indicator */
+  onScanStateChange?: (state: { scanning: boolean; progress?: { stage: string; message: string } }) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -150,6 +152,7 @@ export function EmailSetupWizard({
   open,
   onOpenChange,
   initialStep,
+  onScanStateChange,
 }: EmailSetupWizardProps) {
   const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -276,6 +279,14 @@ export function EmailSetupWizard({
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
+
+  // Notify parent of scan state changes
+  useEffect(() => {
+    onScanStateChange?.({
+      scanning,
+      progress: scanning ? { stage: scanProgress.stage, message: scanProgress.message } : undefined,
+    });
+  }, [scanning, scanProgress.stage, scanProgress.message]); // eslint-disable-line react-hooks/exhaustive-deps
 
   interface ScanResultData {
     emails?: ScannedEmail[];
