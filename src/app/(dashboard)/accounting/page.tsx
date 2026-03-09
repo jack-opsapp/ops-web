@@ -35,8 +35,9 @@ import {
 import type { AccountingConnection, Invoice } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
+import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-dashboard";
 
-type TabValue = "dashboard" | "integrations";
+type TabValue = "dashboard" | "expenses" | "integrations";
 
 // ─── Provider Info ──────────────────────────────────────────────────────────
 
@@ -444,6 +445,7 @@ export default function AccountingPage() {
 
   const tabs = useMemo<{ value: TabValue; label: string }[]>(() => [
     { value: "dashboard", label: t("tabs.dashboard") },
+    { value: "expenses", label: t("tabs.expenses") },
     { value: "integrations", label: t("tabs.integrations") },
   ], [t]);
 
@@ -615,6 +617,9 @@ export default function AccountingPage() {
           </Card>
         </div>
       )}
+
+      {/* Expenses Tab */}
+      {activeTab === "expenses" && <ExpenseReviewDashboard />}
 
       {/* Integrations Tab */}
       {activeTab === "integrations" && (

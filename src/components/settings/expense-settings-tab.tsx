@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useExpenseSettings, useUpdateExpenseSettings } from "@/lib/hooks";
+import {
+  useExpenseSettings,
+  useUpdateExpenseSettings,
+  useAutoApproveRules,
+  useToggleAutoApproveRule,
+  useDeleteAutoApproveRule,
+} from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { AutoApproveRuleType } from "@/lib/types/expense-approval";
+import { AutoApproveRuleForm } from "@/components/expenses/auto-approve-rule-form";
 
 type ReviewFrequency = "daily" | "weekly" | "biweekly" | "monthly";
 
@@ -15,10 +23,14 @@ export function ExpenseSettingsTab() {
   const { t } = useDictionary("settings");
   const { data: settings, isLoading } = useExpenseSettings();
   const updateSettings = useUpdateExpenseSettings();
+  const { data: rules = [] } = useAutoApproveRules();
+  const toggleRule = useToggleAutoApproveRule();
+  const deleteRule = useDeleteAutoApproveRule();
 
   // Hooks must be called before any early return
   const [localAutoApprove, setLocalAutoApprove] = useState<string>("");
   const [localAdminApproval, setLocalAdminApproval] = useState<string>("");
+  const [showAddRule, setShowAddRule] = useState(false);
 
   // Sync local state when settings load
   useEffect(() => {
@@ -207,6 +219,114 @@ export function ExpenseSettingsTab() {
               />
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto-Approve Rules — full width */}
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>{t("expenses.autoApproveRules")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="font-kosugi text-[11px] text-text-disabled">
+            {t("expenses.autoApproveRulesDesc")}
+          </p>
+
+          {/* Rules list */}
+          {rules.length === 0 && !showAddRule && (
+            <p className="font-kosugi text-caption-sm text-text-disabled py-2">
+              {t("expenses.noRules")}
+            </p>
+          )}
+
+          {rules.map((rule) => (
+            <div
+              key={rule.id}
+              className="flex items-center justify-between py-2 border-b border-border last:border-b-0"
+            >
+              <div className="flex items-center gap-2">
+                {/* Rule type pill */}
+                <span
+                  className={cn(
+                    "px-1.5 py-0.5 rounded font-kosugi text-[10px] uppercase tracking-wider",
+                    rule.ruleType === AutoApproveRuleType.Invoice
+                      ? "bg-[rgba(129,149,181,0.15)] text-[#8195B5]"
+                      : "bg-[rgba(196,168,104,0.15)] text-[#C4A868]"
+                  )}
+                >
+                  {rule.ruleType === AutoApproveRuleType.Invoice
+                    ? t("expenses.ruleTypeInvoice")
+                    : t("expenses.ruleTypeLineItem")}
+                </span>
+
+                {/* Threshold */}
+                <span className="font-mono text-data-sm text-text-primary">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                  }).format(rule.thresholdAmount)}
+                </span>
+
+                {/* Members */}
+                <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                  {rule.appliesToAll
+                    ? t("expenses.allMembers")
+                    : `${rule.members.length} ${t("expenses.members").toLowerCase()}`}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Active toggle */}
+                <button
+                  onClick={() =>
+                    toggleRule.mutate(
+                      { ruleId: rule.id, isActive: !rule.isActive },
+                      {
+                        onSuccess: () => toast.success(t("expenses.toast.ruleToggled")),
+                        onError: () => toast.error(t("expenses.toast.error")),
+                      }
+                    )
+                  }
+                  className={cn(
+                    "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0",
+                    rule.isActive ? "bg-ops-accent" : "bg-background-elevated"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-[2px] w-[16px] h-[16px] rounded-full bg-white transition-all",
+                      rule.isActive ? "right-[2px]" : "left-[2px]"
+                    )}
+                  />
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() =>
+                    deleteRule.mutate(rule.id, {
+                      onSuccess: () => toast.success(t("expenses.toast.ruleDeleted")),
+                      onError: () => toast.error(t("expenses.toast.error")),
+                    })
+                  }
+                  className="text-text-disabled hover:text-[#93321A] transition-colors"
+                >
+                  <Trash2 className="w-[14px] h-[14px]" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Add rule form */}
+          {showAddRule ? (
+            <AutoApproveRuleForm onClose={() => setShowAddRule(false)} />
+          ) : (
+            <button
+              onClick={() => setShowAddRule(true)}
+              className="font-kosugi text-caption-sm text-ops-accent hover:text-text-primary uppercase tracking-wider transition-colors"
+            >
+              {t("expenses.addRule")}
+            </button>
+          )}
         </CardContent>
       </Card>
     </div>

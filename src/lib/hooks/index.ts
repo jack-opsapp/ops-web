@@ -198,6 +198,20 @@ export {
   useUpdateExpenseSettings,
 } from "./use-expense-settings";
 
+// Expense Approval (batches, flagging, approval, auto-approve rules)
+export {
+  useExpenseBatches,
+  useBatchExpenses,
+  useFlagExpense,
+  useUnflagExpense,
+  useApproveBatch,
+  useRejectWithRevisions,
+  useAutoApproveRules,
+  useCreateAutoApproveRule,
+  useToggleAutoApproveRule,
+  useDeleteAutoApproveRule,
+} from "./use-expense-approval";
+
 // Notification Preferences
 export {
   useNotificationPreferences,

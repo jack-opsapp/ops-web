@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackLogin } from "@/lib/analytics/analytics";
 import { useDictionary } from "@/i18n/client";
+import { JoinTeamPrompt } from "@/components/auth/join-team-prompt";
 
 export default function LoginPage() {
   return (
@@ -279,8 +280,13 @@ function LoginForm() {
         )}
       </div>
 
+      {/* Join existing team */}
+      <div className="mt-4 pt-4 border-t border-border">
+        <JoinTeamPrompt />
+      </div>
+
       {/* Footer */}
-      <p className="mt-4 font-mohave text-body-sm text-text-tertiary">
+      <p className="mt-3 font-mohave text-body-sm text-text-tertiary">
         {t("login.noAccount")}{" "}
         <Link
           href="/register"

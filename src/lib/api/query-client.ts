@@ -213,6 +213,21 @@ export const queryKeys = {
       [...queryKeys.expenseSettings.all, companyId] as const,
   },
 
+  // Expense Approval (batches, line items, auto-approve rules)
+  expenseBatches: {
+    all: ["expenseBatches"] as const,
+    lists: () => [...queryKeys.expenseBatches.all, "list"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.expenseBatches.lists(), companyId] as const,
+    details: () => [...queryKeys.expenseBatches.all, "detail"] as const,
+    detail: (batchId: string) =>
+      [...queryKeys.expenseBatches.details(), batchId] as const,
+    expenses: (batchId: string) =>
+      [...queryKeys.expenseBatches.all, "expenses", batchId] as const,
+    autoApproveRules: (companyId: string) =>
+      [...queryKeys.expenseBatches.all, "autoApproveRules", companyId] as const,
+  },
+
   // Notification Preferences
   notificationPreferences: {
     all: ["notificationPreferences"] as const,
