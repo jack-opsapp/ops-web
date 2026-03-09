@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   User,
   Building2,
@@ -213,6 +213,7 @@ export default function SettingsPage() {
   }, [permReady, can, currentUser?.devPermission]);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>("account");
   const [activeSubTab, setActiveSubTab] = useState("profile");
@@ -292,8 +293,9 @@ export default function SettingsPage() {
       didNavigate = true;
     }
 
-    // Flash the content card to draw attention
+    // Flash the content card and clear the URL param so it doesn't persist
     if (didNavigate) {
+      router.replace("/settings", { scroll: false });
       setFlashContent(false);
       requestAnimationFrame(() => setFlashContent(true));
       const timer = setTimeout(() => setFlashContent(false), 1200);
