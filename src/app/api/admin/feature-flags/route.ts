@@ -2,27 +2,18 @@
  * OPS Admin - Feature Flags API
  *
  * GET   /api/admin/feature-flags             → all flags + override count per flag
- * PATCH /api/admin/feature-flags             → { slug, enabled } toggle master switch
- * POST  /api/admin/feature-flags             → { slug, label, description } create new flag
+ * PATCH /api/admin/feature-flags             → partial update (enabled, routes, permissions, label, description)
+ * POST  /api/admin/feature-flags             → create new flag
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { isAdminEmail } from "@/lib/admin/admin-queries";
+import { NextResponse } from "next/server";
+import { requireAdmin, withAdmin } from "@/lib/admin/api-auth";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
-
-async function requireAdmin(req: NextRequest) {
-  const user = await verifyAdminAuth(req);
-  if (!user?.email || !(await isAdminEmail(user.email))) return null;
-  return user;
-}
 
 // ─── GET: List all flags with override counts ────────────────────────────────
 
-export async function GET(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const GET = withAdmin(async (req) => {
+  await requireAdmin(req);
 
   const db = getAdminSupabase();
 
@@ -55,24 +46,31 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json(result);
-}
+});
 
-// ─── PATCH: Toggle master switch ─────────────────────────────────────────────
+// ─── PATCH: Toggle master switch or update routes/permissions ────────────────
 
-export async function PATCH(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const PATCH = withAdmin(async (req) => {
+  await requireAdmin(req);
+
+  const body = await req.json();
+  const { slug } = body;
+  if (!slug) {
+    return NextResponse.json({ error: "slug required" }, { status: 400 });
   }
 
-  const { slug, enabled } = await req.json();
-  if (!slug || typeof enabled !== "boolean") {
-    return NextResponse.json({ error: "slug and enabled required" }, { status: 400 });
-  }
+  // Build update payload from whichever fields were provided
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+  if (Array.isArray(body.routes)) patch.routes = body.routes;
+  if (Array.isArray(body.permissions)) patch.permissions = body.permissions;
+  if (typeof body.label === "string") patch.label = body.label;
+  if (typeof body.description === "string") patch.description = body.description;
 
   const db = getAdminSupabase();
   const { error } = await db
     .from("feature_flags")
-    .update({ enabled, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq("slug", slug);
 
   if (error) {
@@ -80,16 +78,14 @@ export async function PATCH(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true });
-}
+});
 
 // ─── POST: Create new flag ───────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const POST = withAdmin(async (req) => {
+  await requireAdmin(req);
 
-  const { slug, label, description } = await req.json();
+  const { slug, label, description, routes, permissions } = await req.json();
   if (!slug || !label) {
     return NextResponse.json({ error: "slug and label required" }, { status: 400 });
   }
@@ -97,7 +93,14 @@ export async function POST(req: NextRequest) {
   const db = getAdminSupabase();
   const { data, error } = await db
     .from("feature_flags")
-    .insert({ slug, label, description: description ?? null, enabled: false })
+    .insert({
+      slug,
+      label,
+      description: description ?? null,
+      enabled: false,
+      routes: routes ?? [],
+      permissions: permissions ?? [],
+    })
     .select()
     .single();
 
@@ -106,4 +109,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(data);
-}
+});

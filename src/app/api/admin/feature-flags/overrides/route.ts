@@ -6,23 +6,14 @@
  * DELETE /api/admin/feature-flags/overrides                      → { id } remove override
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { isAdminEmail } from "@/lib/admin/admin-queries";
+import { NextResponse } from "next/server";
+import { requireAdmin, withAdmin } from "@/lib/admin/api-auth";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
-
-async function requireAdmin(req: NextRequest) {
-  const user = await verifyAdminAuth(req);
-  if (!user?.email || !(await isAdminEmail(user.email))) return null;
-  return user;
-}
 
 // ─── GET: Overrides for a flag + optional user search ────────────────────────
 
-export async function GET(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const GET = withAdmin(async (req) => {
+  await requireAdmin(req);
 
   const flagSlug = req.nextUrl.searchParams.get("flagSlug");
   const q = req.nextUrl.searchParams.get("q");
@@ -80,14 +71,12 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ error: "flagSlug or q parameter required" }, { status: 400 });
-}
+});
 
 // ─── POST: Add override ─────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const POST = withAdmin(async (req) => {
+  await requireAdmin(req);
 
   const { flagSlug, userId } = await req.json();
   if (!flagSlug || !userId) {
@@ -109,14 +98,12 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(data);
-}
+});
 
 // ─── DELETE: Remove override ─────────────────────────────────────────────────
 
-export async function DELETE(req: NextRequest) {
-  if (!(await requireAdmin(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const DELETE = withAdmin(async (req) => {
+  await requireAdmin(req);
 
   const { id } = await req.json();
   if (!id) {
@@ -134,4 +121,4 @@ export async function DELETE(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true });
-}
+});

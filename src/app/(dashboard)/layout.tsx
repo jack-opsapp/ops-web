@@ -5,7 +5,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flags-store";
-import { getSlugForRoute } from "@/lib/feature-flags/feature-flag-definitions";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { Loader2 } from "lucide-react";
@@ -93,12 +92,10 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // Block render while feature flags are loading for a flag-gated route
-  const flagSlug = getSlugForRoute(pathname);
-  if (flagSlug) {
-    if (!flagsReady) return null;
-    if (!isRouteUnlocked(pathname)) return null;
-  }
+  // Block render while feature flags are loading — prevents flash of gated content.
+  // Flags load in parallel with auth, so this adds negligible latency.
+  if (!flagsReady) return null;
+  if (!isRouteUnlocked(pathname)) return null;
 
   // Block render while permissions are loading for a gated route
   const requiredPermission = getRequiredPermission(pathname);

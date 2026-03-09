@@ -4,24 +4,23 @@
  * Zustand store for feature flag state (master on/off + user overrides).
  * Loaded at login alongside permissions. Gates sidebar items and routes.
  *
- * If a slug is not in the map it is treated as accessible (unknown = allowed).
+ * Routes and permissions controlled by each flag are stored in the DB
+ * and returned by /api/feature-flags. Unknown slugs are treated as accessible.
  */
 
 import { create } from "zustand";
-import {
-  getSlugForRoute,
-  getSlugForPermission,
-} from "@/lib/feature-flags/feature-flag-definitions";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface FlagState {
   enabled: boolean;
   hasOverride: boolean;
+  routes: string[];
+  permissions: string[];
 }
 
 export interface FeatureFlagsState {
-  /** Map of slug → { enabled, hasOverride } */
+  /** Map of slug → { enabled, hasOverride, routes, permissions } */
   flags: Map<string, FlagState>;
   /** Whether flags have been fetched at least once */
   initialized: boolean;
@@ -52,15 +51,23 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
   },
 
   isPermissionUnlocked: (permission: string): boolean => {
-    const slug = getSlugForPermission(permission);
-    if (!slug) return true; // not gated by any flag
-    return get().canAccessFeature(slug);
+    for (const [slug, flag] of get().flags.entries()) {
+      if (flag.permissions.includes(permission)) {
+        return get().canAccessFeature(slug);
+      }
+    }
+    return true; // not gated by any flag
   },
 
   isRouteUnlocked: (pathname: string): boolean => {
-    const slug = getSlugForRoute(pathname);
-    if (!slug) return true; // not gated by any flag
-    return get().canAccessFeature(slug);
+    for (const [slug, flag] of get().flags.entries()) {
+      for (const route of flag.routes) {
+        if (pathname === route || pathname.startsWith(route + "/")) {
+          return get().canAccessFeature(slug);
+        }
+      }
+    }
+    return true; // not gated by any flag
   },
 
   fetchFlags: async (userId: string) => {
@@ -71,14 +78,21 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
         set({ initialized: true });
         return;
       }
-      const data: { slug: string; enabled: boolean; hasOverride: boolean }[] =
-        await res.json();
+      const data: {
+        slug: string;
+        enabled: boolean;
+        hasOverride: boolean;
+        routes: string[];
+        permissions: string[];
+      }[] = await res.json();
 
       const flags = new Map<string, FlagState>();
       for (const row of data) {
         flags.set(row.slug, {
           enabled: row.enabled,
           hasOverride: row.hasOverride,
+          routes: row.routes ?? [],
+          permissions: row.permissions ?? [],
         });
       }
       set({ flags, initialized: true });
