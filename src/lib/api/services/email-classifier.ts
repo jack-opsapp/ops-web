@@ -1,8 +1,13 @@
 /**
  * OPS Web - Email Classifier (OpenAI GPT-4o-mini)
  *
- * Analyzes up to 500 scanned emails in a single API call and returns
+ * Analyzes up to 300 scanned emails in a single API call and returns
  * a recommended filter configuration tailored to this specific customer.
+ *
+ * The AI returns ONLY filter rules (domains, addresses, keywords) — not
+ * per-email verdicts. We apply the filters client-side to classify each
+ * email. This keeps the output small (~500 tokens) regardless of input size.
+ *
  * Big input (~40K tokens), tiny output (~500 tokens). Cost: < 1¢.
  */
 
@@ -36,8 +41,6 @@ export interface RecommendedFilters {
 export interface ClassificationResult {
   /** AI-recommended filter config */
   filters: RecommendedFilters;
-  /** Per-email verdicts: email ID → "import" | "filter" */
-  verdicts: Map<string, "import" | "filter">;
 }
 
 // ─── Singleton OpenAI Client ────────────────────────────────────────────────
@@ -82,17 +85,17 @@ OUTPUT FORMAT — respond with valid JSON only:
   "excludeSubjectKeywords": ["unsubscribe", "your order"],
   "usePresetBlocklist": true,
   "labelIds": ["INBOX"],
-  "verdicts": { "emailId1": "import", "emailId2": "filter" },
   "summary": "Brief 1-2 sentence explanation of the strategy"
 }
+
+Do NOT include per-email verdicts. Only return the filter configuration above.
 
 RULES FOR EACH FILTER FIELD:
 - excludeDomains: Only domains where 100% of emails are noise. Never block a domain that has even one customer email.
 - excludeAddresses: Specific sender addresses to block from domains you're keeping.
 - excludeSubjectKeywords: Short phrases that reliably indicate noise (case-insensitive match). Be precise — don't use words that might appear in customer emails like "estimate", "quote", or "project".
 - usePresetBlocklist: true if the inbox has typical marketing/newsletter senders, false only if the business seems to have very unusual email patterns.
-- labelIds: Usually ["INBOX"]. Add "SENT" only if you see sent-mail replies to customers. Add "IMPORTANT" if the user seems to use Gmail priority inbox.
-- verdicts: For EVERY email ID in the input, output "import" or "filter". Use ONLY these two values.`;
+- labelIds: Usually ["INBOX"]. Add "SENT" only if you see sent-mail replies to customers. Add "IMPORTANT" if the user seems to use Gmail priority inbox.`;
 
 // ─── Sanitization ───────────────────────────────────────────────────────────
 
@@ -106,13 +109,13 @@ function sanitizeField(value: string, maxLen: number): string {
 
 // ─── Main Function ──────────────────────────────────────────────────────────
 
-const MAX_EMAILS = 250;
+const MAX_EMAILS = 300;
 
 /**
- * Analyze all scanned emails in a single API call and return
- * a recommended filter configuration + per-email verdicts.
+ * Analyze scanned emails in a single API call and return
+ * a recommended filter configuration.
  *
- * @param emails — up to 500 emails. Excess will be truncated.
+ * @param emails — up to 300 emails. Excess will be truncated.
  */
 export async function classifyEmails(
   emails: EmailForClassification[],
@@ -120,7 +123,7 @@ export async function classifyEmails(
   const openai = getOpenAIClient();
   if (!openai) {
     console.warn("[email-classifier] OPENAI_API_KEY not set, skipping AI classification");
-    return { filters: defaultFilters("AI classification unavailable — using default filters."), verdicts: new Map() };
+    return { filters: defaultFilters("AI classification unavailable — using default filters.") };
   }
 
   // Enforce limit
@@ -134,74 +137,71 @@ export async function classifyEmails(
     )
     .join("\n");
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Analyze these ${capped.length} emails from a trades/service business and recommend the optimal filter configuration.\n\n${emailList}`,
-        },
-      ],
-    });
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    max_tokens: 4_096,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `Analyze these ${capped.length} emails from a trades/service business and recommend the optimal filter configuration.\n\n${emailList}`,
+      },
+    ],
+  });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      console.error("[email-classifier] Empty response from OpenAI");
-      return { filters: defaultFilters(), verdicts: new Map() };
-    }
+  const content = response.choices[0]?.message?.content;
+  const finishReason = response.choices[0]?.finish_reason;
 
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(content);
-    } catch (parseErr) {
-      console.error("[email-classifier] Failed to parse OpenAI response:", parseErr, "Raw (truncated):", content.slice(0, 500));
-      return { filters: defaultFilters(), verdicts: new Map() };
-    }
-
-    // ── Validate verdicts (only accept "import" | "filter") ──────────────
-    const verdicts = new Map<string, "import" | "filter">();
-    const rawVerdicts = parsed.verdicts;
-    if (rawVerdicts && typeof rawVerdicts === "object" && !Array.isArray(rawVerdicts)) {
-      for (const [id, verdict] of Object.entries(rawVerdicts)) {
-        if (verdict === "import" || verdict === "filter") {
-          verdicts.set(id, verdict);
-        }
-      }
-    }
-
-    // ── Validate array fields (ensure all entries are strings) ───────────
-    const toStringArray = (val: unknown): string[] => {
-      if (!Array.isArray(val)) return [];
-      return val.filter((v): v is string => typeof v === "string" && v.length > 0);
-    };
-
-    const filters: RecommendedFilters = {
-      excludeDomains: toStringArray(parsed.excludeDomains),
-      excludeAddresses: toStringArray(parsed.excludeAddresses),
-      excludeSubjectKeywords: toStringArray(parsed.excludeSubjectKeywords),
-      usePresetBlocklist: typeof parsed.usePresetBlocklist === "boolean" ? parsed.usePresetBlocklist : true,
-      labelIds: toStringArray(parsed.labelIds).length > 0 ? toStringArray(parsed.labelIds) : ["INBOX", "SENT"],
-      summary: typeof parsed.summary === "string" ? parsed.summary : "",
-    };
-
-    // eslint-disable-next-line no-console
-    console.log(
-      `[email-classifier] Analyzed ${capped.length} emails → ` +
-      `${filters.excludeDomains.length} blocked domains, ` +
-      `${filters.excludeAddresses.length} blocked addresses, ` +
-      `${filters.excludeSubjectKeywords.length} subject keywords, ` +
-      `${verdicts.size} verdicts`,
-    );
-
-    return { filters, verdicts };
-  } catch (err) {
-    console.error("[email-classifier] Classification failed:", err);
-    return { filters: defaultFilters(), verdicts: new Map() };
+  if (!content) {
+    throw new Error("Empty response from OpenAI");
   }
+
+  if (finishReason === "length") {
+    console.error(
+      `[email-classifier] OpenAI response truncated (finish_reason=length). ` +
+      `Content length: ${content.length} chars.`,
+    );
+    throw new Error("AI response was truncated — output exceeded token limit");
+  }
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    console.error(
+      "[email-classifier] Invalid JSON from OpenAI.",
+      `finish_reason=${finishReason}, length=${content.length}`,
+      "First 500 chars:", content.slice(0, 500),
+    );
+    throw new Error("AI returned invalid JSON");
+  }
+
+  // ── Validate array fields (ensure all entries are strings) ───────────
+  const toStringArray = (val: unknown): string[] => {
+    if (!Array.isArray(val)) return [];
+    return val.filter((v): v is string => typeof v === "string" && v.length > 0);
+  };
+
+  const filters: RecommendedFilters = {
+    excludeDomains: toStringArray(parsed.excludeDomains),
+    excludeAddresses: toStringArray(parsed.excludeAddresses),
+    excludeSubjectKeywords: toStringArray(parsed.excludeSubjectKeywords),
+    usePresetBlocklist: typeof parsed.usePresetBlocklist === "boolean" ? parsed.usePresetBlocklist : true,
+    labelIds: toStringArray(parsed.labelIds).length > 0 ? toStringArray(parsed.labelIds) : ["INBOX", "SENT"],
+    summary: typeof parsed.summary === "string" ? parsed.summary : "",
+  };
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `[email-classifier] Analyzed ${capped.length} emails → ` +
+    `${filters.excludeDomains.length} blocked domains, ` +
+    `${filters.excludeAddresses.length} blocked addresses, ` +
+    `${filters.excludeSubjectKeywords.length} subject keywords`,
+  );
+
+  return { filters };
 }
 
 function defaultFilters(summary = "AI classification failed — using default filters."): RecommendedFilters {

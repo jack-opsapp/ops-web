@@ -283,14 +283,29 @@ export async function GET(request: NextRequest) {
       const aiResult = await classifyEmails(emailsForAI);
       recommendedFilters = aiResult.filters;
 
-      // Apply AI verdicts to ambiguous emails
+      // Apply AI-recommended filters to determine per-email import/filter status
+      const blockedDomains = new Set(aiResult.filters.excludeDomains.map((d) => d.toLowerCase()));
+      const blockedAddresses = new Set(aiResult.filters.excludeAddresses.map((a) => a.toLowerCase()));
+      const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) => k.toLowerCase());
+
       for (const email of ambiguous) {
-        const verdict = aiResult.verdicts.get(email.id);
-        if (verdict) {
-          email.wouldImport = verdict === "import";
-          email.reason = verdict === "import" ? "AI: import" : "AI: filtered";
+        const domainBlocked = blockedDomains.has(email.domain.toLowerCase());
+        const addressBlocked = blockedAddresses.has(email.fromEmail.toLowerCase());
+        const keywordBlocked = blockedKeywords.some((kw) =>
+          email.subject.toLowerCase().includes(kw),
+        );
+
+        if (domainBlocked || addressBlocked || keywordBlocked) {
+          email.wouldImport = false;
+          email.reason = domainBlocked
+            ? "AI: blocked domain"
+            : addressBlocked
+              ? "AI: blocked address"
+              : "AI: blocked keyword";
+        } else {
+          email.wouldImport = true;
+          email.reason = "AI: import";
         }
-        // Emails without a verdict keep wouldImport=true (benefit of the doubt)
       }
     } catch (err) {
       console.error("[gmail-scan-preview] AI classification failed, ambiguous emails default to import:", err);

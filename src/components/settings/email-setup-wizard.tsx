@@ -300,6 +300,7 @@ export function EmailSetupWizard({
     };
     preFiltered?: number;
     aiAnalyzed?: number;
+    aiError?: string | null;
   }
 
   function processScanResults(data: ScanResultData) {
@@ -386,6 +387,11 @@ export function EmailSetupWizard({
     // Clear any existing poll
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
+    // Track last-seen updatedAt to detect stale jobs
+    let lastUpdatedAt: string | null = null;
+    let staleSince: number | null = null;
+    const STALE_TIMEOUT_MS = 90_000; // 90 seconds without progress = stale
+
     pollIntervalRef.current = setInterval(async () => {
       try {
         const resp = await fetch(
@@ -395,6 +401,30 @@ export function EmailSetupWizard({
 
         const data = await resp.json();
         setScanProgress(data.progress ?? { stage: data.status, current: 0, total: 0, message: "" });
+
+        // ── Stale job detection ──────────────────────────────────────────
+        // If the job's updatedAt hasn't changed for STALE_TIMEOUT_MS while
+        // still in a processing state, the background function likely crashed.
+        if (data.status !== "complete" && data.status !== "error") {
+          if (data.updatedAt === lastUpdatedAt) {
+            if (!staleSince) staleSince = Date.now();
+            if (Date.now() - staleSince > STALE_TIMEOUT_MS) {
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+              setScanning(false);
+              setScanJobId(null);
+              removePrompt(SCAN_PROMPT_ID);
+              toast.error("Email scan timed out", {
+                description: "The scan stopped responding. Please try again.",
+              });
+              return;
+            }
+          } else {
+            // Progress is being made — reset stale tracker
+            lastUpdatedAt = data.updatedAt;
+            staleSince = null;
+          }
+        }
 
         if (data.status === "complete") {
           // Stop polling
@@ -414,7 +444,14 @@ export function EmailSetupWizard({
           const postFilterImportCount = emails.length - stagedFilterCount;
           const summary = ai?.summary ?? `${postFilterImportCount} to import, ${stagedFilterCount} filtered out.`;
 
-          toast.success("Email scan complete", { description: summary });
+          // Show AI error as warning if scan completed but AI failed
+          if (result.aiError) {
+            toast.warning("Email scan complete with issues", {
+              description: `AI analysis failed: ${result.aiError}. Filters were not applied.`,
+            });
+          } else {
+            toast.success("Email scan complete", { description: summary });
+          }
 
           // If wizard is closed, show action prompt
           if (!openRef.current) {

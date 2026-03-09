@@ -298,6 +298,7 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
     });
 
     let recommendedFilters = null;
+    let aiError: string | null = null;
 
     try {
       const emailsForAI: EmailForClassification[] = ambiguous.map((e) => ({
@@ -310,15 +311,34 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       const aiResult = await classifyEmails(emailsForAI);
       recommendedFilters = aiResult.filters;
 
+      // Apply AI-recommended filters to determine per-email import/filter status
+      const blockedDomains = new Set(aiResult.filters.excludeDomains.map((d) => d.toLowerCase()));
+      const blockedAddresses = new Set(aiResult.filters.excludeAddresses.map((a) => a.toLowerCase()));
+      const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) => k.toLowerCase());
+
       for (const email of ambiguous) {
-        const verdict = aiResult.verdicts.get(email.id);
-        if (verdict) {
-          email.wouldImport = verdict === "import";
-          email.reason = verdict === "import" ? "AI: import" : "AI: filtered";
+        const domainBlocked = blockedDomains.has(email.domain.toLowerCase());
+        const addressBlocked = blockedAddresses.has(email.fromEmail.toLowerCase());
+        const keywordBlocked = blockedKeywords.some((kw) =>
+          email.subject.toLowerCase().includes(kw),
+        );
+
+        if (domainBlocked || addressBlocked || keywordBlocked) {
+          email.wouldImport = false;
+          email.reason = domainBlocked
+            ? "AI: blocked domain"
+            : addressBlocked
+              ? "AI: blocked address"
+              : "AI: blocked keyword";
+        } else {
+          email.wouldImport = true;
+          email.reason = "AI: import";
         }
       }
     } catch (err) {
-      console.error("[scan-job] AI classification failed:", err);
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error("[scan-job] AI classification failed:", msg);
+      aiError = msg;
       for (const email of ambiguous) {
         email.reason = "Unclassified (AI unavailable)";
       }
@@ -326,18 +346,22 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
 
     // ── Stage 6: Complete ─────────────────────────────────────────────────
     const allResults = [...autoFiltered, ...ambiguous];
+    const completeMessage = aiError
+      ? `Scan complete with warnings — AI analysis failed: ${aiError}`
+      : "Scan complete!";
 
     await supabase
       .from("gmail_scan_jobs")
       .update({
         status: "complete",
-        progress: { stage: "complete", current: 100, total: 100, message: "Scan complete!" },
+        progress: { stage: "complete", current: 100, total: 100, message: completeMessage },
         result: {
           emails: allResults,
           total: allMessageIds.length,
           preFiltered: autoFiltered.length,
           aiAnalyzed: ambiguous.length,
           recommendedFilters,
+          aiError,
         },
         updated_at: new Date().toISOString(),
       })
