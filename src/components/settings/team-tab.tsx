@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   UserPlus,
   Mail,
@@ -11,11 +11,21 @@ import {
   UserCheck,
   Armchair,
   Loader2,
+  X,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import {
   useTeamMembers,
@@ -26,6 +36,7 @@ import {
   useRemoveSeatedEmployee,
   useCompany,
   useSendInvite,
+  useRoles,
 } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { getUserFullName, getInitials, UserRole } from "@/lib/types/models";
@@ -40,6 +51,8 @@ const ROLES: { id: UserRole; labelKey: string }[] = [
   { id: UserRole.Operator, labelKey: "team.roleOperator" },
   { id: UserRole.Crew, labelKey: "team.roleCrew" },
 ];
+
+// ─── Member Actions Menu ──────────────────────────────────────────────────────
 
 function MemberActions({
   member,
@@ -207,58 +220,108 @@ function MemberActions({
   );
 }
 
-export function TeamTab() {
+// ─── Invite Modal ─────────────────────────────────────────────────────────────
+
+function InviteModal({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { t } = useDictionary("settings");
-  const { data: teamData, isLoading } = useTeamMembers();
-  const { data: company } = useCompany();
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const members = teamData?.users ?? [];
   const sendInvite = useSendInvite();
+  const { data: rolesData } = useRoles();
+  const roles = rolesData ?? [];
 
-  const [inviteValue, setInviteValue] = useState("");
   const [inviteMode, setInviteMode] = useState<"email" | "sms">("email");
-  const [inviteRole, setInviteRole] = useState<string>("crew");
+  const [inputValue, setInputValue] = useState("");
+  const [entries, setEntries] = useState<string[]>([]);
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("");
 
-  const seatedIds = company?.seatedEmployeeIds ?? [];
-  const maxSeats = company?.maxSeats ?? 10;
-  const seatedCount = seatedIds.length;
-  const seatsFull = seatedCount >= maxSeats;
+  const resetForm = useCallback(() => {
+    setInputValue("");
+    setEntries([]);
+    setSelectedRoleId("");
+    setInviteMode("email");
+  }, []);
 
-  // Separate active and deactivated members
-  const activeMembers = members.filter((m) => m.isActive !== false);
-  const deactivatedMembers = members.filter((m) => m.isActive === false);
+  function addEntry() {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
 
-  function handleInvite() {
-    if (!inviteValue.trim()) {
+    // Support comma/semicolon/space-separated values
+    const parts = trimmed.split(/[,;\s]+/).filter(Boolean);
+    const newEntries = parts.filter((p) => !entries.includes(p));
+
+    if (newEntries.length > 0) {
+      setEntries((prev) => [...prev, ...newEntries]);
+    }
+    setInputValue("");
+  }
+
+  function removeEntry(entry: string) {
+    setEntries((prev) => prev.filter((e) => e !== entry));
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addEntry();
+    }
+    if (e.key === "Backspace" && !inputValue && entries.length > 0) {
+      setEntries((prev) => prev.slice(0, -1));
+    }
+  }
+
+  function handleSend() {
+    // Add any remaining input
+    const allEntries = [...entries];
+    const trimmed = inputValue.trim();
+    if (trimmed) {
+      const parts = trimmed.split(/[,;\s]+/).filter(Boolean);
+      parts.forEach((p) => {
+        if (!allEntries.includes(p)) allEntries.push(p);
+      });
+    }
+
+    if (allEntries.length === 0) {
       toast.error(inviteMode === "email" ? t("team.toast.enterEmail") : t("team.toast.enterPhone"));
       return;
     }
 
     const data = inviteMode === "email"
-      ? { emails: [inviteValue] }
-      : { phones: [inviteValue] };
+      ? { emails: allEntries, roleId: selectedRoleId || undefined }
+      : { phones: allEntries, roleId: selectedRoleId || undefined };
 
     sendInvite.mutate(data, {
-      onSuccess: () => {
+      onSuccess: (result) => {
+        const count = result.invitesSent ?? allEntries.length;
         toast.success(t("team.toast.inviteSent"), {
-          description: `${inviteMode === "email" ? t("team.toast.emailInviteSent") : t("team.toast.smsInviteSent")} ${inviteValue}`,
+          description: `${count} ${count === 1 ? t("team.toast.inviteSentSingular") : t("team.toast.inviteSentPlural")}`,
         });
-        setInviteValue("");
+        resetForm();
+        onOpenChange(false);
       },
       onError: (err) => toast.error(t("team.toast.inviteFailed"), { description: err.message }),
     });
   }
 
   return (
-    <div className="space-y-3">
-      {/* Top section: Invite + Seat Usage side by side on wide screens */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
-      {/* Invite Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("team.inviteTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!val) resetForm();
+        onOpenChange(val);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("team.inviteTitle")}</DialogTitle>
+          <DialogDescription>{t("team.inviteDescription")}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 py-1">
           {/* Email / SMS toggle */}
           <div className="flex items-center gap-1">
             {([
@@ -270,7 +333,8 @@ export function TeamTab() {
                 type="button"
                 onClick={() => {
                   setInviteMode(mode.id);
-                  setInviteValue("");
+                  setEntries([]);
+                  setInputValue("");
                 }}
                 className={cn(
                   "flex items-center gap-[6px] px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all",
@@ -285,68 +349,135 @@ export function TeamTab() {
             ))}
           </div>
 
-          {inviteMode === "email" ? (
-            <Input
-              label={t("team.emailAddress")}
-              type="email"
-              value={inviteValue}
-              onChange={(e) => setInviteValue(e.target.value)}
-              placeholder={t("team.emailPlaceholder")}
-              prefixIcon={<Mail className="w-[16px] h-[16px]" />}
-            />
-          ) : (
-            <Input
-              label={t("team.phoneNumber")}
-              type="tel"
-              value={inviteValue}
-              onChange={(e) => setInviteValue(e.target.value)}
-              placeholder={t("team.phonePlaceholder")}
-              prefixIcon={<Phone className="w-[16px] h-[16px]" />}
-            />
-          )}
+          {/* Multi-entry input with chips */}
+          <div>
+            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
+              {inviteMode === "email" ? t("team.emailAddress") : t("team.phoneNumber")}
+            </label>
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-[6px] p-1 rounded-sm border bg-background-input min-h-[40px]",
+                "border-border focus-within:border-ops-accent transition-colors"
+              )}
+            >
+              {entries.map((entry) => (
+                <span
+                  key={entry}
+                  className="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-full bg-ops-accent-muted text-ops-accent font-mono text-[11px]"
+                >
+                  {entry}
+                  <button
+                    onClick={() => removeEntry(entry)}
+                    className="hover:text-text-primary transition-colors"
+                  >
+                    <X className="w-[10px] h-[10px]" />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={addEntry}
+                placeholder={
+                  entries.length === 0
+                    ? inviteMode === "email"
+                      ? t("team.emailPlaceholder")
+                      : t("team.phonePlaceholder")
+                    : t("team.addMore")
+                }
+                className="flex-1 min-w-[120px] bg-transparent outline-none font-mohave text-body-sm text-text-primary placeholder:text-text-disabled"
+              />
+            </div>
+            <p className="font-kosugi text-[10px] text-text-disabled mt-[4px]">
+              {t("team.multiInviteHint")}
+            </p>
+          </div>
 
+          {/* RBAC Role picker */}
           <div className="flex flex-col gap-0.5">
             <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-              {t("team.role")}
+              {t("team.assignRole")}
             </label>
-            <div className="flex items-center gap-1">
-              {([
-                { id: "admin", label: t("team.roleAdmin") },
-                { id: "owner", label: t("team.roleOwner") },
-                { id: "office", label: t("team.roleOffice") },
-                { id: "operator", label: t("team.roleOperator") },
-                { id: "crew", label: t("team.roleCrew") },
-              ]).map((role) => (
+            <div className="flex flex-wrap items-center gap-1">
+              {roles.map((role) => (
                 <button
                   key={role.id}
                   type="button"
-                  onClick={() => setInviteRole(role.id)}
+                  onClick={() => setSelectedRoleId(selectedRoleId === role.id ? "" : role.id)}
                   className={cn(
-                    "px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all",
-                    inviteRole === role.id
+                    "px-1.5 py-[6px] rounded border font-mohave text-body-sm transition-all",
+                    selectedRoleId === role.id
                       ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
                       : "bg-background-input border-border text-text-tertiary hover:text-text-secondary"
                   )}
                 >
-                  {role.label}
+                  {role.name}
                 </button>
               ))}
             </div>
+            <p className="font-kosugi text-[10px] text-text-disabled">
+              {t("team.roleAssignHint")}
+            </p>
           </div>
-          <div className="pt-1">
-            <Button onClick={handleInvite} className="gap-[6px]" disabled={sendInvite.isPending}>
-              {sendInvite.isPending ? (
-                <Loader2 className="w-[16px] h-[16px] animate-spin" />
-              ) : (
-                <UserPlus className="w-[16px] h-[16px]" />
-              )}
-              {t("team.sendInvite")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Seat Usage */}
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              resetForm();
+              onOpenChange(false);
+            }}
+          >
+            {t("team.cancel")}
+          </Button>
+          <Button
+            onClick={handleSend}
+            className="gap-[6px]"
+            disabled={sendInvite.isPending || (entries.length === 0 && !inputValue.trim())}
+          >
+            {sendInvite.isPending ? (
+              <Loader2 className="w-[16px] h-[16px] animate-spin" />
+            ) : (
+              <UserPlus className="w-[16px] h-[16px]" />
+            )}
+            {t("team.sendInvite")}
+            {entries.length > 0 && (
+              <span className="bg-[rgba(255,255,255,0.15)] px-[6px] py-[1px] rounded-full text-[10px]">
+                {entries.length}
+              </span>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Team Tab ─────────────────────────────────────────────────────────────────
+
+export function TeamTab() {
+  const { t } = useDictionary("settings");
+  const { data: teamData, isLoading } = useTeamMembers();
+  const { data: company } = useCompany();
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const members = teamData?.users ?? [];
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const seatedIds = company?.seatedEmployeeIds ?? [];
+  const maxSeats = company?.maxSeats ?? 10;
+  const seatedCount = seatedIds.length;
+  const seatsFull = seatedCount >= maxSeats;
+
+  // Separate active and deactivated members
+  const activeMembers = members.filter((m) => m.isActive !== false);
+  const deactivatedMembers = members.filter((m) => m.isActive === false);
+
+  return (
+    <div className="space-y-3">
+      {/* Top section: Seat Usage */}
       <Card>
         <CardHeader>
           <CardTitle>{t("team.seatUsage")}</CardTitle>
@@ -374,12 +505,21 @@ export function TeamTab() {
           )}
         </CardContent>
       </Card>
-      </div>
 
       {/* Active Team Members */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("team.membersTitle")} ({activeMembers.length})</CardTitle>
+          <div className="flex items-center justify-between w-full">
+            <CardTitle>{t("team.membersTitle")} ({activeMembers.length})</CardTitle>
+            <Button
+              size="sm"
+              onClick={() => setInviteOpen(true)}
+              className="gap-[6px]"
+            >
+              <Plus className="w-[14px] h-[14px]" />
+              {t("team.addMember")}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -387,9 +527,20 @@ export function TeamTab() {
               <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
             </div>
           ) : activeMembers.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-tertiary py-2">
-              {t("team.emptyState")}
-            </p>
+            <div className="flex flex-col items-center justify-center py-4 gap-1.5">
+              <p className="font-mohave text-body-sm text-text-tertiary">
+                {t("team.emptyState")}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setInviteOpen(true)}
+                className="gap-[6px]"
+              >
+                <UserPlus className="w-[14px] h-[14px]" />
+                {t("team.sendInvite")}
+              </Button>
+            </div>
           ) : (
             <div className="space-y-0">
               {activeMembers.map((member) => {
@@ -497,6 +648,9 @@ export function TeamTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Invite Modal */}
+      <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   );
 }

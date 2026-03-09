@@ -314,7 +314,7 @@ export const UserService = {
    */
   async sendInvite(
     idToken: string,
-    data: { emails?: string[]; phones?: string[] },
+    data: { emails?: string[]; phones?: string[]; roleId?: string },
     companyId: string
   ): Promise<{ success: boolean; invitesSent?: number; emailsSent?: number; smsSent?: number }> {
     const response = await fetch("/api/auth/send-invite", {

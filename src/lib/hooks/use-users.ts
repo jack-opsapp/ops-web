@@ -222,7 +222,7 @@ export function useSendInvite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { emails?: string[]; phones?: string[] }) => {
+    mutationFn: async (data: { emails?: string[]; phones?: string[]; roleId?: string }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");

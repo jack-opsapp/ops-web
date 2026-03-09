@@ -219,6 +219,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Update user's company_id
     const db = getServiceRoleClient();
     const companyId = companyRow.id as string;
+    const userEmail = (userRow.email as string) ?? firebaseUser.email;
+    const userPhone = userRow.phone as string | undefined;
 
     const { error: updateError } = await db
       .from("users")
@@ -233,6 +235,64 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { error: `Failed to join company: ${updateError.message}` },
         { status: 500 }
       );
+    }
+
+    // Look up pending invitation to auto-assign role
+    let invitation: Record<string, unknown> | null = null;
+
+    if (userEmail) {
+      const { data } = await db
+        .from("team_invitations")
+        .select("id, role_id")
+        .eq("company_id", companyId)
+        .eq("email", userEmail)
+        .eq("status", "pending")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) invitation = data;
+    }
+
+    if (!invitation && userPhone) {
+      const { data } = await db
+        .from("team_invitations")
+        .select("id, role_id")
+        .eq("company_id", companyId)
+        .eq("phone", userPhone)
+        .eq("status", "pending")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) invitation = data;
+    }
+
+    if (invitation) {
+      // Mark invitation as accepted
+      await db
+        .from("team_invitations")
+        .update({ status: "accepted", updated_at: new Date().toISOString() })
+        .eq("id", invitation.id);
+
+      // Auto-assign the RBAC role if one was specified
+      if (invitation.role_id) {
+        const { error: roleError } = await db
+          .from("user_roles")
+          .upsert(
+            {
+              user_id: userRow.id,
+              role_id: invitation.role_id,
+              assigned_at: new Date().toISOString(),
+              assigned_by: null,
+            },
+            { onConflict: "user_id" }
+          );
+
+        if (roleError) {
+          console.error("[api/auth/join-company] Failed to assign role from invitation:", roleError);
+        }
+      }
     }
 
     const user = mapUserFromDb({ ...userRow, company_id: companyId });

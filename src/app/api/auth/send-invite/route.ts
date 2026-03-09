@@ -25,6 +25,7 @@ interface SendInviteBody {
   emails?: string[];
   phones?: string[];
   companyId: string;
+  roleId?: string;
 }
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ interface SendInviteBody {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = (await req.json()) as SendInviteBody;
-    const { idToken, emails, phones, companyId } = body;
+    const { idToken, emails, phones, companyId, roleId } = body;
 
     if (!idToken || !companyId) {
       return NextResponse.json(
@@ -94,6 +95,51 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join?code=${inviteCode}`;
     let emailsSent = 0;
     let smsSent = 0;
+
+    // Create invitation records in team_invitations table
+    const invitationRows: {
+      company_id: string;
+      email?: string;
+      phone?: string;
+      role_id?: string;
+      invited_by: string;
+      invite_code: string;
+    }[] = [];
+
+    if (hasEmails) {
+      for (const email of emails) {
+        invitationRows.push({
+          company_id: companyId,
+          email,
+          role_id: roleId || undefined,
+          invited_by: requestingUser.id as string,
+          invite_code: inviteCode,
+        });
+      }
+    }
+
+    if (hasPhones) {
+      for (const phone of phones) {
+        invitationRows.push({
+          company_id: companyId,
+          phone,
+          role_id: roleId || undefined,
+          invited_by: requestingUser.id as string,
+          invite_code: inviteCode,
+        });
+      }
+    }
+
+    if (invitationRows.length > 0) {
+      const { error: inviteError } = await db
+        .from("team_invitations")
+        .insert(invitationRows);
+
+      if (inviteError) {
+        console.error("[api/auth/send-invite] Failed to create invitation records:", inviteError);
+        // Non-blocking: continue sending invites even if record creation fails
+      }
+    }
 
     // Send email invites via SendGrid
     if (hasEmails) {
