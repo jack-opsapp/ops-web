@@ -85,7 +85,7 @@ OUTPUT FORMAT — respond with valid JSON only:
   "excludeSubjectKeywords": ["unsubscribe", "your order"],
   "usePresetBlocklist": true,
   "labelIds": ["INBOX"],
-  "summary": "Brief 1-2 sentence explanation of the strategy"
+  "summary": "3-4 sentence analysis. Include: (1) specific observations about this inbox — mention notable domains/patterns you see, (2) approximate percentage of emails that appear to be real customer or lead correspondence, (3) key domains you're keeping and why, (4) what categories of noise you're filtering and why. Be specific to THIS inbox, not generic."
 }
 
 Do NOT include per-email verdicts. Only return the filter configuration above.
