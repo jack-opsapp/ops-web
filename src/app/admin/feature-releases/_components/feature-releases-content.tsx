@@ -696,7 +696,7 @@ function PermissionPicker({
         ))}
         {filtered.length === 0 && (
           <div className="px-4 py-6 text-center">
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">No permissions match "{search}"</span>
+            <span className="font-kosugi text-[12px] text-[#6B6B6B]">No permissions match &ldquo;{search}&rdquo;</span>
           </div>
         )}
       </div>
