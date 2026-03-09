@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -8,23 +8,19 @@ import {
   ArrowLeft,
   Check,
   CheckCircle,
-  AlertCircle,
   ExternalLink,
   Loader2,
   Filter,
   Search,
-  Tag,
   X,
   Inbox,
   Eye,
-  EyeOff,
   Plus,
   ChevronDown,
   Zap,
   BarChart3,
   Users,
   Shield,
-  Ban,
 } from "lucide-react";
 import {
   Dialog,
@@ -39,8 +35,6 @@ import { EmailFilterBuilder } from "@/components/settings/email-filter-builder";
 import type {
   GmailSyncFilters,
   EmailFilterRule,
-  EmailFilterField,
-  EmailFilterOperator,
 } from "@/lib/types/pipeline";
 import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import { toast } from "sonner";
@@ -1034,7 +1028,7 @@ function StepScan({
             AI is analyzing senders, subjects, and patterns
           </span>
           <span className="font-kosugi text-[10px] text-text-disabled/60 mt-1">
-            You can close this window — we'll let you know when it's done.
+            You can close this window &mdash; we&apos;ll let you know when it&apos;s done.
           </span>
         </motion.div>
       )}
@@ -1545,7 +1539,7 @@ function StepImport({
   setCustomDate,
   importStarted,
   filters,
-  scannedEmails,
+  scannedEmails: _scannedEmails,
 }: {
   importDays: number;
   setImportDays: (d: number) => void;

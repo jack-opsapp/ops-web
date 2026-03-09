@@ -268,6 +268,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // eslint-disable-next-line no-console
     console.log(
       `[gmail-scan-preview] Pre-filtered ${autoFiltered.length} emails ` +
       `from preset blocklist domains. Sending ${ambiguous.length} to AI.`,

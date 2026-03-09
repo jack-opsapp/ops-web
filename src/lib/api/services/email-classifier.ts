@@ -188,6 +188,7 @@ export async function classifyEmails(
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
     };
 
+    // eslint-disable-next-line no-console
     console.log(
       `[email-classifier] Analyzed ${capped.length} emails → ` +
       `${filters.excludeDomains.length} blocked domains, ` +
