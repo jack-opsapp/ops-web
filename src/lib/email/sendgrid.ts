@@ -14,6 +14,7 @@ import { estimateReadyTemplate } from "./templates/estimate-ready";
 import { questionsReminderTemplate } from "./templates/questions-reminder";
 import { invoiceReadyTemplate } from "./templates/invoice-ready";
 import { teamInviteTemplate } from "./templates/team-invite";
+import { roleNeededTemplate } from "./templates/role-needed";
 
 let initialized = false;
 
@@ -154,6 +155,32 @@ export async function sendTeamInvite(params: {
     to: params.email,
     from: { email: getFromEmail(), name: "OPS" },
     subject: `Join ${params.companyName} on OPS`,
+    html,
+  });
+}
+
+export async function sendRoleNeeded(params: {
+  email: string;
+  userName: string;
+  companyName: string;
+  assignUrl: string;
+  accentColor?: string;
+  logoUrl?: string | null;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = roleNeededTemplate({
+    userName: params.userName,
+    companyName: params.companyName,
+    assignUrl: params.assignUrl,
+    accentColor: params.accentColor ?? "#417394",
+    logoUrl: params.logoUrl ?? null,
+  });
+
+  await sgMail.send({
+    to: params.email,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject: `${params.userName} joined ${params.companyName} and needs a role`,
     html,
   });
 }

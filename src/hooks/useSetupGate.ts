@@ -4,10 +4,12 @@ import { useAuthStore } from "@/lib/store/auth-store";
 
 /**
  * useSetupGate — checks whether the current user has completed
- * the required identity and company setup steps.
+ * the required setup steps (identity, company, and employee onboarding).
  *
- * Returns `isComplete` (true when both steps are done) and the
- * list of `missingSteps` that the interception modal should collect.
+ * Returns `isComplete` (true when identity + company steps are done),
+ * the list of `missingSteps` (for the setup interception modal),
+ * and `needsEmployeeOnboarding` (true if user joined via invite
+ * and hasn't completed employee setup — handled separately).
  */
 export function useSetupGate() {
   const { currentUser } = useAuthStore();
@@ -21,14 +23,22 @@ export function useSetupGate() {
     (currentUser?.firstName && currentUser?.lastName);
   if (!hasIdentity) missingSteps.push("identity");
 
-  // Company: skip if user already belongs to a company (e.g. Bubble import)
+  // Company: skip if user already belongs to a company (e.g. joined via invite)
   const hasCompany =
     progress?.steps?.company ||
     !!currentUser?.companyId;
   if (!hasCompany) missingSteps.push("company");
 
+  // Employee onboarding: required if user joined via invite
+  // (has a company but didn't go through the company creation step)
+  const joinedViaInvite =
+    !!currentUser?.companyId && !progress?.steps?.company;
+  const needsEmployeeOnboarding =
+    joinedViaInvite && !progress?.steps?.employee_onboarding;
+
   return {
-    isComplete: missingSteps.length === 0,
+    isComplete: missingSteps.length === 0 && !needsEmployeeOnboarding,
     missingSteps,
+    needsEmployeeOnboarding,
   };
 }

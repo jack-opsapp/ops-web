@@ -61,6 +61,9 @@ function mapUserFromDb(row: Record<string, unknown>): User {
     setupProgress: (row.setup_progress as User["setupProgress"]) ?? null,
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
     deviceToken: (row.device_token as string) ?? null,
+    emergencyContactName: (row.emergency_contact_name as string) ?? null,
+    emergencyContactPhone: (row.emergency_contact_phone as string) ?? null,
+    emergencyContactRelationship: (row.emergency_contact_relationship as string) ?? null,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -293,6 +296,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           console.error("[api/auth/join-company] Failed to assign role from invitation:", roleError);
         }
       }
+    }
+
+    // If no role was assigned (no invitation or invitation had no role), assign Unassigned
+    const { data: existingRole } = await db
+      .from("user_roles")
+      .select("role_id")
+      .eq("user_id", userRow.id)
+      .maybeSingle();
+
+    if (!existingRole) {
+      const { PRESET_ROLE_IDS } = await import("@/lib/types/permissions");
+      await db.from("user_roles").upsert({
+        user_id: userRow.id as string,
+        role_id: PRESET_ROLE_IDS.UNASSIGNED,
+        assigned_at: new Date().toISOString(),
+        assigned_by: null,
+      }, { onConflict: "user_id" });
     }
 
     const user = mapUserFromDb({ ...userRow, company_id: companyId });

@@ -380,6 +380,7 @@ export interface SetupProgress {
     identity?: boolean;
     company?: boolean;
     starfield?: boolean;
+    employee_onboarding?: boolean;
   };
   starfield_answers?: Record<string, string | number>;
 }
@@ -412,6 +413,9 @@ export interface User {
   stripeCustomerId: string | null;
   deviceToken: string | null;
   fabActions?: string[] | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelationship: string | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;

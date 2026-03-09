@@ -110,12 +110,8 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const MAX_SCAN = 500;
-const BATCH_SIZE = 20;
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const MAX_SCAN = 250;
+const BATCH_SIZE = 50;
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
 
@@ -242,10 +238,7 @@ export async function GET(request: NextRequest) {
         if (r) emails.push(r);
       }
 
-      // Rate limit between batches
-      if (i + BATCH_SIZE < allMessageIds.length) {
-        await sleep(100);
-      }
+      // Gmail allows 250 req/s — no sleep needed at batch size 50
     }
 
     // ─── Pre-filter: strip known noise domains before AI ──────────────────

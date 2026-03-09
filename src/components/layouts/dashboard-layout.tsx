@@ -20,6 +20,9 @@ import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
+import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { useRouter } from "next/navigation";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -81,6 +84,15 @@ function FloatingWindows() {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed, setCollapsed } = useSidebarStore();
+  const { needsEmployeeOnboarding } = useSetupGate();
+  const router = useRouter();
+
+  // Redirect to employee onboarding if incomplete
+  useEffect(() => {
+    if (needsEmployeeOnboarding) {
+      router.push("/employee-setup");
+    }
+  }, [needsEmployeeOnboarding, router]);
 
   // Auto-collapse on small screens
   useEffect(() => {
@@ -105,6 +117,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       >
         <TopBar />
         <ContentHeader />
+        <UnassignedRoleBanner />
         <div className="flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]">
           {children}
         </div>

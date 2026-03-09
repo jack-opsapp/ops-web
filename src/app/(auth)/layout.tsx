@@ -7,7 +7,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
 
 // Routes within (auth) group that authenticated users CAN access
-const authenticatedAllowedRoutes = ["/locked"];
+const authenticatedAllowedRoutes = ["/locked", "/join"];
 
 function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();

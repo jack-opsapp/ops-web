@@ -41,6 +41,9 @@ function mapFromDb(row: Record<string, unknown>): User {
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
     deviceToken: (row.device_token as string) ?? null,
     fabActions: (row.fab_actions as string[]) ?? null,
+    emergencyContactName: (row.emergency_contact_name as string) ?? null,
+    emergencyContactPhone: (row.emergency_contact_phone as string) ?? null,
+    emergencyContactRelationship: (row.emergency_contact_relationship as string) ?? null,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -75,6 +78,9 @@ function mapToDb(data: Partial<User>): Record<string, unknown> {
   if (data.stripeCustomerId !== undefined) row.stripe_customer_id = data.stripeCustomerId;
   if (data.deviceToken !== undefined) row.device_token = data.deviceToken;
   if (data.fabActions !== undefined) row.fab_actions = data.fabActions;
+  if (data.emergencyContactName !== undefined) row.emergency_contact_name = data.emergencyContactName;
+  if (data.emergencyContactPhone !== undefined) row.emergency_contact_phone = data.emergencyContactPhone;
+  if (data.emergencyContactRelationship !== undefined) row.emergency_contact_relationship = data.emergencyContactRelationship;
   return row;
 }
 

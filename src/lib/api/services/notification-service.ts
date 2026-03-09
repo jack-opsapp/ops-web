@@ -4,7 +4,7 @@ export interface AppNotification {
   id: string;
   userId: string;
   companyId: string;
-  type: "mention";
+  type: "mention" | "role_needed";
   title: string;
   body: string;
   projectId: string | null;
@@ -61,7 +61,7 @@ export const NotificationService = {
       id: row.id as string,
       userId: row.user_id as string,
       companyId: row.company_id as string,
-      type: row.type as "mention",
+      type: row.type as "mention" | "role_needed",
       title: row.title as string,
       body: row.body as string,
       projectId: row.project_id as string | null,
