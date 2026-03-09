@@ -26,7 +26,7 @@ import {
   type GmailConnectionRow,
 } from "@/lib/api/services/gmail-token";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -224,7 +224,7 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       return;
     }
 
-    // ── Stage 3: Fetch email metadata — all in parallel ───────────────────
+    // ── Stage 3: Fetch email metadata — batched to avoid Gmail rate limits ─
     await updateJob("fetching", {
       stage: "fetching",
       current: 0,
@@ -233,53 +233,59 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
     });
 
     const emails: ScanEmail[] = [];
+    const BATCH_SIZE = 50;
 
-    const results = await Promise.all(
-      allMessageIds.map(async (msgId) => {
-        try {
-          const msgResp = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
+    for (let batchStart = 0; batchStart < allMessageIds.length; batchStart += BATCH_SIZE) {
+      const batch = allMessageIds.slice(batchStart, batchStart + BATCH_SIZE);
 
-          if (!msgResp.ok) return null;
+      const results = await Promise.all(
+        batch.map(async (msgId) => {
+          try {
+            const msgResp = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
 
-          const msg: GmailMessage = await msgResp.json();
-          const headers = msg.payload?.headers ?? [];
-          const from = headers.find((h) => h.name === "From")?.value ?? "";
-          const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
-          const date = headers.find((h) => h.name === "Date")?.value ?? "";
-          const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
-          const domain = fromEmail.split("@")[1] ?? "";
+            if (!msgResp.ok) return null;
 
-          return {
-            id: msgId,
-            from,
-            fromEmail,
-            domain,
-            subject,
-            snippet: msg.snippet ?? "",
-            labels: msg.labelIds ?? [],
-            date,
-            wouldImport: true,
-            reason: "",
-          } as ScanEmail;
-        } catch {
-          return null;
-        }
-      }),
-    );
+            const msg: GmailMessage = await msgResp.json();
+            const headers = msg.payload?.headers ?? [];
+            const from = headers.find((h) => h.name === "From")?.value ?? "";
+            const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+            const date = headers.find((h) => h.name === "Date")?.value ?? "";
+            const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+            const domain = fromEmail.split("@")[1] ?? "";
 
-    for (const r of results) {
-      if (r) emails.push(r);
+            return {
+              id: msgId,
+              from,
+              fromEmail,
+              domain,
+              subject,
+              snippet: msg.snippet ?? "",
+              labels: msg.labelIds ?? [],
+              date,
+              wouldImport: true,
+              reason: "",
+            } as ScanEmail;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      for (const r of results) {
+        if (r) emails.push(r);
+      }
+
+      // Update progress after each batch so client sees movement
+      await updateJob("fetching", {
+        stage: "fetching",
+        current: emails.length,
+        total: totalMessages,
+        message: `Read ${emails.length} of ${totalMessages} emails`,
+      });
     }
-
-    await updateJob("fetching", {
-      stage: "fetching",
-      current: emails.length,
-      total: totalMessages,
-      message: `Read ${emails.length} of ${totalMessages} emails`,
-    });
 
     // ── Stage 4: Pre-filter known noise domains ───────────────────────────
     await updateJob("pre_filtering", {
