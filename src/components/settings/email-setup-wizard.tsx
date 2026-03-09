@@ -1257,12 +1257,17 @@ function StepScan({
 
 // ─── Step 4: Filters ─────────────────────────────────────────────────────────
 
-/** Re-evaluate an email's import status purely against current client-side filters.
- *  Does NOT use email.wouldImport (server-side verdict) — the client owns filter state. */
+/** Re-evaluate an email's import status against current client-side filters.
+ *  Checks preset blocklist (via server-side reason tag), AI filters, and custom rules. */
 function wouldImportWithFilters(
   email: ScannedEmail,
   filters: GmailSyncFilters,
 ): boolean {
+  // Preset blocklist — emails server-tagged as preset-blocked
+  if (filters.usePresetBlocklist && email.reason === "Blocked domain (preset)") {
+    return false;
+  }
+
   // Domain exclusion
   if (filters.excludeDomains.some(
     (d) => email.domain.toLowerCase() === d.toLowerCase(),

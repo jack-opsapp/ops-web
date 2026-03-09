@@ -133,10 +133,12 @@ const NODE_SIZE = 5; // half-size of square node (smaller)
 const NODE_HIT_RADIUS = 22;
 const STAR_COUNT = 150;
 const CAMERA_LERP = 0.06;
-const CANVAS_HEIGHT = 240;
+const CANVAS_HEIGHT = 420;
 const SUB_NODE_SIZE = 4;
 const SUB_NODE_HIT_RADIUS = 16;
 const VECTOR_WIDTH = 1; // constant thin vector width
+const DRILL_ZOOM = 1.5; // zoom level when drilled into a node
+const AUTO_DRILL_ZOOM_THRESHOLD = 1.4; // scroll-zoom triggers auto-drill-down at this level
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -257,7 +259,17 @@ export function FilterFunnelCanvas({
   // ─── Compute pipeline nodes ──────────────────────────────────────────
 
   const { nodes, totalSource } = useMemo(() => {
-    const total = scannedEmails.length + preFilteredCount;
+    // Total = all scannedEmails (which includes preset-blocked ones)
+    const total = scannedEmails.length;
+
+    // Identify preset-blocked emails by their server-side reason tag
+    const presetBlockedIds = new Set<string>();
+    for (const email of scannedEmails) {
+      if (email.reason === "Blocked domain (preset)") {
+        presetBlockedIds.add(email.id);
+      }
+    }
+    const actualPresetCount = presetBlockedIds.size;
 
     // Stage 1: Source
     const sourceNode: PipelineNode = {
@@ -277,7 +289,7 @@ export function FilterFunnelCanvas({
 
     // Stage 2: Preset Blocklist
     const presetEnabled = filters.usePresetBlocklist;
-    const presetRemoved = presetEnabled ? preFilteredCount : 0;
+    const presetRemoved = presetEnabled ? actualPresetCount : 0;
     const afterPreset = total - presetRemoved;
     const presetNode: PipelineNode = {
       id: "preset",
@@ -296,8 +308,7 @@ export function FilterFunnelCanvas({
         : "Preset blocklist disabled",
     };
 
-    // Work only with scannedEmails (post-preset) for remaining filters
-    // Track which emails are caught by each filter cumulatively
+    // Work only with non-preset emails for remaining AI filters
     const domainSet = new Set(
       filters.excludeDomains.map((d) => d.toLowerCase())
     );
@@ -311,12 +322,14 @@ export function FilterFunnelCanvas({
     const caughtByKeyword = new Set<string>();
 
     for (const email of scannedEmails) {
+      if (presetBlockedIds.has(email.id)) continue; // skip preset-blocked
       if (domainSet.has(email.domain.toLowerCase())) {
         caughtByDomain.add(email.id);
       }
     }
 
     for (const email of scannedEmails) {
+      if (presetBlockedIds.has(email.id)) continue; // skip preset-blocked
       if (caughtByDomain.has(email.id)) continue;
       if (addressSet.has(email.fromEmail.toLowerCase())) {
         caughtByAddress.add(email.id);
@@ -324,6 +337,7 @@ export function FilterFunnelCanvas({
     }
 
     for (const email of scannedEmails) {
+      if (presetBlockedIds.has(email.id)) continue; // skip preset-blocked
       if (caughtByDomain.has(email.id) || caughtByAddress.has(email.id))
         continue;
       const subjectLower = email.subject.toLowerCase();
@@ -427,6 +441,29 @@ export function FilterFunnelCanvas({
 
   const subNodes = useMemo((): SubNode[] => {
     if (!drilledCategory) return [];
+
+    if (drilledCategory === "preset") {
+      // Show top preset-blocked domains grouped by domain
+      const domainCounts = new Map<string, number>();
+      for (const email of scannedEmails) {
+        if (email.reason === "Blocked domain (preset)") {
+          const d = email.domain.toLowerCase();
+          domainCounts.set(d, (domainCounts.get(d) ?? 0) + 1);
+        }
+      }
+      return Array.from(domainCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 12)
+        .map(([domain, count]) => ({
+          id: domain,
+          label: domain,
+          count,
+          parentId: "preset",
+          x: 0,
+          y: 0,
+          enabled: true, // preset items are always on (whole category toggles)
+        }));
+    }
 
     if (drilledCategory === "domains") {
       // Count how many emails each domain blocks
@@ -573,20 +610,21 @@ export function FilterFunnelCanvas({
     ): SubNode[] => {
       if (subs.length === 0) return [];
 
-      // Vertical stack below parent
+      // Fan out sub-nodes in a semicircle to the right of the parent
       const maxVisible = Math.min(subs.length, 12);
-      const spacing = 28;
-      const totalHeight = (maxVisible - 1) * spacing;
-      const startY = parentNode.y - totalHeight / 2;
+      const radius = 90;
+      const angleSpread = Math.min(Math.PI * 0.8, maxVisible * 0.25);
+      const startAngle = -angleSpread / 2;
+      const angleStep = maxVisible > 1 ? angleSpread / (maxVisible - 1) : 0;
 
-      // Offset to the right of parent
-      const startX = parentNode.x + 60;
-
-      return subs.slice(0, maxVisible).map((sub, i) => ({
-        ...sub,
-        x: startX,
-        y: startY + i * spacing,
-      }));
+      return subs.slice(0, maxVisible).map((sub, i) => {
+        const angle = startAngle + angleStep * i;
+        return {
+          ...sub,
+          x: parentNode.x + Math.cos(angle) * radius,
+          y: parentNode.y + Math.sin(angle) * radius,
+        };
+      });
     },
     []
   );
@@ -622,7 +660,7 @@ export function FilterFunnelCanvas({
       if (target) {
         cameraRef.current.targetX = target.x - (w || 800) / 2;
         cameraRef.current.targetY = target.y - (h || CANVAS_HEIGHT) / 2;
-        cameraRef.current.targetZoom = 2.2;
+        cameraRef.current.targetZoom = DRILL_ZOOM;
         subNodeAlphaRef.current = 0;
       }
     } else {
@@ -1107,8 +1145,8 @@ export function FilterFunnelCanvas({
       const positioned = computeNodePositions(nodes, w, h);
       const cam = cameraRef.current;
 
-      // Check sub-node click first
-      if (drilledCategory && hoveredSubNodeIdxRef.current >= 0) {
+      // Check sub-node click first (preset sub-nodes are read-only)
+      if (drilledCategory && drilledCategory !== "preset" && hoveredSubNodeIdxRef.current >= 0) {
         if (hoveredSubNodeIdxRef.current < subNodes.length) {
           const sub = subNodes[hoveredSubNodeIdxRef.current];
           onToggleSubItem(drilledCategory, sub.id, !sub.enabled);
@@ -1141,6 +1179,59 @@ export function FilterFunnelCanvas({
     ]
   );
 
+  // ─── Scroll-to-zoom handler ──────────────────────────────────────
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      const cam = cameraRef.current;
+      const delta = -e.deltaY * 0.002;
+      const newZoom = Math.max(0.5, Math.min(3, cam.targetZoom + delta));
+      cam.targetZoom = newZoom;
+
+      // If zooming in past threshold near a node, auto-drill-down
+      if (newZoom >= AUTO_DRILL_ZOOM_THRESHOLD && !drilledCategory) {
+        const { w, h } = canvasSizeRef.current;
+        const positioned = computeNodePositions(nodes, w, h);
+        const mx = mouseRef.current.x;
+        const my = mouseRef.current.y;
+
+        // Find closest non-source/result node to mouse
+        let closestIdx = -1;
+        let closestDist = Infinity;
+        for (let i = 0; i < positioned.length; i++) {
+          const node = positioned[i];
+          if (node.isSource || node.isResult) continue;
+          const { sx, sy } = (() => {
+            const px = node.x;
+            const py = node.y;
+            const sx2 = (px - cam.x) * cam.zoom - (cam.zoom - 1) * (w || 800) / 2;
+            const sy2 = (py - cam.y) * cam.zoom - (cam.zoom - 1) * (h || CANVAS_HEIGHT) / 2;
+            return { sx: sx2, sy: sy2 };
+          })();
+          const dx = mx - sx;
+          const dy = my - sy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestIdx = i;
+          }
+        }
+
+        if (closestIdx >= 0 && closestDist < 120) {
+          onDrillDown(positioned[closestIdx].id);
+        }
+      }
+
+      // If zooming out below 1, auto-zoom-out from drill
+      if (newZoom < 0.9 && drilledCategory) {
+        onZoomOut();
+        cam.targetZoom = 1;
+      }
+    },
+    [drilledCategory, nodes, computeNodePositions, onDrillDown, onZoomOut]
+  );
+
   // ─── Render ────────────────────────────────────────────────────────
 
   return (
@@ -1154,6 +1245,7 @@ export function FilterFunnelCanvas({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
+        onWheel={handleWheel}
         style={{
           display: "block",
           width: "100%",
@@ -1224,18 +1316,18 @@ export function FilterFunnelCanvas({
         </div>
       )}
 
-      {/* Zoom out hint when drilled */}
-      {drilledCategory && (
-        <div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs"
-          style={{
-            color: "rgba(150, 150, 160, 0.5)",
-            fontFamily: '"Mohave", sans-serif',
-          }}
-        >
-          click background to zoom out
-        </div>
-      )}
+      {/* Zoom hint */}
+      <div
+        className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs"
+        style={{
+          color: "rgba(150, 150, 160, 0.4)",
+          fontFamily: '"Mohave", sans-serif',
+        }}
+      >
+        {drilledCategory
+          ? "scroll or click background to zoom out"
+          : "scroll to zoom \u00B7 click a node to inspect"}
+      </div>
     </div>
   );
 }
