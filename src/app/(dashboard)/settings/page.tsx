@@ -276,17 +276,19 @@ export default function SettingsPage() {
   }, [updateUnderline]);
 
   // Handle URL params — reacts to searchParams changes (e.g., from command palette)
+  // Use the primitive string value as dependency for reliable comparison
+  const tabParam = searchParams.get("tab");
+
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (!tab) return;
+    if (!tabParam) return;
 
     let didNavigate = false;
-    if (groupDefs.some((g) => g.id === tab)) {
-      handleGroupChange(tab as SettingsGroup);
+    if (groupDefs.some((g) => g.id === tabParam)) {
+      handleGroupChange(tabParam as SettingsGroup);
       didNavigate = true;
-    } else if (legacyTabMap[tab]) {
-      setActiveGroup(legacyTabMap[tab].group);
-      setActiveSubTab(legacyTabMap[tab].sub);
+    } else if (legacyTabMap[tabParam]) {
+      setActiveGroup(legacyTabMap[tabParam].group);
+      setActiveSubTab(legacyTabMap[tabParam].sub);
       didNavigate = true;
     }
 
@@ -298,7 +300,7 @@ export default function SettingsPage() {
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [tabParam]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   const ContentComponent = CONTENT_MAP[activeSubTab];
