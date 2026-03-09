@@ -795,36 +795,51 @@ export function EmailSetupWizard({
             {stepIndex + 1} / {STEPS.length}
           </span>
 
-          {stepIndex < STEPS.length - 1 ? (
-            <Button
-              size="sm"
-              onClick={goNext}
-              disabled={!canProceed()}
-              className="gap-[4px] font-kosugi text-[11px]"
-            >
-              Next
-              <ArrowRight className="w-[14px] h-[14px]" />
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={applyFiltersAndImport}
-              disabled={importStarted}
-              className="gap-[4px] font-kosugi text-[11px]"
-            >
-              {importStarted ? (
-                <>
-                  <Loader2 className="w-[14px] h-[14px] animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-[14px] h-[14px]" />
-                  Start Import
-                </>
-              )}
-            </Button>
-          )}
+          <div className="flex items-center gap-[6px]">
+            {/* Scan button — shows on scan step before scan starts */}
+            {currentStep.id === "scan" && !scanComplete && !scanning && (
+              <Button
+                size="sm"
+                onClick={scanEmails}
+                disabled={!hasConnection}
+                className="gap-[4px] font-kosugi text-[11px]"
+              >
+                <Search className="w-[14px] h-[14px]" />
+                Scan My Emails
+              </Button>
+            )}
+
+            {stepIndex < STEPS.length - 1 ? (
+              <Button
+                size="sm"
+                onClick={goNext}
+                disabled={!canProceed()}
+                className="gap-[4px] font-kosugi text-[11px]"
+              >
+                Next
+                <ArrowRight className="w-[14px] h-[14px]" />
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={applyFiltersAndImport}
+                disabled={importStarted}
+                className="gap-[4px] font-kosugi text-[11px]"
+              >
+                {importStarted ? (
+                  <>
+                    <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-[14px] h-[14px]" />
+                    Start Import
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -1063,7 +1078,8 @@ function StepScan({
   scanProgress: { stage: string; current: number; total: number; message: string };
   scanSummary: string | null;
 }) {
-  const importCount = scannedEmails.filter((e) => wouldImportWithFilters(e, filters)).length;
+  const importedIds = useMemo(() => computeImportedIds(scannedEmails, filters), [scannedEmails, filters]);
+  const importCount = importedIds.size;
   const filterCount = scannedEmails.length - importCount;
 
   return (
@@ -1091,15 +1107,6 @@ function StepScan({
               </span>
             </div>
           )}
-          <Button
-            size="sm"
-            onClick={onScan}
-            disabled={!hasConnection}
-            className="gap-[6px] font-kosugi text-[11px]"
-          >
-            <Search className="w-[14px] h-[14px]" />
-            Scan My Emails
-          </Button>
           <p className="font-kosugi text-[10px] text-text-disabled text-left">
             AI analyzes sender info, subjects, and snippets to classify emails. No email content is stored.
           </p>
@@ -1257,61 +1264,102 @@ function StepScan({
 
 // ─── Step 4: Filters ─────────────────────────────────────────────────────────
 
-/** Re-evaluate an email's import status against current client-side filters.
- *  Checks preset blocklist (via server-side reason tag), AI filters, and custom rules. */
+/**
+ * Compute the set of email IDs that would be imported, using the exact same
+ * cumulative pipeline logic as the funnel canvas. Returns a Set of IDs.
+ */
+function computeImportedIds(
+  emails: ScannedEmail[],
+  filters: GmailSyncFilters,
+): Set<string> {
+  // 1. Preset blocklist — identify server-tagged preset-blocked emails
+  const presetBlockedIds = new Set<string>();
+  if (filters.usePresetBlocklist) {
+    for (const e of emails) {
+      if (e.reason === "Blocked domain (preset)") {
+        presetBlockedIds.add(e.id);
+      }
+    }
+  }
+
+  // 2. Domain exclusion (only non-preset emails)
+  const domainSet = new Set(filters.excludeDomains.map((d) => d.toLowerCase()));
+  const caughtByDomain = new Set<string>();
+  for (const e of emails) {
+    if (presetBlockedIds.has(e.id)) continue;
+    if (domainSet.has(e.domain.toLowerCase())) {
+      caughtByDomain.add(e.id);
+    }
+  }
+
+  // 3. Address exclusion (skip preset + domain-caught)
+  const addressSet = new Set((filters.excludeAddresses ?? []).map((a) => a.toLowerCase()));
+  const caughtByAddress = new Set<string>();
+  for (const e of emails) {
+    if (presetBlockedIds.has(e.id) || caughtByDomain.has(e.id)) continue;
+    if (addressSet.has(e.fromEmail.toLowerCase())) {
+      caughtByAddress.add(e.id);
+    }
+  }
+
+  // 4. Keyword exclusion (skip preset + domain + address)
+  const keywords = (filters.excludeSubjectKeywords ?? []).map((k) => k.toLowerCase());
+  const caughtByKeyword = new Set<string>();
+  for (const e of emails) {
+    if (presetBlockedIds.has(e.id) || caughtByDomain.has(e.id) || caughtByAddress.has(e.id)) continue;
+    const subjectLower = e.subject.toLowerCase();
+    if (keywords.some((kw) => subjectLower.includes(kw))) {
+      caughtByKeyword.add(e.id);
+    }
+  }
+
+  // 5. Build the imported set — everything NOT caught
+  const allCaught = new Set([
+    ...presetBlockedIds,
+    ...caughtByDomain,
+    ...caughtByAddress,
+    ...caughtByKeyword,
+  ]);
+
+  const imported = new Set<string>();
+  for (const e of emails) {
+    if (!allCaught.has(e.id)) {
+      imported.add(e.id);
+    }
+  }
+
+  // Debug: log if nothing passes — this helps diagnose the issue
+  if (emails.length > 0 && imported.size === 0) {
+    console.warn(
+      "[email-wizard] 0 imports detected. Debug info:",
+      `\n  Total emails: ${emails.length}`,
+      `\n  Preset blocked: ${presetBlockedIds.size}`,
+      `\n  Domain caught: ${caughtByDomain.size} (${filters.excludeDomains.length} domains)`,
+      `\n  Address caught: ${caughtByAddress.size} (${(filters.excludeAddresses ?? []).length} addresses)`,
+      `\n  Keyword caught: ${caughtByKeyword.size} (${keywords.length} keywords: ${JSON.stringify(keywords.slice(0, 5))})`,
+      `\n  Custom rules: ${(filters.rules ?? []).length}`,
+      `\n  usePresetBlocklist: ${filters.usePresetBlocklist}`,
+      `\n  Sample email reasons: ${JSON.stringify(emails.slice(0, 5).map(e => ({ domain: e.domain, reason: e.reason })))}`,
+    );
+  }
+
+  return imported;
+}
+
+/** Check if a specific email would be imported (per-email version of computeImportedIds) */
 function wouldImportWithFilters(
   email: ScannedEmail,
   filters: GmailSyncFilters,
+  importedIds?: Set<string>,
 ): boolean {
-  // Preset blocklist — emails server-tagged as preset-blocked
-  if (filters.usePresetBlocklist && email.reason === "Blocked domain (preset)") {
-    return false;
-  }
+  // If we have a pre-computed set, use it for consistency
+  if (importedIds) return importedIds.has(email.id);
 
-  // Domain exclusion
-  if (filters.excludeDomains.some(
-    (d) => email.domain.toLowerCase() === d.toLowerCase(),
-  )) return false;
-
-  // Address exclusion
-  if (filters.excludeAddresses?.some(
-    (addr) => email.fromEmail.toLowerCase() === addr.toLowerCase(),
-  )) return false;
-
-  // Subject keyword exclusion
-  if (filters.excludeSubjectKeywords?.some(
-    (kw) => email.subject.toLowerCase().includes(kw.toLowerCase()),
-  )) return false;
-
-  // Custom filter rules
-  if (filters.rules && filters.rules.length > 0) {
-    const matchesRule = (rule: EmailFilterRule): boolean => {
-      const fieldVal = rule.field === "from_email" ? email.fromEmail
-        : rule.field === "subject" ? email.subject
-        : rule.field === "from_domain" ? email.domain
-        : rule.field === "label" ? (email.labels ?? []).join(",")
-        : "";
-      const ruleVal = rule.value.toLowerCase();
-      const check = fieldVal.toLowerCase();
-      switch (rule.operator) {
-        case "contains": return check.includes(ruleVal);
-        case "not_contains": return !check.includes(ruleVal);
-        case "equals": return check === ruleVal;
-        case "not_equals": return check !== ruleVal;
-        case "starts_with": return check.startsWith(ruleVal);
-        case "ends_with": return check.endsWith(ruleVal);
-        default: return false;
-      }
-    };
-
-    const logic = filters.ruleLogic ?? "any";
-    const ruleMatch = logic === "all"
-      ? filters.rules.every(matchesRule)
-      : filters.rules.some(matchesRule);
-    if (ruleMatch) return false;
-  }
-
-  // Email passes all filters — import it
+  // Fallback: inline check
+  if (filters.usePresetBlocklist && email.reason === "Blocked domain (preset)") return false;
+  if (filters.excludeDomains.some((d) => email.domain.toLowerCase() === d.toLowerCase())) return false;
+  if (filters.excludeAddresses?.some((addr) => email.fromEmail.toLowerCase() === addr.toLowerCase())) return false;
+  if (filters.excludeSubjectKeywords?.some((kw) => email.subject.toLowerCase().includes(kw.toLowerCase()))) return false;
   return true;
 }
 
@@ -1340,7 +1388,8 @@ function StepFilters({
   );
 
   // Compute imported emails with current filters
-  const importedEmails = scannedEmails.filter((e) => wouldImportWithFilters(e, filters));
+  const importedIds = useMemo(() => computeImportedIds(scannedEmails, filters), [scannedEmails, filters]);
+  const importedEmails = useMemo(() => scannedEmails.filter((e) => importedIds.has(e.id)), [scannedEmails, importedIds]);
   const importCount = importedEmails.length;
 
   function handleToggleCategory(category: string, enabled: boolean) {
