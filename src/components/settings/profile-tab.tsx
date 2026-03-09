@@ -83,79 +83,78 @@ export function ProfileTab() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+    <div className="max-w-3xl">
       <Card>
-        <CardContent className="flex items-center gap-2 p-2">
-          <div className="relative">
-            <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 border-ops-accent">
-              {user?.profileImageURL ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={user.profileImageURL}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <span className="font-mohave text-display text-ops-accent">
-                  {name?.charAt(0)?.toUpperCase() || "U"}
-                </span>
-              )}
+        <CardContent className="space-y-2 p-2">
+          {/* Avatar + Name row */}
+          <div className="flex items-center gap-2 pb-1 border-b border-[rgba(255,255,255,0.04)]">
+            <div className="relative">
+              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 border-ops-accent">
+                {user?.profileImageURL ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={user.profileImageURL}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="font-mohave text-display text-ops-accent">
+                    {name?.charAt(0)?.toUpperCase() || "U"}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-ops-accent flex items-center justify-center hover:bg-ops-accent-hover transition-colors"
+              >
+                <Camera className="w-[14px] h-[14px] text-white" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) imageUpload.selectFile(file);
+                }}
+              />
             </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-ops-accent flex items-center justify-center hover:bg-ops-accent-hover transition-colors"
-            >
-              <Camera className="w-[14px] h-[14px] text-white" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) imageUpload.selectFile(file);
-              }}
+            <div>
+              <h3 className="font-mohave text-card-title text-text-primary">{name || t("profile.defaultName")}</h3>
+              <p className="font-mono text-data-sm text-text-tertiary">{email}</p>
+            </div>
+          </div>
+
+          {/* Form fields */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <Input
+              label={t("profile.fullName")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("profile.namePlaceholder")}
+            />
+            <Input
+              label={t("profile.email")}
+              value={email}
+              disabled
+              helperText={t("profile.emailHelper")}
+            />
+            <Input
+              label={t("profile.phone")}
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder={t("profile.phonePlaceholder")}
+            />
+            <Input
+              label={t("profile.role")}
+              value={useAuthStore.getState().role}
+              disabled
+              helperText={t("profile.roleHelper")}
             />
           </div>
-          <div>
-            <h3 className="font-mohave text-card-title text-text-primary">{name || t("profile.defaultName")}</h3>
-            <p className="font-mono text-data-sm text-text-tertiary">{email}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("profile.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Input
-            label={t("profile.fullName")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("profile.namePlaceholder")}
-          />
-          <Input
-            label={t("profile.email")}
-            value={email}
-            disabled
-            helperText={t("profile.emailHelper")}
-          />
-          <Input
-            label={t("profile.phone")}
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder={t("profile.phonePlaceholder")}
-          />
-          <Input
-            label={t("profile.role")}
-            value={useAuthStore.getState().role}
-            disabled
-            helperText={t("profile.roleHelper")}
-          />
           <div className="pt-1">
             <Button onClick={handleSave} loading={updateUser.isPending} className="gap-[6px]">
               <Save className="w-[16px] h-[16px]" />

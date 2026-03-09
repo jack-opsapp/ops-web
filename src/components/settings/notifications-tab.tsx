@@ -119,31 +119,81 @@ export function NotificationsTab() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      {/* Global Channels */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bell className="w-[16px] h-[16px] text-text-secondary" />
-            <CardTitle>{t("notifications.channels")}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          <ToggleRow
-            label={t("notifications.pushNotifications")}
-            description={t("notifications.pushDesc")}
-            enabled={prefs?.pushEnabled ?? true}
-            onToggle={() => toggle("pushEnabled")}
-          />
-          <ToggleRow
-            label={t("notifications.emailNotifications")}
-            description={t("notifications.emailDesc")}
-            enabled={prefs?.emailEnabled ?? true}
-            onToggle={() => toggle("emailEnabled")}
-          />
-        </CardContent>
-      </Card>
+      {/* Left column: Channels + Digest/Quiet Hours stacked */}
+      <div className="space-y-3">
+        {/* Global Channels */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Bell className="w-[16px] h-[16px] text-text-secondary" />
+              <CardTitle>{t("notifications.channels")}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <ToggleRow
+              label={t("notifications.pushNotifications")}
+              description={t("notifications.pushDesc")}
+              enabled={prefs?.pushEnabled ?? true}
+              onToggle={() => toggle("pushEnabled")}
+            />
+            <ToggleRow
+              label={t("notifications.emailNotifications")}
+              description={t("notifications.emailDesc")}
+              enabled={prefs?.emailEnabled ?? true}
+              onToggle={() => toggle("emailEnabled")}
+            />
+          </CardContent>
+        </Card>
 
-      {/* By Category */}
+        {/* Digest & Quiet Hours */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BellOff className="w-[16px] h-[16px] text-text-secondary" />
+              <CardTitle>{t("notifications.digestQuietHours")}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <ToggleRow
+              label={t("notifications.dailyDigest")}
+              description={t("notifications.dailyDigestDesc")}
+              enabled={prefs?.dailyDigest ?? false}
+              onToggle={() => toggle("dailyDigest")}
+            />
+
+            <div className="py-[6px]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-mohave text-body text-text-primary">{t("notifications.quietHours")}</p>
+                  <p className="font-kosugi text-[11px] text-text-disabled">{t("notifications.quietHoursDesc")}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <input
+                    type="time"
+                    value={localStart}
+                    onChange={(e) => setLocalStart(e.target.value)}
+                    onBlur={() => saveQuietHours("quietHoursStart", localStart)}
+                    className="bg-background-input border border-border rounded px-2 py-1 font-kosugi text-[11px] text-text-primary w-[90px]"
+                  />
+                  <span className="font-kosugi text-[11px] text-text-disabled">–</span>
+                  <input
+                    type="time"
+                    value={localEnd}
+                    onChange={(e) => setLocalEnd(e.target.value)}
+                    onBlur={() => saveQuietHours("quietHoursEnd", localEnd)}
+                    className="bg-background-input border border-border rounded px-2 py-1 font-kosugi text-[11px] text-text-primary w-[90px]"
+                  />
+                </div>
+              </div>
+              {quietHoursWarning && (
+                <p className="font-kosugi text-[10px] text-yellow-400 mt-1">{t("notifications.quietHoursSameWarning")}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Right column: Categories */}
       <Card>
         <CardHeader>
           <CardTitle>{t("notifications.categories")}</CardTitle>
@@ -157,53 +207,6 @@ export function NotificationsTab() {
               onToggle={() => toggle(item.key)}
             />
           ))}
-        </CardContent>
-      </Card>
-
-      {/* Digest & Quiet Hours */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <BellOff className="w-[16px] h-[16px] text-text-secondary" />
-            <CardTitle>{t("notifications.digestQuietHours")}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <ToggleRow
-            label={t("notifications.dailyDigest")}
-            description={t("notifications.dailyDigestDesc")}
-            enabled={prefs?.dailyDigest ?? false}
-            onToggle={() => toggle("dailyDigest")}
-          />
-
-          <div className="py-[6px]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-mohave text-body text-text-primary">{t("notifications.quietHours")}</p>
-                <p className="font-kosugi text-[11px] text-text-disabled">{t("notifications.quietHoursDesc")}</p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <input
-                  type="time"
-                  value={localStart}
-                  onChange={(e) => setLocalStart(e.target.value)}
-                  onBlur={() => saveQuietHours("quietHoursStart", localStart)}
-                  className="bg-background-input border border-border rounded px-2 py-1 font-kosugi text-[11px] text-text-primary w-[90px]"
-                />
-                <span className="font-kosugi text-[11px] text-text-disabled">–</span>
-                <input
-                  type="time"
-                  value={localEnd}
-                  onChange={(e) => setLocalEnd(e.target.value)}
-                  onBlur={() => saveQuietHours("quietHoursEnd", localEnd)}
-                  className="bg-background-input border border-border rounded px-2 py-1 font-kosugi text-[11px] text-text-primary w-[90px]"
-                />
-              </div>
-            </div>
-            {quietHoursWarning && (
-              <p className="font-kosugi text-[10px] text-yellow-400 mt-1">{t("notifications.quietHoursSameWarning")}</p>
-            )}
-          </div>
         </CardContent>
       </Card>
     </div>

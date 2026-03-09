@@ -18,7 +18,6 @@ import {
   Globe,
   Plug,
   FileText,
-  Zap,
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";

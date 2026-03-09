@@ -1,13 +1,14 @@
 "use client";
 
-import { Check, Globe, Loader2, Save } from "lucide-react";
+import { Check, Globe, Loader2, Save, Zap } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompanySettings, useUpdateCompanySettings } from "@/lib/hooks";
 import { usePreferencesStore, type DashboardLayoutId, type SchedulingTypeId } from "@/stores/preferences-store";
-// Note: Notification preferences moved to dedicated notifications-tab.tsx (server-persisted)
+import { useAuthStore } from "@/lib/store/auth-store";
+import { ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
 import { toast } from "sonner";
 import { useLocale, useDictionary } from "@/i18n/client";
 import type { Locale } from "@/i18n/types";
@@ -169,6 +170,74 @@ function LifecycleSettings() {
   );
 }
 
+function QuickActionsCard() {
+  const { t } = useDictionary("settings");
+  const { currentUser, updateFabActions } = useAuthStore();
+  const activeIds: string[] = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
+
+  function toggle(id: string) {
+    const isActive = activeIds.includes(id);
+    if (isActive) {
+      if (activeIds.length <= 1) return;
+      updateFabActions(activeIds.filter((a) => a !== id));
+    } else {
+      updateFabActions([...activeIds, id]);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Zap className="w-[16px] h-[16px] text-text-secondary" />
+          <CardTitle>{t("sections.quickActions")}</CardTitle>
+        </div>
+        <p className="font-kosugi text-[11px] text-text-disabled mt-0.5">
+          {t("preferences.quickActionsDesc") ?? "Choose which actions appear in the quick-add menu."}
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {ALL_ACTIONS.map((action, index) => {
+          const Icon = action.icon;
+          const isActive = activeIds.includes(action.id);
+          const isLast = index === ALL_ACTIONS.length - 1;
+
+          return (
+            <div
+              key={action.id}
+              className={cn(
+                "flex items-center gap-2 px-2 py-[8px]",
+                !isLast && "border-b border-[rgba(255,255,255,0.04)]"
+              )}
+            >
+              <Icon className="w-[16px] h-[16px] text-text-secondary shrink-0" />
+              <span className="font-mohave text-[14px] text-text-primary flex-1">
+                {action.label}
+              </span>
+              <button
+                onClick={() => toggle(action.id)}
+                disabled={isActive && activeIds.length <= 1}
+                className={cn(
+                  "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                  isActive ? "bg-ops-accent" : "bg-background-elevated"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
+                    isActive ? "right-[2px]" : "left-[2px]"
+                  )}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function PreferencesTab() {
   const { t } = useDictionary("settings");
   const dashboardLayout = usePreferencesStore((s) => s.dashboardLayout);
@@ -262,6 +331,7 @@ export function PreferencesTab() {
         </CardContent>
       </Card>
 
+      <QuickActionsCard />
     </div>
   );
 }

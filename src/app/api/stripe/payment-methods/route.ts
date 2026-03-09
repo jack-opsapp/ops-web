@@ -1,8 +1,10 @@
 /**
  * GET /api/stripe/payment-methods?companyId=xxx
+ * DELETE /api/stripe/payment-methods  { paymentMethodId: string }
  *
- * Lists payment methods for a company's Stripe customer.
- * Returns: { methods: { id, brand, last4, expMonth, expYear, isDefault }[] }
+ * Lists or detaches payment methods for a company's Stripe customer.
+ * GET Returns: { methods: { id, brand, last4, expMonth, expYear, isDefault }[] }
+ * DELETE Returns: { success: true }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -62,6 +64,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     console.error("[stripe/payment-methods] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to fetch payment methods" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest): Promise<NextResponse> {
+  try {
+    const { paymentMethodId } = await req.json();
+    if (!paymentMethodId) {
+      return NextResponse.json({ error: "paymentMethodId is required" }, { status: 400 });
+    }
+
+    const stripe = getStripe();
+    await stripe.paymentMethods.detach(paymentMethodId);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[stripe/payment-methods] DELETE Error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to remove payment method" },
       { status: 500 }
     );
   }

@@ -80,6 +80,33 @@ export function useCreateSetupIntent() {
   });
 }
 
+export function useRemovePaymentMethod() {
+  const { company } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      const res = await fetch("/api/stripe/payment-methods", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethodId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to remove payment method");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      if (company) {
+        queryClient.invalidateQueries({
+          queryKey: billingKeys.paymentMethods(company.id),
+        });
+      }
+    },
+  });
+}
+
 export function useRefreshPaymentMethods() {
   const { company } = useAuthStore();
   const queryClient = useQueryClient();

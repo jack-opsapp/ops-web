@@ -28,6 +28,8 @@ import {
   useUpdateGmailConnection,
   useTriggerGmailSync,
   useGmailImport,
+  useCompanySettings,
+  useUpdateCompanySettings,
 } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -39,6 +41,63 @@ function formatTimeAgo(date: Date | null): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+function FollowUpMonitoringCard() {
+  const { t } = useDictionary("settings");
+  const { data: settings, isLoading } = useCompanySettings();
+  const updateSettings = useUpdateCompanySettings();
+
+  const followUpDays = settings?.followUpReminderDays ?? 3;
+  const isEnabled = followUpDays > 0;
+
+  function handleToggle() {
+    updateSettings.mutate(
+      { followUpReminderDays: isEnabled ? 0 : 3 },
+      {
+        onSuccess: () => toast.success(t("preferences.toast.settingUpdated")),
+        onError: (err) => toast.error(t("preferences.toast.updateFailed"), { description: err.message }),
+      }
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("integrations.followUpMonitoring")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between py-[4px]">
+          <div className="flex items-center gap-1.5">
+            <MessageCircle className="w-[24px] h-[24px] text-ops-accent shrink-0" />
+            <div>
+              <p className="font-mohave text-body text-text-primary">
+                {isLoading ? "..." : isEnabled ? t("integrations.active") : t("integrations.disabled") ?? "Disabled"}
+              </p>
+              <p className="font-kosugi text-[11px] text-text-disabled">
+                {t("integrations.followUpDesc")}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggle}
+            disabled={isLoading}
+            className={cn(
+              "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
+              isEnabled ? "bg-ops-accent" : "bg-background-elevated"
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
+                isEnabled ? "right-[2px]" : "left-[2px]"
+              )}
+            />
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function IntegrationsTab() {
@@ -578,22 +637,7 @@ export function IntegrationsTab() {
       </div>
 
       {/* Follow-up Monitoring */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("integrations.followUpMonitoring")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-1.5 py-[4px]">
-            <MessageCircle className="w-[24px] h-[24px] text-ops-accent shrink-0" />
-            <div>
-              <p className="font-mohave text-body text-text-primary">{t("integrations.active")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">
-                {t("integrations.followUpDesc")}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <FollowUpMonitoringCard />
     </div>
   );
 }

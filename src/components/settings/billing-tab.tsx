@@ -9,6 +9,7 @@ import {
   Loader2,
   Plus,
   Check,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import {
   usePaymentMethods,
   useStripeInvoices,
   useCreateSetupIntent,
+  useRemovePaymentMethod,
   type PaymentMethod,
 } from "@/lib/hooks/use-billing";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -49,7 +51,7 @@ const BRAND_KEYS: Record<string, string> = {
 
 // ─── Payment Method Card ─────────────────────────────────────────────────────
 
-function PaymentMethodCard({ method }: { method: PaymentMethod }) {
+function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMethod; onRemove: (id: string) => void; isRemoving: boolean }) {
   const { t } = useDictionary("settings");
   const brandDisplay = BRAND_KEYS[method.brand] ? t(BRAND_KEYS[method.brand]) : method.brand.charAt(0).toUpperCase() + method.brand.slice(1);
   return (
@@ -65,11 +67,25 @@ function PaymentMethodCard({ method }: { method: PaymentMethod }) {
           </p>
         </div>
       </div>
-      {method.isDefault && (
-        <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
-          {t("billing.defaultBadge")}
-        </span>
-      )}
+      <div className="flex items-center gap-1">
+        {method.isDefault && (
+          <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+            {t("billing.defaultBadge")}
+          </span>
+        )}
+        <button
+          onClick={() => onRemove(method.id)}
+          disabled={isRemoving}
+          className="p-[4px] rounded hover:bg-background-elevated transition-colors text-text-disabled hover:text-red-400"
+          title="Remove card"
+        >
+          {isRemoving ? (
+            <Loader2 className="w-[14px] h-[14px] animate-spin" />
+          ) : (
+            <Trash2 className="w-[14px] h-[14px]" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -186,12 +202,20 @@ export function BillingTab() {
   const { company } = useAuthStore();
   const { data: methods, isLoading: methodsLoading, refetch: refetchMethods } = usePaymentMethods();
   const { data: invoices, isLoading: invoicesLoading } = useStripeInvoices();
+  const removeMethod = useRemovePaymentMethod();
   const [showAddCard, setShowAddCard] = useState(false);
 
   const handleCardAdded = useCallback(() => {
     setShowAddCard(false);
     refetchMethods();
   }, [refetchMethods]);
+
+  function handleRemoveCard(paymentMethodId: string) {
+    removeMethod.mutate(paymentMethodId, {
+      onSuccess: () => toast.success(t("billing.toast.removed") ?? "Payment method removed"),
+      onError: (err) => toast.error(t("billing.toast.removeFailed") ?? "Failed to remove", { description: err.message }),
+    });
+  }
 
   const hasPaymentMethod = methods && methods.length > 0;
 
@@ -210,7 +234,7 @@ export function BillingTab() {
           ) : hasPaymentMethod ? (
             <div className="space-y-0">
               {methods.map((method) => (
-                <PaymentMethodCard key={method.id} method={method} />
+                <PaymentMethodCard key={method.id} method={method} onRemove={handleRemoveCard} isRemoving={removeMethod.isPending} />
               ))}
               {!showAddCard && (
                 <Button

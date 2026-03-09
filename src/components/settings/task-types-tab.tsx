@@ -442,7 +442,7 @@ export function TaskTypesTab() {
               {t("taskTypes.emptyState")}
             </p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
               {activeTypes.map((taskType) => (
                 <TaskTypeCard key={taskType.id} taskType={taskType} />
               ))}
