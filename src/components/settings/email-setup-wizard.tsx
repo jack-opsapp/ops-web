@@ -343,18 +343,30 @@ export function EmailSetupWizard({
         { signal: controller.signal },
       );
 
-      if (!resp.ok) throw new Error("Failed to scan emails");
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => "");
+        throw new Error(errBody || `Scan failed (${resp.status})`);
+      }
       if (controller.signal.aborted) return;
 
       const data: ScanResponseData = await resp.json();
+
+      if (!data.emails || data.emails.length === 0) {
+        setScanning(false);
+        toast.info("No emails found in the last 30 days.");
+        return;
+      }
+
       const { emails, ai } = processScanResults(data);
+      const importCount = emails.filter((e) => e.wouldImport).length;
+      const filterCount = emails.length - importCount;
+      const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
 
-      // If wizard is closed when scan completes, show completion prompt
+      // Always notify — toast for quick feedback
+      toast.success("Email scan complete", { description: summary });
+
+      // If wizard is closed, also show action prompt with CTA to review
       if (!openRef.current) {
-        const importCount = emails.filter((e) => e.wouldImport).length;
-        const filterCount = emails.length - importCount;
-        const summary = ai?.summary ?? `${importCount} to import, ${filterCount} filtered out.`;
-
         removePrompt(SCAN_PROMPT_ID);
         showPrompt({
           id: SCAN_PROMPT_ID,
@@ -374,12 +386,12 @@ export function EmailSetupWizard({
           variant: "accent",
         });
       }
-      // If wizard is open, results appear automatically via scanComplete state
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
 
       setScanning(false);
       removePrompt(SCAN_PROMPT_ID);
+      console.error("[email-scan]", err);
       toast.error("Email scan failed", {
         description: err instanceof Error ? err.message : "Something went wrong.",
       });
