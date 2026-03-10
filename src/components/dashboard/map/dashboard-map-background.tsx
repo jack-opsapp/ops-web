@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
-import { useMapFilterStore } from "@/stores/map-filter-store";
+import { useMapFilterStore, useMapInstanceStore } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   useProjects,
@@ -43,6 +43,7 @@ export function DashboardMapBackground() {
   const isDashboard = pathname === "/dashboard";
   const { isCollapsed } = useSidebarStore();
   const { view, showCrew } = useMapFilterStore();
+  const setMapInstance = useMapInstanceStore((s) => s.setMap);
   const can = usePermissionStore((s) => s.can);
 
   // Refs
@@ -121,6 +122,12 @@ export function DashboardMapBackground() {
       zoom: 4,
       zoomControl: false,
       attributionControl: false,
+      dragging: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
+      boxZoom: false,
+      keyboard: false,
     });
 
     L.tileLayer(
@@ -128,19 +135,21 @@ export function DashboardMapBackground() {
       { maxZoom: 19, subdomains: "abcd" }
     ).addTo(map);
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+    // Zoom controls moved into MapFilterRail toolbar
 
     mapRef.current = map;
+    setMapInstance(map);
     pinLayerRef.current = L.layerGroup().addTo(map);
     crewLayerRef.current = L.layerGroup().addTo(map);
 
     return () => {
       map.remove();
       mapRef.current = null;
+      setMapInstance(null);
       pinLayerRef.current = null;
       crewLayerRef.current = null;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Invalidate map size when sidebar toggles ──
   useEffect(() => {
@@ -267,15 +276,27 @@ export function DashboardMapBackground() {
       >
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Vignette gradient overlay */}
+        {/* Top fade — blends map into the header/content area */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[180px] pointer-events-none z-[1]"
           style={{
-            background: `
-              radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%),
-              linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 120px),
-              linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 200px)
-            `,
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)",
+          }}
+        />
+
+        {/* Bottom fade — blends map into page bottom */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-[240px] pointer-events-none z-[1]"
+          style={{
+            background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)",
+          }}
+        />
+
+        {/* Side vignette — subtle darkening at edges */}
+        <div
+          className="absolute inset-0 pointer-events-none z-[1]"
+          style={{
+            background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%)",
           }}
         />
       </div>
@@ -308,15 +329,8 @@ export function DashboardMapBackground() {
           background: rgba(10, 10, 10, 0.85);
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        .leaflet-control-zoom a {
-          background: rgba(10, 10, 10, 0.7) !important;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          color: #e5e5e5 !important;
-          border-color: rgba(255, 255, 255, 0.08) !important;
-        }
-        .leaflet-control-zoom a:hover {
-          background: rgba(26, 26, 26, 0.9) !important;
+        .leaflet-control-zoom {
+          display: none !important;
         }
       `}</style>
     </>

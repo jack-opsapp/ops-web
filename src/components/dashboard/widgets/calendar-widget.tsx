@@ -96,7 +96,7 @@ export function CalendarWidget({
             {t(MONTH_NAME_KEYS[today.getMonth()]).slice(0, 3)} {today.getDate()}
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
           {isLoading ? (
             <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
           ) : (
@@ -125,7 +125,7 @@ export function CalendarWidget({
           <span className="font-mono text-[11px] text-text-tertiary">{t("calendar.today")}</span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0 flex flex-col">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide flex flex-col">
         {/* Week strip */}
         <WeekStrip
           weekDays={weekDays}

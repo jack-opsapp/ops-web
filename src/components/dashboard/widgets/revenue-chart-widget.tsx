@@ -87,7 +87,7 @@ export function RevenueWidget({ size }: RevenueWidgetProps) {
         <CardHeader className="pb-1 shrink-0">
           <CardTitle className="text-card-subtitle">{t("revenue.title")}</CardTitle>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
           <p className="font-mono text-data-lg" style={{ color: REVENUE_BAR_COLOR }}>
             {formatDollar(mtdRevenue)}
           </p>
@@ -111,7 +111,7 @@ export function RevenueWidget({ size }: RevenueWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
         <div className="flex items-end gap-[6px] h-[120px]">
           {monthlyData.map((month, i) => {
             const barHeight = (month.value / maxValue) * 100;

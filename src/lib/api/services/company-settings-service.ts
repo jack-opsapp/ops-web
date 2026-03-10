@@ -30,28 +30,25 @@ export const CompanySettingsService = {
   async getSettings(companyId: string): Promise<CompanySettings> {
     const supabase = requireSupabase();
 
-    const { data, error } = await supabase
+    // Try to read existing row first
+    const { data: existing, error: readError } = await supabase
       .from("company_settings")
-      .upsert(
-        { company_id: companyId },
-        { onConflict: "company_id", ignoreDuplicates: true }
-      )
+      .select("*")
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (readError) throw new Error(`Failed to get company settings: ${readError.message}`);
+    if (existing) return mapFromDb(existing);
+
+    // No row exists — create default
+    const { data: created, error: createError } = await supabase
+      .from("company_settings")
+      .insert({ company_id: companyId })
       .select()
       .single();
 
-    if (error) {
-      // If upsert+select doesn't return on ignoreDuplicates, fetch directly
-      const { data: fetched, error: fetchError } = await supabase
-        .from("company_settings")
-        .select("*")
-        .eq("company_id", companyId)
-        .single();
-
-      if (fetchError) throw new Error(`Failed to get company settings: ${fetchError.message}`);
-      return mapFromDb(fetched);
-    }
-
-    return mapFromDb(data);
+    if (createError) throw new Error(`Failed to create company settings: ${createError.message}`);
+    return mapFromDb(created);
   },
 
   async updateSettings(

@@ -39,7 +39,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
         <div
           className={`flex flex-col items-center justify-center ${
             size === "lg" ? "py-12" : "py-8"

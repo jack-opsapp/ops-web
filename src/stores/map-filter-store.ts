@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type L from "leaflet";
 
 export type MapViewFilter = "today" | "active" | "all";
 
@@ -27,3 +28,15 @@ export const useMapFilterStore = create<MapFilterState>()(
     { name: "ops-map-filter" }
   )
 );
+
+// Non-persisted store for the Leaflet map instance reference.
+// Allows the toolbar to control zoom without prop drilling.
+interface MapInstanceState {
+  map: L.Map | null;
+  setMap: (map: L.Map | null) => void;
+}
+
+export const useMapInstanceStore = create<MapInstanceState>((set) => ({
+  map: null,
+  setMap: (map) => set({ map }),
+}));

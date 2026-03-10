@@ -18,6 +18,7 @@
   "tray.searchPlaceholder": "Search widgets...",
   "tray.noResults": "No widgets match your search",
   "tray.alreadyInUse": "Already in Use",
+  "tray.addSpacer": "Add Spacer",
   "tray.resetToDefaults": "Reset to defaults",
   "tray.card.added": "Added",
   "tray.card.dragHint": "Drag or tap +",

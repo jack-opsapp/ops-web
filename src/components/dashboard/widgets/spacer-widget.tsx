@@ -52,19 +52,33 @@ function ResizeHandle({
   onPointerDown,
   isDragging,
 }: {
-  edge: "right" | "bottom" | "corner";
+  edge: "right" | "bottom" | "corner" | "left" | "top" | "corner-tl" | "corner-tr" | "corner-bl";
   onPointerDown: (e: React.PointerEvent) => void;
   isDragging: boolean;
 }) {
   const isRight = edge === "right";
+  const isLeft = edge === "left";
   const isBottom = edge === "bottom";
-  const isCorner = edge === "corner";
+  const isTop = edge === "top";
+  const isHorizontal = isRight || isLeft;
+  const isVertical = isBottom || isTop;
+  const isCorner = edge === "corner" || edge === "corner-tl" || edge === "corner-tr" || edge === "corner-bl";
 
   const posClasses = isRight
     ? "absolute right-[-6px] top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center"
-    : isBottom
-      ? "absolute bottom-[-6px] left-0 right-0 h-3 cursor-row-resize flex items-center justify-center"
-      : "absolute bottom-[-4px] right-[-4px] w-4 h-4 cursor-nwse-resize flex items-center justify-center";
+    : isLeft
+      ? "absolute left-[-6px] top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center"
+      : isBottom
+        ? "absolute bottom-[-6px] left-0 right-0 h-3 cursor-row-resize flex items-center justify-center"
+        : isTop
+          ? "absolute top-[-6px] left-0 right-0 h-3 cursor-row-resize flex items-center justify-center"
+          : edge === "corner-tl"
+            ? "absolute top-[-4px] left-[-4px] w-4 h-4 cursor-nwse-resize flex items-center justify-center"
+            : edge === "corner-tr"
+              ? "absolute top-[-4px] right-[-4px] w-4 h-4 cursor-nesw-resize flex items-center justify-center"
+              : edge === "corner-bl"
+                ? "absolute bottom-[-4px] left-[-4px] w-4 h-4 cursor-nesw-resize flex items-center justify-center"
+                : "absolute bottom-[-4px] right-[-4px] w-4 h-4 cursor-nwse-resize flex items-center justify-center";
 
   return (
     <motion.div
@@ -108,7 +122,7 @@ function ResizeHandle({
           }}
           transition={HANDLE_SPRING}
           className={`flex items-center justify-center rounded-sm ${
-            isRight ? "w-5 h-10" : "h-5 w-10"
+            isHorizontal ? "w-5 h-10" : "h-5 w-10"
           }`}
         >
           <motion.div
@@ -116,7 +130,7 @@ function ResizeHandle({
             whileHover={{ color: "#597794" }}
             transition={{ duration: 0.15 }}
           >
-            {isRight ? (
+            {isHorizontal ? (
               <ArrowLeftRight className="w-3 h-3" />
             ) : (
               <ArrowUpDown className="w-3 h-3" />
@@ -147,8 +161,9 @@ export function SpacerWidget({
   const rowSpan = (config.rowSpan as number) ?? 1;
 
   // ── Drag-to-resize handler ──
+  type ResizeEdge = "right" | "bottom" | "corner" | "left" | "top" | "corner-tl" | "corner-tr" | "corner-bl";
   const handleResize = useCallback(
-    (edge: "right" | "bottom" | "corner", e: React.PointerEvent) => {
+    (edge: ResizeEdge, e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -164,6 +179,12 @@ export function SpacerWidget({
       const cellWidth = startWidth / colSpan;
       const cellHeight = startHeight / rowSpan;
 
+      // Determine which axes this edge affects and direction
+      const affectsX = ["right", "left", "corner", "corner-tl", "corner-tr", "corner-bl"].includes(edge);
+      const affectsY = ["bottom", "top", "corner", "corner-tl", "corner-tr", "corner-bl"].includes(edge);
+      const invertX = ["left", "corner-tl", "corner-bl"].includes(edge);
+      const invertY = ["top", "corner-tl", "corner-tr"].includes(edge);
+
       let lastCols = colSpan;
       let lastRows = rowSpan;
 
@@ -174,16 +195,18 @@ export function SpacerWidget({
         let newCols = colSpan;
         let newRows = rowSpan;
 
-        if (edge === "right" || edge === "corner") {
+        if (affectsX) {
+          const effectiveDx = invertX ? -dx : dx;
           newCols = Math.max(
             MIN_COLS,
-            Math.min(MAX_COLS, Math.round((startWidth + dx) / cellWidth))
+            Math.min(MAX_COLS, Math.round((startWidth + effectiveDx) / cellWidth))
           );
         }
-        if (edge === "bottom" || edge === "corner") {
+        if (affectsY) {
+          const effectiveDy = invertY ? -dy : dy;
           newRows = Math.max(
             MIN_ROWS,
-            Math.min(MAX_ROWS, Math.round((startHeight + dy) / cellHeight))
+            Math.min(MAX_ROWS, Math.round((startHeight + effectiveDy) / cellHeight))
           );
         }
 
@@ -208,9 +231,9 @@ export function SpacerWidget({
     [colSpan, rowSpan, instanceId, config, updateWidgetInstance]
   );
 
-  // ── Normal mode: invisible ──
+  // ── Normal mode: completely invisible, no interaction ──
   if (!isCustomizing) {
-    return <div className="w-full h-full" />;
+    return <div className="w-full h-full pointer-events-none" aria-hidden="true" />;
   }
 
   // ── Customize mode: animated border, handles, size label ──
@@ -260,22 +283,47 @@ export function SpacerWidget({
         </motion.span>
       </div>
 
-      {/* Drag handles — staggered entrance */}
+      {/* Drag handles — all edges and corners */}
       <AnimatePresence>
         <ResizeHandle
           edge="right"
           onPointerDown={(e) => handleResize("right", e)}
-          isDragging={draggingEdge === "right" || draggingEdge === "corner"}
+          isDragging={draggingEdge === "right"}
+        />
+        <ResizeHandle
+          edge="left"
+          onPointerDown={(e) => handleResize("left", e)}
+          isDragging={draggingEdge === "left"}
         />
         <ResizeHandle
           edge="bottom"
           onPointerDown={(e) => handleResize("bottom", e)}
-          isDragging={draggingEdge === "bottom" || draggingEdge === "corner"}
+          isDragging={draggingEdge === "bottom"}
+        />
+        <ResizeHandle
+          edge="top"
+          onPointerDown={(e) => handleResize("top", e)}
+          isDragging={draggingEdge === "top"}
         />
         <ResizeHandle
           edge="corner"
           onPointerDown={(e) => handleResize("corner", e)}
           isDragging={draggingEdge === "corner"}
+        />
+        <ResizeHandle
+          edge="corner-tl"
+          onPointerDown={(e) => handleResize("corner-tl", e)}
+          isDragging={draggingEdge === "corner-tl"}
+        />
+        <ResizeHandle
+          edge="corner-tr"
+          onPointerDown={(e) => handleResize("corner-tr", e)}
+          isDragging={draggingEdge === "corner-tr"}
+        />
+        <ResizeHandle
+          edge="corner-bl"
+          onPointerDown={(e) => handleResize("corner-bl", e)}
+          isDragging={draggingEdge === "corner-bl"}
         />
       </AnimatePresence>
     </div>

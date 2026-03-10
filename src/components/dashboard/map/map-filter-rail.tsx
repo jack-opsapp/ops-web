@@ -7,12 +7,13 @@ import {
   FolderKanban,
   Layers,
   Users,
-  ChevronLeft,
-  ChevronRight,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
   useMapFilterStore,
+  useMapInstanceStore,
   type MapViewFilter,
 } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -39,11 +40,20 @@ export function MapFilterRail() {
     toggleCrew,
     toggleRail,
   } = useMapFilterStore();
+  const map = useMapInstanceStore((s) => s.map);
   const can = usePermissionStore((s) => s.can);
 
   if (pathname !== "/dashboard") return null;
 
   const showCrewToggle = can("team.view");
+
+  function handleZoomIn() {
+    map?.zoomIn();
+  }
+
+  function handleZoomOut() {
+    map?.zoomOut();
+  }
 
   return (
     <motion.div
@@ -51,27 +61,13 @@ export function MapFilterRail() {
       className={cn(
         "fixed right-3 top-1/2 -translate-y-1/2 z-[5] flex flex-col gap-1 py-2 px-1",
         "rounded-md border border-[rgba(255,255,255,0.08)]",
-        "bg-[rgba(10,10,10,0.7)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)]"
+        "bg-[rgba(10,10,10,0.7)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)]",
+        // On narrow screens, collapse to icon-only regardless of railExpanded
+        "max-w-[calc(100vw-24px)]"
       )}
-      style={{ width: railExpanded ? 160 : 44 }}
+      style={{ width: railExpanded ? 140 : 44 }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Expand/collapse toggle */}
-      <button
-        onClick={toggleRail}
-        className="flex items-center justify-center w-full h-7 text-text-tertiary hover:text-text-primary transition-colors duration-150"
-        title={railExpanded ? "Collapse" : "Expand"}
-      >
-        {railExpanded ? (
-          <ChevronRight className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronLeft className="w-3.5 h-3.5" />
-        )}
-      </button>
-
-      {/* Divider */}
-      <div className="h-px bg-[rgba(255,255,255,0.06)] mx-1" />
-
       {/* View filters (radio) */}
       {VIEW_FILTERS.map((f) => {
         const isActive = view === f.value;
@@ -102,11 +98,11 @@ export function MapFilterRail() {
             <AnimatePresence>
               {railExpanded && (
                 <motion.span
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.15 }}
-                  className="font-kosugi text-[10px] tracking-wider whitespace-nowrap relative z-[1]"
+                  className="font-kosugi text-[10px] tracking-wider whitespace-nowrap overflow-hidden relative z-[1]"
                 >
                   {f.label}
                 </motion.span>
@@ -137,11 +133,11 @@ export function MapFilterRail() {
           <AnimatePresence>
             {railExpanded && (
               <motion.span
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.15 }}
-                className="font-kosugi text-[10px] tracking-wider whitespace-nowrap"
+                className="font-kosugi text-[10px] tracking-wider whitespace-nowrap overflow-hidden"
               >
                 CREW
               </motion.span>
@@ -149,6 +145,47 @@ export function MapFilterRail() {
           </AnimatePresence>
         </button>
       )}
+
+      {/* Divider before zoom */}
+      <div className="h-px bg-[rgba(255,255,255,0.06)] mx-1" />
+
+      {/* Zoom controls */}
+      <div className="flex flex-col gap-0.5">
+        <button
+          onClick={handleZoomIn}
+          className="flex items-center justify-center rounded px-2 py-1.5 text-text-tertiary hover:text-text-primary transition-colors duration-150"
+          title="Zoom in"
+        >
+          <Plus className="w-[18px] h-[18px] shrink-0" />
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="flex items-center justify-center rounded px-2 py-1.5 text-text-tertiary hover:text-text-primary transition-colors duration-150"
+          title="Zoom out"
+        >
+          <Minus className="w-[18px] h-[18px] shrink-0" />
+        </button>
+      </div>
+
+      {/* Divider before expand toggle */}
+      <div className="h-px bg-[rgba(255,255,255,0.06)] mx-1" />
+
+      {/* Expand/collapse toggle — at bottom */}
+      <button
+        onClick={toggleRail}
+        className="flex items-center justify-center w-full py-1 text-text-disabled hover:text-text-tertiary transition-colors duration-150"
+        title={railExpanded ? "Collapse" : "Expand"}
+      >
+        <motion.div
+          animate={{ rotate: railExpanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="w-4 h-4 flex items-center justify-center"
+        >
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 1L5 5L9 1" />
+          </svg>
+        </motion.div>
+      </button>
     </motion.div>
   );
 }

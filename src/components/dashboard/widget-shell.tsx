@@ -111,7 +111,8 @@ export function WidgetShell({
         !isSpacer && COL_SPAN_CLASSES[size],
         !isSpacer && ROW_SPAN_CLASSES[size],
         "relative group/widget h-full overflow-hidden",
-        isCustomizing && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing"
+        isCustomizing && !isSpacer && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing",
+        isCustomizing && isSpacer && "cursor-grab active:cursor-grabbing"
       )}
       style={isSpacer ? {
         gridColumn: `span ${spacerColSpan}`,

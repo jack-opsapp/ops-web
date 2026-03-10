@@ -13,7 +13,7 @@ export function ActivityWidget() {
           <CardTitle className="text-card-subtitle">{t("activity.title")}</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden min-h-0">
+      <CardContent className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
         <div className="space-y-[4px]">
           {[
             {

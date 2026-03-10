@@ -3,9 +3,11 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
 import { X, Search, RotateCcw } from "lucide-react";
+import { Maximize2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { useSidebarStore } from "@/stores/sidebar-store";
 import {
   WIDGET_TYPE_REGISTRY,
   CATEGORY_LABELS,
@@ -73,7 +75,11 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
   // (dragging up = negative y = increase height)
   const displayHeight = useTransform(sheetHeight, (h) => h);
 
+  const { isCollapsed } = useSidebarStore();
+  const sidebarWidth = isCollapsed ? 72 : 256;
+
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
+  const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
   const resetWidgetInstances = usePreferencesStore((s) => s.resetWidgetInstances);
 
   // Count instances per type
@@ -106,6 +112,9 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
 
     for (const [id, entry] of Object.entries(WIDGET_TYPE_REGISTRY)) {
       const typeId = id as WidgetTypeId;
+
+      // Spacer is shown as a sticky button at the top, not in category rows
+      if (typeId === "spacer") continue;
 
       if (query) {
         const matchesLabel = entry.label.toLowerCase().includes(query);
@@ -193,8 +202,11 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="fixed bottom-0 left-0 right-0 h-[400px] pointer-events-none z-30"
-            style={{ background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.5))" }}
+            className="fixed bottom-0 right-0 h-[400px] pointer-events-none z-30"
+            style={{
+              left: sidebarWidth,
+              background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.5))",
+            }}
           />
 
           {/* Bottom sheet */}
@@ -204,13 +216,15 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             animate="visible"
             exit="exit"
             onAnimationStart={handleAnimationStart}
-            className="fixed bottom-0 left-0 right-0 z-40 flex flex-col rounded-t-xl shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
+            className="fixed bottom-0 right-0 z-40 flex flex-col rounded-t-xl shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
             style={{
+              left: sidebarWidth,
               height: displayHeight,
               background: "rgba(10, 10, 10, 0.70)",
               backdropFilter: "blur(20px) saturate(1.2)",
               WebkitBackdropFilter: "blur(20px) saturate(1.2)",
               borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              transition: "left 0.2s ease-out",
             }}
           >
             {/* Drag handle pill — pan gesture drives detent snapping */}
@@ -253,6 +267,18 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
                   className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
                 />
               </div>
+            </div>
+
+            {/* Sticky spacer button */}
+            <div className="px-3 pb-[6px] shrink-0">
+              <button
+                onClick={() => addWidgetInstance("spacer" as WidgetTypeId)}
+                className="w-full flex items-center gap-2 px-3 py-[6px] rounded-md border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)] transition-all"
+              >
+                <Maximize2 className="w-[14px] h-[14px] text-text-disabled" />
+                <span className="font-mohave text-body-sm text-text-secondary">{t("tray.addSpacer")}</span>
+                <Plus className="w-[12px] h-[12px] text-text-disabled ml-auto" />
+              </button>
             </div>
 
             {/* Scrollable body — category rows with horizontal card scrolls */}

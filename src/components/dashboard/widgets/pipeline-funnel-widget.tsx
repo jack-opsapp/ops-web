@@ -81,7 +81,7 @@ export function PipelineWidget({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
           {isLoading ? (
             <div className="flex items-center justify-center py-2">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -119,7 +119,7 @@ export function PipelineWidget({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -207,7 +207,7 @@ export function PipelineWidget({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
+      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
