@@ -9,7 +9,7 @@ export default function OnboardingLayout({
 }) {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-2 relative overflow-hidden">
+      <div className="min-h-screen bg-[#0D0D0D] flex flex-col items-center justify-center px-3 py-6 relative overflow-hidden">
         {children}
       </div>
     </AuthProvider>

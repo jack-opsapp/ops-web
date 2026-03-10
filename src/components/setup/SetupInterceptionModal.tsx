@@ -194,10 +194,10 @@ export function SetupInterceptionModal({
         <DialogHeader>
           {totalSteps > 1 && (
             <p
-              className="font-kosugi text-[10px] text-text-disabled tracking-widest uppercase mb-0.5"
+              className="font-mohave text-caption-sm text-text-tertiary tracking-[0.08em] uppercase mb-0.5"
               aria-live="polite"
             >
-              Step {stepIndex + 1} of {totalSteps}
+              STEP {stepIndex + 1} OF {totalSteps}
             </p>
           )}
           <DialogTitle className="uppercase tracking-wider">
@@ -242,9 +242,9 @@ export function SetupInterceptionModal({
           )}
         </div>
 
-        <div className="flex justify-end pt-1 border-t border-border">
+        <div className="flex justify-end pt-1 border-t border-[rgba(255,255,255,0.08)]">
           <Button
-            variant="default"
+            variant="primary"
             onClick={handleContinue}
             disabled={!canContinue || saving}
             loading={saving}

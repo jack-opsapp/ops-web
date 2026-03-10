@@ -19,7 +19,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest"
+            className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]"
           >
             {label}
           </label>
@@ -35,15 +35,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             className={cn(
               "w-full bg-background-input text-text-primary font-mohave text-body",
-              "px-1.5 py-1.5 rounded-sm",
-              "border border-border",
+              "px-2 py-1.5 rounded-sm min-h-[56px]",
+              "border border-[rgba(255,255,255,0.08)]",
               "transition-all duration-150",
-              "placeholder:text-text-tertiary",
+              "placeholder:text-text-disabled",
               "focus:border-ops-accent focus:outline-none caret-ops-accent",
               "disabled:cursor-not-allowed disabled:opacity-40",
               prefixIcon && "pl-5",
               suffixIcon && "pr-5",
-              error && "border-ops-error focus:border-ops-error focus:shadow-glow-error",
+              error && "border-ops-error focus:border-ops-error",
               className
             )}
             ref={ref}
@@ -60,12 +60,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error && (
-          <p id={`${inputId}-error`} className="text-caption-sm text-ops-error font-mohave" role="alert">
+          <p id={`${inputId}-error`} className="text-caption-sm text-ops-error font-kosugi" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="text-caption-sm text-text-tertiary font-mohave">
+          <p id={`${inputId}-helper`} className="text-caption-sm text-text-disabled font-kosugi">
             {helperText}
           </p>
         )}

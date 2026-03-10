@@ -366,28 +366,28 @@ export default function SetupPage() {
           onAnswer={handleStarfieldAnswer}
           minRequired={MIN_STARFIELD_ANSWERS}
         />
-        {/* Top controls — centered */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3">
+        {/* Top controls */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
           <button
             onClick={handleBack}
             aria-label="Back to company information"
-            className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-secondary font-mohave text-body-sm hover:border-[rgba(255,255,255,0.18)] transition-colors"
+            className="flex items-center gap-0.5 px-2 min-h-[56px] min-w-[56px] rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-secondary font-mohave text-body-sm uppercase hover:border-[rgba(255,255,255,0.18)] transition-colors"
           >
-            <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
           </button>
           <button
             onClick={handleSkip}
             aria-label="Skip questionnaire and go to dashboard"
-            className="px-3 py-1.5 min-h-[44px] font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
+            className="px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-disabled hover:text-text-tertiary transition-colors"
           >
-            Skip for now
+            Skip
           </button>
           {answeredCount >= MIN_STARFIELD_ANSWERS && !allAnswered && (
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-4 py-1.5 min-h-[44px] rounded-sm bg-white text-[#0A0A0A] font-kosugi text-body-sm uppercase hover:bg-[rgba(255,255,255,0.85)] transition-colors"
+              className="px-3 min-h-[56px] rounded-sm bg-ops-accent border border-ops-accent text-text-primary font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-colors"
             >
               Launch
             </button>
@@ -397,20 +397,20 @@ export default function SetupPage() {
         {/* Centered launch button — appears when all questions answered */}
         {allAnswered && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-3"
+            transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-start gap-1"
           >
-            <p className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
-              All set
-            </p>
+            <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.15em]">
+              [all set]
+            </span>
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-10 py-3 rounded-sm bg-white text-[#0A0A0A] font-kosugi text-body uppercase tracking-wider hover:bg-[rgba(255,255,255,0.85)] hover:scale-105 transition-all duration-200"
+              className="px-6 min-h-[56px] rounded-sm bg-ops-accent border border-ops-accent text-text-primary font-mohave text-body-lg uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-all duration-200"
             >
-              Launch
+              LAUNCH
             </button>
           </motion.div>
         )}
@@ -435,105 +435,108 @@ export default function SetupPage() {
 
   // ─── Identity phases ──────────────────────────────────────────────────
 
-  const stepLabel = phase === "identity" ? "1 OF 2" : "2 OF 2";
+  const stepNum = phase === "identity" ? 1 : 2;
 
   return (
-    <div className="w-full max-w-[600px] mx-auto">
+    <div className="w-full max-w-[480px] mx-auto">
       {/* Phase announcement for screen readers */}
       <div className="sr-only" aria-live="polite" role="status">
         {phaseAnnouncement}
       </div>
 
       {/* Logo */}
-      <div className="mb-3">
-        <h1
-          ref={headingRef}
-          tabIndex={-1}
-          className="font-mohave text-heading text-text-primary tracking-[0.2em] focus:outline-none"
-        >
-          OPS
-        </h1>
-      </div>
-
-      {/* Progress bar */}
-      <div
-        className="flex items-center gap-[4px] mb-3"
-        role="progressbar"
-        aria-valuenow={phase === "identity" ? 1 : 2}
-        aria-valuemin={1}
-        aria-valuemax={2}
-        aria-label={`Setup progress: step ${phase === "identity" ? "1" : "2"} of 2`}
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className="font-mohave text-display-lg text-text-primary tracking-[0.25em] uppercase mb-4 focus:outline-none"
       >
-        <div
-          className="flex-1 h-[3px] rounded-sm bg-[rgba(255,255,255,0.40)]"
-          aria-hidden="true"
-        />
-        <div
-          className={`flex-1 h-[3px] rounded-sm transition-all duration-300 ${
-            phase === "company"
-              ? "bg-[rgba(255,255,255,0.40)]"
-              : "bg-background-elevated"
-          }`}
-          aria-hidden="true"
-        />
-      </div>
+        OPS
+      </h1>
 
-      {/* Step indicator */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-kosugi text-[10px] text-text-disabled tracking-widest">
-          STEP {stepLabel}
-        </span>
-        <button
-          onClick={handleSkip}
-          aria-label="Skip setup and go to dashboard"
-          className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors min-h-[44px]"
-        >
-          Skip for now
-        </button>
-      </div>
+      {/* Glass surface card */}
+      <div className="bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm p-3">
+        {/* Progress bar + step label */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
+              STEP {stepNum} OF 2
+            </span>
+            <button
+              onClick={handleSkip}
+              aria-label="Skip setup and go to dashboard"
+              className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px] flex items-center"
+            >
+              Skip
+            </button>
+          </div>
+          <div
+            className="flex items-center gap-1"
+            role="progressbar"
+            aria-valuenow={stepNum}
+            aria-valuemin={1}
+            aria-valuemax={2}
+            aria-label={`Setup progress: step ${stepNum} of 2`}
+          >
+            <div
+              className="flex-1 h-[2px] bg-text-primary transition-all duration-200"
+              aria-hidden="true"
+            />
+            <div
+              className={`flex-1 h-[2px] transition-all duration-200 ${
+                phase === "company"
+                  ? "bg-text-primary"
+                  : "bg-[rgba(255,255,255,0.08)]"
+              }`}
+              aria-hidden="true"
+            />
+          </div>
+        </div>
 
-      {/* Step content */}
-      <div className="animate-fade-in" key={phase}>
-        {phase === "identity" && (
-          <IdentityStep1
-            firstName={firstName}
-            lastName={lastName}
-            phone={phone}
-            onUpdate={(data) => setIdentity(data)}
-          />
-        )}
-        {phase === "company" && (
-          <IdentityStep2
-            companyName={companyName}
-            industries={industries}
-            companySize={companySize}
-            companyAge={companyAge}
-            onUpdate={(data) => setCompanyInfo(data)}
-          />
-        )}
-      </div>
+        {/* Separator */}
+        <div className="border-t border-[rgba(255,255,255,0.08)] mb-3" />
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          disabled={phase === "identity"}
-          aria-label={phase === "company" ? "Back to personal information" : "Back"}
-          className="gap-[4px]"
-        >
-          <ChevronLeft className="w-[16px] h-[16px]" aria-hidden="true" />
-          Back
-        </Button>
+        {/* Step content */}
+        <div className="animate-fade-in" key={phase}>
+          {phase === "identity" && (
+            <IdentityStep1
+              firstName={firstName}
+              lastName={lastName}
+              phone={phone}
+              onUpdate={(data) => setIdentity(data)}
+            />
+          )}
+          {phase === "company" && (
+            <IdentityStep2
+              companyName={companyName}
+              industries={industries}
+              companySize={companySize}
+              companyAge={companyAge}
+              onUpdate={(data) => setCompanyInfo(data)}
+            />
+          )}
+        </div>
 
-        <Button
-          onClick={handleNext}
-          aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
-          className="gap-[4px]"
-        >
-          Next
-          <ChevronRight className="w-[16px] h-[16px]" aria-hidden="true" />
-        </Button>
+        {/* Navigation */}
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-[rgba(255,255,255,0.08)]">
+          <button
+            onClick={handleBack}
+            disabled={phase === "identity"}
+            aria-label={phase === "company" ? "Back to personal information" : "Back"}
+            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-secondary hover:text-text-primary disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
+          >
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+            Back
+          </button>
+
+          <button
+            onClick={handleNext}
+            aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text-primary px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover transition-all duration-150"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
   );
