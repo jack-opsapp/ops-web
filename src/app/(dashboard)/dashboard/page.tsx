@@ -30,13 +30,17 @@ import {
   useTasks,
   useClients,
   useTeamMembers,
-  useCalendarEventsForRange,
+  useScheduledTasks,
 } from "@/lib/hooks";
 import {
   type ProjectTask,
   TaskStatus,
   isActiveProjectStatus,
 } from "@/lib/types/models";
+import {
+  type InternalCalendarEvent,
+  mapTaskToInternalEvent,
+} from "@/lib/utils/calendar-utils";
 import {
   startOfWeek,
   endOfWeek,
@@ -185,7 +189,7 @@ export default function DashboardPage() {
   const { data: tasksData, isLoading: tasksLoading } = useTasks();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
-  const { data: calendarEvents, isLoading: calendarLoading } = useCalendarEventsForRange(
+  const { data: scheduledTasks, isLoading: calendarLoading } = useScheduledTasks(
     weekStartDate,
     weekEndDate
   );
@@ -193,7 +197,12 @@ export default function DashboardPage() {
   const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
   const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData]);
   const teamMembers = teamData?.users ?? [];
-  const weekEvents = useMemo(() => calendarEvents ?? [], [calendarEvents]);
+  const weekEvents: InternalCalendarEvent[] = useMemo(() => {
+    if (!scheduledTasks) return [];
+    return scheduledTasks
+      .map(mapTaskToInternalEvent)
+      .filter((e): e is InternalCalendarEvent => e !== null);
+  }, [scheduledTasks]);
 
   const activeProjectCount = useMemo(
     () => projects.filter((p) => isActiveProjectStatus(p.status) && !p.deletedAt).length,
@@ -206,18 +215,18 @@ export default function DashboardPage() {
       .filter((t: ProjectTask) => {
         if (t.deletedAt) return false;
         if (t.status === TaskStatus.Completed || t.status === TaskStatus.Cancelled) return false;
-        if (t.calendarEvent?.startDate) {
-          const eventDate = new Date(t.calendarEvent.startDate);
+        if (t.startDate) {
+          const eventDate = new Date(t.startDate);
           return isSameDay(eventDate, now) || isAfter(eventDate, now);
         }
         return t.status === TaskStatus.Booked || t.status === TaskStatus.InProgress;
       })
       .sort((a: ProjectTask, b: ProjectTask) => {
-        const aDate = a.calendarEvent?.startDate
-          ? new Date(a.calendarEvent.startDate).getTime()
+        const aDate = a.startDate
+          ? new Date(a.startDate).getTime()
           : Infinity;
-        const bDate = b.calendarEvent?.startDate
-          ? new Date(b.calendarEvent.startDate).getTime()
+        const bDate = b.startDate
+          ? new Date(b.startDate).getTime()
           : Infinity;
         return aDate - bDate;
       })

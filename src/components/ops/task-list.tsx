@@ -192,9 +192,9 @@ function TaskRow({
       <StatusBadge status={taskStatusToKey(task.status)} />
 
       {/* Calendar date */}
-      {task.calendarEvent?.startDate && (
+      {task.startDate && (
         <span className="hidden sm:inline font-mono text-[11px] text-text-tertiary shrink-0">
-          {new Date(task.calendarEvent.startDate).toLocaleDateString(getDateLocale(locale), {
+          {new Date(task.startDate).toLocaleDateString(getDateLocale(locale), {
             month: "short",
             day: "numeric",
           })}
@@ -517,7 +517,6 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     deleteTaskMutation.mutate(
       {
         id: deletingTask.id,
-        calendarEventId: deletingTask.calendarEventId,
         projectId,
       },
       {
@@ -585,8 +584,8 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
           isSubmitting={updateTaskMutation.isPending}
           onSubmit={handleEditSubmit}
           onCancel={() => setEditingTask(null)}
-          calendarStartDate={editingTask.calendarEvent?.startDate}
-          calendarEndDate={editingTask.calendarEvent?.endDate}
+          calendarStartDate={editingTask.startDate}
+          calendarEndDate={editingTask.endDate}
         />
       )}
 

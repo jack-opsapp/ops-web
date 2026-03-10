@@ -72,6 +72,34 @@ export function useTask(
   });
 }
 
+/**
+ * Fetch scheduled tasks for a specific date range.
+ * Used by the calendar view — replaces the old useCalendarEventsForRange.
+ */
+export function useScheduledTasks(
+  startDate: Date | null,
+  endDate: Date | null,
+  queryOptions?: Partial<UseQueryOptions<ProjectTask[]>>
+) {
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  const startStr = startDate?.toISOString() ?? "";
+  const endStr = endDate?.toISOString() ?? "";
+
+  return useQuery({
+    queryKey: queryKeys.calendar.scheduled(companyId, startStr, endStr),
+    queryFn: () =>
+      TaskService.fetchScheduledTasksForRange(
+        companyId,
+        startDate!,
+        endDate!
+      ),
+    enabled: !!companyId && !!startDate && !!endDate,
+    ...queryOptions,
+  });
+}
+
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 /**
@@ -245,7 +273,7 @@ export function useUpdateTaskStatus() {
 }
 
 /**
- * Soft delete a task (and its calendar event).
+ * Soft delete a task.
  */
 export function useDeleteTask() {
   const queryClient = useQueryClient();
@@ -253,12 +281,10 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: ({
       id,
-      calendarEventId,
     }: {
       id: string;
-      calendarEventId?: string | null;
       projectId?: string;
-    }) => TaskService.deleteTask(id, calendarEventId),
+    }) => TaskService.deleteTask(id),
 
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

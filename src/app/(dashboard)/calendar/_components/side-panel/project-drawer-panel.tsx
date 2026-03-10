@@ -25,20 +25,15 @@ import { SidePanelShell } from "./side-panel-shell";
 // ─── Date Range Formatter ──────────────────────────────────────────────────
 
 function formatTaskDateRange(
-  startTime?: string | null,
-  endTime?: string | null,
-  calendarEvent?: ProjectTask["calendarEvent"]
+  startDate?: string | null,
+  endDate?: string | null,
 ): string | null {
-  const start = calendarEvent?.startDate
-    ? new Date(calendarEvent.startDate)
-    : startTime
-      ? new Date(startTime)
-      : null;
-  const end = calendarEvent?.endDate
-    ? new Date(calendarEvent.endDate)
-    : endTime
-      ? new Date(endTime)
-      : null;
+  const start = startDate
+    ? new Date(startDate)
+    : null;
+  const end = endDate
+    ? new Date(endDate)
+    : null;
 
   if (!start) return null;
 
@@ -68,9 +63,8 @@ function DrawerTaskCard({
   const title = getTaskDisplayTitle(task, taskType);
   const color = getTaskEffectiveColor(task, taskType);
   const dateRange = formatTaskDateRange(
-    task.startTime,
-    task.endTime,
-    task.calendarEvent
+    task.startDate,
+    task.endDate,
   );
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -231,7 +225,6 @@ export function ProjectDrawerPanel() {
         displayOrder: sortedTasks.length,
         taskIndex: sortedTasks.length,
         teamMemberIds: [],
-        calendarEventId: null,
         taskNotes: null,
         sourceLineItemId: null,
         sourceEstimateId: null,

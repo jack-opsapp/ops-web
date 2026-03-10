@@ -269,7 +269,6 @@ export interface Project {
 export interface ProjectTask {
   id: string;
   projectId: string;
-  calendarEventId: string | null;
   companyId: string;
   status: TaskStatus;
   taskColor: string;
@@ -282,6 +281,9 @@ export interface ProjectTask {
   sourceEstimateId: string | null;
   teamMemberIds: string[];
   dependencyOverrides?: TaskTypeDependency[] | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  duration: number;
   startTime?: string | null;
   endTime?: string | null;
   lastSyncedAt: Date | null;
@@ -290,7 +292,6 @@ export interface ProjectTask {
 
   // Relationships (loaded separately)
   project?: Project | null;
-  calendarEvent?: CalendarEvent | null;
   taskType?: TaskType | null;
   teamMembers?: User[];
 }

@@ -2,13 +2,12 @@
  * OPS Web - Task Service (Supabase)
  *
  * Complete CRUD operations for ProjectTasks stored in Supabase `project_tasks` table.
- * Includes calendar event creation for task scheduling.
- * Supabase-backed task CRUD operations.
+ * Scheduling data (dates, duration) is stored directly on the task.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { TaskStatus } from "../../types/models";
-import type { CalendarEvent, ProjectTask } from "../../types/models";
+import type { ProjectTask, TaskType } from "../../types/models";
 
 // ─── Status Mapping (DB snake_case ↔ TypeScript enum) ────────────────────────
 
@@ -36,24 +35,22 @@ function serializeTaskStatus(status: TaskStatus): string {
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
-function mapCalendarEventFromDb(row: Record<string, unknown>): CalendarEvent {
+function mapTaskTypeFromDb(raw: unknown): TaskType | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
   return {
-    id: row.id as string,
-    color: (row.color as string) ?? "",
-    companyId: row.company_id as string,
-    projectId: row.project_id as string,
-    taskId: (row.task_id as string) ?? null,
-    duration: (row.duration as number) ?? 0,
-    endDate: parseDate(row.end_date),
-    startDate: parseDate(row.start_date),
-    title: (row.title as string) ?? "",
-    teamMemberIds: (row.team_member_ids as string[]) ?? [],
-    eventType: (row.event_type as string) ?? "task",
-    opportunityId: (row.opportunity_id as string) ?? null,
-    siteVisitId: (row.site_visit_id as string) ?? null,
+    id: r.id as string,
+    display: r.display as string,
+    color: r.color as string,
+    icon: (r.icon as string) ?? null,
+    isDefault: (r.is_default as boolean) ?? false,
+    companyId: r.company_id as string,
+    displayOrder: (r.display_order as number) ?? 0,
+    defaultTeamMemberIds: (r.default_team_member_ids as string[]) ?? [],
+    dependencies: (r.dependencies as TaskType["dependencies"]) ?? [],
     lastSyncedAt: null,
     needsSync: false,
-    deletedAt: parseDate(row.deleted_at),
+    deletedAt: parseDate(r.deleted_at),
   };
 }
 
@@ -61,7 +58,6 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
   return {
     id: row.id as string,
     projectId: row.project_id as string,
-    calendarEventId: (row.calendar_event_id as string) ?? null,
     companyId: row.company_id as string,
     status: parseTaskStatus(row.status),
     taskColor: (row.task_color as string) ?? "#417394",
@@ -74,18 +70,21 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     sourceLineItemId: (row.source_line_item_id as string) ?? null,
     sourceEstimateId: (row.source_estimate_id as string) ?? null,
     dependencyOverrides: (row.dependency_overrides as ProjectTask["dependencyOverrides"]) ?? null,
+    startDate: parseDate(row.start_date),
+    endDate: parseDate(row.end_date),
+    duration: (row.duration as number) ?? 1,
     startTime: (row.start_time as string) ?? null,
     endTime: (row.end_time as string) ?? null,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
+    taskType: mapTaskTypeFromDb(row.task_type),
   };
 }
 
 function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   const row: Record<string, unknown> = {};
   if (data.projectId !== undefined) row.project_id = data.projectId;
-  if (data.calendarEventId !== undefined) row.calendar_event_id = data.calendarEventId;
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.status !== undefined) row.status = serializeTaskStatus(data.status);
   if (data.taskColor !== undefined) row.task_color = data.taskColor;
@@ -96,6 +95,9 @@ function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   if (data.sourceLineItemId !== undefined) row.source_line_item_id = data.sourceLineItemId;
   if (data.sourceEstimateId !== undefined) row.source_estimate_id = data.sourceEstimateId;
   if (data.dependencyOverrides !== undefined) row.dependency_overrides = data.dependencyOverrides;
+  if (data.startDate !== undefined) row.start_date = data.startDate?.toISOString() ?? null;
+  if (data.endDate !== undefined) row.end_date = data.endDate?.toISOString() ?? null;
+  if (data.duration !== undefined) row.duration = data.duration;
   if (data.startTime !== undefined) row.start_time = data.startTime;
   if (data.endTime !== undefined) row.end_time = data.endTime;
   // Map both taskIndex and displayOrder to display_order
@@ -113,6 +115,12 @@ export interface FetchTasksOptions {
   status?: TaskStatus;
   /** Filter by team member (array containment) */
   teamMemberId?: string;
+  /** Filter tasks starting on or after this date */
+  startDateFrom?: Date;
+  /** Filter tasks starting on or before this date */
+  startDateTo?: Date;
+  /** Only return tasks that have a start_date (scheduled) */
+  scheduledOnly?: boolean;
   /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction */
@@ -155,7 +163,7 @@ export const TaskService = {
 
     let query = supabase
       .from("project_tasks")
-      .select("*", { count: "exact" })
+      .select("*, task_type:task_types(*)", { count: "exact" })
       .eq("company_id", companyId)
       .is("deleted_at", null);
 
@@ -169,6 +177,18 @@ export const TaskService = {
 
     if (options.teamMemberId) {
       query = query.contains("team_member_ids", [options.teamMemberId]);
+    }
+
+    if (options.scheduledOnly) {
+      query = query.not("start_date", "is", null);
+    }
+
+    if (options.startDateFrom) {
+      query = query.gte("start_date", options.startDateFrom.toISOString());
+    }
+
+    if (options.startDateTo) {
+      query = query.lte("start_date", options.startDateTo.toISOString());
     }
 
     if (options.sortField) {
@@ -196,21 +216,13 @@ export const TaskService = {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("project_tasks")
-      .select("*, calendar_events(*)")
+      .select("*, task_type:task_types(*)")
       .eq("project_id", projectId)
       .is("deleted_at", null)
       .order("display_order");
 
     if (error) throw new Error(`Failed to fetch project tasks: ${error.message}`);
-    return (data ?? []).map((row) => {
-      const task = mapFromDb(row);
-      // Attach joined calendar event if present
-      const eventRow = row.calendar_events;
-      if (eventRow && typeof eventRow === "object" && !Array.isArray(eventRow)) {
-        task.calendarEvent = mapCalendarEventFromDb(eventRow as Record<string, unknown>);
-      }
-      return task;
-    });
+    return (data ?? []).map(mapFromDb);
   },
 
   /**
@@ -220,7 +232,7 @@ export const TaskService = {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("project_tasks")
-      .select("*")
+      .select("*, task_type:task_types(*)")
       .eq("id", id)
       .single();
 
@@ -252,49 +264,29 @@ export const TaskService = {
   },
 
   /**
-   * Create a task with an associated calendar event (atomic-ish operation).
-   * Creates the calendar event first, then the task with a reference to it.
+   * Create a task with scheduling data.
+   * Dates are stored directly on the task (calendar_events table is deprecated).
    */
   async createTaskWithEvent(
     data: CreateTaskWithEventData
   ): Promise<{ taskId: string; calendarEventId: string | null }> {
     const supabase = requireSupabase();
-    let calendarEventId: string | null = null;
 
-    // Step 1: Create calendar event if scheduling data is provided
+    // Merge scheduling data into the task
+    const taskData: Partial<ProjectTask> = { ...data.task };
     if (data.calendarEvent) {
-      const eventRow: Record<string, unknown> = {
-        title: data.calendarEvent.title,
-        start_date: data.calendarEvent.startDate.toISOString(),
-        color: data.calendarEvent.color ?? data.task.taskColor ?? "#417394",
-        duration: data.calendarEvent.duration ?? 1,
-        company_id: data.task.companyId,
-        project_id: data.task.projectId,
-      };
-
-      if (data.calendarEvent.endDate) {
-        eventRow.end_date = data.calendarEvent.endDate.toISOString();
-      }
-
+      taskData.startDate = data.calendarEvent.startDate;
+      taskData.endDate = data.calendarEvent.endDate ?? null;
+      taskData.duration = data.calendarEvent.duration ?? 1;
       if (data.calendarEvent.teamMemberIds?.length) {
-        eventRow.team_member_ids = data.calendarEvent.teamMemberIds;
+        taskData.teamMemberIds = data.calendarEvent.teamMemberIds;
       }
-
-      const { data: created, error: eventError } = await supabase
-        .from("calendar_events")
-        .insert(eventRow)
-        .select("id")
-        .single();
-
-      if (eventError) throw new Error(`Failed to create calendar event: ${eventError.message}`);
-      calendarEventId = created.id as string;
+      if (data.calendarEvent.color) {
+        taskData.taskColor = data.calendarEvent.color;
+      }
     }
 
-    // Step 2: Create the task with calendar event reference
-    const taskRow = mapToDb({
-      ...data.task,
-      calendarEventId,
-    });
+    const taskRow = mapToDb(taskData);
 
     const { data: taskCreated, error: taskError } = await supabase
       .from("project_tasks")
@@ -304,7 +296,7 @@ export const TaskService = {
 
     if (taskError) throw new Error(`Failed to create task: ${taskError.message}`);
 
-    return { taskId: taskCreated.id as string, calendarEventId };
+    return { taskId: taskCreated.id as string, calendarEventId: null };
   },
 
   /**
@@ -337,9 +329,9 @@ export const TaskService = {
   },
 
   /**
-   * Soft delete a task and optionally its associated calendar event.
+   * Soft delete a task.
    */
-  async deleteTask(id: string, calendarEventId?: string | null): Promise<void> {
+  async deleteTask(id: string): Promise<void> {
     const supabase = requireSupabase();
     const now = new Date().toISOString();
 
@@ -349,15 +341,6 @@ export const TaskService = {
       .eq("id", id);
 
     if (taskError) throw new Error(`Failed to delete task: ${taskError.message}`);
-
-    if (calendarEventId) {
-      const { error: eventError } = await supabase
-        .from("calendar_events")
-        .update({ deleted_at: now })
-        .eq("id", calendarEventId);
-
-      if (eventError) throw new Error(`Failed to delete calendar event: ${eventError.message}`);
-    }
   },
 
   /**
@@ -377,6 +360,39 @@ export const TaskService = {
           .eq("id", task.id)
       )
     );
+  },
+
+  /**
+   * Fetch all scheduled tasks for a date range (auto-paginates).
+   * Used by the calendar view.
+   */
+  async fetchScheduledTasksForRange(
+    companyId: string,
+    startDate: Date,
+    endDate: Date,
+    options: Omit<FetchTasksOptions, "startDateFrom" | "startDateTo" | "scheduledOnly" | "limit" | "cursor"> = {}
+  ): Promise<ProjectTask[]> {
+    const allTasks: ProjectTask[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const result = await TaskService.fetchTasks(companyId, {
+        ...options,
+        startDateFrom: startDate,
+        startDateTo: endDate,
+        scheduledOnly: true,
+        sortField: "start_date",
+        limit: 100,
+        cursor: offset,
+      });
+
+      allTasks.push(...result.tasks);
+      hasMore = result.remaining > 0;
+      offset += result.tasks.length;
+    }
+
+    return allTasks;
   },
 
   /**

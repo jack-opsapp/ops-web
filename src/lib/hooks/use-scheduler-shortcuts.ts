@@ -10,7 +10,7 @@ import {
   subMonths,
 } from "date-fns";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useDeleteCalendarEvent, useUpdateCalendarEvent } from "@/lib/hooks";
+import { useDeleteTask, useUpdateTask } from "@/lib/hooks";
 
 /**
  * Keyboard shortcuts hook for the scheduler.
@@ -39,8 +39,8 @@ import { useDeleteCalendarEvent, useUpdateCalendarEvent } from "@/lib/hooks";
  *   Ctrl+A     → auto-schedule (placeholder)
  */
 export function useSchedulerShortcuts() {
-  const deleteMutation = useDeleteCalendarEvent();
-  const updateMutation = useUpdateCalendarEvent();
+  const deleteMutation = useDeleteTask();
+  const updateMutation = useUpdateTask();
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -161,7 +161,7 @@ export function useSchedulerShortcuts() {
           "Are you sure you want to delete this task?"
         );
         if (confirmed) {
-          deleteMutation.mutate(selectedTaskId);
+          deleteMutation.mutate({ id: selectedTaskId });
           state.closeSidePanel();
           state.clearSelection();
         }
@@ -200,30 +200,20 @@ export function useSchedulerShortcuts() {
 function pushTask(
   taskId: string,
   daysDelta: number,
-  updateMutation: ReturnType<typeof useUpdateCalendarEvent>
+  updateMutation: ReturnType<typeof useUpdateTask>
 ) {
-  // We need to fetch current dates. Since we can't access query cache from
-  // a pure function easily, we fetch the event detail from the store's
-  // selectedTaskId context. The update mutation accepts partial data — we
-  // need existing dates to compute new ones.
-  //
-  // For now, use a direct fetch via the API. In practice, the events are
-  // already loaded in the calendar range query. We grab from the DOM-less
-  // query client by importing it. A simpler approach: just call the update
-  // mutation with a callback that fetches first.
-  //
-  // Simplest safe approach: fetch the event, compute new dates, then mutate.
-  import("@/lib/api/services").then(({ CalendarService }) => {
-    CalendarService.fetchCalendarEvent(taskId).then((event) => {
-      if (!event?.startDate || !event?.endDate) return;
+  // Fetch current task dates, compute new ones, then mutate.
+  import("@/lib/api/services").then(({ TaskService }) => {
+    TaskService.fetchTask(taskId).then((task) => {
+      if (!task?.startDate || !task?.endDate) return;
 
       const newStart = daysDelta > 0
-        ? addDays(new Date(event.startDate), daysDelta)
-        : subDays(new Date(event.startDate), Math.abs(daysDelta));
+        ? addDays(new Date(task.startDate), daysDelta)
+        : subDays(new Date(task.startDate), Math.abs(daysDelta));
 
       const newEnd = daysDelta > 0
-        ? addDays(new Date(event.endDate), daysDelta)
-        : subDays(new Date(event.endDate), Math.abs(daysDelta));
+        ? addDays(new Date(task.endDate), daysDelta)
+        : subDays(new Date(task.endDate), Math.abs(daysDelta));
 
       updateMutation.mutate({
         id: taskId,

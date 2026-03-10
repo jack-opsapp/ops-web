@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useUpdateCalendarEvent } from "@/lib/hooks";
+import { useUpdateTask } from "@/lib/hooks";
 
 /**
  * InlineEditor — renders an absolutely-positioned input overlaying a task block
@@ -16,7 +16,7 @@ import { useUpdateCalendarEvent } from "@/lib/hooks";
  */
 export function InlineEditor() {
   const { inlineEdit, setInlineEdit } = useCalendarStore();
-  const updateMutation = useUpdateCalendarEvent();
+  const updateMutation = useUpdateTask();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -63,9 +63,11 @@ export function InlineEditor() {
     const trimmed = value.trim();
     // Only save if the value actually changed and is non-empty
     if (trimmed && trimmed !== originalValueRef.current) {
+      // Map field names: "title" on the inline edit maps to "customTitle" on the task
+      const fieldName = inlineEdit.field === "title" ? "customTitle" : inlineEdit.field;
       updateMutation.mutate({
         id: inlineEdit.taskId,
-        data: { [inlineEdit.field]: trimmed },
+        data: { [fieldName]: trimmed },
       });
     }
 
@@ -89,7 +91,7 @@ export function InlineEditor() {
           break;
         case "Tab":
           e.preventDefault();
-          // Currently only title is editable (no notes field on CalendarEvent).
+          // Currently only title is editable inline.
           // Close the editor on Tab.
           handleSave();
           break;

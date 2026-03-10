@@ -84,16 +84,12 @@ export const queryKeys = {
       [...queryKeys.company.all, "subscription", id] as const,
   },
 
-  // Calendar Events
+  // Calendar (reads from tasks — calendar_events table is deprecated)
   calendar: {
     all: ["calendar"] as const,
     lists: () => [...queryKeys.calendar.all, "list"] as const,
-    list: (companyId: string, filters?: Record<string, unknown>) =>
-      [...queryKeys.calendar.lists(), companyId, filters] as const,
-    dateRange: (companyId: string, start: string, end: string) =>
-      [...queryKeys.calendar.lists(), companyId, start, end] as const,
-    details: () => [...queryKeys.calendar.all, "detail"] as const,
-    detail: (id: string) => [...queryKeys.calendar.details(), id] as const,
+    scheduled: (companyId: string, start: string, end: string) =>
+      [...queryKeys.calendar.lists(), "scheduled", companyId, start, end] as const,
   },
 
   // Task Types

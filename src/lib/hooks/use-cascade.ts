@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useUpdateCalendarEvent } from "@/lib/hooks/use-calendar";
+import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { calculateCascade } from "@/lib/scheduling/engine";
 import type {
   SchedulableTask,
@@ -22,7 +22,7 @@ export function useCascade() {
   const clearGhostPreviews = useCalendarStore((s) => s.clearGhostPreviews);
   const showConfirmBar = useCalendarStore((s) => s.showConfirmBar);
   const hideConfirmBar = useCalendarStore((s) => s.hideConfirmBar);
-  const updateEvent = useUpdateCalendarEvent();
+  const updateTask = useUpdateTask();
 
   const previewCascade = useCallback(
     (
@@ -53,7 +53,7 @@ export function useCascade() {
 
         const applyFn = async () => {
           for (const change of result.changes) {
-            await updateEvent.mutateAsync({
+            await updateTask.mutateAsync({
               id: change.id,
               data: {
                 startDate: change.newStartDate,
@@ -73,7 +73,7 @@ export function useCascade() {
       }
       return null;
     },
-    [setGhostPreviews, clearGhostPreviews, showConfirmBar, hideConfirmBar, updateEvent]
+    [setGhostPreviews, clearGhostPreviews, showConfirmBar, hideConfirmBar, updateTask]
   );
 
   const cancelCascade = useCallback(() => {

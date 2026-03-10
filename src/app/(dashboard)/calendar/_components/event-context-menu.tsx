@@ -12,9 +12,9 @@ import { addDays, nextMonday, differenceInCalendarDays } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import {
-  useCreateCalendarEvent,
-  useDeleteCalendarEvent,
-  useUpdateCalendarEvent,
+  useCreateTask,
+  useDeleteTask,
+  useUpdateTask,
 } from "@/lib/hooks";
 import { useCascade } from "@/lib/hooks/use-cascade";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -64,9 +64,9 @@ export function EventContextMenu({
 }: EventContextMenuProps) {
   const { company } = useAuthStore();
   const { setSidePanelTask } = useCalendarStore();
-  const deleteMutation = useDeleteCalendarEvent();
-  const duplicateMutation = useCreateCalendarEvent();
-  const updateMutation = useUpdateCalendarEvent();
+  const deleteMutation = useDeleteTask();
+  const duplicateMutation = useCreateTask();
+  const updateMutation = useUpdateTask();
   const { previewCascade } = useCascade();
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -164,17 +164,18 @@ export function EventContextMenu({
 
     duplicateMutation.mutate(
       {
-        title: `${event.title} (Copy)`,
+        customTitle: `${event.title} (Copy)`,
         projectId: event.projectId ?? "",
         companyId: company.id,
+        taskTypeId: event.taskType || "",
         startDate: event.startDate,
         endDate: event.endDate,
-        color: event.color,
+        taskColor: event.color,
         teamMemberIds: event.teamMemberIds,
       },
       {
         onSuccess: () => {
-          toast.success("Event duplicated");
+          toast.success("Task duplicated");
           onClose();
         },
         onError: (err) => {
@@ -187,9 +188,9 @@ export function EventContextMenu({
   const handleDelete = useCallback(() => {
     if (!event) return;
 
-    deleteMutation.mutate(event.id, {
+    deleteMutation.mutate({ id: event.id }, {
       onSuccess: () => {
-        toast.success("Event deleted");
+        toast.success("Task deleted");
         onClose();
       },
       onError: (err) => {

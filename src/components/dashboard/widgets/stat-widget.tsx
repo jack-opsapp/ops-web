@@ -19,7 +19,7 @@ import {
   useTasks,
   useClients,
   useTeamMembers,
-  useCalendarEventsForRange,
+  useScheduledTasks,
   useInvoices,
   useInvoiceLineItems,
   useEstimates,
@@ -274,9 +274,9 @@ function StatTasksByStatus({ typeId, size }: SimpleStatProps) {
       const today = new Date();
       return active.filter((tk: ProjectTask) => {
         if (tk.status === TaskStatus.Completed || tk.status === TaskStatus.Cancelled) return false;
-        if (!tk.calendarEvent?.startDate) return false;
-        return isBefore(new Date(tk.calendarEvent.startDate), today) &&
-          !isSameDay(new Date(tk.calendarEvent.startDate), today);
+        if (!tk.startDate) return false;
+        return isBefore(new Date(tk.startDate), today) &&
+          !isSameDay(new Date(tk.startDate), today);
       }).length;
     }
 
@@ -482,24 +482,24 @@ function StatTasks({ typeId, size, config }: InnerStatProps) {
     switch (filter) {
       case "due-today": {
         const count = open.filter((tk: ProjectTask) => {
-          if (!tk.calendarEvent?.startDate) return false;
-          return isSameDay(new Date(tk.calendarEvent.startDate), today);
+          if (!tk.startDate) return false;
+          return isSameDay(new Date(tk.startDate), today);
         }).length;
         return { value: count, subValue: t("stat.dueToday"), label: t("stat.tasksDueToday") };
       }
       case "due-this-week": {
         const count = open.filter((tk: ProjectTask) => {
-          if (!tk.calendarEvent?.startDate) return false;
-          const d = new Date(tk.calendarEvent.startDate);
+          if (!tk.startDate) return false;
+          const d = new Date(tk.startDate);
           return !isAfter(d, weekEnd) && !isBefore(d, today);
         }).length;
         return { value: count, subValue: t("stat.thisWeek"), label: t("stat.tasksThisWeek") };
       }
       case "overdue": {
         const count = open.filter((tk: ProjectTask) => {
-          if (!tk.calendarEvent?.startDate) return false;
-          return isBefore(new Date(tk.calendarEvent.startDate), today) &&
-            !isSameDay(new Date(tk.calendarEvent.startDate), today);
+          if (!tk.startDate) return false;
+          return isBefore(new Date(tk.startDate), today) &&
+            !isSameDay(new Date(tk.startDate), today);
         }).length;
         return { value: count, subValue: t("stat.overdue"), label: t("stat.overdueTasks") };
       }
@@ -536,8 +536,8 @@ function StatEvents({ typeId, size, config }: InnerStatProps) {
     }
   }, [range, today]);
 
-  const { data, isLoading } = useCalendarEventsForRange(start, end);
-  const events = data ?? [];
+  const { data: scheduledTasks, isLoading } = useScheduledTasks(start, end);
+  const events = scheduledTasks ?? [];
 
   const rangeLabels: Record<string, string> = {
     today: t("stat.today"),

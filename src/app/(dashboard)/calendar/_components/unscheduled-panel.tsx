@@ -23,7 +23,7 @@ export function UnscheduledPanel() {
     const all = taskData?.tasks ?? [];
     return all.filter(
       (t) =>
-        !t.calendarEventId &&
+        !t.startDate &&
         t.status !== TaskStatus.Completed &&
         t.status !== TaskStatus.Cancelled &&
         !t.deletedAt

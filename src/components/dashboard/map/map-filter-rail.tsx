@@ -59,10 +59,9 @@ export function MapFilterRail() {
     <motion.div
       layout
       className={cn(
-        "fixed right-3 top-1/2 -translate-y-1/2 z-[5] flex flex-col gap-1 py-2 px-1",
+        "fixed right-3 bottom-[88px] z-[5] flex flex-col gap-1 py-2 px-1",
         "rounded-md border border-[rgba(255,255,255,0.08)]",
         "bg-[rgba(10,10,10,0.7)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)]",
-        // On narrow screens, collapse to icon-only regardless of railExpanded
         "max-w-[calc(100vw-24px)]"
       )}
       style={{ width: railExpanded ? 140 : 44 }}
@@ -79,7 +78,8 @@ export function MapFilterRail() {
             className={cn(
               "relative flex items-center gap-2 rounded px-2 py-1.5 transition-all duration-150",
               "text-text-tertiary hover:text-text-primary",
-              isActive && "text-text-primary"
+              isActive && "text-text-primary",
+              !railExpanded && "justify-center"
             )}
             title={f.label}
           >
@@ -125,7 +125,8 @@ export function MapFilterRail() {
             "flex items-center gap-2 rounded px-2 py-1.5 transition-all duration-150",
             showCrew
               ? "text-text-primary"
-              : "text-text-disabled hover:text-text-tertiary"
+              : "text-text-disabled hover:text-text-tertiary",
+            !railExpanded && "justify-center"
           )}
           title="CREW"
         >

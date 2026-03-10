@@ -9,14 +9,14 @@
  * - Smart insert: detects insert-between scenarios and cascades push offsets
  *
  * Edge-resize is handled locally inside TimelineTaskBlock (mousedown/move/up)
- * and committed through an `onResize` callback that calls useUpdateCalendarEvent.
+ * and committed through an `onResize` callback that calls useUpdateTask.
  */
 
 import { useCallback, useEffect, useRef } from "react";
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import { addDays, differenceInCalendarDays, isAfter } from "date-fns";
 import { toast } from "sonner";
-import { useCreateCalendarEvent, useUpdateCalendarEvent } from "@/lib/hooks";
+import { useCreateTask, useUpdateTask } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useCascade } from "@/lib/hooks/use-cascade";
@@ -48,8 +48,8 @@ export function useTimelineDnd({
 }: UseTimelineDndOptions) {
   const { setDragState } = useCalendarStore();
   const { company } = useAuthStore();
-  const updateMutation = useUpdateCalendarEvent();
-  const createMutation = useCreateCalendarEvent();
+  const updateMutation = useUpdateTask();
+  const createMutation = useCreateTask();
   const { previewCascade } = useCascade();
   const { detectInsertPoint, calculatePushOffsets } = useSmartInsert();
 
@@ -224,16 +224,16 @@ export function useTimelineDnd({
         }
 
         createMutation.mutate({
-          title: task.customTitle || task.taskType?.display || "Untitled Task",
+          customTitle: task.customTitle || task.taskType?.display || "Untitled Task",
           projectId: task.projectId,
           companyId: company.id,
+          taskTypeId: task.taskTypeId || task.taskType?.id || "",
           startDate: targetDate,
           endDate: targetEndDate,
-          color: task.taskColor || "#59779F",
+          taskColor: task.taskColor || "#59779F",
           teamMemberIds: overData.teamMemberId
             ? [overData.teamMemberId]
             : task.teamMemberIds,
-          taskId: task.id,
         });
         return;
       }
@@ -281,16 +281,16 @@ export function useTimelineDnd({
         }
 
         createMutation.mutate({
-          title: task.customTitle || task.taskType?.display || "Untitled Task",
+          customTitle: task.customTitle || task.taskType?.display || "Untitled Task",
           projectId: task.projectId,
           companyId: company.id,
+          taskTypeId: task.taskTypeId || task.taskType?.id || "",
           startDate: targetDate,
           endDate: targetEndDate,
-          color: task.taskColor || "#59779F",
+          taskColor: task.taskColor || "#59779F",
           teamMemberIds: overData.teamMemberId
             ? [overData.teamMemberId]
             : task.teamMemberIds,
-          taskId: task.id,
         });
         return;
       }

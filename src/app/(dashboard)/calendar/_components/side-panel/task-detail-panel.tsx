@@ -6,9 +6,6 @@ import { toast } from "sonner";
 import { Trash2, Check, ArrowRight, ArrowLeft, Zap, Plus, X } from "lucide-react";
 import { useCalendarStore } from "@/stores/calendar-store";
 import {
-  useCalendarEvent,
-  useUpdateCalendarEvent,
-  useDeleteCalendarEvent,
   useTask,
   useUpdateTask,
   useDeleteTask,
@@ -18,11 +15,9 @@ import {
 } from "@/lib/hooks";
 import {
   TaskStatus,
-  TASK_STATUS_COLORS,
   getInitials,
   getTaskDisplayTitle,
 } from "@/lib/types/models";
-import type { ProjectTask, TaskType, User } from "@/lib/types/models";
 import { pushByDays, calculateCascade } from "@/lib/scheduling/engine";
 import { taskToSchedulable } from "@/lib/scheduling/adapters";
 import { SidePanelShell } from "./side-panel-shell";
@@ -157,9 +152,6 @@ export function TaskDetailPanel() {
 
   // Data queries
   const { data: task } = useTask(selectedTaskId ?? undefined);
-  const { data: calendarEvent } = useCalendarEvent(
-    task?.calendarEventId ?? undefined
-  );
   const { data: taskTypes } = useTaskTypes();
   const { data: teamMembersData } = useTeamMembers();
   const { data: projectTasksData } = useProjectTasks(
@@ -168,9 +160,7 @@ export function TaskDetailPanel() {
 
   // Mutations
   const updateTask = useUpdateTask();
-  const updateCalendarEvent = useUpdateCalendarEvent();
   const deleteTask = useDeleteTask();
-  const deleteCalendarEvent = useDeleteCalendarEvent();
 
   // Local state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -252,12 +242,12 @@ export function TaskDetailPanel() {
 
   // Duration computed
   const durationLabel = useMemo(() => {
-    if (!calendarEvent?.startDate || !calendarEvent?.endDate) return null;
-    const start = new Date(calendarEvent.startDate);
-    const end = new Date(calendarEvent.endDate);
+    if (!task?.startDate || !task?.endDate) return null;
+    const start = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
+    const end = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
     const days = differenceInCalendarDays(end, start) + 1;
     return `${days} day${days !== 1 ? "s" : ""}`;
-  }, [calendarEvent]);
+  }, [task?.startDate, task?.endDate]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
 
@@ -274,21 +264,7 @@ export function TaskDetailPanel() {
           toast.error("Failed to update title", { description: err.message }),
       }
     );
-    if (task.calendarEventId && calendarEvent) {
-      updateCalendarEvent.mutate({
-        id: task.calendarEventId,
-        data: { title: newTitle },
-      });
-    }
-  }, [
-    task,
-    selectedTaskId,
-    titleValue,
-    displayTitle,
-    updateTask,
-    updateCalendarEvent,
-    calendarEvent,
-  ]);
+  }, [task, selectedTaskId, titleValue, displayTitle, updateTask]);
 
   const handleStatusChange = useCallback(
     (newStatus: string) => {
@@ -325,15 +301,8 @@ export function TaskDetailPanel() {
             }),
         }
       );
-      // Update calendar event color too
-      if (task?.calendarEventId && newType) {
-        updateCalendarEvent.mutate({
-          id: task.calendarEventId,
-          data: { color: newType.color, eventType: newType.display },
-        });
-      }
     },
-    [selectedTaskId, taskTypes, task, updateTask, updateCalendarEvent]
+    [selectedTaskId, taskTypes, task, updateTask]
   );
 
   const handleRemoveTeamMember = useCallback(
@@ -349,14 +318,8 @@ export function TaskDetailPanel() {
             }),
         }
       );
-      if (task.calendarEventId) {
-        updateCalendarEvent.mutate({
-          id: task.calendarEventId,
-          data: { teamMemberIds: newIds },
-        });
-      }
     },
-    [selectedTaskId, task, updateTask, updateCalendarEvent]
+    [selectedTaskId, task, updateTask]
   );
 
   const handleAddTeamMember = useCallback(
@@ -372,23 +335,17 @@ export function TaskDetailPanel() {
             }),
         }
       );
-      if (task.calendarEventId) {
-        updateCalendarEvent.mutate({
-          id: task.calendarEventId,
-          data: { teamMemberIds: newIds },
-        });
-      }
       setShowTeamAdd(false);
     },
-    [selectedTaskId, task, updateTask, updateCalendarEvent]
+    [selectedTaskId, task, updateTask]
   );
 
   const handleStartDateChange = useCallback(
     (value: string) => {
-      if (!task?.calendarEventId || !value) return;
+      if (!selectedTaskId || !value) return;
       const newStart = new Date(value);
-      updateCalendarEvent.mutate(
-        { id: task.calendarEventId, data: { startDate: newStart } },
+      updateTask.mutate(
+        { id: selectedTaskId, data: { startDate: newStart } },
         {
           onError: (err) =>
             toast.error("Failed to update start date", {
@@ -397,15 +354,15 @@ export function TaskDetailPanel() {
         }
       );
     },
-    [task, updateCalendarEvent]
+    [selectedTaskId, updateTask]
   );
 
   const handleEndDateChange = useCallback(
     (value: string) => {
-      if (!task?.calendarEventId || !value) return;
+      if (!selectedTaskId || !value) return;
       const newEnd = new Date(value);
-      updateCalendarEvent.mutate(
-        { id: task.calendarEventId, data: { endDate: newEnd } },
+      updateTask.mutate(
+        { id: selectedTaskId, data: { endDate: newEnd } },
         {
           onError: (err) =>
             toast.error("Failed to update end date", {
@@ -414,7 +371,7 @@ export function TaskDetailPanel() {
         }
       );
     },
-    [task, updateCalendarEvent]
+    [selectedTaskId, updateTask]
   );
 
   const handleNotesBlur = useCallback(() => {
@@ -431,68 +388,41 @@ export function TaskDetailPanel() {
 
   const handlePush = useCallback(
     (days: number) => {
-      if (!task || !calendarEvent || !taskTypes) return;
-      const schedulable = taskToSchedulable(task, taskTypes, {
-        startDate: calendarEvent.startDate
-          ? new Date(calendarEvent.startDate)
-          : null,
-        endDate: calendarEvent.endDate
-          ? new Date(calendarEvent.endDate)
-          : null,
-        duration: calendarEvent.duration ?? 1,
-      });
-
+      if (!task || !selectedTaskId || !taskTypes) return;
+      const schedulable = taskToSchedulable(task, taskTypes);
       const { newStart, newEnd } = pushByDays(schedulable, days);
 
-      if (task.calendarEventId) {
-        updateCalendarEvent.mutate(
-          {
-            id: task.calendarEventId,
-            data: { startDate: newStart, endDate: newEnd },
-          },
-          {
-            onSuccess: () =>
-              toast.success(
-                `Pushed ${days === 1 ? "+1 day" : `+${days} days`}`
-              ),
-            onError: (err) =>
-              toast.error("Failed to push task", {
-                description: err.message,
-              }),
-          }
-        );
-      }
+      updateTask.mutate(
+        {
+          id: selectedTaskId,
+          data: { startDate: newStart, endDate: newEnd },
+        },
+        {
+          onSuccess: () =>
+            toast.success(
+              `Pushed ${days === 1 ? "+1 day" : `+${days} days`}`
+            ),
+          onError: (err) =>
+            toast.error("Failed to push task", {
+              description: err.message,
+            }),
+        }
+      );
     },
-    [task, calendarEvent, taskTypes, updateCalendarEvent]
+    [task, selectedTaskId, taskTypes, updateTask]
   );
 
   const handleCascade = useCallback(() => {
-    if (!task || !calendarEvent || !taskTypes) return;
+    if (!task || !selectedTaskId || !taskTypes) return;
 
     // Push +1 day then cascade
-    const schedulable = taskToSchedulable(task, taskTypes, {
-      startDate: calendarEvent.startDate
-        ? new Date(calendarEvent.startDate)
-        : null,
-      endDate: calendarEvent.endDate
-        ? new Date(calendarEvent.endDate)
-        : null,
-      duration: calendarEvent.duration ?? 1,
-    });
-
+    const schedulable = taskToSchedulable(task, taskTypes);
     const { newStart, newEnd } = pushByDays(schedulable, 1);
 
-    // Build all schedulable tasks for cascade
+    // Build all schedulable tasks for cascade (only tasks with dates)
     const allSchedulable = projectTasks
-      .filter((pt) => pt.calendarEventId)
-      .map((pt) => {
-        const ce = pt.id === task.id ? calendarEvent : pt.calendarEvent;
-        return taskToSchedulable(pt, taskTypes, {
-          startDate: ce?.startDate ? new Date(ce.startDate) : null,
-          endDate: ce?.endDate ? new Date(ce.endDate) : null,
-          duration: ce?.duration ?? 1,
-        });
-      });
+      .filter((pt) => pt.startDate)
+      .map((pt) => taskToSchedulable(pt, taskTypes));
 
     const cascadeResult = calculateCascade(
       task.id,
@@ -502,44 +432,32 @@ export function TaskDetailPanel() {
     );
 
     // Apply the push to current task
-    if (task.calendarEventId) {
-      updateCalendarEvent.mutate({
-        id: task.calendarEventId,
-        data: { startDate: newStart, endDate: newEnd },
-      });
-    }
+    updateTask.mutate({
+      id: selectedTaskId,
+      data: { startDate: newStart, endDate: newEnd },
+    });
 
     // Apply cascade changes
     for (const change of cascadeResult.changes) {
-      const affectedTask = projectTasks.find((pt) => pt.id === change.id);
-      if (affectedTask?.calendarEventId) {
-        updateCalendarEvent.mutate({
-          id: affectedTask.calendarEventId,
-          data: {
-            startDate: change.newStartDate,
-            endDate: change.newEndDate,
-          },
-        });
-      }
+      updateTask.mutate({
+        id: change.id,
+        data: {
+          startDate: change.newStartDate,
+          endDate: change.newEndDate,
+        },
+      });
     }
 
     toast.success(
       `Cascaded: ${cascadeResult.changes.length + 1} task${cascadeResult.changes.length > 0 ? "s" : ""} moved`
     );
-  }, [
-    task,
-    calendarEvent,
-    taskTypes,
-    projectTasks,
-    updateCalendarEvent,
-  ]);
+  }, [task, selectedTaskId, taskTypes, projectTasks, updateTask]);
 
   const handleDelete = useCallback(() => {
     if (!selectedTaskId || !task) return;
     deleteTask.mutate(
       {
         id: selectedTaskId,
-        calendarEventId: task.calendarEventId,
         projectId: task.projectId,
       },
       {
@@ -557,11 +475,11 @@ export function TaskDetailPanel() {
 
   if (!isOpen) return null;
 
-  const startDate = calendarEvent?.startDate
-    ? new Date(calendarEvent.startDate)
+  const startDate = task?.startDate
+    ? (task.startDate instanceof Date ? task.startDate : new Date(task.startDate))
     : null;
-  const endDate = calendarEvent?.endDate
-    ? new Date(calendarEvent.endDate)
+  const endDate = task?.endDate
+    ? (task.endDate instanceof Date ? task.endDate : new Date(task.endDate))
     : null;
 
   return (

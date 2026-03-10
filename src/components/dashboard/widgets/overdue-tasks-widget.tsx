@@ -37,8 +37,8 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
         task.status === TaskStatus.Cancelled
       )
         return false;
-      const startDate = task.calendarEvent?.startDate
-        ? new Date(task.calendarEvent.startDate)
+      const startDate = task.startDate
+        ? new Date(task.startDate)
         : null;
       if (!startDate) return false;
       return isBefore(startDate, today) && !isSameDay(startDate, today);
@@ -150,8 +150,8 @@ function OverdueTaskRow({
 
   const displayTitle = getTaskDisplayTitle(task, task.taskType);
   const projectName = task.project?.title ?? t("overdueTasks.unassigned");
-  const startDate = task.calendarEvent?.startDate
-    ? new Date(task.calendarEvent.startDate)
+  const startDate = task.startDate
+    ? new Date(task.startDate)
     : null;
   const daysOverdue = startDate ? differenceInDays(today, startDate) : 0;
 

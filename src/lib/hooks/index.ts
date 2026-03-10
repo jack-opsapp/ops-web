@@ -18,6 +18,7 @@ export {
   useTasks,
   useProjectTasks,
   useTask,
+  useScheduledTasks,
   useCreateTask,
   useCreateTaskWithEvent,
   useUpdateTask,

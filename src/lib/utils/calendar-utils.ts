@@ -13,7 +13,7 @@ import {
   DEFAULT_TASK_TYPE_COLORS,
   type TaskTypeColors,
 } from "./calendar-constants";
-import type { CalendarEvent as ApiCalendarEvent } from "@/lib/types/models";
+import type { ProjectTask } from "@/lib/types/models";
 
 // ─── Internal Event Type ─────────────────────────────────────────────────────
 
@@ -24,6 +24,7 @@ export interface InternalCalendarEvent {
   endDate: Date;
   color: string;
   taskType: string;
+  status: string;
   teamMember?: string;
   teamMemberIds: string[];
   project?: string;
@@ -58,33 +59,67 @@ export function deriveTaskType(title: string, color: string): string {
   return colorMap[color] ?? "task";
 }
 
-// ─── API → Internal Mapping ─────────────────────────────────────────────────
+// ─── ProjectTask → Internal Calendar Event ──────────────────────────────────
 
-export function mapApiEventToInternal(event: ApiCalendarEvent): InternalCalendarEvent | null {
-  if (!event.startDate) return null;
+/**
+ * Map a ProjectTask to the calendar's internal event representation.
+ * Tasks without a startDate are excluded (returns null).
+ */
+export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent | null {
+  if (!task.startDate) return null;
 
-  const startDate = event.startDate instanceof Date ? event.startDate : new Date(event.startDate);
+  const startDate = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
 
-  let endDate: Date;
-  if (event.endDate) {
-    endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
-  } else if (event.duration > 0) {
-    endDate = new Date(startDate.getTime() + event.duration * 60 * 1000);
-  } else {
-    endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  // Combine start date with startTime for precise positioning
+  if (task.startTime) {
+    const [h, m] = task.startTime.split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) startDate.setHours(h, m, 0, 0);
   }
 
+  let endDate: Date;
+  if (task.endDate) {
+    endDate = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
+    // Combine end date with endTime
+    if (task.endTime) {
+      const [h, m] = task.endTime.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
+    }
+  } else if (task.duration > 0) {
+    endDate = new Date(startDate.getTime() + task.duration * 24 * 60 * 60 * 1000);
+    // Apply endTime if single-day
+    if (task.endTime && task.duration <= 1) {
+      const [h, m] = task.endTime.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) {
+        endDate = new Date(startDate);
+        endDate.setHours(h, m, 0, 0);
+      }
+    }
+  } else {
+    // Default: same day, apply endTime or default to +9 hours
+    endDate = new Date(startDate);
+    if (task.endTime) {
+      const [h, m] = task.endTime.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
+    } else {
+      endDate.setHours(startDate.getHours() + 9, 0, 0, 0);
+    }
+  }
+
+  // Title: customTitle > taskType.display > "Task"
+  const title = task.customTitle || task.taskType?.display || "Task";
+
   return {
-    id: event.id,
-    title: event.title,
+    id: task.id,
+    title,
     startDate,
     endDate,
-    color: event.color,
-    taskType: deriveTaskType(event.title, event.color),
-    teamMember: event.teamMemberIds.length > 0 ? "Team" : undefined,
-    teamMemberIds: event.teamMemberIds,
-    project: event.project?.title ?? undefined,
-    projectId: event.projectId ?? undefined,
+    color: task.taskColor,
+    taskType: deriveTaskType(title, task.taskColor),
+    status: task.status,
+    teamMember: task.teamMemberIds.length > 0 ? "Team" : undefined,
+    teamMemberIds: task.teamMemberIds,
+    project: task.project?.title ?? undefined,
+    projectId: task.projectId,
   };
 }
 

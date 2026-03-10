@@ -89,8 +89,8 @@ export function DashboardMapBackground() {
       if (t.deletedAt) continue;
       if (t.status === TaskStatus.Completed || t.status === TaskStatus.Cancelled)
         continue;
-      if (!t.calendarEvent?.startDate) continue;
-      if (!isSameDay(new Date(t.calendarEvent.startDate), today)) continue;
+      if (!t.startDate) continue;
+      if (!isSameDay(new Date(t.startDate), today)) continue;
       if (!projectMap.has(t.projectId)) continue;
 
       const existing = grouped.get(t.projectId) ?? [];
@@ -159,14 +159,19 @@ export function DashboardMapBackground() {
   }, [isCollapsed]);
 
   // ── Helper: stagger-animate a marker element ──
+  // Animate the first child instead of the marker container itself,
+  // because Leaflet positions markers via transform: translate3d() on the container.
+  // Overwriting that transform would reset all markers to position 0,0 (top-left).
   function animateMarker(el: HTMLElement | undefined, index: number) {
     if (!el) return;
-    el.style.opacity = "0";
-    el.style.transform = "scale(0.5)";
-    el.style.transition = `opacity 0.3s ease ${index * 0.05}s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s`;
+    const inner = el.firstElementChild as HTMLElement | null;
+    if (!inner) return;
+    inner.style.opacity = "0";
+    inner.style.transform = "scale(0.5)";
+    inner.style.transition = `opacity 0.3s ease ${index * 0.05}s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s`;
     requestAnimationFrame(() => {
-      el.style.opacity = "1";
-      el.style.transform = "scale(1)";
+      inner.style.opacity = "1";
+      inner.style.transform = "scale(1)";
     });
   }
 
@@ -275,19 +280,20 @@ export function DashboardMapBackground() {
       >
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Top fade — blends map into the header/content area */}
+        {/* Vertical fade — map visible in middle ~50%, fades to black at top 25% and bottom 25% */}
         <div
-          className="absolute inset-x-0 top-0 h-[180px] pointer-events-none z-[1]"
+          className="absolute inset-0 pointer-events-none z-[1]"
           style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)",
-          }}
-        />
-
-        {/* Bottom fade — blends map into page bottom */}
-        <div
-          className="absolute inset-x-0 bottom-0 h-[240px] pointer-events-none z-[1]"
-          style={{
-            background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)",
+            background: `linear-gradient(to bottom,
+              rgba(13,13,13,1) 0%,
+              rgba(13,13,13,0.95) 15%,
+              rgba(13,13,13,0.6) 25%,
+              transparent 35%,
+              transparent 65%,
+              rgba(13,13,13,0.6) 75%,
+              rgba(13,13,13,0.95) 85%,
+              rgba(13,13,13,1) 100%
+            )`,
           }}
         />
 
@@ -295,7 +301,7 @@ export function DashboardMapBackground() {
         <div
           className="absolute inset-0 pointer-events-none z-[1]"
           style={{
-            background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%)",
+            background: "radial-gradient(ellipse at center, transparent 50%, rgba(13,13,13,0.5) 100%)",
           }}
         />
       </div>

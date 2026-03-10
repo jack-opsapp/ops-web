@@ -36,8 +36,8 @@ export function TaskListWidget({
     if (size !== "lg") return null;
     const groups: Record<string, ProjectTask[]> = {};
     for (const task of visibleTasks) {
-      const eventDate = task.calendarEvent?.startDate
-        ? new Date(task.calendarEvent.startDate)
+      const eventDate = task.startDate
+        ? new Date(task.startDate)
         : null;
       const key = eventDate
         ? isSameDay(eventDate, today)
@@ -176,8 +176,8 @@ function TaskRow({
 
   const isInProgress = task.status === TaskStatus.InProgress;
   const displayTitle = getTaskDisplayTitle(task, task.taskType);
-  const eventDate = task.calendarEvent?.startDate
-    ? new Date(task.calendarEvent.startDate)
+  const eventDate = task.startDate
+    ? new Date(task.startDate)
     : null;
   const timeDisplay = eventDate
     ? isSameDay(eventDate, today)

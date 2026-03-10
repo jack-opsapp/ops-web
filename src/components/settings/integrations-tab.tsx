@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Mail,
-  Copy,
   ExternalLink,
-  Inbox,
   MessageCircle,
   Check,
   RefreshCw,
@@ -112,7 +110,6 @@ export function IntegrationsTab() {
   const triggerSync = useTriggerGmailSync();
   const gmailImport = useGmailImport();
 
-  const [copied, setCopied] = useState(false);
   const [importStarted, setImportStarted] = useState(false);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customDate, setCustomDate] = useState("");
@@ -152,10 +149,6 @@ export function IntegrationsTab() {
     return () => clearTimeout(timer);
   }, [isFirstConnect]);
 
-  const forwardingAddress = companyId
-    ? `leads-${companyId.slice(0, 8)}@inbound.opsapp.co`
-    : "";
-
   const companyConnections = connections.filter((c) => c.type === "company");
   const individualConnections = connections.filter((c) => c.type === "individual");
   const hasAnyConnection = connections.length > 0;
@@ -173,14 +166,6 @@ export function IntegrationsTab() {
       ...(type === "individual" && currentUser?.id ? { userId: currentUser.id } : {}),
     });
     window.location.href = `/api/integrations/gmail?${params}`;
-  }
-
-  function handleCopyForwardingAddress() {
-    navigator.clipboard.writeText(forwardingAddress).then(() => {
-      setCopied(true);
-      toast.success(t("integrations.toast.forwardingCopied"));
-      setTimeout(() => setCopied(false), 2000);
-    });
   }
 
   function handleDisconnect(id: string) {
@@ -681,40 +666,6 @@ export function IntegrationsTab() {
         </CardContent>
       </Card>
 
-      {/* Email Forwarding */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("integrations.emailForwarding")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5">
-          <p className="font-mohave text-body-sm text-text-secondary">
-            {t("integrations.forwardingDesc")}
-          </p>
-          <div className="flex items-center gap-1">
-            <div className="flex-1 bg-background-input border border-border rounded px-1.5 py-[8px]">
-              <div className="flex items-center gap-[6px]">
-                <Inbox className="w-[14px] h-[14px] text-text-disabled shrink-0" />
-                <span className="font-mono text-data-sm text-ops-accent truncate">
-                  {forwardingAddress || "Loading..."}
-                </span>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-[4px] shrink-0"
-              onClick={handleCopyForwardingAddress}
-              disabled={!forwardingAddress}
-            >
-              <Copy className="w-[14px] h-[14px]" />
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
-          <p className="font-kosugi text-[11px] text-text-disabled">
-            {t("integrations.forwardingHelper")}
-          </p>
-        </CardContent>
-      </Card>
       </div>
 
       {/* Follow-up Monitoring */}

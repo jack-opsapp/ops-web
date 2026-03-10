@@ -14,13 +14,13 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import {
-  useCalendarEventsForRange,
+  useScheduledTasks,
   useTeamMembers,
 } from "@/lib/hooks";
 import { useSchedulerShortcuts } from "@/lib/hooks/use-scheduler-shortcuts";
 import {
   type InternalCalendarEvent,
-  mapApiEventToInternal,
+  mapTaskToInternalEvent,
 } from "@/lib/utils/calendar-utils";
 import {
   calendarViewVariants,
@@ -110,7 +110,7 @@ export default function CalendarPage() {
     }
   }, [currentDate, view]);
 
-  const { data: apiEvents, isLoading } = useCalendarEventsForRange(
+  const { data: scheduledTasks, isLoading } = useScheduledTasks(
     rangeStart,
     rangeEnd
   );
@@ -135,9 +135,9 @@ export default function CalendarPage() {
 
   // Map + filter events
   const events: InternalCalendarEvent[] = useMemo(() => {
-    if (!apiEvents) return [];
-    let mapped = apiEvents
-      .map(mapApiEventToInternal)
+    if (!scheduledTasks) return [];
+    let mapped = scheduledTasks
+      .map(mapTaskToInternalEvent)
       .filter((e): e is InternalCalendarEvent => e !== null);
 
     if (filterTaskTypes.length > 0) {
@@ -169,7 +169,7 @@ export default function CalendarPage() {
 
     return mapped;
   }, [
-    apiEvents,
+    scheduledTasks,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,

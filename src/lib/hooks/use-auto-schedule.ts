@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { format } from "date-fns";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useUpdateCalendarEvent } from "@/lib/hooks/use-calendar";
+import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { autoSchedule } from "@/lib/scheduling/engine";
 import type {
   SchedulableTask,
@@ -25,7 +25,7 @@ export function useAutoSchedule() {
   const clearGhostPreviews = useCalendarStore((s) => s.clearGhostPreviews);
   const showConfirmBar = useCalendarStore((s) => s.showConfirmBar);
   const hideConfirmBar = useCalendarStore((s) => s.hideConfirmBar);
-  const updateEvent = useUpdateCalendarEvent();
+  const updateTask = useUpdateTask();
 
   const previewAutoSchedule = useCallback(
     (
@@ -66,11 +66,8 @@ export function useAutoSchedule() {
         setGhostPreviews(ghosts);
 
         const applyFn = async () => {
-          // For each placement, update the calendar event with the new dates.
-          // The caller is responsible for ensuring tasks have associated calendar events.
-          // If a task has no calendar event yet, the caller should create one before invoking.
           for (const placement of result.placements) {
-            await updateEvent.mutateAsync({
+            await updateTask.mutateAsync({
               id: placement.id,
               data: {
                 startDate: placement.startDate,
@@ -97,7 +94,7 @@ export function useAutoSchedule() {
       clearGhostPreviews,
       showConfirmBar,
       hideConfirmBar,
-      updateEvent,
+      updateTask,
     ]
   );
 
