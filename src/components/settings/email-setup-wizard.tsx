@@ -217,12 +217,74 @@ export function EmailSetupWizard({
   // Polling ref — declared early so reset-on-open effect can check it
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Save wizard progress on close ────────────────────────────────────
+  // Persists the current step + scan data so the user can resume later.
+  const saveProgressOnClose = useRef(false);
+
+  function persistWizardProgress() {
+    if (!firstConnection || !scanComplete) return;
+    const currentStepId = STEPS[stepIndex]?.id ?? "scan";
+    const importedIds = computeImportedIds(scannedEmails, filters);
+    updateConnection.mutate({
+      id: firstConnection.id,
+      data: {
+        id: firstConnection.id,
+        syncFilters: {
+          ...filters,
+          wizardStep: currentStepId,
+          lastScanJobId: scanJobId ?? undefined,
+          lastScanSummary: scanSummary ?? undefined,
+          lastScanTotal: scannedEmails.length,
+          lastScanImportCount: importedIds.size,
+        },
+      },
+    });
+  }
+
+  // ── Restore scan data from a previous scan job ─────────────────────
+  const [restoringFromJob, setRestoringFromJob] = useState(false);
+
+  async function restoreScanFromJob(jobId: string) {
+    setRestoringFromJob(true);
+    try {
+      const resp = await fetch(`/api/integrations/gmail/scan-status?jobId=${encodeURIComponent(jobId)}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data.status !== "complete" || !data.emails) return;
+
+      const emails: ScannedEmail[] = data.emails;
+      setScannedEmails(emails);
+      setScanComplete(true);
+      setPreFilteredCount(data.preFiltered ?? 0);
+      setScanSummary(data.recommendedFilters?.summary ?? null);
+      setScanJobId(jobId);
+
+      // Restore AI-suggested filters
+      if (data.recommendedFilters) {
+        setAiSuggestedFilters({
+          excludeDomains: data.recommendedFilters.excludeDomains ?? [],
+          excludeAddresses: data.recommendedFilters.excludeAddresses ?? [],
+          excludeSubjectKeywords: data.recommendedFilters.excludeSubjectKeywords ?? [],
+        });
+      }
+    } catch {
+      // Failed to restore — user will need to re-scan
+    } finally {
+      setRestoringFromJob(false);
+    }
+  }
+
   // Reset when opened — use ref to fire only on open *transition*
   const prevOpenRef = useRef(open);
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = open;
     openRef.current = open;
+
+    // Save progress when closing (if scan was completed but wizard not done)
+    if (!open && wasOpen && scanComplete && !importStarted) {
+      persistWizardProgress();
+    }
 
     // Only reset when transitioning from closed → open
     if (open && !wasOpen) {
@@ -236,6 +298,21 @@ export function EmailSetupWizard({
         if (scanning && scanJobId && !pollIntervalRef.current) {
           startPolling(scanJobId);
         }
+        return;
+      }
+
+      // Check if there's a previous scan to restore from
+      const savedStep = firstConnection?.syncFilters?.wizardStep;
+      const savedJobId = firstConnection?.syncFilters?.lastScanJobId;
+
+      if (savedJobId && !scanComplete && !initialStep) {
+        // Restore scan data from previous session
+        restoreScanFromJob(savedJobId);
+        const resumeStep = initialStep ?? savedStep ?? "filters";
+        const idx = Math.max(0, STEPS.findIndex((s) => s.id === resumeStep));
+        setStepIndex(idx);
+        setDirection(1);
+        setImportStarted(false);
         return;
       }
 
@@ -508,8 +585,15 @@ export function EmailSetupWizard({
     // Immediately prevent double-clicks
     setImportStarted(true);
 
-    // Save filters + mark wizard as completed
-    const finalFilters = { ...filters, wizardCompleted: true };
+    // Save filters + mark wizard as completed (strip empty rules)
+    const cleanedRules = (filters.rules ?? []).filter((r) => r.value.trim() !== "");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { rules: _drop, ...filtersWithoutRules } = filters;
+    const finalFilters: GmailSyncFilters = {
+      ...filtersWithoutRules,
+      ...(cleanedRules.length > 0 ? { rules: cleanedRules } : {}),
+      wizardCompleted: true,
+    };
     try {
       await updateConnection.mutateAsync({
         id: firstConnection.id,

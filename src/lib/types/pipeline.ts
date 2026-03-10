@@ -1408,6 +1408,16 @@ export interface GmailSyncFilters {
   ruleLogic?: "all" | "any";
   /** True after user completes or skips the email setup wizard */
   wizardCompleted?: boolean;
+  /** The wizard step the user was on when they last closed the wizard */
+  wizardStep?: string;
+  /** The scan job ID from the most recent completed scan (for resuming) */
+  lastScanJobId?: string;
+  /** AI analysis summary from the last completed scan */
+  lastScanSummary?: string;
+  /** Total emails scanned in the last scan */
+  lastScanTotal?: number;
+  /** Number of emails that passed filters (to import) in the last scan */
+  lastScanImportCount?: number;
 }
 
 // ─── Structured Filter Rules ─────────────────────────────────────────────────

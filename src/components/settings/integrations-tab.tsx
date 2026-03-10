@@ -15,6 +15,7 @@ import {
   ToggleRight,
   Clock,
   AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
@@ -159,6 +160,11 @@ export function IntegrationsTab() {
   const individualConnections = connections.filter((c) => c.type === "individual");
   const hasAnyConnection = connections.length > 0;
   const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
+  const hasSavedScan = !wizardDone && !!companyConnections[0]?.syncFilters?.lastScanJobId;
+  const savedScanSummary = companyConnections[0]?.syncFilters?.lastScanSummary;
+  const savedScanTotal = companyConnections[0]?.syncFilters?.lastScanTotal;
+  const savedScanImportCount = companyConnections[0]?.syncFilters?.lastScanImportCount;
+  const savedWizardStep = companyConnections[0]?.syncFilters?.wizardStep;
 
   function handleConnectGmail(type: "company" | "individual") {
     const params = new URLSearchParams({
@@ -212,8 +218,14 @@ export function IntegrationsTab() {
   }
 
   function handleUpdateFilters(id: string, filters: GmailSyncFilters) {
+    // Strip empty rules before saving — prevents blank rule rows from persisting
+    const cleaned = {
+      ...filters,
+      rules: (filters.rules ?? []).filter((r) => r.value.trim() !== ""),
+    };
+    if (cleaned.rules.length === 0) delete (cleaned as Record<string, unknown>).rules;
     updateConnection.mutate(
-      { id, data: { id, syncFilters: filters } },
+      { id, data: { id, syncFilters: cleaned } },
       {
         onSuccess: () => toast.success("Email filters updated"),
         onError: (err) => toast.error("Failed to update filters", { description: err.message }),
@@ -406,34 +418,61 @@ export function IntegrationsTab() {
                 </button>
               ) : (
                 <>
-                  {/* Warning banner */}
-                  <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
-                    <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
-                    <div className="flex-1 min-w-0">
-                      <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
-                        Email sync is paused
-                      </span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
-                        Filters are not configured. Complete the setup wizard to start syncing emails into your pipeline.
-                      </span>
-                    </div>
-                  </div>
+                  {hasSavedScan ? (
+                    <>
+                      {/* AI analysis complete — resume CTA */}
+                      <button
+                        onClick={() => openWizard(savedWizardStep ?? "filters")}
+                        className="w-full flex items-center gap-[8px] px-2 py-2.5 rounded border border-[#9DB582]/40 bg-[#9DB582]/8 hover:bg-[#9DB582]/14 hover:border-[#9DB582]/60 transition-colors text-left"
+                      >
+                        <CheckCircle className="w-[18px] h-[18px] text-[#9DB582] shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mohave text-body text-[#9DB582] block">
+                            AI Analysis Complete
+                          </span>
+                          <span className="font-kosugi text-[10px] text-text-tertiary block mt-[1px]">
+                            {savedScanTotal && savedScanImportCount != null
+                              ? `${savedScanTotal} emails scanned · ${savedScanImportCount} to import`
+                              : "Continue setting up your email import"}
+                          </span>
+                        </div>
+                        <span className="font-mohave text-body-sm text-[#9DB582] shrink-0">
+                          Continue →
+                        </span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Warning banner */}
+                      <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
+                        <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
+                            Email sync is paused
+                          </span>
+                          <span className="font-kosugi text-[10px] text-text-disabled">
+                            Filters are not configured. Complete the setup wizard to start syncing emails into your pipeline.
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Setup CTA */}
-                  <button
-                    onClick={() => openWizard()}
-                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
-                  >
-                    <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="font-mohave text-body text-ops-accent block">
-                        Set Up Email Import
-                      </span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
-                        Configure filters and import historical emails from your inbox
-                      </span>
-                    </div>
-                  </button>
+                      {/* Setup CTA */}
+                      <button
+                        onClick={() => openWizard()}
+                        className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+                      >
+                        <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mohave text-body text-ops-accent block">
+                            Set Up Email Import
+                          </span>
+                          <span className="font-kosugi text-[10px] text-text-disabled">
+                            Configure filters and import historical emails from your inbox
+                          </span>
+                        </div>
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
