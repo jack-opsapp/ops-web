@@ -23,13 +23,22 @@ interface ImportStatusResponse {
   processedEmails?: number;
   matchedLeads?: number;
   needsReview?: number;
+  clientsCreated?: number;
+  leadsCreated?: number;
   error?: string;
+}
+
+export interface ApprovedContact {
+  fromEmail: string;
+  name: string;
+  createLead: boolean;
 }
 
 interface StartImportParams {
   companyId: string;
   connectionId: string;
   importAfter: string; // YYYY-MM-DD
+  approvedContacts?: ApprovedContact[];
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -101,17 +110,34 @@ export function useGmailImport() {
           removePrompt(PROMPT_ID);
 
           const hasReview = (data.needsReview ?? 0) > 0;
+          const cCreated = data.clientsCreated ?? 0;
+          const lCreated = data.leadsCreated ?? 0;
+
+          // Build a description that highlights what was created
+          let desc: string;
+          if (cCreated > 0 || lCreated > 0) {
+            const parts: string[] = [];
+            if (cCreated > 0) parts.push(`${cCreated} client${cCreated !== 1 ? "s" : ""}`);
+            if (lCreated > 0) parts.push(`${lCreated} lead${lCreated !== 1 ? "s" : ""}`);
+            desc = `Created ${parts.join(" & ")} from ${data.processedEmails ?? 0} emails.`;
+            if (hasReview) desc += ` ${data.needsReview} need review.`;
+          } else {
+            desc = hasReview
+              ? `Found ${data.matchedLeads ?? 0} leads. ${data.needsReview} need review.`
+              : `Found ${data.matchedLeads ?? 0} leads from ${data.processedEmails ?? 0} emails.`;
+          }
+
           showPrompt({
             id: PROMPT_ID,
             icon: CheckCircle,
             title: "Import complete",
-            description: hasReview
-              ? `Found ${data.matchedLeads ?? 0} leads. ${data.needsReview} need review.`
-              : `Found ${data.matchedLeads ?? 0} leads from ${data.processedEmails ?? 0} emails.`,
-            ctaLabel: hasReview ? "Review Matches" : "Done",
+            description: desc,
+            ctaLabel: lCreated > 0 ? "View Pipeline" : hasReview ? "Review Matches" : "Done",
             ctaAction: () => {
               removePrompt(PROMPT_ID);
-              if (hasReview) {
+              if (lCreated > 0) {
+                window.location.href = "/pipeline";
+              } else if (hasReview) {
                 window.location.href = "/pipeline?review=true";
               }
             },

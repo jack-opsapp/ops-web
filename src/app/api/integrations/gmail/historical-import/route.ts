@@ -11,13 +11,23 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride, requireSupabase } from "@/lib/supabase/helpers";
 import { EmailFilterService } from "@/lib/api/services/email-filter-service";
 import { EmailMatchingService } from "@/lib/api/services/email-matching-service";
+import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import {
   ActivityType,
   OpportunityStage,
+  OpportunitySource,
   DEFAULT_SYNC_FILTERS,
 } from "@/lib/types/pipeline";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
+
+// ─── Approved contact from wizard ──────────────────────────────────────────
+
+interface ApprovedContact {
+  fromEmail: string;
+  name: string;
+  createLead: boolean;
+}
 
 // ─── Gmail API types ─────────────────────────────────────────────────────────
 
@@ -114,6 +124,7 @@ export async function POST(request: NextRequest) {
     const companyId = body.companyId as string | undefined;
     const connectionId = body.connectionId as string | undefined;
     const importAfter = body.importAfter as string | undefined;
+    const approvedContacts = (body.approvedContacts ?? []) as ApprovedContact[];
 
     if (!companyId || !connectionId || !importAfter) {
       return NextResponse.json(
@@ -294,6 +305,110 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Create clients & leads from approved contacts ─────────────────────
+    let clientsCreated = 0;
+    let leadsCreated = 0;
+
+    if (approvedContacts.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[gmail-import] Creating clients/leads for ${approvedContacts.length} approved contacts`
+      );
+
+      for (const contact of approvedContacts) {
+        try {
+          // Check if a client already exists for this email
+          const { data: existingClients } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("email", contact.fromEmail.toLowerCase())
+            .is("deleted_at", null)
+            .limit(1);
+
+          let clientId: string;
+
+          if (existingClients && existingClients.length > 0) {
+            clientId = existingClients[0].id;
+          } else {
+            // Create new client
+            const newClient = await ClientService.createClient({
+              name: contact.name,
+              companyId,
+              email: contact.fromEmail.toLowerCase(),
+            });
+            clientId = newClient.id;
+            clientsCreated++;
+          }
+
+          // Link unmatched activities for this email to the new client
+          await supabase
+            .from("activities")
+            .update({ client_id: clientId })
+            .eq("company_id", companyId)
+            .eq("from_email", contact.fromEmail.toLowerCase())
+            .is("client_id", null);
+
+          // Create lead (opportunity) if flagged
+          if (contact.createLead) {
+            // Check if there's already an open opportunity for this client
+            const existingOpps = await OpportunityService.fetchOpportunities(
+              companyId,
+              {
+                clientId,
+                stages: [
+                  OpportunityStage.NewLead,
+                  OpportunityStage.Qualifying,
+                  OpportunityStage.Quoting,
+                  OpportunityStage.Quoted,
+                  OpportunityStage.FollowUp,
+                  OpportunityStage.Negotiation,
+                ],
+              }
+            );
+
+            if (existingOpps.length === 0) {
+              await OpportunityService.createOpportunity({
+                companyId,
+                clientId,
+                title: `Email inquiry from ${contact.name}`,
+                stage: OpportunityStage.NewLead,
+                source: OpportunitySource.Email,
+                contactName: contact.name,
+                contactEmail: contact.fromEmail,
+                contactPhone: null,
+                description: null,
+                assignedTo: null,
+                priority: null,
+                estimatedValue: null,
+                actualValue: null,
+                winProbability: 20,
+                expectedCloseDate: null,
+                actualCloseDate: null,
+                projectId: null,
+                lostReason: null,
+                lostNotes: null,
+                address: null,
+                tags: ["email-import"],
+              });
+              leadsCreated++;
+            }
+          }
+        } catch (err) {
+          console.error(
+            `[gmail-import] Failed to create client/lead for ${contact.fromEmail}:`,
+            err
+          );
+          // Continue with next contact — don't fail the whole import
+        }
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[gmail-import] Created ${clientsCreated} clients, ${leadsCreated} leads`
+      );
+    }
+
     // ── Mark job as completed ─────────────────────────────────────────────
     await supabase
       .from("gmail_import_jobs")
@@ -303,6 +418,8 @@ export async function POST(request: NextRequest) {
         matched,
         unmatched,
         needs_review: needsReview,
+        clients_created: clientsCreated,
+        leads_created: leadsCreated,
         completed_at: new Date().toISOString(),
       })
       .eq("id", jobId);
@@ -327,6 +444,8 @@ export async function POST(request: NextRequest) {
       matched,
       unmatched,
       needsReview,
+      clientsCreated,
+      leadsCreated,
     });
   } catch (err) {
     console.error("[gmail-historical-import]", err);

@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useGmailConnections, useGmailImport, useUpdateGmailConnection } from "@/lib/hooks";
+import type { ApprovedContact } from "@/lib/hooks/use-gmail-import";
 import { EmailFilterBuilder } from "@/components/settings/email-filter-builder";
 import type {
   GmailSyncFilters,
@@ -119,11 +120,24 @@ interface WizardStep {
   icon: typeof Mail;
 }
 
+interface ContactPreview {
+  fromEmail: string;
+  name: string;
+  domain: string;
+  emailCount: number;
+  firstInquiryDate: Date;
+  latestDate: Date;
+  subjects: string[];
+  createLead: boolean;
+  excluded: boolean;
+}
+
 const STEPS: WizardStep[] = [
   { id: "connect", label: "Connect", icon: Mail },
   { id: "how-it-works", label: "How It Works", icon: Zap },
   { id: "scan", label: "Scan", icon: Search },
   { id: "filters", label: "Filters", icon: Filter },
+  { id: "review", label: "Review", icon: Users },
   { id: "import", label: "Import", icon: ArrowRight },
 ];
 
@@ -189,6 +203,9 @@ export function EmailSetupWizard({
   const [filters, setFilters] = useState<GmailSyncFilters>(
     firstConnection?.syncFilters ?? DEFAULT_SYNC_FILTERS,
   );
+
+  // Review state — contacts the user has excluded from creation
+  const [excludedContacts, setExcludedContacts] = useState<Set<string>>(new Set());
 
   // Import state
   const [importDays, setImportDays] = useState(30);
@@ -604,6 +621,41 @@ export function EmailSetupWizard({
       toast.warning("Filters may not have saved — import will proceed with defaults.");
     }
 
+    // Compute approved contacts for client/lead creation
+    const importedIds = computeImportedIds(scannedEmails, filters);
+    const importedEmails = scannedEmails.filter((e) => importedIds.has(e.id));
+    const contactMap = new Map<string, { name: string; emails: ScannedEmail[] }>();
+    for (const email of importedEmails) {
+      if (!email.fromEmail || excludedContacts.has(email.fromEmail)) continue;
+      const existing = contactMap.get(email.fromEmail);
+      if (existing) {
+        existing.emails.push(email);
+      } else {
+        const fromHeader = email.from ?? "";
+        let name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
+        if (!name || name === email.fromEmail) {
+          const prefix = email.fromEmail.split("@")[0] ?? email.fromEmail;
+          name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+        contactMap.set(email.fromEmail, { name, emails: [email] });
+      }
+    }
+
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const approvedContacts: ApprovedContact[] = Array.from(
+      contactMap.entries()
+    ).map(([fromEmail, { name, emails: contactEmails }]) => {
+      const dates = contactEmails
+        .map((e) => new Date(e.date))
+        .filter((d) => !isNaN(d.getTime()));
+      const earliest =
+        dates.length > 0
+          ? new Date(Math.min(...dates.map((d) => d.getTime())))
+          : new Date();
+      return { fromEmail, name, createLead: earliest >= twoWeeksAgo };
+    });
+
     // Start import
     const importAfter = customDate || (() => {
       const d = new Date();
@@ -612,7 +664,7 @@ export function EmailSetupWizard({
     })();
 
     gmailImport.startImport.mutate(
-      { companyId, connectionId: firstConnection.id, importAfter },
+      { companyId, connectionId: firstConnection.id, importAfter, approvedContacts },
       {
         onSuccess: () => {
           toast.success("Import started");
@@ -663,6 +715,8 @@ export function EmailSetupWizard({
         return scanComplete;
       case "filters":
         return true;
+      case "review":
+        return true;
       case "import":
         return !importStarted;
       default:
@@ -700,7 +754,7 @@ export function EmailSetupWizard({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className={`${currentStep.id === "filters" && scannedEmails.length > 0 ? "max-w-[1100px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
+        className={`${(currentStep.id === "filters" && scannedEmails.length > 0) || currentStep.id === "review" ? "max-w-[1100px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
         hideClose
       >
         {/* ── Header with step indicator ─────────────────────────────── */}
@@ -836,6 +890,26 @@ export function EmailSetupWizard({
                   scannedEmails={scannedEmails}
                   preFilteredCount={preFilteredCount}
                   aiSuggestedFilters={aiSuggestedFilters}
+                />
+              )}
+
+              {currentStep.id === "review" && (
+                <StepReview
+                  scannedEmails={scannedEmails}
+                  filters={filters}
+                  excludedContacts={excludedContacts}
+                  onToggleContact={(email) => {
+                    setExcludedContacts((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(email)) {
+                        next.delete(email);
+                      } else {
+                        next.add(email);
+                      }
+                      return next;
+                    });
+                  }}
+                  onApproveAll={goNext}
                 />
               )}
 
@@ -1907,7 +1981,225 @@ function StepFilters({
   );
 }
 
-// ─── Step 5: Import ──────────────────────────────────────────────────────────
+// ─── Step 5: Review Contacts ─────────────────────────────────────────────────
+
+function StepReview({
+  scannedEmails,
+  filters,
+  excludedContacts,
+  onToggleContact,
+  onApproveAll,
+}: {
+  scannedEmails: ScannedEmail[];
+  filters: GmailSyncFilters;
+  excludedContacts: Set<string>;
+  onToggleContact: (email: string) => void;
+  onApproveAll: () => void;
+}) {
+  const contacts = useMemo(() => {
+    const importedIds = computeImportedIds(scannedEmails, filters);
+    const imported = scannedEmails.filter((e) => importedIds.has(e.id));
+
+    // Group by fromEmail
+    const map = new Map<string, ScannedEmail[]>();
+    for (const email of imported) {
+      if (!email.fromEmail) continue;
+      const existing = map.get(email.fromEmail) ?? [];
+      existing.push(email);
+      map.set(email.fromEmail, existing);
+    }
+
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+    const previews: ContactPreview[] = [];
+    for (const [fromEmail, emails] of map) {
+      // Extract name from "From" header (e.g., "John Smith <john@gmail.com>" → "John Smith")
+      const fromHeader = emails[0]?.from ?? "";
+      let name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
+      if (!name || name === fromEmail) {
+        // Capitalize email prefix as fallback name
+        const prefix = fromEmail.split("@")[0] ?? fromEmail;
+        name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+
+      // Parse dates and find earliest/latest
+      const dates = emails
+        .map((e) => new Date(e.date))
+        .filter((d) => !isNaN(d.getTime()));
+      const earliest =
+        dates.length > 0
+          ? new Date(Math.min(...dates.map((d) => d.getTime())))
+          : new Date();
+      const latest =
+        dates.length > 0
+          ? new Date(Math.max(...dates.map((d) => d.getTime())))
+          : new Date();
+
+      previews.push({
+        fromEmail,
+        name,
+        domain: emails[0]?.domain ?? "",
+        emailCount: emails.length,
+        firstInquiryDate: earliest,
+        latestDate: latest,
+        subjects: emails.slice(0, 3).map((e) => e.subject),
+        createLead: earliest >= twoWeeksAgo,
+        excluded: excludedContacts.has(fromEmail),
+      });
+    }
+
+    // Sort: leads first, then by latest date (most recent first)
+    return previews.sort((a, b) => {
+      if (a.createLead !== b.createLead) return a.createLead ? -1 : 1;
+      return b.latestDate.getTime() - a.latestDate.getTime();
+    });
+  }, [scannedEmails, filters, excludedContacts]);
+
+  const activeContacts = contacts.filter((c) => !c.excluded);
+  const leadCount = activeContacts.filter((c) => c.createLead).length;
+  const clientOnlyCount = activeContacts.filter((c) => !c.createLead).length;
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="space-y-2"
+    >
+      <motion.div variants={staggerItem}>
+        <p className="font-mohave text-body text-text-primary text-left">
+          Review the clients and leads that will be created from your emails.
+        </p>
+      </motion.div>
+
+      {/* Stats row */}
+      <motion.div variants={staggerItem} className="grid grid-cols-3 gap-1">
+        <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
+          <span className="font-mono text-data-lg text-text-primary block">
+            {activeContacts.length}
+          </span>
+          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+            New clients
+          </span>
+        </div>
+        <div className="px-1.5 py-1 rounded border border-[rgba(196,168,104,0.3)] text-left">
+          <span className="font-mono text-data-lg text-[#C4A868] block">
+            {leadCount}
+          </span>
+          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+            Active leads
+          </span>
+        </div>
+        <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
+          <span className="font-mono text-data-lg text-text-secondary block">
+            {clientOnlyCount}
+          </span>
+          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+            Client only
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Lead logic explanation */}
+      <motion.div variants={staggerItem}>
+        <div className="flex items-start gap-[6px] px-1.5 py-1 rounded bg-[rgba(196,168,104,0.08)] border border-[rgba(196,168,104,0.15)]">
+          <Zap className="w-[12px] h-[12px] text-[#C4A868] mt-[2px] shrink-0" />
+          <p className="font-kosugi text-[10px] text-text-secondary leading-relaxed text-left">
+            Leads are auto-created for inquiries within the last 2 weeks. Older contacts become clients only &mdash; no active lead.
+          </p>
+        </div>
+      </motion.div>
+
+      {/* Scrollable contact list */}
+      <motion.div variants={staggerItem} className="relative">
+        <div className="rounded border border-border-subtle overflow-hidden">
+          <div className="max-h-[300px] overflow-y-auto">
+            {contacts.length === 0 ? (
+              <div className="flex items-center justify-center py-6">
+                <span className="font-mohave text-body-sm text-text-disabled">
+                  No contacts found in imported emails
+                </span>
+              </div>
+            ) : (
+              contacts.map((contact) => (
+                <div
+                  key={contact.fromEmail}
+                  className={`flex items-center gap-[8px] px-2 py-[8px] border-b border-border-subtle/50 transition-all ${
+                    contact.excluded
+                      ? "opacity-40"
+                      : "hover:bg-background-elevated"
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <button
+                    onClick={() => onToggleContact(contact.fromEmail)}
+                    className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center shrink-0 transition-all ${
+                      contact.excluded
+                        ? "border-text-disabled/30 bg-transparent"
+                        : "border-ops-accent bg-ops-accent/10"
+                    }`}
+                  >
+                    {!contact.excluded && (
+                      <Check className="w-[10px] h-[10px] text-ops-accent" />
+                    )}
+                  </button>
+
+                  {/* Contact info */}
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center gap-[6px]">
+                      <span className="font-mohave text-body-sm text-text-primary truncate">
+                        {contact.name}
+                      </span>
+                      {contact.createLead && !contact.excluded && (
+                        <span className="inline-flex items-center px-[5px] py-[1px] rounded-sm bg-[rgba(196,168,104,0.15)] border border-[rgba(196,168,104,0.25)]">
+                          <span className="font-kosugi text-[8px] text-[#C4A868] uppercase tracking-wider">
+                            Lead
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[10px] text-text-disabled block truncate">
+                      {contact.fromEmail}
+                    </span>
+                  </div>
+
+                  {/* Email count + date */}
+                  <div className="text-right shrink-0">
+                    <span className="font-mono text-[10px] text-text-secondary block">
+                      {contact.emailCount} email{contact.emailCount !== 1 ? "s" : ""}
+                    </span>
+                    <span className="font-kosugi text-[8px] text-text-disabled block">
+                      {contact.firstInquiryDate.toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Sticky approve button */}
+      <motion.div variants={staggerItem} className="sticky bottom-0 pt-1">
+        <Button
+          onClick={onApproveAll}
+          disabled={activeContacts.length === 0}
+          className="w-full gap-[6px] font-kosugi text-[12px]"
+        >
+          <CheckCircle className="w-[14px] h-[14px]" />
+          Approve {activeContacts.length} Client{activeContacts.length !== 1 ? "s" : ""}
+          {leadCount > 0 && ` & ${leadCount} Lead${leadCount !== 1 ? "s" : ""}`}
+        </Button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Step 6: Import ──────────────────────────────────────────────────────────
 
 function StepImport({
   importDays,

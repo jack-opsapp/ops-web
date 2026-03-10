@@ -36,23 +36,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Flat response — matches ImportStatusResponse shape in use-gmail-import.ts
     return NextResponse.json({
-      ok: true,
-      job: {
-        id: job.id,
-        companyId: job.company_id,
-        connectionId: job.connection_id,
-        status: job.status,
-        importAfter: job.import_after,
-        totalEmails: job.total_emails,
-        processed: job.processed,
-        matched: job.matched,
-        unmatched: job.unmatched,
-        needsReview: job.needs_review,
-        errorMessage: job.error_message,
-        createdAt: job.created_at,
-        completedAt: job.completed_at,
-      },
+      status: job.status,
+      totalEmails: job.total_emails,
+      processedEmails: job.processed,
+      matchedLeads: job.matched,
+      needsReview: job.needs_review,
+      clientsCreated: job.clients_created ?? 0,
+      leadsCreated: job.leads_created ?? 0,
+      error: job.error_message,
     });
   } catch (err) {
     console.error("[gmail-import-status]", err);
