@@ -301,8 +301,18 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
     const autoFiltered: ScanEmail[] = [];
     const ambiguous: ScanEmail[] = [];
 
+    // Subdomain-aware preset check: "intuit.com" catches "dp.intuit.com"
+    const isPresetBlocked = (emailDomain: string): boolean => {
+      const d = emailDomain.toLowerCase();
+      if (presetDomains.has(d)) return true;
+      for (const blocked of presetDomains) {
+        if (d.endsWith("." + blocked)) return true;
+      }
+      return false;
+    };
+
     for (const email of emails) {
-      if (presetDomains.has(email.domain)) {
+      if (isPresetBlocked(email.domain)) {
         email.wouldImport = false;
         email.reason = "Blocked domain (preset)";
         autoFiltered.push(email);
@@ -374,9 +384,11 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
 
     // ── Stage 6: Complete ─────────────────────────────────────────────────
     const allResults = [...autoFiltered, ...ambiguous];
+    const importedCount = allResults.filter((e) => e.wouldImport).length;
+    const filteredCount = allResults.length - importedCount;
     const completeMessage = aiError
       ? `Scan complete with warnings — AI analysis failed: ${aiError}`
-      : "Scan complete!";
+      : `Scan complete! ${importedCount} to import, ${filteredCount} filtered out of ${allResults.length} total.`;
 
     await supabase
       .from("gmail_scan_jobs")
