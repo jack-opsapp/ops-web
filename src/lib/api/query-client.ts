@@ -228,6 +228,13 @@ export const queryKeys = {
       [...queryKeys.expenseBatches.all, "autoApproveRules", companyId] as const,
   },
 
+  // Notifications
+  notifications: {
+    all: ["notifications"] as const,
+    unread: (userId: string, companyId: string) =>
+      [...queryKeys.notifications.all, "unread", userId, companyId] as const,
+  },
+
   // Notification Preferences
   notificationPreferences: {
     all: ["notificationPreferences"] as const,

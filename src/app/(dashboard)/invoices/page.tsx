@@ -55,7 +55,6 @@ import {
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
@@ -149,15 +148,6 @@ export default function InvoicesPage() {
     }
     setShowCreateModal(true);
   }, [setupComplete]);
-
-  const setActions = usePageActionsStore((s) => s.setActions);
-  const clearActions = usePageActionsStore((s) => s.clearActions);
-  useEffect(() => {
-    setActions([
-      { label: t("invoices.newInvoice"), icon: Plus, onClick: gatedOpenCreate },
-    ]);
-    return () => clearActions();
-  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   async function handleDownloadPdf(invoiceId: string) {
     setGeneratingPdfId(invoiceId);

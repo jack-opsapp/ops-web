@@ -181,3 +181,65 @@ export const calendarEventVariantsReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.1 } },
 };
+
+// ── Notification rail animations ──
+
+/** Notification pill enter/exit — width animates for smooth gap filling */
+export const notifPillVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.6, width: 0 },
+  visible: { opacity: 1, scale: 1, width: 6, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, scale: 0.6, width: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Mini card enter/exit (expanded rail) — stagger index via custom prop */
+export const notifCardVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.9, x: -8 },
+  visible: (i: number) => ({
+    opacity: 1, scale: 1, x: 0,
+    transition: { delay: i * 0.03, duration: 0.25, ease: EASE_SMOOTH },
+  }),
+  exit: { opacity: 0, x: -12, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Full card dismiss (modal) — height collapse for layout shift */
+export const notifCardFullVariants: Variants = {
+  hidden: { opacity: 0, height: 0 },
+  visible: { opacity: 1, height: "auto", transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, height: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+};
+
+/** Modal entrance/exit */
+export const notifModalVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.97, y: -8 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.3, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, scale: 0.97, y: -8, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+};
+
+/** Modal backdrop */
+export const notifBackdropVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Reduced-motion fallbacks — opacity only */
+export const notifPillVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+export const notifCardVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { delay: i * 0.02, duration: 0.15 },
+  }),
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+export const notifModalVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};

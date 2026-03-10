@@ -13,5 +13,13 @@
   "search.ariaLabel": "Open search",
 
   "notifications.title": "Notifications",
-  "notifications.ariaLabel": "Notifications"
+  "notifications.ariaLabel": "Notifications",
+  "notifications.viewAll": "View all",
+  "notifications.dismissAll": "Dismiss all",
+  "notifications.empty": "No notifications",
+  "notifications.today": "Today",
+  "notifications.yesterday": "Yesterday",
+  "notifications.earlier": "Earlier",
+  "notifications.count": "{count}",
+  "notifications.overflow": "+{count}"
 }

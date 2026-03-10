@@ -38,7 +38,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useWindowStore } from "@/stores/window-store";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { useDictionary } from "@/i18n/client";
@@ -599,17 +598,6 @@ export default function JobBoardPage() {
       })),
     [t]
   );
-
-  // Register header actions
-  const setActions = usePageActionsStore((s) => s.setActions);
-  const clearActions = usePageActionsStore((s) => s.clearActions);
-  useEffect(() => {
-    setActions([
-      { label: t("newProject"), icon: Plus, onClick: gatedOpenCreate },
-    ]);
-    return () => clearActions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   // Track optimistic DnD overrides: map of projectId -> target ColumnId
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});

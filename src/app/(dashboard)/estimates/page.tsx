@@ -54,7 +54,6 @@ import {
 } from "@/lib/types/pipeline";
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
@@ -138,16 +137,6 @@ export default function EstimatesPage() {
     }
     setShowCreateModal(true);
   }, [setupComplete]);
-
-  // Page actions
-  const setActions = usePageActionsStore((s) => s.setActions);
-  const clearActions = usePageActionsStore((s) => s.clearActions);
-  useEffect(() => {
-    setActions([
-      { label: t("estimates.newEstimate"), icon: Plus, onClick: gatedOpenCreate },
-    ]);
-    return () => clearActions();
-  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   async function handleDownloadPdf(estimateId: string) {
     setGeneratingPdfId(estimateId);

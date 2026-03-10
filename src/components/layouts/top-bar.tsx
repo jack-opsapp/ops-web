@@ -10,17 +10,12 @@ import {
 } from "lucide-react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { useNotificationRailStore } from "@/stores/notification-rail-store";
+import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useConnectivity } from "@/lib/hooks/use-connectivity";
 import { useDictionary } from "@/i18n/client";
+import { NotificationRail } from "./notification-rail";
 
 type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
@@ -71,9 +66,11 @@ function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => 
 }
 
 export function TopBar() {
-  const pageActions = usePageActionsStore((s) => s.actions);
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const { t } = useDictionary("topbar");
+  const openModal = useNotificationRailStore((s) => s.openModal);
+  const { data: notifications = [] } = useNotifications();
+  const unreadCount = notifications.length;
 
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
@@ -89,42 +86,10 @@ export function TopBar() {
 
   return (
     <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative bg-transparent">
-      {/* Left: Page Action Buttons */}
-      <TooltipProvider delayDuration={300}>
-        <div className="flex items-center gap-1">
-          {pageActions.map((action, i) => {
-            const btn = (
-              <Button
-                key={i}
-                variant="secondary"
-                size="sm"
-                className="gap-1"
-                onClick={action.onClick}
-              >
-                {action.icon && <action.icon className="w-[14px] h-[14px]" />}
-                {action.label}
-                {showShortcutHints && action.shortcut && (
-                  <kbd className="font-mono text-[10px] text-text-disabled opacity-60 ml-[2px]">
-                    {action.shortcut}
-                  </kbd>
-                )}
-              </Button>
-            );
+      {/* Left: Notification Rail */}
+      <NotificationRail />
 
-            if (action.shortcut) {
-              return (
-                <Tooltip key={i}>
-                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                  <TooltipContent>{action.shortcut}</TooltipContent>
-                </Tooltip>
-              );
-            }
-            return btn;
-          })}
-        </div>
-      </TooltipProvider>
-
-      {/* Right: Search + Sync + Notifications */}
+      {/* Right: Search + Sync + Notifications Bell */}
       <div className="flex items-center gap-1">
         {/* Search trigger - styled as input, opens CommandPalette */}
         <button
@@ -148,21 +113,32 @@ export function TopBar() {
         >
           <Search className="w-[16px] h-[16px] shrink-0" />
           <span className="font-mohave text-body-sm hidden sm:inline">{t("search.placeholder")}</span>
-          <kbd className="ml-auto font-mono text-[10px] text-text-disabled bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
-            {t("search.shortcut")}
-          </kbd>
+          {showShortcutHints && (
+            <kbd className="ml-auto font-mono text-[10px] text-text-disabled bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
+              {t("search.shortcut")}
+            </kbd>
+          )}
         </button>
 
         {/* Sync status */}
         <SyncIndicator status={syncStatus} t={t} />
 
-        {/* Notifications */}
+        {/* Notifications bell — opens modal */}
         <button
+          onClick={openModal}
           className="relative p-[10px] rounded text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-all"
           title={t("notifications.title")}
           aria-label={t("notifications.ariaLabel")}
         >
           <Bell className="w-[18px] h-[18px]" />
+
+          {/* Unread dot */}
+          {unreadCount > 0 && (
+            <span
+              className="absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-full"
+              style={{ backgroundColor: "#93321A" }}
+            />
+          )}
         </button>
       </div>
     </header>

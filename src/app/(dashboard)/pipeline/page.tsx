@@ -21,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   useOpportunities,
@@ -176,23 +175,6 @@ export default function PipelinePage() {
     }
     setShowQuickAdd(true);
   }, [setupComplete]);
-
-  // ── Page actions ───────────────────────────────────────────────────────
-  const setActions = usePageActionsStore((s) => s.setActions);
-  const clearActions = usePageActionsStore((s) => s.clearActions);
-
-  useEffect(() => {
-    setActions([
-      {
-        label: t("newLead"),
-        icon: Plus,
-        onClick: gatedOpenCreate,
-        shortcut: "\u2318\u21E7L",
-      },
-    ]);
-    return () => clearActions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions, gatedOpenCreate]);
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();

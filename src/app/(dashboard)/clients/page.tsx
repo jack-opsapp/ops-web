@@ -26,7 +26,6 @@ import { useClients } from "@/lib/hooks";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useWindowStore } from "@/stores/window-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -342,17 +341,6 @@ export default function ClientsPage() {
 
   // Track screen view
   useEffect(() => { trackScreenView("clients"); }, []);
-
-  // Set page actions in top bar
-  const setActions = usePageActionsStore((s) => s.setActions);
-  const clearActions = usePageActionsStore((s) => s.clearActions);
-  useEffect(() => {
-    setActions([
-      { label: t("newClient"), icon: Plus, onClick: gatedOpenCreate, shortcut: "\u2318\u21E7C" },
-    ]);
-    return () => clearActions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions, gatedOpenCreate]);
 
   const { data, isLoading } = useClients();
   const { data: projectsData } = useProjects();

@@ -32,7 +32,6 @@ import {
 } from "@/lib/types/pipeline";
 import type { Product, CreateProduct } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 
@@ -51,19 +50,6 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-  // Page actions
-  const setPageActions = usePageActionsStore((s) => s.setActions);
-  useEffect(() => {
-    setPageActions([
-      {
-        label: t("products.newProduct"),
-        icon: Plus,
-        onClick: () => setShowModal(true),
-      },
-    ]);
-    return () => setPageActions([]);
-  }, [setPageActions, t]);
 
   // Filter products
   const filtered = useMemo(() => {

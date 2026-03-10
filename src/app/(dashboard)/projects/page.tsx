@@ -30,7 +30,6 @@ import { SelectableRow } from "@/components/ops/selectable-row";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { ProjectDetailSheet } from "@/components/ops/project-detail-sheet";
 import { useSelectionStore } from "@/stores/selection-store";
-import { usePageActionsStore } from "@/stores/page-actions-store";
 import { useWindowStore } from "@/stores/window-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -267,17 +266,6 @@ export default function ProjectsPage() {
 
   // Track screen view
   useEffect(() => { trackScreenView("projects"); }, []);
-
-  // Set page actions in top bar
-  const setActions = usePageActionsStore((s) => s.setActions);
-  const clearActions = usePageActionsStore((s) => s.clearActions);
-  useEffect(() => {
-    setActions([
-      { label: t("newProject"), icon: Plus, onClick: gatedOpenCreate, shortcut: "\u2318\u21E7P" },
-    ]);
-    return () => clearActions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions, clearActions, t, gatedOpenCreate]);
 
   const {
     selectedIds,
