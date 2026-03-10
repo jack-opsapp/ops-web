@@ -282,7 +282,7 @@ export function DashboardMapBackground() {
 
         {/* Vertical fade — map visible in middle ~50%, fades to black at top 25% and bottom 25% */}
         <div
-          className="absolute inset-0 pointer-events-none z-[1]"
+          className="absolute inset-0 pointer-events-none z-[800]"
           style={{
             background: `linear-gradient(to bottom,
               rgba(13,13,13,1) 0%,
@@ -299,7 +299,7 @@ export function DashboardMapBackground() {
 
         {/* Side vignette — subtle darkening at edges */}
         <div
-          className="absolute inset-0 pointer-events-none z-[1]"
+          className="absolute inset-0 pointer-events-none z-[800]"
           style={{
             background: "radial-gradient(ellipse at center, transparent 50%, rgba(13,13,13,0.5) 100%)",
           }}

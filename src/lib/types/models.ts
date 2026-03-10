@@ -860,7 +860,6 @@ export type CreateTask = Omit<
   | "needsSync"
   | "deletedAt"
   | "project"
-  | "calendarEvent"
   | "taskType"
   | "teamMembers"
 >;

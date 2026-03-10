@@ -18,7 +18,7 @@ interface MapFilterState {
 export const useMapFilterStore = create<MapFilterState>()(
   persist(
     (set) => ({
-      view: "today",
+      view: "active",
       showCrew: true,
       railExpanded: false,
       setView: (view) => set({ view }),
