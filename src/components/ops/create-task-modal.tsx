@@ -232,7 +232,7 @@ export function CreateTaskForm({ onSuccess, onCancel }: CreateTaskFormProps) {
       createTaskWithEvent.mutate(
         {
           task: taskData,
-          calendarEvent: {
+          schedule: {
             title: eventTitle,
             startDate: values.startDate
               ? new Date(values.startDate)

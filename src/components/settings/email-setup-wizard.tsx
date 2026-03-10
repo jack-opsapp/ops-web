@@ -835,11 +835,11 @@ export function EmailSetupWizard({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className={`${(currentStep.id === "filters" && scannedEmails.length > 0) || currentStep.id === "review" ? "max-w-[900px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
+        className={`${(currentStep.id === "filters" && scannedEmails.length > 0) || currentStep.id === "review" ? "max-w-[900px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300 flex flex-col`}
         hideClose
       >
         {/* ── Header with step indicator ─────────────────────────────── */}
-        <div className="px-3 pt-3 pb-0">
+        <div className="px-3 pt-3 pb-0 shrink-0">
           <div className="flex items-center justify-between mb-2">
             <div>
               <DialogTitle className="font-mohave text-heading text-text-primary text-left">
@@ -926,7 +926,7 @@ export function EmailSetupWizard({
         </div>
 
         {/* ── Step content ────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden min-h-[480px] overflow-y-auto">
+        <div className="relative flex-1 min-h-0 overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={currentStep.id}
@@ -1032,7 +1032,7 @@ export function EmailSetupWizard({
         </div>
 
         {/* ── Footer navigation ───────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-border">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-border shrink-0">
           <div className="flex items-center gap-[6px]">
             <Button
               variant="ghost"
@@ -1754,6 +1754,8 @@ function StepFilters({
 
   const [emailsExpanded, setEmailsExpanded] = useState(false);
   const [expandedImportDomain, setExpandedImportDomain] = useState<string | null>(null);
+  const [starfieldCollapsed, setStarfieldCollapsed] = useState(false);
+  const emailListRef = useRef<HTMLDivElement>(null);
 
   function applyRecommended() {
     if (!aiSuggestedFilters) return;
@@ -1781,9 +1783,9 @@ function StepFilters({
       </motion.div>
 
       {/* Main layout: filters left, galaxy + email list right */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 min-h-0">
         {/* Left: Filter controls */}
-        <div className="w-[280px] shrink-0 space-y-2 overflow-y-auto max-h-[520px] pr-1">
+        <div className="w-[280px] shrink-0 space-y-2 overflow-y-auto pr-1">
           {/* Apply recommended button */}
           {aiSuggestedFilters && (
             <motion.div variants={staggerItem}>
@@ -1975,27 +1977,47 @@ function StepFilters({
         </div>
 
         {/* Right: Galaxy + Email list */}
-        <div className="flex-1 min-w-0 space-y-2">
-          {/* Funnel visualization */}
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
+          {/* Funnel visualization — collapses when user scrolls email list */}
           {scannedEmails.length > 0 && (
-            <FilterFunnelCanvas
-              filters={filters}
-              scannedEmails={scannedEmails}
-              preFilteredCount={preFilteredCount}
-              onToggleCategory={handleToggleCategory}
-              onDrillDown={setDrilledCategory}
-              drilledCategory={drilledCategory}
-              onZoomOut={() => setDrilledCategory(null)}
-              onToggleSubItem={handleToggleSubItem}
-              className="w-full rounded border border-border-subtle"
-            />
+            <motion.div
+              animate={{ height: starfieldCollapsed ? 0 : "auto", opacity: starfieldCollapsed ? 0 : 1 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden shrink-0"
+            >
+              <FilterFunnelCanvas
+                filters={filters}
+                scannedEmails={scannedEmails}
+                preFilteredCount={preFilteredCount}
+                onToggleCategory={handleToggleCategory}
+                onDrillDown={setDrilledCategory}
+                drilledCategory={drilledCategory}
+                onZoomOut={() => setDrilledCategory(null)}
+                onToggleSubItem={handleToggleSubItem}
+                className="w-full rounded border border-border-subtle"
+              />
+            </motion.div>
           )}
 
-          {/* Collapsible email import list */}
-          <div className="rounded border border-border-subtle bg-background-card overflow-hidden">
+          {/* Collapsed starfield indicator — click to re-expand */}
+          {starfieldCollapsed && scannedEmails.length > 0 && (
+            <button
+              onClick={() => setStarfieldCollapsed(false)}
+              className="shrink-0 flex items-center gap-[6px] px-2 py-1 rounded border border-border-subtle bg-background-card hover:bg-background-elevated transition-colors text-left"
+            >
+              <BarChart3 className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                Show filter pipeline
+              </span>
+              <ChevronDown className="w-[10px] h-[10px] text-text-disabled ml-auto" />
+            </button>
+          )}
+
+          {/* Collapsible email import list — fills remaining space */}
+          <div className="rounded border border-border-subtle bg-background-card overflow-hidden flex flex-col min-h-0 flex-1">
             <button
               onClick={() => setEmailsExpanded(!emailsExpanded)}
-              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-background-elevated transition-colors text-left"
+              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-background-elevated transition-colors text-left shrink-0"
             >
               <div className="flex items-center gap-[6px]">
                 <div className="w-[6px] h-[6px] rounded-full bg-[#9DB582]" />
@@ -2014,7 +2036,16 @@ function StepFilters({
             </button>
 
             {emailsExpanded && (
-              <div className="border-t border-border-subtle overflow-y-auto max-h-[260px]">
+              <div
+                ref={emailListRef}
+                className="border-t border-border-subtle overflow-y-auto flex-1 min-h-0"
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  if (el.scrollTop > 20 && !starfieldCollapsed) {
+                    setStarfieldCollapsed(true);
+                  }
+                }}
+              >
                 {importedByDomain.length === 0 ? (
                   <div className="flex items-center justify-center py-4">
                     <span className="font-mohave text-body-sm text-text-disabled">

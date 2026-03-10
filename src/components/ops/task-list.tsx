@@ -444,7 +444,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               teamMemberIds: values.teamMemberIds || [],
               displayOrder: activeTasks.length,
             },
-            calendarEvent: {
+            schedule: {
               title: eventTitle,
               startDate: new Date(values.startDate!),
               endDate: values.endDate ? new Date(values.endDate) : undefined,

@@ -85,7 +85,6 @@ export const projectSchema = z.object({
 export const taskSchema = z.object({
   id: z.string().min(1),
   projectId: z.string(),
-  calendarEventId: z.string().nullable(),
   companyId: z.string(),
   status: taskStatusSchema,
   taskColor: z.string(),

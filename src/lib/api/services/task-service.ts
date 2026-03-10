@@ -137,7 +137,7 @@ export interface CreateTaskWithEventData {
     companyId: string;
     taskTypeId: string;
   };
-  calendarEvent?: {
+  schedule?: {
     title: string;
     startDate: Date;
     endDate?: Date;
@@ -269,20 +269,20 @@ export const TaskService = {
    */
   async createTaskWithEvent(
     data: CreateTaskWithEventData
-  ): Promise<{ taskId: string; calendarEventId: string | null }> {
+  ): Promise<{ taskId: string }> {
     const supabase = requireSupabase();
 
     // Merge scheduling data into the task
     const taskData: Partial<ProjectTask> = { ...data.task };
-    if (data.calendarEvent) {
-      taskData.startDate = data.calendarEvent.startDate;
-      taskData.endDate = data.calendarEvent.endDate ?? null;
-      taskData.duration = data.calendarEvent.duration ?? 1;
-      if (data.calendarEvent.teamMemberIds?.length) {
-        taskData.teamMemberIds = data.calendarEvent.teamMemberIds;
+    if (data.schedule) {
+      taskData.startDate = data.schedule.startDate;
+      taskData.endDate = data.schedule.endDate ?? null;
+      taskData.duration = data.schedule.duration ?? 1;
+      if (data.schedule.teamMemberIds?.length) {
+        taskData.teamMemberIds = data.schedule.teamMemberIds;
       }
-      if (data.calendarEvent.color) {
-        taskData.taskColor = data.calendarEvent.color;
+      if (data.schedule.color) {
+        taskData.taskColor = data.schedule.color;
       }
     }
 
@@ -296,7 +296,7 @@ export const TaskService = {
 
     if (taskError) throw new Error(`Failed to create task: ${taskError.message}`);
 
-    return { taskId: taskCreated.id as string, calendarEventId: null };
+    return { taskId: taskCreated.id as string };
   },
 
   /**

@@ -18,7 +18,7 @@ import { TimelineTaskBlock } from "./timeline-task-block";
 import { EventContextMenu } from "../event-context-menu";
 import { InlineEditor } from "../inline-editor";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useUpdateCalendarEvent } from "@/lib/hooks";
+import { useUpdateTask } from "@/lib/hooks";
 import { useTimelineDnd } from "@/lib/hooks/use-timeline-dnd";
 import {
   TIMELINE_DAYS_SHOWN,
@@ -182,7 +182,7 @@ export function TimelineGrid({
 
   // ── Mutations ─────────────────────────────────────────────────────────
 
-  const updateCalendarEvent = useUpdateCalendarEvent();
+  const updateTask = useUpdateTask();
 
   // ── DnD ───────────────────────────────────────────────────────────────
 
@@ -200,12 +200,12 @@ export function TimelineGrid({
 
   const handleResize = useCallback(
     (event: InternalCalendarEvent, newStart: Date, newEnd: Date) => {
-      updateCalendarEvent.mutate({
+      updateTask.mutate({
         id: event.id,
         data: { startDate: newStart, endDate: newEnd },
       });
     },
-    [updateCalendarEvent]
+    [updateTask]
   );
 
   // ── Event handlers ────────────────────────────────────────────────────

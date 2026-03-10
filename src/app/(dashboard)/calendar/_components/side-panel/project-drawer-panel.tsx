@@ -25,14 +25,14 @@ import { SidePanelShell } from "./side-panel-shell";
 // ─── Date Range Formatter ──────────────────────────────────────────────────
 
 function formatTaskDateRange(
-  startDate?: string | null,
-  endDate?: string | null,
+  startDate?: Date | string | null,
+  endDate?: Date | string | null,
 ): string | null {
   const start = startDate
-    ? new Date(startDate)
+    ? (startDate instanceof Date ? startDate : new Date(startDate))
     : null;
   const end = endDate
-    ? new Date(endDate)
+    ? (endDate instanceof Date ? endDate : new Date(endDate))
     : null;
 
   if (!start) return null;

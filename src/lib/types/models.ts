@@ -539,17 +539,16 @@ export function getTaskEffectiveColor(
   return taskType?.color || task.taskColor || "#59779F";
 }
 
-/** Get scheduled date for a task (from its calendar event) */
+/** Get scheduled date for a task */
 export function getTaskScheduledDate(
-  calendarEvent?: CalendarEvent | null
+  task: Pick<ProjectTask, "startDate">
 ): Date | null {
-  return calendarEvent?.startDate ?? null;
+  return task.startDate ?? null;
 }
 
 /** Check if a task is overdue */
 export function isTaskOverdue(
-  task: Pick<ProjectTask, "status">,
-  calendarEvent?: CalendarEvent | null
+  task: Pick<ProjectTask, "status" | "startDate">
 ): boolean {
   if (
     task.status === TaskStatus.Completed ||
@@ -557,20 +556,18 @@ export function isTaskOverdue(
   ) {
     return false;
   }
-  const scheduledDate = calendarEvent?.startDate;
-  if (!scheduledDate) return false;
-  return new Date() > scheduledDate;
+  if (!task.startDate) return false;
+  return new Date() > task.startDate;
 }
 
 /** Check if a task is today */
-export function isTaskToday(calendarEvent?: CalendarEvent | null): boolean {
-  const scheduledDate = calendarEvent?.startDate;
-  if (!scheduledDate) return false;
+export function isTaskToday(task: Pick<ProjectTask, "startDate">): boolean {
+  if (!task.startDate) return false;
   const today = new Date();
   return (
-    scheduledDate.getFullYear() === today.getFullYear() &&
-    scheduledDate.getMonth() === today.getMonth() &&
-    scheduledDate.getDate() === today.getDate()
+    task.startDate.getFullYear() === today.getFullYear() &&
+    task.startDate.getMonth() === today.getMonth() &&
+    task.startDate.getDate() === today.getDate()
   );
 }
 

@@ -67,15 +67,8 @@ export {
   useRemoveSeatedEmployee,
 } from "./use-company";
 
-// Calendar
-export {
-  useCalendarEvents,
-  useCalendarEventsForRange,
-  useCalendarEvent,
-  useCreateCalendarEvent,
-  useUpdateCalendarEvent,
-  useDeleteCalendarEvent,
-} from "./use-calendar";
+// Calendar (deprecated — site visit hooks only)
+// New calendar data flows through useScheduledTasks in ./use-tasks.ts
 
 // Task Types
 export {

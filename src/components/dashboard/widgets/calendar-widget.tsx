@@ -4,14 +4,14 @@ import { useMemo, useRef, useCallback } from "react";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CalendarEvent } from "@/lib/types/models";
+import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { format, isSameDay } from "@/lib/utils/date";
 import { useDictionary } from "@/i18n/client";
 
 interface CalendarWidgetProps {
   size: WidgetSize;
-  events: CalendarEvent[];
+  events: InternalCalendarEvent[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
 }
@@ -221,7 +221,7 @@ function DayCarousel({
   maxEventsPerDay,
   onNavigate,
 }: {
-  eventsByDay: { day: Date; events: CalendarEvent[] }[];
+  eventsByDay: { day: Date; events: InternalCalendarEvent[] }[];
   todayIndex: number;
   maxEventsPerDay: number;
   onNavigate: (path: string) => void;
