@@ -634,5 +634,58 @@
   "developer.title": "Developer Tools",
   "developer.description": "These tools are only visible to users with developer permissions.",
   "developer.database": "Database",
-  "developer.databaseDesc": "All data is managed via Supabase. No migration tools needed."
+  "developer.databaseDesc": "All data is managed via Supabase. No migration tools needed.",
+
+  "tabs.setup": "Setup",
+  "sections.setupWizards": "Setup Guides",
+
+  "setup.title": "SETUP GUIDES",
+  "setup.description": "Get your account dialed in. Each guide walks you through one part of OPS.",
+  "setup.taskTypes.title": "Task Types",
+  "setup.taskTypes.description": "Configure the types of work your crew does",
+  "setup.taskTypes.notStarted": "Not started",
+  "setup.taskTypes.complete": "Complete",
+  "setup.taskTypes.configured": "task types configured",
+  "setup.runSetup": "Run Setup",
+  "setup.runAgain": "Run Again",
+
+  "wizard.industry.headlineKnown": "YOUR TRADE, YOUR TASKS",
+  "wizard.industry.bodyKnown": "You told us you work in {industries}. We put together a setup based on that.",
+  "wizard.industry.confirm": "That's right",
+  "wizard.industry.change": "Change my trade",
+  "wizard.industry.headlineUnknown": "WHAT DO YOU DO?",
+  "wizard.industry.bodyUnknown": "Tell us your trade. We'll handle the rest.",
+  "wizard.industry.continue": "Continue",
+  "wizard.industry.searchPlaceholder": "Search trades...",
+
+  "wizard.taskTypes.headline": "HERE'S WHAT WE'D SET UP",
+  "wizard.taskTypes.subtitle": "Toggle off what you don't need. Tap a color to change it.",
+  "wizard.taskTypes.colorHint": "Similar tasks share similar colors — prep in warm tones, installation in cool tones, inspections in neutrals.",
+  "wizard.taskTypes.addCustom": "Add Custom Type",
+  "wizard.taskTypes.templates": "sub-tasks",
+  "wizard.taskTypes.hours": "hrs",
+  "wizard.taskTypes.continue": "Continue",
+  "wizard.taskTypes.namePlaceholder": "Custom type name...",
+
+  "wizard.dependencies.headline": "ONE MORE THING",
+  "wizard.dependencies.body": "Do any of these tasks need to finish before the next one starts?",
+  "wizard.dependencies.subtitle": "Set up task dependencies",
+  "wizard.dependencies.yes": "Yes, set up dependencies",
+  "wizard.dependencies.no": "No, skip this",
+
+  "wizard.timeline.headline": "DRAG TO ORDER. OVERLAP IF THEY RUN TOGETHER.",
+  "wizard.timeline.subtitle": "Tasks at the top start first. Drag edges to show overlap.",
+  "wizard.timeline.overlap": "overlap",
+  "wizard.timeline.done": "Looks good",
+
+  "wizard.review.headline": "READY TO GO",
+  "wizard.review.summary": "{count} task types. {templateCount} sub-tasks.",
+  "wizard.review.withDeps": "Dependencies configured.",
+  "wizard.review.create": "Create All",
+  "wizard.review.back": "Back",
+  "wizard.review.creating": "Setting up...",
+  "wizard.review.success": "All set. Your task types are ready.",
+
+  "wizard.nudge.message": "Set up your task types. 30 seconds. Makes scheduling 10x easier.",
+  "wizard.nudge.cta": "Run Setup"
 }

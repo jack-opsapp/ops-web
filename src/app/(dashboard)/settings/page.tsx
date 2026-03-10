@@ -19,6 +19,7 @@ import {
   Plug,
   FileText,
   Wrench,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -45,10 +46,11 @@ import { ExpenseSettingsTab } from "@/components/settings/expense-settings-tab";
 import { NotificationsTab } from "@/components/settings/notifications-tab";
 import { MapPreferencesTab } from "@/components/settings/map-preferences-tab";
 import { InventoryTab } from "@/components/settings/inventory-tab";
+import { SetupWizardsTab } from "@/components/settings/setup-wizards-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type SettingsGroup = "account" | "company" | "operations" | "billing" | "integrations" | "preferences" | "developer";
+type SettingsGroup = "account" | "company" | "operations" | "billing" | "integrations" | "preferences" | "setup" | "developer";
 
 interface SubTab {
   id: string;
@@ -126,6 +128,14 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "data-privacy", labelKey: "sections.dataPrivacy" },
     ],
   },
+  {
+    id: "setup",
+    labelKey: "tabs.setup",
+    icon: Rocket,
+    subTabs: [
+      { id: "setup-wizards", labelKey: "sections.setupWizards" },
+    ],
+  },
 ];
 
 const DEV_GROUP: GroupDef = {
@@ -156,6 +166,7 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   preferences: { group: "preferences", sub: "preferences-general" },
   map: { group: "preferences", sub: "map" },
   "data-privacy": { group: "preferences", sub: "data-privacy" },
+  setup: { group: "setup", sub: "setup-wizards" },
   developer: { group: "developer", sub: "developer" },
 };
 
@@ -181,6 +192,7 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
   map: MapPreferencesTab,
   expenses: ExpenseSettingsTab,
   "data-privacy": DataPrivacyTab,
+  "setup-wizards": SetupWizardsTab,
   developer: DeveloperTab,
 };
 

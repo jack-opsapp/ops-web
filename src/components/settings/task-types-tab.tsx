@@ -25,6 +25,7 @@ import type { TaskType } from "@/lib/types/models";
 import type { TaskTemplate } from "@/lib/types/pipeline";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { TaskTypesWizard } from "./task-types-wizard";
 
 // ─── Default Crew Picker ─────────────────────────────────────────────────────
 
@@ -350,6 +351,7 @@ export function TaskTypesTab() {
   const { data: taskTypes = [], isLoading } = useTaskTypes();
   const createTaskType = useCreateTaskType();
 
+  const [showWizard, setShowWizard] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("#417394");
@@ -438,9 +440,22 @@ export function TaskTypesTab() {
               <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
             </div>
           ) : activeTypes.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-tertiary py-2">
-              {t("taskTypes.emptyState")}
-            </p>
+            showWizard ? (
+              <TaskTypesWizard onComplete={() => setShowWizard(false)} />
+            ) : (
+              <div className="flex flex-col items-start gap-1.5 py-2">
+                <p className="font-mohave text-body-sm text-text-tertiary">
+                  {t("taskTypes.emptyState")}
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowWizard(true)}
+                >
+                  Run Setup
+                </Button>
+              </div>
+            )
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
               {activeTypes.map((taskType) => (

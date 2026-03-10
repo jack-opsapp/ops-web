@@ -634,5 +634,58 @@
   "developer.title": "Herramientas de desarrollo",
   "developer.description": "Estas herramientas solo son visibles para usuarios con permisos de desarrollador.",
   "developer.database": "Base de datos",
-  "developer.databaseDesc": "Todos los datos se gestionan a través de Supabase. No se necesitan herramientas de migración."
+  "developer.databaseDesc": "Todos los datos se gestionan a través de Supabase. No se necesitan herramientas de migración.",
+
+  "tabs.setup": "Configuración",
+  "sections.setupWizards": "Guías de configuración",
+
+  "setup.title": "GUÍAS DE CONFIGURACIÓN",
+  "setup.description": "Configura tu cuenta paso a paso. Cada guía te lleva por una parte de OPS.",
+  "setup.taskTypes.title": "Tipos de tarea",
+  "setup.taskTypes.description": "Configura los tipos de trabajo que hace tu equipo",
+  "setup.taskTypes.notStarted": "Sin iniciar",
+  "setup.taskTypes.complete": "Completo",
+  "setup.taskTypes.configured": "tipos de tarea configurados",
+  "setup.runSetup": "Iniciar configuración",
+  "setup.runAgain": "Ejecutar de nuevo",
+
+  "wizard.industry.headlineKnown": "TU OFICIO, TUS TAREAS",
+  "wizard.industry.bodyKnown": "Nos dijiste que trabajas en {industries}. Preparamos una configuración basada en eso.",
+  "wizard.industry.confirm": "Así es",
+  "wizard.industry.change": "Cambiar mi oficio",
+  "wizard.industry.headlineUnknown": "¿A QUÉ TE DEDICAS?",
+  "wizard.industry.bodyUnknown": "Dinos tu oficio. Nosotros nos encargamos del resto.",
+  "wizard.industry.continue": "Continuar",
+  "wizard.industry.searchPlaceholder": "Buscar oficios...",
+
+  "wizard.taskTypes.headline": "ESTO ES LO QUE CONFIGURARÍAMOS",
+  "wizard.taskTypes.subtitle": "Desactiva lo que no necesites. Toca un color para cambiarlo.",
+  "wizard.taskTypes.colorHint": "Tareas similares comparten colores similares — preparación en tonos cálidos, instalación en tonos fríos, inspecciones en neutros.",
+  "wizard.taskTypes.addCustom": "Agregar tipo personalizado",
+  "wizard.taskTypes.templates": "sub-tareas",
+  "wizard.taskTypes.hours": "hrs",
+  "wizard.taskTypes.continue": "Continuar",
+  "wizard.taskTypes.namePlaceholder": "Nombre del tipo personalizado...",
+
+  "wizard.dependencies.headline": "UNA COSA MÁS",
+  "wizard.dependencies.body": "¿Alguna de estas tareas necesita terminar antes de que otra comience?",
+  "wizard.dependencies.subtitle": "Configurar dependencias de tareas",
+  "wizard.dependencies.yes": "Sí, configurar dependencias",
+  "wizard.dependencies.no": "No, omitir esto",
+
+  "wizard.timeline.headline": "ARRASTRA PARA ORDENAR. SUPERPÓN SI CORREN JUNTAS.",
+  "wizard.timeline.subtitle": "Las tareas de arriba comienzan primero. Arrastra los bordes para superponer.",
+  "wizard.timeline.overlap": "superposición",
+  "wizard.timeline.done": "Se ve bien",
+
+  "wizard.review.headline": "LISTO PARA EMPEZAR",
+  "wizard.review.summary": "{count} tipos de tarea. {templateCount} sub-tareas.",
+  "wizard.review.withDeps": "Dependencias configuradas.",
+  "wizard.review.create": "Crear todo",
+  "wizard.review.back": "Volver",
+  "wizard.review.creating": "Configurando...",
+  "wizard.review.success": "Listo. Tus tipos de tarea están listos.",
+
+  "wizard.nudge.message": "Configura tus tipos de tarea. 30 segundos. Hace la programación 10 veces más fácil.",
+  "wizard.nudge.cta": "Iniciar configuración"
 }
