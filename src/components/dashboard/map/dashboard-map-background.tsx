@@ -114,8 +114,9 @@ export function DashboardMapBackground() {
     ["completed", "closed", "archived"].includes(status);
 
   // ── Initialize map ──
+  // Depends on isDashboard so it re-creates when navigating back to dashboard
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!isDashboard || !containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
       center: [39.8283, -98.5795], // Center of US
@@ -135,8 +136,6 @@ export function DashboardMapBackground() {
       { maxZoom: 19, subdomains: "abcd" }
     ).addTo(map);
 
-    // Zoom controls moved into MapFilterRail toolbar
-
     mapRef.current = map;
     setMapInstance(map);
     pinLayerRef.current = L.layerGroup().addTo(map);
@@ -149,7 +148,7 @@ export function DashboardMapBackground() {
       pinLayerRef.current = null;
       crewLayerRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDashboard, setMapInstance]);
 
   // ── Invalidate map size when sidebar toggles ──
   useEffect(() => {
