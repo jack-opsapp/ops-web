@@ -25,6 +25,64 @@ interface PipelineColumnProps {
   onAdvanceStage?: (opportunity: Opportunity) => void;
   onAddLead?: () => void;
   narrow?: boolean;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Collapsed Column — narrow strip with vertical stage name
+// ---------------------------------------------------------------------------
+function CollapsedColumn({
+  stage,
+  count,
+  isOver,
+}: {
+  stage: OpportunityStage;
+  count: number;
+  isOver: boolean;
+}) {
+  const stageColor = getStageColor(stage);
+  const stageName = getStageDisplayName(stage);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center h-full rounded-sm border transition-colors duration-150 cursor-pointer",
+        isOver
+          ? "bg-ops-accent-muted border-ops-accent"
+          : "bg-[rgba(10,10,10,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]"
+      )}
+    >
+      {/* Stage color bar */}
+      <div
+        className="w-full h-[2px] shrink-0 rounded-t-sm"
+        style={{ backgroundColor: stageColor }}
+      />
+
+      {/* Vertical stage name */}
+      <div className="flex-1 flex items-center justify-center py-2 overflow-hidden">
+        <span
+          className="font-mohave text-caption-sm uppercase tracking-[0.08em] whitespace-nowrap"
+          style={{
+            color: stageColor,
+            writingMode: "vertical-rl",
+            transform: "rotate(180deg)",
+          }}
+        >
+          {stageName}
+        </span>
+      </div>
+
+      {/* Count badge */}
+      {count > 0 && (
+        <div className="shrink-0 pb-1.5">
+          <span className="font-mono text-[10px] text-text-disabled bg-background-elevated px-[5px] py-[2px] rounded-sm">
+            {count}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -38,6 +96,8 @@ export function PipelineColumn({
   onAdvanceStage,
   onAddLead,
   narrow = false,
+  isExpanded,
+  onToggleExpand,
 }: PipelineColumnProps) {
   const { t } = useDictionary("pipeline");
   const { setNodeRef, isOver } = useDroppable({ id: stage });
@@ -57,6 +117,25 @@ export function PipelineColumn({
     return opp.contactName ?? t("newLead");
   };
 
+  // Collapsed column — still droppable for drag-and-drop
+  if (!isExpanded) {
+    return (
+      <div
+        ref={setNodeRef}
+        onClick={onToggleExpand}
+        className="flex flex-col shrink-0 w-[44px] min-h-[200px]"
+        title={`${stageName} (${opportunities.length})`}
+      >
+        <CollapsedColumn
+          stage={stage}
+          count={opportunities.length}
+          isOver={isOver}
+        />
+      </div>
+    );
+  }
+
+  // Expanded column
   return (
     <div
       className={cn(
@@ -64,10 +143,12 @@ export function PipelineColumn({
         narrow ? "w-[200px]" : "w-[280px]"
       )}
     >
-      {/* Column header */}
+      {/* Column header — click to collapse */}
       <div
-        className="border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0"
+        className="border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0 cursor-pointer"
         style={{ borderTopColor: stageColor }}
+        onClick={onToggleExpand}
+        title={`Collapse ${stageName}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
@@ -83,7 +164,10 @@ export function PipelineColumn({
           </div>
           {onAddLead && (
             <button
-              onClick={onAddLead}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddLead();
+              }}
               className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors cursor-pointer"
               title={t("column.addNewLead")}
             >
