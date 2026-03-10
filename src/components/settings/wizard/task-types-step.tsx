@@ -228,7 +228,7 @@ export function TaskTypesStep({
           className="flex items-center gap-[6px] text-text-disabled hover:text-text-secondary font-mohave text-body-sm transition-colors"
         >
           <ArrowLeft className="w-[14px] h-[14px]" />
-          Back
+          {t("wizard.taskTypes.back")}
         </button>
 
         <button

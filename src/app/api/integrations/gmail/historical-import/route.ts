@@ -27,6 +27,8 @@ interface ApprovedContact {
   fromEmail: string;
   name: string;
   createLead: boolean;
+  isCompanyGroup?: boolean;
+  subContacts?: Array<{ fromEmail: string; name: string }>;
 }
 
 // ─── Gmail API types ─────────────────────────────────────────────────────────
@@ -317,41 +319,97 @@ export async function POST(request: NextRequest) {
 
       for (const contact of approvedContacts) {
         try {
-          // Check if a client already exists for this email
-          const { data: existingClients } = await supabase
-            .from("clients")
-            .select("id")
-            .eq("company_id", companyId)
-            .eq("email", contact.fromEmail.toLowerCase())
-            .is("deleted_at", null)
-            .limit(1);
-
           let clientId: string;
 
-          if (existingClients && existingClients.length > 0) {
-            clientId = existingClients[0].id;
-          } else {
-            // Create new client
-            const newClient = await ClientService.createClient({
-              name: contact.name,
-              companyId,
-              email: contact.fromEmail.toLowerCase(),
-            });
-            clientId = newClient.id;
-            clientsCreated++;
-          }
+          if (contact.isCompanyGroup && contact.subContacts?.length) {
+            // ── Company group: create company client + sub-clients ──────
+            // Check if company client already exists by domain-based email match
+            const { data: existingClients } = await supabase
+              .from("clients")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("email", contact.fromEmail.toLowerCase())
+              .is("deleted_at", null)
+              .limit(1);
 
-          // Link unmatched activities for this email to the new client
-          await supabase
-            .from("activities")
-            .update({ client_id: clientId })
-            .eq("company_id", companyId)
-            .eq("from_email", contact.fromEmail.toLowerCase())
-            .is("client_id", null);
+            if (existingClients && existingClients.length > 0) {
+              clientId = existingClients[0].id;
+            } else {
+              const newClient = await ClientService.createClient({
+                name: contact.name,
+                companyId,
+                email: contact.fromEmail.toLowerCase(),
+              });
+              clientId = newClient.id;
+              clientsCreated++;
+            }
+
+            // Create sub-clients for each person in the domain group
+            for (const sub of contact.subContacts) {
+              try {
+                // Check if sub-client already exists
+                const { data: existingSub } = await supabase
+                  .from("sub_clients")
+                  .select("id")
+                  .eq("client_id", clientId)
+                  .eq("email", sub.fromEmail.toLowerCase())
+                  .is("deleted_at", null)
+                  .limit(1);
+
+                if (!existingSub || existingSub.length === 0) {
+                  await ClientService.createSubClient(
+                    { name: sub.name, clientId, email: sub.fromEmail.toLowerCase() },
+                    companyId
+                  );
+                }
+
+                // Link activities from this sub-contact to the company client
+                await supabase
+                  .from("activities")
+                  .update({ client_id: clientId })
+                  .eq("company_id", companyId)
+                  .eq("from_email", sub.fromEmail.toLowerCase())
+                  .is("client_id", null);
+              } catch (subErr) {
+                console.error(
+                  `[gmail-import] Failed to create sub-client ${sub.fromEmail}:`,
+                  subErr
+                );
+              }
+            }
+          } else {
+            // ── Individual contact ──────────────────────────────────────
+            const { data: existingClients } = await supabase
+              .from("clients")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("email", contact.fromEmail.toLowerCase())
+              .is("deleted_at", null)
+              .limit(1);
+
+            if (existingClients && existingClients.length > 0) {
+              clientId = existingClients[0].id;
+            } else {
+              const newClient = await ClientService.createClient({
+                name: contact.name,
+                companyId,
+                email: contact.fromEmail.toLowerCase(),
+              });
+              clientId = newClient.id;
+              clientsCreated++;
+            }
+
+            // Link unmatched activities for this email to the client
+            await supabase
+              .from("activities")
+              .update({ client_id: clientId })
+              .eq("company_id", companyId)
+              .eq("from_email", contact.fromEmail.toLowerCase())
+              .is("client_id", null);
+          }
 
           // Create lead (opportunity) if flagged
           if (contact.createLead) {
-            // Check if there's already an open opportunity for this client
             const existingOpps = await OpportunityService.fetchOpportunities(
               companyId,
               {

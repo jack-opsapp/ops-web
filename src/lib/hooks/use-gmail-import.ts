@@ -32,6 +32,10 @@ export interface ApprovedContact {
   fromEmail: string;
   name: string;
   createLead: boolean;
+  /** If true, this is a company group — name is the company name */
+  isCompanyGroup?: boolean;
+  /** Sub-contacts to create under the company client */
+  subContacts?: Array<{ fromEmail: string; name: string }>;
 }
 
 interface StartImportParams {

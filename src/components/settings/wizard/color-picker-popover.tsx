@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { CURATED_COLORS, type ColorFamily } from "@/lib/data/curated-colors";
 
@@ -13,6 +14,8 @@ const FAMILY_LABELS: Record<ColorFamily, string> = {
 };
 
 const FAMILY_ORDER: ColorFamily[] = ["warm", "neutral", "earth", "cool", "muted"];
+
+const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 interface ColorPickerPopoverProps {
   selectedColor: string;
@@ -28,6 +31,18 @@ export function ColorPickerPopover({
   anchorRef,
 }: ColorPickerPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+  // (#7) Compute fixed position from anchor to avoid clipping in scrollable containers
+  useEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 6,
+        left: rect.left,
+      });
+    }
+  }, [anchorRef]);
 
   // Close on click outside
   useEffect(() => {
@@ -61,15 +76,20 @@ export function ColorPickerPopover({
     colors: CURATED_COLORS.filter((c) => c.family === family),
   }));
 
-  return (
+  if (!position) return null;
+
+  // Render via portal to escape overflow:hidden/auto containers
+  return createPortal(
     <motion.div
       ref={popoverRef}
-      initial={{ opacity: 0, scale: 0.95, y: -4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: -4 }}
-      transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-      className="absolute z-50 top-full mt-[6px] left-0 w-[240px] p-[10px] rounded border border-[rgba(255,255,255,0.08)] shadow-lg"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+      className="fixed z-50 w-[240px] p-[10px] rounded border border-[rgba(255,255,255,0.08)] shadow-lg"
       style={{
+        top: position.top,
+        left: position.left,
         background: "rgba(10, 10, 10, 0.85)",
         backdropFilter: "blur(20px) saturate(1.2)",
         WebkitBackdropFilter: "blur(20px) saturate(1.2)",
@@ -99,7 +119,7 @@ export function ColorPickerPopover({
                     <motion.div
                       layoutId="color-ring"
                       className="absolute inset-[-3px] rounded-sm border-2 border-white pointer-events-none"
-                      transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{ duration: 0.15, ease: EASE_SMOOTH }}
                     />
                   )}
                 </button>
@@ -113,6 +133,7 @@ export function ColorPickerPopover({
           Colors from Farrow & Ball, Benjamin Moore, Sherwin-Williams
         </span>
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }

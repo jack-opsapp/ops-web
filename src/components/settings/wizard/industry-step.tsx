@@ -57,12 +57,12 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -40 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="flex flex-col items-center justify-center min-h-[320px] px-4"
+        className="flex flex-col justify-center min-h-[320px] px-4"
       >
         <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[8px]">
           {t("wizard.industry.headlineKnown")}
         </h2>
-        <p className="font-mohave text-body text-text-secondary text-center max-w-[400px] mb-[32px]">
+        <p className="font-mohave text-body text-text-secondary max-w-[400px] mb-[32px]">
           {t("wizard.industry.bodyKnown").replace("{industries}", displayIndustries)}
         </p>
 
@@ -95,14 +95,14 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col items-center justify-center min-h-[320px] px-4"
+      className="flex flex-col justify-center min-h-[320px] px-4"
     >
       <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[8px]">
         {hasIndustries
           ? t("wizard.industry.headlineKnown")
           : t("wizard.industry.headlineUnknown")}
       </h2>
-      <p className="font-mohave text-body text-text-secondary text-center max-w-[400px] mb-[24px]">
+      <p className="font-mohave text-body text-text-secondary max-w-[400px] mb-[24px]">
         {t("wizard.industry.bodyUnknown")}
       </p>
 

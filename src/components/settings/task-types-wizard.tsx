@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { IndustryStep } from "./wizard/industry-step";
 import { TaskTypesStep, type WizardTaskType } from "./wizard/task-types-step";
@@ -11,9 +12,10 @@ import {
   type TimelineItem,
 } from "./wizard/dependency-timeline-step";
 import { ReviewStep } from "./wizard/review-step";
-import { useCreateTaskType } from "@/lib/hooks/use-task-types";
-import { useCreateTaskTemplate } from "@/lib/hooks/use-task-templates";
+import { TaskTypeService, TaskTemplateService, CompanyService } from "@/lib/api/services";
+import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import type { TaskTypeDependency } from "@/lib/types/scheduling";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -37,11 +39,12 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
   const [wizardTaskTypes, setWizardTaskTypes] = useState<WizardTaskType[]>([]);
   const [useDependencies, setUseDependencies] = useState(false);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
+  const [wizardStartTime] = useState(() => Date.now());
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Refs for idempotent batch creation (#2) ─────────────────────────────
 
-  const createTaskType = useCreateTaskType();
-  const createTaskTemplate = useCreateTaskTemplate();
+  const createdIdsRef = useRef<Map<string, string>>(new Map());
+  const queryClient = useQueryClient();
 
   // ── Step handlers ─────────────────────────────────────────────────────────
 
@@ -53,9 +56,8 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
   const handleTaskTypesNext = useCallback((taskTypes: WizardTaskType[]) => {
     setWizardTaskTypes(taskTypes);
 
-    // Initialize timeline items from enabled types
-    const enabledTypes = taskTypes.filter((tt) => tt.enabled);
-    const items: TimelineItem[] = enabledTypes.map((tt) => ({
+    // Initialize timeline items (taskTypes already contains only enabled)
+    const items: TimelineItem[] = taskTypes.map((tt) => ({
       id: tt.id,
       name: tt.name,
       color: tt.color,
@@ -95,21 +97,40 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
   // ── Create all ────────────────────────────────────────────────────────────
 
   const handleCreateAll = useCallback(async () => {
-    const companyId = useAuthStore.getState().company?.id;
+    const store = useAuthStore.getState();
+    const companyId = store.company?.id;
     if (!companyId) throw new Error("No company");
 
-    const enabled = wizardTaskTypes.filter((tt) => tt.enabled);
+    // (#3) Update company industries if changed
+    const originalIndustries = store.company?.industries ?? [];
+    const industriesChanged =
+      selectedIndustries.length !== originalIndustries.length ||
+      selectedIndustries.some((ind) => !originalIndustries.includes(ind));
 
-    for (const tt of enabled) {
-      const taskTypeId = await createTaskType.mutateAsync({
+    if (industriesChanged) {
+      await CompanyService.updateCompany(companyId, {
+        industries: selectedIndustries,
+      });
+    }
+
+    // (#2) Idempotent: skip already-created types on retry
+    const createdIds = createdIdsRef.current;
+
+    // (#11) Call services directly — invalidate once at the end
+    for (const tt of wizardTaskTypes) {
+      if (createdIds.has(tt.id)) continue;
+
+      const taskTypeId = await TaskTypeService.createTaskType({
         display: tt.name,
         color: tt.color,
         companyId,
       });
 
+      createdIds.set(tt.id, taskTypeId);
+
       for (let i = 0; i < tt.templates.length; i++) {
         const tmpl = tt.templates[i];
-        await createTaskTemplate.mutateAsync({
+        await TaskTemplateService.createTaskTemplate({
           taskTypeId,
           title: tmpl.title,
           estimatedHours: tmpl.estimatedHours,
@@ -119,18 +140,53 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
       }
     }
 
+    // (#1) Persist dependencies from timeline
+    if (useDependencies && timelineItems.length > 1) {
+      for (let i = 1; i < timelineItems.length; i++) {
+        const item = timelineItems[i];
+        const prevItem = timelineItems[i - 1];
+        const serverId = createdIds.get(item.id);
+        const prevServerId = createdIds.get(prevItem.id);
+
+        if (serverId && prevServerId) {
+          const dep: TaskTypeDependency = {
+            depends_on_task_type_id: prevServerId,
+            overlap_percentage: item.overlapPercent,
+          };
+          await TaskTypeService.updateTaskType(serverId, {
+            dependencies: [dep],
+          });
+        }
+      }
+    }
+
+    // (#11) Single invalidation at the end
+    await queryClient.invalidateQueries({ queryKey: queryKeys.taskTypes.all });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.taskTemplates.all });
+    if (industriesChanged) {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.detail(companyId),
+      });
+    }
+
     // Success — wait 2s for the success animation, then transition out
     await new Promise<void>((resolve) => setTimeout(resolve, 2000));
     onComplete();
-  }, [wizardTaskTypes, createTaskType, createTaskTemplate, onComplete]);
+  }, [
+    wizardTaskTypes,
+    selectedIndustries,
+    useDependencies,
+    timelineItems,
+    queryClient,
+    onComplete,
+  ]);
 
-  // ── Review data ───────────────────────────────────────────────────────────
+  // ── Review data (#13: wizardTaskTypes already contains only enabled) ─────
 
   const reviewTaskTypes = wizardTaskTypes.map((tt) => ({
     name: tt.name,
     color: tt.color,
     templateCount: tt.templates.length,
-    enabled: tt.enabled,
   }));
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -216,6 +272,8 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
             <ReviewStep
               taskTypes={reviewTaskTypes}
               hasDependencies={useDependencies}
+              dependencyTimeline={useDependencies ? timelineItems : undefined}
+              wizardStartTime={wizardStartTime}
               onBack={handleReviewBack}
               onCreateAll={handleCreateAll}
             />

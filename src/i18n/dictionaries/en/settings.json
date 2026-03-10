@@ -665,6 +665,7 @@
   "wizard.taskTypes.templates": "sub-tasks",
   "wizard.taskTypes.hours": "hrs",
   "wizard.taskTypes.continue": "Continue",
+  "wizard.taskTypes.back": "Back",
   "wizard.taskTypes.namePlaceholder": "Custom type name...",
 
   "wizard.dependencies.headline": "ONE MORE THING",
@@ -685,6 +686,8 @@
   "wizard.review.back": "Back",
   "wizard.review.creating": "Setting up...",
   "wizard.review.success": "All set. Your task types are ready.",
+  "wizard.review.elapsed": "Set up in {seconds}s",
+  "wizard.review.depOrder": "Dependency Order",
 
   "wizard.nudge.message": "Set up your task types. 30 seconds. Makes scheduling 10x easier.",
   "wizard.nudge.cta": "Run Setup"

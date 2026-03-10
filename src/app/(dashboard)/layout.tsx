@@ -58,22 +58,6 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // Redirect to dashboard if feature flag gates this route
-  useEffect(() => {
-    if (!flagsReady) return;
-    if (!isRouteUnlocked(pathname)) {
-      router.replace("/dashboard");
-    }
-  }, [pathname, flagsReady, isRouteUnlocked, router]);
-
-  // Redirect to dashboard if user lacks permission for this route
-  useEffect(() => {
-    if (!permissionsReady) return;
-    const required = getRequiredPermission(pathname);
-    if (required && !can(required)) {
-      router.replace("/dashboard");
-    }
-  }, [pathname, permissionsReady, can, router]);
 
   if (isLoading) {
     return (
@@ -93,15 +77,29 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
   }
 
   // Block render while feature flags are loading — prevents flash of gated content.
-  // Flags load in parallel with auth, so this adds negligible latency.
   if (!flagsReady) return null;
-  if (!isRouteUnlocked(pathname)) return null;
 
-  // Block render while permissions are loading for a gated route
+  // Block while permissions load for a gated route
   const requiredPermission = getRequiredPermission(pathname);
-  if (requiredPermission) {
-    if (!permissionsReady) return null;
-    if (!can(requiredPermission)) return null;
+  if (requiredPermission && !permissionsReady) return null;
+
+  // If route is gated by feature flag or permission, show 404 — don't redirect.
+  // The user should not know the route exists.
+  const routeDenied =
+    !isRouteUnlocked(pathname) ||
+    (requiredPermission && !can(requiredPermission));
+
+  if (routeDenied) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
+          <span className="font-mohave text-[64px] text-text-disabled leading-none">404</span>
+          <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-wider">
+            {t("pageNotFound")}
+          </p>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return <DashboardLayout>{children}</DashboardLayout>;

@@ -21,6 +21,7 @@ import {
   Users,
   Shield,
   Pencil,
+  Building2,
 } from "lucide-react";
 import { FilterFunnelCanvas } from "@/components/settings/filter-funnel-canvas";
 import {
@@ -31,14 +32,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { useGmailConnections, useGmailImport, useUpdateGmailConnection } from "@/lib/hooks";
+import { useGmailConnections, useGmailImport, useUpdateGmailConnection, useClients } from "@/lib/hooks";
 import type { ApprovedContact } from "@/lib/hooks/use-gmail-import";
+import type { Client } from "@/lib/types/models";
 import { EmailFilterBuilder } from "@/components/settings/email-filter-builder";
 import type {
   GmailSyncFilters,
   EmailFilterRule,
 } from "@/lib/types/pipeline";
-import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
+import { DEFAULT_SYNC_FILTERS, PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { toast } from "sonner";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
 
@@ -123,6 +125,8 @@ interface WizardStep {
 }
 
 interface ContactPreview {
+  /** Unique key — email for individuals, `domain:example.com` for company groups */
+  key: string;
   fromEmail: string;
   name: string;
   domain: string;
@@ -133,6 +137,12 @@ interface ContactPreview {
   recentEmails: Array<{ subject: string; snippet: string; date: string }>;
   createLead: boolean;
   excluded: boolean;
+  /** True when this contact matches an existing client in the DB */
+  existingClient?: { id: string; name: string };
+  /** For domain-grouped companies: the sub-contacts from that domain */
+  subContacts?: Array<{ fromEmail: string; name: string; emailCount: number }>;
+  /** True if this is a company group (multiple people from same domain) */
+  isCompanyGroup?: boolean;
 }
 
 const STEPS: WizardStep[] = [
@@ -170,6 +180,8 @@ export function EmailSetupWizard({
   const updateConnection = useUpdateGmailConnection();
   const showPrompt = useActionPromptStore((s) => s.showPrompt);
   const removePrompt = useActionPromptStore((s) => s.removePrompt);
+  const { data: clientsData } = useClients();
+  const existingClients = clientsData?.clients ?? [];
 
   const hasConnection = connections.length > 0;
   const firstConnection = connections[0];
@@ -638,49 +650,92 @@ export function EmailSetupWizard({
       const emailDate = new Date(e.date);
       return !isNaN(emailDate.getTime()) && emailDate >= importCutoff;
     });
-    const contactMap = new Map<string, { name: string; emails: ScannedEmail[] }>();
-    for (const email of importedEmails) {
-      if (!email.fromEmail || excludedContacts.has(email.fromEmail)) continue;
-      const existing = contactMap.get(email.fromEmail);
-      if (existing) {
-        existing.emails.push(email);
-      } else {
-        // Use edited name if user changed it, otherwise extract from header
-        let name = editedNames.get(email.fromEmail) ?? "";
-        if (!name) {
-          const fromHeader = email.from ?? "";
-          name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
-          if (!name || name === email.fromEmail) {
-            const prefix = email.fromEmail.split("@")[0] ?? email.fromEmail;
-            name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-          }
-        }
-        contactMap.set(email.fromEmail, { name, emails: [email] });
+
+    // Helper: extract display name
+    function extractContactName(fromEmail: string, emails: ScannedEmail[]): string {
+      const edited = editedNames.get(fromEmail);
+      if (edited) return edited;
+      const fromHeader = emails[0]?.from ?? "";
+      let name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
+      if (!name || name === fromEmail) {
+        const prefix = fromEmail.split("@")[0] ?? fromEmail;
+        name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
       }
+      return name;
+    }
+
+    // Group by fromEmail
+    const byEmail = new Map<string, ScannedEmail[]>();
+    for (const email of importedEmails) {
+      if (!email.fromEmail) continue;
+      const arr = byEmail.get(email.fromEmail) ?? [];
+      arr.push(email);
+      byEmail.set(email.fromEmail, arr);
+    }
+
+    // Identify domain groups (non-public domains with 2+ people)
+    const domainPeople = new Map<string, string[]>();
+    for (const fromEmail of byEmail.keys()) {
+      const domain = fromEmail.split("@")[1]?.toLowerCase() ?? "";
+      if (!domain || PUBLIC_EMAIL_DOMAINS.has(domain)) continue;
+      const arr = domainPeople.get(domain) ?? [];
+      arr.push(fromEmail);
+      domainPeople.set(domain, arr);
     }
 
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    const approvedContacts: ApprovedContact[] = Array.from(
-      contactMap.entries()
-    ).map(([fromEmail, { name, emails: contactEmails }]) => {
-      // Use lead override if user toggled, otherwise auto-determine
-      const override = leadOverrides.get(fromEmail);
-      let createLead: boolean;
-      if (override !== undefined) {
-        createLead = override;
-      } else {
-        const dates = contactEmails
-          .map((e) => new Date(e.date))
-          .filter((d) => !isNaN(d.getTime()));
-        const earliest =
-          dates.length > 0
-            ? new Date(Math.min(...dates.map((d) => d.getTime())))
-            : new Date();
-        createLead = earliest >= twoWeeksAgo;
+    const approvedContacts: ApprovedContact[] = [];
+    const handledEmails = new Set<string>();
+
+    // Company groups
+    for (const [domain, people] of domainPeople) {
+      if (people.length < 2) continue;
+      const groupKey = `domain:${domain}`;
+      if (excludedContacts.has(groupKey)) {
+        for (const e of people) handledEmails.add(e);
+        continue;
       }
-      return { fromEmail, name, createLead };
-    });
+      for (const e of people) handledEmails.add(e);
+
+      const allEmails: ScannedEmail[] = [];
+      const subContacts: Array<{ fromEmail: string; name: string }> = [];
+      for (const fromEmail of people) {
+        const emails = byEmail.get(fromEmail) ?? [];
+        allEmails.push(...emails);
+        subContacts.push({ fromEmail, name: extractContactName(fromEmail, emails) });
+      }
+
+      const dates = allEmails.map((e) => new Date(e.date)).filter((d) => !isNaN(d.getTime()));
+      const earliest = dates.length > 0 ? new Date(Math.min(...dates.map((d) => d.getTime()))) : new Date();
+
+      const override = leadOverrides.get(groupKey);
+      const createLead = override !== undefined ? override : earliest >= twoWeeksAgo;
+      const companyName = editedNames.get(groupKey) ??
+        domain.split(".")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+      approvedContacts.push({
+        fromEmail: people[0],
+        name: companyName,
+        createLead,
+        isCompanyGroup: true,
+        subContacts,
+      });
+    }
+
+    // Individual contacts
+    for (const [fromEmail, emails] of byEmail) {
+      if (handledEmails.has(fromEmail)) continue;
+      if (excludedContacts.has(fromEmail)) continue;
+
+      const name = extractContactName(fromEmail, emails);
+      const dates = emails.map((e) => new Date(e.date)).filter((d) => !isNaN(d.getTime()));
+      const earliest = dates.length > 0 ? new Date(Math.min(...dates.map((d) => d.getTime()))) : new Date();
+      const override = leadOverrides.get(fromEmail);
+      const createLead = override !== undefined ? override : earliest >= twoWeeksAgo;
+
+      approvedContacts.push({ fromEmail, name, createLead });
+    }
 
     // Start import
     const importAfter = customDate || (() => {
@@ -941,6 +996,7 @@ export function EmailSetupWizard({
                   expandedContact={expandedContact}
                   importDays={importDays}
                   customDate={customDate}
+                  existingClients={existingClients}
                   onToggleContact={(email) => {
                     setExcludedContacts((prev) => {
                       const next = new Set(prev);
@@ -2039,6 +2095,7 @@ function StepReview({
   expandedContact,
   importDays,
   customDate,
+  existingClients,
   onToggleContact,
   onEditName,
   onToggleLead,
@@ -2054,14 +2111,33 @@ function StepReview({
   expandedContact: string | null;
   importDays: number;
   customDate: string;
-  onToggleContact: (email: string) => void;
-  onEditName: (email: string, name: string) => void;
-  onToggleLead: (email: string, createLead: boolean) => void;
-  onExpandContact: (email: string | null) => void;
+  existingClients: Client[];
+  onToggleContact: (key: string) => void;
+  onEditName: (key: string, name: string) => void;
+  onToggleLead: (key: string, createLead: boolean) => void;
+  onExpandContact: (key: string | null) => void;
   onApproveAll: () => void;
   importStarted: boolean;
 }) {
   const [editingName, setEditingName] = useState<string | null>(null);
+
+  // Build lookup maps for existing clients (email → client, domain → clients)
+  const { emailToClient, domainToClients } = useMemo(() => {
+    const eMap = new Map<string, Client>();
+    const dMap = new Map<string, Client[]>();
+    for (const client of existingClients) {
+      if (client.email) {
+        eMap.set(client.email.toLowerCase(), client);
+        const d = client.email.toLowerCase().split("@")[1];
+        if (d && !PUBLIC_EMAIL_DOMAINS.has(d)) {
+          const arr = dMap.get(d) ?? [];
+          arr.push(client);
+          dMap.set(d, arr);
+        }
+      }
+    }
+    return { emailToClient: eMap, domainToClients: dMap };
+  }, [existingClients]);
 
   // Compute the import date cutoff from the user's chosen time range
   const importCutoff = useMemo(() => {
@@ -2075,63 +2151,137 @@ function StepReview({
     const importedIds = computeImportedIds(scannedEmails, filters);
     const imported = scannedEmails.filter((e) => {
       if (!importedIds.has(e.id)) return false;
-      // Filter by import time range
       const emailDate = new Date(e.date);
       return !isNaN(emailDate.getTime()) && emailDate >= importCutoff;
     });
 
-    // Group by fromEmail
-    const map = new Map<string, ScannedEmail[]>();
+    // Group by fromEmail first
+    const byEmail = new Map<string, ScannedEmail[]>();
     for (const email of imported) {
       if (!email.fromEmail) continue;
-      const existing = map.get(email.fromEmail) ?? [];
+      const existing = byEmail.get(email.fromEmail) ?? [];
       existing.push(email);
-      map.set(email.fromEmail, existing);
+      byEmail.set(email.fromEmail, existing);
     }
 
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
+    // Helper: extract display name from email header
+    function extractName(fromEmail: string, emails: ScannedEmail[]): string {
+      const edited = editedNames.get(fromEmail);
+      if (edited) return edited;
+      const fromHeader = emails[0]?.from ?? "";
+      let name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
+      if (!name || name === fromEmail) {
+        const prefix = fromEmail.split("@")[0] ?? fromEmail;
+        name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      return name;
+    }
+
+    // Group non-public domains with 2+ distinct people into company groups
+    const domainPeople = new Map<string, string[]>(); // domain → [fromEmail, ...]
+    for (const fromEmail of byEmail.keys()) {
+      const domain = fromEmail.split("@")[1]?.toLowerCase() ?? "";
+      if (!domain || PUBLIC_EMAIL_DOMAINS.has(domain)) continue;
+      const arr = domainPeople.get(domain) ?? [];
+      arr.push(fromEmail);
+      domainPeople.set(domain, arr);
+    }
+
     const previews: ContactPreview[] = [];
-    for (const [fromEmail, emails] of map) {
-      // Use edited name if set, otherwise extract from header
-      let name = editedNames.get(fromEmail) ?? "";
-      if (!name) {
-        const fromHeader = emails[0]?.from ?? "";
-        name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
-        if (!name || name === fromEmail) {
-          const prefix = fromEmail.split("@")[0] ?? fromEmail;
-          name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        }
+    const handledEmails = new Set<string>(); // track emails already handled by company groups
+
+    // Create company groups for domains with 2+ people
+    for (const [domain, people] of domainPeople) {
+      if (people.length < 2) continue;
+      // Mark all these emails as handled
+      for (const email of people) handledEmails.add(email);
+
+      // Merge all emails from all people in this domain
+      const allEmails: ScannedEmail[] = [];
+      const subContacts: ContactPreview["subContacts"] = [];
+      for (const fromEmail of people) {
+        const emails = byEmail.get(fromEmail) ?? [];
+        allEmails.push(...emails);
+        subContacts.push({
+          fromEmail,
+          name: extractName(fromEmail, emails),
+          emailCount: emails.length,
+        });
       }
 
-      const dates = emails
-        .map((e) => new Date(e.date))
-        .filter((d) => !isNaN(d.getTime()));
-      const earliest =
-        dates.length > 0
-          ? new Date(Math.min(...dates.map((d) => d.getTime())))
-          : new Date();
-      const latest =
-        dates.length > 0
-          ? new Date(Math.max(...dates.map((d) => d.getTime())))
-          : new Date();
+      const dates = allEmails.map((e) => new Date(e.date)).filter((d) => !isNaN(d.getTime()));
+      const earliest = dates.length > 0 ? new Date(Math.min(...dates.map((d) => d.getTime()))) : new Date();
+      const latest = dates.length > 0 ? new Date(Math.max(...dates.map((d) => d.getTime()))) : new Date();
 
-      // Use lead override if user toggled, otherwise auto-determine
+      const groupKey = `domain:${domain}`;
+      const override = leadOverrides.get(groupKey);
+      const createLead = override !== undefined ? override : earliest >= twoWeeksAgo;
+
+      // Company name: use edited name, or capitalize domain minus TLD
+      const companyName = editedNames.get(groupKey) ??
+        domain.split(".")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+      const sorted = [...allEmails].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const recentEmails = sorted.slice(0, 3).map((e) => ({
+        subject: e.subject || "(no subject)",
+        snippet: e.snippet ?? "",
+        date: e.date,
+      }));
+
+      // Check for existing client match by domain
+      const domainMatches = domainToClients.get(domain);
+      const existingClient = domainMatches?.[0]
+        ? { id: domainMatches[0].id, name: domainMatches[0].name }
+        : undefined;
+
+      previews.push({
+        key: groupKey,
+        fromEmail: people[0], // primary email for the group
+        name: companyName,
+        domain,
+        emailCount: allEmails.length,
+        firstInquiryDate: earliest,
+        latestDate: latest,
+        recentEmails,
+        createLead,
+        excluded: excludedContacts.has(groupKey),
+        isCompanyGroup: true,
+        subContacts,
+        existingClient,
+      });
+    }
+
+    // Individual contacts (public domains or solo domain users)
+    for (const [fromEmail, emails] of byEmail) {
+      if (handledEmails.has(fromEmail)) continue;
+
+      const name = extractName(fromEmail, emails);
+
+      const dates = emails.map((e) => new Date(e.date)).filter((d) => !isNaN(d.getTime()));
+      const earliest = dates.length > 0 ? new Date(Math.min(...dates.map((d) => d.getTime()))) : new Date();
+      const latest = dates.length > 0 ? new Date(Math.max(...dates.map((d) => d.getTime()))) : new Date();
+
       const override = leadOverrides.get(fromEmail);
       const createLead = override !== undefined ? override : earliest >= twoWeeksAgo;
 
-      // Most recent 2 emails for expanded preview (sort newest first)
-      const sorted = [...emails].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
+      const sorted = [...emails].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       const recentEmails = sorted.slice(0, 2).map((e) => ({
         subject: e.subject || "(no subject)",
         snippet: e.snippet ?? "",
         date: e.date,
       }));
 
+      // Check for existing client match by exact email
+      const existingMatch = emailToClient.get(fromEmail.toLowerCase());
+      const existingClient = existingMatch
+        ? { id: existingMatch.id, name: existingMatch.name }
+        : undefined;
+
       previews.push({
+        key: fromEmail,
         fromEmail,
         name,
         domain: emails[0]?.domain ?? "",
@@ -2141,19 +2291,24 @@ function StepReview({
         recentEmails,
         createLead,
         excluded: excludedContacts.has(fromEmail),
+        existingClient,
       });
     }
 
-    // Sort: leads first, then by latest date (most recent first)
+    // Sort: existing clients first (flagged), then leads, then by latest date
     return previews.sort((a, b) => {
+      // Existing clients bubble to top for visibility
+      if (!!a.existingClient !== !!b.existingClient) return a.existingClient ? -1 : 1;
       if (a.createLead !== b.createLead) return a.createLead ? -1 : 1;
       return b.latestDate.getTime() - a.latestDate.getTime();
     });
-  }, [scannedEmails, filters, excludedContacts, editedNames, leadOverrides, importCutoff]);
+  }, [scannedEmails, filters, excludedContacts, editedNames, leadOverrides, importCutoff, emailToClient, domainToClients]);
 
   const activeContacts = contacts.filter((c) => !c.excluded);
   const leadCount = activeContacts.filter((c) => c.createLead).length;
   const clientOnlyCount = activeContacts.filter((c) => !c.createLead).length;
+  const existingCount = activeContacts.filter((c) => c.existingClient).length;
+  const companyCount = activeContacts.filter((c) => c.isCompanyGroup).length;
 
   return (
     <motion.div
@@ -2169,7 +2324,7 @@ function StepReview({
       </motion.div>
 
       {/* Stats row */}
-      <motion.div variants={staggerItem} className="grid grid-cols-3 gap-1">
+      <motion.div variants={staggerItem} className="grid grid-cols-4 gap-1">
         <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
           <span className="font-mono text-data-lg text-text-primary block">
             {activeContacts.length}
@@ -2183,17 +2338,39 @@ function StepReview({
             {leadCount}
           </span>
           <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
-            Active leads
+            Leads
           </span>
         </div>
-        <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
-          <span className="font-mono text-data-lg text-text-secondary block">
-            {clientOnlyCount}
-          </span>
-          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
-            Client only
-          </span>
-        </div>
+        {companyCount > 0 && (
+          <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
+            <span className="font-mono text-data-lg text-ops-accent block">
+              {companyCount}
+            </span>
+            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              Companies
+            </span>
+          </div>
+        )}
+        {existingCount > 0 && (
+          <div className="px-1.5 py-1 rounded border border-[rgba(255,180,50,0.3)] text-left">
+            <span className="font-mono text-data-lg text-[#FFB432] block">
+              {existingCount}
+            </span>
+            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              Existing
+            </span>
+          </div>
+        )}
+        {companyCount === 0 && existingCount === 0 && (
+          <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
+            <span className="font-mono text-data-lg text-text-secondary block">
+              {clientOnlyCount}
+            </span>
+            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              Client only
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Lead logic explanation */}
@@ -2202,7 +2379,8 @@ function StepReview({
           <Zap className="w-[12px] h-[12px] text-[#C4A868] mt-[2px] shrink-0" />
           <p className="font-kosugi text-[10px] text-text-secondary leading-relaxed text-left">
             Leads are auto-created for inquiries within the last 2 weeks.
-            Click a contact to expand details. Click the lead badge to toggle.
+            {companyCount > 0 && " Multiple people from the same domain are grouped as a company."}
+            {existingCount > 0 && " Existing clients are flagged in orange."}
           </p>
         </div>
       </motion.div>
@@ -2219,13 +2397,13 @@ function StepReview({
               </div>
             ) : (
               contacts.map((contact) => {
-                const isExpanded = expandedContact === contact.fromEmail;
+                const isExpanded = expandedContact === contact.key;
                 return (
                   <div
-                    key={contact.fromEmail}
+                    key={contact.key}
                     className={`border-b border-border-subtle/50 transition-all ${
                       contact.excluded ? "opacity-40" : ""
-                    }`}
+                    } ${contact.existingClient ? "border-l-2 border-l-[#FFB432]/50" : ""}`}
                   >
                     {/* Main row */}
                     <div
@@ -2234,31 +2412,41 @@ function StepReview({
                       }`}
                       onClick={() => {
                         if (!contact.excluded) {
-                          onExpandContact(isExpanded ? null : contact.fromEmail);
+                          onExpandContact(isExpanded ? null : contact.key);
                         }
                       }}
                     >
-                      {/* Checkbox */}
-                      <button
-                        onClick={(e) => {
+                      {/* Checkbox — uses onPointerDown to prevent double-click glitch */}
+                      <div
+                        className="shrink-0"
+                        onPointerDown={(e) => {
                           e.stopPropagation();
-                          onToggleContact(contact.fromEmail);
+                          e.preventDefault();
+                          onToggleContact(contact.key);
                         }}
-                        className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center shrink-0 transition-all ${
-                          contact.excluded
-                            ? "border-text-disabled/30 bg-transparent"
-                            : "border-ops-accent bg-ops-accent/10"
-                        }`}
                       >
-                        {!contact.excluded && (
-                          <Check className="w-[10px] h-[10px] text-ops-accent" />
-                        )}
-                      </button>
+                        <div
+                          className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center cursor-pointer transition-all ${
+                            contact.excluded
+                              ? "border-text-disabled/30 bg-transparent"
+                              : "border-ops-accent bg-ops-accent/10"
+                          }`}
+                        >
+                          {!contact.excluded && (
+                            <Check className="w-[10px] h-[10px] text-ops-accent" />
+                          )}
+                        </div>
+                      </div>
 
                       {/* Contact info */}
                       <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center gap-[6px]">
-                          {editingName === contact.fromEmail ? (
+                          {/* Company group icon */}
+                          {contact.isCompanyGroup && (
+                            <Building2 className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                          )}
+
+                          {editingName === contact.key ? (
                             <input
                               autoFocus
                               className="font-mohave text-body-sm text-text-primary bg-transparent border-b border-ops-accent outline-none px-0 py-0 w-[180px]"
@@ -2267,7 +2455,7 @@ function StepReview({
                               onBlur={(e) => {
                                 const val = e.target.value.trim();
                                 if (val && val !== contact.name) {
-                                  onEditName(contact.fromEmail, val);
+                                  onEditName(contact.key, val);
                                 }
                                 setEditingName(null);
                               }}
@@ -2287,7 +2475,7 @@ function StepReview({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingName(contact.fromEmail);
+                                  setEditingName(contact.key);
                                 }}
                                 className="opacity-0 group-hover:opacity-100 hover:!opacity-100 text-text-disabled hover:text-ops-accent transition-all p-[2px]"
                                 style={{ opacity: isExpanded ? 1 : undefined }}
@@ -2302,7 +2490,7 @@ function StepReview({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onToggleLead(contact.fromEmail, !contact.createLead);
+                                onToggleLead(contact.key, !contact.createLead);
                               }}
                               className={`inline-flex items-center px-[5px] py-[1px] rounded-sm border transition-all ${
                                 contact.createLead
@@ -2318,10 +2506,26 @@ function StepReview({
                               </span>
                             </button>
                           )}
+
+                          {/* Existing client badge */}
+                          {contact.existingClient && (
+                            <span className="inline-flex items-center px-[5px] py-[1px] rounded-sm border border-[rgba(255,180,50,0.3)] bg-[rgba(255,180,50,0.08)]">
+                              <span className="font-kosugi text-[8px] uppercase tracking-wider text-[#FFB432]">
+                                Exists
+                              </span>
+                            </span>
+                          )}
                         </div>
                         <span className="font-mono text-[10px] text-text-disabled block truncate">
-                          {contact.fromEmail}
+                          {contact.isCompanyGroup
+                            ? `${contact.domain} · ${contact.subContacts?.length ?? 0} people`
+                            : contact.fromEmail}
                         </span>
+                        {contact.existingClient && (
+                          <span className="font-kosugi text-[9px] text-[#FFB432]/70 block truncate">
+                            Matches existing: {contact.existingClient.name}
+                          </span>
+                        )}
                       </div>
 
                       {/* Email count + date + chevron */}
@@ -2345,7 +2549,7 @@ function StepReview({
                       </div>
                     </div>
 
-                    {/* Expanded email preview */}
+                    {/* Expanded details */}
                     {isExpanded && !contact.excluded && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
@@ -2354,31 +2558,66 @@ function StepReview({
                         transition={{ duration: 0.2, ease: EASE }}
                         className="overflow-hidden"
                       >
-                        <div className="px-2 pb-2 pt-0 ml-[26px] space-y-[4px]">
-                          {contact.recentEmails.length > 0 ? (
-                            contact.recentEmails.map((email, i) => (
-                              <div
-                                key={i}
-                                className="px-1.5 py-1 rounded bg-background-card border border-border-subtle text-left"
-                              >
-                                <div className="flex items-center justify-between gap-[8px] mb-[2px]">
-                                  <span className="font-mohave text-[11px] text-text-primary truncate flex-1">
-                                    {email.subject}
-                                  </span>
-                                  <span className="font-kosugi text-[8px] text-text-disabled shrink-0">
-                                    {new Date(email.date).toLocaleDateString(undefined, {
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
+                        <div className="px-2 pb-2 pt-1.5 ml-[26px] space-y-[6px]">
+                          {/* Sub-contacts list for company groups */}
+                          {contact.isCompanyGroup && contact.subContacts && (
+                            <div className="space-y-[2px]">
+                              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                                People
+                              </span>
+                              {contact.subContacts.map((sub) => (
+                                <div
+                                  key={sub.fromEmail}
+                                  className="flex items-center justify-between px-1.5 py-[3px] rounded bg-background-card border border-border-subtle text-left"
+                                >
+                                  <div className="min-w-0">
+                                    <span className="font-mohave text-[11px] text-text-primary block truncate">
+                                      {sub.name}
+                                    </span>
+                                    <span className="font-mono text-[9px] text-text-disabled block truncate">
+                                      {sub.fromEmail}
+                                    </span>
+                                  </div>
+                                  <span className="font-mono text-[9px] text-text-disabled shrink-0">
+                                    {sub.emailCount} email{sub.emailCount !== 1 ? "s" : ""}
                                   </span>
                                 </div>
-                                {email.snippet && (
-                                  <p className="font-kosugi text-[9px] text-text-disabled leading-relaxed line-clamp-2">
-                                    {email.snippet}
-                                  </p>
-                                )}
-                              </div>
-                            ))
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Recent emails */}
+                          {contact.recentEmails.length > 0 ? (
+                            <div className="space-y-[4px]">
+                              {contact.isCompanyGroup && (
+                                <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                                  Recent emails
+                                </span>
+                              )}
+                              {contact.recentEmails.map((email, i) => (
+                                <div
+                                  key={i}
+                                  className="px-1.5 py-1 rounded bg-background-card border border-border-subtle text-left"
+                                >
+                                  <div className="flex items-center justify-between gap-[8px] mb-[2px]">
+                                    <span className="font-mohave text-[11px] text-text-primary truncate flex-1">
+                                      {email.subject}
+                                    </span>
+                                    <span className="font-kosugi text-[8px] text-text-disabled shrink-0">
+                                      {new Date(email.date).toLocaleDateString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  </div>
+                                  {email.snippet && (
+                                    <p className="font-kosugi text-[9px] text-text-disabled leading-relaxed line-clamp-2">
+                                      {email.snippet}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           ) : (
                             <span className="font-kosugi text-[9px] text-text-disabled">
                               No email previews available

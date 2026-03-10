@@ -399,7 +399,7 @@ function TierModuleCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex flex-col gap-[4px] px-[8px] py-[6px] border rounded border-l-2 transition-all duration-150",
+        "flex items-center gap-[6px] px-[8px] py-[6px] border rounded border-l-2 transition-all duration-150",
         "group/tier-card",
         TIER_CARD_BORDER[tier],
         "border-border bg-[rgba(255,255,255,0.02)]",
@@ -408,45 +408,31 @@ function TierModuleCard({
           "hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.12)]"
       )}
     >
-      <div className="flex items-center gap-[6px]">
-        {/* Drag handle */}
-        {!disabled && (
-          <div
-            {...attributes}
-            {...listeners}
-            className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/tier-card:opacity-100 transition-opacity"
-          >
-            <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
-          </div>
-        )}
+      {/* Drag handle */}
+      {!disabled && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/tier-card:opacity-100 transition-opacity"
+        >
+          <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
+        </div>
+      )}
 
-        <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
-          {label}
+      <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
+        {label}
+      </span>
+
+      {/* Custom badge for non-standard tier mapping */}
+      {isCustom && (
+        <span className="font-mono text-[9px] text-ops-accent bg-ops-accent-muted px-[4px] py-[1px] rounded-sm shrink-0">
+          {t("roles.customPermissions")}
         </span>
+      )}
 
-        {/* Custom badge for non-standard tier mapping */}
-        {isCustom && (
-          <span className="font-mono text-[9px] text-ops-accent bg-ops-accent-muted px-[4px] py-[1px] rounded-sm shrink-0">
-            {t("roles.customPermissions")}
-          </span>
-        )}
-
-        {/* Remove button */}
-        {!disabled && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-disabled hover:text-ops-error transition-all"
-            title={t("roles.removePermission")}
-          >
-            <X className="w-[12px] h-[12px]" />
-          </button>
-        )}
-      </div>
-
-      {/* Inline scope picker */}
+      {/* Inline scope picker — far right, inline with title */}
       {hasScopes && (
-        <div className="flex items-center gap-0">
+        <div className="flex items-center gap-0 shrink-0">
           {availableScopes.map((scope) => (
             <button
               key={scope}
@@ -467,6 +453,18 @@ function TierModuleCard({
             </button>
           ))}
         </div>
+      )}
+
+      {/* Remove button */}
+      {!disabled && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-disabled hover:text-ops-error transition-all"
+          title={t("roles.removePermission")}
+        >
+          <X className="w-[12px] h-[12px]" />
+        </button>
       )}
     </div>
   );
@@ -1452,7 +1450,21 @@ function RoleEditor({
               </Button>
             </div>
           )}
-          <div className="relative">
+          <div
+            className={cn("relative", isPreset && "cursor-not-allowed")}
+            onClickCapture={isPreset ? (e) => {
+              // Block all clicks on preset permission boards, but allow hover for tooltips
+              e.stopPropagation();
+              e.preventDefault();
+              toast(t("roles.cannotEditPreset"), {
+                description: t("roles.presetBanner"),
+                action: {
+                  label: t("roles.duplicateToEdit"),
+                  onClick: handleDuplicate,
+                },
+              });
+            } : undefined}
+          >
             {isMobile || permViewMode === "list" ? (
               <div className="p-1.5">
                 <MobilePermissionEditor
@@ -1475,21 +1487,6 @@ function RoleEditor({
                 onBulkAdd={handleBulkAdd}
                 onScopeChange={handleScopeChange}
                 disabled={isPreset}
-              />
-            )}
-            {/* Click-capture overlay for preset roles — shows toast on interaction */}
-            {isPreset && (
-              <div
-                className="absolute inset-0 z-10 cursor-not-allowed"
-                onClick={() => {
-                  toast(t("roles.cannotEditPreset"), {
-                    description: t("roles.presetBanner"),
-                    action: {
-                      label: t("roles.duplicateToEdit"),
-                      onClick: handleDuplicate,
-                    },
-                  });
-                }}
               />
             )}
           </div>
@@ -1943,8 +1940,9 @@ function RoleRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between py-[10px] border-b border-[rgba(255,255,255,0.04)] last:border-0",
-        role.isPreset && "opacity-80"
+        "flex items-center justify-between py-[10px] border-b border-[rgba(255,255,255,0.04)] last:border-0 relative",
+        role.isPreset && "opacity-80",
+        menuOpen && "z-40"
       )}
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-1">

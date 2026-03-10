@@ -665,6 +665,7 @@
   "wizard.taskTypes.templates": "sub-tareas",
   "wizard.taskTypes.hours": "hrs",
   "wizard.taskTypes.continue": "Continuar",
+  "wizard.taskTypes.back": "Volver",
   "wizard.taskTypes.namePlaceholder": "Nombre del tipo personalizado...",
 
   "wizard.dependencies.headline": "UNA COSA MÁS",
@@ -685,6 +686,8 @@
   "wizard.review.back": "Volver",
   "wizard.review.creating": "Configurando...",
   "wizard.review.success": "Listo. Tus tipos de tarea están listos.",
+  "wizard.review.elapsed": "Configurado en {seconds}s",
+  "wizard.review.depOrder": "Orden de dependencias",
 
   "wizard.nudge.message": "Configura tus tipos de tarea. 30 segundos. Hace la programación 10 veces más fácil.",
   "wizard.nudge.cta": "Iniciar configuración"
