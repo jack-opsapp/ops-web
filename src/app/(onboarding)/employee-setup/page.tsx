@@ -1,18 +1,23 @@
 "use client";
 
+/**
+ * Employee Setup Page — 4-step onboarding for invited employees
+ *
+ * Steps: Profile → Phone → Emergency Contact → Notifications
+ *
+ * Design system: glass surfaces, UPPERCASE titles, [bracket] captions,
+ * 56dp touch targets, 8dp grid, borders-only depth, accent on primary CTA only
+ */
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  User,
-  Phone,
-  Heart,
-  Bell,
   ArrowRight,
   ArrowLeft,
   Loader2,
   Check,
+  ChevronDown,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ops/image-upload";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -23,10 +28,10 @@ import { cn } from "@/lib/utils/cn";
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "phone", label: "Phone", icon: Phone },
-  { id: "emergency", label: "Emergency Contact", icon: Heart },
-  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "profile", label: "PROFILE" },
+  { id: "phone", label: "PHONE" },
+  { id: "emergency", label: "EMERGENCY" },
+  { id: "notifications", label: "NOTIFICATIONS" },
 ] as const;
 
 const RELATIONSHIP_OPTIONS = [
@@ -50,7 +55,7 @@ async function saveProgress(fields: Record<string, unknown>) {
   });
 }
 
-async function completeSetup(): Promise<{ needsRole: boolean }> {
+async function completeSetupRequest(): Promise<{ needsRole: boolean }> {
   const token = await getIdToken();
   if (!token) throw new Error("Not authenticated");
   const res = await fetch("/api/employee-setup/complete", {
@@ -60,6 +65,110 @@ async function completeSetup(): Promise<{ needsRole: boolean }> {
   });
   if (!res.ok) throw new Error("Failed to complete setup");
   return res.json();
+}
+
+// ─── Toggle Component ───────────────────────────────────────────────────────
+
+function OpsToggle({
+  enabled,
+  onToggle,
+  label,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
+      onClick={onToggle}
+      className={cn(
+        "w-[44px] h-[24px] rounded-full transition-colors duration-150 relative flex-shrink-0",
+        "border",
+        enabled
+          ? "border-[rgba(255,255,255,0.12)]"
+          : "border-[rgba(255,255,255,0.08)]"
+      )}
+    >
+      <div
+        className={cn(
+          "w-[18px] h-[18px] rounded-full absolute top-[2px] transition-all duration-150",
+          enabled
+            ? "translate-x-[21px] bg-text-primary"
+            : "translate-x-[2px] bg-text-disabled"
+        )}
+      />
+    </button>
+  );
+}
+
+// ─── Relationship Dropdown ──────────────────────────────────────────────────
+
+function RelationshipSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <label className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em] mb-1 block">
+        RELATIONSHIP
+      </label>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "w-full flex items-center justify-between",
+          "bg-background-input text-text-primary font-mohave text-body",
+          "px-2 py-1.5 rounded-sm min-h-[56px]",
+          "border border-[rgba(255,255,255,0.08)]",
+          "transition-all duration-150",
+          "focus:border-ops-accent focus:outline-none",
+          !value && "text-text-disabled"
+        )}
+      >
+        <span>{value || "Select relationship"}</span>
+        <ChevronDown
+          className={cn(
+            "w-5 h-5 text-text-tertiary transition-transform flex-shrink-0",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm overflow-hidden">
+          {RELATIONSHIP_OPTIONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                onChange(r);
+                setOpen(false);
+              }}
+              className={cn(
+                "w-full text-left px-2 min-h-[56px] flex items-center",
+                "font-mohave text-body-sm transition-colors border-b border-[rgba(255,255,255,0.04)]",
+                value === r
+                  ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
+                  : "text-text-secondary hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary"
+              )}
+            >
+              <span className="flex-1">{r}</span>
+              {value === r && <Check className="w-4 h-4 text-text-primary" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -120,7 +229,7 @@ export default function EmployeeSetupPage() {
           });
           break;
         case "notifications":
-          await completeSetup();
+          await completeSetupRequest();
           store.reset();
           router.push("/dashboard");
           return;
@@ -155,319 +264,254 @@ export default function EmployeeSetupPage() {
   if (!currentUser) return null;
 
   return (
-    <div className="w-full max-w-[480px] space-y-6">
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="font-kosugi text-[11px] text-text-disabled uppercase tracking-wider">
-            Step {currentStep + 1} of {STEPS.length}
-          </span>
-          <span className="font-kosugi text-[11px] text-text-tertiary">
-            {step.label}
-          </span>
-        </div>
-        <div className="h-[3px] bg-background-elevated rounded-full overflow-hidden">
-          <div
-            className="h-full bg-ops-accent rounded-full transition-all duration-500"
-            style={{
-              width: `${((currentStep + 1) / STEPS.length) * 100}%`,
-            }}
-          />
-        </div>
-      </div>
+    <div className="w-full max-w-[480px] mx-auto">
+      {/* Logo */}
+      <h1 className="font-mohave text-display-lg text-text-primary tracking-[0.25em] uppercase mb-4">
+        OPS
+      </h1>
 
-      {/* Step icons */}
-      <div className="flex items-center justify-center gap-3">
-        {STEPS.map((s, i) => {
-          const Icon = s.icon;
-          const isDone = i < currentStep;
-          const isActive = i === currentStep;
-          return (
-            <div
-              key={s.id}
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                isDone && "bg-ops-accent/20",
-                isActive && "bg-ops-accent-muted border-2 border-ops-accent",
-                !isDone && !isActive && "bg-background-elevated"
-              )}
-            >
-              {isDone ? (
-                <Check className="w-4 h-4 text-ops-accent" />
-              ) : (
-                <Icon
-                  className={cn(
-                    "w-4 h-4",
-                    isActive ? "text-ops-accent" : "text-text-disabled"
-                  )}
+      {/* Glass surface card */}
+      <div className="bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm">
+        {/* Progress header */}
+        <div className="p-3 pb-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
+              STEP {currentStep + 1} OF {STEPS.length}
+            </span>
+            <span className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em]">
+              {step.label}
+            </span>
+          </div>
+
+          {/* Segmented progress bar */}
+          <div className="flex items-center gap-1">
+            {STEPS.map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex-1 h-[2px] transition-all duration-200",
+                  i <= currentStep ? "bg-text-primary" : "bg-[rgba(255,255,255,0.08)]"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Separator */}
+        <div className="border-t border-[rgba(255,255,255,0.08)] mx-3 mt-3" />
+
+        {/* Step content */}
+        <div className="p-3 animate-fade-in" key={step.id}>
+          {step.id === "profile" && (
+            <>
+              <h2 className="font-mohave text-heading text-text-primary uppercase">
+                YOUR PROFILE
+              </h2>
+              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+                [confirm your name and add a photo]
+              </p>
+
+              <div className="mb-3">
+                <ImageUpload
+                  value={store.profileImageURL}
+                  onChange={(url) =>
+                    store.setProfile({
+                      firstName: store.firstName,
+                      lastName: store.lastName,
+                      profileImageURL: url,
+                    })
+                  }
+                  size="md"
                 />
-              )}
-            </div>
-          );
-        })}
-      </div>
+              </div>
 
-      {/* Step content */}
-      <div
-        className="bg-background-card border border-border rounded-lg p-6 space-y-4 animate-slide-up"
-        key={step.id}
-      >
-        {step.id === "profile" && (
-          <>
-            <h2 className="font-mohave text-heading text-text-primary">
-              Your Profile
-            </h2>
-            <p className="font-kosugi text-body-sm text-text-secondary">
-              Set up your profile photo and confirm your name.
-            </p>
-            <div className="flex justify-center">
-              <ImageUpload
-                value={store.profileImageURL}
-                onChange={(url) =>
-                  store.setProfile({
-                    firstName: store.firstName,
-                    lastName: store.lastName,
-                    profileImageURL: url,
-                  })
-                }
-                size="lg"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                placeholder="First Name"
-                value={store.firstName}
-                onChange={(e) =>
-                  store.setProfile({
-                    firstName: e.target.value,
-                    lastName: store.lastName,
-                    profileImageURL: store.profileImageURL,
-                  })
-                }
-                prefixIcon={<User className="w-4 h-4" />}
-              />
-              <Input
-                placeholder="Last Name"
-                value={store.lastName}
-                onChange={(e) =>
-                  store.setProfile({
-                    firstName: store.firstName,
-                    lastName: e.target.value,
-                    profileImageURL: store.profileImageURL,
-                  })
-                }
-              />
-            </div>
-          </>
-        )}
-
-        {step.id === "phone" && (
-          <>
-            <h2 className="font-mohave text-heading text-text-primary">
-              Phone Number
-            </h2>
-            <p className="font-kosugi text-body-sm text-text-secondary">
-              Your phone number helps your team reach you in the field.
-            </p>
-            <Input
-              type="tel"
-              placeholder="(555) 123-4567"
-              value={store.phone}
-              onChange={(e) => store.setPhone(e.target.value)}
-              prefixIcon={<Phone className="w-4 h-4" />}
-            />
-          </>
-        )}
-
-        {step.id === "emergency" && (
-          <>
-            <h2 className="font-mohave text-heading text-text-primary">
-              Emergency Contact
-            </h2>
-            <p className="font-kosugi text-body-sm text-text-secondary">
-              Optional but recommended for field safety.
-            </p>
-            <Input
-              placeholder="Contact Name"
-              value={store.emergencyContactName}
-              onChange={(e) =>
-                store.setEmergencyContact({
-                  name: e.target.value,
-                  phone: store.emergencyContactPhone,
-                  relationship: store.emergencyContactRelationship,
-                })
-              }
-              prefixIcon={<User className="w-4 h-4" />}
-            />
-            <Input
-              type="tel"
-              placeholder="Contact Phone"
-              value={store.emergencyContactPhone}
-              onChange={(e) =>
-                store.setEmergencyContact({
-                  name: store.emergencyContactName,
-                  phone: e.target.value,
-                  relationship: store.emergencyContactRelationship,
-                })
-              }
-              prefixIcon={<Phone className="w-4 h-4" />}
-            />
-            <select
-              value={store.emergencyContactRelationship}
-              onChange={(e) =>
-                store.setEmergencyContact({
-                  name: store.emergencyContactName,
-                  phone: store.emergencyContactPhone,
-                  relationship: e.target.value,
-                })
-              }
-              className="w-full bg-background-input border border-border rounded-lg px-3 py-2 font-kosugi text-body-sm text-text-primary focus:border-ops-accent focus:outline-none"
-            >
-              <option value="" className="text-text-disabled">
-                Relationship
-              </option>
-              {RELATIONSHIP_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-
-        {step.id === "notifications" && (
-          <>
-            <h2 className="font-mohave text-heading text-text-primary">
-              Notifications
-            </h2>
-            <p className="font-kosugi text-body-sm text-text-secondary">
-              Choose how you&apos;d like to be notified about schedule changes and
-              updates.
-            </p>
-            <div className="space-y-3">
-              <label className="flex items-center justify-between py-2 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <Bell className="w-5 h-5 text-text-secondary" />
-                  <div>
-                    <p className="font-mohave text-body text-text-primary">
-                      Push Notifications
-                    </p>
-                    <p className="font-kosugi text-[11px] text-text-disabled">
-                      Schedule changes, task assignments
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    store.setNotifications({
-                      push: !store.pushEnabled,
-                      email: store.emailEnabled,
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label="First Name"
+                  placeholder="John"
+                  value={store.firstName}
+                  onChange={(e) =>
+                    store.setProfile({
+                      firstName: e.target.value,
+                      lastName: store.lastName,
+                      profileImageURL: store.profileImageURL,
                     })
                   }
-                  className={cn(
-                    "w-11 h-6 rounded-full transition-colors relative",
-                    store.pushEnabled
-                      ? "bg-ops-accent"
-                      : "bg-background-elevated"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform",
-                      store.pushEnabled
-                        ? "translate-x-[22px]"
-                        : "translate-x-0.5"
-                    )}
-                  />
-                </button>
-              </label>
-
-              <label className="flex items-center justify-between py-2 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <svg
-                    className="w-5 h-5 text-text-secondary"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect width="20" height="16" x="2" y="4" rx="2" />
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                  </svg>
-                  <div>
-                    <p className="font-mohave text-body text-text-primary">
-                      Email Notifications
-                    </p>
-                    <p className="font-kosugi text-[11px] text-text-disabled">
-                      Weekly summaries, important alerts
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    store.setNotifications({
-                      push: store.pushEnabled,
-                      email: !store.emailEnabled,
+                  autoFocus
+                />
+                <Input
+                  label="Last Name"
+                  placeholder="Smith"
+                  value={store.lastName}
+                  onChange={(e) =>
+                    store.setProfile({
+                      firstName: store.firstName,
+                      lastName: e.target.value,
+                      profileImageURL: store.profileImageURL,
                     })
                   }
-                  className={cn(
-                    "w-11 h-6 rounded-full transition-colors relative",
-                    store.emailEnabled
-                      ? "bg-ops-accent"
-                      : "bg-background-elevated"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform",
-                      store.emailEnabled
-                        ? "translate-x-[22px]"
-                        : "translate-x-0.5"
-                    )}
-                  />
-                </button>
-              </label>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          disabled={currentStep === 0 || isSaving}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-
-        <Button
-          variant="primary"
-          onClick={handleNext}
-          disabled={!isStepValid() || isSaving}
-          className="gap-2"
-        >
-          {isSaving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : currentStep === STEPS.length - 1 ? (
-            <>
-              Get Started
-              <Check className="w-4 h-4" />
-            </>
-          ) : (
-            <>
-              Next
-              <ArrowRight className="w-4 h-4" />
+                />
+              </div>
             </>
           )}
-        </Button>
+
+          {step.id === "phone" && (
+            <>
+              <h2 className="font-mohave text-heading text-text-primary uppercase">
+                PHONE NUMBER
+              </h2>
+              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+                [helps your team reach you in the field]
+              </p>
+              <Input
+                label="Phone"
+                type="tel"
+                placeholder="(555) 123-4567"
+                value={store.phone}
+                onChange={(e) => store.setPhone(e.target.value)}
+                autoFocus
+              />
+            </>
+          )}
+
+          {step.id === "emergency" && (
+            <>
+              <h2 className="font-mohave text-heading text-text-primary uppercase">
+                EMERGENCY CONTACT
+              </h2>
+              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+                [optional — recommended for field safety]
+              </p>
+              <div className="space-y-2">
+                <Input
+                  label="Contact Name"
+                  placeholder="Jane Smith"
+                  value={store.emergencyContactName}
+                  onChange={(e) =>
+                    store.setEmergencyContact({
+                      name: e.target.value,
+                      phone: store.emergencyContactPhone,
+                      relationship: store.emergencyContactRelationship,
+                    })
+                  }
+                  autoFocus
+                />
+                <Input
+                  label="Contact Phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={store.emergencyContactPhone}
+                  onChange={(e) =>
+                    store.setEmergencyContact({
+                      name: store.emergencyContactName,
+                      phone: e.target.value,
+                      relationship: store.emergencyContactRelationship,
+                    })
+                  }
+                />
+                <RelationshipSelect
+                  value={store.emergencyContactRelationship}
+                  onChange={(val) =>
+                    store.setEmergencyContact({
+                      name: store.emergencyContactName,
+                      phone: store.emergencyContactPhone,
+                      relationship: val,
+                    })
+                  }
+                />
+              </div>
+            </>
+          )}
+
+          {step.id === "notifications" && (
+            <>
+              <h2 className="font-mohave text-heading text-text-primary uppercase">
+                NOTIFICATIONS
+              </h2>
+              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+                [how you want to hear about updates]
+              </p>
+
+              <div className="space-y-0">
+                {/* Push notifications row */}
+                <div className="flex items-center justify-between min-h-[56px] border-b border-[rgba(255,255,255,0.08)]">
+                  <div>
+                    <p className="font-mohave text-body text-text-primary">
+                      PUSH NOTIFICATIONS
+                    </p>
+                    <p className="font-kosugi text-caption-sm text-text-disabled">
+                      [schedule changes, task assignments]
+                    </p>
+                  </div>
+                  <OpsToggle
+                    enabled={store.pushEnabled}
+                    onToggle={() =>
+                      store.setNotifications({
+                        push: !store.pushEnabled,
+                        email: store.emailEnabled,
+                      })
+                    }
+                    label="Toggle push notifications"
+                  />
+                </div>
+
+                {/* Email notifications row */}
+                <div className="flex items-center justify-between min-h-[56px]">
+                  <div>
+                    <p className="font-mohave text-body text-text-primary">
+                      EMAIL NOTIFICATIONS
+                    </p>
+                    <p className="font-kosugi text-caption-sm text-text-disabled">
+                      [weekly summaries, important alerts]
+                    </p>
+                  </div>
+                  <OpsToggle
+                    enabled={store.emailEnabled}
+                    onToggle={() =>
+                      store.setNotifications({
+                        push: store.pushEnabled,
+                        email: !store.emailEnabled,
+                      })
+                    }
+                    label="Toggle email notifications"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between p-3 pt-2 border-t border-[rgba(255,255,255,0.08)]">
+          <button
+            onClick={handleBack}
+            disabled={currentStep === 0 || isSaving}
+            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-secondary hover:text-text-primary disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+
+          <button
+            onClick={handleNext}
+            disabled={!isStepValid() || isSaving}
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text-primary px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : currentStep === STEPS.length - 1 ? (
+              <>
+                GET STARTED
+                <Check className="w-4 h-4" />
+              </>
+            ) : (
+              <>
+                NEXT
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
