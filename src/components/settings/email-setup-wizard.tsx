@@ -20,6 +20,7 @@ import {
   BarChart3,
   Users,
   Shield,
+  Pencil,
 } from "lucide-react";
 import { FilterFunnelCanvas } from "@/components/settings/filter-funnel-canvas";
 import {
@@ -108,6 +109,7 @@ interface ScannedEmail {
   fromEmail: string;
   domain: string;
   subject: string;
+  snippet?: string;
   labels: string[];
   date: string;
   wouldImport: boolean;
@@ -127,7 +129,8 @@ interface ContactPreview {
   emailCount: number;
   firstInquiryDate: Date;
   latestDate: Date;
-  subjects: string[];
+  /** Most recent emails for the expanded preview (newest first) */
+  recentEmails: Array<{ subject: string; snippet: string; date: string }>;
   createLead: boolean;
   excluded: boolean;
 }
@@ -137,8 +140,8 @@ const STEPS: WizardStep[] = [
   { id: "how-it-works", label: "How It Works", icon: Zap },
   { id: "scan", label: "Scan", icon: Search },
   { id: "filters", label: "Filters", icon: Filter },
-  { id: "review", label: "Review", icon: Users },
   { id: "import", label: "Import", icon: ArrowRight },
+  { id: "review", label: "Review", icon: Users },
 ];
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -206,6 +209,9 @@ export function EmailSetupWizard({
 
   // Review state — contacts the user has excluded from creation
   const [excludedContacts, setExcludedContacts] = useState<Set<string>>(new Set());
+  const [editedNames, setEditedNames] = useState<Map<string, string>>(new Map());
+  const [leadOverrides, setLeadOverrides] = useState<Map<string, boolean>>(new Map());
+  const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
   // Import state
   const [importDays, setImportDays] = useState(30);
@@ -622,8 +628,16 @@ export function EmailSetupWizard({
     }
 
     // Compute approved contacts for client/lead creation
+    // Filter scanned emails by the selected import time range
+    const importCutoff = customDate
+      ? new Date(customDate)
+      : (() => { const d = new Date(); d.setDate(d.getDate() - importDays); return d; })();
     const importedIds = computeImportedIds(scannedEmails, filters);
-    const importedEmails = scannedEmails.filter((e) => importedIds.has(e.id));
+    const importedEmails = scannedEmails.filter((e) => {
+      if (!importedIds.has(e.id)) return false;
+      const emailDate = new Date(e.date);
+      return !isNaN(emailDate.getTime()) && emailDate >= importCutoff;
+    });
     const contactMap = new Map<string, { name: string; emails: ScannedEmail[] }>();
     for (const email of importedEmails) {
       if (!email.fromEmail || excludedContacts.has(email.fromEmail)) continue;
@@ -631,11 +645,15 @@ export function EmailSetupWizard({
       if (existing) {
         existing.emails.push(email);
       } else {
-        const fromHeader = email.from ?? "";
-        let name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
-        if (!name || name === email.fromEmail) {
-          const prefix = email.fromEmail.split("@")[0] ?? email.fromEmail;
-          name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        // Use edited name if user changed it, otherwise extract from header
+        let name = editedNames.get(email.fromEmail) ?? "";
+        if (!name) {
+          const fromHeader = email.from ?? "";
+          name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
+          if (!name || name === email.fromEmail) {
+            const prefix = email.fromEmail.split("@")[0] ?? email.fromEmail;
+            name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          }
         }
         contactMap.set(email.fromEmail, { name, emails: [email] });
       }
@@ -646,14 +664,22 @@ export function EmailSetupWizard({
     const approvedContacts: ApprovedContact[] = Array.from(
       contactMap.entries()
     ).map(([fromEmail, { name, emails: contactEmails }]) => {
-      const dates = contactEmails
-        .map((e) => new Date(e.date))
-        .filter((d) => !isNaN(d.getTime()));
-      const earliest =
-        dates.length > 0
-          ? new Date(Math.min(...dates.map((d) => d.getTime())))
-          : new Date();
-      return { fromEmail, name, createLead: earliest >= twoWeeksAgo };
+      // Use lead override if user toggled, otherwise auto-determine
+      const override = leadOverrides.get(fromEmail);
+      let createLead: boolean;
+      if (override !== undefined) {
+        createLead = override;
+      } else {
+        const dates = contactEmails
+          .map((e) => new Date(e.date))
+          .filter((d) => !isNaN(d.getTime()));
+        const earliest =
+          dates.length > 0
+            ? new Date(Math.min(...dates.map((d) => d.getTime())))
+            : new Date();
+        createLead = earliest >= twoWeeksAgo;
+      }
+      return { fromEmail, name, createLead };
     });
 
     // Start import
@@ -715,9 +741,9 @@ export function EmailSetupWizard({
         return scanComplete;
       case "filters":
         return true;
-      case "review":
-        return true;
       case "import":
+        return true;
+      case "review":
         return !importStarted;
       default:
         return true;
@@ -754,7 +780,7 @@ export function EmailSetupWizard({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className={`${(currentStep.id === "filters" && scannedEmails.length > 0) || currentStep.id === "review" ? "max-w-[1100px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
+        className={`${(currentStep.id === "filters" && scannedEmails.length > 0) || currentStep.id === "review" ? "max-w-[900px]" : "max-w-[720px]"} max-h-[90vh] p-0 overflow-hidden transition-[max-width] duration-300`}
         hideClose
       >
         {/* ── Header with step indicator ─────────────────────────────── */}
@@ -893,11 +919,28 @@ export function EmailSetupWizard({
                 />
               )}
 
+              {currentStep.id === "import" && (
+                <StepImport
+                  importDays={importDays}
+                  setImportDays={setImportDays}
+                  customDate={customDate}
+                  setCustomDate={setCustomDate}
+                  importStarted={importStarted}
+                  filters={filters}
+                  scannedEmails={scannedEmails}
+                />
+              )}
+
               {currentStep.id === "review" && (
                 <StepReview
                   scannedEmails={scannedEmails}
                   filters={filters}
                   excludedContacts={excludedContacts}
+                  editedNames={editedNames}
+                  leadOverrides={leadOverrides}
+                  expandedContact={expandedContact}
+                  importDays={importDays}
+                  customDate={customDate}
                   onToggleContact={(email) => {
                     setExcludedContacts((prev) => {
                       const next = new Set(prev);
@@ -909,19 +952,23 @@ export function EmailSetupWizard({
                       return next;
                     });
                   }}
-                  onApproveAll={goNext}
-                />
-              )}
-
-              {currentStep.id === "import" && (
-                <StepImport
-                  importDays={importDays}
-                  setImportDays={setImportDays}
-                  customDate={customDate}
-                  setCustomDate={setCustomDate}
+                  onEditName={(email, name) => {
+                    setEditedNames((prev) => {
+                      const next = new Map(prev);
+                      next.set(email, name);
+                      return next;
+                    });
+                  }}
+                  onToggleLead={(email, createLead) => {
+                    setLeadOverrides((prev) => {
+                      const next = new Map(prev);
+                      next.set(email, createLead);
+                      return next;
+                    });
+                  }}
+                  onExpandContact={setExpandedContact}
+                  onApproveAll={applyFiltersAndImport}
                   importStarted={importStarted}
-                  filters={filters}
-                  scannedEmails={scannedEmails}
                 />
               )}
             </motion.div>
@@ -1981,24 +2028,57 @@ function StepFilters({
   );
 }
 
-// ─── Step 5: Review Contacts ─────────────────────────────────────────────────
+// ─── Step 6: Review Contacts ─────────────────────────────────────────────────
 
 function StepReview({
   scannedEmails,
   filters,
   excludedContacts,
+  editedNames,
+  leadOverrides,
+  expandedContact,
+  importDays,
+  customDate,
   onToggleContact,
+  onEditName,
+  onToggleLead,
+  onExpandContact,
   onApproveAll,
+  importStarted,
 }: {
   scannedEmails: ScannedEmail[];
   filters: GmailSyncFilters;
   excludedContacts: Set<string>;
+  editedNames: Map<string, string>;
+  leadOverrides: Map<string, boolean>;
+  expandedContact: string | null;
+  importDays: number;
+  customDate: string;
   onToggleContact: (email: string) => void;
+  onEditName: (email: string, name: string) => void;
+  onToggleLead: (email: string, createLead: boolean) => void;
+  onExpandContact: (email: string | null) => void;
   onApproveAll: () => void;
+  importStarted: boolean;
 }) {
+  const [editingName, setEditingName] = useState<string | null>(null);
+
+  // Compute the import date cutoff from the user's chosen time range
+  const importCutoff = useMemo(() => {
+    if (customDate) return new Date(customDate);
+    const d = new Date();
+    d.setDate(d.getDate() - importDays);
+    return d;
+  }, [importDays, customDate]);
+
   const contacts = useMemo(() => {
     const importedIds = computeImportedIds(scannedEmails, filters);
-    const imported = scannedEmails.filter((e) => importedIds.has(e.id));
+    const imported = scannedEmails.filter((e) => {
+      if (!importedIds.has(e.id)) return false;
+      // Filter by import time range
+      const emailDate = new Date(e.date);
+      return !isNaN(emailDate.getTime()) && emailDate >= importCutoff;
+    });
 
     // Group by fromEmail
     const map = new Map<string, ScannedEmail[]>();
@@ -2014,16 +2094,17 @@ function StepReview({
 
     const previews: ContactPreview[] = [];
     for (const [fromEmail, emails] of map) {
-      // Extract name from "From" header (e.g., "John Smith <john@gmail.com>" → "John Smith")
-      const fromHeader = emails[0]?.from ?? "";
-      let name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
-      if (!name || name === fromEmail) {
-        // Capitalize email prefix as fallback name
-        const prefix = fromEmail.split("@")[0] ?? fromEmail;
-        name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      // Use edited name if set, otherwise extract from header
+      let name = editedNames.get(fromEmail) ?? "";
+      if (!name) {
+        const fromHeader = emails[0]?.from ?? "";
+        name = fromHeader.replace(/<.*>/, "").trim().replace(/^"(.*)"$/, "$1");
+        if (!name || name === fromEmail) {
+          const prefix = fromEmail.split("@")[0] ?? fromEmail;
+          name = prefix.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
       }
 
-      // Parse dates and find earliest/latest
       const dates = emails
         .map((e) => new Date(e.date))
         .filter((d) => !isNaN(d.getTime()));
@@ -2036,6 +2117,20 @@ function StepReview({
           ? new Date(Math.max(...dates.map((d) => d.getTime())))
           : new Date();
 
+      // Use lead override if user toggled, otherwise auto-determine
+      const override = leadOverrides.get(fromEmail);
+      const createLead = override !== undefined ? override : earliest >= twoWeeksAgo;
+
+      // Most recent 2 emails for expanded preview (sort newest first)
+      const sorted = [...emails].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const recentEmails = sorted.slice(0, 2).map((e) => ({
+        subject: e.subject || "(no subject)",
+        snippet: e.snippet ?? "",
+        date: e.date,
+      }));
+
       previews.push({
         fromEmail,
         name,
@@ -2043,8 +2138,8 @@ function StepReview({
         emailCount: emails.length,
         firstInquiryDate: earliest,
         latestDate: latest,
-        subjects: emails.slice(0, 3).map((e) => e.subject),
-        createLead: earliest >= twoWeeksAgo,
+        recentEmails,
+        createLead,
         excluded: excludedContacts.has(fromEmail),
       });
     }
@@ -2054,7 +2149,7 @@ function StepReview({
       if (a.createLead !== b.createLead) return a.createLead ? -1 : 1;
       return b.latestDate.getTime() - a.latestDate.getTime();
     });
-  }, [scannedEmails, filters, excludedContacts]);
+  }, [scannedEmails, filters, excludedContacts, editedNames, leadOverrides, importCutoff]);
 
   const activeContacts = contacts.filter((c) => !c.excluded);
   const leadCount = activeContacts.filter((c) => c.createLead).length;
@@ -2106,7 +2201,8 @@ function StepReview({
         <div className="flex items-start gap-[6px] px-1.5 py-1 rounded bg-[rgba(196,168,104,0.08)] border border-[rgba(196,168,104,0.15)]">
           <Zap className="w-[12px] h-[12px] text-[#C4A868] mt-[2px] shrink-0" />
           <p className="font-kosugi text-[10px] text-text-secondary leading-relaxed text-left">
-            Leads are auto-created for inquiries within the last 2 weeks. Older contacts become clients only &mdash; no active lead.
+            Leads are auto-created for inquiries within the last 2 weeks.
+            Click a contact to expand details. Click the lead badge to toggle.
           </p>
         </div>
       </motion.div>
@@ -2114,7 +2210,7 @@ function StepReview({
       {/* Scrollable contact list */}
       <motion.div variants={staggerItem} className="relative">
         <div className="rounded border border-border-subtle overflow-hidden">
-          <div className="max-h-[300px] overflow-y-auto">
+          <div className="max-h-[320px] overflow-y-auto scrollbar-hide">
             {contacts.length === 0 ? (
               <div className="flex items-center justify-center py-6">
                 <span className="font-mohave text-body-sm text-text-disabled">
@@ -2122,62 +2218,178 @@ function StepReview({
                 </span>
               </div>
             ) : (
-              contacts.map((contact) => (
-                <div
-                  key={contact.fromEmail}
-                  className={`flex items-center gap-[8px] px-2 py-[8px] border-b border-border-subtle/50 transition-all ${
-                    contact.excluded
-                      ? "opacity-40"
-                      : "hover:bg-background-elevated"
-                  }`}
-                >
-                  {/* Checkbox */}
-                  <button
-                    onClick={() => onToggleContact(contact.fromEmail)}
-                    className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center shrink-0 transition-all ${
-                      contact.excluded
-                        ? "border-text-disabled/30 bg-transparent"
-                        : "border-ops-accent bg-ops-accent/10"
+              contacts.map((contact) => {
+                const isExpanded = expandedContact === contact.fromEmail;
+                return (
+                  <div
+                    key={contact.fromEmail}
+                    className={`border-b border-border-subtle/50 transition-all ${
+                      contact.excluded ? "opacity-40" : ""
                     }`}
                   >
-                    {!contact.excluded && (
-                      <Check className="w-[10px] h-[10px] text-ops-accent" />
-                    )}
-                  </button>
+                    {/* Main row */}
+                    <div
+                      className={`flex items-center gap-[8px] px-2 py-[8px] transition-colors ${
+                        contact.excluded ? "" : "hover:bg-background-elevated cursor-pointer"
+                      }`}
+                      onClick={() => {
+                        if (!contact.excluded) {
+                          onExpandContact(isExpanded ? null : contact.fromEmail);
+                        }
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleContact(contact.fromEmail);
+                        }}
+                        className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center shrink-0 transition-all ${
+                          contact.excluded
+                            ? "border-text-disabled/30 bg-transparent"
+                            : "border-ops-accent bg-ops-accent/10"
+                        }`}
+                      >
+                        {!contact.excluded && (
+                          <Check className="w-[10px] h-[10px] text-ops-accent" />
+                        )}
+                      </button>
 
-                  {/* Contact info */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center gap-[6px]">
-                      <span className="font-mohave text-body-sm text-text-primary truncate">
-                        {contact.name}
-                      </span>
-                      {contact.createLead && !contact.excluded && (
-                        <span className="inline-flex items-center px-[5px] py-[1px] rounded-sm bg-[rgba(196,168,104,0.15)] border border-[rgba(196,168,104,0.25)]">
-                          <span className="font-kosugi text-[8px] text-[#C4A868] uppercase tracking-wider">
-                            Lead
-                          </span>
+                      {/* Contact info */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-[6px]">
+                          {editingName === contact.fromEmail ? (
+                            <input
+                              autoFocus
+                              className="font-mohave text-body-sm text-text-primary bg-transparent border-b border-ops-accent outline-none px-0 py-0 w-[180px]"
+                              defaultValue={contact.name}
+                              onClick={(e) => e.stopPropagation()}
+                              onBlur={(e) => {
+                                const val = e.target.value.trim();
+                                if (val && val !== contact.name) {
+                                  onEditName(contact.fromEmail, val);
+                                }
+                                setEditingName(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  (e.target as HTMLInputElement).blur();
+                                } else if (e.key === "Escape") {
+                                  setEditingName(null);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <>
+                              <span className="font-mohave text-body-sm text-text-primary truncate">
+                                {contact.name}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingName(contact.fromEmail);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 hover:!opacity-100 text-text-disabled hover:text-ops-accent transition-all p-[2px]"
+                                style={{ opacity: isExpanded ? 1 : undefined }}
+                              >
+                                <Pencil className="w-[10px] h-[10px]" />
+                              </button>
+                            </>
+                          )}
+
+                          {/* Lead badge — clickable toggle */}
+                          {!contact.excluded && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleLead(contact.fromEmail, !contact.createLead);
+                              }}
+                              className={`inline-flex items-center px-[5px] py-[1px] rounded-sm border transition-all ${
+                                contact.createLead
+                                  ? "bg-[rgba(196,168,104,0.15)] border-[rgba(196,168,104,0.25)] hover:bg-[rgba(196,168,104,0.25)]"
+                                  : "bg-transparent border-border-subtle hover:border-text-disabled"
+                              }`}
+                              title={contact.createLead ? "Click to remove lead" : "Click to create lead"}
+                            >
+                              <span className={`font-kosugi text-[8px] uppercase tracking-wider ${
+                                contact.createLead ? "text-[#C4A868]" : "text-text-disabled"
+                              }`}>
+                                {contact.createLead ? "Lead" : "Client"}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                        <span className="font-mono text-[10px] text-text-disabled block truncate">
+                          {contact.fromEmail}
                         </span>
-                      )}
-                    </div>
-                    <span className="font-mono text-[10px] text-text-disabled block truncate">
-                      {contact.fromEmail}
-                    </span>
-                  </div>
+                      </div>
 
-                  {/* Email count + date */}
-                  <div className="text-right shrink-0">
-                    <span className="font-mono text-[10px] text-text-secondary block">
-                      {contact.emailCount} email{contact.emailCount !== 1 ? "s" : ""}
-                    </span>
-                    <span className="font-kosugi text-[8px] text-text-disabled block">
-                      {contact.firstInquiryDate.toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
+                      {/* Email count + date + chevron */}
+                      <div className="flex items-center gap-[6px] shrink-0">
+                        <div className="text-right">
+                          <span className="font-mono text-[10px] text-text-secondary block">
+                            {contact.emailCount} email{contact.emailCount !== 1 ? "s" : ""}
+                          </span>
+                          <span className="font-kosugi text-[8px] text-text-disabled block">
+                            {contact.firstInquiryDate.toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <ChevronDown
+                          className={`w-[12px] h-[12px] text-text-disabled transition-transform duration-200 ${
+                            isExpanded ? "" : "-rotate-90"
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Expanded email preview */}
+                    {isExpanded && !contact.excluded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: EASE }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-2 pb-2 pt-0 ml-[26px] space-y-[4px]">
+                          {contact.recentEmails.length > 0 ? (
+                            contact.recentEmails.map((email, i) => (
+                              <div
+                                key={i}
+                                className="px-1.5 py-1 rounded bg-background-card border border-border-subtle text-left"
+                              >
+                                <div className="flex items-center justify-between gap-[8px] mb-[2px]">
+                                  <span className="font-mohave text-[11px] text-text-primary truncate flex-1">
+                                    {email.subject}
+                                  </span>
+                                  <span className="font-kosugi text-[8px] text-text-disabled shrink-0">
+                                    {new Date(email.date).toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                                {email.snippet && (
+                                  <p className="font-kosugi text-[9px] text-text-disabled leading-relaxed line-clamp-2">
+                                    {email.snippet}
+                                  </p>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <span className="font-kosugi text-[9px] text-text-disabled">
+                              No email previews available
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -2187,12 +2399,21 @@ function StepReview({
       <motion.div variants={staggerItem} className="sticky bottom-0 pt-1">
         <Button
           onClick={onApproveAll}
-          disabled={activeContacts.length === 0}
+          disabled={activeContacts.length === 0 || importStarted}
           className="w-full gap-[6px] font-kosugi text-[12px]"
         >
-          <CheckCircle className="w-[14px] h-[14px]" />
-          Approve {activeContacts.length} Client{activeContacts.length !== 1 ? "s" : ""}
-          {leadCount > 0 && ` & ${leadCount} Lead${leadCount !== 1 ? "s" : ""}`}
+          {importStarted ? (
+            <>
+              <Loader2 className="w-[14px] h-[14px] animate-spin" />
+              Importing...
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-[14px] h-[14px]" />
+              Approve {activeContacts.length} Client{activeContacts.length !== 1 ? "s" : ""}
+              {leadCount > 0 && ` & ${leadCount} Lead${leadCount !== 1 ? "s" : ""}`}
+            </>
+          )}
         </Button>
       </motion.div>
     </motion.div>
