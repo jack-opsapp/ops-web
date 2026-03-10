@@ -175,7 +175,7 @@ function RelationshipSelect({
 
 export default function EmployeeSetupPage() {
   const router = useRouter();
-  const { currentUser } = useAuthStore();
+  const { currentUser, setUser } = useAuthStore();
   const store = useEmployeeSetupStore();
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -230,6 +230,23 @@ export default function EmployeeSetupPage() {
           break;
         case "notifications":
           await completeSetupRequest();
+          // Update auth store so useSetupGate sees the completed state
+          // before dashboard renders — prevents redirect loop
+          if (currentUser) {
+            setUser({
+              ...currentUser,
+              firstName: store.firstName || currentUser.firstName,
+              lastName: store.lastName || currentUser.lastName,
+              phone: store.phone || currentUser.phone,
+              setupProgress: {
+                ...currentUser.setupProgress,
+                steps: {
+                  ...currentUser.setupProgress?.steps,
+                  employee_onboarding: true,
+                },
+              },
+            });
+          }
           store.reset();
           router.push("/dashboard");
           return;
