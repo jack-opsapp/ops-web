@@ -47,6 +47,7 @@ export default async function ABTestingPage() {
           caption={`Test started ${daysSinceStart} day${daysSinceStart === 1 ? '' : 's'} ago · ${test.status.toUpperCase()}`}
         />
         <div className="flex gap-4 text-xs text-white/40 mt-1">
+          <Link href="/admin/ab-testing/components" className="hover:text-white/70">Components →</Link>
           <Link href="/admin/ab-testing/history" className="hover:text-white/70">History →</Link>
           <Link href="/admin/ab-testing/config" className="hover:text-white/70">Config →</Link>
         </div>
