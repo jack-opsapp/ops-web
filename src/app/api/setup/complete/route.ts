@@ -5,7 +5,7 @@
  * starfield) should already be saved via /api/setup/progress.
  *
  * - Verifies Firebase/Supabase auth token
- * - Sets has_completed_onboarding: true on the user record
+ * - Sets onboarding_completed.web: true on the user record (JSONB merge)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const db = getServiceRoleClient();
 
     // Find the user by auth credentials (auth_id → firebase_uid → email)
-    const userRow = await findUserByAuth(verifiedUser.uid, verifiedUser.email, "id");
+    const userRow = await findUserByAuth(verifiedUser.uid, verifiedUser.email, "id, onboarding_completed");
 
     if (!userRow) {
       return NextResponse.json(
@@ -50,11 +50,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const userId = userRow.id as string;
 
-    // Mark onboarding as complete
+    // Mark web onboarding as complete (JSONB merge preserves ios flag)
+    const currentOnboarding = (userRow as Record<string, unknown>).onboarding_completed as Record<string, boolean> | null;
     await db
       .from("users")
       .update({
-        has_completed_onboarding: true,
+        onboarding_completed: { ...currentOnboarding, web: true },
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);

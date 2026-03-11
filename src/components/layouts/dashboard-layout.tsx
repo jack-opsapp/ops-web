@@ -21,6 +21,7 @@ import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
+import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { useRouter, usePathname } from "next/navigation";
@@ -48,6 +49,11 @@ function ActionPromptsInitializer() {
 
 function GmailSyncNotifier() {
   useGmailSyncNotifications();
+  return null;
+}
+
+function DashboardPreferencesSync() {
+  useDashboardPreferencesSync();
   return null;
 }
 
@@ -85,16 +91,18 @@ function FloatingWindows() {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed, setCollapsed } = useSidebarStore();
-  const { needsEmployeeOnboarding } = useSetupGate();
+  const { needsWebSetup, needsEmployeeOnboarding } = useSetupGate();
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect to employee onboarding if incomplete
+  // Redirect to web setup or employee onboarding if incomplete
   useEffect(() => {
-    if (needsEmployeeOnboarding) {
+    if (needsWebSetup) {
+      router.push("/setup");
+    } else if (needsEmployeeOnboarding) {
       router.push("/employee-setup");
     }
-  }, [needsEmployeeOnboarding, router]);
+  }, [needsWebSetup, needsEmployeeOnboarding, router]);
 
   // Auto-collapse on small screens
   useEffect(() => {
@@ -136,6 +144,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <PreferencesApplier />
       <ActionPromptsInitializer />
       <GmailSyncNotifier />
+      <DashboardPreferencesSync />
       <ActionPromptRenderer />
       <CommandPalette />
       <KeyboardShortcuts />

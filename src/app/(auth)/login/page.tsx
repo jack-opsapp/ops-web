@@ -64,7 +64,7 @@ function LoginForm() {
         setCompany(result.company);
       }
       trackLogin(provider);
-      if (!result.user.hasCompletedAppOnboarding) {
+      if (!result.user.onboardingCompleted?.web) {
         // User hasn't finished onboarding — route based on company membership
         router.push(result.user.companyId ? "/setup" : "/account-type");
       } else {
@@ -112,7 +112,7 @@ function LoginForm() {
         setCompany(result.company);
       }
       trackLogin("email");
-      if (!result.user.hasCompletedAppOnboarding) {
+      if (!result.user.onboardingCompleted?.web) {
         // User hasn't finished onboarding — route based on company membership
         router.push(result.user.companyId ? "/setup" : "/account-type");
       } else {

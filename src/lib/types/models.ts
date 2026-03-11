@@ -371,6 +371,12 @@ export interface SubClient {
   deletedAt: Date | null;
 }
 
+/** Per-platform onboarding completion tracking */
+export interface OnboardingCompleted {
+  ios?: boolean;
+  web?: boolean;
+}
+
 /** Setup progress tracking for web onboarding */
 export interface SetupProgress {
   steps: {
@@ -401,7 +407,7 @@ export interface User {
   isActive: boolean | null;
   userColor: string | null;
   devPermission: boolean;
-  hasCompletedAppOnboarding: boolean;
+  onboardingCompleted: OnboardingCompleted;
   hasCompletedAppTutorial: boolean;
   isCompanyAdmin: boolean;
   inventoryAccess: boolean;

@@ -57,7 +57,7 @@ function mapUserFromDb(row: Record<string, unknown>): User {
     isActive: (row.is_active as boolean) ?? true,
     userColor: (row.user_color as string) ?? null,
     devPermission: (row.dev_permission as boolean) ?? false,
-    hasCompletedAppOnboarding: (row.has_completed_onboarding as boolean) ?? false,
+    onboardingCompleted: (row.onboarding_completed as User["onboardingCompleted"]) ?? {},
     hasCompletedAppTutorial: (row.has_completed_tutorial as boolean) ?? false,
     isCompanyAdmin: (row.is_company_admin as boolean) ?? false,
     inventoryAccess: (row.inventory_access as boolean) ?? false,
@@ -231,7 +231,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       role: UserRoleEnum.Unassigned,
       is_active: true,
       is_company_admin: false,
-      has_completed_onboarding: false,
+      onboarding_completed: {},
       has_completed_tutorial: false,
       dev_permission: false,
     };

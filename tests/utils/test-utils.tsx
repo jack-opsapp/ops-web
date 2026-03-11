@@ -198,7 +198,7 @@ export function mockAuthStore(user?: MockAuthUser): void {
     companyId: "mock-company-id",
     userType: null,
     devPermission: false,
-    hasCompletedAppOnboarding: true,
+    onboardingCompleted: { ios: true, web: true },
     hasCompletedAppTutorial: true,
     inventoryAccess: false,
     specialPermissions: [],

@@ -4,40 +4,44 @@ import { useAuthStore } from "@/lib/store/auth-store";
 
 /**
  * useSetupGate — checks whether the current user has completed
- * the required setup steps (identity, company, and employee onboarding).
+ * web onboarding (identity, company, starfield).
  *
- * Returns `isComplete` (true when identity + company steps are done),
- * the list of `missingSteps` (for the setup interception modal),
- * and `needsEmployeeOnboarding` (true if user joined via invite
- * and hasn't completed employee setup — handled separately).
+ * Returns:
+ * - `isComplete` — true when web onboarding is done
+ * - `needsWebSetup` — true when user should be redirected to /setup
+ * - `missingSteps` — granular steps missing (for interception modal)
+ * - `needsEmployeeOnboarding` — true for invited users who haven't
+ *   completed employee setup (handled separately)
  */
 export function useSetupGate() {
   const { currentUser } = useAuthStore();
 
+  // Web onboarding completed = authoritative flag
+  const webComplete = !!currentUser?.onboardingCompleted?.web;
+
+  // Granular missing steps (for SetupInterceptionModal on action-gated pages)
   const missingSteps: ("identity" | "company")[] = [];
   const progress = currentUser?.setupProgress;
 
-  // Identity: skip if user already has first+last name (e.g. Bubble import)
   const hasIdentity =
     progress?.steps?.identity ||
     (currentUser?.firstName && currentUser?.lastName);
   if (!hasIdentity) missingSteps.push("identity");
 
-  // Company: skip if user already belongs to a company (e.g. joined via invite)
   const hasCompany =
     progress?.steps?.company ||
     !!currentUser?.companyId;
   if (!hasCompany) missingSteps.push("company");
 
   // Employee onboarding: required if user joined via invite
-  // (has a company but didn't go through the company creation step)
   const joinedViaInvite =
     !!currentUser?.companyId && !progress?.steps?.company;
   const needsEmployeeOnboarding =
     joinedViaInvite && !progress?.steps?.employee_onboarding;
 
   return {
-    isComplete: missingSteps.length === 0 && !needsEmployeeOnboarding,
+    isComplete: webComplete,
+    needsWebSetup: !webComplete,
     missingSteps,
     needsEmployeeOnboarding,
   };

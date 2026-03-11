@@ -165,7 +165,10 @@ export const userSchema = z.object({
   isActive: z.boolean().nullable(),
   userColor: z.string().nullable(),
   devPermission: z.boolean(),
-  hasCompletedAppOnboarding: z.boolean(),
+  onboardingCompleted: z.object({
+    ios: z.boolean().optional(),
+    web: z.boolean().optional(),
+  }).default({}),
   hasCompletedAppTutorial: z.boolean(),
   isCompanyAdmin: z.boolean(),
   stripeCustomerId: z.string().nullable(),

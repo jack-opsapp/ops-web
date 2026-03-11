@@ -32,7 +32,7 @@ function mapFromDb(row: Record<string, unknown>): User {
     isActive: (row.is_active as boolean) ?? true,
     userColor: (row.user_color as string) ?? null,
     devPermission: (row.dev_permission as boolean) ?? false,
-    hasCompletedAppOnboarding: (row.has_completed_onboarding as boolean) ?? false,
+    onboardingCompleted: (row.onboarding_completed as User["onboardingCompleted"]) ?? {},
     hasCompletedAppTutorial: (row.has_completed_tutorial as boolean) ?? false,
     isCompanyAdmin: (row.is_company_admin as boolean) ?? false,
     inventoryAccess: (row.inventory_access as boolean) ?? false,
@@ -68,8 +68,8 @@ function mapToDb(data: Partial<User>): Record<string, unknown> {
   if (data.isActive !== undefined) row.is_active = data.isActive;
   if (data.userColor !== undefined) row.user_color = data.userColor;
   if (data.devPermission !== undefined) row.dev_permission = data.devPermission;
-  if (data.hasCompletedAppOnboarding !== undefined)
-    row.has_completed_onboarding = data.hasCompletedAppOnboarding;
+  if (data.onboardingCompleted !== undefined)
+    row.onboarding_completed = data.onboardingCompleted;
   if (data.hasCompletedAppTutorial !== undefined)
     row.has_completed_tutorial = data.hasCompletedAppTutorial;
   if (data.isCompanyAdmin !== undefined) row.is_company_admin = data.isCompanyAdmin;
