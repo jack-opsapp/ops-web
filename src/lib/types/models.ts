@@ -28,23 +28,19 @@ export enum TaskStatus {
   Cancelled = "Cancelled",
 }
 
-/** User role - matches iOS UserRole enum exactly */
+/** User role - matches Supabase users_role_check constraint */
 export enum UserRole {
-  Admin = "Admin",
-  Owner = "Owner",
-  Office = "Office",
-  Operator = "Operator",
-  Crew = "Crew",
-  /** @deprecated Use Crew instead */
-  FieldCrew = "Field Crew",
-  /** @deprecated Use Office instead */
-  OfficeCrew = "Office Crew",
+  Admin = "admin",
+  Owner = "owner",
+  Operator = "operator",
+  Crew = "crew",
+  Unassigned = "unassigned",
 }
 
-/** User type - matches iOS UserType enum exactly */
+/** User type - matches Supabase users_user_type_check constraint */
 export enum UserType {
-  Employee = "Employee",
-  Company = "Company",
+  Employee = "employee",
+  Company = "company",
 }
 
 /** Subscription status values */
@@ -675,16 +671,14 @@ export function getUserRoleDisplay(role: UserRole): string {
       return "Admin";
     case UserRole.Owner:
       return "Owner";
-    case UserRole.Office:
-    case UserRole.OfficeCrew:
-      return "Office";
     case UserRole.Operator:
       return "Operator";
     case UserRole.Crew:
-    case UserRole.FieldCrew:
       return "Crew";
+    case UserRole.Unassigned:
+      return "Unassigned";
     default:
-      return "Crew";
+      return "Unassigned";
   }
 }
 
@@ -816,26 +810,23 @@ export function detectUserRole(
     return UserRole.Admin;
   }
 
-  // Priority 2: Map from employee type
+  // Priority 2: Map from employee type (handle both legacy iOS and snake_case DB values)
   if (employeeType) {
-    switch (employeeType) {
-      case "Admin":
+    const normalized = employeeType.toLowerCase().replace(/\s+/g, "_");
+    switch (normalized) {
+      case "admin":
         return UserRole.Admin;
-      case "Owner":
+      case "owner":
         return UserRole.Owner;
-      case "Office":
-      case "Office Crew":
-        return UserRole.Office;
-      case "Operator":
+      case "operator":
         return UserRole.Operator;
-      case "Crew":
-      case "Field Crew":
+      case "crew":
         return UserRole.Crew;
     }
   }
 
-  // Priority 3: Default to crew
-  return UserRole.Crew;
+  // Priority 3: Default to unassigned
+  return UserRole.Unassigned;
 }
 
 // ─── Utility Types ────────────────────────────────────────────────────────────

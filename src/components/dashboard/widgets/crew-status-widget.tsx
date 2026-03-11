@@ -15,12 +15,10 @@ function toAvatarRole(role: UserRole): AvatarUserRole {
     case UserRole.Admin:
     case UserRole.Owner:
       return "admin";
-    case UserRole.Office:
-    case UserRole.OfficeCrew:
     case UserRole.Operator:
       return "manager";
     case UserRole.Crew:
-    case UserRole.FieldCrew:
+    case UserRole.Unassigned:
     default:
       return "field-crew";
   }

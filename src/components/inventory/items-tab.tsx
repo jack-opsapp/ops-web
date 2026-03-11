@@ -35,7 +35,7 @@ import {
   useBulkDeleteItems,
 } from "@/lib/hooks/use-inventory";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { selectIsOfficeOrAdmin } from "@/lib/store/auth-store";
+import { selectIsAdminOrOwner } from "@/lib/store/auth-store";
 import {
   getEffectiveThresholds,
   getThresholdStatus,
@@ -60,7 +60,7 @@ type SortField = "name" | "quantity" | "status" | "updatedAt";
 
 export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }: ItemsTabProps) {
   // ── Auth ────────────────────────────────────────────────────────────────────
-  const isOfficeOrAdmin = useAuthStore(selectIsOfficeOrAdmin);
+  const isOfficeOrAdmin = useAuthStore(selectIsAdminOrOwner);
 
   // ── Data hooks ──────────────────────────────────────────────────────────────
   const { data: items = [], isLoading } = useInventoryItems();

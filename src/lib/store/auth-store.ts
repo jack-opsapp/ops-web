@@ -4,7 +4,7 @@
  * Zustand store for authentication state.
  * Persists auth state to localStorage for session survival.
  *
- * Role detection: company.adminIds FIRST, then employeeType, then default fieldCrew.
+ * Role detection: company.adminIds FIRST, then employeeType, then default unassigned.
  */
 
 import { create } from "zustand";
@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: true,
-      role: UserRole.Crew,
+      role: UserRole.Unassigned,
 
       // Login: set user, token, and update auth state
       login: (user: User, token: string) => {
@@ -73,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           isAuthenticated: false,
           isLoading: false,
-          role: UserRole.Crew,
+          role: UserRole.Unassigned,
         });
       },
 
@@ -115,7 +115,7 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             isLoading: false,
-            role: UserRole.Crew,
+            role: UserRole.Unassigned,
           });
         }
       },
@@ -123,12 +123,12 @@ export const useAuthStore = create<AuthState>()(
       // Re-evaluate role using iOS priority logic:
       // 1. user.id IN company.adminIds[] -> Admin
       // 2. user.employeeType -> mapped role
-      // 3. default -> FieldCrew
+      // 3. default -> Unassigned
       updateRole: () => {
         const { currentUser, company } = get();
         if (!currentUser) return;
 
-        let role = UserRole.Crew;
+        let role = UserRole.Unassigned;
 
         // Priority 1: Check company admin IDs
         if (company?.adminIds?.includes(currentUser.id)) {
@@ -218,12 +218,12 @@ export const useAuthStore = create<AuthState>()(
 export const selectIsAdmin = (state: AuthState) =>
   state.role === UserRole.Admin;
 
-/** Check if user has office or higher role */
-export const selectIsOfficeOrAdmin = (state: AuthState) =>
-  state.role === UserRole.Admin || state.role === UserRole.Owner || state.role === UserRole.Office;
+/** Check if user has admin or owner role */
+export const selectIsAdminOrOwner = (state: AuthState) =>
+  state.role === UserRole.Admin || state.role === UserRole.Owner;
 
-/** Check if user is field crew (crew or operator) */
-export const selectIsFieldCrew = (state: AuthState) =>
+/** Check if user is field-level (crew or operator) */
+export const selectIsFieldRole = (state: AuthState) =>
   state.role === UserRole.Crew || state.role === UserRole.Operator;
 
 /** Get the company ID */

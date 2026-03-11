@@ -69,13 +69,11 @@ function derivePlan(company: Record<string, unknown>): string {
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  Admin: "#C4A868",
-  Owner: "#A78BFA",
-  Office: "#8195B5",
-  Operator: "#67E8F9",
-  Crew: "#9DB582",
-  "Office Crew": "#8195B5",
-  "Field Crew": "#9DB582",
+  admin: "#C4A868",
+  owner: "#A78BFA",
+  operator: "#67E8F9",
+  crew: "#9DB582",
+  unassigned: "#6B7280",
 };
 
 function timeAgo(date: string | null): string {

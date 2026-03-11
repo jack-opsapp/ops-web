@@ -4,7 +4,7 @@
  * Data CRUD → Supabase `users` table.
  * Auth workflows → Next.js API routes (/api/auth/*).
  *
- * Role detection: company.admin_ids FIRST, then role column, then default Field Crew.
+ * Role detection: company.admin_ids FIRST, then role column, then default Unassigned.
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
@@ -21,7 +21,7 @@ function mapFromDb(row: Record<string, unknown>): User {
     email: (row.email as string) ?? null,
     phone: (row.phone as string) ?? null,
     profileImageURL: (row.profile_image_url as string) ?? null,
-    role: (row.role as UserRole) ?? UserRoleEnum.FieldCrew,
+    role: (row.role as UserRole) ?? UserRoleEnum.Unassigned,
     companyId: (row.company_id as string) ?? null,
     userType: (row.user_type as User["userType"]) ?? null,
     latitude: (row.latitude as number) ?? null,
