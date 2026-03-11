@@ -10,7 +10,7 @@ import type {
 } from './types';
 import {
   CAMERA_LERP, MIN_ZOOM, MAX_ZOOM, DEFAULT_ZOOM,
-  STAR_COUNT, NODE_HIT_RADIUS,
+  STAR_COUNT, NODE_HIT_RADIUS, NODE_POSITIONS_KEY,
   ACCENT, AMBER, HEALTH_COLORS,
   worldToScreen, screenToWorld, zoomOpacity, healthToColor,
   ZOOM_UNIVERSE, ZOOM_GALAXY, ZOOM_DETAIL,
@@ -65,6 +65,8 @@ interface FlowGalaxyCanvasProps {
   onEmptyClick: () => void;
   selectedNodeId: string | null;
   trace: TraceState | null;
+  cameraRef: React.MutableRefObject<GalaxyCamera>;
+  onNodeDragEnd?: (nodeId: string, dx: number, dy: number) => void;
 }
 
 export function FlowGalaxyCanvas({
@@ -76,6 +78,8 @@ export function FlowGalaxyCanvas({
   onEmptyClick,
   selectedNodeId,
   trace,
+  cameraRef,
+  onNodeDragEnd,
 }: FlowGalaxyCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -83,12 +87,6 @@ export function FlowGalaxyCanvas({
   const prevTimestampRef = useRef<number>(0);
   const starsRef = useRef<AmbientStar[]>(generateStars(STAR_COUNT));
   const reducedMotionRef = useRef(false);
-
-  // Camera
-  const cameraRef = useRef<GalaxyCamera>({
-    x: 0, y: 0, zoom: DEFAULT_ZOOM,
-    targetX: 0, targetY: 0, targetZoom: DEFAULT_ZOOM,
-  });
 
   // Mouse
   const mouseRef = useRef({ x: -9999, y: -9999 });
@@ -535,29 +533,29 @@ export function FlowGalaxyCanvas({
           // ── Trace inline metrics ──
           if (trace?.active && trace.nodeMetrics.has(node.id)) {
             const tm = trace.nodeMetrics.get(node.id)!;
-            const badgeX = sx + screenR + 8;
-            const badgeY = sy - screenR;
+            const badgeX = Math.round(sx + screenR + 10);
+            const badgeY = Math.round(sy - screenR - 4);
 
             // Background pill
-            ctx.fillStyle = 'rgba(10,10,10,0.75)';
-            const pillW = 100;
-            const pillH = 48;
+            ctx.fillStyle = 'rgba(10,10,10,0.85)';
+            const pillW = 110;
+            const pillH = 52;
             ctx.beginPath();
             ctx.roundRect(badgeX, badgeY, pillW, pillH, 3);
             ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.10)';
             ctx.lineWidth = 0.5;
             ctx.stroke();
 
-            // Metrics text
+            // Metrics text — use Mohave for legibility
             ctx.textAlign = 'left';
-            ctx.font = '9px Kosugi, sans-serif';
+            ctx.font = '11px Mohave, sans-serif';
             ctx.fillStyle = '#E5E5E5';
-            ctx.fillText(`${tm.reached} / ${Math.round(tm.reachedPct)}%`, badgeX + 6, badgeY + 12);
-            ctx.fillStyle = 'rgba(89,119,148,0.9)';
-            ctx.fillText(`${tm.converted} / ${Math.round(tm.convertedPct)}%`, badgeX + 6, badgeY + 24);
-            ctx.fillStyle = 'rgba(147,65,55,0.9)';
-            ctx.fillText(`${tm.droppedOff} / ${Math.round(tm.droppedOffPct)}%`, badgeX + 6, badgeY + 36);
+            ctx.fillText(`${tm.reached} / ${Math.round(tm.reachedPct)}%`, badgeX + 8, badgeY + 15);
+            ctx.fillStyle = 'rgba(89,119,148,1)';
+            ctx.fillText(`${tm.converted} / ${Math.round(tm.convertedPct)}%`, badgeX + 8, badgeY + 29);
+            ctx.fillStyle = 'rgba(147,65,55,1)';
+            ctx.fillText(`${tm.droppedOff} / ${Math.round(tm.droppedOffPct)}%`, badgeX + 8, badgeY + 43);
             ctx.textAlign = 'center';
           }
         }
@@ -573,12 +571,29 @@ export function FlowGalaxyCanvas({
 
             const midWx = (src.wx + src.dragOffsetX + tgt.wx + tgt.dragOffsetX) / 2;
             const midWy = (src.wy + src.dragOffsetY + tgt.wy + tgt.dragOffsetY) / 2 - 8;
-            const { sx, sy } = worldToScreen(midWx, midWy, cam, cx, cy);
+            const { sx: rawSx, sy: rawSy } = worldToScreen(midWx, midWy, cam, cx, cy);
+            const lsx = Math.round(rawSx);
+            const lsy = Math.round(rawSy);
 
-            ctx.fillStyle = 'rgba(229,229,229,0.6)';
-            ctx.font = '9px Kosugi, sans-serif';
+            const labelText = `${label.count} — ${Math.round(label.pct)}%`;
+            ctx.font = '11px Mohave, sans-serif';
+            const labelW = ctx.measureText(labelText).width + 12;
+            const labelH = 18;
+
+            // Background pill
+            ctx.fillStyle = 'rgba(10,10,10,0.80)';
+            ctx.beginPath();
+            ctx.roundRect(lsx - labelW / 2, lsy - labelH / 2, labelW, labelH, 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(229,229,229,0.85)';
             ctx.textAlign = 'center';
-            ctx.fillText(`${label.count} — ${Math.round(label.pct)}%`, sx, sy);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labelText, lsx, lsy);
+            ctx.textBaseline = 'alphabetic';
           }
         }
       }
@@ -723,8 +738,15 @@ export function FlowGalaxyCanvas({
       } else {
         onEmptyClick();
       }
+    } else if (wasNode && universe && onNodeDragEnd) {
+      // Persist drag position
+      const allNodes = universe.galaxies.flatMap(g => g.nodes);
+      const node = allNodes.find(n => n.id === wasNode);
+      if (node) {
+        onNodeDragEnd(wasNode, node.dragOffsetX, node.dragOffsetY);
+      }
     }
-  }, [onNodeClick, onEmptyClick]);
+  }, [onNodeClick, onEmptyClick, universe, onNodeDragEnd]);
 
   const handleMouseLeave = useCallback(() => {
     mouseRef.current = { x: -9999, y: -9999 };
@@ -805,13 +827,13 @@ export function navigateToGalaxy(
 ) {
   const cam = cameraRef.current;
   if (galaxyId === 'landing') {
-    cam.targetX = -800;
+    cam.targetX = -1200;
     cam.targetY = 0;
-    cam.targetZoom = 0.6;
+    cam.targetZoom = 0.45;
   } else if (galaxyId === 'app') {
-    cam.targetX = 800;
+    cam.targetX = 1200;
     cam.targetY = 0;
-    cam.targetZoom = 0.6;
+    cam.targetZoom = 0.45;
   } else {
     cam.targetX = 0;
     cam.targetY = 0;

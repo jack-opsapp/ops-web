@@ -19,12 +19,13 @@ export const STAR_COUNT = 800;
 export const MAX_PARTICLES = 500;
 export const MIN_RADIUS = 8;
 export const MAX_RADIUS = 35;
-export const GALAXY_RADIUS = 300;
-export const RING_SPACING = 80;
-export const MIN_NODE_SEPARATION = 60;
+export const GALAXY_RADIUS = 500;
+export const RING_SPACING = 140;
+export const MIN_NODE_SEPARATION = 80;
 export const NODE_HIT_RADIUS = 28;
-export const LANDING_CENTER = { x: -800, y: 0 };
-export const APP_CENTER = { x: 800, y: 0 };
+export const LANDING_CENTER = { x: -1200, y: 0 };
+export const APP_CENTER = { x: 1200, y: 0 };
+export const NODE_POSITIONS_KEY = 'galaxy-node-positions';
 
 /* ── Zoom thresholds ── */
 export const ZOOM_UNIVERSE = 0.3;

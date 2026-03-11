@@ -7,7 +7,7 @@ import type {
   GalaxyQueryParams, GalaxyId, GalaxyCamera, GalaxyNode,
   UniverseData, TraceState, ContextMenuState,
 } from './types';
-import { DEFAULT_ZOOM, LANDING_CENTER, APP_CENTER } from './types';
+import { DEFAULT_ZOOM, LANDING_CENTER, APP_CENTER, NODE_POSITIONS_KEY } from './types';
 import type { FlowData } from '@/lib/admin/flow-types';
 import { buildUniverse } from './transform';
 import { FlowGalaxyCanvas, navigateToGalaxy, navigateToNode } from './flow-galaxy-canvas';
@@ -15,6 +15,7 @@ import { FlowGalaxyControls } from './flow-galaxy-controls';
 import { FlowGalaxyOverlay } from './flow-galaxy-overlay';
 import { FlowGalaxyBreadcrumb } from './flow-galaxy-breadcrumb';
 import { FlowGalaxyContextMenu } from './flow-galaxy-context-menu';
+import { FlowGalaxyLegend } from './flow-galaxy-legend';
 
 export function FlowGalaxyDashboard() {
   const [params, setParams] = useState<GalaxyQueryParams>({ days: 30, device: 'all' });
@@ -65,6 +66,23 @@ export function FlowGalaxyDashboard() {
     ]).then(([landingData, appData]) => {
       if (cancelled) return;
       const uni = buildUniverse(landingData, appData);
+
+      // Restore saved node positions from localStorage
+      try {
+        const saved = localStorage.getItem(NODE_POSITIONS_KEY);
+        if (saved) {
+          const positions: Record<string, { dx: number; dy: number }> = JSON.parse(saved);
+          const allNodes = uni.galaxies.flatMap(g => g.nodes);
+          for (const node of allNodes) {
+            const pos = positions[node.id];
+            if (pos) {
+              node.dragOffsetX = pos.dx;
+              node.dragOffsetY = pos.dy;
+            }
+          }
+        }
+      } catch {}
+
       setUniverse(uni);
       setLoading(false);
     }).catch(err => {
@@ -120,6 +138,16 @@ export function FlowGalaxyDashboard() {
       ],
     });
   }, [universe]);
+
+  /* ── Node drag end — persist to localStorage ── */
+  const handleNodeDragEnd = useCallback((nodeId: string, dx: number, dy: number) => {
+    try {
+      const saved = localStorage.getItem(NODE_POSITIONS_KEY);
+      const positions: Record<string, { dx: number; dy: number }> = saved ? JSON.parse(saved) : {};
+      positions[nodeId] = { dx, dy };
+      localStorage.setItem(NODE_POSITIONS_KEY, JSON.stringify(positions));
+    } catch {}
+  }, []);
 
   /* ── Empty click ── */
   const handleEmptyClick = useCallback(() => {
@@ -258,6 +286,8 @@ export function FlowGalaxyDashboard() {
           onEmptyClick={handleEmptyClick}
           selectedNodeId={selectedNodeId}
           trace={trace}
+          cameraRef={cameraRef}
+          onNodeDragEnd={handleNodeDragEnd}
         />
 
         {/* Overlay */}
@@ -284,6 +314,9 @@ export function FlowGalaxyDashboard() {
 
         {/* Breadcrumb */}
         <FlowGalaxyBreadcrumb segments={breadcrumbs} />
+
+        {/* Legend */}
+        <FlowGalaxyLegend />
 
         {/* Error retry */}
         {error && (

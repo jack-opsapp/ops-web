@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listAllAuthUsers, calcActiveUsers } from "@/lib/firebase/admin-sdk";
 import {
   getTotalCompanies,
@@ -5,7 +6,6 @@ import {
   computeMRR,
   getTrialConversionRate,
 } from "@/lib/admin/admin-queries";
-import { StatCard } from "./_components/stat-card";
 import { AdminPageHeader } from "./_components/admin-page-header";
 import { FlowGalaxyDashboard } from "./_components/flow-galaxy/flow-galaxy-dashboard";
 
@@ -36,6 +36,17 @@ async function fetchOverviewData() {
   };
 }
 
+function KpiItem({ label, value, href, accent }: { label: string; value: string | number; href?: string; accent?: boolean }) {
+  const inner = (
+    <span className={`flex items-center gap-2 ${href ? 'hover:text-[#A0A0A0] cursor-pointer' : ''} transition-colors`}>
+      <span className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B]">{label}</span>
+      <span className={`font-mohave text-[15px] font-semibold ${accent ? 'text-[#C4A868]' : 'text-[#E5E5E5]'}`}>{value}</span>
+    </span>
+  );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
+}
+
 export default async function OverviewPage() {
   let data;
   try {
@@ -55,27 +66,23 @@ export default async function OverviewPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen overflow-hidden">
       <AdminPageHeader
         title="Overview"
         caption={`last updated ${new Date().toLocaleTimeString()}`}
       />
 
-      <div className="p-8 pb-4">
-        {/* 6 KPI Cards — clickable */}
-        <div className="grid grid-cols-6 gap-4">
-          <StatCard label="Total Companies" value={data.totalCompanies} href="/admin/companies" />
-          <StatCard label="MAU" value={data.mau} caption="Firebase Auth" href="/admin/engagement" />
-          <StatCard label="WAU" value={data.wau} caption="Firebase Auth" href="/admin/engagement" />
-          <StatCard label="MRR" value={`$${data.mrr.toLocaleString()}`} href="/admin/revenue" />
-          <StatCard label="Trial Conversion" value={`${data.trialConversion}%`} caption="last 90 days" />
-          <StatCard
-            label="Trials Expiring"
-            value={data.trialsExpiring}
-            caption="within 14 days"
-            accent={data.trialsExpiring > 0}
-          />
-        </div>
+      {/* Compact KPI bar */}
+      <div className="flex items-center gap-6 px-6 py-2 border-b border-white/[0.06] flex-shrink-0">
+        <KpiItem label="Companies" value={data.totalCompanies} href="/admin/companies" />
+        <span className="w-px h-3 bg-white/[0.06]" />
+        <KpiItem label="MAU" value={data.mau} href="/admin/engagement" />
+        <KpiItem label="WAU" value={data.wau} href="/admin/engagement" />
+        <span className="w-px h-3 bg-white/[0.06]" />
+        <KpiItem label="MRR" value={`$${data.mrr.toLocaleString()}`} href="/admin/revenue" />
+        <KpiItem label="Trial Conv" value={`${data.trialConversion}%`} />
+        <span className="w-px h-3 bg-white/[0.06]" />
+        <KpiItem label="Trials Expiring" value={data.trialsExpiring} accent={data.trialsExpiring > 0} />
       </div>
 
       <FlowGalaxyDashboard />

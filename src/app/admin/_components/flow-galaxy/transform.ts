@@ -38,7 +38,7 @@ function layoutRing(
 function layoutSubNodes(parent: GalaxyNode) {
   const children = parent.children;
   if (children.length === 0) return;
-  const dist = parent.radius * 2.5 + 20;
+  const dist = parent.radius * 3.5 + 50;
   const angleStep = (2 * Math.PI) / children.length;
   children.forEach((child, i) => {
     const angle = i * angleStep - Math.PI / 2;
@@ -46,7 +46,7 @@ function layoutSubNodes(parent: GalaxyNode) {
     child.wy = parent.wy + Math.sin(angle) * dist;
     // Recurse for depth-2 children
     if (child.children.length > 0) {
-      const subDist = child.radius * 2.0 + 12;
+      const subDist = child.radius * 3.0 + 28;
       const subStep = (2 * Math.PI) / child.children.length;
       child.children.forEach((grandchild, j) => {
         const subAngle = j * subStep - Math.PI / 2;
@@ -184,8 +184,8 @@ export function transformFlowData(
     layoutRing(centerNodes, 0, center.x, center.y);
     // If there's an entry AND conversion, offset them
     if (centerNodes.length >= 2) {
-      centerNodes[0].wx = center.x - 80;
-      centerNodes[1].wx = center.x + 80;
+      centerNodes[0].wx = center.x - 180;
+      centerNodes[1].wx = center.x + 180;
     }
   }
 
