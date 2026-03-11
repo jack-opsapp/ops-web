@@ -140,12 +140,6 @@ const roleStyleConfig: Record<
     bg: "bg-ops-amber-muted",
     borderColor: "border-l-[#C4A868]",
   },
-  office: {
-    icon: Shield,
-    color: "text-ops-accent",
-    bg: "bg-ops-accent-muted",
-    borderColor: "border-l-[#417394]",
-  },
   operator: {
     icon: Shield,
     color: "text-ops-accent",
@@ -158,17 +152,23 @@ const roleStyleConfig: Record<
     bg: "bg-background-elevated",
     borderColor: "border-l-[#555555]",
   },
+  unassigned: {
+    icon: HardHat,
+    color: "text-text-disabled",
+    bg: "bg-background-elevated",
+    borderColor: "border-l-[#333333]",
+  },
 };
 
 const ROLE_LABEL_KEYS: Record<Role, string> = {
   admin: "team.role.admin",
   owner: "team.role.owner",
-  office: "team.role.office",
   operator: "team.role.operator",
   crew: "team.role.crew",
+  unassigned: "team.role.unassigned",
 };
 
-const roleOptions: Role[] = ["admin", "owner", "office", "operator", "crew"];
+const roleOptions: Role[] = ["admin", "owner", "operator", "crew"];
 
 // ─── Role Badge ──────────────────────────────────────────────────────────────
 
