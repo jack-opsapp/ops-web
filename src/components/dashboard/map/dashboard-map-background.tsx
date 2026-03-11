@@ -193,6 +193,16 @@ export function DashboardMapBackground() {
   useEffect(() => {
     const layer = pinLayerRef.current;
     const map = mapRef.current;
+    console.log("[DashboardMap] pin update effect", {
+      hasLayer: !!layer,
+      hasMap: !!map,
+      view,
+      projectCount: projects.length,
+      projectMapSize: projectMap.size,
+      filteredProjectCount: filteredProjects.length,
+      todayTaskCount: todayTasksByProject.size,
+      canViewProjects: can("projects.view"),
+    });
     if (!layer || !map) return;
     layer.clearLayers();
 
