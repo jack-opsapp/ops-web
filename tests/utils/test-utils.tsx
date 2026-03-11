@@ -232,7 +232,7 @@ export function resetAuthStore(): void {
     token: null,
     isAuthenticated: false,
     isLoading: false,
-    role: UserRole.FieldCrew,
+    role: UserRole.Unassigned,
   });
 }
 
