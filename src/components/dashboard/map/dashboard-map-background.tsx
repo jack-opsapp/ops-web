@@ -101,13 +101,14 @@ export function DashboardMapBackground() {
   }, [tasks, view, today, projectMap]);
 
   // ── ACTIVE/ALL mode: filter projects ──
+  // Also used as fallback when "today" has no tasks
   const filteredProjects = useMemo(() => {
-    if (view === "today") return [];
+    if (view === "today" && todayTasksByProject.size > 0) return [];
     return Array.from(projectMap.values()).filter((p) => {
-      if (view === "active") return isActiveProjectStatus(p.status);
+      if (view === "active" || view === "today") return isActiveProjectStatus(p.status);
       return true; // "all"
     });
-  }, [projectMap, view]);
+  }, [projectMap, view, todayTasksByProject.size]);
 
   // Dimmed statuses for ALL mode (completed/closed/archived)
   const isDimmedStatus = (status: string) =>
@@ -193,24 +194,15 @@ export function DashboardMapBackground() {
   useEffect(() => {
     const layer = pinLayerRef.current;
     const map = mapRef.current;
-    console.log("[DashboardMap] pin update effect", {
-      hasLayer: !!layer,
-      hasMap: !!map,
-      view,
-      projectCount: projects.length,
-      projectMapSize: projectMap.size,
-      filteredProjectCount: filteredProjects.length,
-      todayTaskCount: todayTasksByProject.size,
-      canViewProjects: can("projects.view"),
-    });
     if (!layer || !map) return;
     layer.clearLayers();
 
     if (!can("projects.view")) return;
 
     const bounds: L.LatLngExpression[] = [];
+    const showTodayTasks = view === "today" && todayTasksByProject.size > 0;
 
-    if (view === "today") {
+    if (showTodayTasks) {
       // ── TODAY: Task-based pins grouped by project ──
       let idx = 0;
       for (const [projectId, projectTasks] of todayTasksByProject) {
@@ -238,7 +230,7 @@ export function DashboardMapBackground() {
         animateMarker(marker.getElement(), idx++);
       }
     } else {
-      // ── ACTIVE / ALL: Project pins ──
+      // ── ACTIVE / ALL / TODAY-fallback: Project pins ──
       filteredProjects.forEach((project, i) => {
         const lat = project.latitude!;
         const lng = project.longitude!;
