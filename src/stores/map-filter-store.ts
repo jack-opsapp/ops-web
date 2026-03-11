@@ -29,14 +29,18 @@ export const useMapFilterStore = create<MapFilterState>()(
   )
 );
 
-// Non-persisted store for the Leaflet map instance reference.
+// Non-persisted store for the Leaflet map instance + user location.
 // Allows the toolbar to control zoom without prop drilling.
 interface MapInstanceState {
   map: L.Map | null;
+  userLocation: [number, number] | null;
   setMap: (map: L.Map | null) => void;
+  setUserLocation: (loc: [number, number]) => void;
 }
 
 export const useMapInstanceStore = create<MapInstanceState>((set) => ({
   map: null,
+  userLocation: null,
   setMap: (map) => set({ map }),
+  setUserLocation: (loc) => set({ userLocation: loc }),
 }));

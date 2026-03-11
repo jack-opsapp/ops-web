@@ -38,12 +38,16 @@ import {
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
   ._getIconUrl;
 
+// Victoria, BC — default center when user location is unavailable
+const DEFAULT_CENTER: [number, number] = [48.4284, -123.3656];
+
 export function DashboardMapBackground() {
   const pathname = usePathname();
   const isDashboard = pathname === "/dashboard";
   const { isCollapsed } = useSidebarStore();
   const { view, showCrew } = useMapFilterStore();
   const setMapInstance = useMapInstanceStore((s) => s.setMap);
+  const setUserLocation = useMapInstanceStore((s) => s.setUserLocation);
   const can = usePermissionStore((s) => s.can);
 
   // Refs
@@ -51,7 +55,7 @@ export function DashboardMapBackground() {
   const mapRef = useRef<L.Map | null>(null);
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
   const crewLayerRef = useRef<L.LayerGroup | null>(null);
-  const userLocationRef = useRef<L.LatLngExpression | null>(null);
+  const userLocationRef = useRef<[number, number] | null>(null);
 
   // Data hooks
   const { data: projectsData } = useProjects();
@@ -121,8 +125,8 @@ export function DashboardMapBackground() {
     if (!isDashboard || !containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: [39.8283, -98.5795], // Center of US
-      zoom: 4,
+      center: DEFAULT_CENTER,
+      zoom: 11,
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -143,14 +147,16 @@ export function DashboardMapBackground() {
     pinLayerRef.current = L.layerGroup().addTo(map);
     crewLayerRef.current = L.layerGroup().addTo(map);
 
-    // Request user location for fallback when no pins are visible
+    // Request user location — used as zoom target and fallback center
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          userLocationRef.current = [pos.coords.latitude, pos.coords.longitude];
+          const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+          userLocationRef.current = loc;
+          setUserLocation(loc);
         },
         () => {
-          // Permission denied or unavailable — keep null, map stays at default center
+          // Permission denied or unavailable — Victoria BC remains default
         },
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
       );
@@ -163,7 +169,7 @@ export function DashboardMapBackground() {
       pinLayerRef.current = null;
       crewLayerRef.current = null;
     };
-  }, [isDashboard, setMapInstance]);
+  }, [isDashboard, setMapInstance, setUserLocation]);
 
   // ── Invalidate map size when sidebar toggles ──
   useEffect(() => {
@@ -190,23 +196,36 @@ export function DashboardMapBackground() {
     });
   }
 
-  // ── Helper: fit map to bounds (falls back to user location) ──
-  function fitToBounds(map: L.Map, bounds: L.LatLngExpression[]) {
-    if (bounds.length === 0) {
-      // No pins — zoom to user's location or stay at default center
-      if (userLocationRef.current) {
-        map.setView(userLocationRef.current, 11, { animate: true, duration: 0.8 });
-      }
+  // ── Helper: center map on pins, user location, or Victoria BC ──
+  function centerMap(map: L.Map, pinCoords: L.LatLngExpression[]) {
+    const anim = { animate: true, duration: 0.8 };
+
+    if (pinCoords.length === 0) {
+      // No pins → user location or Victoria BC
+      const fallback = userLocationRef.current ?? DEFAULT_CENTER;
+      map.setView(fallback, 11, anim);
       return;
     }
-    if (bounds.length === 1) {
-      map.setView(bounds[0], 14, { animate: true, duration: 0.8 });
+
+    // Center of mass of all pin coordinates
+    let totalLat = 0;
+    let totalLng = 0;
+    for (const coord of pinCoords) {
+      const [lat, lng] = coord as [number, number];
+      totalLat += lat;
+      totalLng += lng;
+    }
+    const centroid: [number, number] = [
+      totalLat / pinCoords.length,
+      totalLng / pinCoords.length,
+    ];
+
+    if (pinCoords.length === 1) {
+      map.setView(centroid, 14, anim);
     } else {
-      map.fitBounds(bounds as L.LatLngBoundsExpression, {
-        padding: [80, 80],
-        animate: true,
-        duration: 0.8,
-      });
+      // Fit bounds but ensure the center is the centroid
+      const bounds = L.latLngBounds(pinCoords as L.LatLngExpression[]);
+      map.fitBounds(bounds, { padding: [80, 80], animate: true, duration: 0.8 });
     }
   }
 
@@ -268,7 +287,7 @@ export function DashboardMapBackground() {
       });
     }
 
-    fitToBounds(map, bounds);
+    centerMap(map, bounds);
   }, [view, todayTasksByProject, filteredProjects, projectMap, can]);
 
   // ── Update crew pins ──

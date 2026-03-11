@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { SubTabs } from "../../_components/sub-tabs";
 import { WebsiteTrafficTab } from "./website-traffic-tab";
 import { VercelProjectsTab } from "./vercel-projects-tab";
@@ -23,14 +22,6 @@ export function AnalyticsContent({
 }: AnalyticsContentProps) {
   return (
     <>
-      <div className="flex items-center justify-end mb-6">
-        <Link
-          href="/admin/analytics/flow"
-          className="px-4 py-2 font-mohave text-[12px] uppercase tracking-wider text-[#597794] border border-[#597794]/30 rounded hover:bg-[#597794]/10 transition-colors"
-        >
-          User Flow Visualization &rarr;
-        </Link>
-      </div>
     <SubTabs tabs={["Website Traffic", "Vercel Projects"]}>
       {(tab) => {
         if (tab === "Website Traffic") {

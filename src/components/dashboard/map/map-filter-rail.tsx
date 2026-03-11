@@ -41,6 +41,7 @@ export function MapFilterRail() {
     toggleRail,
   } = useMapFilterStore();
   const map = useMapInstanceStore((s) => s.map);
+  const userLocation = useMapInstanceStore((s) => s.userLocation);
   const can = usePermissionStore((s) => s.can);
 
   if (pathname !== "/dashboard") return null;
@@ -48,7 +49,14 @@ export function MapFilterRail() {
   const showCrewToggle = can("team.view");
 
   function handleZoomIn() {
-    map?.zoomIn();
+    if (!map) return;
+    // Zoom toward user location
+    if (userLocation) {
+      const nextZoom = Math.min(map.getZoom() + 1, map.getMaxZoom());
+      map.setView(userLocation, nextZoom, { animate: true, duration: 0.3 });
+    } else {
+      map.zoomIn();
+    }
   }
 
   function handleZoomOut() {
