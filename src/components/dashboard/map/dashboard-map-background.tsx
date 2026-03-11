@@ -51,6 +51,7 @@ export function DashboardMapBackground() {
   const mapRef = useRef<L.Map | null>(null);
   const pinLayerRef = useRef<L.LayerGroup | null>(null);
   const crewLayerRef = useRef<L.LayerGroup | null>(null);
+  const userLocationRef = useRef<L.LatLngExpression | null>(null);
 
   // Data hooks
   const { data: projectsData } = useProjects();
@@ -142,6 +143,19 @@ export function DashboardMapBackground() {
     pinLayerRef.current = L.layerGroup().addTo(map);
     crewLayerRef.current = L.layerGroup().addTo(map);
 
+    // Request user location for fallback when no pins are visible
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userLocationRef.current = [pos.coords.latitude, pos.coords.longitude];
+        },
+        () => {
+          // Permission denied or unavailable — keep null, map stays at default center
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
+      );
+    }
+
     return () => {
       map.remove();
       mapRef.current = null;
@@ -176,9 +190,15 @@ export function DashboardMapBackground() {
     });
   }
 
-  // ── Helper: fit map to bounds ──
+  // ── Helper: fit map to bounds (falls back to user location) ──
   function fitToBounds(map: L.Map, bounds: L.LatLngExpression[]) {
-    if (bounds.length === 0) return;
+    if (bounds.length === 0) {
+      // No pins — zoom to user's location or stay at default center
+      if (userLocationRef.current) {
+        map.setView(userLocationRef.current, 11, { animate: true, duration: 0.8 });
+      }
+      return;
+    }
     if (bounds.length === 1) {
       map.setView(bounds[0], 14, { animate: true, duration: 0.8 });
     } else {
