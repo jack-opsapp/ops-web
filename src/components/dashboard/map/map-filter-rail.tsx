@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   CalendarClock,
   FolderKanban,
@@ -9,6 +9,7 @@ import {
   Users,
   Plus,
   Minus,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -35,10 +36,8 @@ export function MapFilterRail() {
   const {
     view,
     showCrew,
-    railExpanded,
     setView,
     toggleCrew,
-    toggleRail,
   } = useMapFilterStore();
   const map = useMapInstanceStore((s) => s.map);
   const userLocation = useMapInstanceStore((s) => s.userLocation);
@@ -50,7 +49,6 @@ export function MapFilterRail() {
 
   function handleZoomIn() {
     if (!map) return;
-    // Zoom toward user location
     if (userLocation) {
       const nextZoom = Math.min(map.getZoom() + 1, map.getMaxZoom());
       map.setView(userLocation, nextZoom, { animate: true, duration: 0.3 });
@@ -65,17 +63,26 @@ export function MapFilterRail() {
 
   return (
     <motion.div
-      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "fixed right-3 bottom-[88px] z-[5] flex flex-col gap-1 py-2 px-1",
+        "fixed bottom-3 left-1/2 -translate-x-1/2 z-[5]",
+        "flex items-center gap-1 py-1.5 px-2",
         "rounded-md border border-[rgba(255,255,255,0.08)]",
-        "bg-[rgba(10,10,10,0.7)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)]",
-        "max-w-[calc(100vw-24px)]"
+        "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]",
+        "pointer-events-auto"
       )}
-      style={{ width: railExpanded ? 140 : 44 }}
-      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* View filters (radio) */}
+      {/* Label */}
+      <div className="flex items-center gap-1.5 pr-2 mr-1 border-r border-[rgba(255,255,255,0.06)]">
+        <Map className="w-[14px] h-[14px] text-text-disabled" />
+        <span className="font-kosugi text-[9px] text-text-disabled tracking-wider uppercase select-none">
+          MAP
+        </span>
+      </div>
+
+      {/* View filters */}
       {VIEW_FILTERS.map((f) => {
         const isActive = view === f.value;
         const Icon = f.icon;
@@ -84,10 +91,9 @@ export function MapFilterRail() {
             key={f.id}
             onClick={() => setView(f.value)}
             className={cn(
-              "relative flex items-center gap-2 rounded px-2 py-1.5 transition-all duration-150",
+              "relative flex items-center gap-1.5 rounded px-2 py-1 transition-all duration-150",
               "text-text-tertiary hover:text-text-primary",
-              isActive && "text-text-primary",
-              !railExpanded && "justify-center"
+              isActive && "text-text-primary"
             )}
             title={f.label}
           >
@@ -102,99 +108,54 @@ export function MapFilterRail() {
                 }}
               />
             )}
-            <Icon className="w-[18px] h-[18px] shrink-0 relative z-[1]" />
-            <AnimatePresence>
-              {railExpanded && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="font-kosugi text-[10px] tracking-wider whitespace-nowrap overflow-hidden relative z-[1]"
-                >
-                  {f.label}
-                </motion.span>
-              )}
-            </AnimatePresence>
+            <Icon className="w-[14px] h-[14px] shrink-0 relative z-[1]" />
+            <span className="font-kosugi text-[9px] tracking-wider whitespace-nowrap relative z-[1]">
+              {f.label}
+            </span>
           </button>
         );
       })}
 
-      {/* Divider before crew toggle */}
+      {/* Crew toggle */}
       {showCrewToggle && (
-        <div className="h-px bg-[rgba(255,255,255,0.06)] mx-1" />
-      )}
-
-      {/* Crew layer toggle */}
-      {showCrewToggle && (
-        <button
-          onClick={toggleCrew}
-          className={cn(
-            "flex items-center gap-2 rounded px-2 py-1.5 transition-all duration-150",
-            showCrew
-              ? "text-text-primary"
-              : "text-text-disabled hover:text-text-tertiary",
-            !railExpanded && "justify-center"
-          )}
-          title="CREW"
-        >
-          <Users className="w-[18px] h-[18px] shrink-0" />
-          <AnimatePresence>
-            {railExpanded && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.15 }}
-                className="font-kosugi text-[10px] tracking-wider whitespace-nowrap overflow-hidden"
-              >
-                CREW
-              </motion.span>
+        <>
+          <div className="w-px h-4 bg-[rgba(255,255,255,0.06)] mx-1" />
+          <button
+            onClick={toggleCrew}
+            className={cn(
+              "flex items-center gap-1.5 rounded px-2 py-1 transition-all duration-150",
+              showCrew
+                ? "text-text-primary"
+                : "text-text-disabled hover:text-text-tertiary"
             )}
-          </AnimatePresence>
-        </button>
+            title="CREW"
+          >
+            <Users className="w-[14px] h-[14px] shrink-0" />
+            <span className="font-kosugi text-[9px] tracking-wider whitespace-nowrap">
+              CREW
+            </span>
+          </button>
+        </>
       )}
-
-      {/* Divider before zoom */}
-      <div className="h-px bg-[rgba(255,255,255,0.06)] mx-1" />
 
       {/* Zoom controls */}
-      <div className="flex flex-col gap-0.5">
+      <div className="w-px h-4 bg-[rgba(255,255,255,0.06)] mx-1" />
+      <div className="flex items-center gap-0.5">
         <button
           onClick={handleZoomIn}
-          className="flex items-center justify-center rounded px-2 py-1.5 text-text-tertiary hover:text-text-primary transition-colors duration-150"
+          className="flex items-center justify-center rounded px-1.5 py-1 text-text-tertiary hover:text-text-primary transition-colors duration-150"
           title="Zoom in"
         >
-          <Plus className="w-[18px] h-[18px] shrink-0" />
+          <Plus className="w-[14px] h-[14px]" />
         </button>
         <button
           onClick={handleZoomOut}
-          className="flex items-center justify-center rounded px-2 py-1.5 text-text-tertiary hover:text-text-primary transition-colors duration-150"
+          className="flex items-center justify-center rounded px-1.5 py-1 text-text-tertiary hover:text-text-primary transition-colors duration-150"
           title="Zoom out"
         >
-          <Minus className="w-[18px] h-[18px] shrink-0" />
+          <Minus className="w-[14px] h-[14px]" />
         </button>
       </div>
-
-      {/* Divider before expand toggle */}
-      <div className="h-px bg-[rgba(255,255,255,0.06)] mx-1" />
-
-      {/* Expand/collapse toggle — at bottom */}
-      <button
-        onClick={toggleRail}
-        className="flex items-center justify-center w-full py-1 text-text-disabled hover:text-text-tertiary transition-colors duration-150"
-        title={railExpanded ? "Collapse" : "Expand"}
-      >
-        <motion.div
-          animate={{ rotate: railExpanded ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="w-4 h-4 flex items-center justify-center"
-        >
-          <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 1L5 5L9 1" />
-          </svg>
-        </motion.div>
-      </button>
     </motion.div>
   );
 }

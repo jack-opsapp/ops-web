@@ -671,7 +671,7 @@ export default function DashboardPage() {
         )}
       >
         {/* Header with greeting + customize toggle */}
-        <div className="animate-fade-in flex items-start justify-between gap-2">
+        <div className="animate-fade-in flex items-start justify-between gap-2 pointer-events-auto">
           <div>
             <p
               className="font-mohave text-body-lg text-text-secondary tracking-wide"
@@ -749,7 +749,7 @@ export default function DashboardPage() {
         {isCustomizing && !trayOpen && (
           <button
             onClick={() => setTrayOpen(true)}
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-secondary font-mohave text-body-sm hover:text-text-primary hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-secondary font-mohave text-body-sm hover:text-text-primary hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)] pointer-events-auto"
           >
             {t("widgets.openTray")}
           </button>

@@ -23,7 +23,7 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -87,6 +87,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed, setCollapsed } = useSidebarStore();
   const { needsEmployeeOnboarding } = useSetupGate();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Redirect to employee onboarding if incomplete
   useEffect(() => {
@@ -119,7 +120,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <TopBar />
         <ContentHeader />
         <UnassignedRoleBanner />
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]">
+        <div className={cn(
+          "flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]",
+          pathname === "/dashboard" && "pointer-events-none"
+        )}>
           {children}
         </div>
       </main>
