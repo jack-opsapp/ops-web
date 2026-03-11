@@ -33,7 +33,7 @@ export default function RegisterPage() {
     try {
       await signInWithGoogle();
       trackSignUp("google");
-      router.push("/setup");
+      router.push("/account-type");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       // User closed the popup — silently reset, no error
@@ -53,7 +53,7 @@ export default function RegisterPage() {
     try {
       await signInWithApple();
       trackSignUp("apple");
-      router.push("/setup");
+      router.push("/account-type");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       // User closed the popup — silently reset, no error
@@ -105,7 +105,7 @@ export default function RegisterPage() {
       }
 
       trackSignUp("email");
-      router.push("/setup");
+      router.push("/account-type");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("register.error.registrationFailed");
       if (message.includes("auth/email-already-in-use")) {

@@ -7,7 +7,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
 
 // Routes within (auth) group that authenticated users CAN access
-const authenticatedAllowedRoutes = ["/locked", "/join"];
+const authenticatedAllowedRoutes = ["/locked", "/join", "/account-type"];
 
 function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -18,6 +18,8 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const isAllowedWhenAuthenticated = authenticatedAllowedRoutes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
+
+  const isFullScreen = pathname === "/account-type";
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && !isAllowedWhenAuthenticated) {
@@ -39,6 +41,15 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
 
   if (isAuthenticated && !isAllowedWhenAuthenticated) {
     return null;
+  }
+
+  // Full-screen layout for account-type (canvas particle field)
+  if (isFullScreen) {
+    return (
+      <div className="min-h-screen bg-background">
+        {children}
+      </div>
+    );
   }
 
   // Split layout: hero left, form right
