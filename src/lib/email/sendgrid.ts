@@ -15,6 +15,8 @@ import { questionsReminderTemplate } from "./templates/questions-reminder";
 import { invoiceReadyTemplate } from "./templates/invoice-ready";
 import { teamInviteTemplate } from "./templates/team-invite";
 import { roleNeededTemplate } from "./templates/role-needed";
+import { betaAccessRequestTemplate } from "./templates/beta-access-request";
+import { betaAccessDecisionTemplate } from "./templates/beta-access-decision";
 
 let initialized = false;
 
@@ -181,6 +183,56 @@ export async function sendRoleNeeded(params: {
     to: params.email,
     from: { email: getFromEmail(), name: "OPS" },
     subject: `${params.userName} joined ${params.companyName} and needs a role`,
+    html,
+  });
+}
+
+export async function sendBetaAccessRequest(params: {
+  userName: string;
+  userEmail: string;
+  companyName: string;
+  companyPhone: string;
+  companyAddress: string;
+  companySize: string;
+  companyIndustries: string[];
+  featureTitle: string;
+  featureDescription: string;
+  adminUrl: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = betaAccessRequestTemplate(params);
+
+  await sgMail.send({
+    to: "jack@opsapp.co",
+    from: { email: getFromEmail(), name: "OPS" },
+    subject: `Beta Access Request — ${params.featureTitle} — ${params.companyName}`,
+    html,
+  });
+}
+
+export async function sendBetaAccessDecision(params: {
+  userEmail: string;
+  userName: string;
+  featureTitle: string;
+  approved: boolean;
+  adminNotes: string | null;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = betaAccessDecisionTemplate({
+    userName: params.userName,
+    featureTitle: params.featureTitle,
+    approved: params.approved,
+    adminNotes: params.adminNotes,
+  });
+
+  await sgMail.send({
+    to: params.userEmail,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject: params.approved
+      ? `Your OPS Beta Access — Approved!`
+      : `Your OPS Beta Access Request — ${params.featureTitle}`,
     html,
   });
 }
