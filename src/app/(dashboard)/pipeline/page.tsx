@@ -828,6 +828,7 @@ export default function PipelinePage() {
                     projectId: null,
                     lostReason: null,
                     lostNotes: null,
+                    quoteDeliveryMethod: null,
                     address: null,
                     tags: [],
                   },
