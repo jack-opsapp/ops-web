@@ -48,7 +48,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const promo = promotionCodes.data[0];
-    const couponRef = promo.coupon;
+    const couponRef = promo.promotion?.coupon;
 
     // coupon may be a string (unexpanded) or an object — we need the full object
     if (!couponRef || typeof couponRef === "string") {
