@@ -60,6 +60,7 @@ export function AccountTypeScreen() {
   const [crewCode, setCrewCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [codeLoading, setCodeLoading] = useState(false);
+  const [showCodeInfo, setShowCodeInfo] = useState(false);
   const [companyPreview, setCompanyPreview] = useState<{
     name: string;
     logo: string | null;
@@ -99,7 +100,16 @@ export function AccountTypeScreen() {
     setCompanyPreview(null);
     setCrewCode("");
     setCodeError("");
+    setShowCodeInfo(false);
   }, [selected]);
+
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    if (!showCodeInfo) return;
+    const close = () => setShowCodeInfo(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [showCodeInfo]);
 
   const handleSelect = useCallback((id: string) => {
     setSelected(id);
@@ -205,20 +215,16 @@ export function AccountTypeScreen() {
 
       {/* Content overlay */}
       <div className="relative z-10 flex flex-col items-center justify-end flex-1 pb-12 px-6 pointer-events-none">
-        {/* Welcome line */}
-        <div className="absolute top-8 left-0 right-0 text-center">
+        {/* Welcome + Header — stacked at top with safe spacing */}
+        <div className="absolute top-0 left-0 right-0 pt-6 sm:pt-8 px-6 text-center space-y-2">
           <p className="font-kosugi text-[11px] text-text-disabled tracking-wider">
             [welcome,{" "}
             <span className="text-text-secondary">{displayName}</span>]
           </p>
-        </div>
-
-        {/* Header */}
-        <div className="absolute top-16 left-0 right-0 text-center">
-          <h1 className="font-mohave text-[28px] font-semibold uppercase tracking-wide text-text-primary">
+          <h1 className="font-mohave text-[22px] sm:text-[28px] font-semibold uppercase tracking-wide text-text-primary leading-tight">
             HOW ARE YOU USING OPS?
           </h1>
-          <p className="font-kosugi text-[12px] text-text-tertiary mt-1">
+          <p className="font-kosugi text-[11px] sm:text-[12px] text-text-tertiary">
             [choose one to get started]
           </p>
         </div>
@@ -263,9 +269,47 @@ export function AccountTypeScreen() {
                 className="mb-4 animate-fade-in"
                 style={{ animationDelay: "200ms" }}
               >
-                <label className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest block mb-2">
-                  crew code
-                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
+                    crew code
+                  </label>
+                  <button
+                    type="button"
+                    className="relative"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowCodeInfo((prev) => !prev);
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-text-disabled hover:text-text-tertiary transition-colors"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 16v-4" />
+                      <path d="M12 8h.01" />
+                    </svg>
+
+                    {/* Info tooltip */}
+                    {showCodeInfo && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[rgba(20,20,20,0.95)] border border-[rgba(255,255,255,0.1)] rounded text-left z-50 backdrop-blur-sm">
+                        <p className="font-mohave text-[12px] text-text-secondary leading-relaxed">
+                          Your crew code is in your invite email or text
+                          message. Your admin can also find it in organization
+                          settings.
+                        </p>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-[rgba(255,255,255,0.1)]" />
+                      </div>
+                    )}
+                  </button>
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"

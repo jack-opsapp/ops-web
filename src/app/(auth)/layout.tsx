@@ -9,6 +9,9 @@ import { useDictionary } from "@/i18n/client";
 // Routes within (auth) group that authenticated users CAN access
 const authenticatedAllowedRoutes = ["/locked", "/join", "/account-type"];
 
+// Routes that REQUIRE authentication (show auth popup if not logged in)
+const authRequiredRoutes = ["/locked", "/join", "/account-type"];
+
 function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -16,6 +19,10 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const { t } = useDictionary("auth");
 
   const isAllowedWhenAuthenticated = authenticatedAllowedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+
+  const requiresAuth = authRequiredRoutes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
 
@@ -34,6 +41,54 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
           <span className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse-live">
             OPS
           </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth-required popup for protected routes when not authenticated
+  if (!isAuthenticated && requiresAuth) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-sm text-center space-y-6">
+          <div className="w-14 h-14 mx-auto rounded-lg bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-text-tertiary"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-mohave text-xl font-semibold text-text-primary uppercase tracking-wide">
+              AUTHENTICATION REQUIRED
+            </h2>
+            <p className="font-kosugi text-[11px] text-text-tertiary mt-2">
+              [you must be logged in to access this page]
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => router.push("/login")}
+              className="w-full py-3 bg-text-primary rounded font-mohave text-[14px] font-semibold text-background uppercase tracking-wide transition-colors hover:bg-white"
+            >
+              LOG IN
+            </button>
+            <button
+              onClick={() => router.push("/register")}
+              className="w-full py-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded font-mohave text-[14px] font-medium text-text-secondary uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)]"
+            >
+              CREATE ACCOUNT
+            </button>
+          </div>
         </div>
       </div>
     );
