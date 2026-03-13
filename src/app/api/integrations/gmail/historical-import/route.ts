@@ -446,6 +446,7 @@ export async function POST(request: NextRequest) {
                 projectId: null,
                 lostReason: null,
                 lostNotes: null,
+                quoteDeliveryMethod: null,
                 address: null,
                 tags: ["email-import"],
               });
