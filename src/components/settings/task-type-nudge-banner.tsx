@@ -32,7 +32,7 @@ export function TaskTypeNudgeBanner({ variant = "inline" }: TaskTypeNudgeBannerP
         {t("wizard.nudge.message")}
       </p>
       <button
-        onClick={() => router.push("/settings?tab=task-types")}
+        onClick={() => router.push("/settings?tab=task-types&wizard=true")}
         className="flex items-center gap-[4px] px-2 py-[4px] rounded font-mohave text-body-sm text-ops-accent hover:text-text-primary transition-colors shrink-0"
       >
         {t("wizard.nudge.cta")}

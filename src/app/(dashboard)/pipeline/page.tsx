@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -133,6 +134,7 @@ function PipelineSkeleton() {
 // ---------------------------------------------------------------------------
 export default function PipelinePage() {
   const { t } = useDictionary("pipeline");
+  const router = useRouter();
 
   // ── State ──────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,6 +162,14 @@ export default function PipelinePage() {
 
   // Track screen view
   useEffect(() => { trackScreenView("pipeline"); }, []);
+
+  // Handle ?action=new from FAB navigation
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("action") === "new") {
+      setShowQuickAdd(true);
+    }
+  }, [searchParams]);
 
   // ── Auth ───────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();
@@ -419,6 +429,7 @@ export default function PipelinePage() {
           projectId: null,
           lostReason: null,
           lostNotes: null,
+          quoteDeliveryMethod: null,
           address: null,
           tags: [],
         },
@@ -847,6 +858,10 @@ export default function PipelinePage() {
       <EmailReviewPanel
         open={reviewPanelOpen}
         onClose={() => setReviewPanelOpen(false)}
+        onViewClient={(clientId) => {
+          setReviewPanelOpen(false);
+          router.push(`/clients/${clientId}`);
+        }}
         onCreateLead={(prefill) => {
           setReviewPanelOpen(false);
           if (company) {
@@ -871,6 +886,7 @@ export default function PipelinePage() {
                 projectId: null,
                 lostReason: null,
                 lostNotes: null,
+                quoteDeliveryMethod: null,
                 address: null,
                 tags: [],
               },

@@ -120,6 +120,9 @@
   "company.toast.updated": "Company details updated successfully",
   "company.toast.updateFailed": "Failed to update company",
   "company.toast.tryAgain": "Please try again.",
+  "company.toast.codeCopied": "Company code copied to clipboard",
+  "company.companyCode": "Company Code",
+  "company.companyCodeHint": "Share this code with team members so they can join your company.",
 
   "team.inviteTitle": "Invite Team Members",
   "team.inviteDescription": "Add teammates by email or phone. They'll receive an invite link to join your company.",
@@ -176,6 +179,9 @@
   "team.toast.deactivateFailed": "Failed to deactivate",
   "team.toast.reactivated": "has been reactivated",
   "team.toast.reactivateFailed": "Failed to reactivate",
+  "team.toast.codeCopied": "Company code copied to clipboard",
+  "team.companyCode": "Company Code",
+  "team.companyCodeHint": "Team members can use this code to join your company.",
 
   "taskTypes.title": "Task Types",
   "taskTypes.addType": "Add Type",
@@ -193,6 +199,7 @@
   "taskTypes.loadingTemplates": "Loading templates...",
   "taskTypes.noMembers": "No team members found",
   "taskTypes.emptyState": "No task types configured. Add one to get started.",
+  "taskTypes.runWizard": "Run Setup Wizard",
   "taskTypes.toast.templateAdded": "Template added",
   "taskTypes.toast.templateAddFailed": "Failed to add template",
   "taskTypes.toast.templateUpdated": "Template updated",

@@ -55,15 +55,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Verify auth token (Supabase or Firebase)
     const firebaseUser = await verifyAuthToken(idToken);
 
-    // Verify user has permission to manage team
-    const allowed = await checkPermission(firebaseUser.uid, "team.manage", firebaseUser.email);
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You don't have permission to send invites" },
-        { status: 403 }
-      );
-    }
-
     // Verify the requesting user exists and belongs to the specified company
     const db = getServiceRoleClient();
     const requestingUser = await findUserByAuth(firebaseUser.uid, firebaseUser.email, "id, company_id");
@@ -77,6 +68,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { error: "You can only send invites for your own company" },
         { status: 403 }
       );
+    }
+
+    // Verify user has permission to manage team (RBAC check + company admin fallback)
+    const rbacAllowed = await checkPermission(firebaseUser.uid, "team.manage", firebaseUser.email);
+    if (!rbacAllowed) {
+      // Fallback: check if user is a company admin (in admin_ids)
+      const { data: companyRow } = await db
+        .from("companies")
+        .select("admin_ids")
+        .eq("id", companyId)
+        .maybeSingle();
+
+      const adminIds: string[] = (companyRow?.admin_ids as string[]) ?? [];
+      const isCompanyAdmin = adminIds.includes(requestingUser.id as string);
+
+      if (!isCompanyAdmin) {
+        return NextResponse.json(
+          { error: "You don't have permission to send invites" },
+          { status: 403 }
+        );
+      }
     }
 
     // Verify the company exists

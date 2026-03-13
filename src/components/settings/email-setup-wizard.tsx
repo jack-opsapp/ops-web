@@ -150,8 +150,8 @@ const STEPS: WizardStep[] = [
   { id: "how-it-works", label: "How It Works", icon: Zap },
   { id: "scan", label: "Scan", icon: Search },
   { id: "filters", label: "Filters", icon: Filter },
-  { id: "import", label: "Import", icon: ArrowRight },
   { id: "review", label: "Review", icon: Users },
+  { id: "import", label: "Import", icon: ArrowRight },
 ];
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -796,9 +796,9 @@ export function EmailSetupWizard({
         return scanComplete;
       case "filters":
         return true;
-      case "import":
-        return true;
       case "review":
+        return true;
+      case "import":
         return !importStarted;
       default:
         return true;
@@ -974,18 +974,6 @@ export function EmailSetupWizard({
                 />
               )}
 
-              {currentStep.id === "import" && (
-                <StepImport
-                  importDays={importDays}
-                  setImportDays={setImportDays}
-                  customDate={customDate}
-                  setCustomDate={setCustomDate}
-                  importStarted={importStarted}
-                  filters={filters}
-                  scannedEmails={scannedEmails}
-                />
-              )}
-
               {currentStep.id === "review" && (
                 <StepReview
                   scannedEmails={scannedEmails}
@@ -1023,8 +1011,18 @@ export function EmailSetupWizard({
                     });
                   }}
                   onExpandContact={setExpandedContact}
-                  onApproveAll={applyFiltersAndImport}
+                />
+              )}
+
+              {currentStep.id === "import" && (
+                <StepImport
+                  importDays={importDays}
+                  setImportDays={setImportDays}
+                  customDate={customDate}
+                  setCustomDate={setCustomDate}
                   importStarted={importStarted}
+                  filters={filters}
+                  scannedEmails={scannedEmails}
                 />
               )}
             </motion.div>
@@ -2131,8 +2129,6 @@ function StepReview({
   onEditName,
   onToggleLead,
   onExpandContact,
-  onApproveAll,
-  importStarted,
 }: {
   scannedEmails: ScannedEmail[];
   filters: GmailSyncFilters;
@@ -2147,8 +2143,6 @@ function StepReview({
   onEditName: (key: string, name: string) => void;
   onToggleLead: (key: string, createLead: boolean) => void;
   onExpandContact: (key: string | null) => void;
-  onApproveAll: () => void;
-  importStarted: boolean;
 }) {
   const [editingName, setEditingName] = useState<string | null>(null);
 
@@ -2665,32 +2659,19 @@ function StepReview({
         </div>
       </motion.div>
 
-      {/* Sticky approve button */}
-      <motion.div variants={staggerItem} className="sticky bottom-0 pt-1">
-        <Button
-          onClick={onApproveAll}
-          disabled={activeContacts.length === 0 || importStarted}
-          className="w-full gap-[6px] font-kosugi text-[12px]"
-        >
-          {importStarted ? (
-            <>
-              <Loader2 className="w-[14px] h-[14px] animate-spin" />
-              Importing...
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-[14px] h-[14px]" />
-              Approve {activeContacts.length} Client{activeContacts.length !== 1 ? "s" : ""}
-              {leadCount > 0 && ` & ${leadCount} Lead${leadCount !== 1 ? "s" : ""}`}
-            </>
-          )}
-        </Button>
+      {/* Contact count summary */}
+      <motion.div variants={staggerItem} className="pt-1">
+        <p className="font-kosugi text-[10px] text-text-disabled text-left">
+          {activeContacts.length} contact{activeContacts.length !== 1 ? "s" : ""} will be created
+          {leadCount > 0 && `, ${leadCount} as pipeline lead${leadCount !== 1 ? "s" : ""}`}
+          . Press Next to choose your import range and start.
+        </p>
       </motion.div>
     </motion.div>
   );
 }
 
-// ─── Step 6: Import ──────────────────────────────────────────────────────────
+// ─── Step 6: Import (final step — triggers the actual import) ────────────────
 
 function StepImport({
   importDays,

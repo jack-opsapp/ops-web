@@ -25,6 +25,7 @@ interface ProgressBody {
     industries?: string[];
     companySize?: string;
     companyAge?: string;
+    weatherDependent?: string;
     starfieldAnswers?: Record<string, string | number>;
   };
 }
@@ -111,6 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (data.industries?.length) companyUpdates.industries = data.industries;
         if (data.companySize) companyUpdates.company_size = data.companySize;
         if (data.companyAge) companyUpdates.company_age = data.companyAge;
+        if (data.weatherDependent) companyUpdates.weather_dependent = data.weatherDependent === "Yes";
 
         await db.from("companies").update(companyUpdates).eq("id", companyId);
       } else {
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             industries: data.industries?.length ? data.industries : [],
             company_size: data.companySize ?? null,
             company_age: data.companyAge ?? null,
+            weather_dependent: data.weatherDependent ? data.weatherDependent === "Yes" : null,
             admin_ids: [userId],
             account_holder_id: userId,
           })

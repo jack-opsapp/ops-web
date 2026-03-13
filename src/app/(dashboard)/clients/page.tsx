@@ -32,7 +32,7 @@ import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModa
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
 
 type ViewMode = "cards" | "table";
-type FilterMode = "all" | "with-projects" | "no-projects";
+type FilterMode = "all" | "with-projects" | "new";
 
 interface ClientListItem {
   id: string;
@@ -331,7 +331,7 @@ export default function ClientsPage() {
   const filterOptions = useMemo(() => [
     { value: "all" as FilterMode, label: t("filter.all") },
     { value: "with-projects" as FilterMode, label: t("filter.active") },
-    { value: "no-projects" as FilterMode, label: t("filter.new") },
+    { value: "new" as FilterMode, label: t("filter.new") },
   ], [t]);
 
   const viewOptions = useMemo(() => [
@@ -383,12 +383,18 @@ export default function ClientsPage() {
       );
     }
 
-    // Status filter - since we don't have projectCount from the API,
-    // we disable these filters when data is from API (projectCount is "--")
+    // Status filter
     if (filterMode === "with-projects") {
       filtered = filtered.filter((c) => c.projectCount !== "0" && c.projectCount !== "--");
-    } else if (filterMode === "no-projects") {
-      filtered = filtered.filter((c) => c.projectCount === "0" || c.projectCount === "--");
+    } else if (filterMode === "new") {
+      // Show clients created in the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      filtered = filtered.filter((c) => {
+        if (!c.lastActivity) return false;
+        const createdDate = new Date(c.lastActivity);
+        return createdDate >= thirtyDaysAgo;
+      });
     }
 
     return filtered;

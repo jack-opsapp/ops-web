@@ -145,6 +145,31 @@ export enum OpportunityPriority {
   High = "high",
 }
 
+/** How the quote was delivered to the client */
+export enum QuoteDeliveryMethod {
+  InPerson = "in_person",
+  Email = "email",
+  Phone = "phone",
+  Mail = "mail",
+  Other = "other",
+}
+
+export const QUOTE_DELIVERY_METHOD_LABELS: Record<QuoteDeliveryMethod, string> = {
+  [QuoteDeliveryMethod.InPerson]: "In Person",
+  [QuoteDeliveryMethod.Email]: "Email",
+  [QuoteDeliveryMethod.Phone]: "Phone",
+  [QuoteDeliveryMethod.Mail]: "Mail",
+  [QuoteDeliveryMethod.Other]: "Other",
+};
+
+export const QUOTE_DELIVERY_METHOD_ICONS: Record<QuoteDeliveryMethod, string> = {
+  [QuoteDeliveryMethod.InPerson]: "user",
+  [QuoteDeliveryMethod.Email]: "mail",
+  [QuoteDeliveryMethod.Phone]: "phone",
+  [QuoteDeliveryMethod.Mail]: "mailbox",
+  [QuoteDeliveryMethod.Other]: "more-horizontal",
+};
+
 /** Discount type for estimates and invoices */
 export enum DiscountType {
   Percentage = "percentage",
@@ -348,6 +373,9 @@ export interface Opportunity {
   projectId: string | null;
   lostReason: string | null;
   lostNotes: string | null;
+
+  // Quote delivery
+  quoteDeliveryMethod: QuoteDeliveryMethod | null;
 
   // Address
   address: string | null;

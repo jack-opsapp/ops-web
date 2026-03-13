@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldOff, Check, ExternalLink, Headphones, Zap, Crown, Building2 } from "lucide-react";
+import { ShieldOff, Check, Headphones, Zap, Crown, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { TIER_CONFIG, type SubscriptionTier } from "@/lib/subscription";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,8 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
   const config = TIER_CONFIG[tier];
   const display = TIER_DISPLAY[tier];
 
-  // Placeholder Stripe checkout URL
-  const checkoutUrl = `https://billing.stripe.com/checkout?plan=${tier}`;
+  // Navigate to settings subscription tab to use the real subscribe flow
+  const checkoutUrl = `/settings?tab=subscription&plan=${tier}`;
 
   return (
     <div
@@ -109,7 +109,6 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
           className="w-full"
         >
           {t("locked.subscribe")}
-          <ExternalLink className="w-[14px] h-[14px] ml-0.5" />
         </Button>
       </a>
     </div>

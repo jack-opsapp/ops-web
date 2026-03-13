@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { X, BellOff } from "lucide-react";
 import { notifModalVariants, notifBackdropVariants } from "@/lib/utils/motion";
 import { useNotificationRailStore } from "@/stores/notification-rail-store";
 import { useNotifications, useDismissNotification, useDismissAllNotifications } from "@/lib/hooks/use-notifications";
@@ -128,9 +128,13 @@ export function NotificationModal() {
             {/* Body */}
             <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
               {sorted.length === 0 ? (
-                <div className="px-[12px] py-[24px]">
-                  <p className="font-mohave text-body-sm text-text-disabled text-left">
+                <div className="flex flex-col items-center justify-center py-8 px-4 gap-2">
+                  <BellOff className="w-[28px] h-[28px] text-text-disabled" />
+                  <p className="font-kosugi text-[11px] text-text-disabled uppercase tracking-widest text-center">
                     {t("notifications.empty")}
+                  </p>
+                  <p className="font-mohave text-body-sm text-text-disabled text-center">
+                    {t("notifications.emptyHint")}
                   </p>
                 </div>
               ) : (

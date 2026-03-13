@@ -204,27 +204,27 @@ export interface SubscriptionPlanInfo {
 export const SUBSCRIPTION_PLAN_INFO: Record<SubscriptionPlan, SubscriptionPlanInfo> = {
   [SubscriptionPlan.Trial]: {
     displayName: "Free Trial",
-    maxSeats: 5,
+    maxSeats: 10,
     monthlyPrice: 0,
     annualPrice: 0,
   },
   [SubscriptionPlan.Starter]: {
     displayName: "Starter",
-    maxSeats: 5,
-    monthlyPrice: 49,
-    annualPrice: 470,
+    maxSeats: 3,
+    monthlyPrice: 90,
+    annualPrice: 864,
   },
   [SubscriptionPlan.Team]: {
     displayName: "Team",
-    maxSeats: 15,
-    monthlyPrice: 99,
-    annualPrice: 950,
+    maxSeats: 5,
+    monthlyPrice: 140,
+    annualPrice: 1344,
   },
   [SubscriptionPlan.Business]: {
     displayName: "Business",
-    maxSeats: 50,
-    monthlyPrice: 199,
-    annualPrice: 1910,
+    maxSeats: 10,
+    monthlyPrice: 190,
+    annualPrice: 1824,
   },
 };
 

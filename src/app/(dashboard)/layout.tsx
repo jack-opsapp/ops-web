@@ -7,7 +7,6 @@ import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissi
 import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flags-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
-import { Loader2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Route → Permission mapping ──────────────────────────────────────────────
@@ -63,9 +62,11 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="flex flex-col items-center gap-2">
-          <Loader2 className="w-[32px] h-[32px] text-ops-accent animate-spin" />
-          <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-            {t("loading")}
+          <span className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse-live">
+            OPS
+          </span>
+          <span className="font-kosugi text-caption-sm text-text-disabled uppercase tracking-widest">
+            [preparing your dashboard]
           </span>
         </div>
       </div>

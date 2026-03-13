@@ -25,8 +25,8 @@ const TRIGGERS: TriggerConfig[] = [
   },
   {
     slug: "bubble-reauth-emails",
-    label: "Bubble Re-auth",
-    description: "Re-authentication emails for Bubble legacy users.",
+    label: "Account Upgrade",
+    description: "Guides users to their upgraded account — faster performance, more secure data storage.",
     schedule: "Friday 6:38 AM PST",
     cronJobName: "bubble-reauth-emails-daily",
     hasTestEmail: true,

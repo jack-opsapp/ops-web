@@ -67,6 +67,8 @@ export interface EmailReviewPanelProps {
     sourceEmail?: string;
     notes?: string;
   }) => void;
+  /** Called when "View Client" is clicked on a matched email */
+  onViewClient?: (clientId: string) => void;
 }
 
 // ─── Data Hook ─────────────────────────────────────────────────────────────────
@@ -449,8 +451,8 @@ function UnmatchedCard({
   );
 }
 
-/** Card for the "Matched" tab — read-only confirmed matches */
-function MatchedCard({ item }: { item: ReviewItem }) {
+/** Card for the "Matched" tab — confirmed matches with view link */
+function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: (clientId: string) => void }) {
   return (
     <div className="rounded-sm border border-[rgba(255,255,255,0.06)] bg-[#0D0D0D] p-4 space-y-3 opacity-80">
       {/* Header */}
@@ -477,7 +479,7 @@ function MatchedCard({ item }: { item: ReviewItem }) {
       {item.clientName && (
         <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
           <Link2 className="h-3.5 w-3.5 text-[#9DB582] shrink-0" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-kosugi text-[10px] text-[#9DB582] uppercase tracking-wider">
               {confidenceLabel(item.matchConfidence)}
             </p>
@@ -485,6 +487,14 @@ function MatchedCard({ item }: { item: ReviewItem }) {
               {item.clientName}
             </p>
           </div>
+          {item.clientId && onViewClient && (
+            <button
+              onClick={() => onViewClient(item.clientId!)}
+              className="shrink-0 font-kosugi text-[10px] text-[#597794] hover:text-[#7a9ab8] uppercase tracking-wider transition-colors"
+            >
+              View Client
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -497,6 +507,7 @@ export function EmailReviewPanel({
   open,
   onClose,
   onCreateLead,
+  onViewClient,
 }: EmailReviewPanelProps) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -722,7 +733,7 @@ export function EmailReviewPanel({
 
                   {activeTab === "matched" &&
                     matched.map((item) => (
-                      <MatchedCard key={item.id} item={item} />
+                      <MatchedCard key={item.id} item={item} onViewClient={onViewClient} />
                     ))}
                 </div>
               )}

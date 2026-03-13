@@ -100,11 +100,25 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (company) {
+      // Derive OPS subscription status from Stripe subscription state.
+      // When cancel_at_period_end is true the subscription remains "active"
+      // in Stripe until the period ends, so we keep it "active" in OPS too
+      // and only mark it as "cancelled" once Stripe sends the .deleted event.
+      let mappedStatus: string;
+      if (subscription.status === "active") {
+        mappedStatus = "active";
+      } else if (subscription.status === "trialing") {
+        mappedStatus = "trial";
+      } else if (subscription.status === "past_due") {
+        mappedStatus = "grace";
+      } else if (subscription.status === "canceled") {
+        mappedStatus = "cancelled";
+      } else {
+        mappedStatus = subscription.status;
+      }
+
       const updates: Record<string, unknown> = {
-        subscription_status: subscription.status === "active" ? "active" :
-                            subscription.status === "trialing" ? "trial" :
-                            subscription.status === "past_due" ? "grace" :
-                            subscription.cancel_at_period_end ? "cancelled" : subscription.status,
+        subscription_status: mappedStatus,
         subscription_end: subscription.items.data[0]?.current_period_end
           ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : new Date().toISOString(),
@@ -116,7 +130,7 @@ export async function POST(req: NextRequest) {
         .update(updates)
         .eq("id", company.id);
 
-      console.log(`[stripe-webhook] Subscription ${event.type} for company ${company.id}`);
+      console.log(`[stripe-webhook] Subscription ${event.type} for company ${company.id}, status: ${mappedStatus}`);
     }
   }
 

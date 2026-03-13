@@ -242,6 +242,7 @@ export default function SettingsPage() {
     if (groupId === activeGroup) return;
     const def = groupDefs.find((g) => g.id === groupId);
     if (!def) return;
+    setFlashContent(false);
     setActiveGroup(groupId);
     setActiveSubTab(def.subTabs[0].id);
   }
@@ -399,6 +400,7 @@ export default function SettingsPage() {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
+                              setFlashContent(false);
                               setActiveSubTab(sub.id);
                             }}
                             className={cn(
@@ -436,7 +438,7 @@ export default function SettingsPage() {
       <div
         className={cn(
           "animate-slide-up rounded transition-all duration-500",
-          flashContent && "ring-2 ring-ops-accent ring-offset-2 ring-offset-background"
+          flashContent && "animate-glow-flash"
         )}
         key={activeSubTab}
       >

@@ -12,6 +12,7 @@ import { FloatingWindow } from "@/components/ops/floating-window";
 import { PreferencesApplier } from "@/components/ops/preferences-applier";
 import { WindowDock } from "@/components/ops/window-dock";
 import { FloatingActionButton } from "@/components/ops/floating-action-button";
+import { BugReportButton } from "@/components/ops/bug-report-button";
 import { ActionPromptRenderer } from "@/components/ops/action-prompt-renderer";
 import { NotificationModal } from "@/components/layouts/notification-modal";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
@@ -150,6 +151,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <KeyboardShortcuts />
       <FloatingWindows />
       <FloatingActionButton />
+      <BugReportButton />
       <NotificationModal />
       <WindowDock />
     </div>

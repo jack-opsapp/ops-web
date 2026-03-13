@@ -28,6 +28,7 @@ import {
   useUpdateGmailConnection,
   useTriggerGmailSync,
   useGmailImport,
+  useImportHistory,
   useCompanySettings,
   useUpdateCompanySettings,
 } from "@/lib/hooks";
@@ -109,6 +110,7 @@ export function IntegrationsTab() {
   const updateConnection = useUpdateGmailConnection();
   const triggerSync = useTriggerGmailSync();
   const gmailImport = useGmailImport();
+  const { data: importHistory = [] } = useImportHistory(companyId || undefined);
 
   const [importStarted, setImportStarted] = useState(false);
   const [showCustomDate, setShowCustomDate] = useState(false);
@@ -140,10 +142,10 @@ export function IntegrationsTab() {
       const importSection = document.getElementById("gmail-import-section");
       if (importSection) {
         importSection.scrollIntoView({ behavior: "smooth", block: "center" });
-        importSection.classList.add("ring-2", "ring-ops-accent", "ring-opacity-50");
-        setTimeout(() => {
-          importSection.classList.remove("ring-2", "ring-ops-accent", "ring-opacity-50");
-        }, 3000);
+        importSection.classList.add("animate-glow-flash");
+        importSection.addEventListener("animationend", () => {
+          importSection.classList.remove("animate-glow-flash");
+        }, { once: true });
       }
     }, 1000);
     return () => clearTimeout(timer);
@@ -203,14 +205,8 @@ export function IntegrationsTab() {
   }
 
   function handleUpdateFilters(id: string, filters: GmailSyncFilters) {
-    // Strip empty rules before saving — prevents blank rule rows from persisting
-    const cleaned = {
-      ...filters,
-      rules: (filters.rules ?? []).filter((r) => r.value.trim() !== ""),
-    };
-    if (cleaned.rules.length === 0) delete (cleaned as Record<string, unknown>).rules;
     updateConnection.mutate(
-      { id, data: { id, syncFilters: cleaned } },
+      { id, data: { id, syncFilters: filters } },
       {
         onSuccess: () => toast.success("Email filters updated"),
         onError: (err) => toast.error("Failed to update filters", { description: err.message }),
@@ -580,6 +576,56 @@ export function IntegrationsTab() {
                       </Button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Sync History — last 3 import jobs */}
+              {importHistory.length > 0 && (
+                <div className="pt-[4px] space-y-[6px]">
+                  <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
+                    <Clock className="w-[14px] h-[14px] text-text-disabled" />
+                    Recent Import History
+                  </label>
+                  <div className="space-y-[4px]">
+                    {importHistory.map((job) => (
+                      <div
+                        key={job.id}
+                        className="flex items-center justify-between px-1.5 py-[6px] rounded border border-border bg-background-elevated/40"
+                      >
+                        <div className="flex items-center gap-[6px] min-w-0">
+                          {job.status === "completed" ? (
+                            <CheckCircle className="w-[14px] h-[14px] text-[#6B8F71] shrink-0" />
+                          ) : job.status === "running" ? (
+                            <Loader2 className="w-[14px] h-[14px] text-ops-accent shrink-0 animate-spin" />
+                          ) : (
+                            <AlertTriangle className="w-[14px] h-[14px] text-ops-error shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <span className="font-mohave text-body-sm text-text-primary block">
+                              {job.status === "completed"
+                                ? `${job.processed} emails · ${job.clientsCreated} client${job.clientsCreated !== 1 ? "s" : ""} · ${job.leadsCreated} lead${job.leadsCreated !== 1 ? "s" : ""}`
+                                : job.status === "running"
+                                  ? `Importing... ${job.processed}/${job.totalEmails} emails`
+                                  : `Failed${job.error ? `: ${job.error}` : ""}`}
+                            </span>
+                            <span className="font-kosugi text-[10px] text-text-disabled">
+                              {formatTimeAgo(new Date(job.createdAt))}
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          className={cn(
+                            "px-[6px] py-[2px] rounded-sm font-kosugi text-[9px] uppercase tracking-wider shrink-0",
+                            job.status === "completed" && "bg-[rgba(107,143,113,0.15)] text-[#6B8F71]",
+                            job.status === "running" && "bg-ops-accent/15 text-ops-accent",
+                            job.status === "failed" && "bg-ops-error/15 text-ops-error",
+                          )}
+                        >
+                          {job.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>

@@ -27,7 +27,7 @@ import {
   calendarViewVariantsReduced,
 } from "@/lib/utils/motion";
 import { useCalendarStore } from "@/stores/calendar-store";
-import type { TeamMember } from "@/lib/types/models";
+import { UserRole, type TeamMember } from "@/lib/types/models";
 
 import { CalendarHeader } from "./_components/calendar-header";
 import { CalendarToolbar } from "./_components/calendar-toolbar";
@@ -119,18 +119,20 @@ export default function CalendarPage() {
   const { data: teamData } = useTeamMembers();
   const teamMembers: TeamMember[] = useMemo(() => {
     const users = teamData?.users ?? [];
-    return users.map((u) => ({
-      id: u.id,
-      userId: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-      phone: u.phone,
-      profileImageURL: u.profileImageURL,
-      role: u.role,
-      userColor: u.userColor,
-      isActive: u.isActive ?? true,
-    }));
+    return users
+      .filter((u) => u.role !== UserRole.Unassigned)
+      .map((u) => ({
+        id: u.id,
+        userId: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        phone: u.phone,
+        profileImageURL: u.profileImageURL,
+        role: u.role,
+        userColor: u.userColor,
+        isActive: u.isActive ?? true,
+      }));
   }, [teamData]);
 
   // Map + filter events

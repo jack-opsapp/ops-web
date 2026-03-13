@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, GripVertical, Loader2, Save, X, Users, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Plus, Trash2, GripVertical, Loader2, Save, X, Users, Clock, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -304,6 +305,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
 function TaskTypeCard({ taskType }: { taskType: TaskType }) {
   const { t } = useDictionary("settings");
   const updateTaskType = useUpdateTaskType();
+  const [expanded, setExpanded] = useState(false);
 
   function handleCrewChange(ids: string[]) {
     updateTaskType.mutate(
@@ -315,8 +317,13 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
   }
 
   return (
-    <div className="border border-[rgba(255,255,255,0.08)] rounded p-2 space-y-1.5">
-      <div className="flex items-center gap-1.5">
+    <div className="border border-[rgba(255,255,255,0.08)] rounded overflow-hidden">
+      {/* Header — always visible, click to expand */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-1.5 p-2 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+      >
         <div
           className="w-[12px] h-[12px] rounded-full shrink-0"
           style={{ backgroundColor: taskType.color }}
@@ -327,19 +334,38 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
             {t("taskTypes.default")}
           </span>
         )}
-      </div>
+        <svg
+          className={cn(
+            "w-[14px] h-[14px] text-text-disabled transition-transform duration-200",
+            expanded && "rotate-180"
+          )}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-      <div className="space-y-1">
-        <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-          {t("taskTypes.defaultCrew")}
-        </label>
-        <CrewPicker
-          selectedIds={taskType.defaultTeamMemberIds ?? []}
-          onChange={handleCrewChange}
-        />
-      </div>
+      {/* Expandable content */}
+      {expanded && (
+        <div className="px-2 pb-2 space-y-2 border-t border-[rgba(255,255,255,0.04)]">
+          {/* Section: Default Crew */}
+          <div className="space-y-1 pt-1.5">
+            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              {t("taskTypes.defaultCrew")}
+            </label>
+            <CrewPicker
+              selectedIds={taskType.defaultTeamMemberIds ?? []}
+              onChange={handleCrewChange}
+            />
+          </div>
 
-      <TaskTemplatesSection taskType={taskType} />
+          {/* Divider */}
+          <div className="border-t border-[rgba(255,255,255,0.06)]" />
+
+          {/* Section: Task Templates */}
+          <TaskTemplatesSection taskType={taskType} />
+        </div>
+      )}
     </div>
   );
 }
@@ -348,6 +374,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
 
 export function TaskTypesTab() {
   const { t } = useDictionary("settings");
+  const searchParams = useSearchParams();
   const { data: taskTypes = [], isLoading } = useTaskTypes();
   const createTaskType = useCreateTaskType();
 
@@ -355,8 +382,16 @@ export function TaskTypesTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("#417394");
+  const [forceWizard, setForceWizard] = useState(false);
 
   const activeTypes = taskTypes.filter((tt) => !tt.deletedAt);
+
+  // Launch wizard when navigated with ?wizard=true (even if task types exist)
+  useEffect(() => {
+    if (searchParams.get("wizard") === "true") {
+      setForceWizard(true);
+    }
+  }, [searchParams]);
 
   function handleCreate() {
     if (!newName.trim()) return;
@@ -439,29 +474,40 @@ export function TaskTypesTab() {
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
             </div>
+          ) : forceWizard || (activeTypes.length === 0 && showWizard) ? (
+            <TaskTypesWizard onComplete={() => { setShowWizard(false); setForceWizard(false); }} />
           ) : activeTypes.length === 0 ? (
-            showWizard ? (
-              <TaskTypesWizard onComplete={() => setShowWizard(false)} />
-            ) : (
-              <div className="flex flex-col items-start gap-1.5 py-2">
-                <p className="font-mohave text-body-sm text-text-tertiary">
-                  {t("taskTypes.emptyState")}
-                </p>
+            <div className="flex flex-col items-start gap-1.5 py-2">
+              <p className="font-mohave text-body-sm text-text-tertiary">
+                {t("taskTypes.emptyState")}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowWizard(true)}
+              >
+                Run Setup
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
+                {activeTypes.map((taskType) => (
+                  <TaskTypeCard key={taskType.id} taskType={taskType} />
+                ))}
+              </div>
+              <div className="pt-1">
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setShowWizard(true)}
+                  onClick={() => setForceWizard(true)}
+                  className="gap-[4px]"
                 >
-                  Run Setup
+                  <Wand2 className="w-[14px] h-[14px]" />
+                  {t("taskTypes.runWizard")}
                 </Button>
               </div>
-            )
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
-              {activeTypes.map((taskType) => (
-                <TaskTypeCard key={taskType.id} taskType={taskType} />
-              ))}
-            </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -19,6 +19,7 @@ import {
   Save,
   Navigation,
   Loader2,
+  Crosshair,
 } from "lucide-react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
@@ -28,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { toast } from "sonner";
@@ -202,6 +204,7 @@ export default function ClientDetailPage() {
   const createSubClient = useCreateSubClient();
   const deleteSubClient = useDeleteSubClient();
 
+  const { getAddress, loading: locating } = useGeolocationAddress();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAddSubClient, setShowAddSubClient] = useState(false);
@@ -506,12 +509,30 @@ export default function ClientDetailPage() {
                 <div className="flex items-start gap-1 py-1.5">
                   <MapPin className="w-[16px] h-[16px] text-ops-accent shrink-0 mt-[2px]" />
                   {isEditing ? (
-                    <Input
-                      value={editAddress}
-                      onChange={(e) => setEditAddress(e.target.value)}
-                      placeholder="Address"
-                      className="h-auto py-[3px] px-1"
-                    />
+                    <div className="flex gap-1 flex-1">
+                      <Input
+                        value={editAddress}
+                        onChange={(e) => setEditAddress(e.target.value)}
+                        placeholder="Address"
+                        className="h-auto py-[3px] px-1 flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const addr = await getAddress();
+                          if (addr) setEditAddress(addr);
+                        }}
+                        disabled={locating}
+                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-background-input text-text-tertiary hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40"
+                        title="Use my location"
+                      >
+                        {locating ? (
+                          <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                        ) : (
+                          <Crosshair className="w-[14px] h-[14px]" />
+                        )}
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex items-start gap-1 flex-1 min-w-0">
                       <span className="font-mohave text-body-sm text-text-secondary flex-1">

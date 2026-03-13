@@ -234,10 +234,18 @@ export default function DashboardPage() {
   }, [tasks]);
 
   const isDataLoading = projectsLoading || tasksLoading || clientsLoading || teamLoading || calendarLoading;
+  const [contentReady, setContentReady] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Delay typewriter until data has loaded at least once
+  useEffect(() => {
+    if (mounted && !isDataLoading && !contentReady) {
+      setContentReady(true);
+    }
+  }, [mounted, isDataLoading, contentReady]);
 
   // ── Escape key handling ──
   useEffect(() => {
@@ -665,7 +673,7 @@ export default function DashboardPage() {
     <MotionConfig reducedMotion="user">
       <div
         className={cn(
-          "space-y-3 transition-opacity duration-500",
+          "space-y-3 pb-8 transition-opacity duration-500",
           mounted ? "opacity-100" : "opacity-0",
           trayOpen && "pb-[340px]"
         )}
@@ -678,7 +686,7 @@ export default function DashboardPage() {
               style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
             >
               <span
-                className={mounted ? "typewriter" : ""}
+                className={contentReady ? "typewriter" : "opacity-0"}
                 onAnimationEnd={(e) => {
                   (e.target as HTMLElement).classList.add("typewriter-done");
                 }}
@@ -687,7 +695,7 @@ export default function DashboardPage() {
               </span>
             </p>
             <p
-              className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase"
+              className={`font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase transition-opacity duration-500 ${contentReady ? "opacity-100" : "opacity-0"}`}
               style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
             >
               {t("greeting.subtitle")}

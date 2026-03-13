@@ -8,6 +8,7 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { signInWithGoogle, signInWithApple, signInWithEmail } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useSetupStore } from "@/stores/setup-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackLogin } from "@/lib/analytics/analytics";
@@ -48,8 +49,21 @@ function LoginForm() {
     setError(null);
     const setLoading = provider === "google" ? setIsLoadingGoogle : setIsLoadingApple;
     setLoading(true);
+
+    // Detect popup dismissal faster than Firebase's built-in polling (~10s).
+    // When the main window regains focus, the popup was likely closed or
+    // completed. Give Firebase a short grace period, then force-reset.
+    let resolved = false;
+    const focusHandler = () => {
+      setTimeout(() => {
+        if (!resolved) setLoading(false);
+      }, 1500);
+    };
+    window.addEventListener("focus", focusHandler);
+
     try {
       const firebaseUser = await signInFn();
+      resolved = true;
       const idToken = await firebaseUser.getIdToken();
       const result = await UserService.syncUser(
         idToken,
@@ -66,11 +80,17 @@ function LoginForm() {
       trackLogin(provider);
       if (!result.user.onboardingCompleted?.web) {
         // User hasn't finished onboarding — route based on company membership
-        router.push(result.user.companyId ? "/setup" : "/account-type");
+        if (result.user.companyId) {
+          useSetupStore.getState().reset();
+          router.push("/setup");
+        } else {
+          router.push("/account-type");
+        }
       } else {
         router.push(redirectTo);
       }
     } catch (err: unknown) {
+      resolved = true;
       const code = (err as { code?: string })?.code;
       // User closed the popup — silently reset, no error
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
@@ -87,7 +107,9 @@ function LoginForm() {
       console.error(`[Login] ${provider} sign-in error:`, code, err);
       setError(message);
     } finally {
+      resolved = true;
       setLoading(false);
+      window.removeEventListener("focus", focusHandler);
     }
   }
 
@@ -114,7 +136,12 @@ function LoginForm() {
       trackLogin("email");
       if (!result.user.onboardingCompleted?.web) {
         // User hasn't finished onboarding — route based on company membership
-        router.push(result.user.companyId ? "/setup" : "/account-type");
+        if (result.user.companyId) {
+          useSetupStore.getState().reset();
+          router.push("/setup");
+        } else {
+          router.push("/account-type");
+        }
       } else {
         router.push(redirectTo);
       }

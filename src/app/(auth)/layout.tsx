@@ -30,7 +30,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && !isAllowedWhenAuthenticated) {
-      router.replace("/projects");
+      router.replace("/dashboard");
     }
   }, [isLoading, isAuthenticated, isAllowedWhenAuthenticated, router]);
 

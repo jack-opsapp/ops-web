@@ -8,7 +8,6 @@ import {
   Save,
   Mail,
   Phone,
-  MapPin,
   User,
   Building2,
   AlertCircle,
@@ -27,6 +26,8 @@ import { toast } from "sonner";
 import { trackClientCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
 import { useCreateClient } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { FormProvider } from "react-hook-form";
+import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 
 // ─── Validation Schema ───────────────────────────────────────────────────────
 
@@ -82,14 +83,7 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
   const { company } = useAuthStore();
   const createClient = useCreateClient();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isDirty },
-    setValue,
-    watch,
-    reset,
-  } = useForm<NewClientFormValues>({
+  const methods = useForm<NewClientFormValues>({
     resolver: zodResolver(newClientSchema),
     defaultValues: {
       name: "",
@@ -101,6 +95,8 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
     },
     mode: "onBlur",
   });
+
+  const { register, handleSubmit, formState: { errors, isDirty }, setValue, watch, reset } = methods;
 
   const phoneValue = watch("phone");
 
@@ -137,7 +133,7 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
   }
 
   return (
-    <>
+    <FormProvider {...methods}>
       {serverError && (
         <div className="flex items-center gap-1.5 bg-ops-error-muted border border-ops-error/30 rounded px-1.5 py-1 animate-slide-up">
           <AlertCircle className="w-[16px] h-[16px] text-ops-error shrink-0" />
@@ -187,11 +183,9 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
             value={phoneValue || ""}
             onChange={handlePhoneChange}
           />
-          <Input
+          <AddressAutocomplete<NewClientFormValues>
+            name="address"
             label="Address"
-            placeholder="123 Main Street, City, State ZIP"
-            prefixIcon={<MapPin className="w-[16px] h-[16px]" />}
-            {...register("address")}
           />
         </div>
 
@@ -235,7 +229,7 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
           </Button>
         </div>
       </form>
-    </>
+    </FormProvider>
   );
 }
 

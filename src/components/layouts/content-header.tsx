@@ -14,8 +14,12 @@ const routeKeys: Record<string, string> = {
   "/team": "route.team",
   "/map": "route.map",
   "/pipeline": "route.pipeline",
+  "/estimates": "route.estimates",
+  "/products": "route.products",
+  "/inventory": "route.inventory",
   "/invoices": "route.invoices",
   "/accounting": "route.accounting",
+  "/portal-inbox": "route.portalInbox",
   "/settings": "route.settings",
 };
 

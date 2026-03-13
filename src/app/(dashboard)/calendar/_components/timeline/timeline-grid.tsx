@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { isToday, differenceInCalendarDays, getHours, getMinutes } from "date-fns";
+import { isToday, differenceInCalendarDays, getHours, getMinutes, format } from "date-fns";
 import {
   DndContext,
   PointerSensor,
@@ -144,15 +144,30 @@ function CurrentTimeIndicator({
   const dayColumnPercent = 100 / daysShown;
   const leftPercent = dayOffset * dayColumnPercent + fractionOfDay * dayColumnPercent;
 
+  const timeLabel = format(now, "h:mm a");
+
   return (
     <div
       className="absolute top-0 bottom-0 z-20 pointer-events-none"
       style={{
         left: `calc(${TIMELINE_GUTTER_WIDTH}px + (100% - ${TIMELINE_GUTTER_WIDTH}px) * ${leftPercent / 100})`,
-        width: 2,
-        background: "#597794",
       }}
-    />
+    >
+      {/* Time label */}
+      <div
+        className="sticky top-0 -translate-x-1/2 z-30 px-[6px] py-[2px] rounded-b-sm"
+        style={{ background: "#597794", width: "fit-content" }}
+      >
+        <span className="font-mohave text-[10px] font-semibold text-white whitespace-nowrap leading-none tracking-wide">
+          {timeLabel}
+        </span>
+      </div>
+      {/* Vertical line */}
+      <div
+        className="absolute top-0 bottom-0"
+        style={{ width: 2, background: "#597794" }}
+      />
+    </div>
   );
 }
 
@@ -315,9 +330,10 @@ export function TimelineGrid({
             );
           })}
 
-          {/* Unassigned row */}
+          {/* Unassigned row — only shown when tasks lack team member assignments */}
           {(() => {
             const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
+            if (unassignedEvents.length === 0) return null;
             return (
               <DroppableTimelineRow
                 teamMember={UNASSIGNED_MEMBER}

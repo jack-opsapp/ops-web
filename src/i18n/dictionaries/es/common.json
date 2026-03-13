@@ -48,5 +48,16 @@
   "selected": "seleccionado(s)",
   "items": "elementos",
   "version": "VERSIÓN 02/16/2026",
-  "pageNotFound": "Página no encontrada"
+  "pageNotFound": "Página no encontrada",
+
+  "bugReport.label": "BUG",
+  "bugReport.title": "REPORTAR UN ERROR",
+  "bugReport.whatHappened": "¿QUÉ PASÓ?",
+  "bugReport.titlePlaceholder": "Descripción breve del problema",
+  "bugReport.details": "DETALLES (OPCIONAL)",
+  "bugReport.detailsPlaceholder": "Pasos para reproducir, comportamiento esperado...",
+  "bugReport.autoCapture": "LA URL Y LA CUENTA SE ADJUNTARÁN AUTOMÁTICAMENTE",
+  "bugReport.submit": "ENVIAR REPORTE",
+  "bugReport.sending": "ENVIANDO...",
+  "bugReport.submitted": "Reporte de error enviado. Gracias."
 }

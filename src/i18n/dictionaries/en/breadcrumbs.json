@@ -7,8 +7,12 @@
   "route.team": "Team",
   "route.map": "Map",
   "route.pipeline": "Pipeline",
+  "route.estimates": "Estimates",
+  "route.products": "Products",
+  "route.inventory": "Inventory",
   "route.invoices": "Invoices",
   "route.accounting": "Accounting",
+  "route.portalInbox": "Portal Inbox",
   "route.settings": "Settings",
   "route.new": "New"
 }

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Mail, CheckCircle, AlertCircle } from "lucide-react";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
 
@@ -183,4 +183,37 @@ export function useGmailImport() {
     status,
     isImporting: startImport.isPending || status?.status === "running",
   };
+}
+
+// ─── Import History ─────────────────────────────────────────────────────────
+
+export interface ImportHistoryJob {
+  id: string;
+  status: "running" | "completed" | "failed";
+  totalEmails: number;
+  processed: number;
+  matched: number;
+  needsReview: number;
+  clientsCreated: number;
+  leadsCreated: number;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useImportHistory(companyId: string | undefined) {
+  return useQuery({
+    queryKey: ["gmail-import-history", companyId],
+    queryFn: async (): Promise<ImportHistoryJob[]> => {
+      if (!companyId) return [];
+      const resp = await fetch(
+        `/api/integrations/gmail/import-history?companyId=${encodeURIComponent(companyId)}&limit=3`
+      );
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return data.jobs ?? [];
+    },
+    enabled: !!companyId,
+    staleTime: 30_000,
+  });
 }

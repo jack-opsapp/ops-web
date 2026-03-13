@@ -14,8 +14,6 @@ import {
   UserCog,
   Users,
   Clock,
-  Send,
-  X,
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,11 +24,11 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { InviteModal } from "@/components/ops/invite-modal";
 import {
   useTeamMembers,
   useUpdateUserRole,
   useRemoveSeatedEmployee,
-  useSendInvite,
 } from "@/lib/hooks";
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
 import { UserRole, getUserFullName } from "@/lib/types/models";
@@ -435,96 +433,6 @@ function TeamMemberCard({
   );
 }
 
-// ─── Invite Form ─────────────────────────────────────────────────────────────
-
-function InviteForm({
-  onInvite,
-  onClose,
-  t,
-}: {
-  onInvite: (email: string) => void;
-  onClose: () => void;
-  t: (key: string) => string;
-}) {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const sendInvite = useSendInvite();
-
-  async function handleInvite() {
-    if (!email.trim()) {
-      setError(t("team.emailRequired"));
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError(t("team.invalidEmail"));
-      return;
-    }
-    setError(null);
-
-    sendInvite.mutate({ emails: [email.trim()] }, {
-      onSuccess: (result) => {
-        if (result.success) {
-          onInvite(email);
-          setEmail("");
-        } else {
-          setError(t("team.failedInvite"));
-        }
-      },
-      onError: (err) => {
-        setError(err instanceof Error ? err.message : t("team.failedInvite"));
-      },
-    });
-  }
-
-  return (
-    <div className="bg-background-card border border-ops-accent/30 rounded-lg p-2 space-y-1.5 animate-slide-up">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-[6px]">
-          <Send className="w-[14px] h-[14px] text-ops-accent" />
-          <h3 className="font-mohave text-card-title text-text-primary">
-            {t("team.inviteTitle")}
-          </h3>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-[4px] rounded text-text-tertiary hover:text-text-primary transition-colors"
-        >
-          <X className="w-[16px] h-[16px]" />
-        </button>
-      </div>
-      <p className="font-kosugi text-caption-sm text-text-tertiary">
-        {t("team.inviteDesc")}
-      </p>
-      <div className="flex items-start gap-1">
-        <div className="flex-1">
-          <Input
-            type="email"
-            placeholder={t("team.invitePlaceholder")}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            prefixIcon={<Mail className="w-[16px] h-[16px]" />}
-            error={error || undefined}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleInvite();
-              }
-            }}
-          />
-        </div>
-        <Button
-          onClick={handleInvite}
-          loading={sendInvite.isPending}
-          className="gap-[6px] shrink-0"
-        >
-          <Send className="w-[14px] h-[14px]" />
-          {t("team.sendInvite")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Loading Skeleton ────────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
@@ -555,7 +463,7 @@ function LoadingSkeleton() {
 export default function TeamPage() {
   const { t } = useDictionary("schedule");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
 
   // Track screen view
@@ -643,11 +551,6 @@ export default function TeamPage() {
     });
   }
 
-  function handleInvite(email: string) {
-    setShowInviteForm(false);
-    toast.success(`${t("team.inviteSent")} ${email}`);
-  }
-
   const memberForRemoval = team.find((m) => m.id === removeTarget);
 
   return (
@@ -700,30 +603,12 @@ export default function TeamPage() {
         </div>
         <Button
           className="gap-[6px]"
-          onClick={() => setShowInviteForm(!showInviteForm)}
+          onClick={() => setInviteOpen(true)}
         >
-          {showInviteForm ? (
-            <>
-              <X className="w-[16px] h-[16px]" />
-              {t("team.close")}
-            </>
-          ) : (
-            <>
-              <Plus className="w-[16px] h-[16px]" />
-              {t("team.inviteMember")}
-            </>
-          )}
+          <Plus className="w-[16px] h-[16px]" />
+          {t("team.inviteMember")}
         </Button>
       </div>
-
-      {/* Invite Form */}
-      {showInviteForm && (
-        <InviteForm
-          onInvite={handleInvite}
-          onClose={() => setShowInviteForm(false)}
-          t={t}
-        />
-      )}
 
       {/* Search */}
       <div className="max-w-[400px]">
@@ -752,7 +637,7 @@ export default function TeamPage() {
           {!searchQuery && (
             <Button
               className="mt-3 gap-[6px]"
-              onClick={() => setShowInviteForm(true)}
+              onClick={() => setInviteOpen(true)}
             >
               <Plus className="w-[16px] h-[16px]" />
               {t("team.inviteMember")}
@@ -888,6 +773,9 @@ export default function TeamPage() {
         onConfirm={handleRemoveMember}
         loading={removeEmployeeMutation.isPending}
       />
+
+      {/* Invite Modal */}
+      <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   );
 }

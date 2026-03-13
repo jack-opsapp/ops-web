@@ -18,6 +18,7 @@ import {
   type MapViewFilter,
 } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useSidebarStore } from "@/stores/sidebar-store";
 
 interface FilterItem {
   id: string;
@@ -42,6 +43,8 @@ export function MapFilterRail() {
   const map = useMapInstanceStore((s) => s.map);
   const userLocation = useMapInstanceStore((s) => s.userLocation);
   const can = usePermissionStore((s) => s.can);
+  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
+  const sidebarWidth = isCollapsed ? 72 : 256;
 
   if (pathname !== "/dashboard") return null;
 
@@ -67,20 +70,33 @@ export function MapFilterRail() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "fixed bottom-3 left-1/2 -translate-x-1/2 z-[5]",
-        "flex items-center gap-1 py-1.5 px-2",
-        "rounded-md border border-[rgba(255,255,255,0.08)]",
-        "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]",
-        "pointer-events-auto"
+        "fixed bottom-3 z-[5]",
+        "flex items-center gap-0 pointer-events-auto"
       )}
+      style={{ left: sidebarWidth + 12 }}
     >
-      {/* Label */}
-      <div className="flex items-center gap-1.5 pr-2 mr-1 border-r border-[rgba(255,255,255,0.06)]">
-        <Map className="w-[14px] h-[14px] text-text-disabled" />
+      {/* Folder-style label tab */}
+      <div
+        className={cn(
+          "flex items-center gap-1.5 px-2 py-1.5 mr-[-1px]",
+          "rounded-l-sm border border-[rgba(255,255,255,0.10)]",
+          "bg-[rgba(18,18,18,0.85)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
+        )}
+      >
+        <Map className="w-[13px] h-[13px] text-text-disabled" />
         <span className="font-kosugi text-[9px] text-text-disabled tracking-wider uppercase select-none">
           MAP
         </span>
       </div>
+
+      {/* Controls bar */}
+      <div
+        className={cn(
+          "flex items-center gap-1 py-1.5 px-2",
+          "rounded-r-sm border border-[rgba(255,255,255,0.08)]",
+          "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
+        )}
+      >
 
       {/* View filters */}
       {VIEW_FILTERS.map((f) => {
@@ -155,6 +171,7 @@ export function MapFilterRail() {
         >
           <Minus className="w-[14px] h-[14px]" />
         </button>
+      </div>
       </div>
     </motion.div>
   );

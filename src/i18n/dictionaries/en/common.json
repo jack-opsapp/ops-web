@@ -48,5 +48,16 @@
   "selected": "selected",
   "items": "items",
   "version": "VERSION 02/16/2026",
-  "pageNotFound": "Page not found"
+  "pageNotFound": "Page not found",
+
+  "bugReport.label": "BUG",
+  "bugReport.title": "REPORT A BUG",
+  "bugReport.whatHappened": "WHAT HAPPENED?",
+  "bugReport.titlePlaceholder": "Brief description of the issue",
+  "bugReport.details": "DETAILS (OPTIONAL)",
+  "bugReport.detailsPlaceholder": "Steps to reproduce, expected behavior...",
+  "bugReport.autoCapture": "PAGE URL AND ACCOUNT WILL BE ATTACHED AUTOMATICALLY",
+  "bugReport.submit": "SUBMIT REPORT",
+  "bugReport.sending": "SENDING...",
+  "bugReport.submitted": "Bug report submitted. Thank you."
 }

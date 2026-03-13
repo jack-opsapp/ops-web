@@ -21,7 +21,7 @@ const SEGMENT_COLORS: Record<string, string> = {
 
 const SEGMENT_LABELS: Record<string, string> = {
   lifecycle: "Lifecycle",
-  bubble: "Bubble",
+  bubble: "Account Upgrade",
   unverified: "Unverified",
   newsletter: "Newsletter",
 };

@@ -29,10 +29,13 @@
   "column.accepted": "Aceptado",
   "column.inProgress": "En progreso",
   "column.completed": "Completado",
+  "column.closed": "Cerrado",
+  "column.archived": "Archivado",
 
   "search.label": "Búsqueda",
   "status.updated": "Estado del proyecto actualizado",
   "status.moved": "Movido a",
+  "status.archived": "Proyecto archivado",
   "status.failed": "Error al actualizar el estado",
   "status.tryAgain": "Inténtalo de nuevo",
 

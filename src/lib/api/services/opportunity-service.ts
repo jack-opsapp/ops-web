@@ -85,6 +85,9 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     lostNotes: (row.lost_notes as string) ?? null,
     sourceEmailId: (row.source_email_id as string) ?? null,
 
+    // Quote delivery
+    quoteDeliveryMethod: (row.quote_delivery_method as Opportunity["quoteDeliveryMethod"]) ?? null,
+
     // Address
     address: (row.address as string) ?? null,
 
@@ -151,6 +154,9 @@ function mapOpportunityToDb(
   if (data.lostReason !== undefined) row.lost_reason = data.lostReason;
   if (data.lostNotes !== undefined) row.lost_notes = data.lostNotes;
   if (data.sourceEmailId !== undefined) row.source_email_id = data.sourceEmailId;
+
+  // Quote delivery
+  if (data.quoteDeliveryMethod !== undefined) row.quote_delivery_method = data.quoteDeliveryMethod;
 
   // Address
   if (data.address !== undefined) row.address = data.address;

@@ -13,6 +13,9 @@ import {
   ListFilter,
   LayoutGrid,
   Loader2,
+  Archive,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -57,7 +61,7 @@ import {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type ColumnId = "rfq" | "estimated" | "accepted" | "in-progress" | "completed";
+type ColumnId = "rfq" | "estimated" | "accepted" | "in-progress" | "completed" | "closed";
 
 interface JobCard {
   id: string;
@@ -117,12 +121,29 @@ const COLUMN_STYLE_DEFS: Omit<Column, "cards" | "label">[] = [
   },
 ];
 
+const CLOSED_COLUMN_STYLE: Omit<Column, "cards" | "label"> = {
+  id: "closed",
+  color: "text-status-closed",
+  borderColor: "border-t-status-closed",
+  bgAccent: "bg-status-closed",
+};
+
 const COLUMN_LABEL_KEYS: Record<ColumnId, string> = {
   rfq: "column.rfq",
   estimated: "column.estimated",
   accepted: "column.accepted",
   "in-progress": "column.inProgress",
   completed: "column.completed",
+  closed: "column.closed",
+};
+
+const COLUMN_COLOR_HEX: Record<ColumnId, string> = {
+  rfq: "#BCBCBC",
+  estimated: "#B5A381",
+  accepted: "#9DB582",
+  "in-progress": "#8195B5",
+  completed: "#B58289",
+  closed: "#E9E9E9",
 };
 
 const COLUMN_ID_TO_STATUS: Record<ColumnId, ProjectStatus> = {
@@ -131,6 +152,7 @@ const COLUMN_ID_TO_STATUS: Record<ColumnId, ProjectStatus> = {
   accepted: ProjectStatus.Accepted,
   "in-progress": ProjectStatus.InProgress,
   completed: ProjectStatus.Completed,
+  closed: ProjectStatus.Closed,
 };
 
 const STATUS_TO_COLUMN_ID: Partial<Record<ProjectStatus, ColumnId>> = {
@@ -139,6 +161,7 @@ const STATUS_TO_COLUMN_ID: Partial<Record<ProjectStatus, ColumnId>> = {
   [ProjectStatus.Accepted]: "accepted",
   [ProjectStatus.InProgress]: "in-progress",
   [ProjectStatus.Completed]: "completed",
+  [ProjectStatus.Closed]: "closed",
 };
 
 // ---------------------------------------------------------------------------
@@ -310,33 +333,152 @@ function SortableKanbanCard({
 }
 
 // ---------------------------------------------------------------------------
+// Collapsed Job Column — narrow strip with vertical name + fill indicator
+// ---------------------------------------------------------------------------
+function CollapsedJobColumn({
+  column,
+  maxCount,
+  isOver = false,
+}: {
+  column: Column;
+  maxCount: number;
+  isOver?: boolean;
+}) {
+  const colorHex = COLUMN_COLOR_HEX[column.id];
+  const fillPercent = maxCount > 0 ? Math.round((column.cards.length / maxCount) * 100) : 0;
+
+  return (
+    <div
+      className={cn(
+        "relative flex flex-col items-center h-full rounded-sm border transition-colors duration-150 cursor-pointer overflow-hidden",
+        isOver
+          ? "bg-ops-accent-muted border-ops-accent"
+          : "bg-[rgba(10,10,10,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]"
+      )}
+    >
+      {/* Fill level — bottom to top */}
+      {column.cards.length > 0 && (
+        <div
+          className="absolute bottom-0 left-0 right-0 transition-all duration-500 ease-out rounded-b-sm"
+          style={{
+            height: `${fillPercent}%`,
+            backgroundColor: colorHex,
+            opacity: 0.12,
+          }}
+        />
+      )}
+
+      {/* Status color bar */}
+      <div
+        className="relative w-full h-[2px] shrink-0 rounded-t-sm"
+        style={{ backgroundColor: colorHex }}
+      />
+
+      {/* Vertical column name */}
+      <div className="relative flex-1 flex items-center justify-center py-2 overflow-hidden">
+        <span
+          className="font-mohave text-caption-sm uppercase tracking-[0.08em] whitespace-nowrap"
+          style={{
+            color: colorHex,
+            writingMode: "vertical-rl",
+            transform: "rotate(180deg)",
+          }}
+        >
+          {column.label}
+        </span>
+      </div>
+
+      {/* Count badge */}
+      {column.cards.length > 0 && (
+        <div className="relative shrink-0 pb-1.5">
+          <span className="font-mono text-[10px] text-text-disabled bg-background-elevated px-[5px] py-[2px] rounded-sm">
+            {column.cards.length}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Archive Drop Zone — sticky at bottom during drag
+// ---------------------------------------------------------------------------
+function ArchiveDropZone({ isDragging }: { isDragging: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "archive-drop" });
+
+  if (!isDragging) return null;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "sticky bottom-0 z-10 flex items-center justify-center gap-2 py-2 rounded border transition-all duration-200",
+        isOver
+          ? "bg-status-archived/20 border-status-archived text-status-archived"
+          : "bg-background-panel/90 backdrop-blur-sm border-border text-text-tertiary"
+      )}
+    >
+      <Archive className="w-[16px] h-[16px]" />
+      <span className="font-mohave text-body-sm uppercase tracking-wider">
+        {isOver ? "Release to archive" : "Drop here to archive"}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Droppable Column
 // ---------------------------------------------------------------------------
 function KanbanColumn({
   column,
   activeCardId: _activeCardId,
   onAddProject,
+  isExpanded,
+  onToggleExpand,
+  maxCount,
+  narrow = false,
   t,
 }: {
   column: Column;
   activeCardId: string | null;
   onAddProject?: () => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  maxCount: number;
+  narrow?: boolean;
   t: (key: string) => string;
 }) {
+  const { setNodeRef: setDropRef, isOver: isDropOver } = useDroppable({ id: column.id });
   const totalValue = column.cards.reduce((sum, c) => sum + c.value, 0);
   const avgDays =
     column.cards.length > 0
       ? Math.round(column.cards.reduce((sum, c) => sum + c.daysInStage, 0) / column.cards.length)
       : 0;
 
+  // Collapsed view — still droppable for drag-and-drop
+  if (!isExpanded) {
+    return (
+      <div
+        ref={setDropRef}
+        onClick={onToggleExpand}
+        className="flex flex-col shrink-0 w-[44px] min-h-[200px]"
+        title={`${column.label} (${column.cards.length})`}
+      >
+        <CollapsedJobColumn column={column} maxCount={maxCount} isOver={isDropOver} />
+      </div>
+    );
+  }
+
   return (
-    <div className={cn("flex flex-col min-w-[280px] max-w-[320px] w-full")}>
-      {/* Column header */}
+    <div className={cn("flex flex-col w-full", narrow ? "min-w-[200px] max-w-[200px]" : "min-w-[280px] max-w-[320px]")}>
+      {/* Column header — click to collapse */}
       <div
         className={cn(
-          "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0",
+          "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0 cursor-pointer",
           column.borderColor
         )}
+        onClick={onToggleExpand}
+        title={`Collapse ${column.label}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
@@ -353,7 +495,10 @@ function KanbanColumn({
             </span>
           </div>
           <button
-            onClick={onAddProject}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddProject?.();
+            }}
             className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors"
           >
             <Plus className="w-[14px] h-[14px]" />
@@ -564,6 +709,79 @@ function FilterBar({
 }
 
 // ---------------------------------------------------------------------------
+// Archived Section — collapsible, multi-column grid
+// ---------------------------------------------------------------------------
+function ArchivedSection({
+  cards,
+  t,
+}: {
+  cards: JobCard[];
+  t: (key: string) => string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+
+  return (
+    <div className="shrink-0 border border-border rounded bg-background-panel/50">
+      {/* Toggle header */}
+      <button
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="w-full flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-background-elevated/50 transition-colors rounded"
+      >
+        {isOpen ? (
+          <ChevronDown className="w-[14px] h-[14px] text-text-disabled" />
+        ) : (
+          <ChevronRight className="w-[14px] h-[14px] text-text-disabled" />
+        )}
+        <Archive className="w-[14px] h-[14px] text-status-archived" />
+        <span className="font-mohave text-body-sm uppercase tracking-wider text-status-archived">
+          {t("column.archived")}
+        </span>
+        <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
+          {cards.length}
+        </span>
+      </button>
+
+      {/* Expandable grid */}
+      {isOpen && (
+        <div className="px-2 pb-2 pt-1 border-t border-border">
+          <div
+            className="grid gap-1"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            }}
+          >
+            {cards.map((card) => (
+              <div
+                key={card.id}
+                className="bg-background-card-dark border border-border rounded p-1.5 cursor-pointer hover:border-ops-accent/50 hover:shadow-glow-accent transition-all duration-150"
+                onClick={() => router.push(`/projects/${card.id}`)}
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <div className="min-w-0">
+                    <h4 className="font-mohave text-body-sm text-text-primary truncate">
+                      {card.name}
+                    </h4>
+                    <p className="font-kosugi text-[10px] text-text-tertiary">
+                      {card.client}
+                    </p>
+                  </div>
+                  {card.daysInStage > 0 && (
+                    <span className="font-mono text-[9px] text-text-disabled shrink-0">
+                      {card.daysInStage}d
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Job Board Page
 // ---------------------------------------------------------------------------
 export default function JobBoardPage() {
@@ -572,6 +790,21 @@ export default function JobBoardPage() {
   const [clientFilter, setClientFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [expandedColumns, setExpandedColumns] = useState<Set<ColumnId>>(
+    () => new Set<ColumnId>(["rfq", "estimated", "accepted", "in-progress", "completed"]) // closed starts collapsed
+  );
+
+  const toggleColumn = useCallback((columnId: ColumnId) => {
+    setExpandedColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) {
+        next.delete(columnId);
+      } else {
+        next.add(columnId);
+      }
+      return next;
+    });
+  }, []);
   const openWindow = useWindowStore((s) => s.openWindow);
   const openCreateProject = () => openWindow({ id: "create-project", title: t("newProject"), type: "create-project" });
 
@@ -666,7 +899,7 @@ export default function JobBoardPage() {
     [teamMemberMap, clientMap]
   );
 
-  const columns = useMemo<Column[]>(() => {
+  const { columns, closedColumn, archivedCards } = useMemo(() => {
     const projects = projectsData?.projects ?? [];
 
     // Filter out deleted projects
@@ -679,23 +912,41 @@ export default function JobBoardPage() {
       accepted: [],
       "in-progress": [],
       completed: [],
+      closed: [],
     };
+    const archived: JobCard[] = [];
 
     for (const project of activeProjects) {
       // If there is an optimistic override for this project, use that column
       const overrideColumnId = dndOverrides[project.id];
+
+      // Check for archive override
+      if (overrideColumnId === ("archived" as ColumnId)) {
+        archived.push(projectToCard(project));
+        continue;
+      }
+
       const columnId = overrideColumnId ?? STATUS_TO_COLUMN_ID[project.status];
       if (columnId && grouped[columnId]) {
         grouped[columnId].push(projectToCard(project));
+      } else if (project.status === ProjectStatus.Archived) {
+        archived.push(projectToCard(project));
       }
-      // Projects with statuses not on the board (Closed, Archived) are skipped
     }
 
-    return columnDefinitions.map((def) => ({
+    const cols = columnDefinitions.map((def) => ({
       ...def,
       cards: grouped[def.id],
     }));
-  }, [projectsData, dndOverrides, projectToCard, columnDefinitions]);
+
+    const closed: Column = {
+      ...CLOSED_COLUMN_STYLE,
+      label: t(COLUMN_LABEL_KEYS.closed),
+      cards: grouped.closed,
+    };
+
+    return { columns: cols, closedColumn: closed, archivedCards: archived };
+  }, [projectsData, dndOverrides, projectToCard, columnDefinitions, t]);
 
   // Pointer sensor with small activation distance so clicks still work
   const sensors = useSensors(
@@ -728,6 +979,12 @@ export default function JobBoardPage() {
     }));
   }, [columns, searchQuery, clientFilter]);
 
+  // Max count across columns (for collapsed fill indicator)
+  const maxColumnCount = useMemo(
+    () => Math.max(...filteredColumns.map((col) => col.cards.length), closedColumn.cards.length, 0),
+    [filteredColumns, closedColumn]
+  );
+
   // Total project count and value
   const totalProjects = columns.reduce((sum, col) => sum + col.cards.length, 0);
   const totalValue = columns.reduce(
@@ -735,16 +992,24 @@ export default function JobBoardPage() {
     0
   );
 
-  // Find a card across all columns
+  // Find a card across all columns (including closed)
+  const allBoardColumns = useMemo(
+    () => [...columns, closedColumn],
+    [columns, closedColumn]
+  );
+
   const findCard = useCallback(
     (cardId: string) => {
-      for (const col of columns) {
+      for (const col of allBoardColumns) {
         const card = col.cards.find((c) => c.id === cardId);
         if (card) return { card, columnId: col.id };
       }
+      // Check archived
+      const archivedCard = archivedCards.find((c) => c.id === cardId);
+      if (archivedCard) return { card: archivedCard, columnId: "archived" as ColumnId };
       return null;
     },
-    [columns]
+    [allBoardColumns, archivedCards]
   );
 
   // Find the active card for the drag overlay
@@ -767,25 +1032,60 @@ export default function JobBoardPage() {
       const overId = over.id as string;
 
       // Find source column
-      let sourceColId: ColumnId | null = null;
-      for (const col of columns) {
+      let sourceColId: string | null = null;
+      for (const col of allBoardColumns) {
         if (col.cards.find((c) => c.id === activeId)) {
           sourceColId = col.id;
           break;
         }
       }
+      if (!sourceColId && archivedCards.find((c) => c.id === activeId)) {
+        sourceColId = "archived";
+      }
 
       if (!sourceColId) return;
+
+      // Handle archive drop zone
+      if (overId === "archive-drop") {
+        if (sourceColId === "archived") return; // already archived
+
+        setDndOverrides((prev) => ({
+          ...prev,
+          [activeId]: "archived" as ColumnId,
+        }));
+
+        updateStatusMutation.mutate(
+          { id: activeId, status: ProjectStatus.Archived },
+          {
+            onSuccess: () => {
+              toast.success(t("status.updated"), {
+                description: t("status.archived"),
+              });
+            },
+            onError: (error) => {
+              setDndOverrides((prev) => {
+                const next = { ...prev };
+                delete next[activeId];
+                return next;
+              });
+              toast.error(t("status.failed"), {
+                description: error instanceof Error ? error.message : t("status.tryAgain"),
+              });
+            },
+          }
+        );
+        return;
+      }
 
       // Determine destination column: overId could be a card or column id
       let destColId: ColumnId | null = null;
 
       // Check if overId is a column id
-      if (columnDefinitions.some((def) => def.id === overId)) {
+      if (overId === "closed" || columnDefinitions.some((def) => def.id === overId)) {
         destColId = overId as ColumnId;
       } else {
         // overId is a card, find its column
-        for (const col of columns) {
+        for (const col of allBoardColumns) {
           if (col.cards.find((c) => c.id === overId)) {
             destColId = col.id;
             break;
@@ -806,12 +1106,16 @@ export default function JobBoardPage() {
 
       // Call the API mutation
       const newStatus = COLUMN_ID_TO_STATUS[destColId];
+      const destLabel = destColId === "closed"
+        ? closedColumn.label
+        : columnDefinitions.find((d) => d.id === destColId)?.label ?? destColId;
+
       updateStatusMutation.mutate(
         { id: activeId, status: newStatus },
         {
           onSuccess: () => {
             toast.success(t("status.updated"), {
-              description: `${t("status.moved")} ${columnDefinitions.find((d) => d.id === destColId)?.label ?? destColId}`,
+              description: `${t("status.moved")} ${destLabel}`,
             });
           },
           onError: (error) => {
@@ -828,7 +1132,7 @@ export default function JobBoardPage() {
         }
       );
     },
-    [columns, updateStatusMutation, columnDefinitions, t]
+    [allBoardColumns, archivedCards, closedColumn, updateStatusMutation, columnDefinitions, t]
   );
 
   // ─── Loading State ───────────────────────────────────────────────────────
@@ -867,17 +1171,40 @@ export default function JobBoardPage() {
       >
         <div className="flex-1 overflow-x-auto pb-2">
           <div className="flex gap-2 min-w-min">
+            {/* Active columns */}
             {filteredColumns.map((column) => (
               <KanbanColumn
                 key={column.id}
                 column={column}
                 activeCardId={activeCardId}
                 onAddProject={() => openCreateProject()}
+                isExpanded={expandedColumns.has(column.id)}
+                onToggleExpand={() => toggleColumn(column.id)}
+                maxCount={maxColumnCount}
                 t={t}
               />
             ))}
+
+            {/* Visual separator */}
+            <div className="flex items-stretch py-4 px-0.5 shrink-0">
+              <div className="w-[1px] bg-border-subtle" />
+            </div>
+
+            {/* Closed column (terminal, narrower) */}
+            <KanbanColumn
+              column={closedColumn}
+              activeCardId={activeCardId}
+              isExpanded={expandedColumns.has("closed")}
+              onToggleExpand={() => toggleColumn("closed")}
+              maxCount={maxColumnCount}
+              narrow
+              t={t}
+            />
           </div>
         </div>
+
+        {/* Archive drop zone — appears at bottom during drag */}
+        <ArchiveDropZone isDragging={!!activeCardId} />
 
         {/* Drag Overlay */}
         <DndDragOverlay>
@@ -914,11 +1241,31 @@ export default function JobBoardPage() {
               </span>
             </div>
           ))}
+          {/* Closed + Archived counts */}
+          <div className="flex items-center gap-[6px]">
+            <span className="w-[6px] h-[6px] rounded-full bg-status-closed" />
+            <span className="font-mono text-[10px] text-text-disabled">
+              {closedColumn.label}: {closedColumn.cards.length}
+            </span>
+          </div>
+          {archivedCards.length > 0 && (
+            <div className="flex items-center gap-[6px]">
+              <span className="w-[6px] h-[6px] rounded-full bg-status-archived" />
+              <span className="font-mono text-[10px] text-text-disabled">
+                {t("column.archived")}: {archivedCards.length}
+              </span>
+            </div>
+          )}
         </div>
         <span className="font-kosugi text-[10px] text-text-disabled">
           {t("bottomBar")}
         </span>
       </div>
+
+      {/* Archived section — collapsible, multi-column grid */}
+      {archivedCards.length > 0 && (
+        <ArchivedSection cards={archivedCards} t={t} />
+      )}
 
       {/* Setup interception modal */}
       <SetupInterceptionModal

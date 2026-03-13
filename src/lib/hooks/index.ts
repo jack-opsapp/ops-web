@@ -221,7 +221,7 @@ export {
 } from "./use-gmail-connections";
 
 // Gmail Import
-export { useGmailImport } from "./use-gmail-import";
+export { useGmailImport, useImportHistory } from "./use-gmail-import";
 
 // Gmail Sync Notifications
 export { useGmailSyncNotifications } from "./use-gmail-sync-notifications";

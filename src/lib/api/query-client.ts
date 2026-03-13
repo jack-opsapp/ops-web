@@ -238,6 +238,13 @@ export const queryKeys = {
       [...queryKeys.notificationPreferences.all, userId, companyId] as const,
   },
 
+  // Dashboard Preferences (widget layout, map, scheduling)
+  dashboardPreferences: {
+    all: ["dashboardPreferences"] as const,
+    detail: (userId: string, companyId: string) =>
+      [...queryKeys.dashboardPreferences.all, userId, companyId] as const,
+  },
+
   // Gmail
   gmailConnections: {
     all: ["gmailConnections"] as const,

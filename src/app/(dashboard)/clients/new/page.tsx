@@ -10,14 +10,15 @@ import {
   Save,
   Mail,
   Phone,
-  MapPin,
   User,
   Building2,
   StickyNote,
   AlertCircle,
 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
+import { FormProvider } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { AddressAutocomplete } from "@/components/forms/address-autocomplete";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,13 +88,7 @@ export default function NewClientPage() {
   const { company } = useAuthStore();
   const createClient = useCreateClient();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isDirty },
-    setValue,
-    watch,
-  } = useForm<NewClientFormValues>({
+  const methods = useForm<NewClientFormValues>({
     resolver: zodResolver(newClientSchema),
     defaultValues: {
       name: "",
@@ -105,6 +100,8 @@ export default function NewClientPage() {
     },
     mode: "onBlur",
   });
+
+  const { register, handleSubmit, formState: { errors, isDirty }, setValue, watch } = methods;
 
   const phoneValue = watch("phone");
   const nameValue = watch("name");
@@ -185,6 +182,7 @@ export default function NewClientPage() {
         </div>
       )}
 
+      <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
         {/* Basic Info Card */}
         <Card>
@@ -237,11 +235,10 @@ export default function NewClientPage() {
               onChange={handlePhoneChange}
               helperText={t("new.phoneHelper")}
             />
-            <Input
+            <AddressAutocomplete<NewClientFormValues>
+              name="address"
               label={t("new.addressLabel")}
               placeholder={t("new.addressPlaceholder")}
-              prefixIcon={<MapPin className="w-[16px] h-[16px]" />}
-              {...register("address")}
             />
           </CardContent>
         </Card>
@@ -288,6 +285,7 @@ export default function NewClientPage() {
           </div>
         </div>
       </form>
+      </FormProvider>
     </div>
   );
 }

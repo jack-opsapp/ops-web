@@ -722,6 +722,11 @@ export function DealDetailSheet({
                 {t("detail.via")} {opportunity.source.replace(/_/g, " ")}
               </span>
             )}
+            {opportunity.quoteDeliveryMethod && (
+              <span className="font-kosugi text-[10px] text-text-secondary">
+                · quoted {opportunity.quoteDeliveryMethod.replace(/_/g, " ")}
+              </span>
+            )}
           </div>
         </SheetHeader>
 

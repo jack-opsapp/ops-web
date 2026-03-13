@@ -120,6 +120,9 @@
   "company.toast.updated": "Datos de la empresa actualizados exitosamente",
   "company.toast.updateFailed": "Error al actualizar la empresa",
   "company.toast.tryAgain": "Por favor intenta de nuevo.",
+  "company.toast.codeCopied": "Código de empresa copiado",
+  "company.companyCode": "Código de empresa",
+  "company.companyCodeHint": "Comparte este código con los miembros del equipo para que se unan a tu empresa.",
 
   "team.inviteTitle": "Invitar miembros del equipo",
   "team.inviteDescription": "Agrega compañeros por correo o teléfono. Recibirán un enlace para unirse a tu empresa.",
@@ -176,6 +179,9 @@
   "team.toast.deactivateFailed": "Error al desactivar",
   "team.toast.reactivated": "ha sido reactivado",
   "team.toast.reactivateFailed": "Error al reactivar",
+  "team.toast.codeCopied": "Código de empresa copiado",
+  "team.companyCode": "Código de empresa",
+  "team.companyCodeHint": "Los miembros del equipo pueden usar este código para unirse a tu empresa.",
 
   "taskTypes.title": "Tipos de tarea",
   "taskTypes.addType": "Agregar tipo",
@@ -193,6 +199,7 @@
   "taskTypes.loadingTemplates": "Cargando plantillas...",
   "taskTypes.noMembers": "No se encontraron miembros del equipo",
   "taskTypes.emptyState": "No hay tipos de tarea configurados. Agrega uno para comenzar.",
+  "taskTypes.runWizard": "Ejecutar Asistente",
   "taskTypes.toast.templateAdded": "Plantilla agregada",
   "taskTypes.toast.templateAddFailed": "Error al agregar plantilla",
   "taskTypes.toast.templateUpdated": "Plantilla actualizada",

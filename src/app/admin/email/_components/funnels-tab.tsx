@@ -16,9 +16,9 @@ export function FunnelsTab({ data }: FunnelsTabProps) {
       {/* Segment count cards */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard
-          label="Bubble Re-auth"
+          label="Account Upgrade"
           value={segmentCounts.bubble_reauth.toLocaleString()}
-          caption="invalid email domain"
+          caption="pending migration"
         />
         <StatCard
           label="Unverified"
@@ -42,7 +42,7 @@ export function FunnelsTab({ data }: FunnelsTabProps) {
       <div className="grid grid-cols-2 gap-4">
         <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
-            Bubble Re-auth Funnel
+            Account Upgrade Funnel
           </p>
           <FunnelChart steps={data.bubble} />
         </div>

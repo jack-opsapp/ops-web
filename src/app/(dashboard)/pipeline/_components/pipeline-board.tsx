@@ -205,6 +205,15 @@ export function PipelineBoard({
     return map;
   }, [filteredOpportunities]);
 
+  // ── Max count across all stages (for collapsed fill indicator) ──────
+  const maxStageCount = useMemo(() => {
+    let max = 0;
+    for (const [, list] of opportunitiesByStage) {
+      if (list.length > max) max = list.length;
+    }
+    return max;
+  }, [opportunitiesByStage]);
+
   // ── Active drag card ─────────────────────────────────────────────────
   const activeOpportunity = activeId
     ? opportunities.find((o) => o.id === activeId) ?? null
@@ -263,6 +272,7 @@ export function PipelineBoard({
               onAddLead={stage === OpportunityStage.NewLead ? onAddLead : undefined}
               isExpanded={expandedStages.has(stage)}
               onToggleExpand={() => toggleStage(stage)}
+              maxCount={maxStageCount}
             />
           ))}
 
@@ -282,6 +292,7 @@ export function PipelineBoard({
               narrow
               isExpanded={expandedStages.has(stage)}
               onToggleExpand={() => toggleStage(stage)}
+              maxCount={maxStageCount}
             />
           ))}
         </div>

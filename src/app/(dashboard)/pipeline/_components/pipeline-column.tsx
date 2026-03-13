@@ -27,6 +27,7 @@ interface PipelineColumnProps {
   narrow?: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  maxCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,32 +36,47 @@ interface PipelineColumnProps {
 function CollapsedColumn({
   stage,
   count,
+  maxCount,
   isOver,
 }: {
   stage: OpportunityStage;
   count: number;
+  maxCount: number;
   isOver: boolean;
 }) {
   const stageColor = getStageColor(stage);
   const stageName = getStageDisplayName(stage);
+  const fillPercent = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
 
   return (
     <div
       className={cn(
-        "flex flex-col items-center h-full rounded-sm border transition-colors duration-150 cursor-pointer",
+        "relative flex flex-col items-center h-full rounded-sm border transition-colors duration-150 cursor-pointer overflow-hidden",
         isOver
           ? "bg-ops-accent-muted border-ops-accent"
           : "bg-[rgba(10,10,10,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]"
       )}
     >
+      {/* Fill level — bottom to top */}
+      {count > 0 && (
+        <div
+          className="absolute bottom-0 left-0 right-0 transition-all duration-500 ease-out rounded-b-sm"
+          style={{
+            height: `${fillPercent}%`,
+            backgroundColor: stageColor,
+            opacity: 0.12,
+          }}
+        />
+      )}
+
       {/* Stage color bar */}
       <div
-        className="w-full h-[2px] shrink-0 rounded-t-sm"
+        className="relative w-full h-[2px] shrink-0 rounded-t-sm"
         style={{ backgroundColor: stageColor }}
       />
 
       {/* Vertical stage name */}
-      <div className="flex-1 flex items-center justify-center py-2 overflow-hidden">
+      <div className="relative flex-1 flex items-center justify-center py-2 overflow-hidden">
         <span
           className="font-mohave text-caption-sm uppercase tracking-[0.08em] whitespace-nowrap"
           style={{
@@ -75,7 +91,7 @@ function CollapsedColumn({
 
       {/* Count badge */}
       {count > 0 && (
-        <div className="shrink-0 pb-1.5">
+        <div className="relative shrink-0 pb-1.5">
           <span className="font-mono text-[10px] text-text-disabled bg-background-elevated px-[5px] py-[2px] rounded-sm">
             {count}
           </span>
@@ -98,6 +114,7 @@ export function PipelineColumn({
   narrow = false,
   isExpanded,
   onToggleExpand,
+  maxCount,
 }: PipelineColumnProps) {
   const { t } = useDictionary("pipeline");
   const { setNodeRef, isOver } = useDroppable({ id: stage });
@@ -129,6 +146,7 @@ export function PipelineColumn({
         <CollapsedColumn
           stage={stage}
           count={opportunities.length}
+          maxCount={maxCount}
           isOver={isOver}
         />
       </div>
