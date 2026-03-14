@@ -91,6 +91,15 @@ const config: Config = {
           inspection: "#7B68A6",
           completion: "#4A4A4A",
         },
+
+        // === Accounting & Financial Colors ===
+        financial: {
+          revenue: "#C4A868",
+          profit: "#9DB582",
+          cost: "#B58289",
+          receivables: "#D4A574",
+          overdue: "#93321A",
+        },
       },
 
       // === Typography ===
