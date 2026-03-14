@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
-import { signInWithGoogle, signInWithApple, signInWithEmail } from "@/lib/firebase/auth";
+import { signInWithGoogle, signInWithApple, signInWithEmail, signOut } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useSetupStore } from "@/stores/setup-store";
@@ -130,7 +130,11 @@ function LoginForm() {
       const result = await UserService.syncUser(
         idToken,
         email,
-        firebaseUser.displayName || undefined
+        firebaseUser.displayName || undefined,
+        undefined,
+        undefined,
+        undefined,
+        false // Don't auto-create user row on login — require registration
       );
       setUser(result.user);
       if (result.company) {
@@ -153,7 +157,12 @@ function LoginForm() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("login.error.providerFailed");
-      if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid") || message.includes("auth/invalid-credential")) {
+      if (message.includes("No account found") || message.includes("sign up first")) {
+        // Firebase account exists but no users row — sign out to prevent
+        // AuthProvider from auto-creating a user row on the next auth state change
+        await signOut().catch(() => {});
+        setError("No account found for this email. Please sign up first.");
+      } else if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid") || message.includes("auth/invalid-credential")) {
         setError(t("login.error.invalidCredentials"));
       } else if (message.includes("too-many-requests") || message.includes("429")) {
         setError(t("login.error.tooManyAttempts"));

@@ -34,6 +34,9 @@ interface SyncUserBody {
   firstName?: string;
   lastName?: string;
   photoURL?: string;
+  /** If false, returns 404 instead of auto-creating a user row.
+   *  Defaults to true for backward compat (OAuth flows). */
+  createIfMissing?: boolean;
 }
 
 // ─── DB Row Mappers ──────────────────────────────────────────────────────────
@@ -139,7 +142,7 @@ async function fetchCompanyById(companyId: string): Promise<Company | null> {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = (await req.json()) as SyncUserBody;
-    const { idToken, email, displayName, firstName, lastName, photoURL } = body;
+    const { idToken, email, displayName, firstName, lastName, photoURL, createIfMissing = true } = body;
 
     if (!idToken || !email) {
       return NextResponse.json(
@@ -220,7 +223,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ user, company });
     }
 
-    // ── New user: create record ──
+    // ── New user ──
+    if (!createIfMissing) {
+      return NextResponse.json(
+        { error: "No account found for this email. Please sign up first." },
+        { status: 404 }
+      );
+    }
+
+    // Create record
     const derivedFirst = firstName || displayName?.split(" ")[0] || "";
     const derivedLast = lastName || displayName?.split(" ").slice(1).join(" ") || "";
 

@@ -271,7 +271,9 @@ export const UserService = {
     displayName?: string,
     firstName?: string,
     lastName?: string,
-    photoURL?: string
+    photoURL?: string,
+    /** If false, returns error instead of auto-creating user row. Default true. */
+    createIfMissing = true
   ): Promise<{ user: User; company: Company | null }> {
     const response = await fetch("/api/auth/sync-user", {
       method: "POST",
@@ -283,6 +285,7 @@ export const UserService = {
         firstName,
         lastName,
         photoURL,
+        createIfMissing,
       }),
     });
 
