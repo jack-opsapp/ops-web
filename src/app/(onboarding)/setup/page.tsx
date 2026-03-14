@@ -570,27 +570,10 @@ export default function SetupPage() {
       <div className="bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm p-3">
         {/* Progress bar + step label */}
         <div className="mb-3">
-          <div className="flex items-center justify-between mb-1">
+          <div className="mb-1">
             <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
               STEP {stepNum} OF 2
             </span>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleLogout}
-                aria-label="Log out"
-                className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px]"
-              >
-                <LogOut className="w-3 h-3" />
-                Log out
-              </button>
-              <button
-                onClick={handleSkip}
-                aria-label="Skip setup and go to dashboard"
-                className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px] flex items-center"
-              >
-                Skip
-              </button>
-            </div>
           </div>
           <div
             className="flex items-center gap-1"
@@ -662,6 +645,26 @@ export default function SetupPage() {
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
+      </div>
+
+      {/* Log out + Skip — below card */}
+      <div className="flex items-center justify-center gap-4 mt-3">
+        <button
+          onClick={handleLogout}
+          aria-label="Log out"
+          className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[44px]"
+        >
+          <LogOut className="w-3 h-3" />
+          Log out
+        </button>
+        <span className="text-[rgba(255,255,255,0.08)]">|</span>
+        <button
+          onClick={handleSkip}
+          aria-label="Skip setup and go to dashboard"
+          className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[44px]"
+        >
+          Skip
+        </button>
       </div>
     </div>
   );

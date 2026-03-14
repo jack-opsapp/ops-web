@@ -310,19 +310,9 @@ export default function EmployeeSetupPage() {
             <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
               STEP {currentStep + 1} OF {STEPS.length}
             </span>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleLogout}
-                aria-label="Log out"
-                className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px]"
-              >
-                <LogOut className="w-3 h-3" />
-                Log out
-              </button>
-              <span className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em]">
-                {step.label}
-              </span>
-            </div>
+            <span className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em]">
+              {step.label}
+            </span>
           </div>
 
           {/* Segmented progress bar */}
@@ -554,6 +544,18 @@ export default function EmployeeSetupPage() {
             )}
           </button>
         </div>
+      </div>
+
+      {/* Log out — below card */}
+      <div className="flex items-center justify-center mt-3">
+        <button
+          onClick={handleLogout}
+          aria-label="Log out"
+          className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[44px]"
+        >
+          <LogOut className="w-3 h-3" />
+          Log out
+        </button>
       </div>
     </div>
   );
