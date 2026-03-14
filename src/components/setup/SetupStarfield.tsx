@@ -117,6 +117,7 @@ interface SetupStarfieldProps {
   starfieldAnswers: Record<string, string | number>;
   onAnswer: (questionId: string, answer: string | number) => void;
   minRequired?: number;
+  onFocusChange?: (focused: boolean) => void;
 }
 
 export function SetupStarfield({
@@ -124,6 +125,7 @@ export function SetupStarfield({
   starfieldAnswers,
   onAnswer,
   minRequired = 4,
+  onFocusChange,
 }: SetupStarfieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -164,6 +166,13 @@ export function SetupStarfield({
 
   const focusedNodeRef = useRef<string | null>(null);
   focusedNodeRef.current = focusedNode;
+
+  const onFocusChangeRef = useRef(onFocusChange);
+  onFocusChangeRef.current = onFocusChange;
+
+  useEffect(() => {
+    onFocusChangeRef.current?.(focusedNode !== null);
+  }, [focusedNode]);
 
   const starfieldAnswersRef = useRef(starfieldAnswers);
   starfieldAnswersRef.current = starfieldAnswers;

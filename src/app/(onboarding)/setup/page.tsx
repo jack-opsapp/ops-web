@@ -147,6 +147,7 @@ export default function SetupPage() {
 
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const workspacePromiseRef = useRef<Promise<void> | null>(null);
+  const [starfieldFocused, setStarfieldFocused] = useState(false);
 
   // ─── Focus management ──────────────────────────────────────────────────
 
@@ -437,9 +438,10 @@ export default function SetupPage() {
           starfieldAnswers={starfieldAnswers}
           onAnswer={handleStarfieldAnswer}
           minRequired={MIN_STARFIELD_ANSWERS}
+          onFocusChange={setStarfieldFocused}
         />
-        {/* Top controls */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
+        {/* Top controls — hidden when all answered (launch button takes over) */}
+        <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 transition-opacity duration-300 ${allAnswered ? "opacity-0 pointer-events-none" : ""}`}>
           <button
             onClick={handleBack}
             aria-label="Back to company information"
@@ -474,24 +476,52 @@ export default function SetupPage() {
           )}
         </div>
 
-        {/* Centered launch button — appears when all questions answered */}
+        {/* Launch button — center when idle, top when user reopens a question */}
         {allAnswered && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-start gap-1"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: starfieldFocused ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
+            layout
+            className={
+              starfieldFocused
+                ? "absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3"
+                : "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-3"
+            }
           >
-            <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.15em]">
-              [all set]
-            </span>
+            {!starfieldFocused && (
+              <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
+                All questions answered
+              </span>
+            )}
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-6 min-h-[56px] rounded-sm bg-ops-accent border border-ops-accent text-text-primary font-mohave text-body-lg uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-all duration-200"
+              className={
+                starfieldFocused
+                  ? "group relative px-6 py-2.5 rounded-sm font-mohave text-[16px] uppercase tracking-[0.15em] text-text-primary transition-all duration-300 overflow-hidden"
+                  : "group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text-primary transition-all duration-300 overflow-hidden"
+              }
+              style={{
+                background: "rgba(10, 10, 10, 0.70)",
+                backdropFilter: "blur(20px) saturate(1.2)",
+                border: "1px solid rgba(89, 119, 148, 0.4)",
+                boxShadow: "0 0 40px rgba(89, 119, 148, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+              }}
             >
-              LAUNCH
+              <span className="relative z-10">LAUNCH</span>
+              <div
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background: "linear-gradient(135deg, rgba(89, 119, 148, 0.15), rgba(89, 119, 148, 0.05))",
+                }}
+              />
             </button>
+            {!starfieldFocused && (
+              <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.1em]">
+                Your dashboard is ready
+              </p>
+            )}
           </motion.div>
         )}
       </motion.div>
