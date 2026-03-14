@@ -407,7 +407,7 @@ function mergeTagScores(
  */
 export function getDefaultWidgetInstancesFromSetup(
   answers: Record<string, string | number>,
-  companySize?: string
+  _companySize?: string
 ): WidgetInstance[] {
   // 1. Essential tag is always active
   const activeTags = new Map<WidgetTag, TagPriority>();

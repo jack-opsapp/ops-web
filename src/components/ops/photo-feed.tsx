@@ -110,7 +110,7 @@ function PhotoCard({
 export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
   const { data: photos, isLoading } = useProjectPhotos(projectId);
   const { data: teamData } = useTeamMembers();
-  const t = useDictionary("projects");
+  const { t } = useDictionary("projects");
   useLocale(); // i18n context — triggers re-render on locale change
 
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
