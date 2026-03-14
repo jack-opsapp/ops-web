@@ -292,6 +292,16 @@ export const queryKeys = {
     },
   },
 
+  // Bug Reports
+  bugReports: {
+    all: ["bugReports"] as const,
+    lists: () => [...queryKeys.bugReports.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.bugReports.lists(), companyId, filters] as const,
+    details: () => [...queryKeys.bugReports.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.bugReports.details(), id] as const,
+  },
+
   // Roles & Permissions
   roles: {
     all: ["roles"] as const,

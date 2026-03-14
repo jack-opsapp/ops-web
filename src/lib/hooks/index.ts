@@ -265,8 +265,21 @@ export {
 // Crew Locations (real-time map tracking)
 export { useCrewLocations } from "./use-crew-locations";
 
+// Bug Reports
+export {
+  useBugReports,
+  useBugReport,
+  useCreateBugReport,
+  useUpdateBugReportStatus,
+  useUpdateBugReportPriority,
+  useUpdateBugReport,
+} from "./use-bug-reports";
+
 // Cascade Preview
 export { useCascade } from "./use-cascade";
 
 // Smart Insert
 export { useSmartInsert } from "./use-smart-insert";
+
+// Page Title
+export { usePageTitle } from "./use-page-title";

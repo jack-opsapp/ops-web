@@ -226,7 +226,7 @@ function IndustryDropdown({
                 aria-activedescendant={
                   highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
                 }
-                className="w-full bg-background-input text-text-primary font-mohave text-body-sm pl-4 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-ops-accent focus:outline-none placeholder:text-text-disabled placeholder:font-kosugi min-h-[48px]"
+                className="w-full bg-background-input text-text-primary font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-ops-accent focus:outline-none placeholder:text-text-disabled placeholder:font-kosugi min-h-[48px]"
               />
             </div>
           </div>

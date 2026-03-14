@@ -209,7 +209,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         updates.last_name = lastName;
       }
 
-      await db.from("users").update(updates).eq("id", existingRow.id);
+      const { error: updateError } = await db.from("users").update(updates).eq("id", existingRow.id);
+      if (updateError) {
+        console.error("[sync-user] Failed to update user auth fields:", updateError.message);
+      }
 
       const user = mapUserFromDb({ ...existingRow, ...updates });
       const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
