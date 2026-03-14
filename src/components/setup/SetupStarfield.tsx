@@ -1039,6 +1039,8 @@ export function SetupStarfield({
   const answeredCount = visibleQuestions.filter(
     (q) => starfieldAnswers[q.id] != null
   ).length;
+  const allQuestionsAnswered =
+    visibleQuestions.length > 0 && answeredCount === visibleQuestions.length;
 
   // Track when minimum required answers are first reached
   const [showUnlocked, setShowUnlocked] = useState(false);
@@ -1097,9 +1099,9 @@ export function SetupStarfield({
         </p>
       </div>
 
-      {/* Instruction — visible when no node is focused */}
+      {/* Instruction — visible when no node is focused and not all answered */}
       <AnimatePresence>
-        {!focusedNode && (
+        {!focusedNode && !allQuestionsAnswered && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

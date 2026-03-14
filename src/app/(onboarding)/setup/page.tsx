@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import {
@@ -440,8 +440,8 @@ export default function SetupPage() {
           minRequired={MIN_STARFIELD_ANSWERS}
           onFocusChange={setStarfieldFocused}
         />
-        {/* Top controls — hidden when all answered (launch button takes over) */}
-        <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 transition-opacity duration-300 ${allAnswered ? "opacity-0 pointer-events-none" : ""}`}>
+        {/* Top controls — always visible */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
           <button
             onClick={handleBack}
             aria-label="Back to company information"
@@ -465,7 +465,9 @@ export default function SetupPage() {
           >
             Skip
           </button>
-          {answeredCount >= MIN_STARFIELD_ANSWERS && !allAnswered && (
+          {/* Inline launch — when enough answers (not all), or when editing after all answered */}
+          {((answeredCount >= MIN_STARFIELD_ANSWERS && !allAnswered) ||
+            (allAnswered && starfieldFocused)) && (
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
@@ -476,54 +478,55 @@ export default function SetupPage() {
           )}
         </div>
 
-        {/* Launch button — center when idle, top when user reopens a question */}
-        {allAnswered && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: starfieldFocused ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
-            layout
-            className={
-              starfieldFocused
-                ? "absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3"
-                : "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-3"
-            }
-          >
-            {!starfieldFocused && (
-              <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
-                All questions answered
-              </span>
-            )}
-            <button
-              onClick={handleLaunchFromStarfield}
-              aria-label="Launch your personalized dashboard"
-              className={
-                starfieldFocused
-                  ? "group relative px-6 py-2.5 rounded-sm font-mohave text-[16px] uppercase tracking-[0.15em] text-text-primary transition-all duration-300 overflow-hidden"
-                  : "group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text-primary transition-all duration-300 overflow-hidden"
-              }
-              style={{
-                background: "rgba(10, 10, 10, 0.70)",
-                backdropFilter: "blur(20px) saturate(1.2)",
-                border: "1px solid rgba(89, 119, 148, 0.4)",
-                boxShadow: "0 0 40px rgba(89, 119, 148, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-              }}
+        {/* Centered launch card — all answered, no question focused */}
+        <AnimatePresence>
+          {allAnswered && !starfieldFocused && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
             >
-              <span className="relative z-10">LAUNCH</span>
-              <div
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto flex flex-col items-center gap-4 px-10 py-8 rounded-sm"
                 style={{
-                  background: "linear-gradient(135deg, rgba(89, 119, 148, 0.15), rgba(89, 119, 148, 0.05))",
+                  background: "rgba(10, 10, 10, 0.80)",
+                  backdropFilter: "blur(24px) saturate(1.2)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
                 }}
-              />
-            </button>
-            {!starfieldFocused && (
-              <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.1em]">
-                Your dashboard is ready
-              </p>
-            )}
-          </motion.div>
-        )}
+              >
+                <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
+                  All questions answered
+                </span>
+                <button
+                  onClick={handleLaunchFromStarfield}
+                  aria-label="Launch your personalized dashboard"
+                  className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text-primary transition-all duration-300 overflow-hidden"
+                  style={{
+                    background: "rgba(89, 119, 148, 0.12)",
+                    border: "1px solid rgba(89, 119, 148, 0.4)",
+                    boxShadow: "0 0 40px rgba(89, 119, 148, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+                  }}
+                >
+                  <span className="relative z-10">LAUNCH</span>
+                  <div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(89, 119, 148, 0.15), rgba(89, 119, 148, 0.05))",
+                    }}
+                  />
+                </button>
+                <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.1em]">
+                  Your dashboard is ready
+                </p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
