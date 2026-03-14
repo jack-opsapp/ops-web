@@ -124,15 +124,15 @@ async function findCompanyByCode(
 ): Promise<Record<string, unknown> | null> {
   const db = getServiceRoleClient();
 
-  // Try external_id first (the shareable company code)
-  const { data: byExternal } = await db
+  // Try company_code first (the shareable company code)
+  const { data: byCode } = await db
     .from("companies")
     .select("*")
-    .eq("external_id", companyCode)
+    .ilike("company_code", companyCode)
     .is("deleted_at", null)
     .maybeSingle();
 
-  if (byExternal) return byExternal;
+  if (byCode) return byCode;
 
   // Fall back to UUID lookup if the code looks like a UUID
   if (UUID_RE.test(companyCode)) {

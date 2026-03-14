@@ -22,8 +22,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: company } = await db
     .from("companies")
-    .select("id, name, logo_url, external_id")
-    .eq("external_id", code)
+    .select("id, name, logo_url, company_code")
+    .ilike("company_code", code)
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -39,6 +39,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     companyId: company.id,
     companyName: company.name,
     companyLogo: company.logo_url,
-    companyCode: company.external_id,
+    companyCode: company.company_code,
   });
 }
