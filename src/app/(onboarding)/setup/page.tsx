@@ -54,6 +54,7 @@ export default function SetupPage() {
     industries,
     companySize,
     companyAge,
+    weatherDependent,
     setIdentity,
     setCompanyInfo,
     starfieldAnswers,
@@ -224,7 +225,7 @@ export default function SetupPage() {
           body: JSON.stringify({
             token,
             step: "company",
-            data: { companyName, industries, companySize, companyAge },
+            data: { companyName, industries, companySize, companyAge, weatherDependent },
           }),
         });
       }
@@ -232,7 +233,7 @@ export default function SetupPage() {
       // Non-blocking
     }
     setPhase("starfield");
-  }, [completeStep, setPhase, companyName, industries, companySize, companyAge]);
+  }, [completeStep, setPhase, companyName, industries, companySize, companyAge, weatherDependent]);
 
   const handleNext = useCallback(() => {
     if (phase === "identity") {
@@ -565,6 +566,7 @@ export default function SetupPage() {
               industries={industries}
               companySize={companySize}
               companyAge={companyAge}
+              weatherDependent={weatherDependent}
               onUpdate={(data) => setCompanyInfo(data)}
             />
           )}

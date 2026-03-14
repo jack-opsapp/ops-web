@@ -207,6 +207,7 @@ interface SetupState {
   industries: string[];
   companySize: string;
   companyAge: string;
+  weatherDependent: string;
   starfieldAnswers: Record<string, string | number>;
   steps: SetupSteps;
 
@@ -214,7 +215,7 @@ interface SetupState {
   setPhase: (phase: SetupPhase) => void;
   setIdentity: (data: Partial<Pick<SetupState, "firstName" | "lastName" | "phone">>) => void;
   setCompanyInfo: (
-    data: Partial<Pick<SetupState, "companyName" | "industries" | "companySize" | "companyAge">>
+    data: Partial<Pick<SetupState, "companyName" | "industries" | "companySize" | "companyAge" | "weatherDependent">>
   ) => void;
   setStarfieldAnswer: (questionId: string, answer: string | number) => void;
   completeStep: (step: keyof SetupSteps) => void;
@@ -231,6 +232,7 @@ const initialState = {
   industries: [] as string[],
   companySize: "",
   companyAge: "",
+  weatherDependent: "",
   starfieldAnswers: {} as Record<string, string | number>,
   steps: { identity: false, company: false, starfield: false } as SetupSteps,
 };
