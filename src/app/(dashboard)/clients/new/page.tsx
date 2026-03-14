@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -81,6 +82,7 @@ function formatPhoneInput(value: string): string {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function NewClientPage() {
+  usePageTitle("New Client");
   const { t } = useDictionary("clients");
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);

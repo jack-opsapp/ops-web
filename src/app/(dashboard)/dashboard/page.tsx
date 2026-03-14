@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { SlidersHorizontal, Check } from "lucide-react";
 import { motion, MotionConfig } from "framer-motion";
 import {
@@ -139,6 +140,7 @@ const customCollisionDetection: CollisionDetection = (args) => {
 // Dashboard Page
 // ---------------------------------------------------------------------------
 export default function DashboardPage() {
+  usePageTitle("Dashboard");
   const { t } = useDictionary("dashboard");
   const [mounted, setMounted] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);

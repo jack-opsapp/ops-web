@@ -147,6 +147,14 @@ export function DashboardMapBackground() {
     pinLayerRef.current = L.layerGroup().addTo(map);
     crewLayerRef.current = L.layerGroup().addTo(map);
 
+    // Force Leaflet to recalculate container size after the fixed-position parent
+    // has fully settled. Without this, the container can have stale dimensions
+    // (especially when sidebar persist-state hydrates after mount), causing all
+    // lat/lng → pixel projections to map to (0,0) — i.e. top-left corner.
+    requestAnimationFrame(() => {
+      map.invalidateSize({ animate: false });
+    });
+
     // Request user location — used as zoom target and fallback center
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -180,19 +188,19 @@ export function DashboardMapBackground() {
   }, [isCollapsed]);
 
   // ── Helper: stagger-animate a marker element ──
-  // Animate the first child instead of the marker container itself,
-  // because Leaflet positions markers via transform: translate3d() on the container.
-  // Overwriting that transform would reset all markers to position 0,0 (top-left).
+  // Uses opacity-only animation on the inner content element.
+  // IMPORTANT: Never set `transform` on any Leaflet marker element (container OR child).
+  // Leaflet positions markers via `transform: translate3d()` on the container, and
+  // setting transform on inner elements creates GPU compositing layer conflicts that
+  // can cause markers to collapse to position 0,0 (top-left corner).
   function animateMarker(el: HTMLElement | undefined, index: number) {
     if (!el) return;
     const inner = el.firstElementChild as HTMLElement | null;
     if (!inner) return;
     inner.style.opacity = "0";
-    inner.style.transform = "scale(0.5)";
-    inner.style.transition = `opacity 0.3s ease ${index * 0.05}s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s`;
+    inner.style.transition = `opacity 0.3s ease ${index * 0.05}s`;
     requestAnimationFrame(() => {
       inner.style.opacity = "1";
-      inner.style.transform = "scale(1)";
     });
   }
 

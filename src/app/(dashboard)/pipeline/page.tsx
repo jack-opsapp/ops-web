@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -133,6 +134,7 @@ function PipelineSkeleton() {
 // Pipeline Page - Main Orchestrator
 // ---------------------------------------------------------------------------
 export default function PipelinePage() {
+  usePageTitle("Pipeline");
   const { t } = useDictionary("pipeline");
   const router = useRouter();
 

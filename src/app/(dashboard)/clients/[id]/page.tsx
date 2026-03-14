@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Edit3,
   Trash2,
@@ -195,6 +196,7 @@ export default function ClientDetailPage() {
 
   // Data hooks
   const { data: clientData, isLoading: clientLoading } = useClient(clientId);
+  usePageTitle(clientData?.name ?? "Client");
   const { data: subClientsData, isLoading: subClientsLoading } = useSubClients(clientId);
   const { data: projectsData, isLoading: projectsLoading } = useProjects({ clientId });
 

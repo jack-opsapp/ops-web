@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   startOfMonth,
   endOfMonth,
@@ -41,6 +42,7 @@ import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
 
 export default function CalendarPage() {
+  usePageTitle("Schedule");
   const { t } = useDictionary("calendar");
   const {
     currentDate,

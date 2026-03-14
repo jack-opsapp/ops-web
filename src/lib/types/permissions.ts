@@ -31,8 +31,7 @@ export interface RolePermission {
 export interface UserRole {
   userId: string;
   roleId: string;
-  assignedAt: string;
-  assignedBy: string | null;
+  createdAt: string;
 }
 
 // ─── Preset Role IDs ─────────────────────────────────────────────────────────

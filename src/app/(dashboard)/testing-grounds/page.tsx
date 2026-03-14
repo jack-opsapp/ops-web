@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
 import { SetupLaunchAnimation } from "@/components/setup/SetupLaunchAnimation";
@@ -11,6 +12,7 @@ import { STARFIELD_QUESTIONS } from "@/stores/setup-store";
 type TestMode = "starfield" | "launch" | "idle";
 
 export default function TestingGroundsPage() {
+  usePageTitle("Testing Grounds");
   const { currentUser } = useAuthStore();
   const hasAccess = currentUser?.specialPermissions?.includes("testing-grounds");
 

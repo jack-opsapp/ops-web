@@ -1,7 +1,7 @@
 /**
  * OPS Web - Integration Service
  *
- * Methods for managing email integrations (Gmail OAuth, forwarding).
+ * Methods for managing email integrations (Gmail OAuth).
  * All data stored in Supabase gmail_connections table.
  */
 
@@ -40,12 +40,6 @@ export const IntegrationService = {
     if (error) throw new Error(`Failed to disconnect Gmail: ${error.message}`);
   },
 
-  /**
-   * Get the deterministic forwarding address for a company.
-   */
-  getForwardingAddress(companyId: string): string {
-    return `leads-${companyId.slice(0, 8)}@inbound.opsapp.co`;
-  },
 };
 
 export default IntegrationService;

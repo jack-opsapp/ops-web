@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   User,
   Building2,
@@ -204,6 +205,7 @@ const SUB_TAB_PERMISSIONS: Record<string, string> = {
 };
 
 export default function SettingsPage() {
+  usePageTitle("Settings");
   const currentUser = useAuthStore((s) => s.currentUser);
   const can = usePermissionStore((s) => s.can);
   const permReady = usePermissionStore(selectPermissionsReady);

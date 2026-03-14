@@ -6,8 +6,8 @@ import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
-import type { ProjectTask } from "@/lib/types/models";
-import { useTasks, useUpdateTaskStatus } from "@/lib/hooks";
+import type { ProjectTask, TaskType } from "@/lib/types/models";
+import { useTasks, useUpdateTaskStatus, useTaskTypes } from "@/lib/hooks";
 import { isBefore, isSameDay, differenceInDays } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -27,6 +27,7 @@ interface OverdueTasksWidgetProps {
 export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
   const { t } = useDictionary("dashboard");
   const { data, isLoading } = useTasks();
+  const { data: taskTypes = [] } = useTaskTypes();
   const today = useMemo(() => new Date(), []);
 
   const overdueTasks = useMemo(() => {
@@ -118,7 +119,7 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
           <div className="space-y-[4px]">
             <AnimatePresence>
               {overdueTasks.slice(0, maxItems).map((task) => (
-                <OverdueTaskRow key={task.id} task={task} today={today} />
+                <OverdueTaskRow key={task.id} task={task} today={today} taskTypes={taskTypes} />
               ))}
             </AnimatePresence>
             {overdueTasks.length > maxItems && (
@@ -140,15 +141,18 @@ export function OverdueTasksWidget({ size }: OverdueTasksWidgetProps) {
 function OverdueTaskRow({
   task,
   today,
+  taskTypes,
 }: {
   task: ProjectTask;
   today: Date;
+  taskTypes: TaskType[];
 }) {
   const { t } = useDictionary("dashboard");
   const [completing, setCompleting] = useState(false);
   const updateStatus = useUpdateTaskStatus();
 
-  const displayTitle = getTaskDisplayTitle(task, task.taskType);
+  const resolvedTaskType = task.taskType ?? taskTypes.find((tt) => tt.id === task.taskTypeId) ?? null;
+  const displayTitle = getTaskDisplayTitle(task, resolvedTaskType);
   const projectName = task.project?.title ?? t("overdueTasks.unassigned");
   const startDate = task.startDate
     ? new Date(task.startDate)

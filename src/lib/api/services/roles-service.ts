@@ -37,8 +37,7 @@ function mapUserRoleFromDb(row: Record<string, unknown>): UserRole {
   return {
     userId: row.user_id as string,
     roleId: row.role_id as string,
-    assignedAt: (row.assigned_at as string) ?? new Date().toISOString(),
-    assignedBy: (row.assigned_by as string) ?? null,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
   };
 }
 
@@ -247,7 +246,7 @@ export const RolesService = {
   async assignUserRole(
     userId: string,
     roleId: string,
-    assignedBy: string
+    _assignedBy: string
   ): Promise<void> {
     const supabase = requireSupabase();
 
@@ -257,8 +256,6 @@ export const RolesService = {
         {
           user_id: userId,
           role_id: roleId,
-          assigned_at: new Date().toISOString(),
-          assigned_by: assignedBy,
         },
         { onConflict: "user_id" }
       );
@@ -315,7 +312,7 @@ export const RolesService = {
 
     const { data, error } = await supabase
       .from("user_roles")
-      .select("user_id, role_id, assigned_at, assigned_by")
+      .select("user_id, role_id, created_at")
       .in("user_id", userIds);
 
     if (error) throw new Error(`Failed to fetch user roles: ${error.message}`);

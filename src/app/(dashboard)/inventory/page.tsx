@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   useInventoryItems,
@@ -22,6 +23,7 @@ import { ImportTab } from "@/components/inventory/import-tab";
 // ─── Permission Gate Wrapper ────────────────────────────────────────────────
 
 export default function InventoryPage() {
+  usePageTitle("Inventory");
   const router = useRouter();
   const { currentUser } = useAuthStore();
 

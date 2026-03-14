@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
@@ -89,6 +90,7 @@ function formatDate(date: Date | null, locale: Locale): string {
 }
 
 export default function EstimatesPage() {
+  usePageTitle("Estimates");
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
   const { company } = useAuthStore();

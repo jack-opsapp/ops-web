@@ -256,6 +256,20 @@
   }
 }
 
+/* === Leaflet + Tailwind Compatibility ===
+ * Tailwind's preflight sets `img { max-width: 100%; height: auto; display: block; }`
+ * and `* { border-width: 0; border-style: solid; }` which break Leaflet's
+ * tile rendering and marker positioning. These overrides must be OUTSIDE
+ * any @layer so they beat Tailwind's layered resets.
+ */
+.leaflet-container img {
+  max-width: none !important;
+  max-height: none !important;
+}
+.leaflet-container * {
+  box-sizing: content-box;
+}
+
 @layer utilities {
   /* Prevent text selection on interactive elements */
   .no-select {

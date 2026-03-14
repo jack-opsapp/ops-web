@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
   Search,
@@ -305,6 +306,7 @@ function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ClientsPage() {
+  usePageTitle("Clients");
   const { t } = useDictionary("clients");
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");

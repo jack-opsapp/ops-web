@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary } from "@/i18n/client";
 import dynamic from "next/dynamic";
 import {
@@ -124,6 +125,7 @@ function ProjectListItem({
 }
 
 export default function MapPage() {
+  usePageTitle("Map");
   const { t } = useDictionary("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | ProjectStatus>("active");

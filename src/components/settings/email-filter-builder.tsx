@@ -42,6 +42,13 @@ const PLACEHOLDER_MAP: Record<EmailFilterField, string> = {
   body: "e.g. inquiry",
 };
 
+const defaultRule: EmailFilterRule = {
+  id: crypto.randomUUID(),
+  field: "subject",
+  operator: "contains",
+  value: "",
+};
+
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface EmailFilterBuilderProps {
@@ -57,10 +64,23 @@ export function EmailFilterBuilder({
   connectionId,
   onUpdate,
 }: EmailFilterBuilderProps) {
-  const rules = filters.rules ?? [];
-  const logic = filters.ruleLogic ?? "all";
+  // Local state for immediate UI feedback — synced from props on external changes
+  const [localRules, setLocalRules] = useState<EmailFilterRule[]>(filters.rules ?? [defaultRule]);
+  const [localLogic, setLocalLogic] = useState<"all" | "any">(filters.ruleLogic ?? "all");
   const [gmailLabels, setGmailLabels] = useState<{ id: string; name: string }[]>([]);
   const [labelsLoading, setLabelsLoading] = useState(false);
+
+  // Sync local state when props change from external source (e.g. query refetch)
+  useEffect(() => {
+    setLocalRules(filters.rules ?? [defaultRule]);
+  }, [filters.rules]);
+
+  useEffect(() => {
+    setLocalLogic(filters.ruleLogic ?? "all");
+  }, [filters.ruleLogic]);
+
+  const rules = localRules;
+  const logic = localLogic;
 
   // Fetch Gmail labels when component mounts or a label field is selected
   useEffect(() => {
@@ -95,11 +115,15 @@ export function EmailFilterBuilder({
       operator: "contains",
       value: "",
     };
-    onUpdate({ ...filters, rules: [...rules, newRule] });
+    const newRules = [...rules, newRule];
+    setLocalRules(newRules);
+    onUpdate({ ...filters, rules: newRules });
   }
 
   function removeRule(id: string) {
-    onUpdate({ ...filters, rules: rules.filter((r) => r.id !== id) });
+    const newRules = rules.filter((r) => r.id !== id);
+    setLocalRules(newRules);
+    onUpdate({ ...filters, rules: newRules });
   }
 
   function updateRule(id: string, updates: Partial<EmailFilterRule>) {
@@ -116,6 +140,7 @@ export function EmailFilterBuilder({
       }
       return merged;
     });
+    setLocalRules(updated);
     onUpdate({ ...filters, rules: updated });
 
     // Fetch labels if a label field was just selected
@@ -125,7 +150,9 @@ export function EmailFilterBuilder({
   }
 
   function toggleLogic() {
-    onUpdate({ ...filters, ruleLogic: logic === "all" ? "any" : "all" });
+    const newLogic = logic === "all" ? "any" : "all";
+    setLocalLogic(newLogic);
+    onUpdate({ ...filters, ruleLogic: newLogic });
   }
 
   const hasRules = rules.length > 0;

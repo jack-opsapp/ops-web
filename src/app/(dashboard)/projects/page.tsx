@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
   Search,
@@ -230,6 +231,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export default function ProjectsPage() {
+  usePageTitle("Projects");
   const { t } = useDictionary("projects");
   const { locale } = useLocale();
   const filterTabs = useMemo<{ value: FilterStatus; label: string }[]>(() => [

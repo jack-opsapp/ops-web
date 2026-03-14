@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
   Search,
@@ -36,6 +37,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 
 export default function ProductsPage() {
+  usePageTitle("Products");
   const { t } = useDictionary("dashboard");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";

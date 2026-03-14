@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   ArrowLeft,
   Edit3,
@@ -845,6 +846,7 @@ export default function ProjectDetailPage() {
   const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
   const setParentCrumbs = useBreadcrumbStore((s) => s.setParentCrumbs);
   const clearParentCrumbs = useBreadcrumbStore((s) => s.clearParentCrumbs);
+  usePageTitle(project?.title ?? "Project");
   useEffect(() => {
     if (project) setEntityName(project.title);
     return () => clearEntityName();

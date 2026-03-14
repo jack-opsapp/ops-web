@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
   Search,
@@ -461,6 +462,7 @@ function LoadingSkeleton() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function TeamPage() {
+  usePageTitle("Team");
   const { t } = useDictionary("schedule");
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);

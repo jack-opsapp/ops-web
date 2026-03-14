@@ -6,8 +6,8 @@ import { Clock, Check, ChevronRight, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
-import type { ProjectTask } from "@/lib/types/models";
-import { useUpdateTaskStatus } from "@/lib/hooks";
+import type { ProjectTask, TaskType } from "@/lib/types/models";
+import { useUpdateTaskStatus, useTaskTypes } from "@/lib/hooks";
 import { format, isSameDay } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -28,6 +28,7 @@ export function TaskListWidget({
   onNavigate,
 }: TaskListWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const { data: taskTypes = [] } = useTaskTypes();
   const maxTasks = size === "sm" ? 1 : size === "lg" ? 6 : 3;
   const visibleTasks = tasks.slice(0, maxTasks);
 
@@ -67,7 +68,7 @@ export function TaskListWidget({
           ) : !nextTask ? (
             <p className="font-mohave text-body-sm text-text-disabled">{t("taskList.empty")}</p>
           ) : (
-            <TaskRow task={nextTask} today={today} onNavigate={onNavigate} showCheckbox />
+            <TaskRow task={nextTask} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} />
           )}
         </CardContent>
       </Card>
@@ -102,7 +103,7 @@ export function TaskListWidget({
                   <div className="space-y-[4px] mt-[4px]">
                     <AnimatePresence>
                       {dayTasks.map((task) => (
-                        <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox />
+                        <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} />
                       ))}
                     </AnimatePresence>
                   </div>
@@ -141,7 +142,7 @@ export function TaskListWidget({
           <div className="space-y-[4px]">
             <AnimatePresence>
               {visibleTasks.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox />
+                <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} />
               ))}
             </AnimatePresence>
             {tasks.length > maxTasks && (
@@ -164,18 +165,21 @@ function TaskRow({
   today,
   onNavigate,
   showCheckbox,
+  taskTypes,
 }: {
   task: ProjectTask;
   today: Date;
   onNavigate: (path: string) => void;
   showCheckbox?: boolean;
+  taskTypes: TaskType[];
 }) {
   const { t } = useDictionary("dashboard");
   const [completing, setCompleting] = useState(false);
   const updateStatus = useUpdateTaskStatus();
 
   const isInProgress = task.status === TaskStatus.InProgress;
-  const displayTitle = getTaskDisplayTitle(task, task.taskType);
+  const resolvedTaskType = task.taskType ?? taskTypes.find((tt) => tt.id === task.taskTypeId) ?? null;
+  const displayTitle = getTaskDisplayTitle(task, resolvedTaskType);
   const eventDate = task.startDate
     ? new Date(task.startDate)
     : null;

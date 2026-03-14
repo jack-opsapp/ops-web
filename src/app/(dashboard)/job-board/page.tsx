@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Search,
   CalendarDays,
@@ -785,6 +786,7 @@ function ArchivedSection({
 // Job Board Page
 // ---------------------------------------------------------------------------
 export default function JobBoardPage() {
+  usePageTitle("Job Board");
   const { t } = useDictionary("schedule");
   const [searchQuery, setSearchQuery] = useState("");
   const [clientFilter, setClientFilter] = useState("");

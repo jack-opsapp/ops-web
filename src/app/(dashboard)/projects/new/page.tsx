@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -244,6 +245,7 @@ function TeamMemberSelector({
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NewProjectPage() {
+  usePageTitle("New Project");
   const { t } = useDictionary("projects");
   const router = useRouter();
   const { company } = useAuthStore();

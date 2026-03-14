@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Calculator,
   Link2,
@@ -335,6 +336,7 @@ function AgingBar({
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function AccountingPage() {
+  usePageTitle("Accounting");
   const { t } = useDictionary("accounting");
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
   const { company } = useAuthStore();

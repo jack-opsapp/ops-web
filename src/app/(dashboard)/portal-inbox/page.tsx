@@ -10,6 +10,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { parseDate, parseDateRequired } from "@/lib/supabase/helpers";
 import { useAuthStore, selectCompanyId } from "@/lib/store/auth-store";
@@ -175,6 +176,7 @@ async function markClientMessagesRead(
 // ─── Page Component ──────────────────────────────────────────────────────────
 
 export default function PortalInboxPage() {
+  usePageTitle("Portal Inbox");
   const { t } = useDictionary("dashboard");
   const companyId = useAuthStore(selectCompanyId);
   const currentUser = useAuthStore((s) => s.currentUser);
