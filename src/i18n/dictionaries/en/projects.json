@@ -159,16 +159,14 @@
     "notes": "Notes"
   },
 
-  "taskList": {
-    "list": "List",
-    "calendar": "Calendar",
-    "calendarSoon": "Coming soon",
-    "addTask": "Add Task",
-    "unscheduled": "Unscheduled",
-    "unassigned": "Unassigned",
-    "noTasks": "No tasks yet",
-    "noTasksDesc": "Add tasks to track work progress for this project."
-  },
+  "taskList.list": "List",
+  "taskList.calendar": "Calendar",
+  "taskList.calendarSoon": "Coming soon",
+  "taskList.addTask": "Add Task",
+  "taskList.unscheduled": "Unscheduled",
+  "taskList.unassigned": "Unassigned",
+  "taskList.noTasks": "No tasks yet",
+  "taskList.noTasksDesc": "Add tasks to track work progress for this project.",
 
   "financial": {
     "budgetOverview": "Budget Overview",
@@ -194,9 +192,7 @@
     "noPhotosDesc": "Upload photos to document this project."
   },
 
-  "notesFeed": {
-    "sortNewest": "Newest First",
-    "sortOldest": "Oldest First",
-    "searchPlaceholder": "Search notes..."
-  }
+  "notesFeed.sortNewest": "Newest First",
+  "notesFeed.sortOldest": "Oldest First",
+  "notesFeed.searchPlaceholder": "Search notes..."
 }

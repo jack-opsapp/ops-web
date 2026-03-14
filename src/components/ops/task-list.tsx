@@ -1,29 +1,37 @@
 "use client";
 
-import { useLocale } from "@/i18n/client";
+import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
+import type { Locale } from "@/i18n/types";
 import { useState, useMemo, useCallback } from "react";
 import {
   Plus,
-  ChevronRight,
-  ChevronDown,
   Trash2,
   Edit3,
   MoreVertical,
-  Circle,
-  Clock,
   CheckCircle2,
-  XCircle,
-  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { Button } from "@/components/ui/button";
 import { StatusBadge, type TaskStatus as StatusBadgeTaskStatus } from "@/components/ops/status-badge";
-import { SectionHeader } from "@/components/ops/section-header";
 import { EmptyState } from "@/components/ops/empty-state";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { UserAvatar } from "@/components/ops/user-avatar";
+import { UnscheduledBadge, UnassignedBadge } from "@/components/ops/task-badge";
+import { PermissionGate } from "@/components/ops/permission-gate";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +55,6 @@ import {
   TaskStatus,
   TASK_STATUS_COLORS,
   getTaskDisplayTitle,
-  nextTaskStatus,
   getUserFullName,
 } from "@/lib/types/models";
 import { TaskTypeService } from "@/lib/api/services";
@@ -71,26 +78,33 @@ function taskStatusToKey(status: TaskStatus): StatusBadgeTaskStatus {
   }
 }
 
-const taskStatusIcons: Record<TaskStatus, React.ReactNode> = {
-  [TaskStatus.Booked]: <Circle className="w-[16px] h-[16px] text-status-booked" />,
-  [TaskStatus.InProgress]: <Clock className="w-[16px] h-[16px] text-ops-amber" />,
-  [TaskStatus.Completed]: <CheckCircle2 className="w-[16px] h-[16px] text-status-success" />,
-  [TaskStatus.Cancelled]: <XCircle className="w-[16px] h-[16px] text-text-disabled" />,
-};
-
-const STATUS_GROUP_ORDER: TaskStatus[] = [
-  TaskStatus.Booked,
-  TaskStatus.InProgress,
-  TaskStatus.Completed,
-  TaskStatus.Cancelled,
+const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
+  { value: TaskStatus.Booked, label: "Booked" },
+  { value: TaskStatus.InProgress, label: "In Progress" },
+  { value: TaskStatus.Completed, label: "Completed" },
+  { value: TaskStatus.Cancelled, label: "Cancelled" },
 ];
 
-const STATUS_GROUP_LABELS: Record<TaskStatus, string> = {
-  [TaskStatus.Booked]: "Booked",
-  [TaskStatus.InProgress]: "In Progress",
-  [TaskStatus.Completed]: "Completed",
-  [TaskStatus.Cancelled]: "Cancelled",
-};
+// ─── Date Helpers ────────────────────────────────────────────────────────────
+
+function formatDateRange(startDate: Date | null, endDate: Date | null, locale: Locale): string {
+  if (!startDate) return "";
+  const dateLocale = getDateLocale(locale);
+  const startStr = startDate.toLocaleDateString(dateLocale, { month: "short", day: "numeric" });
+  if (!endDate) return startStr;
+  const sameMonth = startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear();
+  if (sameMonth) {
+    return `${startStr} – ${endDate.getDate()}`;
+  }
+  const endStr = endDate.toLocaleDateString(dateLocale, { month: "short", day: "numeric" });
+  return `${startStr} – ${endStr}`;
+}
+
+function isTaskPastDue(task: ProjectTask): boolean {
+  if (!task.endDate) return false;
+  if (task.status === TaskStatus.Completed || task.status === TaskStatus.Cancelled) return false;
+  return new Date(task.endDate) < new Date();
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -108,7 +122,7 @@ interface TaskRowProps {
   teamMembers: User[];
   onEdit: (task: ProjectTask) => void;
   onDelete: (task: ProjectTask) => void;
-  onAdvanceStatus: (task: ProjectTask) => void;
+  onStatusChange: (task: ProjectTask, status: TaskStatus) => void;
   isUpdating: boolean;
 }
 
@@ -118,7 +132,7 @@ function TaskRow({
   teamMembers,
   onEdit,
   onDelete,
-  onAdvanceStatus,
+  onStatusChange,
   isUpdating,
 }: TaskRowProps) {
   const { locale } = useLocale();
@@ -127,7 +141,10 @@ function TaskRow({
   const isCompleted = task.status === TaskStatus.Completed;
   const isCancelled = task.status === TaskStatus.Cancelled;
   const isDone = isCompleted || isCancelled;
-  const next = nextTaskStatus(task.status);
+  const isPastDue = isTaskPastDue(task);
+
+  const hasStartDate = !!task.startDate;
+  const dateRange = formatDateRange(task.startDate, task.endDate, locale);
 
   // Resolve team member names
   const assignedMembers = useMemo(
@@ -141,197 +158,132 @@ function TaskRow({
   return (
     <div
       className={cn(
-        "group flex items-center gap-1.5 px-1.5 py-1 rounded",
+        "group flex items-center gap-3.5 px-4 py-3 rounded-[3px]",
         "bg-background-card border border-border",
-        "hover:border-ops-accent/40 transition-all",
-        isDone && "opacity-60"
+        "hover:border-[rgba(255,255,255,0.3)] transition-all",
+        isDone && "opacity-60",
+        isPastDue && !isDone && "border-ops-error/30"
       )}
     >
-      {/* Status icon */}
-      <div className="shrink-0">{taskStatusIcons[task.status]}</div>
-
       {/* Color bar */}
       <div
-        className="w-[4px] h-[28px] rounded-full shrink-0"
+        className="w-[3px] h-8 rounded-[1px] shrink-0"
         style={{ backgroundColor: taskType?.color || task.taskColor || "#59779F" }}
       />
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            "font-mohave text-body-sm leading-tight",
-            isDone ? "text-text-tertiary line-through" : "text-text-primary"
-          )}
-        >
-          {title}
-        </p>
+      {/* Task name */}
+      <p
+        className={cn(
+          "font-mohave text-body text-text-primary flex-1 truncate",
+          isDone && "line-through text-text-tertiary"
+        )}
+      >
+        {title}
+      </p>
+
+      {/* Assignee avatars */}
+      <div className="hidden sm:flex items-center shrink-0">
+        {assignedMembers.length > 0 ? (
+          <div className="flex items-center">
+            {assignedMembers.slice(0, 3).map((member, idx) => (
+              <UserAvatar
+                key={member.id}
+                name={getUserFullName(member)}
+                imageUrl={member.profileImageURL}
+                size="sm"
+                color={member.userColor ?? undefined}
+                showTooltip
+                className={cn(idx > 0 && "-ml-1.5")}
+              />
+            ))}
+            {assignedMembers.length > 3 && (
+              <span className="font-mono text-[10px] text-text-tertiary pl-[4px]">
+                +{assignedMembers.length - 3}
+              </span>
+            )}
+          </div>
+        ) : (
+          <UnassignedBadge />
+        )}
       </div>
 
-      {/* Assigned members (compact avatars) */}
-      {assignedMembers.length > 0 && (
-        <div className="hidden sm:flex items-center -space-x-1 shrink-0">
-          {assignedMembers.slice(0, 3).map((member) => (
-            <UserAvatar
-              key={member.id}
-              name={getUserFullName(member)}
-              imageUrl={member.profileImageURL}
-              size="sm"
-              color={member.userColor ?? undefined}
-            />
-          ))}
-          {assignedMembers.length > 3 && (
-            <span className="font-mono text-[10px] text-text-tertiary pl-[4px]">
-              +{assignedMembers.length - 3}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Date range */}
+      <div className="hidden sm:flex items-center shrink-0">
+        {hasStartDate ? (
+          <span
+            className={cn(
+              "font-mono text-data-sm text-text-secondary",
+              isPastDue && !isDone && "text-ops-error"
+            )}
+          >
+            {dateRange}
+          </span>
+        ) : (
+          <UnscheduledBadge />
+        )}
+      </div>
 
-      {/* Status badge */}
-      <StatusBadge status={taskStatusToKey(task.status)} />
-
-      {/* Calendar date */}
-      {task.startDate && (
-        <span className="hidden sm:inline font-mono text-[11px] text-text-tertiary shrink-0">
-          {new Date(task.startDate).toLocaleDateString(getDateLocale(locale), {
-            month: "short",
-            day: "numeric",
-          })}
-        </span>
-      )}
-
-      {/* Quick advance button */}
-      {next && !isDone && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-[28px] w-[28px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdvanceStatus(task);
-          }}
-          disabled={isUpdating}
-          title={`Advance to ${next}`}
+      {/* Status badge — clickable inline select */}
+      <Select
+        value={task.status}
+        onValueChange={(value) => onStatusChange(task, value as TaskStatus)}
+        disabled={isUpdating}
+      >
+        <SelectTrigger
+          className="h-auto w-auto border-0 bg-transparent p-0 focus:shadow-none focus:border-0 [&>svg]:hidden gap-0"
+          onClick={(e) => e.stopPropagation()}
         >
-          <ArrowRight className="w-[14px] h-[14px] text-ops-accent" />
-        </Button>
-      )}
+          <SelectValue>
+            <StatusBadge status={taskStatusToKey(task.status)} className="cursor-pointer" />
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent align="end">
+          {STATUS_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-[8px] h-[8px] rounded-full shrink-0"
+                  style={{ backgroundColor: TASK_STATUS_COLORS[opt.value] }}
+                />
+                {opt.label}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      {/* Actions menu */}
+      {/* Overflow menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-[4px] text-text-disabled hover:text-text-tertiary transition-colors shrink-0"
+            className="p-[4px] text-text-disabled hover:text-text-tertiary transition-colors shrink-0 opacity-0 group-hover:opacity-100"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreVertical className="w-[14px] h-[14px]" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[160px]">
-          <DropdownMenuItem
-            onClick={() => onEdit(task)}
-            className="gap-[6px] font-mohave"
-          >
-            <Edit3 className="w-[14px] h-[14px]" />
-            Edit Task
-          </DropdownMenuItem>
-          {next && (
+          <PermissionGate permission="tasks.edit">
             <DropdownMenuItem
-              onClick={() => onAdvanceStatus(task)}
+              onClick={() => onEdit(task)}
               className="gap-[6px] font-mohave"
             >
-              <ArrowRight className="w-[14px] h-[14px]" />
-              {next}
+              <Edit3 className="w-[14px] h-[14px]" />
+              Edit Task
             </DropdownMenuItem>
-          )}
+          </PermissionGate>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => onDelete(task)}
-            className="gap-[6px] font-mohave text-ops-error focus:text-ops-error"
-          >
-            <Trash2 className="w-[14px] h-[14px]" />
-            Delete Task
-          </DropdownMenuItem>
+          <PermissionGate permission="tasks.delete">
+            <DropdownMenuItem
+              onClick={() => onDelete(task)}
+              className="gap-[6px] font-mohave text-ops-error focus:text-ops-error"
+            >
+              <Trash2 className="w-[14px] h-[14px]" />
+              Delete Task
+            </DropdownMenuItem>
+          </PermissionGate>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
-  );
-}
-
-// ─── Status Group Component ──────────────────────────────────────────────────
-
-interface StatusGroupProps {
-  status: TaskStatus;
-  tasks: ProjectTask[];
-  taskTypes: TaskType[];
-  teamMembers: User[];
-  onEdit: (task: ProjectTask) => void;
-  onDelete: (task: ProjectTask) => void;
-  onAdvanceStatus: (task: ProjectTask) => void;
-  isUpdating: boolean;
-}
-
-function StatusGroup({
-  status,
-  tasks,
-  taskTypes,
-  teamMembers,
-  onEdit,
-  onDelete,
-  onAdvanceStatus,
-  isUpdating,
-}: StatusGroupProps) {
-  const [collapsed, setCollapsed] = useState(
-    status === TaskStatus.Cancelled || status === TaskStatus.Completed
-  );
-
-  if (tasks.length === 0) return null;
-
-  const statusColor = TASK_STATUS_COLORS[status];
-
-  return (
-    <div className="space-y-[4px]">
-      {/* Group header */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex items-center gap-[6px] py-[4px] w-full text-left group/header"
-      >
-        {collapsed ? (
-          <ChevronRight className="w-[14px] h-[14px] text-text-tertiary" />
-        ) : (
-          <ChevronDown className="w-[14px] h-[14px] text-text-tertiary" />
-        )}
-        <span
-          className="w-[8px] h-[8px] rounded-full shrink-0"
-          style={{ backgroundColor: statusColor }}
-        />
-        <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-          {STATUS_GROUP_LABELS[status]}
-        </span>
-        <span className="font-mono text-[11px] text-text-disabled">
-          {tasks.length}
-        </span>
-        <div className="flex-1 h-px bg-border-subtle" />
-      </button>
-
-      {/* Group items */}
-      {!collapsed && (
-        <div className="space-y-[4px] pl-[4px]">
-          {tasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              taskTypes={taskTypes}
-              teamMembers={teamMembers}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onAdvanceStatus={onAdvanceStatus}
-              isUpdating={isUpdating}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -344,13 +296,16 @@ function TaskListSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="h-[48px] bg-background-card border border-border rounded flex items-center gap-1.5 px-1.5"
+          className="h-[52px] bg-background-card border border-border rounded-[3px] flex items-center gap-3.5 px-4"
         >
-          <div className="w-[16px] h-[16px] bg-background-elevated rounded-full" />
-          <div className="w-[4px] h-[24px] bg-background-elevated rounded-full" />
+          <div className="w-[3px] h-8 bg-background-elevated rounded-[1px]" />
           <div className="flex-1">
             <div className="h-[14px] bg-background-elevated rounded w-1/3" />
           </div>
+          <div className="hidden sm:flex items-center gap-1">
+            <div className="w-[26px] h-[26px] bg-background-elevated rounded-full" />
+          </div>
+          <div className="hidden sm:block h-[14px] w-[80px] bg-background-elevated rounded" />
           <div className="h-[20px] w-[60px] bg-background-elevated rounded" />
         </div>
       ))}
@@ -361,10 +316,14 @@ function TaskListSkeleton() {
 // ─── Main TaskList Component ─────────────────────────────────────────────────
 
 function TaskList({ projectId, companyId, className }: TaskListProps) {
+  const { t } = useDictionary("projects");
+  const { locale } = useLocale();
+
   // ── State ─────────────────────────────────────────────────────
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTask, setEditingTask] = useState<ProjectTask | null>(null);
   const [deletingTask, setDeletingTask] = useState<ProjectTask | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   // ── Data Hooks ────────────────────────────────────────────────
   const { data: tasks, isLoading: isLoadingTasks } = useProjectTasks(projectId);
@@ -389,39 +348,18 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     updateStatusMutation.isPending ||
     updateTaskMutation.isPending;
 
-  // ── Active tasks, grouped by status ───────────────────────────
+  // ── Active tasks, sorted flat ──────────────────────────────────
   const activeTasks = useMemo(
     () => (tasks ?? []).filter((t) => !t.deletedAt),
     [tasks]
   );
 
-  const groupedTasks = useMemo(() => {
-    const groups: Record<TaskStatus, ProjectTask[]> = {
-      [TaskStatus.Booked]: [],
-      [TaskStatus.InProgress]: [],
-      [TaskStatus.Completed]: [],
-      [TaskStatus.Cancelled]: [],
-    };
-
-    for (const task of activeTasks) {
-      const bucket = groups[task.status];
-      if (bucket) {
-        bucket.push(task);
-      } else {
-        groups[TaskStatus.Booked].push(task);
-      }
-    }
-
-    // Sort within each group by displayOrder, then taskIndex
-    for (const status of STATUS_GROUP_ORDER) {
-      groups[status].sort((a, b) => {
-        const orderA = a.displayOrder ?? a.taskIndex ?? 0;
-        const orderB = b.displayOrder ?? b.taskIndex ?? 0;
-        return orderA - orderB;
-      });
-    }
-
-    return groups;
+  const sortedTasks = useMemo(() => {
+    return [...activeTasks].sort((a, b) => {
+      const orderA = a.displayOrder ?? a.taskIndex ?? 0;
+      const orderB = b.displayOrder ?? b.taskIndex ?? 0;
+      return orderA - orderB;
+    });
   }, [activeTasks]);
 
   // ── Handlers ──────────────────────────────────────────────────
@@ -498,15 +436,9 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     [editingTask, updateTaskMutation]
   );
 
-  const handleAdvanceStatus = useCallback(
-    (task: ProjectTask) => {
-      const next = nextTaskStatus(task.status);
-      if (!next) return;
-
-      updateStatusMutation.mutate({
-        id: task.id,
-        status: next,
-      });
+  const handleStatusChange = useCallback(
+    (task: ProjectTask, newStatus: TaskStatus) => {
+      updateStatusMutation.mutate({ id: task.id, status: newStatus });
     },
     [updateStatusMutation]
   );
@@ -530,36 +462,52 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
   if (isLoadingTasks) {
     return (
       <div className={cn("space-y-2", className)}>
-        <SectionHeader title="Tasks" />
         <TaskListSkeleton />
       </div>
     );
   }
 
-  const hasGroups = STATUS_GROUP_ORDER.some(
-    (status) => groupedTasks[status].length > 0
-  );
-
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Header */}
-      <SectionHeader
-        title="Tasks"
-        count={activeTasks.length}
-        action={
-          !showCreateForm &&
-          !editingTask && (
-            <Button
-              size="sm"
-              className="gap-[6px]"
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-0">
+          <button
+            onClick={() => setViewMode("list")}
+            className={cn(
+              "font-mohave text-body-sm rounded-[3px] px-3 py-1.5 transition-colors",
+              viewMode === "list"
+                ? "bg-background-card border border-border text-text-primary"
+                : "border border-border-subtle text-text-tertiary hover:text-text-secondary"
+            )}
+          >
+            {t("taskList.list")}
+          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  disabled
+                  className="font-mohave text-body-sm rounded-[3px] px-3 py-1.5 border border-border-subtle text-text-disabled cursor-not-allowed"
+                >
+                  {t("taskList.calendar")}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t("taskList.calendarSoon")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <PermissionGate permission="tasks.create">
+          {!showCreateForm && !editingTask && (
+            <button
               onClick={() => setShowCreateForm(true)}
+              className="bg-ops-accent text-white font-mohave text-body-sm rounded-[3px] px-4 py-1.5 hover:opacity-90 transition-opacity"
             >
-              <Plus className="w-[14px] h-[14px]" />
-              Add Task
-            </Button>
-          )
-        }
-      />
+              + {t("taskList.addTask")}
+            </button>
+          )}
+        </PermissionGate>
+      </div>
 
       {/* Create form */}
       {showCreateForm && (
@@ -589,24 +537,23 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
         />
       )}
 
-      {/* Task groups */}
-      {!hasGroups && !showCreateForm ? (
+      {/* Task rows */}
+      {sortedTasks.length === 0 && !showCreateForm ? (
         <EmptyState
           icon={<CheckCircle2 className="w-[48px] h-[48px]" />}
-          title="No tasks yet"
-          description="Add tasks to track work progress for this project."
+          title={t("taskList.noTasks")}
+          description={t("taskList.noTasksDesc")}
           action={{
-            label: "Add Task",
+            label: t("taskList.addTask"),
             onClick: () => setShowCreateForm(true),
           }}
         />
       ) : (
-        <div className="space-y-1.5">
-          {STATUS_GROUP_ORDER.map((status) => (
-            <StatusGroup
-              key={status}
-              status={status}
-              tasks={groupedTasks[status]}
+        <div className="space-y-[4px]">
+          {sortedTasks.map((task) => (
+            <TaskRow
+              key={task.id}
+              task={task}
               taskTypes={taskTypes}
               teamMembers={teamMembers}
               onEdit={(task) => {
@@ -614,7 +561,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
                 setEditingTask(task);
               }}
               onDelete={(task) => setDeletingTask(task)}
-              onAdvanceStatus={handleAdvanceStatus}
+              onStatusChange={handleStatusChange}
               isUpdating={isUpdating}
             />
           ))}

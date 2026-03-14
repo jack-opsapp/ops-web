@@ -159,16 +159,14 @@
     "notes": "Notas"
   },
 
-  "taskList": {
-    "list": "Lista",
-    "calendar": "Calendario",
-    "calendarSoon": "Próximamente",
-    "addTask": "Agregar Tarea",
-    "unscheduled": "Sin programar",
-    "unassigned": "Sin asignar",
-    "noTasks": "Sin tareas aún",
-    "noTasksDesc": "Agrega tareas para seguir el progreso del trabajo."
-  },
+  "taskList.list": "Lista",
+  "taskList.calendar": "Calendario",
+  "taskList.calendarSoon": "Próximamente",
+  "taskList.addTask": "Agregar Tarea",
+  "taskList.unscheduled": "Sin programar",
+  "taskList.unassigned": "Sin asignar",
+  "taskList.noTasks": "Sin tareas aún",
+  "taskList.noTasksDesc": "Agrega tareas para seguir el progreso del trabajo.",
 
   "financial": {
     "budgetOverview": "Resumen del Presupuesto",
@@ -194,9 +192,7 @@
     "noPhotosDesc": "Sube fotos para documentar este proyecto."
   },
 
-  "notesFeed": {
-    "sortNewest": "Más recientes",
-    "sortOldest": "Más antiguos",
-    "searchPlaceholder": "Buscar notas..."
-  }
+  "notesFeed.sortNewest": "Más recientes",
+  "notesFeed.sortOldest": "Más antiguos",
+  "notesFeed.searchPlaceholder": "Buscar notas..."
 }
