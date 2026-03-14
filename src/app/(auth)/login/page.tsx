@@ -79,8 +79,11 @@ function LoginForm() {
       }
       trackLogin(provider);
       if (!result.user.onboardingCompleted?.web) {
-        // User hasn't finished onboarding — route based on company membership
-        if (result.user.companyId) {
+        // User hasn't finished onboarding — route based on user type
+        const isEmployee = !!result.user.companyId && !result.user.isCompanyAdmin;
+        if (isEmployee) {
+          router.push("/employee-setup");
+        } else if (result.user.companyId) {
           useSetupStore.getState().reset();
           router.push("/setup");
         } else {
@@ -135,8 +138,11 @@ function LoginForm() {
       }
       trackLogin("email");
       if (!result.user.onboardingCompleted?.web) {
-        // User hasn't finished onboarding — route based on company membership
-        if (result.user.companyId) {
+        // User hasn't finished onboarding — route based on user type
+        const isEmployee = !!result.user.companyId && !result.user.isCompanyAdmin;
+        if (isEmployee) {
+          router.push("/employee-setup");
+        } else if (result.user.companyId) {
           useSetupStore.getState().reset();
           router.push("/setup");
         } else {

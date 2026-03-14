@@ -96,14 +96,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect to web setup or employee onboarding if incomplete
+  // Redirect to the appropriate onboarding flow if incomplete.
+  // Employee check first — employees should never see employer setup.
   useEffect(() => {
-    if (needsWebSetup) {
-      router.push("/setup");
-    } else if (needsEmployeeOnboarding) {
+    if (needsEmployeeOnboarding) {
       router.push("/employee-setup");
+    } else if (needsWebSetup) {
+      router.push("/setup");
     }
-  }, [needsWebSetup, needsEmployeeOnboarding, router]);
+  }, [needsEmployeeOnboarding, needsWebSetup, router]);
 
   // Auto-collapse on small screens
   useEffect(() => {

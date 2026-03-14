@@ -41,10 +41,20 @@ export async function POST(req: NextRequest) {
     steps.employee_onboarding = true;
     currentProgress.steps = steps;
 
+    // Also read current onboarding_completed to merge
+    const { data: fullUser } = await db
+      .from("users")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .single();
+    const currentOnboarding =
+      (fullUser?.onboarding_completed as Record<string, boolean>) ?? {};
+
     await db
       .from("users")
       .update({
         setup_progress: currentProgress,
+        onboarding_completed: { ...currentOnboarding, web: true },
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);

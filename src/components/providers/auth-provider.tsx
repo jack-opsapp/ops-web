@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check if the login page already handled this (user already in store)
         const existingUser = useAuthStore.getState().currentUser;
         if (existingUser?.companyId) {
-          console.log("[AuthProvider] User already in store, skipping sync.", existingUser.id);
+          console.log("[AuthProvider] User already in store, using cached data.", existingUser.id);
           // Still load permissions + feature flags if not initialized
           const permState = usePermissionStore.getState();
           if (!permState.initialized) {
@@ -102,6 +102,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
           }
           setLoading(false);
+
+          // Background sync: refresh user data to catch server-side changes
+          // (e.g. onboardingCompleted, role, setup_progress updated by another session)
+          if (idToken && firebaseUser.email) {
+            UserService.syncUser(
+              idToken,
+              firebaseUser.email,
+              firebaseUser.displayName || undefined,
+              firebaseUser.displayName?.split(" ")[0] || undefined,
+              firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+              firebaseUser.photoURL || undefined
+            ).then((result) => {
+              if (cancelled) return;
+              const { setUser: updateUser, setCompany: updateCompany } = useAuthStore.getState();
+              updateUser(result.user);
+              if (result.company) updateCompany(result.company);
+            }).catch((err) => {
+              console.warn("[AuthProvider] Background sync failed:", err);
+            });
+          }
           return;
         }
 

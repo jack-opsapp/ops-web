@@ -238,6 +238,10 @@ export default function EmployeeSetupPage() {
               firstName: store.firstName || currentUser.firstName,
               lastName: store.lastName || currentUser.lastName,
               phone: store.phone || currentUser.phone,
+              onboardingCompleted: {
+                ...currentUser.onboardingCompleted,
+                web: true,
+              },
               setupProgress: {
                 ...currentUser.setupProgress,
                 steps: {

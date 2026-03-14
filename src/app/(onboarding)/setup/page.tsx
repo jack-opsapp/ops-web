@@ -13,7 +13,6 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
-import { Button } from "@/components/ui/button";
 import {
   trackSetupStarted,
   trackSetupStepViewed,
@@ -62,6 +61,7 @@ export default function SetupPage() {
     steps,
     completeStep,
     completeSetup,
+    reset: resetSetupStore,
   } = useSetupStore();
 
   const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
@@ -69,7 +69,32 @@ export default function SetupPage() {
   // Pre-populate from auth store if available
   const authUser = useAuthStore((s) => s.currentUser);
   const authCompany = useAuthStore((s) => s.company);
+  const setUser = useAuthStore((s) => s.setUser);
   const hasPrePopulated = useRef(false);
+
+  // ─── Guard: already completed → redirect to dashboard ─────────────────
+  useEffect(() => {
+    if (authUser?.onboardingCompleted?.web) {
+      resetSetupStore();
+      router.replace("/dashboard");
+    }
+  }, [authUser, resetSetupStore, router]);
+
+  // ─── Guard: employees should never see employer setup ──────────────────
+  useEffect(() => {
+    if (authUser && authUser.companyId && !authUser.isCompanyAdmin) {
+      router.replace("/employee-setup");
+    }
+  }, [authUser, router]);
+
+  // ─── Guard: stale persisted phase → reset to identity ─────────────────
+  // If the page loads with phase "complete" or "launching" (from localStorage
+  // after a previous interrupted flow), reset to the beginning.
+  useEffect(() => {
+    if (phase === "complete" || phase === "launching") {
+      resetSetupStore();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Wait until auth data is available before pre-populating
@@ -236,18 +261,36 @@ export default function SetupPage() {
     try {
       const token = await getAuthToken();
       if (token) {
-        await fetch("/api/setup/progress", {
+        // Save current step progress (only for valid steps)
+        if (phase === "identity" || phase === "company" || phase === "starfield") {
+          await fetch("/api/setup/progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ step: phase, token }),
+          });
+        }
+        // Mark onboarding complete so the dashboard gate doesn't redirect back
+        await fetch("/api/setup/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ step: phase, token }),
+          body: JSON.stringify({ token }),
         });
       }
     } catch {
       // Non-blocking
     }
-    completeSetup();
+
+    // Update auth store so useSetupGate sees onboarding as complete
+    if (authUser) {
+      setUser({
+        ...authUser,
+        onboardingCompleted: { ...authUser.onboardingCompleted, web: true },
+      });
+    }
+
+    resetSetupStore();
     router.push("/dashboard");
-  }, [completeSetup, router, phase, answeredCount]);
+  }, [resetSetupStore, router, phase, answeredCount, authUser, setUser]);
 
   const handleStarfieldAnswer = useCallback(
     (questionId: string, answer: string | number) => {
@@ -326,22 +369,33 @@ export default function SetupPage() {
       // Non-blocking
     }
 
-    completeSetup();
+    // 4. Update auth store so useSetupGate sees onboarding as complete
+    const currentUser = useAuthStore.getState().currentUser;
+    if (currentUser) {
+      useAuthStore.getState().setUser({
+        ...currentUser,
+        onboardingCompleted: { ...currentUser.onboardingCompleted, web: true },
+      });
+    }
+
+    // 5. Analytics
     const stepsCompleted = (Object.entries(steps) as [string, boolean][])
       .filter(([, done]) => done)
       .map(([name]) => name);
-    // starfield was just completed above via completeStep
     if (!stepsCompleted.includes("starfield")) stepsCompleted.push("starfield");
     const method = stepsCompleted.length >= 3 ? "full" : "partial";
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted(method, stepsCompleted, totalDuration);
+
+    // 6. Clean up persisted setup store and navigate
+    resetSetupStore();
     router.push("/dashboard");
   }, [
     completeStep,
     starfieldAnswers,
     companySize,
     applyWidgetInstances,
-    completeSetup,
+    resetSetupStore,
     steps,
     router,
   ]);
