@@ -129,5 +129,74 @@
   "notes.placeholder": "Escribe una nota... (escribe @ para mencionar a alguien)",
 
   "toast.created": "Proyecto creado exitosamente",
-  "toast.createFailed": "Error al crear proyecto. Por favor intenta de nuevo."
+  "toast.createFailed": "Error al crear proyecto. Por favor intenta de nuevo.",
+
+  "sidebar": {
+    "projectHealth": "Estado del Proyecto",
+    "tasks": "Tareas",
+    "overdue": "Vencidas",
+    "invoiced": "Facturado",
+    "outstanding": "Pendiente",
+    "client": "Cliente",
+    "noClient": "Sin cliente asignado",
+    "location": "Ubicación",
+    "noAddress": "Sin dirección",
+    "openMaps": "Abrir en Mapas",
+    "team": "Equipo",
+    "noTeam": "Sin miembros asignados",
+    "noTasksAssigned": "Sin tareas asignadas",
+    "dates": "Fechas",
+    "notScheduled": "Sin programar",
+    "tbd": "Por definir",
+    "edit": "Editar",
+    "projectInfo": "Info del Proyecto"
+  },
+
+  "tabs": {
+    "tasks": "Tareas",
+    "financial": "Finanzas",
+    "photos": "Fotos",
+    "notes": "Notas"
+  },
+
+  "taskList": {
+    "list": "Lista",
+    "calendar": "Calendario",
+    "calendarSoon": "Próximamente",
+    "addTask": "Agregar Tarea",
+    "unscheduled": "Sin programar",
+    "unassigned": "Sin asignar",
+    "noTasks": "Sin tareas aún",
+    "noTasksDesc": "Agrega tareas para seguir el progreso del trabajo."
+  },
+
+  "financial": {
+    "budgetOverview": "Resumen del Presupuesto",
+    "estimated": "Estimado",
+    "invoiced": "Facturado",
+    "paid": "Pagado",
+    "outstanding": "Pendiente",
+    "overdue": "Vencidas",
+    "estimates": "Estimaciones",
+    "invoices": "Facturas",
+    "newEstimate": "Nueva Estimación",
+    "newInvoice": "Nueva Factura",
+    "noEstimates": "Sin estimaciones",
+    "noInvoices": "Sin facturas",
+    "due": "pendiente"
+  },
+
+  "photoFeed": {
+    "sortNewest": "Más recientes",
+    "sortOldest": "Más antiguos",
+    "searchPlaceholder": "Buscar fotos...",
+    "noPhotos": "Sin fotos aún",
+    "noPhotosDesc": "Sube fotos para documentar este proyecto."
+  },
+
+  "notesFeed": {
+    "sortNewest": "Más recientes",
+    "sortOldest": "Más antiguos",
+    "searchPlaceholder": "Buscar notas..."
+  }
 }

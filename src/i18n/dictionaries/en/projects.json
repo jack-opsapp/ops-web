@@ -129,5 +129,74 @@
   "notes.placeholder": "Write a note... (type @ to mention someone)",
 
   "toast.created": "Project created successfully",
-  "toast.createFailed": "Failed to create project. Please try again."
+  "toast.createFailed": "Failed to create project. Please try again.",
+
+  "sidebar": {
+    "projectHealth": "Project Health",
+    "tasks": "Tasks",
+    "overdue": "Overdue",
+    "invoiced": "Invoiced",
+    "outstanding": "Outstanding",
+    "client": "Client",
+    "noClient": "No client assigned",
+    "location": "Location",
+    "noAddress": "No address set",
+    "openMaps": "Open in Maps",
+    "team": "Team",
+    "noTeam": "No team members assigned",
+    "noTasksAssigned": "No tasks assigned",
+    "dates": "Dates",
+    "notScheduled": "Not scheduled",
+    "tbd": "TBD",
+    "edit": "Edit",
+    "projectInfo": "Project Info"
+  },
+
+  "tabs": {
+    "tasks": "Tasks",
+    "financial": "Financial",
+    "photos": "Photos",
+    "notes": "Notes"
+  },
+
+  "taskList": {
+    "list": "List",
+    "calendar": "Calendar",
+    "calendarSoon": "Coming soon",
+    "addTask": "Add Task",
+    "unscheduled": "Unscheduled",
+    "unassigned": "Unassigned",
+    "noTasks": "No tasks yet",
+    "noTasksDesc": "Add tasks to track work progress for this project."
+  },
+
+  "financial": {
+    "budgetOverview": "Budget Overview",
+    "estimated": "Estimated",
+    "invoiced": "Invoiced",
+    "paid": "Paid",
+    "outstanding": "Outstanding",
+    "overdue": "Overdue",
+    "estimates": "Estimates",
+    "invoices": "Invoices",
+    "newEstimate": "New Estimate",
+    "newInvoice": "New Invoice",
+    "noEstimates": "No estimates",
+    "noInvoices": "No invoices",
+    "due": "due"
+  },
+
+  "photoFeed": {
+    "sortNewest": "Newest First",
+    "sortOldest": "Oldest First",
+    "searchPlaceholder": "Search photos...",
+    "noPhotos": "No photos yet",
+    "noPhotosDesc": "Upload photos to document this project."
+  },
+
+  "notesFeed": {
+    "sortNewest": "Newest First",
+    "sortOldest": "Oldest First",
+    "searchPlaceholder": "Search notes..."
+  }
 }
