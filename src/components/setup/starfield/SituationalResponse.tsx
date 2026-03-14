@@ -582,7 +582,7 @@ export function SituationalResponse({
           ctx.fillStyle = `rgba(${labelR}, ${labelG}, ${labelB}, ${textAlpha})`;
 
           const lineHeight = 22;
-          const maxWidth = 200;
+          const EDGE_PAD = 10;
           const baseSin = Math.sin(BASE_ANGLES[i]);
 
           const isRightAligned =
@@ -591,17 +591,25 @@ export function SituationalResponse({
             (baseSin > 0.3 && Math.abs(baseCos) < 0.7);
 
           let textX: number;
+          let maxWidth: number;
           if (isRightAligned) {
             ctx.textAlign = "right";
             textX = pos.x - 20;
+            maxWidth = Math.min(200, textX - EDGE_PAD);
           } else {
             ctx.textAlign = "left";
             textX = pos.x + 20;
+            maxWidth = Math.min(200, w - textX - EDGE_PAD);
           }
+          maxWidth = Math.max(maxWidth, 60);
 
           const lines = wrapText(ctx, options[i].label.toUpperCase(), maxWidth);
           const blockHeight = (lines.length - 1) * lineHeight;
-          const blockStartY = pos.y - blockHeight / 2;
+          let blockStartY = pos.y - blockHeight / 2;
+          // Clamp vertically so labels don't exceed top/bottom
+          if (blockStartY < EDGE_PAD) blockStartY = EDGE_PAD;
+          if (blockStartY + blockHeight + lineHeight > h - EDGE_PAD)
+            blockStartY = h - EDGE_PAD - blockHeight - lineHeight;
 
           for (let li = 0; li < lines.length; li++) {
             ctx.fillText(

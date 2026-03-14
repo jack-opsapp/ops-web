@@ -1031,6 +1031,22 @@ export function SetupStarfield({
     (q) => starfieldAnswers[q.id] != null
   ).length;
 
+  // Track when minimum required answers are first reached
+  const [showUnlocked, setShowUnlocked] = useState(false);
+  const hasShownUnlockedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      answeredCount >= minRequired &&
+      !hasShownUnlockedRef.current
+    ) {
+      hasShownUnlockedRef.current = true;
+      setShowUnlocked(true);
+      const timer = setTimeout(() => setShowUnlocked(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [answeredCount, minRequired]);
+
   return (
     <div
       ref={containerRef}
@@ -1082,8 +1098,8 @@ export function SetupStarfield({
             transition={{ duration: 0.4 }}
             className="absolute top-[14%] left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none"
           >
-            <p className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
-              Click the glowing nodes to customize your dashboard
+            <p className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em] max-w-[400px] leading-relaxed">
+              Answer questions so we can tailor OPS to your operation
             </p>
           </motion.div>
         )}
@@ -1198,6 +1214,28 @@ export function SetupStarfield({
                 />
               </div>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Dashboard unlocked notification */}
+      <AnimatePresence>
+        {showUnlocked && !focusedNode && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+          >
+            <div className="px-4 py-3 rounded-sm bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(89,119,148,0.3)] text-center">
+              <p className="font-mohave text-body text-text-primary">
+                Dashboard unlocked
+              </p>
+              <p className="font-kosugi text-[11px] text-text-tertiary mt-0.5">
+                Keep going or hit Launch to see your command center
+              </p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

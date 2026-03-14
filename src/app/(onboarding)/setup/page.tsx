@@ -30,6 +30,8 @@ import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults"
 import { IdentityStep1, IdentityStep2 } from "@/components/setup/SetupIdentityStep";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
 import { SetupLaunchAnimation } from "@/components/setup/SetupLaunchAnimation";
+import { signOut } from "@/lib/firebase/auth";
+import { LogOut } from "lucide-react";
 const MIN_STARFIELD_ANSWERS = 4;
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -72,6 +74,11 @@ export default function SetupPage() {
   const authCompany = useAuthStore((s) => s.company);
   const setUser = useAuthStore((s) => s.setUser);
   const hasPrePopulated = useRef(false);
+
+  // Avatar URL: prefer Supabase user, fallback to Firebase auth
+  const avatarUrl = authUser?.profileImageURL
+    || getAuth()?.currentUser?.photoURL
+    || null;
 
   // ─── Guard: already completed → redirect to dashboard ─────────────────
   useEffect(() => {
@@ -300,6 +307,16 @@ export default function SetupPage() {
     [setStarfieldAnswer]
   );
 
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+      useAuthStore.getState().logout();
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  }, [router]);
+
   const handleLaunchFromStarfield = useCallback(async () => {
     if (answeredCount >= MIN_STARFIELD_ANSWERS) {
       const starfieldDuration = Date.now() - starfieldStartRef.current;
@@ -432,6 +449,14 @@ export default function SetupPage() {
             Back
           </button>
           <button
+            onClick={handleLogout}
+            aria-label="Log out"
+            className="flex items-center gap-1 px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-disabled hover:text-text-tertiary transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Log out
+          </button>
+          <button
             onClick={handleSkip}
             aria-label="Skip questionnaire and go to dashboard"
             className="px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-disabled hover:text-text-tertiary transition-colors"
@@ -516,13 +541,23 @@ export default function SetupPage() {
             <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
               STEP {stepNum} OF 2
             </span>
-            <button
-              onClick={handleSkip}
-              aria-label="Skip setup and go to dashboard"
-              className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px] flex items-center"
-            >
-              Skip
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleLogout}
+                aria-label="Log out"
+                className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px]"
+              >
+                <LogOut className="w-3 h-3" />
+                Log out
+              </button>
+              <button
+                onClick={handleSkip}
+                aria-label="Skip setup and go to dashboard"
+                className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px] flex items-center"
+              >
+                Skip
+              </button>
+            </div>
           </div>
           <div
             className="flex items-center gap-1"
@@ -557,6 +592,7 @@ export default function SetupPage() {
               firstName={firstName}
               lastName={lastName}
               phone={phone}
+              avatarUrl={avatarUrl}
               onUpdate={(data) => setIdentity(data)}
             />
           )}

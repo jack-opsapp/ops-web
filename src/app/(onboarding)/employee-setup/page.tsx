@@ -17,12 +17,13 @@ import {
   Loader2,
   Check,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ops/image-upload";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useEmployeeSetupStore } from "@/stores/employee-setup-store";
-import { getIdToken } from "@/lib/firebase/auth";
+import { getIdToken, signOut } from "@/lib/firebase/auth";
 import { cn } from "@/lib/utils/cn";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -181,6 +182,16 @@ export default function EmployeeSetupPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
+  async function handleLogout() {
+    try {
+      await signOut();
+      useAuthStore.getState().logout();
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  }
+
   // Pre-populate from auth store
   useEffect(() => {
     if (currentUser && !store.firstName) {
@@ -299,9 +310,19 @@ export default function EmployeeSetupPage() {
             <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
               STEP {currentStep + 1} OF {STEPS.length}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em]">
-              {step.label}
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleLogout}
+                aria-label="Log out"
+                className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[56px]"
+              >
+                <LogOut className="w-3 h-3" />
+                Log out
+              </button>
+              <span className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em]">
+                {step.label}
+              </span>
+            </div>
           </div>
 
           {/* Segmented progress bar */}

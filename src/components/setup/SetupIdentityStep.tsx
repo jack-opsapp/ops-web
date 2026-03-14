@@ -297,6 +297,7 @@ interface IdentityStep1Props {
   firstName: string;
   lastName: string;
   phone: string;
+  avatarUrl?: string | null;
   onUpdate: (data: { firstName?: string; lastName?: string; phone?: string }) => void;
 }
 
@@ -304,8 +305,14 @@ export function IdentityStep1({
   firstName,
   lastName,
   phone,
+  avatarUrl,
   onUpdate,
 }: IdentityStep1Props) {
+  const initials = [firstName, lastName]
+    .filter(Boolean)
+    .map((n) => n.charAt(0).toUpperCase())
+    .join("");
+
   return (
     <div className="w-full">
       <div className="mb-3">
@@ -315,6 +322,31 @@ export function IdentityStep1({
         <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5">
           [the name behind the operation]
         </p>
+      </div>
+
+      {/* Avatar from Google/Apple */}
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-[56px] h-[56px] rounded-sm overflow-hidden border border-[rgba(255,255,255,0.08)] flex-shrink-0">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Profile"
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-[rgba(255,255,255,0.06)]">
+              <span className="font-mohave text-body text-text-tertiary">
+                {initials || "?"}
+              </span>
+            </div>
+          )}
+        </div>
+        {avatarUrl && (
+          <p className="font-kosugi text-[11px] text-text-disabled">
+            Imported from your sign-in account
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
