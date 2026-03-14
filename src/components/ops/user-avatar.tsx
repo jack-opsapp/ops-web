@@ -1,6 +1,12 @@
 import * as React from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils/cn";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export type UserRole = "admin" | "manager" | "field-crew";
 
@@ -34,15 +40,16 @@ export interface UserAvatarProps {
   color?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
+  showTooltip?: boolean;
 }
 
 const UserAvatar = React.forwardRef<HTMLDivElement, UserAvatarProps>(
-  ({ name, imageUrl, role, online, color, size = "md", className }, ref) => {
+  ({ name, imageUrl, role, online, color, size = "md", className, showTooltip }, ref) => {
     const initials = getInitials(name);
     const fallbackColor = color || stringToColor(name);
     const roleColor = role ? ROLE_COLORS[role] : undefined;
 
-    return (
+    const avatarElement = (
       <div ref={ref} className={cn("relative inline-flex shrink-0", className)}>
         <Avatar size={size} borderColor={fallbackColor}>
           {imageUrl && <AvatarImage src={imageUrl} alt={name} />}
@@ -76,6 +83,22 @@ const UserAvatar = React.forwardRef<HTMLDivElement, UserAvatarProps>(
         )}
       </div>
     );
+
+    if (showTooltip) {
+      return (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {avatarElement}
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {name}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return avatarElement;
   }
 );
 UserAvatar.displayName = "UserAvatar";
