@@ -1,18 +1,16 @@
 "use client";
 
 /**
- * SetupLaunchAnimation — Canvas 2D orbit + convergence animation
+ * SetupLaunchAnimation — Hyperspeed star-tunnel transition
  *
  * Sequence:
- * 1. Start from starfield state (all nodes visible, answered ones blue)
- * 2. Draw lines between answered nodes (edges fade in ~500ms)
- * 3. Camera orbit: rotate from XY → Z-axis view (~2s)
- * 4. Answered nodes converge into single point
- * 5. Ambient particles fade out one by one (~1.5s)
- * 6. Single node pulses then fades (~800ms)
- * 7. Canvas dark → trigger onComplete
+ * 1. Stars visible as dots (brief idle, ~300ms)
+ * 2. Accelerate forward — stars stretch into radial streaks (~2s)
+ * 3. Full hyperspeed tunnel — long blue/white streaks (~1.5s)
+ * 4. Bright flash from center (~400ms)
+ * 5. Fade to black → trigger onComplete (~800ms)
  *
- * Total: ~5-6 seconds
+ * Total: ~5 seconds
  */
 
 import { useRef, useEffect, useCallback, useState } from "react";
@@ -22,15 +20,29 @@ import type { StarfieldQuestion } from "@/stores/setup-store";
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const ACCENT = { r: 89, g: 119, b: 148 };
-const GREY = { r: 160, g: 160, b: 160 };
-const FOCAL_LENGTH = 600;
-const PARTICLE_COUNT = 60;
-const TOTAL_DURATION = 5500; // ms
+const STAR_COUNT = 500;
+const TOTAL_DURATION = 5000; // ms
 
-// ─── Easing ─────────────────────────────────────────────────────────────────
+// ─── Star ───────────────────────────────────────────────────────────────────
 
-function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+interface HyperStar {
+  x: number; // cross-section position (-1 to 1)
+  y: number;
+  z: number; // depth (0.001 = near camera, 1 = far)
+  size: number;
+  brightness: number;
+}
+
+function spawnStar(zMin = 0.01, zMax = 1): HyperStar {
+  const angle = Math.random() * Math.PI * 2;
+  const radius = 0.03 + Math.pow(Math.random(), 0.6) * 0.97;
+  return {
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius,
+    z: zMin + Math.random() * (zMax - zMin),
+    size: 0.4 + Math.random() * 1.6,
+    brightness: 0.3 + Math.random() * 0.7,
+  };
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -43,8 +55,6 @@ interface SetupLaunchAnimationProps {
 }
 
 export function SetupLaunchAnimation({
-  questions,
-  starfieldAnswers,
   onComplete,
   workspaceReady,
 }: SetupLaunchAnimationProps) {
@@ -55,10 +65,10 @@ export function SetupLaunchAnimation({
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
-  // Workspace overlay: fade in after 500ms delay
+  // Workspace overlay
   const [overlayVisible, setOverlayVisible] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setOverlayVisible(true), 500);
+    const timer = setTimeout(() => setOverlayVisible(true), 600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -86,61 +96,22 @@ export function SetupLaunchAnimation({
       observer.observe(container);
     }
 
-    const answeredNodes = questions.filter((q) => starfieldAnswers[q.id] != null);
-    const unansweredNodes = questions.filter((q) => starfieldAnswers[q.id] == null);
-
-    // Generate ambient particles
-    const particles: {
-      x: number;
-      y: number;
-      z: number;
-      size: number;
-      alpha: number;
-      fadeDelay: number;
-    }[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push({
-        x: (Math.random() - 0.5) * 800,
-        y: (Math.random() - 0.5) * 800,
-        z: (Math.random() - 0.5) * 400,
-        size: 1 + Math.random() * 2,
-        alpha: 0.03 + Math.random() * 0.06,
-        fadeDelay: Math.random(),
-      });
-    }
+    const stars: HyperStar[] = Array.from({ length: STAR_COUNT }, () =>
+      spawnStar()
+    );
 
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    function project(
-      px: number,
-      py: number,
-      pz: number,
-      cameraZ: number,
-      rotateAngle: number,
-      centerX: number,
-      centerY: number,
-      zoom: number
-    ): { x: number; y: number; scale: number } {
-      // Rotate around Y-axis
-      const cosA = Math.cos(rotateAngle);
-      const sinA = Math.sin(rotateAngle);
-      const rx = px * cosA - pz * sinA;
-      const ry = py;
-      const rz = px * sinA + pz * cosA;
-
-      const perspective = FOCAL_LENGTH / (FOCAL_LENGTH + rz - cameraZ);
-      const scale = perspective * zoom;
-      return {
-        x: centerX + rx * scale,
-        y: centerY + ry * scale,
-        scale: Math.max(scale, 0),
-      };
-    }
+    let lastTime: number | null = null;
 
     function draw(timestamp: number) {
       if (startTimeRef.current === null) startTimeRef.current = timestamp;
+      if (lastTime === null) lastTime = timestamp;
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // cap dt
+      lastTime = timestamp;
+
       const elapsed = timestamp - startTimeRef.current;
       const progress = Math.min(elapsed / TOTAL_DURATION, 1);
 
@@ -159,169 +130,154 @@ export function SetupLaunchAnimation({
       const h = parseFloat(canvas.style.height) || canvas.height;
       const centerX = w / 2;
       const centerY = h / 2;
+      const focalLength = Math.min(w, h) * 0.5;
 
-      ctx.clearRect(0, 0, w, h);
+      // Clear to black
+      ctx.fillStyle = "rgb(0, 0, 0)";
+      ctx.fillRect(0, 0, w, h);
 
-      // ── Phase timing ──
-      // 0.0 - 0.09: Edge lines fade in
-      // 0.09 - 0.55: Camera orbit (rotate around Y)
-      // 0.55 - 0.82: Particles fade out
-      // 0.82 - 1.0: Final node pulse + fade
-
-      const edgeProgress = Math.min(progress / 0.09, 1);
-      const orbitProgress =
-        progress < 0.09
-          ? 0
-          : Math.min((progress - 0.09) / 0.46, 1);
-      const particleFadeProgress =
-        progress < 0.55
-          ? 0
-          : Math.min((progress - 0.55) / 0.27, 1);
-      const finalFadeProgress =
-        progress < 0.82
-          ? 0
-          : Math.min((progress - 0.82) / 0.18, 1);
-
-      // Camera rotation from 0 to PI/2 (XY plane → Z-axis view)
-      const rotateAngle = easeInOutCubic(orbitProgress) * (Math.PI / 2);
-      const cameraZ = -400;
-      const zoom = 1 + orbitProgress * 0.3;
-
-      // ── Draw ambient particles ──
-      for (const p of particles) {
-        const fadeT =
-          particleFadeProgress > 0
-            ? Math.max(0, 1 - (particleFadeProgress - p.fadeDelay * 0.5) / 0.5)
-            : 1;
-        if (fadeT <= 0) continue;
-
-        const proj = project(p.x, p.y, p.z, cameraZ, rotateAngle, centerX, centerY, zoom);
-        if (proj.scale <= 0) continue;
-
-        const screenSize = p.size * proj.scale;
-        const alpha = p.alpha * fadeT;
-
-        ctx.fillStyle = `rgba(${GREY.r}, ${GREY.g}, ${GREY.b}, ${alpha})`;
-        ctx.fillRect(
-          proj.x - screenSize / 2,
-          proj.y - screenSize / 2,
-          screenSize,
-          screenSize
-        );
+      // ── Speed curve ──
+      // 0.00 - 0.06: idle/gentle (0 → 0.3)
+      // 0.06 - 0.45: exponential ramp (0.3 → 12)
+      // 0.45 - 0.72: full hyperspeed (12 → 20)
+      // 0.72+: hold at max during flash/fade
+      let speed: number;
+      if (progress < 0.06) {
+        speed = (progress / 0.06) * 0.3;
+      } else if (progress < 0.45) {
+        const t = (progress - 0.06) / 0.39;
+        speed = 0.3 + Math.pow(t, 2.2) * 11.7;
+      } else if (progress < 0.72) {
+        const t = (progress - 0.45) / 0.27;
+        speed = 12 + t * 8;
+      } else {
+        speed = 20;
       }
 
-      // ── Draw unanswered nodes (fade during orbit) ──
-      for (const q of unansweredNodes) {
-        const fade = Math.max(0, 1 - orbitProgress * 2);
-        if (fade <= 0) continue;
+      // ── Color shift: white → accent blue ──
+      const colorT = Math.min(progress / 0.45, 1);
+      const starR = Math.round(220 - (220 - ACCENT.r) * colorT * 0.7);
+      const starG = Math.round(220 - (220 - ACCENT.g) * colorT * 0.5);
+      const starB = Math.round(230 - (230 - ACCENT.b) * colorT * 0.3);
 
-        const proj = project(
-          q.position.x,
-          q.position.y,
-          q.position.z,
-          cameraZ,
-          rotateAngle,
-          centerX,
-          centerY,
-          zoom
-        );
-        if (proj.scale <= 0) continue;
+      // Brighter core color for fast stars
+      const coreR = Math.round(255 - (255 - 180) * colorT * 0.3);
+      const coreG = Math.round(255 - (255 - 210) * colorT * 0.3);
+      const coreB = 255;
 
-        const nodeSize = 8 * proj.scale;
-        ctx.fillStyle = `rgba(${GREY.r}, ${GREY.g}, ${GREY.b}, ${0.3 * fade})`;
-        ctx.fillRect(
-          proj.x - nodeSize / 2,
-          proj.y - nodeSize / 2,
-          nodeSize,
-          nodeSize
-        );
-      }
+      // ── Move and draw stars ──
+      const trailScale = speed * 0.02;
 
-      // ── Draw edges between answered nodes ──
-      if (answeredNodes.length >= 2) {
-        const edgeAlpha = easeInOutCubic(edgeProgress) * 0.4;
-        ctx.strokeStyle = `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, ${edgeAlpha})`;
-        ctx.lineWidth = 1;
+      for (const star of stars) {
+        // Advance toward camera
+        star.z -= speed * dt * 0.25;
 
-        for (let i = 0; i < answeredNodes.length; i++) {
-          for (let j = i + 1; j < answeredNodes.length; j++) {
-            const a = answeredNodes[i];
-            const b = answeredNodes[j];
-            const pa = project(
-              a.position.x,
-              a.position.y,
-              a.position.z,
-              cameraZ,
-              rotateAngle,
-              centerX,
-              centerY,
-              zoom
-            );
-            const pb = project(
-              b.position.x,
-              b.position.y,
-              b.position.z,
-              cameraZ,
-              rotateAngle,
-              centerX,
-              centerY,
-              zoom
-            );
+        // Respawn behind camera
+        if (star.z <= 0.002) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 0.03 + Math.pow(Math.random(), 0.6) * 0.97;
+          star.x = Math.cos(angle) * radius;
+          star.y = Math.sin(angle) * radius;
+          star.z = 0.7 + Math.random() * 0.3;
+          star.brightness = 0.3 + Math.random() * 0.7;
+        }
 
+        // Project current position
+        const perspective = 1 / star.z;
+        const sx = centerX + star.x * perspective * focalLength;
+        const sy = centerY + star.y * perspective * focalLength;
+
+        // Skip if off-screen (with generous margin)
+        if (sx < -100 || sx > w + 100 || sy < -100 || sy > h + 100) continue;
+
+        // Trail end (slightly deeper z = closer to center)
+        const trailZ = Math.min(star.z + trailScale, 1);
+        const trailPerspective = 1 / trailZ;
+        const tsx = centerX + star.x * trailPerspective * focalLength;
+        const tsy = centerY + star.y * trailPerspective * focalLength;
+
+        const alpha = star.brightness * Math.min(1, 0.15 + speed * 0.12);
+
+        if (speed < 0.8) {
+          // Dots at low speed
+          const dotSize = Math.max(1, star.size * perspective * 1.5);
+          ctx.fillStyle = `rgba(${starR}, ${starG}, ${starB}, ${alpha * 0.6})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, dotSize, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Streaks at high speed
+          const lineWidth = Math.max(0.3, star.size * perspective * 0.8);
+
+          // Outer streak (colored)
+          ctx.strokeStyle = `rgba(${starR}, ${starG}, ${starB}, ${alpha * 0.8})`;
+          ctx.lineWidth = lineWidth;
+          ctx.beginPath();
+          ctx.moveTo(tsx, tsy);
+          ctx.lineTo(sx, sy);
+          ctx.stroke();
+
+          // Bright core for close/bright stars
+          if (star.z < 0.3 && star.brightness > 0.5) {
+            ctx.strokeStyle = `rgba(${coreR}, ${coreG}, ${coreB}, ${alpha * 0.5})`;
+            ctx.lineWidth = Math.max(0.2, lineWidth * 0.4);
             ctx.beginPath();
-            ctx.moveTo(pa.x, pa.y);
-            ctx.lineTo(pb.x, pb.y);
+            ctx.moveTo(tsx, tsy);
+            ctx.lineTo(sx, sy);
             ctx.stroke();
           }
         }
       }
 
-      // ── Draw answered nodes ──
-      const showFinalFade = finalFadeProgress > 0;
-      const finalAlpha = showFinalFade
-        ? Math.max(0, 1 - easeInOutCubic(finalFadeProgress))
-        : 1;
-
-      for (const q of answeredNodes) {
-        const proj = project(
-          q.position.x,
-          q.position.y,
-          q.position.z,
-          cameraZ,
-          rotateAngle,
+      // ── Central glow during hyperspeed ──
+      if (speed > 5) {
+        const glowIntensity = Math.min((speed - 5) / 15, 1) * 0.15;
+        const gradient = ctx.createRadialGradient(
           centerX,
           centerY,
-          zoom
+          0,
+          centerX,
+          centerY,
+          Math.min(w, h) * 0.4
         );
-        if (proj.scale <= 0) continue;
-
-        const nodeSize = 8 * proj.scale;
-
-        // Glow
-        if (finalAlpha > 0) {
-          ctx.shadowColor = `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, ${0.4 * finalAlpha})`;
-          ctx.shadowBlur = showFinalFade ? 20 + (1 - finalFadeProgress) * 10 : 16;
-        }
-
-        ctx.fillStyle = `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, ${0.8 * finalAlpha})`;
-        ctx.fillRect(
-          proj.x - nodeSize / 2,
-          proj.y - nodeSize / 2,
-          nodeSize,
-          nodeSize
+        gradient.addColorStop(
+          0,
+          `rgba(${ACCENT.r}, ${ACCENT.g}, ${ACCENT.b}, ${glowIntensity})`
         );
-        ctx.shadowColor = "transparent";
-        ctx.shadowBlur = 0;
+        gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
       }
 
-      // ── Continue or complete ──
+      // ── Flash (0.72 → 0.82) ──
+      if (progress > 0.72 && progress <= 0.82) {
+        const flashT = (progress - 0.72) / 0.1;
+        // Quick rise, slower fall
+        const flashAlpha =
+          flashT < 0.4
+            ? (flashT / 0.4) * 0.7
+            : 0.7 * (1 - (flashT - 0.4) / 0.6);
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, flashAlpha)})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // ── Fade to black (0.82 → 1.0) ──
+      if (progress > 0.82) {
+        const fadeT = (progress - 0.82) / 0.18;
+        ctx.fillStyle = `rgba(0, 0, 0, ${fadeT})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // ── Complete ──
       if (progress >= 1) {
+        // Final black frame
+        ctx.fillStyle = "rgb(0, 0, 0)";
+        ctx.fillRect(0, 0, w, h);
         onCompleteRef.current();
         return;
       }
 
-      if (prefersReduced && progress === 0) {
-        // Single frame for reduced motion, then complete after timeout
+      if (prefersReduced && elapsed === 0) {
         setTimeout(() => onCompleteRef.current(), 500);
         return;
       }
@@ -335,14 +291,10 @@ export function SetupLaunchAnimation({
       cancelAnimationFrame(animRef.current);
       if (observer) observer.disconnect();
     };
-  }, [questions, starfieldAnswers, resize]);
+  }, [resize]);
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0"
-      aria-hidden="true"
-    >
+    <div ref={containerRef} className="absolute inset-0" aria-hidden="true">
       <canvas
         ref={canvasRef}
         style={{ display: "block", width: "100%", height: "100%" }}
@@ -354,9 +306,7 @@ export function SetupLaunchAnimation({
         style={{ opacity: overlayVisible ? 1 : 0 }}
       >
         <div className="flex items-center gap-1.5">
-          {workspaceReady && (
-            <Check className="w-3 h-3 text-ops-accent" />
-          )}
+          {workspaceReady && <Check className="w-3 h-3 text-ops-accent" />}
           <span className="font-kosugi text-[11px] text-text-disabled uppercase tracking-widest">
             {workspaceReady ? "Ready" : "Setting up your workspace\u2026"}
           </span>
