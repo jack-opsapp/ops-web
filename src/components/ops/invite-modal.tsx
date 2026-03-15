@@ -111,7 +111,13 @@ export function InviteModal({
 
     sendInvite.mutate(data, {
       onSuccess: (result) => {
-        const count = result.invitesSent ?? allEntries.length;
+        const count = result.invitesSent ?? 0;
+        if (count === 0) {
+          toast.error(t("team.toast.inviteFailed"), {
+            description: t("team.toast.inviteFailedDescription"),
+          });
+          return;
+        }
         toast.success(t("team.toast.inviteSent"), {
           description: `${count} ${count === 1 ? t("team.toast.inviteSentSingular") : t("team.toast.inviteSentPlural")}`,
         });

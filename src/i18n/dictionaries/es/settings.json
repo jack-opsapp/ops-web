@@ -172,6 +172,7 @@
   "team.toast.emailInviteSent": "Invitación por correo enviada a",
   "team.toast.smsInviteSent": "Invitación por SMS enviada a",
   "team.toast.inviteFailed": "Error al enviar invitación",
+  "team.toast.inviteFailedDescription": "No se pudo entregar la invitación. Inténtalo de nuevo.",
   "team.toast.roleUpdated": "Rol actualizado a",
   "team.toast.roleUpdateFailed": "Error al actualizar rol",
   "team.toast.seatRemoved": "Puesto eliminado",

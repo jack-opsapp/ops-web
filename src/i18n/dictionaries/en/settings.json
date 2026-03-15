@@ -172,6 +172,7 @@
   "team.toast.emailInviteSent": "Email invite sent to",
   "team.toast.smsInviteSent": "SMS invite sent to",
   "team.toast.inviteFailed": "Failed to send invite",
+  "team.toast.inviteFailedDescription": "The invite could not be delivered. Please try again.",
   "team.toast.roleUpdated": "Role updated to",
   "team.toast.roleUpdateFailed": "Failed to update role",
   "team.toast.seatRemoved": "Seat removed",

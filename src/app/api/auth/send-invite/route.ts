@@ -154,6 +154,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Send email invites via SendGrid
+    const emailErrors: string[] = [];
     if (hasEmails) {
       for (const email of emails) {
         try {
@@ -165,12 +166,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           });
           emailsSent++;
         } catch (emailError) {
+          const msg = emailError instanceof Error ? emailError.message : String(emailError);
           console.error(`[api/auth/send-invite] Email failed for ${email}:`, emailError);
+          emailErrors.push(`${email}: ${msg}`);
         }
       }
     }
 
     // Send SMS invites via Twilio
+    const smsErrors: string[] = [];
     if (hasPhones) {
       for (const phone of phones) {
         try {
@@ -181,16 +185,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           });
           smsSent++;
         } catch (smsError) {
+          const msg = smsError instanceof Error ? smsError.message : String(smsError);
           console.error(`[api/auth/send-invite] SMS failed for ${phone}:`, smsError);
+          smsErrors.push(`${phone}: ${msg}`);
         }
       }
+    }
+
+    const totalAttempted = (hasEmails ? emails.length : 0) + (hasPhones ? phones.length : 0);
+    const totalSent = emailsSent + smsSent;
+
+    // If all sends failed, return error
+    if (totalSent === 0 && totalAttempted > 0) {
+      const allErrors = [...emailErrors, ...smsErrors];
+      return NextResponse.json(
+        { error: `All invites failed to send: ${allErrors.join("; ")}` },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       emailsSent,
       smsSent,
-      invitesSent: emailsSent + smsSent,
+      invitesSent: totalSent,
+      ...(emailErrors.length > 0 || smsErrors.length > 0
+        ? { partialErrors: [...emailErrors, ...smsErrors] }
+        : {}),
     });
   } catch (error) {
     console.error("[api/auth/send-invite] Error:", error);
