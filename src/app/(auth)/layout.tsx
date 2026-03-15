@@ -10,7 +10,7 @@ import { useDictionary } from "@/i18n/client";
 const authenticatedAllowedRoutes = ["/locked", "/join", "/account-type"];
 
 // Routes that REQUIRE authentication (show auth popup if not logged in)
-const authRequiredRoutes = ["/locked", "/join", "/account-type"];
+const authRequiredRoutes = ["/locked", "/account-type"];
 
 function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();

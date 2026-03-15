@@ -16,13 +16,27 @@ import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils/cn";
+
+interface TeamMember {
+  firstName: string;
+  lastName: string;
+  profileImageUrl: string | null;
+}
 
 interface InviteData {
   valid: boolean;
   companyName: string;
   companyLogo: string | null;
   roleName: string | null;
+  industries: string[];
+  teamMembers: TeamMember[];
+  teamSize: number;
   error?: "expired" | "used" | "not_found";
+}
+
+function getInitials(first: string, last: string): string {
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
 export default function JoinPage() {
@@ -57,6 +71,9 @@ export default function JoinPage() {
         companyName: "",
         companyLogo: null,
         roleName: null,
+        industries: [],
+        teamMembers: [],
+        teamSize: 0,
         error: "not_found",
       });
       setLoading(false);
@@ -71,6 +88,9 @@ export default function JoinPage() {
           companyName: "",
           companyLogo: null,
           roleName: null,
+          industries: [],
+          teamMembers: [],
+          teamSize: 0,
           error: "not_found",
         })
       )
@@ -102,7 +122,6 @@ export default function JoinPage() {
     setIsLoadingGoogle(true);
     try {
       await signInWithGoogle();
-      // Sync to Supabase for new users
       const token = await getIdToken();
       if (token) {
         try {
@@ -166,7 +185,6 @@ export default function JoinPage() {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
         const fbUser = await signUpWithEmail(email, password);
-        // Update display name
         const { updateProfile } = await import("firebase/auth");
         await updateProfile(fbUser, { displayName: fullName.trim() });
         const token = await fbUser.getIdToken();
@@ -204,7 +222,7 @@ export default function JoinPage() {
   if (!loading && isAuthenticated && currentUser?.companyId) {
     return (
       <div className="flex flex-col items-center text-center space-y-4">
-        <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text-primary leading-none">
+        <h1 className="font-mohave text-[28px] font-bold tracking-wide text-text-primary leading-none uppercase">
           Already on a team
         </h1>
         <p className="font-mohave text-body-sm text-text-tertiary">
@@ -250,7 +268,7 @@ export default function JoinPage() {
     return (
       <div className="flex flex-col items-center text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-red-400" />
-        <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text-primary leading-none">
+        <h1 className="font-mohave text-[28px] font-bold tracking-wide text-text-primary leading-none uppercase">
           {msg.title}
         </h1>
         <p className="font-mohave text-body-sm text-text-tertiary">{msg.desc}</p>
@@ -262,6 +280,10 @@ export default function JoinPage() {
   }
 
   // ── Valid invite — show auth form ───────────────────────────────────────
+  const { teamMembers, teamSize, industries } = invite;
+  const displayedMembers = teamMembers.slice(0, 6);
+  const extraCount = teamSize - displayedMembers.length;
+
   return (
     <div className="flex flex-col">
       {/* Mobile logo */}
@@ -275,30 +297,85 @@ export default function JoinPage() {
         />
       </div>
 
-      {/* Company info header */}
-      <div className="mb-6 space-y-2">
-        {invite.companyLogo && (
-          <Image
-            src={invite.companyLogo}
-            alt={invite.companyName}
-            width={48}
-            height={48}
-            className="rounded-lg"
-          />
+      {/* ── Company info header ─────────────────────────────────────── */}
+      <div className="mb-6 space-y-3">
+        {/* Company logo + name */}
+        <div className="flex items-center gap-3">
+          {invite.companyLogo && (
+            <Image
+              src={invite.companyLogo}
+              alt={invite.companyName}
+              width={44}
+              height={44}
+              className="rounded-sm border border-[rgba(255,255,255,0.08)]"
+            />
+          )}
+          <div>
+            <h1 className="font-mohave text-[26px] font-bold tracking-wide text-text-primary leading-none uppercase">
+              Join {invite.companyName}
+            </h1>
+            {industries.length > 0 && (
+              <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mt-1">
+                {industries.slice(0, 3).join(" / ")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Team avatars */}
+        {displayedMembers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-2">
+              {displayedMembers.map((m, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "w-[28px] h-[28px] rounded-full border-2 border-background flex items-center justify-center overflow-hidden",
+                    !m.profileImageUrl && "bg-[rgba(255,255,255,0.08)]"
+                  )}
+                  title={`${m.firstName} ${m.lastName}`}
+                >
+                  {m.profileImageUrl ? (
+                    <Image
+                      src={m.profileImageUrl}
+                      alt={`${m.firstName} ${m.lastName}`}
+                      width={28}
+                      height={28}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-kosugi text-[9px] text-text-tertiary">
+                      {getInitials(m.firstName, m.lastName)}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {extraCount > 0 && (
+                <div className="w-[28px] h-[28px] rounded-full border-2 border-background bg-[rgba(255,255,255,0.06)] flex items-center justify-center">
+                  <span className="font-kosugi text-[9px] text-text-disabled">
+                    +{extraCount}
+                  </span>
+                </div>
+              )}
+            </div>
+            <span className="font-kosugi text-[10px] text-text-disabled">
+              {teamSize} {teamSize === 1 ? "member" : "members"}
+            </span>
+          </div>
         )}
-        <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text-primary leading-none">
-          Join {invite.companyName}
-        </h1>
+
         <p className="font-mohave text-body-sm text-text-tertiary">
-          You&apos;ve been invited to join {invite.companyName} on OPS
+          You&apos;ve been invited to join {invite.companyName} on OPS.
         </p>
+
         {invite.roleName && (
-          <span className="inline-block font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-2 py-1 rounded-full uppercase tracking-wider">
+          <span className="inline-block font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-2 py-1 rounded-sm uppercase tracking-wider">
             You&apos;ll join as {invite.roleName}
           </span>
         )}
       </div>
 
+      {/* ── Auth form ───────────────────────────────────────────────── */}
       <div className="space-y-2">
         {/* Error */}
         {error && (
@@ -313,7 +390,7 @@ export default function JoinPage() {
           <button
             onClick={handleGoogleSignIn}
             disabled={anyLoading}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
             <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -333,7 +410,7 @@ export default function JoinPage() {
           <button
             onClick={handleAppleSignIn}
             disabled={anyLoading}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
             <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
