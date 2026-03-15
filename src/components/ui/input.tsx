@@ -24,9 +24,19 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <div className="relative">
+        <div
+          className={cn(
+            "flex items-center gap-2 bg-background-input rounded-sm min-h-[56px]",
+            "border border-[rgba(255,255,255,0.08)]",
+            "transition-all duration-150",
+            "focus-within:border-ops-accent",
+            error && "border-ops-error focus-within:border-ops-error",
+            prefixIcon ? "pl-3" : "pl-2",
+            suffixIcon ? "pr-3" : "pr-2",
+          )}
+        >
           {prefixIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
+            <div className="text-text-tertiary shrink-0 pointer-events-none">
               {prefixIcon}
             </div>
           )}
@@ -34,16 +44,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             id={inputId}
             className={cn(
-              "w-full bg-background-input text-text-primary font-mohave text-body",
-              "py-1.5 rounded-sm min-h-[56px]",
-              "border border-[rgba(255,255,255,0.08)]",
-              "transition-all duration-150",
+              "flex-1 min-w-0 bg-transparent text-text-primary font-mohave text-body",
+              "py-1.5 outline-none caret-ops-accent",
               "placeholder:text-text-disabled",
-              "focus:border-ops-accent focus:outline-none caret-ops-accent",
               "disabled:cursor-not-allowed disabled:opacity-40",
-              prefixIcon ? "pl-10" : "pl-2",
-              suffixIcon ? "pr-10" : "pr-2",
-              error && "border-ops-error focus:border-ops-error",
               className
             )}
             ref={ref}
@@ -54,7 +58,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {suffixIcon && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary">
+            <div className="text-text-tertiary shrink-0">
               {suffixIcon}
             </div>
           )}
