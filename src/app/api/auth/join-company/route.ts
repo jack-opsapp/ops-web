@@ -220,100 +220,50 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Update user's company_id
+    // Join the user to the company via the database function.
+    // This atomically handles: company_id assignment, invitation lookup,
+    // role assignment (from invite or default to unassigned), users.role sync,
+    // and seat assignment. Shared across all platforms (web, iOS, Android).
     const db = getServiceRoleClient();
     const companyId = companyRow.id as string;
-    const userEmail = (userRow.email as string) ?? firebaseUser.email;
-    const userPhone = userRow.phone as string | undefined;
+    const userId = userRow.id as string;
 
-    const { error: updateError } = await db
-      .from("users")
-      .update({
-        company_id: companyId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userRow.id);
+    const { data: joinResult, error: joinError } = await db.rpc(
+      "join_user_to_company",
+      { p_user_id: userId, p_company_id: companyId }
+    );
 
-    if (updateError) {
+    if (joinError) {
       return NextResponse.json(
-        { error: `Failed to join company: ${updateError.message}` },
+        { error: `Failed to join company: ${joinError.message}` },
         { status: 500 }
       );
     }
 
-    // Look up pending invitation to auto-assign role
-    let invitation: Record<string, unknown> | null = null;
-
-    if (userEmail) {
-      const { data } = await db
-        .from("team_invitations")
-        .select("id, role_id")
-        .eq("company_id", companyId)
-        .eq("email", userEmail)
-        .eq("status", "pending")
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data) invitation = data;
+    if (joinResult?.error) {
+      return NextResponse.json(
+        { error: joinResult.error },
+        { status: 400 }
+      );
     }
 
-    if (!invitation && userPhone) {
-      const { data } = await db
-        .from("team_invitations")
-        .select("id, role_id")
-        .eq("company_id", companyId)
-        .eq("phone", userPhone)
-        .eq("status", "pending")
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data) invitation = data;
-    }
+    console.log("[api/auth/join-company] join_user_to_company result:", joinResult);
 
-    if (invitation) {
-      // Mark invitation as accepted
-      await db
-        .from("team_invitations")
-        .update({ status: "accepted", updated_at: new Date().toISOString() })
-        .eq("id", invitation.id);
+    // Re-fetch user and company to return fresh data
+    const { data: freshUser } = await db
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-      // Auto-assign the RBAC role if one was specified
-      if (invitation.role_id) {
-        const { error: roleError } = await db
-          .from("user_roles")
-          .upsert(
-            {
-              user_id: userRow.id as string,
-              role_id: invitation.role_id,
-            },
-            { onConflict: "user_id" }
-          );
+    const { data: freshCompany } = await db
+      .from("companies")
+      .select("*")
+      .eq("id", companyId)
+      .single();
 
-        if (roleError) {
-          console.error("[api/auth/join-company] Failed to assign role from invitation:", roleError);
-        }
-      }
-    }
-
-    // If no role was assigned (no invitation or invitation had no role), assign Unassigned
-    const { data: existingRole } = await db
-      .from("user_roles")
-      .select("role_id")
-      .eq("user_id", userRow.id as string)
-      .maybeSingle();
-
-    if (!existingRole) {
-      const { PRESET_ROLE_IDS } = await import("@/lib/types/permissions");
-      await db.from("user_roles").upsert({
-        user_id: userRow.id as string,
-        role_id: PRESET_ROLE_IDS.UNASSIGNED,
-      }, { onConflict: "user_id" });
-    }
-
-    const user = mapUserFromDb({ ...userRow, company_id: companyId });
-    const company = mapCompanyFromDb(companyRow);
+    const user = mapUserFromDb(freshUser ?? { ...userRow, company_id: companyId, role: joinResult?.role_name ?? "unassigned" });
+    const company = mapCompanyFromDb(freshCompany ?? companyRow);
 
     return NextResponse.json({ user, company });
   } catch (error) {
