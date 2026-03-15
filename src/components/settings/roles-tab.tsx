@@ -1705,7 +1705,7 @@ function RoleAssignmentColumn({
   const { setNodeRef, isOver } = useDroppable({ id: `role-col-${roleId}` });
 
   return (
-    <div className="flex flex-col min-w-[220px] w-[220px] shrink-0">
+    <div className="flex flex-col min-w-0">
       {/* Column header */}
       <div
         className={cn(
@@ -1879,7 +1879,7 @@ function RolesAssignmentBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1.5 pb-1">
           {/* Unassigned column */}
           <RoleAssignmentColumn
             roleId="unassigned"
@@ -1954,7 +1954,7 @@ function RoleRow({
         <div className="min-w-0">
           <p className="font-mohave text-body text-text-primary">{role.name}</p>
           {role.description && (
-            <p className="font-kosugi text-[11px] text-text-disabled truncate max-w-[350px]">
+            <p className="font-kosugi text-[11px] text-text-disabled max-w-[350px]">
               {role.description}
             </p>
           )}
