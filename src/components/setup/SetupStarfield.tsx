@@ -1229,17 +1229,17 @@ export function SetupStarfield({
         )}
       </AnimatePresence>
 
-      {/* Dashboard unlocked notification */}
+      {/* Dashboard unlocked notification — centered in viewport */}
       <AnimatePresence>
         {showUnlocked && !focusedNode && (
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+            className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
           >
-            <div className="px-4 py-3 rounded-sm bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(89,119,148,0.3)] text-center">
+            <div className="px-6 py-4 rounded-sm bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(89,119,148,0.3)] text-center">
               <p className="font-mohave text-body text-text-primary">
                 Dashboard unlocked
               </p>
