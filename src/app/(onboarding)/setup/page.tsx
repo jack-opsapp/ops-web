@@ -128,6 +128,27 @@ export default function SetupPage() {
       if (!companyAge && authCompany.companyAge) companyUpdates.companyAge = authCompany.companyAge;
       if (Object.keys(companyUpdates).length > 0) setCompanyInfo(companyUpdates as Parameters<typeof setCompanyInfo>[0]);
     }
+
+    // Pre-fill starfield answers from server (for returning users)
+    if (
+      authUser?.setupProgress?.starfield_answers &&
+      Object.keys(starfieldAnswers).length === 0
+    ) {
+      for (const [qId, answer] of Object.entries(authUser.setupProgress.starfield_answers)) {
+        setStarfieldAnswer(qId, answer);
+      }
+    }
+
+    // If user already completed identity + company steps, skip to starfield
+    if (
+      authUser?.setupProgress?.steps?.identity &&
+      authUser?.setupProgress?.steps?.company &&
+      phase === "identity"
+    ) {
+      completeStep("identity");
+      completeStep("company");
+      setPhase("starfield");
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, authCompany]);
 
