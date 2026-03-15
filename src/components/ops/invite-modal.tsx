@@ -45,7 +45,7 @@ export function InviteModal({
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [codeCopied, setCodeCopied] = useState(false);
 
-  const companyCode = company?.externalId || company?.id || "";
+  const companyCode = company?.companyCode || "";
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
 
   const resetForm = useCallback(() => {

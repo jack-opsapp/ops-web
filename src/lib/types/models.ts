@@ -430,6 +430,7 @@ export interface Company {
   name: string;
   logoURL: string | null;
   externalId: string | null;
+  companyCode: string | null;
   companyDescription: string | null;
   address: string | null;
   phone: string | null;

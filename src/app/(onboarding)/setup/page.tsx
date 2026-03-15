@@ -332,12 +332,13 @@ export default function SetupPage() {
   const handleLogout = useCallback(async () => {
     try {
       await signOut();
+      resetSetupStore();
       useAuthStore.getState().logout();
       router.push("/login");
     } catch (err) {
       console.error("Logout failed:", err);
     }
-  }, [router]);
+  }, [router, resetSetupStore]);
 
   const handleLaunchFromStarfield = useCallback(async () => {
     if (answeredCount >= MIN_STARFIELD_ANSWERS) {

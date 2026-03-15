@@ -12,6 +12,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { User, Company } from "../types/models";
 import { UserRole } from "../types/models";
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { useSetupStore } from "@/stores/setup-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,8 +66,9 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      // Logout: clear all auth state
+      // Logout: clear all auth state + persisted stores
       logout: () => {
+        useSetupStore.getState().reset();
         set({
           currentUser: null,
           company: null,

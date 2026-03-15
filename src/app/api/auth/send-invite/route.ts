@@ -94,7 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Verify the company exists
     const { data: company } = await db
       .from("companies")
-      .select("id, name, external_id, logo_url")
+      .select("id, name, company_code, logo_url")
       .eq("id", companyId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
 
-    const inviteCode = company.external_id || company.id;
+    const inviteCode = company.company_code || company.id;
     const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join?code=${inviteCode}`;
     let emailsSent = 0;
     let smsSent = 0;

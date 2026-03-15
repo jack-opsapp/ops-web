@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { TypewriterText } from "@/components/ui/typewriter-text";
 import { SlidersHorizontal, Check } from "lucide-react";
 import { motion, MotionConfig } from "framer-motion";
 import {
@@ -687,14 +688,14 @@ export default function DashboardPage() {
               className="font-mohave text-body-lg text-text-secondary tracking-wide"
               style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
             >
-              <span
-                className={contentReady ? "typewriter" : "opacity-0"}
-                onAnimationEnd={(e) => {
-                  (e.target as HTMLElement).classList.add("typewriter-done");
-                }}
-              >
-                {getGreeting(t)}, {firstName}
-              </span>
+              {contentReady ? (
+                <TypewriterText
+                  text={`${getGreeting(t)}, ${firstName}`}
+                  typingSpeed={35}
+                />
+              ) : (
+                <span className="opacity-0">{getGreeting(t)}, {firstName}</span>
+              )}
             </p>
             <p
               className={`font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase transition-opacity duration-500 ${contentReady ? "opacity-100" : "opacity-0"}`}

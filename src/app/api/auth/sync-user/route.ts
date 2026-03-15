@@ -83,6 +83,7 @@ function mapCompanyFromDb(row: Record<string, unknown>): Company {
     name: row.name as string,
     logoURL: (row.logo_url as string) ?? null,
     externalId: (row.external_id as string) ?? null,
+    companyCode: (row.company_code as string) ?? null,
     companyDescription: (row.description as string) ?? null,
     address: (row.address as string) ?? null,
     phone: (row.phone as string) ?? null,

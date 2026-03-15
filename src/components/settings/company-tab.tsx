@@ -135,7 +135,7 @@ export function CompanyTab() {
           <Input label={t("company.name")} value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
 
           {/* Company Code (read-only) */}
-          {(company?.externalId || company?.id) && (
+          {company?.companyCode && (
             <div className="flex flex-col gap-0.5">
               <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
                 {t("company.companyCode")}
@@ -143,13 +143,13 @@ export function CompanyTab() {
               <div className="flex items-center gap-1">
                 <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-sm border border-border bg-background-elevated">
                   <span className="font-mono text-body-sm text-text-primary tracking-wider">
-                    {company.externalId || company.id}
+                    {company.companyCode}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(company.externalId || company.id);
+                    navigator.clipboard.writeText(company.companyCode!);
                     setCodeCopied(true);
                     toast.success(t("company.toast.codeCopied"));
                     setTimeout(() => setCodeCopied(false), 2000);

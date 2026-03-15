@@ -11,12 +11,20 @@ import {
   Armchair,
   Loader2,
   Plus,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { InviteModal } from "@/components/ops/invite-modal";
+import { UserAvatar } from "@/components/ops/user-avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   useTeamMembers,
   useUpdateUserRole,
@@ -31,6 +39,8 @@ import { getUserFullName, getInitials, UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { getSubscriptionInfo } from "@/lib/subscription";
+import Link from "next/link";
 
 const ROLES: { id: UserRole; labelKey: string }[] = [
   { id: UserRole.Admin, labelKey: "team.roleAdmin" },
@@ -231,6 +241,10 @@ export function TeamTab() {
   const seatedCount = seatedIds.length;
   const seatsFull = seatedCount >= maxSeats;
 
+  const subscriptionInfo = getSubscriptionInfo(company ?? null);
+  const isTrial = subscriptionInfo.tier === "trial";
+  const trialDaysRemaining = subscriptionInfo.daysRemaining;
+
   // Separate active and deactivated members
   const activeMembers = members.filter((m) => m.isActive !== false);
   const deactivatedMembers = members.filter((m) => m.isActive === false);
@@ -262,6 +276,31 @@ export function TeamTab() {
             <p className="font-kosugi text-[11px] text-ops-error mt-[6px]">
               {t("team.allSeatsUsed")}
             </p>
+          )}
+          {isTrial && trialDaysRemaining !== undefined && (
+            <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.04)]">
+              <div className="flex items-center gap-[6px]">
+                <span className="font-mohave text-body-sm text-ops-amber">
+                  {t("team.trialEndsIn")} {trialDaysRemaining} {trialDaysRemaining === 1 ? t("team.trialDay") : t("team.trialDays")}
+                </span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-[14px] h-[14px] text-text-tertiary cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px]">
+                      <p className="font-kosugi text-[11px]">{t("team.trialTooltip")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Link
+                href="/settings?tab=subscription"
+                className="font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover transition-colors"
+              >
+                {t("team.upgradePlan")}
+              </Link>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -314,11 +353,12 @@ export function TeamTab() {
                     className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                   >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center border-2 border-ops-accent">
-                        <span className="font-mohave text-body-sm text-ops-accent">
-                          {getInitials(fullName)}
-                        </span>
-                      </div>
+                      <UserAvatar
+                        name={fullName}
+                        imageUrl={member.profileImageURL}
+                        color={member.userColor ?? undefined}
+                        size="sm"
+                      />
                       <div>
                         <div className="flex items-center gap-[6px]">
                           <p className="font-mohave text-body text-text-primary">{fullName}</p>
@@ -378,11 +418,12 @@ export function TeamTab() {
                     className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0 opacity-60"
                   >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center border-2 border-border-subtle">
-                        <span className="font-mohave text-body-sm text-text-disabled">
-                          {getInitials(fullName)}
-                        </span>
-                      </div>
+                      <UserAvatar
+                        name={fullName}
+                        imageUrl={member.profileImageURL}
+                        color={member.userColor ?? undefined}
+                        size="sm"
+                      />
                       <div>
                         <p className="font-mohave text-body text-text-tertiary">{fullName}</p>
                         <p className="font-mono text-[10px] text-text-disabled">

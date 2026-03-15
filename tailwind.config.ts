@@ -194,8 +194,8 @@ const config: Config = {
           to: { transform: "translateY(0)", opacity: "1" },
         },
         "scale-in": {
-          from: { transform: "scale(0.95)", opacity: "0" },
-          to: { transform: "scale(1)", opacity: "1" },
+          from: { transform: "translate(-50%, -50%) scale(0.95)", opacity: "0" },
+          to: { transform: "translate(-50%, -50%) scale(1)", opacity: "1" },
         },
         "accordion-down": {
           from: { height: "0" },

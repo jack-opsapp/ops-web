@@ -45,13 +45,13 @@ export async function GET(
     .limit(1)
     .maybeSingle();
 
-  // If not found by invite_code, try finding company by external_id
-  // (the invite email may use company external_id as the code)
+  // If not found by invite_code, try finding company by company_code
+  // (the invite email may use company_code as the code)
   if (!invitation) {
     const { data: company } = await db
       .from("companies")
       .select("id, name, logo_url")
-      .eq("external_id", code)
+      .ilike("company_code", code)
       .is("deleted_at", null)
       .maybeSingle();
 

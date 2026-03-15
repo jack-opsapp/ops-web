@@ -71,19 +71,19 @@ export function MapFilterRail() {
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "fixed bottom-3 z-[5]",
-        "flex items-center gap-0 pointer-events-auto"
+        "flex flex-col items-start pointer-events-auto"
       )}
       style={{ left: sidebarWidth + 12 }}
     >
-      {/* Folder-style label tab */}
+      {/* Manila folder label tab — sits on top of the controls bar */}
       <div
         className={cn(
-          "flex items-center gap-1.5 px-2 py-1.5 mr-[-1px]",
-          "rounded-l-sm border border-[rgba(255,255,255,0.10)]",
+          "flex items-center gap-1.5 px-2 py-[4px] mb-[-1px] ml-[8px]",
+          "rounded-t-sm border border-b-0 border-[rgba(255,255,255,0.10)]",
           "bg-[rgba(18,18,18,0.85)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
         )}
       >
-        <Map className="w-[13px] h-[13px] text-text-disabled" />
+        <Map className="w-[12px] h-[12px] text-text-disabled" />
         <span className="font-kosugi text-[9px] text-text-disabled tracking-wider uppercase select-none">
           MAP
         </span>
@@ -93,7 +93,7 @@ export function MapFilterRail() {
       <div
         className={cn(
           "flex items-center gap-1 py-1.5 px-2",
-          "rounded-r-sm border border-[rgba(255,255,255,0.08)]",
+          "rounded-sm border border-[rgba(255,255,255,0.08)]",
           "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
         )}
       >

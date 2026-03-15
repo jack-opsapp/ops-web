@@ -24,6 +24,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useSetupStore } from "@/stores/setup-store";
 import { signOut } from "@/lib/firebase/auth";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
@@ -413,6 +414,7 @@ export function CommandPalette() {
         setOpen(false);
         document.cookie = "ops-auth-token=; path=/; max-age=0";
         document.cookie = "__session=; path=/; max-age=0";
+        useSetupStore.getState().reset();
         useAuthStore.getState().logout();
         signOut().catch(() => {});
         window.location.href = "/login";

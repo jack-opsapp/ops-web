@@ -87,20 +87,21 @@ export function NotificationModal() {
             onClick={closeModal}
           />
 
-          {/* Modal */}
-          <motion.div
-            variants={notifModalVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="fixed z-[101] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[480px] max-h-[70vh] flex flex-col rounded-sm"
-            style={{
-              background: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
+          {/* Modal — flex-centered to avoid transform conflicts with framer motion */}
+          <div className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
+            <motion.div
+              variants={notifModalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="w-full max-w-[480px] max-h-[70vh] flex flex-col rounded-sm pointer-events-auto"
+              style={{
+                background: "rgba(10, 10, 10, 0.70)",
+                backdropFilter: "blur(20px) saturate(1.2)",
+                WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+              }}
+            >
             {/* Header */}
             <div className="flex items-center justify-between px-[12px] py-[10px] border-b border-[rgba(255,255,255,0.08)] shrink-0">
               <h2 className="font-mohave text-body-lg text-text-primary font-medium text-left">
@@ -161,7 +162,8 @@ export function NotificationModal() {
                 </AnimatePresence>
               )}
             </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

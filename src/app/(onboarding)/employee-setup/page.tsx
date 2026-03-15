@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ops/image-upload";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useEmployeeSetupStore } from "@/stores/employee-setup-store";
+import { useSetupStore } from "@/stores/setup-store";
 import { getIdToken, signOut } from "@/lib/firebase/auth";
 import { cn } from "@/lib/utils/cn";
 
@@ -185,6 +186,7 @@ export default function EmployeeSetupPage() {
   async function handleLogout() {
     try {
       await signOut();
+      useSetupStore.getState().reset();
       useAuthStore.getState().logout();
       router.push("/login");
     } catch (err) {
