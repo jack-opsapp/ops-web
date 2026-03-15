@@ -57,7 +57,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Verify the requesting user exists and belongs to the specified company
     const db = getServiceRoleClient();
-    const requestingUser = await findUserByAuth(firebaseUser.uid, firebaseUser.email, "id, company_id");
+    const requestingUser = await findUserByAuth(firebaseUser.uid, firebaseUser.email, "id, company_id, first_name, last_name, email");
 
     if (!requestingUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -105,6 +105,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const inviteCode = company.company_code || company.id;
     const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join?code=${inviteCode}`;
+    const inviterName = [requestingUser.first_name, requestingUser.last_name].filter(Boolean).join(" ") || "A team member";
+    const inviterEmail = (requestingUser.email as string) || "";
     let emailsSent = 0;
     let smsSent = 0;
 
@@ -163,6 +165,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             companyName: company.name,
             joinUrl,
             logoUrl: company.logo_url,
+            inviterName,
+            inviterEmail,
+            companyCode: inviteCode,
           });
           emailsSent++;
         } catch (emailError) {

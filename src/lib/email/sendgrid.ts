@@ -143,20 +143,26 @@ export async function sendTeamInvite(params: {
   joinUrl: string;
   accentColor?: string;
   logoUrl?: string | null;
+  inviterName: string;
+  inviterEmail: string;
+  companyCode: string;
 }): Promise<void> {
   ensureInitialized();
 
   const html = teamInviteTemplate({
     companyName: params.companyName,
     joinUrl: params.joinUrl,
-    accentColor: params.accentColor ?? "#417394",
+    accentColor: params.accentColor ?? "#597794",
     logoUrl: params.logoUrl ?? null,
+    inviterName: params.inviterName,
+    inviterEmail: params.inviterEmail,
+    companyCode: params.companyCode,
   });
 
   await sgMail.send({
     to: params.email,
     from: { email: getFromEmail(), name: "OPS" },
-    subject: `Join ${params.companyName} on OPS`,
+    subject: `${params.inviterName} invited you to join ${params.companyName} on OPS`,
     html,
   });
 }
