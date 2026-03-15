@@ -24,6 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   useOpportunities,
   useClients,
@@ -175,6 +176,7 @@ export default function PipelinePage() {
 
   // ── Auth ───────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();
+  const can = usePermissionStore((s) => s.can);
 
   // ── Setup gate ──────────────────────────────────────────────────────
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
@@ -290,6 +292,7 @@ export default function PipelinePage() {
   /** Handle stage move from drag-and-drop or advance button */
   const handleMoveStage = useCallback(
     (id: string, newStage: OpportunityStage) => {
+      if (!can("pipeline.manage")) return;
       const opp = activeOpportunities.find((o) => o.id === id);
       if (!opp) return;
 
@@ -346,6 +349,7 @@ export default function PipelinePage() {
       lostReason?: string;
       lostNotes?: string;
     }) => {
+      if (!can("pipeline.manage")) return;
       if (!pendingStageMove || !transitionOpportunity) return;
 
       const { id, stage } = pendingStageMove;
@@ -408,6 +412,7 @@ export default function PipelinePage() {
       contactName: string;
       estimatedValue?: number;
     }) => {
+      if (!can("pipeline.manage")) return;
       if (!company) return;
 
       createOpportunity.mutate(
@@ -533,15 +538,17 @@ export default function PipelinePage() {
                 </span>
               </button>
             )}
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-[6px]"
-              onClick={() => setShowQuickAdd(true)}
-            >
-              <Plus className="w-[14px] h-[14px]" />
-              {t("newLead")}
-            </Button>
+            {can("pipeline.manage") && (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-[6px]"
+                onClick={() => setShowQuickAdd(true)}
+              >
+                <Plus className="w-[14px] h-[14px]" />
+                {t("newLead")}
+              </Button>
+            )}
           </div>
         </div>
 

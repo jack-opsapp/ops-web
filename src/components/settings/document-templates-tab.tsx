@@ -27,6 +27,7 @@ import { DEFAULT_FIELD_VISIBILITY } from "@/lib/types/document-template";
 import type { PortalTemplate, PortalThemeMode } from "@/lib/types/portal";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ async function apiDeleteTemplate(id: string): Promise<void> {
 
 export function DocumentTemplatesTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const queryClient = useQueryClient();
@@ -301,6 +303,7 @@ export function DocumentTemplatesTab() {
   }
 
   function handleCreate() {
+    if (!can("documents.manage_templates")) return;
     createMutation.mutate({
       companyId,
       name: t("templates.newTemplateName"),
@@ -316,6 +319,7 @@ export function DocumentTemplatesTab() {
   }
 
   function handleSave() {
+    if (!can("documents.manage_templates")) return;
     if (!selectedId) return;
     updateMutation.mutate({
       id: selectedId,
@@ -334,6 +338,7 @@ export function DocumentTemplatesTab() {
   }
 
   function handleDelete() {
+    if (!can("documents.manage_templates")) return;
     if (!selectedId) return;
     deleteMutation.mutate(selectedId);
   }

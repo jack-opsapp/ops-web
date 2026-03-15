@@ -26,6 +26,7 @@ import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { cn } from "@/lib/utils/cn";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -188,6 +189,7 @@ function DetailLoadingSkeleton() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ClientDetailPage() {
+  const can = usePermissionStore((s) => s.can);
   const { t } = useDictionary("clients");
   const { locale } = useLocale();
   const router = useRouter();
@@ -279,6 +281,7 @@ export default function ClientDetailPage() {
     : null;
 
   function handleSaveEdit() {
+    if (!can("clients.edit")) return;
     updateClient.mutate(
       {
         id: clientId,
@@ -313,6 +316,7 @@ export default function ClientDetailPage() {
   }
 
   function handleDelete() {
+    if (!can("clients.delete")) return;
     deleteClient.mutate(clientId, {
       onSuccess: () => {
         toast.success("Client deleted");
@@ -326,6 +330,7 @@ export default function ClientDetailPage() {
   }
 
   function handleAddSubClient(data: { name: string; title: string; phone: string; email: string }) {
+    if (!can("clients.edit")) return;
     createSubClient.mutate(
       {
         name: data.name,
@@ -347,6 +352,7 @@ export default function ClientDetailPage() {
   }
 
   function handleDeleteSubClient(subClientId: string) {
+    if (!can("clients.delete")) return;
     deleteSubClient.mutate(
       { id: subClientId, clientId },
       {
@@ -423,23 +429,27 @@ export default function ClientDetailPage() {
             </>
           ) : (
             <>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="gap-[6px]"
-                onClick={() => setIsEditing(true)}
-              >
-                <Edit3 className="w-[14px] h-[14px]" />
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-ops-error hover:text-ops-error"
-              >
-                <Trash2 className="w-[14px] h-[14px]" />
-              </Button>
+              {can("clients.edit") && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-[6px]"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit3 className="w-[14px] h-[14px]" />
+                  Edit
+                </Button>
+              )}
+              {can("clients.delete") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="text-ops-error hover:text-ops-error"
+                >
+                  <Trash2 className="w-[14px] h-[14px]" />
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -605,24 +615,26 @@ export default function ClientDetailPage() {
                     <Loader2 className="w-[12px] h-[12px] text-text-disabled animate-spin" />
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-[4px]"
-                  onClick={() => setShowAddSubClient(!showAddSubClient)}
-                >
-                  {showAddSubClient ? (
-                    <>
-                      <X className="w-[14px] h-[14px]" />
-                      Close
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-[14px] h-[14px]" />
-                      {t("detail.addSubClient")}
-                    </>
-                  )}
-                </Button>
+                {can("clients.edit") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-[4px]"
+                    onClick={() => setShowAddSubClient(!showAddSubClient)}
+                  >
+                    {showAddSubClient ? (
+                      <>
+                        <X className="w-[14px] h-[14px]" />
+                        Close
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-[14px] h-[14px]" />
+                        {t("detail.addSubClient")}
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -687,13 +699,15 @@ export default function ClientDetailPage() {
                             </a>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleDeleteSubClient(sc.id)}
-                          className="p-[3px] rounded text-text-disabled opacity-0 group-hover:opacity-100 hover:text-ops-error transition-all"
-                          title="Remove sub-client"
-                        >
-                          <Trash2 className="w-[12px] h-[12px]" />
-                        </button>
+                        {can("clients.delete") && (
+                          <button
+                            onClick={() => handleDeleteSubClient(sc.id)}
+                            className="p-[3px] rounded text-text-disabled opacity-0 group-hover:opacity-100 hover:text-ops-error transition-all"
+                            title="Remove sub-client"
+                          >
+                            <Trash2 className="w-[12px] h-[12px]" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

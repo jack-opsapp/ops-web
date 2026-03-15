@@ -32,6 +32,7 @@ import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { ProjectDetailSheet } from "@/components/ops/project-detail-sheet";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useWindowStore } from "@/stores/window-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
@@ -232,6 +233,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 export default function ProjectsPage() {
   usePageTitle("Projects");
+  const can = usePermissionStore((s) => s.can);
   const { t } = useDictionary("projects");
   const { locale } = useLocale();
   const filterTabs = useMemo<{ value: FilterStatus; label: string }[]>(() => [
@@ -390,6 +392,7 @@ export default function ProjectsPage() {
 
   const handleBulkStatusChange = useCallback(
     (ids: string[], newStatus: ProjectStatus) => {
+      if (!can("projects.edit")) return;
       for (const id of ids) {
         updateStatus.mutate({ id, status: newStatus });
       }
@@ -408,6 +411,7 @@ export default function ProjectsPage() {
   );
 
   const confirmBulkDelete = useCallback(() => {
+    if (!can("projects.delete")) return;
     for (const id of pendingDeleteIds) {
       deleteProject.mutate(id);
     }
@@ -588,10 +592,10 @@ export default function ProjectsPage() {
           icon={<LayoutGrid className="w-[48px] h-[48px]" />}
           title={t("empty.title")}
           description={t("empty.description")}
-          action={{
+          action={can("projects.create") ? {
             label: t("newProject"),
             onClick: () => openCreateProject(),
-          }}
+          } : undefined}
         />
       ) : filteredProjects.length === 0 ? (
         <div className="text-left py-6">

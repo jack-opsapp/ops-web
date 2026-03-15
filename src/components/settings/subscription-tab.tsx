@@ -23,6 +23,7 @@ import {
 } from "@/lib/types/models";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 // ─── Plan Features Data ──────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ function UpgradeModal({
   onClose: () => void;
 }) {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { company } = useAuthStore();
   const [period, setPeriod] = useState<"Monthly" | "Annual">("Monthly");
   const [isSubscribing, setIsSubscribing] = useState(false);
@@ -84,6 +86,7 @@ function UpgradeModal({
       : Math.round(info.annualPrice / 12);
 
   async function handleSubscribe() {
+    if (!can("settings.billing")) return;
     if (!company) return;
     setIsSubscribing(true);
     try {

@@ -10,9 +10,11 @@ import { useCompany, useUpdateCompany, useImageUpload } from "@/lib/hooks";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 export function CompanyTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { data: company, isLoading: isCompanyLoading } = useCompany();
   const updateCompany = useUpdateCompany();
 
@@ -54,6 +56,7 @@ export function CompanyTab() {
   }, [company]);
 
   async function handleSave() {
+    if (!can("settings.company")) return;
     if (!company) return;
 
     updateCompany.mutate(
@@ -115,7 +118,7 @@ export function CompanyTab() {
                   <Building2 className="w-[24px] h-[24px] text-text-disabled" />
                 )}
               </div>
-              <Button variant="secondary" size="sm" className="gap-[6px]" onClick={() => logoInputRef.current?.click()}>
+              <Button variant="secondary" size="sm" className="gap-[6px]" disabled={!can("settings.company")} onClick={() => logoInputRef.current?.click()}>
                 <Upload className="w-[14px] h-[14px]" />
                 {t("company.upload")}
               </Button>
@@ -125,6 +128,7 @@ export function CompanyTab() {
                 accept="image/*"
                 className="hidden"
                 onChange={(e) => {
+                  if (!can("settings.company")) return;
                   const file = e.target.files?.[0];
                   if (file) logoUpload.selectFile(file);
                 }}

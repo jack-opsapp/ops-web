@@ -11,6 +11,11 @@
 export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   pipeline: ["/pipeline"],
   accounting: ["/accounting"],
+  estimates: ["/estimates"],
+  invoices: ["/invoices"],
+  products: ["/products"],
+  inventory: ["/inventory"],
+  portal: ["/portal-inbox"],
 };
 
 // ─── Permission Mapping ──────────────────────────────────────────────────────
@@ -19,6 +24,26 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
 export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   pipeline: ["pipeline.view", "pipeline.manage", "pipeline.configure_stages"],
   accounting: ["accounting.view", "accounting.manage_connections"],
+  estimates: [
+    "estimates.view",
+    "estimates.create",
+    "estimates.edit",
+    "estimates.delete",
+    "estimates.send",
+    "estimates.convert",
+  ],
+  invoices: [
+    "invoices.view",
+    "invoices.create",
+    "invoices.edit",
+    "invoices.delete",
+    "invoices.send",
+    "invoices.record_payment",
+    "invoices.void",
+  ],
+  products: ["products.view", "products.manage"],
+  inventory: ["inventory.view", "inventory.manage", "inventory.import"],
+  portal: ["portal.view", "portal.manage_branding"],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

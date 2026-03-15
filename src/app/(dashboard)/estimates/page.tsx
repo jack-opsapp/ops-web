@@ -55,6 +55,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
@@ -95,6 +96,7 @@ export default function EstimatesPage() {
   const { locale } = useLocale();
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const can = usePermissionStore((s) => s.can);
 
   const statusFilters = useMemo<{ value: FilterStatus; label: string }[]>(() => [
     { value: "all", label: t("estimates.filter.all") },
@@ -133,12 +135,13 @@ export default function EstimatesPage() {
   const [showSetupModal, setShowSetupModal] = useState(false);
 
   const gatedOpenCreate = useCallback(() => {
+    if (!can("estimates.create")) return;
     if (!setupComplete) {
       setShowSetupModal(true);
       return;
     }
     setShowCreateModal(true);
-  }, [setupComplete]);
+  }, [can, setupComplete]);
 
   async function handleDownloadPdf(estimateId: string) {
     setGeneratingPdfId(estimateId);
@@ -257,8 +260,8 @@ export default function EstimatesPage() {
               ? t("estimates.empty.noMatch")
               : t("estimates.empty.helper")}
           </p>
-          {!searchQuery && filterStatus === "all" && (
-            <Button className="mt-3 gap-[6px]" onClick={() => setShowCreateModal(true)}>
+          {!searchQuery && filterStatus === "all" && can("estimates.create") && (
+            <Button className="mt-3 gap-[6px]" onClick={() => { if (!can("estimates.create")) return; setShowCreateModal(true); }}>
               <Plus className="w-[16px] h-[16px]" />
               {t("estimates.newEstimate")}
             </Button>
@@ -300,7 +303,7 @@ export default function EstimatesPage() {
                 <tr
                   key={estimate.id}
                   className="border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors"
-                  onClick={() => setEditingEstimate(estimate)}
+                  onClick={() => { if (!can("estimates.edit")) return; setEditingEstimate(estimate); }}
                 >
                   <td className="px-1.5 py-1">
                     <span className="font-mono text-data text-ops-accent">
@@ -349,7 +352,7 @@ export default function EstimatesPage() {
                           <Download className="w-[14px] h-[14px]" />
                         )}
                       </button>
-                      {estimate.status === EstimateStatus.Draft && (
+                      {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
                         <button
                           onClick={() => setSendingEstimate(estimate)}
                           className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
@@ -358,7 +361,7 @@ export default function EstimatesPage() {
                           <Send className="w-[14px] h-[14px]" />
                         </button>
                       )}
-                      {(estimate.status === EstimateStatus.Approved || estimate.status === EstimateStatus.Sent) && (
+                      {(estimate.status === EstimateStatus.Approved || estimate.status === EstimateStatus.Sent) && can("estimates.convert") && (
                         <button
                           onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
                           className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
@@ -367,13 +370,15 @@ export default function EstimatesPage() {
                           <ArrowRightLeft className="w-[14px] h-[14px]" />
                         </button>
                       )}
-                      <button
-                        onClick={() => deleteEstimate.mutate(estimate.id)}
-                        className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                        title={t("estimates.actions.delete")}
-                      >
-                        <Trash2 className="w-[14px] h-[14px]" />
-                      </button>
+                      {can("estimates.delete") && (
+                        <button
+                          onClick={() => deleteEstimate.mutate(estimate.id)}
+                          className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          title={t("estimates.actions.delete")}
+                        >
+                          <Trash2 className="w-[14px] h-[14px]" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -420,6 +425,7 @@ export default function EstimatesPage() {
         products={products}
         companyId={companyId}
         onCreate={(data, lineItems) => {
+          if (!can("estimates.create")) return;
           createEstimate.mutate(
             { data, lineItems },
             {
@@ -430,6 +436,7 @@ export default function EstimatesPage() {
           );
         }}
         onUpdate={(id, data, lineItems) => {
+          if (!can("estimates.edit")) return;
           updateEstimate.mutate(
             { id, data, lineItems },
             {

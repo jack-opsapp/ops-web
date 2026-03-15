@@ -201,7 +201,24 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
 
 /** Sub-tab IDs that require a specific permission to be visible */
 const SUB_TAB_PERMISSIONS: Record<string, string> = {
+  // Company group
+  "company-details": "settings.company",
+  team: "team.view",
   roles: "team.assign_roles",
+  // Operations group
+  "task-types": "settings.company",
+  inventory: "inventory.manage",
+  expenses: "expenses.configure",
+  // Billing group
+  subscription: "settings.billing",
+  payment: "settings.billing",
+  // Integrations group
+  email: "settings.integrations",
+  portal: "portal.manage_branding",
+  templates: "documents.manage_templates",
+  accounting: "accounting.manage_connections",
+  // Setup group
+  "setup-wizards": "settings.company",
 };
 
 export default function SettingsPage() {

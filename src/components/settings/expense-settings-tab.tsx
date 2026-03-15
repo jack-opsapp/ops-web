@@ -14,6 +14,7 @@ import {
 } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AutoApproveRuleType } from "@/lib/types/expense-approval";
 import { AutoApproveRuleForm } from "@/components/expenses/auto-approve-rule-form";
 
@@ -21,6 +22,7 @@ type ReviewFrequency = "daily" | "weekly" | "biweekly" | "monthly";
 
 export function ExpenseSettingsTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { data: settings, isLoading } = useExpenseSettings();
   const updateSettings = useUpdateExpenseSettings();
   const { data: rules = [] } = useAutoApproveRules();
@@ -68,6 +70,7 @@ export function ExpenseSettingsTab() {
   ];
 
   function handleToggle(key: "requireReceiptPhoto" | "requireProjectAssignment", currentValue: boolean) {
+    if (!can("expenses.configure")) return;
     updateSettings.mutate(
       { [key]: !currentValue },
       {
@@ -78,6 +81,7 @@ export function ExpenseSettingsTab() {
   }
 
   function handleThresholdBlur(key: "autoApproveThreshold" | "adminApprovalThreshold", value: string) {
+    if (!can("expenses.configure")) return;
     const num = value === "" ? null : parseFloat(value);
     if (value !== "" && (isNaN(num!) || num! < 0)) return;
     // Only save if value actually changed
@@ -103,7 +107,9 @@ export function ExpenseSettingsTab() {
             {frequencies.map((freq) => (
               <button
                 key={freq.id}
+                disabled={!can("expenses.configure")}
                 onClick={() => {
+                  if (!can("expenses.configure")) return;
                   updateSettings.mutate(
                     { reviewFrequency: freq.id },
                     {
@@ -113,7 +119,7 @@ export function ExpenseSettingsTab() {
                   );
                 }}
                 className={cn(
-                  "flex-1 px-3 py-2 rounded border text-center font-mohave text-body transition-all",
+                  "flex-1 px-3 py-2 rounded border text-center font-mohave text-body transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   reviewFrequency === freq.id
                     ? "bg-ops-accent-muted border-ops-accent text-text-primary"
                     : "bg-background-input border-border text-text-secondary hover:border-border-medium"
@@ -146,6 +152,7 @@ export function ExpenseSettingsTab() {
                 onChange={(e) => setLocalAutoApprove(e.target.value)}
                 onBlur={() => handleThresholdBlur("autoApproveThreshold", localAutoApprove)}
                 placeholder="—"
+                disabled={!can("expenses.configure")}
                 className="w-[80px] h-[32px] text-center"
               />
             </div>
@@ -166,6 +173,7 @@ export function ExpenseSettingsTab() {
                 onChange={(e) => setLocalAdminApproval(e.target.value)}
                 onBlur={() => handleThresholdBlur("adminApprovalThreshold", localAdminApproval)}
                 placeholder="—"
+                disabled={!can("expenses.configure")}
                 className="w-[80px] h-[32px] text-center"
               />
             </div>
@@ -184,9 +192,10 @@ export function ExpenseSettingsTab() {
               <p className="font-kosugi text-[11px] text-text-disabled">{t("expenses.requireReceiptDesc")}</p>
             </div>
             <button
+              disabled={!can("expenses.configure")}
               onClick={() => handleToggle("requireReceiptPhoto", requireReceiptPhoto)}
               className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
+                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
                 requireReceiptPhoto ? "bg-ops-accent" : "bg-background-elevated"
               )}
             >
@@ -205,9 +214,10 @@ export function ExpenseSettingsTab() {
               <p className="font-kosugi text-[11px] text-text-disabled">{t("expenses.requireProjectDesc")}</p>
             </div>
             <button
+              disabled={!can("expenses.configure")}
               onClick={() => handleToggle("requireProjectAssignment", requireProjectAssignment)}
               className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
+                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
                 requireProjectAssignment ? "bg-ops-accent" : "bg-background-elevated"
               )}
             >
@@ -278,17 +288,19 @@ export function ExpenseSettingsTab() {
               <div className="flex items-center gap-2">
                 {/* Active toggle */}
                 <button
-                  onClick={() =>
+                  disabled={!can("expenses.configure")}
+                  onClick={() => {
+                    if (!can("expenses.configure")) return;
                     toggleRule.mutate(
                       { ruleId: rule.id, isActive: !rule.isActive },
                       {
                         onSuccess: () => toast.success(t("expenses.toast.ruleToggled")),
                         onError: () => toast.error(t("expenses.toast.error")),
                       }
-                    )
-                  }
+                    );
+                  }}
                   className={cn(
-                    "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0",
+                    "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
                     rule.isActive ? "bg-ops-accent" : "bg-background-elevated"
                   )}
                 >
@@ -302,13 +314,15 @@ export function ExpenseSettingsTab() {
 
                 {/* Delete */}
                 <button
-                  onClick={() =>
+                  disabled={!can("expenses.configure")}
+                  onClick={() => {
+                    if (!can("expenses.configure")) return;
                     deleteRule.mutate(rule.id, {
                       onSuccess: () => toast.success(t("expenses.toast.ruleDeleted")),
                       onError: () => toast.error(t("expenses.toast.error")),
-                    })
-                  }
-                  className="text-text-disabled hover:text-[#93321A] transition-colors"
+                    });
+                  }}
+                  className="text-text-disabled hover:text-[#93321A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-text-disabled"
                 >
                   <Trash2 className="w-[14px] h-[14px]" />
                 </button>
@@ -320,12 +334,14 @@ export function ExpenseSettingsTab() {
           {showAddRule ? (
             <AutoApproveRuleForm onClose={() => setShowAddRule(false)} />
           ) : (
-            <button
-              onClick={() => setShowAddRule(true)}
-              className="font-kosugi text-caption-sm text-ops-accent hover:text-text-primary uppercase tracking-wider transition-colors"
-            >
-              {t("expenses.addRule")}
-            </button>
+            can("expenses.configure") && (
+              <button
+                onClick={() => setShowAddRule(true)}
+                className="font-kosugi text-caption-sm text-ops-accent hover:text-text-primary uppercase tracking-wider transition-colors"
+              >
+                {t("expenses.addRule")}
+              </button>
+            )
           )}
         </CardContent>
       </Card>

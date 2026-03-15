@@ -26,6 +26,7 @@ import type { TaskType } from "@/lib/types/models";
 import type { TaskTemplate } from "@/lib/types/pipeline";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { TaskTypesWizard } from "./task-types-wizard";
 
 // ─── Default Crew Picker ─────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ function CrewPicker({
 
 function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: templates = [], isLoading } = useTaskTemplates(taskType.id);
@@ -126,6 +128,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
   const [editHours, setEditHours] = useState("");
 
   function handleAdd() {
+    if (!can("settings.company")) return;
     if (!newTitle.trim()) return;
     createTemplate.mutate(
       {
@@ -149,6 +152,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
   }
 
   function handleUpdate(template: TaskTemplate) {
+    if (!can("settings.company")) return;
     updateTemplate.mutate(
       {
         id: template.id,
@@ -169,6 +173,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
   }
 
   function handleDelete(id: string) {
+    if (!can("settings.company")) return;
     deleteTemplate.mutate(id, {
       onSuccess: () => toast.success(t("taskTypes.toast.templateRemoved")),
       onError: (err) => toast.error(t("taskTypes.toast.templateRemoveFailed"), { description: err.message }),
@@ -304,10 +309,12 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
 
 function TaskTypeCard({ taskType }: { taskType: TaskType }) {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const updateTaskType = useUpdateTaskType();
   const [expanded, setExpanded] = useState(false);
 
   function handleCrewChange(ids: string[]) {
+    if (!can("settings.company")) return;
     updateTaskType.mutate(
       { id: taskType.id, data: { defaultTeamMemberIds: ids } },
       {
@@ -374,6 +381,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
 
 export function TaskTypesTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const searchParams = useSearchParams();
   const { data: taskTypes = [], isLoading } = useTaskTypes();
   const createTaskType = useCreateTaskType();
@@ -394,6 +402,7 @@ export function TaskTypesTab() {
   }, [searchParams]);
 
   function handleCreate() {
+    if (!can("settings.company")) return;
     if (!newName.trim()) return;
     createTaskType.mutate(
       { display: newName.trim(), color: newColor },

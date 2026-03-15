@@ -34,6 +34,7 @@ import {
 } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 function formatTimeAgo(date: Date | null): string {
   if (!date) return "Never";
@@ -46,6 +47,7 @@ function formatTimeAgo(date: Date | null): string {
 
 function FollowUpMonitoringCard() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { data: settings, isLoading } = useCompanySettings();
   const updateSettings = useUpdateCompanySettings();
 
@@ -53,6 +55,7 @@ function FollowUpMonitoringCard() {
   const isEnabled = followUpDays > 0;
 
   function handleToggle() {
+    if (!can("settings.integrations")) return;
     updateSettings.mutate(
       { followUpReminderDays: isEnabled ? 0 : 3 },
       {
@@ -103,6 +106,7 @@ function FollowUpMonitoringCard() {
 
 export function IntegrationsTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: connections = [], isLoading: connectionsLoading } = useGmailConnections();
@@ -162,6 +166,7 @@ export function IntegrationsTab() {
   const savedWizardStep = companyConnections[0]?.syncFilters?.wizardStep;
 
   function handleConnectGmail(type: "company" | "individual") {
+    if (!can("settings.integrations")) return;
     const params = new URLSearchParams({
       companyId,
       type,
@@ -171,6 +176,7 @@ export function IntegrationsTab() {
   }
 
   function handleDisconnect(id: string) {
+    if (!can("settings.integrations")) return;
     deleteConnection.mutate(id, {
       onSuccess: () => toast.success(t("integrations.toast.disconnected")),
       onError: (err) => toast.error(t("integrations.toast.disconnectFailed"), { description: err.message }),
@@ -178,6 +184,7 @@ export function IntegrationsTab() {
   }
 
   function handleToggleSync(id: string, currentEnabled: boolean) {
+    if (!can("settings.integrations")) return;
     updateConnection.mutate(
       { id, data: { id, syncEnabled: !currentEnabled } },
       {
@@ -188,6 +195,7 @@ export function IntegrationsTab() {
   }
 
   function handleSync() {
+    if (!can("settings.integrations")) return;
     triggerSync.mutate(undefined, {
       onSuccess: () => toast.success(t("integrations.toast.syncTriggered")),
       onError: (err) => toast.error(t("integrations.toast.syncFailed"), { description: err.message }),
@@ -195,6 +203,7 @@ export function IntegrationsTab() {
   }
 
   function handleUpdateSyncInterval(id: string, minutes: number) {
+    if (!can("settings.integrations")) return;
     updateConnection.mutate(
       { id, data: { id, syncIntervalMinutes: minutes } },
       {
@@ -205,6 +214,7 @@ export function IntegrationsTab() {
   }
 
   function handleUpdateFilters(id: string, filters: GmailSyncFilters) {
+    if (!can("settings.integrations")) return;
     updateConnection.mutate(
       { id, data: { id, syncFilters: filters } },
       {
@@ -215,6 +225,7 @@ export function IntegrationsTab() {
   }
 
   function handleStartImport(daysBack: number) {
+    if (!can("settings.integrations")) return;
     const firstConnection = connections[0];
     if (!firstConnection) return;
 
@@ -226,6 +237,7 @@ export function IntegrationsTab() {
   }
 
   function handleStartImportCustom() {
+    if (!can("settings.integrations")) return;
     const firstConnection = connections[0];
     if (!firstConnection || !customDate) return;
     startImportFromDate(firstConnection.id, customDate);

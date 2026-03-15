@@ -131,6 +131,7 @@ const estimatesModule: PermissionModule = {
     { id: "estimates.edit", label: "Edit estimates", scopes: ["all", "own"] },
     { id: "estimates.delete", label: "Delete estimates", scopes: ["all"] },
     { id: "estimates.send", label: "Send estimates", scopes: ["all"] },
+    { id: "estimates.convert", label: "Convert to invoice", scopes: ["all"] },
   ],
 };
 
@@ -144,6 +145,7 @@ const invoicesModule: PermissionModule = {
     { id: "invoices.delete", label: "Delete invoices", scopes: ["all"] },
     { id: "invoices.send", label: "Send invoices", scopes: ["all"] },
     { id: "invoices.record_payment", label: "Record payments", scopes: ["all"] },
+    { id: "invoices.void", label: "Void invoices", scopes: ["all"] },
   ],
 };
 
@@ -152,7 +154,7 @@ const pipelineModule: PermissionModule = {
   label: "Pipeline",
   actions: [
     { id: "pipeline.view", label: "View pipeline", scopes: ["all"] },
-    { id: "pipeline.manage", label: "Manage opportunities", scopes: ["all"] },
+    { id: "pipeline.manage", label: "Manage opportunities", scopes: ["all", "own"] },
     { id: "pipeline.configure_stages", label: "Configure stages", scopes: ["all"] },
   ],
 };
@@ -173,7 +175,9 @@ const expensesModule: PermissionModule = {
     { id: "expenses.view", label: "View expenses", scopes: ["all", "own"] },
     { id: "expenses.create", label: "Create expenses", scopes: ["all"] },
     { id: "expenses.edit", label: "Edit expenses", scopes: ["all", "own"] },
-    { id: "expenses.approve", label: "Approve expenses", scopes: ["all"] },
+    { id: "expenses.delete", label: "Delete expenses", scopes: ["all", "own"] },
+    { id: "expenses.approve", label: "Approve expenses", scopes: ["all", "assigned"] },
+    { id: "expenses.configure", label: "Configure expense settings", scopes: ["all"] },
   ],
 };
 
@@ -371,6 +375,9 @@ const DESTRUCTIVE_SUFFIXES = [
   "company",
   "billing",
   "integrations",
+  "void",
+  "configure",
+  "convert",
 ];
 
 function _isDestructive(actionId: string): boolean {

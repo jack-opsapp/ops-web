@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   WIDGET_TYPE_REGISTRY,
   CATEGORY_LABELS,
@@ -78,6 +79,8 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
   const { isCollapsed } = useSidebarStore();
   const sidebarWidth = isCollapsed ? 72 : 256;
 
+  const can = usePermissionStore((s) => s.can);
+
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
   const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
   const resetWidgetInstances = usePreferencesStore((s) => s.resetWidgetInstances);
@@ -116,6 +119,9 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
       // Spacer is shown as a sticky button at the top, not in category rows
       if (typeId === "spacer") continue;
 
+      // Filter out widgets the user doesn't have permission to see
+      if (entry.requiredPermission && !can(entry.requiredPermission)) continue;
+
       if (query) {
         const matchesLabel = entry.label.toLowerCase().includes(query);
         const matchesDescription = entry.description.toLowerCase().includes(query);
@@ -132,7 +138,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
     }
 
     return groups;
-  }, [searchQuery, inUseTypeIdSet]);
+  }, [searchQuery, inUseTypeIdSet, can]);
 
   // Categories with at least one widget type (available or in-use)
   const visibleCategories = useMemo(

@@ -25,6 +25,7 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import {
@@ -174,14 +175,25 @@ export default function DashboardPage() {
   }, []);
 
   const { currentUser } = useAuthStore();
+  const can = usePermissionStore((s) => s.can);
   const firstName = currentUser?.firstName || "there";
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
   const reorderWidgetInstances = usePreferencesStore((s) => s.reorderWidgetInstances);
   const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
   const addWidgetInstanceAt = usePreferencesStore((s) => s.addWidgetInstanceAt);
 
+  // Filter out widget instances the user lacks permission for
+  const visibleInstances = useMemo(() => {
+    return widgetInstances.filter((instance) => {
+      const entry = WIDGET_TYPE_REGISTRY[instance.typeId as keyof typeof WIDGET_TYPE_REGISTRY];
+      if (!entry?.requiredPermission) return true;
+      return can(entry.requiredPermission);
+    });
+  }, [widgetInstances, can]);
+
   // The display order: tentative (during drag) or store (at rest)
-  const displayOrder = tentativeOrder ?? widgetInstances;
+  // During drag, tentativeOrder may include ghost widgets so we use it as-is.
+  const displayOrder = tentativeOrder ?? visibleInstances;
 
   // ── Data hooks for non-stat widgets that receive props ──
   const today = useMemo(() => new Date(), []);
@@ -613,7 +625,7 @@ export default function DashboardPage() {
   // Build children map: instanceId → rendered content
   const childrenMap = useMemo(() => {
     const map: Record<string, ReactNode> = {};
-    for (const instance of widgetInstances) {
+    for (const instance of visibleInstances) {
       if (instance.visible) {
         map[instance.id] = renderWidgetContent(instance);
       }
@@ -621,7 +633,7 @@ export default function DashboardPage() {
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    widgetInstances,
+    visibleInstances,
     projects,
     projectsLoading,
     calendarLoading,

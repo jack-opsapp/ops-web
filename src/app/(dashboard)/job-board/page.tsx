@@ -46,6 +46,7 @@ import { useWindowStore } from "@/stores/window-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 import {
   useProjects,
@@ -495,15 +496,17 @@ function KanbanColumn({
               {column.cards.length}
             </span>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddProject?.();
-            }}
-            className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors"
-          >
-            <Plus className="w-[14px] h-[14px]" />
-          </button>
+          {onAddProject && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddProject();
+              }}
+              className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors"
+            >
+              <Plus className="w-[14px] h-[14px]" />
+            </button>
+          )}
         </div>
 
         {/* Column stats */}
@@ -630,10 +633,12 @@ function FilterBar({
             <ListFilter className="w-[14px] h-[14px]" />
             {t("filter")}
           </Button>
-          <Button variant="default" size="sm" className="gap-[6px]" onClick={onNewProject}>
-            <Plus className="w-[14px] h-[14px]" />
-            {t("newProject")}
-          </Button>
+          {onNewProject && (
+            <Button variant="default" size="sm" className="gap-[6px]" onClick={onNewProject}>
+              <Plus className="w-[14px] h-[14px]" />
+              {t("newProject")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -807,8 +812,12 @@ export default function JobBoardPage() {
       return next;
     });
   }, []);
+  const can = usePermissionStore((s) => s.can);
   const openWindow = useWindowStore((s) => s.openWindow);
-  const openCreateProject = () => openWindow({ id: "create-project", title: t("newProject"), type: "create-project" });
+  const openCreateProject = () => {
+    if (!can("projects.create")) return;
+    openWindow({ id: "create-project", title: t("newProject"), type: "create-project" });
+  };
 
   // ── Setup gate ──────────────────────────────────────────────────────
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
@@ -1029,6 +1038,7 @@ export default function JobBoardPage() {
       setActiveCardId(null);
 
       if (!over) return;
+      if (!can("projects.edit")) return;
 
       const activeId = active.id as string;
       const overId = over.id as string;
@@ -1134,7 +1144,7 @@ export default function JobBoardPage() {
         }
       );
     },
-    [allBoardColumns, archivedCards, closedColumn, updateStatusMutation, columnDefinitions, t]
+    [allBoardColumns, archivedCards, closedColumn, updateStatusMutation, columnDefinitions, t, can]
   );
 
   // ─── Loading State ───────────────────────────────────────────────────────
@@ -1160,7 +1170,7 @@ export default function JobBoardPage() {
         setShowFilters={setShowFilters}
         totalProjects={totalProjects}
         totalValue={totalValue}
-        onNewProject={() => openCreateProject()}
+        onNewProject={can("projects.create") ? () => openCreateProject() : undefined}
         t={t}
       />
 
@@ -1179,7 +1189,7 @@ export default function JobBoardPage() {
                 key={column.id}
                 column={column}
                 activeCardId={activeCardId}
-                onAddProject={() => openCreateProject()}
+                onAddProject={can("projects.create") ? () => openCreateProject() : undefined}
                 isExpanded={expandedColumns.has(column.id)}
                 onToggleExpand={() => toggleColumn(column.id)}
                 maxCount={maxColumnCount}

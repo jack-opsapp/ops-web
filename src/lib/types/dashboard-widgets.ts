@@ -129,6 +129,7 @@ export interface WidgetTypeEntry {
   defaultSize: WidgetSize;
   configSchema: WidgetConfigField[];
   allowMultiple: boolean;
+  requiredPermission?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +240,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all",
       },
     ],
+    requiredPermission: "projects.view",
   },
   "stat-tasks": {
     label: "Task Count",
@@ -264,6 +266,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "due-today",
       },
     ],
+    requiredPermission: "tasks.view",
   },
   "stat-events": {
     label: "Event Count",
@@ -287,6 +290,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "this-week",
       },
     ],
+    requiredPermission: "calendar.view",
   },
   "stat-clients": {
     label: "Client Count",
@@ -309,6 +313,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all",
       },
     ],
+    requiredPermission: "clients.view",
   },
   "stat-team": {
     label: "Team Count",
@@ -331,6 +336,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "active",
       },
     ],
+    requiredPermission: "team.view",
   },
   "stat-revenue": {
     label: "Revenue",
@@ -355,6 +361,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "mtd-invoiced",
       },
     ],
+    requiredPermission: "invoices.view",
   },
   "stat-invoices": {
     label: "Invoice Count",
@@ -380,6 +387,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all-open",
       },
     ],
+    requiredPermission: "invoices.view",
   },
   "stat-estimates": {
     label: "Estimate Count",
@@ -405,6 +413,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all-open",
       },
     ],
+    requiredPermission: "estimates.view",
   },
   "stat-opportunities": {
     label: "Opportunity Count",
@@ -441,6 +450,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "count",
       },
     ],
+    requiredPermission: "pipeline.view",
   },
 
   // ── STATISTICS — Per-Status Projects (5) ────────────────────────────────
@@ -454,6 +464,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "projects.view",
   },
   "stat-projects-estimated": {
     label: "Estimated Projects",
@@ -465,6 +476,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "projects.view",
   },
   "stat-projects-accepted": {
     label: "Accepted Projects",
@@ -476,6 +488,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "projects.view",
   },
   "stat-projects-in-progress": {
     label: "In Progress Projects",
@@ -487,6 +500,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "projects.view",
   },
   "stat-projects-completed": {
     label: "Completed Projects",
@@ -498,6 +512,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "projects.view",
   },
 
   // ── STATISTICS — Per-Status Tasks (4) ──────────────────────────────────
@@ -511,6 +526,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "tasks.view",
   },
   "stat-tasks-in-progress": {
     label: "In Progress Tasks",
@@ -522,6 +538,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "tasks.view",
   },
   "stat-tasks-completed": {
     label: "Completed Tasks",
@@ -533,6 +550,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "tasks.view",
   },
   "stat-tasks-overdue": {
     label: "Overdue Tasks",
@@ -544,6 +562,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "tasks.view",
   },
 
   // ── STATISTICS — Client Segment (1) ────────────────────────────────────
@@ -557,6 +576,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "clients.view",
   },
 
   // ── STATISTICS — Financial (2) ─────────────────────────────────────────
@@ -570,6 +590,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.view",
   },
   "stat-collect": {
     label: "To Collect",
@@ -581,6 +602,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.view",
   },
   "stat-profit-mtd": {
     label: "Profit MTD",
@@ -592,6 +614,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.view",
   },
   "stat-projected-profit": {
     label: "Projected Profit",
@@ -603,6 +626,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "xs",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.view",
   },
 
   // ── STATISTICS — Ranking (2) ───────────────────────────────────────────
@@ -628,6 +652,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "outstanding",
       },
     ],
+    requiredPermission: "clients.view",
   },
   "stat-project-ranking": {
     label: "Project Ranking",
@@ -651,6 +676,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "outstanding",
       },
     ],
+    requiredPermission: "projects.view",
   },
 
   // ── SCHEDULE (2) ────────────────────────────────────────────────────────
@@ -664,6 +690,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "calendar.view",
   },
   "task-list": {
     label: "Task List",
@@ -688,6 +715,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "upcoming",
       },
     ],
+    requiredPermission: "tasks.view",
   },
 
   // ── FINANCIAL (5) ───────────────────────────────────────────────────────
@@ -713,6 +741,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "6mo",
       },
     ],
+    requiredPermission: "invoices.view",
   },
   "invoice-list": {
     label: "Invoice List",
@@ -738,6 +767,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all-open",
       },
     ],
+    requiredPermission: "invoices.view",
   },
   "invoice-aging": {
     label: "Invoice Aging",
@@ -749,6 +779,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.view",
   },
   "payments-recent": {
     label: "Recent Payments",
@@ -760,6 +791,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.record_payment",
   },
   "expense-summary": {
     label: "Expense Summary",
@@ -783,6 +815,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "this-month",
       },
     ],
+    requiredPermission: "expenses.view",
   },
 
   // ── PIPELINE (5) ────────────────────────────────────────────────────────
@@ -796,6 +829,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "pipeline.view",
   },
   "pipeline-list": {
     label: "Pipeline List",
@@ -822,6 +856,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all-active",
       },
     ],
+    requiredPermission: "pipeline.view",
   },
   "pipeline-value": {
     label: "Pipeline Value",
@@ -833,6 +868,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "pipeline.view",
   },
   "pipeline-velocity": {
     label: "Pipeline Velocity",
@@ -844,6 +880,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "pipeline.view",
   },
   "pipeline-sources": {
     label: "Lead Sources",
@@ -855,6 +892,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "pipeline.view",
   },
 
   // ── TEAM / CREW (2) ────────────────────────────────────────────────────
@@ -868,6 +906,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "team.view",
   },
   "crew-locations": {
     label: "Crew Locations",
@@ -879,6 +918,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "map.view_crew_locations",
   },
 
   // ── ESTIMATES (2) ───────────────────────────────────────────────────────
@@ -907,6 +947,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all",
       },
     ],
+    requiredPermission: "estimates.view",
   },
   "estimates-funnel": {
     label: "Estimate Conversion",
@@ -918,6 +959,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "estimates.view",
   },
 
   // ── CLIENTS (4) ─────────────────────────────────────────────────────────
@@ -943,6 +985,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "name",
       },
     ],
+    requiredPermission: "clients.view",
   },
   "client-revenue": {
     label: "Client Revenue",
@@ -966,6 +1009,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "all-time",
       },
     ],
+    requiredPermission: "clients.view",
   },
   "client-activity": {
     label: "Client Activity",
@@ -977,6 +1021,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "clients.view",
   },
   "client-attention": {
     label: "Clients Needing Attention",
@@ -988,6 +1033,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "clients.view",
   },
 
   // ── ACTIVITY & FOLLOW-UPS (3) ──────────────────────────────────────────
@@ -1025,6 +1071,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "pipeline.view",
   },
   "site-visits": {
     label: "Site Visits",
@@ -1047,6 +1094,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "upcoming",
       },
     ],
+    requiredPermission: "projects.view",
   },
 
   // ── ALERTS & NOTIFICATIONS (3) ─────────────────────────────────────────
@@ -1060,6 +1108,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "tasks.view",
   },
   "past-due-invoices": {
     label: "Past Due Invoices",
@@ -1071,6 +1120,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     defaultSize: "md",
     allowMultiple: false,
     configSchema: [],
+    requiredPermission: "invoices.view",
   },
   notifications: {
     label: "Notifications",

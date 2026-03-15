@@ -23,6 +23,7 @@ import {
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import { useDictionary, useLocale } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { getDateLocale } from "@/i18n/date-utils";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -94,6 +95,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
 
 function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const stripe = useStripe();
   const elements = useElements();
   const createSetupIntent = useCreateSetupIntent();
@@ -101,6 +103,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!can("settings.billing")) return;
     if (!stripe || !elements) return;
 
     setSubmitting(true);
@@ -198,6 +201,7 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
 
 export function BillingTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { locale } = useLocale();
   const { company } = useAuthStore();
   const { data: methods, isLoading: methodsLoading, refetch: refetchMethods } = usePaymentMethods();
@@ -211,6 +215,7 @@ export function BillingTab() {
   }, [refetchMethods]);
 
   function handleRemoveCard(paymentMethodId: string) {
+    if (!can("settings.billing")) return;
     removeMethod.mutate(paymentMethodId, {
       onSuccess: () => toast.success(t("billing.toast.removed") ?? "Payment method removed"),
       onError: (err) => toast.error(t("billing.toast.removeFailed") ?? "Failed to remove", { description: err.message }),

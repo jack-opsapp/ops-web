@@ -32,6 +32,7 @@ import {
   useRemoveSeatedEmployee,
 } from "@/lib/hooks";
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { UserRole, getUserFullName } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -479,6 +480,9 @@ export default function TeamPage() {
   // ─── Auth store ──────────────────────────────────────────────────────────
   const { company } = useAuthStore();
   const isCurrentUserAdmin = useAuthStore(selectIsAdmin);
+  const can = usePermissionStore((s) => s.can);
+  const canManageTeam = can("team.manage");
+  const canAssignRoles = can("team.assign_roles");
 
   // ─── Map API users to display format ─────────────────────────────────────
   const team: TeamMember[] = useMemo(() => {
@@ -515,6 +519,7 @@ export default function TeamPage() {
   const unassigned = filteredTeam.filter((m) => m.role === "unassigned");
 
   function handleChangeRole(memberId: string, newRole: Role) {
+    if (!canAssignRoles) return;
     const userRole = displayRoleToUserRole(newRole);
     const member = team.find((m) => m.id === memberId);
     updateRoleMutation.mutate(
@@ -536,6 +541,7 @@ export default function TeamPage() {
 
   function handleRemoveMember() {
     if (!removeTarget) return;
+    if (!canManageTeam) return;
     const member = team.find((m) => m.id === removeTarget);
     removeEmployeeMutation.mutate(removeTarget, {
       onSuccess: () => {
@@ -603,13 +609,15 @@ export default function TeamPage() {
             </div>
           </div>
         </div>
-        <Button
-          className="gap-[6px]"
-          onClick={() => setInviteOpen(true)}
-        >
-          <Plus className="w-[16px] h-[16px]" />
-          {t("team.inviteMember")}
-        </Button>
+        {canManageTeam && (
+          <Button
+            className="gap-[6px]"
+            onClick={() => setInviteOpen(true)}
+          >
+            <Plus className="w-[16px] h-[16px]" />
+            {t("team.inviteMember")}
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -636,7 +644,7 @@ export default function TeamPage() {
               ? t("team.noResultsHelper")
               : t("team.emptyHelper")}
           </p>
-          {!searchQuery && (
+          {!searchQuery && canManageTeam && (
             <Button
               className="mt-3 gap-[6px]"
               onClick={() => setInviteOpen(true)}
@@ -665,7 +673,7 @@ export default function TeamPage() {
                   <TeamMemberCard
                     key={member.id}
                     member={member}
-                    isAdmin={isCurrentUserAdmin}
+                    isAdmin={canManageTeam || canAssignRoles}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
                     t={t}
@@ -692,7 +700,7 @@ export default function TeamPage() {
                   <TeamMemberCard
                     key={member.id}
                     member={member}
-                    isAdmin={isCurrentUserAdmin}
+                    isAdmin={canManageTeam || canAssignRoles}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
                     t={t}
@@ -719,7 +727,7 @@ export default function TeamPage() {
                   <TeamMemberCard
                     key={member.id}
                     member={member}
-                    isAdmin={isCurrentUserAdmin}
+                    isAdmin={canManageTeam || canAssignRoles}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
                     t={t}
@@ -746,7 +754,7 @@ export default function TeamPage() {
                   <TeamMemberCard
                     key={member.id}
                     member={member}
-                    isAdmin={isCurrentUserAdmin}
+                    isAdmin={canManageTeam || canAssignRoles}
                     onChangeRole={handleChangeRole}
                     onRemove={(id) => setRemoveTarget(id)}
                     t={t}

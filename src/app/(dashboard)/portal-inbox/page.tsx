@@ -14,6 +14,7 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { parseDate, parseDateRequired } from "@/lib/supabase/helpers";
 import { useAuthStore, selectCompanyId } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   PortalInbox,
   type Conversation,
@@ -180,6 +181,7 @@ export default function PortalInboxPage() {
   const { t } = useDictionary("dashboard");
   const companyId = useAuthStore(selectCompanyId);
   const currentUser = useAuthStore((s) => s.currentUser);
+  const can = usePermissionStore((s) => s.can);
   const queryClient = useQueryClient();
 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -286,7 +288,10 @@ export default function PortalInboxPage() {
         onSelectConversation={setSelectedClientId}
         messages={messages}
         isLoadingMessages={isLoadingMessages}
-        onSendMessage={(content) => sendMessageMutation.mutate(content)}
+        onSendMessage={(content) => {
+          if (!can("portal.view")) return;
+          sendMessageMutation.mutate(content);
+        }}
         isSending={sendMessageMutation.isPending}
         onMarkRead={handleMarkRead}
       />

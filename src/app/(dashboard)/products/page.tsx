@@ -33,6 +33,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Product, CreateProduct } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 
@@ -41,6 +42,7 @@ export default function ProductsPage() {
   const { t } = useDictionary("dashboard");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const can = usePermissionStore((s) => s.can);
 
   const { data: products = [], isLoading } = useProducts();
   const createProduct = useCreateProduct();
@@ -99,10 +101,12 @@ export default function ProductsPage() {
             {stats.total} {t("products.items")} — {stats.active} {t("products.active")}, {stats.inactive} {t("products.inactive")}
           </p>
         </div>
-        <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
-          <Plus className="w-[14px] h-[14px]" />
-          {t("products.newItem")}
-        </Button>
+        {can("products.manage") && (
+          <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
+            <Plus className="w-[14px] h-[14px]" />
+            {t("products.newItem")}
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -129,7 +133,7 @@ export default function ProductsPage() {
           title={t("products.emptyTitle")}
           description={search ? t("products.emptySearchDescription") : t("products.emptyDescription")}
           action={
-            !search
+            !search && can("products.manage")
               ? { label: t("products.addItem"), onClick: () => setShowModal(true) }
               : undefined
           }
@@ -247,24 +251,28 @@ export default function ProductsPage() {
                   {/* Actions */}
                   <td className="px-2 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-0.5">
-                      <button
-                        onClick={() => setEditingProduct(product)}
-                        className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                        title={t("products.edit")}
-                      >
-                        <Pencil className="w-[14px] h-[14px]" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`${t("products.deleteConfirm")} "${product.name}"?`)) {
-                            deleteProduct.mutate(product.id);
-                          }
-                        }}
-                        className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                        title={t("products.delete")}
-                      >
-                        <Trash2 className="w-[14px] h-[14px]" />
-                      </button>
+                      {can("products.manage") && (
+                        <button
+                          onClick={() => setEditingProduct(product)}
+                          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                          title={t("products.edit")}
+                        >
+                          <Pencil className="w-[14px] h-[14px]" />
+                        </button>
+                      )}
+                      {can("products.manage") && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`${t("products.deleteConfirm")} "${product.name}"?`)) {
+                              deleteProduct.mutate(product.id);
+                            }
+                          }}
+                          className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          title={t("products.delete")}
+                        >
+                          <Trash2 className="w-[14px] h-[14px]" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

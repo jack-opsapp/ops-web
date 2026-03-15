@@ -56,6 +56,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
@@ -107,6 +108,7 @@ export default function InvoicesPage() {
   const { locale } = useLocale();
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const can = usePermissionStore((s) => s.can);
 
   const statusFilters = useMemo<{ value: FilterStatus; label: string }[]>(() => [
     { value: "all", label: t("invoices.filter.all") },
@@ -144,12 +146,13 @@ export default function InvoicesPage() {
   const [showSetupModal, setShowSetupModal] = useState(false);
 
   const gatedOpenCreate = useCallback(() => {
+    if (!can("invoices.create")) return;
     if (!setupComplete) {
       setShowSetupModal(true);
       return;
     }
     setShowCreateModal(true);
-  }, [setupComplete]);
+  }, [can, setupComplete]);
 
   async function handleDownloadPdf(invoiceId: string) {
     setGeneratingPdfId(invoiceId);
@@ -276,8 +279,8 @@ export default function InvoicesPage() {
               ? t("invoices.empty.noMatch")
               : t("invoices.empty.helper")}
           </p>
-          {!searchQuery && filterStatus === "all" && (
-            <Button className="mt-3 gap-[6px]" onClick={() => setShowCreateModal(true)}>
+          {!searchQuery && filterStatus === "all" && can("invoices.create") && (
+            <Button className="mt-3 gap-[6px]" onClick={() => { if (!can("invoices.create")) return; setShowCreateModal(true); }}>
               <Plus className="w-[16px] h-[16px]" />
               {t("invoices.newInvoice")}
             </Button>
@@ -305,7 +308,7 @@ export default function InvoicesPage() {
                 <tr
                   key={invoice.id}
                   className="border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors"
-                  onClick={() => setEditingInvoice(invoice)}
+                  onClick={() => { if (!can("invoices.edit")) return; setEditingInvoice(invoice); }}
                 >
                   <td className="px-1.5 py-1">
                     <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
@@ -364,7 +367,7 @@ export default function InvoicesPage() {
                           <Download className="w-[14px] h-[14px]" />
                         )}
                       </button>
-                      {invoice.status === InvoiceStatus.Draft && (
+                      {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
                         <button
                           onClick={() => sendInvoice.mutate(invoice.id)}
                           className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
@@ -373,7 +376,7 @@ export default function InvoicesPage() {
                           <Send className="w-[14px] h-[14px]" />
                         </button>
                       )}
-                      {invoice.status !== InvoiceStatus.Paid && invoice.status !== InvoiceStatus.Void && (
+                      {invoice.status !== InvoiceStatus.Paid && invoice.status !== InvoiceStatus.Void && can("invoices.record_payment") && (
                         <button
                           onClick={() => setPaymentInvoice(invoice)}
                           className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
@@ -382,7 +385,7 @@ export default function InvoicesPage() {
                           <DollarSign className="w-[14px] h-[14px]" />
                         </button>
                       )}
-                      {invoice.status !== InvoiceStatus.Void && invoice.status !== InvoiceStatus.Paid && (
+                      {invoice.status !== InvoiceStatus.Void && invoice.status !== InvoiceStatus.Paid && can("invoices.void") && (
                         <button
                           onClick={() => voidInvoice.mutate(invoice.id)}
                           className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
@@ -391,13 +394,15 @@ export default function InvoicesPage() {
                           <Ban className="w-[14px] h-[14px]" />
                         </button>
                       )}
-                      <button
-                        onClick={() => deleteInvoice.mutate(invoice.id)}
-                        className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
-                        title={t("invoices.actions.delete")}
-                      >
-                        <Trash2 className="w-[14px] h-[14px]" />
-                      </button>
+                      {can("invoices.delete") && (
+                        <button
+                          onClick={() => deleteInvoice.mutate(invoice.id)}
+                          className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          title={t("invoices.actions.delete")}
+                        >
+                          <Trash2 className="w-[14px] h-[14px]" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -417,9 +422,11 @@ export default function InvoicesPage() {
         products={products}
         companyId={companyId}
         onCreate={(data, lineItems) => {
+          if (!can("invoices.create")) return;
           createInvoice.mutate({ data, lineItems }, { onSuccess: () => setShowCreateModal(false) });
         }}
         onUpdate={(id, data, lineItems) => {
+          if (!can("invoices.edit")) return;
           updateInvoice.mutate({ id, data, lineItems }, { onSuccess: () => setEditingInvoice(null) });
         }}
       />

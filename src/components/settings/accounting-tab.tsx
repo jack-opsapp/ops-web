@@ -15,6 +15,7 @@ import {
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AccountingProvider } from "@/lib/types/pipeline";
 
 const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -31,6 +32,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function ProviderCard({ provider, label }: { provider: AccountingProvider; label: string }) {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: connections, isLoading } = useAccountingConnections();
@@ -82,6 +84,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
               </div>
               <button
                 onClick={() => {
+                  if (!can("accounting.manage_connections")) return;
                   const newValue = !(connection?.syncEnabled ?? false);
                   updateSyncEnabled.mutate(
                     { companyId, provider, syncEnabled: newValue },
@@ -111,6 +114,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
                 variant="default"
                 size="sm"
                 onClick={() => {
+                  if (!can("accounting.manage_connections")) return;
                   triggerSync.mutate(
                     { companyId, provider },
                     {
@@ -128,6 +132,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
                 variant="ghost"
                 size="sm"
                 onClick={() => {
+                  if (!can("accounting.manage_connections")) return;
                   disconnect.mutate(
                     { companyId, provider },
                     {
@@ -146,7 +151,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
           </>
         ) : (
           <Button
-            onClick={() => initiateOAuth.mutate({ companyId, provider })}
+            onClick={() => { if (!can("accounting.manage_connections")) return; initiateOAuth.mutate({ companyId, provider }); }}
             disabled={initiateOAuth.isPending}
           >
             <Link2 className="w-[14px] h-[14px] mr-1" />

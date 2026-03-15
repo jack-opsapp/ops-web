@@ -30,6 +30,7 @@ import { PORTAL_TEMPLATES } from "@/lib/portal/templates";
 import { toast } from "sonner";
 import { getAuth } from "firebase/auth";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 // ─── Query Keys ──────────────────────────────────────────────────────────────
 
@@ -145,6 +146,8 @@ const TEMPLATES: { id: PortalTemplate; labelKey: string; descKey: string }[] = [
 
 export function PortalBrandingTab() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
+  const canManage = can("portal.manage_branding");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const queryClient = useQueryClient();
@@ -438,13 +441,15 @@ export function PortalBrandingTab() {
           {/* Toggle: use company logo vs custom */}
           <div className="grid grid-cols-2 gap-1">
             <button
+              disabled={!canManage}
               onClick={() => {
+                if (!canManage) return;
                 setUseCompanyLogo(true);
                 setLogoUrl(company?.logoURL ?? "");
                 markDirty();
               }}
               className={cn(
-                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left",
+                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
                 useCompanyLogo
                   ? "bg-ops-accent-muted border-ops-accent"
                   : "bg-background-input border-border hover:border-border-medium"
@@ -456,13 +461,15 @@ export function PortalBrandingTab() {
               </span>
             </button>
             <button
+              disabled={!canManage}
               onClick={() => {
+                if (!canManage) return;
                 setUseCompanyLogo(false);
                 if (logoUrl === company?.logoURL) setLogoUrl("");
                 markDirty();
               }}
               className={cn(
-                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left",
+                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
                 !useCompanyLogo
                   ? "bg-ops-accent-muted border-ops-accent"
                   : "bg-background-input border-border hover:border-border-medium"
@@ -503,13 +510,14 @@ export function PortalBrandingTab() {
             <div className="space-y-1.5">
               <div
                 className={cn(
-                  "relative rounded-lg border-2 border-dashed border-border p-3 flex items-center gap-2 cursor-pointer",
-                  "hover:border-ops-accent transition-colors group",
+                  "relative rounded-lg border-2 border-dashed border-border p-3 flex items-center gap-2 transition-colors group",
+                  canManage ? "cursor-pointer hover:border-ops-accent" : "cursor-not-allowed opacity-40",
                   logoUpload.isUploading && "pointer-events-none"
                 )}
-                onClick={() => logoInputRef.current?.click()}
+                onClick={() => { if (canManage) logoInputRef.current?.click(); }}
                 onDrop={(e) => {
                   e.preventDefault();
+                  if (!canManage) return;
                   const file = e.dataTransfer.files[0];
                   if (file) logoUpload.selectFile(file);
                 }}
@@ -531,13 +539,15 @@ export function PortalBrandingTab() {
                       </span>
                     )}
                     <button
+                      disabled={!canManage}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canManage) return;
                         setLogoUrl("");
                         logoUpload.clearPreview();
                         markDirty();
                       }}
-                      className="w-[20px] h-[20px] rounded-full bg-[rgba(255,255,255,0.1)] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="w-[20px] h-[20px] rounded-full bg-[rgba(255,255,255,0.1)] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
                     >
                       <X className="w-[12px] h-[12px] text-text-tertiary" />
                     </button>
@@ -556,6 +566,7 @@ export function PortalBrandingTab() {
                   accept="image/jpeg,image/png,image/webp,image/heic"
                   className="hidden"
                   onChange={(e) => {
+                    if (!canManage) return;
                     const file = e.target.files?.[0];
                     if (file) logoUpload.selectFile(file);
                   }}
@@ -577,12 +588,14 @@ export function PortalBrandingTab() {
             {ACCENT_PRESETS.map((preset) => (
               <button
                 key={preset.value}
+                disabled={!canManage}
                 onClick={() => {
+                  if (!canManage) return;
                   setAccentColor(preset.value);
                   markDirty();
                 }}
                 className={cn(
-                  "relative flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all",
+                  "relative flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   accentColor === preset.value
                     ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
                     : "border-border hover:border-border-medium"
@@ -613,10 +626,12 @@ export function PortalBrandingTab() {
             <Input
               value={accentColor}
               onChange={(e) => {
+                if (!canManage) return;
                 setAccentColor(e.target.value);
                 markDirty();
               }}
               placeholder={t("portalBranding.colorPlaceholder")}
+              disabled={!canManage}
               className="w-[140px] font-mono"
               error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
             />
@@ -637,12 +652,14 @@ export function PortalBrandingTab() {
             {TEMPLATES.map((tmpl) => (
               <button
                 key={tmpl.id}
+                disabled={!canManage}
                 onClick={() => {
+                  if (!canManage) return;
                   setTemplate(tmpl.id);
                   markDirty();
                 }}
                 className={cn(
-                  "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left",
+                  "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
                   template === tmpl.id
                     ? "bg-ops-accent-muted border-ops-accent"
                     : "bg-background-input border-border hover:border-border-medium"
@@ -676,12 +693,14 @@ export function PortalBrandingTab() {
             ]).map((mode) => (
               <button
                 key={mode.id}
+                disabled={!canManage}
                 onClick={() => {
+                  if (!canManage) return;
                   setThemeMode(mode.id);
                   markDirty();
                 }}
                 className={cn(
-                  "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all",
+                  "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   themeMode === mode.id
                     ? "bg-ops-accent-muted border-ops-accent"
                     : "bg-background-input border-border hover:border-border-medium"
@@ -719,11 +738,13 @@ export function PortalBrandingTab() {
           <Textarea
             value={welcomeMessage}
             onChange={(e) => {
+              if (!canManage) return;
               setWelcomeMessage(e.target.value);
               markDirty();
             }}
             placeholder={t("portalBranding.welcomePlaceholder")}
             helperText={t("portalBranding.welcomeHelper")}
+            disabled={!canManage}
             className="min-h-[100px]"
           />
         </CardContent>
@@ -753,7 +774,7 @@ export function PortalBrandingTab() {
           </Button>
           <Button
             variant="primary"
-            onClick={() => saveMutation.mutate()}
+            onClick={() => { if (!can("portal.manage_branding")) return; saveMutation.mutate(); }}
             disabled={!isDirty || saveMutation.isPending || !isValidHex}
             loading={saveMutation.isPending}
           >

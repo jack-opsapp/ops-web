@@ -48,6 +48,7 @@ import { getUserFullName, getInitials, UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import Link from "next/link";
 
@@ -72,6 +73,9 @@ function MemberActions({
   seatsFull: boolean;
 }) {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
+  const canManage = can("team.manage");
+  const canAssignRoles = can("team.assign_roles");
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const updateRole = useUpdateUserRole();
@@ -81,6 +85,7 @@ function MemberActions({
   const removeSeat = useRemoveSeatedEmployee();
 
   function handleRoleChange(role: UserRole) {
+    if (!canAssignRoles) return;
     updateRole.mutate(
       { id: member.id, role },
       {
@@ -91,6 +96,7 @@ function MemberActions({
   }
 
   function handleToggleSeat() {
+    if (!canManage) return;
     if (isSeated) {
       removeSeat.mutate(member.id, {
         onSuccess: () => toast.success(t("team.toast.seatRemoved")),
@@ -109,6 +115,7 @@ function MemberActions({
   }
 
   function handleDeactivate() {
+    if (!canManage) return;
     deactivateUser.mutate(
       { id: member.id },
       {
@@ -122,6 +129,7 @@ function MemberActions({
   }
 
   function handleReactivate() {
+    if (!canManage) return;
     reactivateUser.mutate(
       { id: member.id },
       {
@@ -132,6 +140,7 @@ function MemberActions({
   }
 
   if (isCurrentUser) return null;
+  if (!canManage && !canAssignRoles) return null;
 
   const isActive = member.isActive !== false;
 
@@ -149,63 +158,69 @@ function MemberActions({
           <>
             <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
             <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[180px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
-              {/* Role section */}
-              <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
-                <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
-                {ROLES.map((role) => (
+              {/* Role section — only visible with team.assign_roles */}
+              {canAssignRoles && (
+                <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
+                  <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
+                  {ROLES.map((role) => (
+                    <button
+                      key={role.id}
+                      onClick={() => {
+                        handleRoleChange(role.id);
+                        setMenuOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
+                        member.role === role.id
+                          ? "text-ops-accent bg-ops-accent-muted"
+                          : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                      )}
+                    >
+                      {t(role.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Seat toggle — only visible with team.manage */}
+              {canManage && (
+                <button
+                  onClick={() => {
+                    handleToggleSeat();
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors border-b border-[rgba(255,255,255,0.04)]"
+                >
+                  <Armchair className="w-[14px] h-[14px]" />
+                  {isSeated ? t("team.removeSeat") : t("team.assignSeat")}
+                </button>
+              )}
+
+              {/* Deactivate / Reactivate — only visible with team.manage */}
+              {canManage && (
+                isActive ? (
                   <button
-                    key={role.id}
                     onClick={() => {
-                      handleRoleChange(role.id);
+                      setMenuOpen(false);
+                      setConfirmDeactivate(true);
+                    }}
+                    className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-background-elevated transition-colors"
+                  >
+                    <UserX className="w-[14px] h-[14px]" />
+                    {t("team.deactivate")}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      handleReactivate();
                       setMenuOpen(false);
                     }}
-                    className={cn(
-                      "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
-                      member.role === role.id
-                        ? "text-ops-accent bg-ops-accent-muted"
-                        : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
-                    )}
+                    className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-status-success hover:bg-background-elevated transition-colors"
                   >
-                    {t(role.labelKey)}
+                    <UserCheck className="w-[14px] h-[14px]" />
+                    {t("team.reactivate")}
                   </button>
-                ))}
-              </div>
-
-              {/* Seat toggle */}
-              <button
-                onClick={() => {
-                  handleToggleSeat();
-                  setMenuOpen(false);
-                }}
-                className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors border-b border-[rgba(255,255,255,0.04)]"
-              >
-                <Armchair className="w-[14px] h-[14px]" />
-                {isSeated ? t("team.removeSeat") : t("team.assignSeat")}
-              </button>
-
-              {/* Deactivate / Reactivate */}
-              {isActive ? (
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirmDeactivate(true);
-                  }}
-                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-background-elevated transition-colors"
-                >
-                  <UserX className="w-[14px] h-[14px]" />
-                  {t("team.deactivate")}
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    handleReactivate();
-                    setMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-status-success hover:bg-background-elevated transition-colors"
-                >
-                  <UserCheck className="w-[14px] h-[14px]" />
-                  {t("team.reactivate")}
-                </button>
+                )
               )}
             </div>
           </>
@@ -230,6 +245,7 @@ function MemberActions({
 
 function PendingInvitesCard() {
   const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
   const { data: invitations, isLoading } = usePendingInvitations();
   const { data: roles } = useRoles();
   const updateRole = useUpdateInvitationRole();
@@ -245,6 +261,7 @@ function PendingInvitesCard() {
   );
 
   function handleRoleChange(invitationId: string, roleId: string | null) {
+    if (!can("team.assign_roles")) return;
     updateRole.mutate(
       { invitationId, roleId },
       {
@@ -258,6 +275,7 @@ function PendingInvitesCard() {
   }
 
   function handleRevoke(invitationId: string) {
+    if (!can("team.manage")) return;
     revokeInvitation.mutate(invitationId, {
       onSuccess: () => {
         toast.success(t("team.toast.inviteRevoked"));
@@ -434,6 +452,8 @@ export function TeamTab() {
   const { data: teamData, isLoading } = useTeamMembers();
   const { data: company } = useCompany();
   const currentUser = useAuthStore((s) => s.currentUser);
+  const can = usePermissionStore((s) => s.can);
+  const canManage = can("team.manage");
   const members = teamData?.users ?? [];
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -520,14 +540,16 @@ export function TeamTab() {
         <CardHeader>
           <div className="flex items-center justify-between w-full">
             <CardTitle>{t("team.membersTitle")} ({activeMembers.length})</CardTitle>
-            <Button
-              size="sm"
-              onClick={() => setInviteOpen(true)}
-              className="gap-[6px]"
-            >
-              <Plus className="w-[14px] h-[14px]" />
-              {t("team.addMember")}
-            </Button>
+            {canManage && (
+              <Button
+                size="sm"
+                onClick={() => setInviteOpen(true)}
+                className="gap-[6px]"
+              >
+                <Plus className="w-[14px] h-[14px]" />
+                {t("team.addMember")}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -540,15 +562,17 @@ export function TeamTab() {
               <p className="font-mohave text-body-sm text-text-tertiary">
                 {t("team.emptyState")}
               </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setInviteOpen(true)}
-                className="gap-[6px]"
-              >
-                <UserPlus className="w-[14px] h-[14px]" />
-                {t("team.sendInvite")}
-              </Button>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInviteOpen(true)}
+                  className="gap-[6px]"
+                >
+                  <UserPlus className="w-[14px] h-[14px]" />
+                  {t("team.sendInvite")}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-0">
