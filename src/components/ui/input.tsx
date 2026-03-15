@@ -35,14 +35,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             className={cn(
               "w-full bg-background-input text-text-primary font-mohave text-body",
-              "px-2 py-1.5 rounded-sm min-h-[56px]",
+              "py-1.5 rounded-sm min-h-[56px]",
               "border border-[rgba(255,255,255,0.08)]",
               "transition-all duration-150",
               "placeholder:text-text-disabled",
               "focus:border-ops-accent focus:outline-none caret-ops-accent",
               "disabled:cursor-not-allowed disabled:opacity-40",
-              prefixIcon && "pl-10",
-              suffixIcon && "pr-10",
+              prefixIcon ? "pl-10" : "pl-2",
+              suffixIcon ? "pr-10" : "pr-2",
               error && "border-ops-error focus:border-ops-error",
               className
             )}
