@@ -95,6 +95,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { needsWebSetup, needsEmployeeOnboarding } = useSetupGate();
   const router = useRouter();
   const pathname = usePathname();
+  const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
 
   // Redirect to the appropriate onboarding flow if incomplete.
   // Employee check first — employees should never see employer setup.
@@ -117,6 +118,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [setCollapsed]);
+
+  // Block all dashboard rendering while onboarding is needed.
+  // Without this, the full layout (map, preferences sync, etc.) mounts
+  // before the useEffect redirect fires, causing Leaflet and Supabase
+  // errors from components that should never have initialized.
+  if (needsOnboarding) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <span className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse-live">
+          OPS
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

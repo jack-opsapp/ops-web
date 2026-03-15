@@ -74,7 +74,9 @@ export const DashboardPreferencesService = {
       .single();
 
     if (error) {
-      // Upsert may fail due to RLS — fallback to a direct read
+      // Upsert may fail due to RLS timing (e.g. Firebase JWT not yet propagated).
+      // Fallback to a direct read; if that also fails, return sensible defaults
+      // so the dashboard can render without crashing.
       const { data: fetched, error: fetchError } = await supabase
         .from("user_dashboard_preferences")
         .select("*")
@@ -82,7 +84,23 @@ export const DashboardPreferencesService = {
         .eq("company_id", companyId)
         .single();
 
-      if (fetchError) throw new Error(`Failed to get dashboard preferences: ${fetchError.message}`);
+      if (fetchError) {
+        console.warn(`[DashboardPreferences] Could not load preferences (upsert: ${error.message}, select: ${fetchError.message}). Using defaults.`);
+        return {
+          id: "",
+          userId,
+          companyId,
+          widgetInstances: [],
+          dashboardLayout: "default" as DashboardLayoutId,
+          schedulingType: "both" as SchedulingTypeId,
+          mapDefaultZoom: 12,
+          mapDefaultCenter: null,
+          mapShowTraffic: false,
+          mapShowCrewLabels: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
       return mapFromDb(fetched);
     }
 
