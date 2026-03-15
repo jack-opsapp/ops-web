@@ -8,11 +8,11 @@
 --   1. Sets user's company_id
 --   2. Looks up pending invitation (by email, then phone)
 --   3. Assigns RBAC role (from invite > existing > unassigned)
---   4. Syncs users.role column with the assigned role name
+--   4. Syncs users.role column (maps RBAC names to legacy CHECK values)
 --   5. Assigns a seat if available (seated_employee_ids < max_seats)
 --
 -- Returns JSONB with: success, user_id, company_id, role_id, role_name,
---                      seat_granted, invitation_found
+--                      legacy_role, seat_granted, invitation_found
 -- =================================================================
 
 CREATE OR REPLACE FUNCTION public.join_user_to_company(
@@ -29,6 +29,7 @@ DECLARE
   v_existing_role_id UUID;
   v_role_id UUID;
   v_role_name TEXT;
+  v_legacy_role TEXT;
   v_seat_granted BOOLEAN := false;
   v_seated_count INT;
   v_user_id_text TEXT;
@@ -96,17 +97,14 @@ BEGIN
    WHERE user_id = v_user_id_text;
 
   IF v_invitation.id IS NOT NULL THEN
-    -- Accept the invitation
     UPDATE team_invitations
        SET status = 'accepted', updated_at = NOW()
      WHERE id = v_invitation.id;
 
     v_role_id := COALESCE(v_invitation.role_id, v_existing_role_id, v_unassigned_role_id);
   ELSIF v_existing_role_id IS NOT NULL THEN
-    -- Keep existing role
     v_role_id := v_existing_role_id;
   ELSE
-    -- No invitation, no existing role — assign unassigned
     v_role_id := v_unassigned_role_id;
   END IF;
 
@@ -115,11 +113,24 @@ BEGIN
   VALUES (v_user_id_text, v_role_id)
   ON CONFLICT (user_id) DO UPDATE SET role_id = EXCLUDED.role_id;
 
-  -- 7. Sync users.role column with assigned role name
+  -- 7. Map RBAC role name to legacy users.role CHECK constraint values
+  --    CHECK allows: admin, owner, office_crew, field_crew, operator, crew, unassigned
+  --    RBAC "Office" role maps to legacy "office_crew"
+  --    Custom roles default to "unassigned" in the legacy column
   SELECT lower(name) INTO v_role_name FROM roles WHERE id = v_role_id;
 
+  v_legacy_role := CASE v_role_name
+    WHEN 'office' THEN 'office_crew'
+    WHEN 'admin'  THEN 'admin'
+    WHEN 'owner'  THEN 'owner'
+    WHEN 'operator' THEN 'operator'
+    WHEN 'crew'   THEN 'crew'
+    WHEN 'unassigned' THEN 'unassigned'
+    ELSE 'unassigned'
+  END;
+
   UPDATE users
-     SET role = COALESCE(v_role_name, 'unassigned')
+     SET role = v_legacy_role
    WHERE id = p_user_id;
 
   -- 8. Assign seat if available
@@ -143,6 +154,7 @@ BEGIN
     'company_id', p_company_id,
     'role_id', v_role_id,
     'role_name', COALESCE(v_role_name, 'unassigned'),
+    'legacy_role', v_legacy_role,
     'seat_granted', v_seat_granted,
     'invitation_found', v_invitation.id IS NOT NULL
   );
