@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS user_dashboard_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   company_id UUID NOT NULL,
   widget_instances JSONB NOT NULL DEFAULT '[]'::jsonb,
   dashboard_layout TEXT DEFAULT 'default',
@@ -21,12 +21,12 @@ ALTER TABLE user_dashboard_preferences ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can read own dashboard preferences"
   ON user_dashboard_preferences FOR SELECT
-  USING (user_id = auth.uid());
+  USING (user_id = private.resolve_uid());
 
 CREATE POLICY "Users can insert own dashboard preferences"
   ON user_dashboard_preferences FOR INSERT
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (user_id = private.resolve_uid());
 
 CREATE POLICY "Users can update own dashboard preferences"
   ON user_dashboard_preferences FOR UPDATE
-  USING (user_id = auth.uid());
+  USING (user_id = private.resolve_uid());
