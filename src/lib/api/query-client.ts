@@ -319,6 +319,13 @@ export const queryKeys = {
     userPermissions: (userId: string) =>
       [...queryKeys.roles.all, "userPermissions", userId] as const,
   },
+  // Team Invitations
+  invitations: {
+    all: ["invitations"] as const,
+    lists: () => [...queryKeys.invitations.all, "list"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.invitations.lists(), companyId] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

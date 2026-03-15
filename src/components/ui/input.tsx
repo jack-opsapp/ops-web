@@ -26,7 +26,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           {prefixIcon && (
-            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
               {prefixIcon}
             </div>
           )}
@@ -41,8 +41,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               "placeholder:text-text-disabled",
               "focus:border-ops-accent focus:outline-none caret-ops-accent",
               "disabled:cursor-not-allowed disabled:opacity-40",
-              prefixIcon && "pl-5",
-              suffixIcon && "pr-5",
+              prefixIcon && "pl-10",
+              suffixIcon && "pr-10",
               error && "border-ops-error focus:border-ops-error",
               className
             )}
@@ -54,7 +54,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {suffixIcon && (
-            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary">
               {suffixIcon}
             </div>
           )}

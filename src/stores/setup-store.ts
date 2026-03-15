@@ -221,6 +221,7 @@ interface SetupState {
   completeStep: (step: keyof SetupSteps) => void;
   completeSetup: () => void;
   reset: () => void;
+  _hydrated: boolean;
 }
 
 const initialState = {
@@ -241,6 +242,7 @@ export const useSetupStore = create<SetupState>()(
   persist(
     (set) => ({
       ...initialState,
+      _hydrated: false,
 
       setPhase: (phase) => set({ phase }),
 
@@ -264,6 +266,11 @@ export const useSetupStore = create<SetupState>()(
     }),
     {
       name: "ops-setup-state",
+      onRehydrateStorage: () => {
+        return () => {
+          useSetupStore.setState({ _hydrated: true });
+        };
+      },
     }
   )
 );

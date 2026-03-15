@@ -34,7 +34,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useCompany } from "@/lib/hooks";
-import { signOut } from "@/lib/firebase/auth";
+import { useSignOutStore } from "@/stores/signout-store";
 import { useDictionary } from "@/i18n/client";
 import {
   DropdownMenu,
@@ -132,7 +132,7 @@ export function Sidebar() {
   const storeCompany = useAuthStore((s) => s.company);
   const { data: freshCompany } = useCompany();
   const company = freshCompany ?? storeCompany;
-  const logout = useAuthStore((s) => s.logout);
+  const beginSignOut = useSignOutStore((s) => s.begin);
   const { t } = useDictionary("sidebar");
   const can = usePermissionStore((s) => s.can);
   const permissionsReady = usePermissionStore(selectPermissionsReady);
@@ -162,13 +162,9 @@ export function Sidebar() {
     });
   }, [allNavItems, can, permissionsReady, isPermissionUnlocked]);
 
-  const handleSignOut = useCallback(async () => {
-    document.cookie = "ops-auth-token=; path=/; max-age=0";
-    document.cookie = "__session=; path=/; max-age=0";
-    logout();
-    try { await signOut(); } catch {}
-    window.location.href = "/login";
-  }, [logout]);
+  const handleSignOut = useCallback(() => {
+    beginSignOut(currentUser?.firstName || "", currentUser?.lastName || "");
+  }, [beginSignOut, currentUser]);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";

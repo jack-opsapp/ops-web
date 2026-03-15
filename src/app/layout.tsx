@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
+import { SignOutOverlay } from "@/components/ops/sign-out-overlay";
 import { getLocale } from "@/i18n/server";
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default async function RootLayout({
         <Providers locale={locale}>
           {children}
           <Toaster />
+          <SignOutOverlay />
         </Providers>
       </body>
     </html>

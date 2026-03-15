@@ -61,6 +61,7 @@ export default function JoinPage() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingApple, setIsLoadingApple] = useState(false);
 
+  const [isJoining, setIsJoining] = useState(false);
   const anyLoading = isSubmitting || isLoadingGoogle || isLoadingApple;
 
   // Fetch invite details on mount
@@ -100,6 +101,7 @@ export default function JoinPage() {
   // Join company after auth
   async function joinCompany() {
     if (!code) return;
+    setIsJoining(true);
     const token = await getIdToken();
     if (!token) throw new Error("Not authenticated");
 
@@ -109,7 +111,10 @@ export default function JoinPage() {
       body: JSON.stringify({ idToken: token, companyCode: code }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to join company");
+    if (!res.ok) {
+      setIsJoining(false);
+      throw new Error(data.error ?? "Failed to join company");
+    }
 
     if (data.user) setUser(data.user);
     if (data.company) setCompany(data.company);
@@ -218,8 +223,8 @@ export default function JoinPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, isAuthenticated, currentUser?.companyId, invite?.valid]);
 
-  // ── Already authenticated + has company ─────────────────────────────────
-  if (!loading && isAuthenticated && currentUser?.companyId) {
+  // ── Already authenticated + has company (but not mid-join) ──────────────
+  if (!loading && !isJoining && isAuthenticated && currentUser?.companyId) {
     return (
       <div className="flex flex-col items-center text-center space-y-4">
         <h1 className="font-mohave text-[28px] font-bold tracking-wide text-text-primary leading-none uppercase">
@@ -315,7 +320,7 @@ export default function JoinPage() {
               Join {invite.companyName}
             </h1>
             {industries.length > 0 && (
-              <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mt-1">
+              <p className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider mt-1">
                 {industries.slice(0, 3).join(" / ")}
               </p>
             )}
@@ -336,11 +341,10 @@ export default function JoinPage() {
                   title={`${m.firstName} ${m.lastName}`}
                 >
                   {m.profileImageUrl ? (
-                    <Image
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
                       src={m.profileImageUrl}
                       alt={`${m.firstName} ${m.lastName}`}
-                      width={28}
-                      height={28}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -358,13 +362,13 @@ export default function JoinPage() {
                 </div>
               )}
             </div>
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-secondary">
               {teamSize} {teamSize === 1 ? "member" : "members"}
             </span>
           </div>
         )}
 
-        <p className="font-mohave text-body-sm text-text-tertiary">
+        <p className="font-mohave text-body-sm text-text-secondary">
           You&apos;ve been invited to join {invite.companyName} on OPS.
         </p>
 

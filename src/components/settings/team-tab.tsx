@@ -12,6 +12,11 @@ import {
   Loader2,
   Plus,
   Info,
+  Clock,
+  Trash2,
+  ChevronDown,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -33,7 +38,11 @@ import {
   useAddSeatedEmployee,
   useRemoveSeatedEmployee,
   useCompany,
+  usePendingInvitations,
+  useUpdateInvitationRole,
+  useRevokeInvitation,
 } from "@/lib/hooks";
+import { useRoles } from "@/lib/hooks/use-roles";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { getUserFullName, getInitials, UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
@@ -214,6 +223,207 @@ function MemberActions({
         loading={deactivateUser.isPending}
       />
     </>
+  );
+}
+
+// ─── Pending Invites Card ────────────────────────────────────────────────────
+
+function PendingInvitesCard() {
+  const { t } = useDictionary("settings");
+  const { data: invitations, isLoading } = usePendingInvitations();
+  const { data: roles } = useRoles();
+  const updateRole = useUpdateInvitationRole();
+  const revokeInvitation = useRevokeInvitation();
+
+  const [roleMenuOpen, setRoleMenuOpen] = useState<string | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+
+  // Filter out expired invitations client-side
+  const now = new Date();
+  const activeInvitations = (invitations ?? []).filter(
+    (inv) => new Date(inv.expiresAt) > now
+  );
+
+  function handleRoleChange(invitationId: string, roleId: string | null) {
+    updateRole.mutate(
+      { invitationId, roleId },
+      {
+        onSuccess: () => {
+          toast.success(t("team.toast.roleAssigned"));
+          setRoleMenuOpen(null);
+        },
+        onError: (err) => toast.error(t("team.toast.roleAssignFailed"), { description: err.message }),
+      }
+    );
+  }
+
+  function handleRevoke(invitationId: string) {
+    revokeInvitation.mutate(invitationId, {
+      onSuccess: () => {
+        toast.success(t("team.toast.inviteRevoked"));
+        setConfirmRevoke(null);
+      },
+      onError: (err) => toast.error(t("team.toast.inviteRevokeFailed"), { description: err.message }),
+    });
+  }
+
+  function formatRelativeDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    const diffMs = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "today";
+    if (diffDays === 1) return "tomorrow";
+    if (diffDays <= 7) return `${diffDays}d`;
+    return `${Math.ceil(diffDays / 7)}w`;
+  }
+
+  function formatSentDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "today";
+    if (diffDays === 1) return "yesterday";
+    if (diffDays <= 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  // Filter roles to exclude "Unassigned" from the dropdown
+  const assignableRoles = (roles ?? []).filter(
+    (r) => r.name.toLowerCase() !== "unassigned"
+  );
+
+  if (!isLoading && activeInvitations.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-1.5">
+          <Clock className="w-[14px] h-[14px] text-text-tertiary" />
+          <CardTitle>{t("team.pendingInvites")} ({activeInvitations.length})</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-0">
+            {activeInvitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+              >
+                {/* Left: recipient + metadata */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center shrink-0">
+                    {inv.email ? (
+                      <Mail className="w-[14px] h-[14px] text-text-disabled" />
+                    ) : (
+                      <Phone className="w-[14px] h-[14px] text-text-disabled" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-mono text-[12px] text-text-primary truncate">
+                      {inv.email ?? inv.phone ?? "—"}
+                    </p>
+                    <div className="flex items-center gap-[6px]">
+                      <span className="font-kosugi text-[9px] text-text-disabled">
+                        {t("team.pendingInvitesSent")} {formatSentDate(inv.createdAt)}
+                      </span>
+                      <span className="font-kosugi text-[9px] text-text-disabled">
+                        {t("team.pendingInvitesExpires")} {formatRelativeDate(inv.expiresAt)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: role selector + revoke */}
+                <div className="flex items-center gap-[6px] shrink-0">
+                  {/* Role dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setRoleMenuOpen(roleMenuOpen === inv.id ? null : inv.id)}
+                      className={cn(
+                        "flex items-center gap-[4px] px-[6px] py-[3px] rounded-sm text-left transition-colors",
+                        "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] hover:bg-background-elevated",
+                        inv.roleName ? "text-text-secondary" : "text-text-disabled"
+                      )}
+                    >
+                      <span className="font-kosugi text-[10px] uppercase tracking-wider">
+                        {inv.roleName ?? t("team.pendingInvitesNoRole")}
+                      </span>
+                      <ChevronDown className="w-[10px] h-[10px]" />
+                    </button>
+
+                    {roleMenuOpen === inv.id && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setRoleMenuOpen(null)} />
+                        <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
+                          <div className="px-1.5 py-[6px]">
+                            <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">
+                              {t("team.pendingInvitesChangeRole")}
+                            </p>
+                            {/* None / unassigned option */}
+                            <button
+                              onClick={() => handleRoleChange(inv.id, null)}
+                              className={cn(
+                                "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
+                                !inv.roleId
+                                  ? "text-ops-accent bg-ops-accent-muted"
+                                  : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                              )}
+                            >
+                              {t("team.pendingInvitesNoRole")}
+                            </button>
+                            {assignableRoles.map((role) => (
+                              <button
+                                key={role.id}
+                                onClick={() => handleRoleChange(inv.id, role.id)}
+                                className={cn(
+                                  "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
+                                  inv.roleId === role.id
+                                    ? "text-ops-accent bg-ops-accent-muted"
+                                    : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                                )}
+                              >
+                                {role.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Revoke button */}
+                  <button
+                    onClick={() => setConfirmRevoke(inv.id)}
+                    className="p-[6px] rounded hover:bg-background-elevated transition-colors group"
+                  >
+                    <Trash2 className="w-[14px] h-[14px] text-text-disabled group-hover:text-ops-error transition-colors" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Revoke confirmation dialog */}
+        <ConfirmDialog
+          open={!!confirmRevoke}
+          onOpenChange={(open) => { if (!open) setConfirmRevoke(null); }}
+          title={t("team.pendingInvitesRevokeTitle")}
+          description={t("team.pendingInvitesRevokeDesc")}
+          confirmLabel={t("team.pendingInvitesRevoke")}
+          variant="destructive"
+          onConfirm={() => confirmRevoke && handleRevoke(confirmRevoke)}
+          loading={revokeInvitation.isPending}
+        />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -399,6 +609,9 @@ export function TeamTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pending Invites */}
+      <PendingInvitesCard />
 
       {/* Deactivated Members */}
       {deactivatedMembers.length > 0 && (

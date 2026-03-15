@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         hostname: "*.amazonaws.com",
         pathname: "/ops-app-files-prod/**",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
   },
   experimental: {

@@ -24,8 +24,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { useSetupStore } from "@/stores/setup-store";
-import { signOut } from "@/lib/firebase/auth";
+import { useSignOutStore } from "@/stores/signout-store";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTasks } from "@/lib/hooks/use-tasks";
@@ -54,6 +53,7 @@ export function CommandPalette() {
   const [search, setSearch] = useState("");
   const router = useRouter();
   const queryClient = useQueryClient();
+  const beginSignOut = useSignOutStore((s) => s.begin);
 
   // Entity data for search (uses cached data, no extra fetches)
   const { data: projectsData } = useProjects(undefined, { enabled: open });
@@ -412,12 +412,8 @@ export function CommandPalette() {
       icon: LogOut,
       onSelect: () => {
         setOpen(false);
-        document.cookie = "ops-auth-token=; path=/; max-age=0";
-        document.cookie = "__session=; path=/; max-age=0";
-        useSetupStore.getState().reset();
-        useAuthStore.getState().logout();
-        signOut().catch(() => {});
-        window.location.href = "/login";
+        const user = useAuthStore.getState().currentUser;
+        beginSignOut(user?.firstName || "", user?.lastName || "");
       },
       keywords: ["logout", "exit"],
     },

@@ -15,6 +15,7 @@ import { queryKeys } from "../api/query-client";
 import { UserService, type FetchUsersOptions } from "../api/services";
 import type { User, UserRole } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
+import { InvitationService } from "../api/services/invitation-service";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -231,6 +232,9 @@ export function useSendInvite() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.users.lists(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.invitations.all,
       });
     },
   });

@@ -23,8 +23,8 @@ import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ops/image-upload";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useEmployeeSetupStore } from "@/stores/employee-setup-store";
-import { useSetupStore } from "@/stores/setup-store";
-import { getIdToken, signOut } from "@/lib/firebase/auth";
+import { useSignOutStore } from "@/stores/signout-store";
+import { getIdToken } from "@/lib/firebase/auth";
 import { cn } from "@/lib/utils/cn";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -177,21 +177,16 @@ function RelationshipSelect({
 
 export default function EmployeeSetupPage() {
   const router = useRouter();
-  const { currentUser, setUser } = useAuthStore();
+  const { currentUser, setUser, isLoading: authLoading } = useAuthStore();
   const store = useEmployeeSetupStore();
+
+  const beginSignOut = useSignOutStore((s) => s.begin);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  async function handleLogout() {
-    try {
-      await signOut();
-      useSetupStore.getState().reset();
-      useAuthStore.getState().logout();
-      router.push("/login");
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
+  function handleLogout() {
+    beginSignOut(currentUser?.firstName || "", currentUser?.lastName || "");
   }
 
   // Pre-populate from auth store
@@ -295,7 +290,15 @@ export default function EmployeeSetupPage() {
     }
   }
 
-  if (!currentUser) return null;
+  if (authLoading || !currentUser) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center">
+        <span className="font-mohave text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse">
+          OPS
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[480px] mx-auto">

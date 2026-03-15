@@ -55,6 +55,13 @@ export {
   useJoinCompany,
 } from "./use-users";
 
+// Team Invitations
+export {
+  usePendingInvitations,
+  useUpdateInvitationRole,
+  useRevokeInvitation,
+} from "./use-invitations";
+
 // Company
 export {
   useCompany,

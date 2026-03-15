@@ -30,7 +30,7 @@ import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults"
 import { IdentityStep1, IdentityStep2 } from "@/components/setup/SetupIdentityStep";
 import { SetupStarfield } from "@/components/setup/SetupStarfield";
 import { SetupLaunchAnimation } from "@/components/setup/SetupLaunchAnimation";
-import { signOut } from "@/lib/firebase/auth";
+import { useSignOutStore } from "@/stores/signout-store";
 import { LogOut } from "lucide-react";
 const MIN_STARFIELD_ANSWERS = 4;
 
@@ -66,14 +66,26 @@ export default function SetupPage() {
     completeSetup,
     reset: resetSetupStore,
   } = useSetupStore();
+  const setupHydrated = useSetupStore((s) => s._hydrated);
 
   const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
 
   // Pre-populate from auth store if available
   const authUser = useAuthStore((s) => s.currentUser);
   const authCompany = useAuthStore((s) => s.company);
+  const authLoading = useAuthStore((s) => s.isLoading);
   const setUser = useAuthStore((s) => s.setUser);
   const hasPrePopulated = useRef(false);
+
+  // ─── Ready gate: wait for store hydration + auth resolution ──────────
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (setupHydrated && !authLoading) {
+      // Small delay to let pre-population effects run before first paint
+      const timer = setTimeout(() => setReady(true), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [setupHydrated, authLoading]);
 
   // Avatar URL: prefer Supabase user, fallback to Firebase auth
   const avatarUrl = authUser?.profileImageURL
@@ -329,16 +341,11 @@ export default function SetupPage() {
     [setStarfieldAnswer]
   );
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await signOut();
-      resetSetupStore();
-      useAuthStore.getState().logout();
-      router.push("/login");
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
-  }, [router, resetSetupStore]);
+  const beginSignOut = useSignOutStore((s) => s.begin);
+  const handleLogout = useCallback(() => {
+    const user = useAuthStore.getState().currentUser;
+    beginSignOut(user?.firstName || "", user?.lastName || "");
+  }, [beginSignOut]);
 
   const handleLaunchFromStarfield = useCallback(async () => {
     if (answeredCount >= MIN_STARFIELD_ANSWERS) {
@@ -440,6 +447,18 @@ export default function SetupPage() {
     steps,
     router,
   ]);
+
+  // ─── Loading gate ───────────────────────────────────────────────────
+
+  if (!ready) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center">
+        <span className="font-mohave text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse">
+          OPS
+        </span>
+      </div>
+    );
+  }
 
   // ─── Starfield phase ──────────────────────────────────────────────────
 
