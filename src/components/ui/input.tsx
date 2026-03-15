@@ -36,7 +36,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         >
           {prefixIcon && (
-            <div className="text-text-tertiary shrink-0 pointer-events-none">
+            <div className="text-text-tertiary shrink-0 pointer-events-none [&_svg]:w-3.5 [&_svg]:h-3.5">
               {prefixIcon}
             </div>
           )}
@@ -58,7 +58,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {suffixIcon && (
-            <div className="text-text-tertiary shrink-0">
+            <div className="text-text-tertiary shrink-0 [&_svg]:w-3.5 [&_svg]:h-3.5">
               {suffixIcon}
             </div>
           )}
