@@ -35,6 +35,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { AccountingConnection, Invoice } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
 import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-dashboard";
 
@@ -340,6 +341,7 @@ export default function AccountingPage() {
   const { t } = useDictionary("accounting");
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
   const { company } = useAuthStore();
+  const can = usePermissionStore((s) => s.can);
   const companyId = company?.id ?? "";
 
   // Data
@@ -445,11 +447,14 @@ export default function AccountingPage() {
 
   // ─── Tabs ─────────────────────────────────────────────────────────────────
 
-  const tabs = useMemo<{ value: TabValue; label: string }[]>(() => [
-    { value: "dashboard", label: t("tabs.dashboard") },
-    { value: "expenses", label: t("tabs.expenses") },
-    { value: "integrations", label: t("tabs.integrations") },
-  ], [t]);
+  const tabs = useMemo<{ value: TabValue; label: string }[]>(() => {
+    const all: { value: TabValue; label: string; show: boolean }[] = [
+      { value: "dashboard", label: t("tabs.dashboard"), show: true },
+      { value: "expenses", label: t("tabs.expenses"), show: can("expenses.approve") },
+      { value: "integrations", label: t("tabs.integrations"), show: can("accounting.manage_connections") },
+    ];
+    return all.filter((tab) => tab.show);
+  }, [t, can]);
 
   return (
     <div className="space-y-3 pb-6">
