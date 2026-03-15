@@ -1,5 +1,5 @@
 -- =================================================================
--- Migration 031: join_user_to_company() function
+-- Migration 031: join_user_to_company() function + role CHECK cleanup
 --
 -- Single source of truth for joining a user to a company.
 -- Called by all platforms (web, iOS, Android) to ensure uniform behavior.
@@ -8,12 +8,22 @@
 --   1. Sets user's company_id
 --   2. Looks up pending invitation (by email, then phone)
 --   3. Assigns RBAC role (from invite > existing > unassigned)
---   4. Syncs users.role column (maps RBAC names to legacy CHECK values)
+--   4. Syncs users.role column with assigned role name
 --   5. Assigns a seat if available (seated_employee_ids < max_seats)
 --
--- Returns JSONB with: success, user_id, company_id, role_id, role_name,
---                      legacy_role, seat_granted, invitation_found
+-- Also removes deprecated office_crew/field_crew from users.role CHECK.
 -- =================================================================
+
+-- ─── Clean up deprecated role values ────────────────────────────────────────
+
+UPDATE users SET role = 'office' WHERE role = 'office_crew';
+UPDATE users SET role = 'crew' WHERE role = 'field_crew';
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+  CHECK (role = ANY (ARRAY['admin', 'owner', 'office', 'operator', 'crew', 'unassigned']));
+
+-- ─── Function ───────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.join_user_to_company(
   p_user_id UUID,
@@ -29,7 +39,6 @@ DECLARE
   v_existing_role_id UUID;
   v_role_id UUID;
   v_role_name TEXT;
-  v_legacy_role TEXT;
   v_seat_granted BOOLEAN := false;
   v_seated_count INT;
   v_user_id_text TEXT;
@@ -113,24 +122,17 @@ BEGIN
   VALUES (v_user_id_text, v_role_id)
   ON CONFLICT (user_id) DO UPDATE SET role_id = EXCLUDED.role_id;
 
-  -- 7. Map RBAC role name to legacy users.role CHECK constraint values
-  --    CHECK allows: admin, owner, office_crew, field_crew, operator, crew, unassigned
-  --    RBAC "Office" role maps to legacy "office_crew"
-  --    Custom roles default to "unassigned" in the legacy column
+  -- 7. Sync users.role column with assigned role name
+  --    CHECK allows: admin, owner, office, operator, crew, unassigned
+  --    Custom roles default to 'unassigned' in the legacy column
   SELECT lower(name) INTO v_role_name FROM roles WHERE id = v_role_id;
 
-  v_legacy_role := CASE v_role_name
-    WHEN 'office' THEN 'office_crew'
-    WHEN 'admin'  THEN 'admin'
-    WHEN 'owner'  THEN 'owner'
-    WHEN 'operator' THEN 'operator'
-    WHEN 'crew'   THEN 'crew'
-    WHEN 'unassigned' THEN 'unassigned'
-    ELSE 'unassigned'
-  END;
+  IF v_role_name NOT IN ('admin', 'owner', 'office', 'operator', 'crew', 'unassigned') THEN
+    v_role_name := 'unassigned';
+  END IF;
 
   UPDATE users
-     SET role = v_legacy_role
+     SET role = COALESCE(v_role_name, 'unassigned')
    WHERE id = p_user_id;
 
   -- 8. Assign seat if available
@@ -154,7 +156,6 @@ BEGIN
     'company_id', p_company_id,
     'role_id', v_role_id,
     'role_name', COALESCE(v_role_name, 'unassigned'),
-    'legacy_role', v_legacy_role,
     'seat_granted', v_seat_granted,
     'invitation_found', v_invitation.id IS NOT NULL
   );
