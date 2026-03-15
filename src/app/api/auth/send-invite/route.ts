@@ -107,6 +107,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join?code=${inviteCode}`;
     const inviterName = [requestingUser.first_name, requestingUser.last_name].filter(Boolean).join(" ") || "A team member";
     const inviterEmail = (requestingUser.email as string) || "";
+
+    // Look up role name if a role was assigned
+    let roleName: string | null = null;
+    if (roleId) {
+      const { data: roleRow } = await db
+        .from("roles")
+        .select("name")
+        .eq("id", roleId)
+        .maybeSingle();
+      if (roleRow?.name && roleRow.name.toLowerCase() !== "unassigned") {
+        roleName = roleRow.name;
+      }
+    }
+
     let emailsSent = 0;
     let smsSent = 0;
 
@@ -168,6 +182,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             inviterName,
             inviterEmail,
             companyCode: inviteCode,
+            roleName,
           });
           emailsSent++;
         } catch (emailError) {

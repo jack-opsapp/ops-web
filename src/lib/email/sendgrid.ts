@@ -146,6 +146,7 @@ export async function sendTeamInvite(params: {
   inviterName: string;
   inviterEmail: string;
   companyCode: string;
+  roleName: string | null;
 }): Promise<void> {
   ensureInitialized();
 
@@ -157,6 +158,7 @@ export async function sendTeamInvite(params: {
     inviterName: params.inviterName,
     inviterEmail: params.inviterEmail,
     companyCode: params.companyCode,
+    roleName: params.roleName,
   });
 
   await sgMail.send({
