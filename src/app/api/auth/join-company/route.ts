@@ -285,10 +285,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .from("user_roles")
           .upsert(
             {
-              user_id: userRow.id,
+              user_id: userRow.id as string,
               role_id: invitation.role_id,
-              assigned_at: new Date().toISOString(),
-              assigned_by: null,
             },
             { onConflict: "user_id" }
           );
@@ -303,7 +301,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { data: existingRole } = await db
       .from("user_roles")
       .select("role_id")
-      .eq("user_id", userRow.id)
+      .eq("user_id", userRow.id as string)
       .maybeSingle();
 
     if (!existingRole) {
@@ -311,8 +309,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await db.from("user_roles").upsert({
         user_id: userRow.id as string,
         role_id: PRESET_ROLE_IDS.UNASSIGNED,
-        assigned_at: new Date().toISOString(),
-        assigned_by: null,
       }, { onConflict: "user_id" });
     }
 
