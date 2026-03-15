@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   UserPlus,
   Shield,
@@ -216,6 +217,14 @@ export function TeamTab() {
   const members = teamData?.users ?? [];
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const searchParams = useSearchParams();
+
+  // Auto-open invite modal when navigated with ?action=invite
+  useEffect(() => {
+    if (searchParams.get("action") === "invite") {
+      setInviteOpen(true);
+    }
+  }, [searchParams]);
 
   const seatedIds = company?.seatedEmployeeIds ?? [];
   const maxSeats = company?.maxSeats ?? 10;

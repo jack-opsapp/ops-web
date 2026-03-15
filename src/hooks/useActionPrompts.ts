@@ -60,7 +60,7 @@ export function useActionPrompts() {
         title: "Invite your team",
         description: "Get your crew on OPS so everyone stays in sync.",
         ctaLabel: "Invite",
-        ctaAction: () => router.push("/settings?tab=team"),
+        ctaAction: () => router.push("/settings?tab=team&action=invite"),
         persistent: true,
         dismissable: true,
         variant: "default",
