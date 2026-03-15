@@ -24,6 +24,8 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useSignOutStore } from "@/stores/signout-store";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
@@ -46,6 +48,7 @@ interface CommandAction {
   shortcut?: string;
   onSelect: () => void;
   keywords?: string[];
+  requiredPermission?: string;
 }
 
 export function CommandPalette() {
@@ -54,6 +57,8 @@ export function CommandPalette() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const beginSignOut = useSignOutStore((s) => s.begin);
+  const can = usePermissionStore((s) => s.can);
+  const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
 
   // Entity data for search (uses cached data, no extra fetches)
   const { data: projectsData } = useProjects(undefined, { enabled: open });
@@ -129,7 +134,7 @@ export function CommandPalette() {
     [router]
   );
 
-  const navigationActions: CommandAction[] = [
+  const navigationActions: CommandAction[] = ([
     {
       id: "nav-dashboard",
       label: "Dashboard",
@@ -145,6 +150,7 @@ export function CommandPalette() {
       shortcut: "2",
       onSelect: () => navigate("/projects"),
       keywords: ["jobs", "work"],
+      requiredPermission: "projects.view",
     },
     {
       id: "nav-calendar",
@@ -153,6 +159,7 @@ export function CommandPalette() {
       shortcut: "3",
       onSelect: () => navigate("/calendar"),
       keywords: ["schedule", "events", "dates"],
+      requiredPermission: "calendar.view",
     },
     {
       id: "nav-clients",
@@ -161,6 +168,7 @@ export function CommandPalette() {
       shortcut: "4",
       onSelect: () => navigate("/clients"),
       keywords: ["customers", "contacts"],
+      requiredPermission: "clients.view",
     },
     {
       id: "nav-job-board",
@@ -169,6 +177,7 @@ export function CommandPalette() {
       shortcut: "5",
       onSelect: () => navigate("/job-board"),
       keywords: ["kanban", "board", "pipeline"],
+      requiredPermission: "job_board.view",
     },
     {
       id: "nav-team",
@@ -177,6 +186,7 @@ export function CommandPalette() {
       shortcut: "6",
       onSelect: () => navigate("/team"),
       keywords: ["crew", "members", "staff"],
+      requiredPermission: "team.view",
     },
     {
       id: "nav-map",
@@ -185,6 +195,7 @@ export function CommandPalette() {
       shortcut: "7",
       onSelect: () => navigate("/map"),
       keywords: ["locations", "tracking", "gps"],
+      requiredPermission: "map.view",
     },
     {
       id: "nav-pipeline",
@@ -193,6 +204,7 @@ export function CommandPalette() {
       shortcut: "8",
       onSelect: () => navigate("/pipeline"),
       keywords: ["leads", "sales", "crm"],
+      requiredPermission: "pipeline.view",
     },
     {
       id: "nav-invoices",
@@ -201,6 +213,7 @@ export function CommandPalette() {
       shortcut: "9",
       onSelect: () => navigate("/invoices"),
       keywords: ["billing", "payments"],
+      requiredPermission: "invoices.view",
     },
     {
       id: "nav-accounting",
@@ -208,6 +221,7 @@ export function CommandPalette() {
       icon: Calculator,
       onSelect: () => navigate("/accounting"),
       keywords: ["finance", "money", "quickbooks"],
+      requiredPermission: "accounting.view",
     },
     {
       id: "nav-settings",
@@ -216,9 +230,13 @@ export function CommandPalette() {
       onSelect: () => navigate("/settings"),
       keywords: ["preferences", "profile", "account"],
     },
-  ];
+  ] as CommandAction[]).filter(
+    (a) =>
+      !a.requiredPermission ||
+      (isPermissionUnlocked(a.requiredPermission) && can(a.requiredPermission))
+  );
 
-  const quickActions: CommandAction[] = [
+  const quickActions: CommandAction[] = ([
     {
       id: "action-new-project",
       label: "New Project",
@@ -226,6 +244,7 @@ export function CommandPalette() {
       shortcut: "\u2318\u21E7P",
       onSelect: () => navigate("/projects/new"),
       keywords: ["create", "add", "project"],
+      requiredPermission: "projects.create",
     },
     {
       id: "action-new-client",
@@ -234,6 +253,7 @@ export function CommandPalette() {
       shortcut: "\u2318\u21E7C",
       onSelect: () => navigate("/clients/new"),
       keywords: ["create", "add", "customer"],
+      requiredPermission: "clients.create",
     },
     {
       id: "action-sync",
@@ -246,9 +266,11 @@ export function CommandPalette() {
       },
       keywords: ["refresh", "update", "fetch"],
     },
-  ];
+  ] as CommandAction[]).filter(
+    (a) => !a.requiredPermission || can(a.requiredPermission)
+  );
 
-  const settingsActions: CommandAction[] = [
+  const settingsActions: CommandAction[] = ([
     {
       id: "settings-profile",
       label: "Profile",
@@ -283,6 +305,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=company"),
       keywords: ["settings", "organization", "business", "logo", "address"],
+      requiredPermission: "settings.company",
     },
     {
       id: "settings-team",
@@ -290,6 +313,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=team"),
       keywords: ["settings", "crew", "staff", "employees", "invite", "members"],
+      requiredPermission: "team.view",
     },
     {
       id: "settings-roles",
@@ -297,6 +321,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=roles"),
       keywords: ["settings", "permissions", "access", "admin", "roles"],
+      requiredPermission: "team.assign_roles",
     },
     {
       id: "settings-task-types",
@@ -304,6 +329,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=task-types"),
       keywords: ["settings", "categories", "task", "types", "operations"],
+      requiredPermission: "settings.company",
     },
     {
       id: "settings-inventory",
@@ -311,6 +337,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=inventory"),
       keywords: ["settings", "materials", "stock", "supplies", "equipment"],
+      requiredPermission: "inventory.manage",
     },
     {
       id: "settings-expenses",
@@ -318,6 +345,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=expenses"),
       keywords: ["settings", "expense", "categories", "receipts", "costs"],
+      requiredPermission: "expenses.configure",
     },
     {
       id: "settings-quick-actions",
@@ -332,6 +360,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=subscription"),
       keywords: ["settings", "plan", "billing", "upgrade", "pricing"],
+      requiredPermission: "settings.billing",
     },
     {
       id: "settings-billing",
@@ -339,6 +368,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=billing"),
       keywords: ["settings", "payment", "card", "invoice", "billing"],
+      requiredPermission: "settings.billing",
     },
     {
       id: "settings-integrations",
@@ -346,6 +376,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=integrations"),
       keywords: ["settings", "email", "smtp", "integration", "connect"],
+      requiredPermission: "settings.integrations",
     },
     {
       id: "settings-portal",
@@ -353,6 +384,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=portal"),
       keywords: ["settings", "portal", "branding", "client", "customer"],
+      requiredPermission: "portal.manage_branding",
     },
     {
       id: "settings-templates",
@@ -360,6 +392,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=templates"),
       keywords: ["settings", "templates", "documents", "proposals", "contracts"],
+      requiredPermission: "documents.manage_templates",
     },
     {
       id: "settings-accounting",
@@ -367,6 +400,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=accounting"),
       keywords: ["settings", "quickbooks", "xero", "accounting", "finance"],
+      requiredPermission: "accounting.manage_connections",
     },
     {
       id: "settings-preferences",
@@ -389,7 +423,9 @@ export function CommandPalette() {
       onSelect: () => navigate("/settings?tab=data-privacy"),
       keywords: ["settings", "data", "privacy", "export", "delete", "gdpr"],
     },
-  ];
+  ] as CommandAction[]).filter(
+    (a) => !a.requiredPermission || can(a.requiredPermission)
+  );
 
   const systemActions: CommandAction[] = [
     {

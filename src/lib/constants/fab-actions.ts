@@ -18,6 +18,7 @@ export interface FABAction {
   triggerAction: string;
   handler: "window" | "route";
   target: FloatingWindowType | string;
+  requiredPermission?: string;
 }
 
 /** Type guard: true when action.target is a valid FloatingWindowType */
@@ -26,14 +27,14 @@ export function isWindowAction(action: FABAction): action is FABAction & { targe
 }
 
 export const ALL_ACTIONS: FABAction[] = [
-  { id: "expense",   label: "Add Expense",   icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/expenses?action=new" },
-  { id: "lead",      label: "New Lead",      icon: TrendingUp,    triggerAction: "leads",      handler: "route",  target: "/pipeline?action=new" },
-  { id: "estimate",  label: "New Estimate",  icon: Calculator,    triggerAction: "estimates",  handler: "route",  target: "/estimates?action=new" },
-  { id: "client",    label: "New Client",    icon: Users,         triggerAction: "clients",    handler: "window", target: "create-client" },
-  { id: "project",   label: "New Project",   icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "create-project" },
-  { id: "task",      label: "New Task",      icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task" },
-  { id: "task-type", label: "New Task Type", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company" },
-  { id: "inventory-item", label: "New Item", icon: Boxes, triggerAction: "inventory", handler: "route", target: "/inventory?action=new" },
+  { id: "expense",        label: "Add Expense",   icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/expenses?action=new",   requiredPermission: "expenses.create" },
+  { id: "lead",           label: "New Lead",      icon: TrendingUp,    triggerAction: "leads",      handler: "route",  target: "/pipeline?action=new",   requiredPermission: "pipeline.manage" },
+  { id: "estimate",       label: "New Estimate",  icon: Calculator,    triggerAction: "estimates",  handler: "route",  target: "/estimates?action=new",  requiredPermission: "estimates.create" },
+  { id: "client",         label: "New Client",    icon: Users,         triggerAction: "clients",    handler: "window", target: "create-client",          requiredPermission: "clients.create" },
+  { id: "project",        label: "New Project",   icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "create-project",         requiredPermission: "projects.create" },
+  { id: "task",           label: "New Task",      icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task",            requiredPermission: "tasks.create" },
+  { id: "task-type",      label: "New Task Type", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company",  requiredPermission: "settings.company" },
+  { id: "inventory-item", label: "New Item",      icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/inventory?action=new",  requiredPermission: "inventory.manage" },
 ];
 
 export const DEFAULT_ACTION_IDS = ALL_ACTIONS.map((a) => a.id);

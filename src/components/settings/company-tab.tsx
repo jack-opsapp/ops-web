@@ -11,6 +11,7 @@ import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { cn } from "@/lib/utils/cn";
 
 export function CompanyTab() {
   const { t } = useDictionary("settings");
@@ -41,6 +42,9 @@ export function CompanyTab() {
   const [companyDescription, setCompanyDescription] = useState("");
   const [openHour, setOpenHour] = useState("");
   const [closeHour, setCloseHour] = useState("");
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [companySize, setCompanySize] = useState("");
+  const [companyAge, setCompanyAge] = useState("");
 
   useEffect(() => {
     if (company) {
@@ -52,6 +56,9 @@ export function CompanyTab() {
       setCompanyDescription(company.companyDescription ?? "");
       setOpenHour(company.openHour ?? "");
       setCloseHour(company.closeHour ?? "");
+      setIndustries(company.industries ?? []);
+      setCompanySize(company.companySize ?? "");
+      setCompanyAge(company.companyAge ?? "");
     }
   }, [company]);
 
@@ -71,6 +78,9 @@ export function CompanyTab() {
           companyDescription: companyDescription.trim() || null,
           openHour: openHour.trim() || null,
           closeHour: closeHour.trim() || null,
+          industries,
+          companySize: companySize.trim() || null,
+          companyAge: companyAge.trim() || null,
         },
       },
       {
@@ -222,6 +232,86 @@ export function CompanyTab() {
               <Input value={openHour} onChange={(e) => setOpenHour(e.target.value)} placeholder={t("company.hoursStartPlaceholder")} className="flex-1" />
               <span className="font-mohave text-body text-text-tertiary shrink-0">to</span>
               <Input value={closeHour} onChange={(e) => setCloseHour(e.target.value)} placeholder={t("company.hoursEndPlaceholder")} className="flex-1" />
+            </div>
+          </div>
+
+          {/* Industries */}
+          <div className="flex flex-col gap-0.5">
+            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              Industries
+            </label>
+            <div className="flex flex-wrap gap-1">
+              {["General Contracting", "Plumbing", "Electrical", "HVAC", "Roofing", "Landscaping", "Painting", "Flooring", "Concrete", "Demolition", "Excavation", "Fencing", "Framing", "Insulation", "Masonry", "Solar", "Welding", "Windows & Doors"].map((ind) => (
+                <button
+                  key={ind}
+                  type="button"
+                  disabled={!can("settings.company")}
+                  onClick={() =>
+                    setIndustries((prev) =>
+                      prev.includes(ind) ? prev.filter((i) => i !== ind) : [...prev, ind]
+                    )
+                  }
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm text-caption font-mohave transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                    industries.includes(ind)
+                      ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                      : "bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-text-tertiary"
+                  )}
+                >
+                  {ind}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Company Size + Age */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <div className="flex flex-col gap-0.5">
+              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                Company Size
+              </label>
+              <div className="flex gap-1">
+                {["1-5", "6-15", "16-50", "51-200", "200+"].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={!can("settings.company")}
+                    onClick={() => setCompanySize(opt)}
+                    className={cn(
+                      "flex-1 px-2 py-1 rounded-sm text-caption font-mohave transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                      companySize === opt
+                        ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                        : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                Company Age
+              </label>
+              <div className="flex gap-1 flex-wrap">
+                {["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+"].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={!can("settings.company")}
+                    onClick={() => setCompanyAge(opt)}
+                    className={cn(
+                      "px-2 py-1 rounded-sm text-caption font-mohave transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                      companyAge === opt
+                        ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                        : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

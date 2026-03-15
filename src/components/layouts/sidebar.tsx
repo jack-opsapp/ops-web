@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import {
   LayoutDashboard,
@@ -26,7 +26,6 @@ import {
   Globe,
   GraduationCap,
   Smartphone,
-  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useSidebarStore } from "@/stores/sidebar-store";
@@ -36,6 +35,9 @@ import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useCompany } from "@/lib/hooks";
 import { useSignOutStore } from "@/stores/signout-store";
 import { useDictionary } from "@/i18n/client";
+import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
+import { useFeatureAccessRequests } from "@/lib/hooks/use-feature-access-requests";
+import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitions";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -50,6 +52,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   /** Permission required to see this nav item (omit = always visible) */
   permission?: string;
+  gated?: boolean;
 }
 
 type NavEntry = NavItem | "divider";
@@ -88,32 +91,58 @@ function NavItemButton({
   item,
   isActive,
   isCollapsed,
+  isRequested,
+  onGatedClick,
 }: {
   item: NavItem;
   isActive: boolean;
   isCollapsed: boolean;
+  isRequested?: boolean;
+  onGatedClick?: () => void;
 }) {
   const router = useRouter();
 
+  const tooltipText = item.gated
+    ? isRequested
+      ? "Access requested \u2014 we\u2019ll be in touch"
+      : "In development"
+    : isCollapsed
+      ? item.label
+      : undefined;
+
   return (
     <button
-      onClick={() => router.push(item.href)}
-      title={isCollapsed ? item.label : undefined}
+      onClick={() => {
+        if (item.gated && onGatedClick) {
+          onGatedClick();
+        } else if (!item.gated) {
+          router.push(item.href);
+        }
+      }}
+      title={tooltipText}
       className={cn(
         "group relative flex items-center w-full rounded transition-all duration-150",
-        "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
         isCollapsed ? "justify-center px-0 py-1.5 mx-auto" : "gap-1.5 px-1.5 py-1",
-        isActive && [
-          "text-text-primary bg-[rgba(255,255,255,0.06)]",
-          "border-l-2 border-l-[rgba(255,255,255,0.2)]",
-        ],
-        !isActive && "border-l-2 border-l-transparent"
+        item.gated
+          ? "text-text-disabled opacity-50 cursor-pointer hover:opacity-70"
+          : [
+              "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
+              isActive && [
+                "text-text-primary bg-[rgba(255,255,255,0.06)]",
+                "border-l-2 border-l-[rgba(255,255,255,0.2)]",
+              ],
+              !isActive && "border-l-2 border-l-transparent",
+            ]
       )}
     >
       <item.icon
         className={cn(
           "shrink-0 w-[20px] h-[20px] transition-colors",
-          isActive ? "text-text-primary" : "text-text-tertiary group-hover:text-text-secondary"
+          item.gated
+            ? "text-text-disabled"
+            : isActive
+              ? "text-text-primary"
+              : "text-text-tertiary group-hover:text-text-secondary"
         )}
       />
       {!isCollapsed && (
@@ -137,24 +166,34 @@ export function Sidebar() {
   const permissionsReady = usePermissionStore(selectPermissionsReady);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
   const hasInventoryAccess = currentUser?.inventoryAccess ?? false;
+  const [accessModalOpen, setAccessModalOpen] = useState(false);
+  const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
+  const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
   const allNavItems = useMemo(
     () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
     [t, hasInventoryAccess]
   );
 
-  // Filter nav items by permission (only gate when permissions are loaded)
   const navItems = useMemo(() => {
     if (!permissionsReady) return allNavItems;
 
-    const filtered = allNavItems.filter((entry) => {
-      if (entry === "divider") return true;
-      if (!entry.permission) return true;
-      if (!isPermissionUnlocked(entry.permission)) return false;
-      return can(entry.permission);
-    });
+    const mapped = allNavItems.map((entry) => {
+      if (entry === "divider") return entry;
+      if (!entry.permission) return entry;
+
+      // Feature flag check — if gated, keep visible but mark as gated
+      if (!isPermissionUnlocked(entry.permission)) {
+        return { ...entry, gated: true };
+      }
+
+      // RBAC permission check — hide if user lacks permission
+      if (!can(entry.permission)) return null;
+
+      return entry;
+    }).filter((entry): entry is NavEntry => entry !== null);
 
     // Clean up consecutive/leading/trailing dividers
-    return filtered.filter((entry, i, arr) => {
+    return mapped.filter((entry, i, arr) => {
       if (entry !== "divider") return true;
       if (i === 0 || i === arr.length - 1) return false;
       return arr[i - 1] !== "divider";
@@ -214,12 +253,24 @@ export function Sidebar() {
               <div key={`div-${i}`} className="my-1 mx-1.5 h-px bg-[rgba(255,255,255,0.06)]" />
             );
           }
+          const slug = entry.permission ? getSlugForPermission(entry.permission) : null;
+          const isRequested = slug ? requestedSlugs?.has(slug) ?? false : false;
+
           return (
             <NavItemButton
               key={entry.href}
               item={entry}
-              isActive={isActive(entry.href)}
+              isActive={!entry.gated && isActive(entry.href)}
               isCollapsed={isCollapsed}
+              isRequested={isRequested}
+              onGatedClick={
+                entry.gated && slug
+                  ? () => {
+                      setAccessModalFeature({ label: entry.label, slug });
+                      setAccessModalOpen(true);
+                    }
+                  : undefined
+              }
             />
           );
         })}
@@ -331,6 +382,21 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Feature Access Request Modal */}
+      {accessModalFeature && (
+        <FeatureAccessModal
+          open={accessModalOpen}
+          onClose={() => {
+            setAccessModalOpen(false);
+            setAccessModalFeature(null);
+          }}
+          featureLabel={accessModalFeature.label}
+          featureSlug={accessModalFeature.slug}
+          alreadyRequested={requestedSlugs?.has(accessModalFeature.slug) ?? false}
+          onRequestSubmitted={() => refetchRequests()}
+        />
+      )}
     </aside>
   );
 }

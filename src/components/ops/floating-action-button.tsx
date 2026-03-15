@@ -8,6 +8,9 @@ import { type FABAction, ALL_ACTIONS, DEFAULT_ACTION_IDS, isWindowAction } from 
 import { cn } from "@/lib/utils/cn";
 import { useWindowStore } from "@/stores/window-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
+import { getSlugForRoute } from "@/lib/feature-flags/feature-flag-definitions";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import {
@@ -30,6 +33,8 @@ export function FloatingActionButton() {
   const router = useRouter();
   const openWindow = useWindowStore((s) => s.openWindow);
   const { currentUser, updateFabActions } = useAuthStore();
+  const can = usePermissionStore((s) => s.can);
+  const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
 
   // ── Setup gate ──────────────────────────────────────────────────────────
   const { isComplete, missingSteps } = useSetupGate();
@@ -44,7 +49,18 @@ export function FloatingActionButton() {
   const userActionIds = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
   const activeActions = userActionIds
     .map((id) => ALL_ACTIONS.find((a) => a.id === id))
-    .filter(Boolean) as FABAction[];
+    .filter((action): action is FABAction => !!action)
+    .filter((action) => !action.requiredPermission || can(action.requiredPermission))
+    .filter((action) => {
+      const route =
+        typeof action.target === "string" && action.target.startsWith("/")
+          ? action.target.split("?")[0]
+          : null;
+      if (!route) return true;
+      const slug = getSlugForRoute(route);
+      if (!slug) return true;
+      return canAccessFeature(slug);
+    });
 
   // ── Close on outside click ──────────────────────────────────────────────
   useEffect(() => {
@@ -94,6 +110,7 @@ export function FloatingActionButton() {
   // ── Handle action click ─────────────────────────────────────────────────
   const handleAction = (action: FABAction) => {
     if (editMode) return;
+    if (action.requiredPermission && !can(action.requiredPermission)) return;
     gatedAction(() => {
       if (isWindowAction(action)) {
         openWindow({
