@@ -243,3 +243,42 @@ export const notifModalVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.2 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
+
+// ── Lockout overlay animations ──
+
+/** Lockout backdrop — full-screen frosted overlay fade */
+export const lockoutBackdropVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.4, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.3, ease: EASE_SMOOTH } },
+};
+
+/** Lockout card — rises into view with slight scale */
+export const lockoutCardVariants: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: EASE_SMOOTH, delay: 0.1 },
+  },
+  exit: {
+    opacity: 0,
+    y: 20,
+    scale: 0.97,
+    transition: { duration: 0.3, ease: EASE_SMOOTH },
+  },
+};
+
+/** Lockout reduced motion — opacity only, no transforms */
+export const lockoutBackdropVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+export const lockoutCardVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2, delay: 0.05 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
