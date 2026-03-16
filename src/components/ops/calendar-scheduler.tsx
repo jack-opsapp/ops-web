@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -42,6 +43,34 @@ export interface CalendarSchedulerProps {
   events?: SchedulerEvent[];
   /** Label shown above the trigger / header */
   label?: string;
+  /** Existing tasks in the project — shown as colored bars on calendar */
+  projectTasks?: Array<{
+    id: string;
+    startDate: Date | null;
+    endDate: Date | null;
+    taskColor: string;
+    title: string;
+  }>;
+  /** Dates where selected team members are booked on other projects */
+  teamConflicts?: Array<{
+    date: Date;
+    memberName: string;
+    projectTitle: string;
+  }>;
+  /** Date ranges that are blocked due to dependency constraints */
+  blockedDates?: Array<{
+    start: Date;
+    end: Date;
+    reason: string;
+  }>;
+  /** When true, calendar is always expanded (no collapse trigger) */
+  alwaysExpanded?: boolean;
+  /** Callback when scheduling conflicts are detected in selected range */
+  onConflictDetected?: (conflicts: Array<{
+    type: "team_conflict" | "dependency_violation";
+    message: string;
+    severity: "warning" | "error";
+  }>) => void;
 }
 
 type SelectionMode = "idle" | "selecting" | "reviewing";
@@ -90,6 +119,23 @@ function monthYearLabel(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+/** Check if a date falls within an inclusive range [start, end]. */
+function isDateInRange(date: Date, start: Date, end: Date): boolean {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const s = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const e = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+  return d >= s && d <= e;
+}
+
+/** Check if two dates represent the same calendar day. */
+function isSameDayLoose(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 /** Build a 6×7 (42-day) grid starting from Monday of the week containing the first of the month. */
 function getMonthGrid(month: Date): Date[] {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -118,6 +164,11 @@ export function CalendarScheduler({
   onClear,
   events = [],
   label = "Schedule",
+  projectTasks,
+  teamConflicts,
+  blockedDates,
+  alwaysExpanded,
+  onConflictDetected,
 }: CalendarSchedulerProps) {
   // Parse initial dates
   const initStart = parseISODate(startProp ?? "");
@@ -133,7 +184,8 @@ export function CalendarScheduler({
     const base = initStart ?? new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
-  const [expanded, setExpanded] = useState(!hasInitial);
+  const [expanded, setExpanded] = useState(alwaysExpanded ? true : !hasInitial);
+  const [detectedConflicts, setDetectedConflicts] = useState<Array<{ type: string; message: string; severity: string }>>([]);
 
   const grid = useMemo(() => getMonthGrid(currentMonth), [currentMonth]);
   const hasSelection = mode === "reviewing" && !!selectedStart && !!selectedEnd;
@@ -151,14 +203,51 @@ export function CalendarScheduler({
     [events]
   );
 
+  // ── Project task lookup ──────────────────────────────────────────────────
+
+  const tasksForDate = useCallback(
+    (date: Date) => {
+      if (!projectTasks) return [];
+      return projectTasks.filter((t) => {
+        if (!t.startDate || !t.endDate) return false;
+        return isDateInRange(date, t.startDate, t.endDate);
+      });
+    },
+    [projectTasks]
+  );
+
+  // ── Team conflict lookup ────────────────────────────────────────────────
+
+  const conflictsForDate = useCallback(
+    (date: Date) => {
+      if (!teamConflicts) return [];
+      return teamConflicts.filter((c) => isSameDayLoose(date, c.date));
+    },
+    [teamConflicts]
+  );
+
+  // ── Blocked date lookup ─────────────────────────────────────────────────
+
+  const isDateBlocked = useCallback(
+    (date: Date) => {
+      if (!blockedDates) return false;
+      return blockedDates.some((b) => isDateInRange(date, b.start, b.end));
+    },
+    [blockedDates]
+  );
+
   // ── Selection handlers ────────────────────────────────────────────────────
 
   function handleDateClick(date: Date) {
+    // Skip blocked dates
+    if (isDateBlocked(date)) return;
+
     if (mode === "idle" || mode === "reviewing") {
       // First click — set start
       setSelectedStart(date);
       setSelectedEnd(date);
       setMode("selecting");
+      setDetectedConflicts([]);
     } else {
       // Second click — set end, auto-sort
       let s = selectedStart!;
@@ -168,6 +257,60 @@ export function CalendarScheduler({
       setSelectedEnd(e);
       setMode("reviewing");
       onDateChange(toISODate(s), toISODate(e));
+
+      // Detect conflicts in selected range
+      detectConflictsInRange(s, e);
+    }
+  }
+
+  function detectConflictsInRange(rangeStart: Date, rangeEnd: Date) {
+    const conflicts: Array<{
+      type: "team_conflict" | "dependency_violation";
+      message: string;
+      severity: "warning" | "error";
+    }> = [];
+
+    // Check team conflicts
+    if (teamConflicts) {
+      const overlapping = teamConflicts.filter((c) =>
+        isDateInRange(c.date, rangeStart, rangeEnd)
+      );
+      // Deduplicate by member + project
+      const seen = new Set<string>();
+      for (const c of overlapping) {
+        const key = `${c.memberName}|${c.projectTitle}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          conflicts.push({
+            type: "team_conflict",
+            message: `${c.memberName} is booked on "${c.projectTitle}" during this period`,
+            severity: "warning",
+          });
+        }
+      }
+    }
+
+    // Check blocked dates
+    if (blockedDates) {
+      for (const b of blockedDates) {
+        // Check if blocked range overlaps with selected range
+        const blockedStart = new Date(b.start.getFullYear(), b.start.getMonth(), b.start.getDate()).getTime();
+        const blockedEnd = new Date(b.end.getFullYear(), b.end.getMonth(), b.end.getDate()).getTime();
+        const selStart = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
+        const selEnd = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
+        if (blockedStart <= selEnd && blockedEnd >= selStart) {
+          conflicts.push({
+            type: "dependency_violation",
+            message: b.reason,
+            severity: "error",
+          });
+        }
+      }
+    }
+
+    setDetectedConflicts(conflicts);
+    if (conflicts.length > 0) {
+      onConflictDetected?.(conflicts);
     }
   }
 
@@ -175,6 +318,7 @@ export function CalendarScheduler({
     setSelectedStart(null);
     setSelectedEnd(null);
     setMode("idle");
+    setDetectedConflicts([]);
     onClear?.();
   }
 
@@ -201,12 +345,16 @@ export function CalendarScheduler({
     const inRange =
       !!(selectedStart && selectedEnd && date > selectedStart && date < selectedEnd);
     const dots = eventsForDate(date);
-    return { inMonth, today, isStart, isEnd, singleDay, inRange, dots };
+    const tasks = tasksForDate(date);
+    const conflicts = conflictsForDate(date);
+    const blocked = isDateBlocked(date);
+    const hasProjectTasks = !!projectTasks;
+    return { inMonth, today, isStart, isEnd, singleDay, inRange, dots, tasks, conflicts, blocked, hasProjectTasks };
   }
 
   // ── Collapsed trigger ─────────────────────────────────────────────────────
 
-  if (!expanded) {
+  if (!expanded && !alwaysExpanded) {
     return (
       <div className="flex flex-col gap-0.5">
         <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
@@ -370,22 +518,36 @@ export function CalendarScheduler({
                 key={i}
                 date={date}
                 {...s}
-                onClick={() => s.inMonth && handleDateClick(date)}
+                onClick={() => s.inMonth && !s.blocked && handleDateClick(date)}
               />
             );
           })}
         </div>
       </div>
 
+      {/* Conflict warning banner */}
+      {detectedConflicts.length > 0 && (
+        <div className="bg-financial-overdue/10 border border-financial-overdue/20 rounded-[3px] p-3 mt-2" role="alert">
+          {detectedConflicts.map((c, i) => (
+            <div key={i} className="flex items-start gap-2 mb-1 last:mb-0">
+              <AlertTriangle className="w-[14px] h-[14px] text-financial-overdue shrink-0 mt-[2px]" />
+              <span className="font-mohave text-body-sm text-text-secondary">{c.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Actions row */}
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
-        >
-          {hasSelection ? "Collapse" : "Cancel"}
-        </button>
+        {!alwaysExpanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
+          >
+            {hasSelection ? "Collapse" : "Cancel"}
+          </button>
+        )}
 
         <div className="flex-1" />
 
@@ -415,6 +577,10 @@ function DayCell({
   singleDay,
   inRange,
   dots,
+  tasks,
+  conflicts,
+  blocked,
+  hasProjectTasks,
   onClick,
 }: {
   date: Date;
@@ -425,18 +591,24 @@ function DayCell({
   singleDay: boolean;
   inRange: boolean;
   dots: SchedulerEvent[];
+  tasks: Array<{ id: string; startDate: Date | null; endDate: Date | null; taskColor: string; title: string }>;
+  conflicts: Array<{ date: Date; memberName: string; projectTitle: string }>;
+  blocked: boolean;
+  hasProjectTasks: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={!inMonth}
+      onClick={blocked ? undefined : onClick}
+      disabled={!inMonth || blocked}
+      aria-disabled={blocked || undefined}
       className={cn(
         "relative h-[36px] flex flex-col items-center justify-center",
         "transition-all duration-100",
         !inMonth && "opacity-20 cursor-default",
-        inMonth && "cursor-pointer hover:bg-[rgba(255,255,255,0.04)]"
+        inMonth && !blocked && "cursor-pointer hover:bg-[rgba(255,255,255,0.04)]",
+        blocked && "opacity-30 pointer-events-none"
       )}
     >
       {/* Today accent background */}
@@ -461,6 +633,14 @@ function DayCell({
         </>
       )}
 
+      {/* Team conflict indicator — amber triangle top-right */}
+      {conflicts.length > 0 && (
+        <div
+          className="absolute top-0 right-0 w-0 h-0 border-l-[6px] border-b-[6px] border-l-transparent border-b-transparent border-t-[6px] border-r-[6px] border-t-[#D4A574] border-r-[#D4A574] z-20"
+          title={conflicts.map((c) => `${c.memberName} — ${c.projectTitle}`).join(", ")}
+        />
+      )}
+
       {/* Day number */}
       <span
         className={cn(
@@ -475,8 +655,25 @@ function DayCell({
         {date.getDate()}
       </span>
 
-      {/* Event dots */}
-      {dots.length > 0 && (
+      {/* Project task bars (take precedence over event dots) */}
+      {hasProjectTasks && tasks.length > 0 ? (
+        <div className="relative z-10 flex flex-col gap-[1px] mt-[1px] w-full px-[3px]">
+          {tasks.slice(0, 2).map((t, j) => (
+            <div
+              key={t.id + j}
+              className="h-[3px] rounded-[1px] w-full"
+              style={{ backgroundColor: t.taskColor }}
+              title={t.title}
+            />
+          ))}
+          {tasks.length > 2 && (
+            <span className="font-mohave text-[7px] text-text-tertiary leading-none text-center">
+              +{tasks.length - 2}
+            </span>
+          )}
+        </div>
+      ) : !hasProjectTasks && dots.length > 0 ? (
+        /* Event dots — only when projectTasks is not provided */
         <div className="relative z-10 flex gap-[2px] mt-[1px]">
           {dots.slice(0, 3).map((ev, j) => (
             <div
@@ -486,7 +683,7 @@ function DayCell({
             />
           ))}
         </div>
-      )}
+      ) : null}
     </button>
   );
 }
