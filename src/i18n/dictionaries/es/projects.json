@@ -149,7 +149,18 @@
     "notScheduled": "Sin programar",
     "tbd": "Por definir",
     "edit": "Editar",
-    "projectInfo": "Info del Proyecto"
+    "projectInfo": "Info del Proyecto",
+    "durationDays": "días",
+    "searchClients": "Buscar clientes...",
+    "removeClient": "Quitar cliente",
+    "noClientsFound": "No se encontraron clientes",
+    "clientUpdated": "Cliente actualizado",
+    "clientUpdateFailed": "Error al actualizar cliente",
+    "enterAddress": "Ingresar dirección...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "locationUpdated": "Ubicación actualizada",
+    "locationUpdateFailed": "Error al actualizar ubicación"
   },
 
   "tabs": {

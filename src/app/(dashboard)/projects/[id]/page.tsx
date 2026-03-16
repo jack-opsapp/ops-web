@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
@@ -14,6 +14,8 @@ import {
   MoreHorizontal,
   Info,
   X,
+  Search,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,13 +45,6 @@ import { NotificationService } from "@/lib/api/services/notification-service";
 import { useCreateProjectPhoto } from "@/lib/hooks/use-project-photos";
 import type { NoteAttachment, ProjectNote } from "@/lib/types/pipeline";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -57,21 +52,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   useProject,
+  useUpdateProject,
   useUpdateProjectStatus,
   useDeleteProject,
 } from "@/lib/hooks/use-projects";
 import { useProjectEstimates, useProjectInvoices } from "@/lib/hooks";
-import { useClient } from "@/lib/hooks/use-clients";
+import { useClient, useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useProjectTasks } from "@/lib/hooks/use-tasks";
 import { useTaskTypes } from "@/lib/hooks/use-task-types";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import {
   type Project,
   type ProjectTask,
   type User,
+  type Client,
   ProjectStatus,
   TaskStatus,
   getUserFullName,
@@ -262,6 +258,106 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
   const { data: taskTypes } = useTaskTypes();
   const { data: estimates = [] } = useProjectEstimates(project.id);
   const { data: invoices = [] } = useProjectInvoices(project.id);
+  const updateProjectMutation = useUpdateProject();
+
+  // ── Inline client picker state ──
+  const [editingClient, setEditingClient] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const clientSearchRef = useRef<HTMLInputElement>(null);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+  const { data: clientsData } = useClients();
+  const allClients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
+  const filteredClients = useMemo(() => {
+    if (!clientSearch.trim()) return allClients.slice(0, 20);
+    const q = clientSearch.toLowerCase();
+    return allClients.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 20);
+  }, [allClients, clientSearch]);
+
+  // Focus search input when editing starts
+  useEffect(() => {
+    if (editingClient && clientSearchRef.current) {
+      clientSearchRef.current.focus();
+    }
+  }, [editingClient]);
+
+  // Close client picker on click outside
+  useEffect(() => {
+    if (!editingClient) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setEditingClient(false);
+        setClientSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [editingClient]);
+
+  const handleClientSelect = useCallback(
+    (selectedClient: Client) => {
+      updateProjectMutation.mutate(
+        { id: project.id, data: { clientId: selectedClient.id } },
+        {
+          onSuccess: () => {
+            setEditingClient(false);
+            setClientSearch("");
+            toast.success(t("sidebar.clientUpdated"));
+          },
+          onError: () => toast.error(t("sidebar.clientUpdateFailed")),
+        }
+      );
+    },
+    [project.id, updateProjectMutation, t]
+  );
+
+  const handleClearClient = useCallback(() => {
+    updateProjectMutation.mutate(
+      { id: project.id, data: { clientId: null as unknown as string } },
+      {
+        onSuccess: () => {
+          setEditingClient(false);
+          setClientSearch("");
+          toast.success(t("sidebar.clientUpdated"));
+        },
+        onError: () => toast.error(t("sidebar.clientUpdateFailed")),
+      }
+    );
+  }, [project.id, updateProjectMutation, t]);
+
+  // ── Inline location editing state ──
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [addressValue, setAddressValue] = useState(project.address || "");
+  const locationInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset address value when project changes
+  useEffect(() => {
+    setAddressValue(project.address || "");
+  }, [project.address]);
+
+  // Focus location input when editing starts
+  useEffect(() => {
+    if (editingLocation && locationInputRef.current) {
+      locationInputRef.current.focus();
+    }
+  }, [editingLocation]);
+
+  const handleLocationSave = useCallback(() => {
+    updateProjectMutation.mutate(
+      { id: project.id, data: { address: addressValue.trim() || null as unknown as string } },
+      {
+        onSuccess: () => {
+          setEditingLocation(false);
+          toast.success(t("sidebar.locationUpdated"));
+        },
+        onError: () => toast.error(t("sidebar.locationUpdateFailed")),
+      }
+    );
+  }, [project.id, addressValue, updateProjectMutation, t]);
+
+  const handleLocationCancel = useCallback(() => {
+    setEditingLocation(false);
+    setAddressValue(project.address || "");
+  }, [project.address]);
 
   const resolvedTeamMembers = useMemo(() => {
     const users = teamData?.users ?? [];
@@ -372,12 +468,56 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
         </div>
       </SidebarSection>
 
-      {/* Client Section */}
+      {/* Client Section — inline editable */}
       <SidebarSection
         label={t("sidebar.client")}
-        onEdit={resolvedClient ? () => router.push(`/clients/${resolvedClient.id}`) : undefined}
+        onEdit={() => setEditingClient(true)}
       >
-        {resolvedClient ? (
+        {editingClient ? (
+          <div ref={clientDropdownRef} className="relative">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-[12px] h-[12px] text-text-disabled" />
+              <input
+                ref={clientSearchRef}
+                type="text"
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+                placeholder={t("sidebar.searchClients")}
+                className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text-primary outline-none focus:border-ops-accent placeholder:text-text-disabled"
+              />
+            </div>
+            <div className="mt-1 max-h-[180px] overflow-y-auto bg-background-card border border-border rounded-[3px]">
+              {resolvedClient && (
+                <button
+                  onClick={handleClearClient}
+                  className="w-full text-left px-2.5 py-1.5 font-mohave text-body-sm text-text-tertiary hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
+                >
+                  {t("sidebar.removeClient")}
+                </button>
+              )}
+              {filteredClients.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => handleClientSelect(c)}
+                  className={cn(
+                    "w-full text-left px-2.5 py-1.5 font-mohave text-body-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors flex items-center justify-between cursor-pointer",
+                    c.id === project.clientId ? "text-ops-accent" : "text-text-primary"
+                  )}
+                >
+                  <span className="truncate">{c.name}</span>
+                  {c.id === project.clientId && (
+                    <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                  )}
+                </button>
+              ))}
+              {filteredClients.length === 0 && (
+                <p className="px-2.5 py-2 font-mohave text-body-sm text-text-disabled">
+                  {t("sidebar.noClientsFound")}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : resolvedClient ? (
           <div className="space-y-1">
             <p className="font-mohave text-body-sm text-text-primary">{resolvedClient.name}</p>
             {resolvedClient.email && (
@@ -402,9 +542,42 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
         )}
       </SidebarSection>
 
-      {/* Location Section */}
-      <SidebarSection label={t("sidebar.location")}>
-        {project.address ? (
+      {/* Location Section — inline editable */}
+      <SidebarSection
+        label={t("sidebar.location")}
+        onEdit={() => setEditingLocation(true)}
+      >
+        {editingLocation ? (
+          <div className="space-y-2">
+            <input
+              ref={locationInputRef}
+              type="text"
+              value={addressValue}
+              onChange={(e) => setAddressValue(e.target.value)}
+              placeholder={t("sidebar.enterAddress")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleLocationSave();
+                if (e.key === "Escape") handleLocationCancel();
+              }}
+              className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-2.5 py-1.5 text-text-primary outline-none focus:border-ops-accent placeholder:text-text-disabled"
+            />
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleLocationSave}
+                disabled={updateProjectMutation.isPending}
+                className="font-mohave text-[11px] bg-ops-accent text-white rounded-[2px] px-2.5 py-1 hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+              >
+                {t("sidebar.save")}
+              </button>
+              <button
+                onClick={handleLocationCancel}
+                className="font-mohave text-[11px] text-text-tertiary border border-border rounded-[2px] px-2.5 py-1 hover:text-text-secondary transition-colors cursor-pointer"
+              >
+                {t("sidebar.cancel")}
+              </button>
+            </div>
+          </div>
+        ) : project.address ? (
           <div className="space-y-1">
             <div className="flex items-start gap-1.5">
               <MapPin className="w-[14px] h-[14px] text-ops-accent shrink-0 mt-[2px]" />
@@ -907,11 +1080,9 @@ function FinancialTab({ project }: { project: Project }) {
 
 export default function ProjectDetailPage() {
   const { t } = useDictionary("projects");
-  const tBreadcrumbs = useDictionary("breadcrumbs").t;
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const fromClientId = searchParams.get("fromClient");
   const projectId = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -935,39 +1106,13 @@ export default function ProjectDetailPage() {
     refetch,
   } = useProject(projectId || undefined);
 
-  // Fetch client separately since project.client isn't populated by the query
-  const { data: resolvedClient } = useClient(project?.clientId ?? undefined);
-
-  // Also fetch the referring client if navigating from a client page
-  const { data: fromClient } = useClient(fromClientId ?? undefined);
-
   // Fetch tasks for sidebar metrics
   const { data: tasks = [] } = useProjectTasks(projectId || undefined);
 
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
 
-  // Set breadcrumb entity name and parent crumbs when coming from client page
-  const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
-  const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
-  const setParentCrumbs = useBreadcrumbStore((s) => s.setParentCrumbs);
-  const clearParentCrumbs = useBreadcrumbStore((s) => s.clearParentCrumbs);
   usePageTitle(project?.title ?? "Project");
-  useEffect(() => {
-    if (project) setEntityName(project.title);
-    return () => clearEntityName();
-  }, [project, setEntityName, clearEntityName]);
-
-  // Set parent crumbs for client → project navigation path
-  useEffect(() => {
-    if (fromClientId && fromClient) {
-      setParentCrumbs([
-        { label: tBreadcrumbs("route.clients"), href: "/clients" },
-        { label: fromClient.name, href: `/clients/${fromClientId}` },
-      ]);
-    }
-    return () => clearParentCrumbs();
-  }, [fromClientId, fromClient, setParentCrumbs, clearParentCrumbs, tBreadcrumbs]);
 
   // Redirect old overview URLs
   useEffect(() => {
@@ -1032,22 +1177,58 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            onClick={() => router.push("/projects")}
-            className="font-mohave text-body text-ops-accent hover:underline shrink-0 cursor-pointer"
-          >
-            {t("title")}
-          </button>
-          <span className="text-text-tertiary font-mohave text-body">/</span>
-          <span className="font-mohave text-body text-text-primary font-medium truncate">
-            {project.title}
-          </span>
-          <StatusBadge status={statusToKey(project.status)} />
-        </div>
+      {/* ── Breadcrumb row — no bottom border ─────────────────────────────── */}
+      <div className="flex items-center gap-2 px-6 pt-3 pb-1 min-w-0">
+        <button
+          onClick={() => router.push("/projects")}
+          className="font-mohave text-body text-ops-accent hover:underline shrink-0 cursor-pointer"
+        >
+          {t("title")}
+        </button>
+        <span className="text-text-tertiary font-mohave text-body">/</span>
+        <span className="font-mohave text-body text-text-primary font-medium truncate">
+          {project.title}
+        </span>
+        <PermissionGate permission="projects.edit" fallback={<StatusBadge status={statusToKey(project.status)} />}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="cursor-pointer">
+                <StatusBadge status={statusToKey(project.status)} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {ALL_PROJECT_STATUSES.map((s) => (
+                <DropdownMenuItem
+                  key={s}
+                  onClick={() => handleStatusChange(s)}
+                  className={cn("gap-2 font-mohave", project.status === s && "text-ops-accent")}
+                >
+                  <StatusBadge status={statusToKey(s)} />
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </PermissionGate>
+      </div>
 
+      {/* ── Tab bar + actions row — with bottom border ────────────────────── */}
+      <div className="border-b border-border px-6 flex items-center justify-between">
+        <div className="flex">
+          {(["tasks", "financial", "photos", "notes"] as TabId[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={cn(
+                "px-5 py-3 font-mohave text-body-sm cursor-pointer transition-colors",
+                activeTab === tab
+                  ? "text-text-primary border-b-2 border-ops-accent font-medium"
+                  : "text-text-tertiary hover:text-text-secondary"
+              )}
+            >
+              {t(`tabs.${tab}`)}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-2 shrink-0">
           {/* Mobile sidebar toggle */}
           <button
@@ -1057,25 +1238,6 @@ export default function ProjectDetailPage() {
           >
             <Info className="w-[18px] h-[18px]" />
           </button>
-
-          {/* Status change dropdown */}
-          <PermissionGate permission="projects.edit">
-            <Select
-              value={project.status}
-              onValueChange={handleStatusChange}
-            >
-              <SelectTrigger className="w-[140px] h-[32px] text-body-sm">
-                <SelectValue placeholder={t("detail.changeStatus")} />
-              </SelectTrigger>
-              <SelectContent>
-                {ALL_PROJECT_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </PermissionGate>
 
           {/* Edit Project button */}
           <PermissionGate permission="projects.edit">
@@ -1113,24 +1275,6 @@ export default function ProjectDetailPage() {
             </DropdownMenu>
           )}
         </div>
-      </div>
-
-      {/* ── Tab Bar ────────────────────────────────────────────────────────── */}
-      <div className="border-b border-border px-6 flex">
-        {(["tasks", "financial", "photos", "notes"] as TabId[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => handleTabChange(tab)}
-            className={cn(
-              "px-5 py-3 font-mohave text-body-sm cursor-pointer transition-colors",
-              activeTab === tab
-                ? "text-text-primary border-b-2 border-ops-accent font-medium"
-                : "text-text-tertiary hover:text-text-secondary"
-            )}
-          >
-            {t(`tabs.${tab}`)}
-          </button>
-        ))}
       </div>
 
       {/* ── Body: Main + Sidebar ───────────────────────────────────────────── */}

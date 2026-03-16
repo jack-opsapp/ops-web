@@ -203,7 +203,9 @@ function TaskRow({
             )}
           </div>
         ) : (
-          <UnassignedBadge />
+          <button onClick={() => onEdit(task)} className="cursor-pointer">
+            <UnassignedBadge />
+          </button>
         )}
       </div>
 
@@ -219,7 +221,9 @@ function TaskRow({
             {dateRange}
           </span>
         ) : (
-          <UnscheduledBadge />
+          <button onClick={() => onEdit(task)} className="cursor-pointer">
+            <UnscheduledBadge />
+          </button>
         )}
       </div>
 
