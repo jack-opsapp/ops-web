@@ -20,7 +20,7 @@ interface ConflictTask {
   end_date: string;
   task_color: string;
   team_member_ids: string[];
-  projects: { title: string } | null;
+  projects: { title: string }[] | { title: string } | null;
 }
 
 async function fetchTeamConflicts(
@@ -56,7 +56,8 @@ async function fetchTeamConflicts(
   for (const task of data as ConflictTask[]) {
     const start = new Date(task.start_date);
     const end = new Date(task.end_date);
-    const projectTitle = task.projects?.title ?? "Unknown Project";
+    const proj = Array.isArray(task.projects) ? task.projects[0] : task.projects;
+    const projectTitle = proj?.title ?? "Unknown Project";
 
     const overlappingMembers = teamMemberIds.filter((id) =>
       task.team_member_ids.includes(id)
