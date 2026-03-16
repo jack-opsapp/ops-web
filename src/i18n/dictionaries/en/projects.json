@@ -197,5 +197,25 @@
 
   "notesFeed.sortNewest": "Newest First",
   "notesFeed.sortOldest": "Oldest First",
-  "notesFeed.searchPlaceholder": "Search notes..."
+  "notesFeed.searchPlaceholder": "Search notes...",
+
+  "taskForm.title.create": "New Task",
+  "taskForm.title.edit": "Edit Task",
+  "taskForm.dependencies": "Dependencies",
+  "taskForm.noDependencies": "No dependencies",
+  "taskForm.override": "Override",
+  "taskForm.resetDefaults": "Reset to defaults",
+  "taskForm.addDependency": "Add dependency",
+  "taskForm.noOverlap": "no overlap",
+  "taskForm.overlap": "% overlap",
+  "taskForm.fullOverlap": "full overlap",
+  "taskForm.conflict.team": "is scheduled on",
+  "taskForm.conflict.dependency": "Cannot start before",
+  "taskForm.conflict.dependsOn": "depends on",
+  "taskForm.editFullTask": "Edit full task",
+  "taskForm.save": "Save",
+  "taskForm.cancel": "Cancel",
+  "taskForm.createTask": "Create Task",
+  "taskForm.saveChanges": "Save Changes",
+  "taskForm.afterTask": "After"
 }
