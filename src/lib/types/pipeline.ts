@@ -15,6 +15,14 @@
 
 import type { Client, Project } from "./models";
 
+// Re-export email connection types (migrated to ./email-connection.ts)
+export type { EmailConnection as GmailConnectionV2 } from "./email-connection";
+export type { CreateEmailConnection } from "./email-connection";
+export type { UpdateEmailConnection } from "./email-connection";
+export type { SyncProfile } from "./email-connection";
+export type { OpportunityEmailThread } from "./email-connection";
+export type { AdminFeatureOverride } from "./email-connection";
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 /** Pipeline opportunity stage */
