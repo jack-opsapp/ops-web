@@ -14,6 +14,8 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   products: ["/products"],
   inventory: ["/inventory"],
   portal: ["/portal-inbox"],
+  ai_email_review: ["/settings/integrations"],
+  ai_email_memory: ["/settings/integrations"],
 };
 
 // ─── Permission Mapping ──────────────────────────────────────────────────────
@@ -48,6 +50,8 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   products: ["products.view", "products.manage"],
   inventory: ["inventory.view", "inventory.manage", "inventory.import"],
   portal: ["portal.view", "portal.manage_branding"],
+  ai_email_review: ["email.configure_ai"],
+  ai_email_memory: ["email.configure_ai"],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
