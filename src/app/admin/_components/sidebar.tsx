@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "OVERVIEW" },
   { href: "/admin/acquisition", label: "ACQUISITION" },
   { href: "/admin/ab-testing", label: "A/B TESTING" },
+  { href: "/admin/onboarding", label: "ONBOARDING" },
   { href: "/admin/companies", label: "COMPANIES" },
   { href: "/admin/engagement", label: "ENGAGEMENT" },
   { href: "/admin/revenue", label: "REVENUE" },
