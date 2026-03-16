@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("gmail_import_jobs")
       .select(
-        "id, status, total_emails, processed, matched, needs_review, clients_created, leads_created, error_message, created_at, updated_at"
+        "id, status, total_emails, processed, matched, needs_review, clients_created, leads_created, error_message, created_at, completed_at"
       )
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       leadsCreated: job.leads_created ?? 0,
       error: job.error_message,
       createdAt: job.created_at,
-      updatedAt: job.updated_at,
+      completedAt: job.completed_at,
     }));
 
     return NextResponse.json({ jobs });

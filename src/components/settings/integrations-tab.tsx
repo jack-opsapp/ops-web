@@ -265,10 +265,20 @@ export function IntegrationsTab() {
               ))}
             </div>
           ) : (
-            <Button onClick={() => handleConnectGmail("company")} className="gap-[6px]">
-              <ExternalLink className="w-[14px] h-[14px]" />
-              {t("integrations.connectCompanyGmail")}
-            </Button>
+            <button
+              onClick={() => openWizard()}
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+            >
+              <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="font-mohave text-body text-ops-accent block">
+                  Import Your Pipeline
+                </span>
+                <span className="font-kosugi text-[10px] text-text-disabled">
+                  Connect your email and automatically import leads into your pipeline
+                </span>
+              </div>
+            </button>
           )}
 
           {hasAnyConnection && (
