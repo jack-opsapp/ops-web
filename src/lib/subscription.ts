@@ -16,6 +16,7 @@ import {
 
 export type SubscriptionTier = "trial" | "starter" | "team" | "business";
 export type SubscriptionStatusValue = "active" | "past_due" | "canceled" | "expired" | "trialing" | "grace";
+export type LockoutReason = "subscription_expired" | "unseated" | null;
 
 export interface SubscriptionInfo {
   tier: SubscriptionTier;
@@ -184,4 +185,42 @@ export function shouldShowBanner(info: SubscriptionInfo): boolean {
   if (info.daysRemaining !== undefined && info.daysRemaining <= 7) return true;
   if (info.currentSeats >= info.maxSeats - 1) return true;
   return false;
+}
+
+/** Whether a user has an active seat (is in seatedEmployeeIds or adminIds) */
+export function isUserSeated(
+  company: Pick<Company, "seatedEmployeeIds" | "adminIds"> | null,
+  userId: string | null
+): boolean {
+  if (!company || !userId) return true; // Default to seated if data isn't loaded yet
+  return (
+    (company.seatedEmployeeIds?.includes(userId) ?? false) ||
+    (company.adminIds?.includes(userId) ?? false)
+  );
+}
+
+/**
+ * Determine why (if at all) a user should be locked out.
+ * Priority: subscription_expired > unseated.
+ * Returns null if user has full access.
+ */
+export function getLockoutReason(
+  company: Pick<
+    Company,
+    | "subscriptionPlan"
+    | "subscriptionStatus"
+    | "trialEndDate"
+    | "seatedEmployeeIds"
+    | "adminIds"
+    | "maxSeats"
+  > | null,
+  userId: string | null
+): LockoutReason {
+  if (!company || !userId) return null;
+
+  const info = getSubscriptionInfo(company);
+  if (shouldLockOut(info)) return "subscription_expired";
+  if (!isUserSeated(company, userId)) return "unseated";
+
+  return null;
 }
