@@ -2,7 +2,7 @@
  * OPS Web - Integration Service
  *
  * Methods for managing email integrations (Gmail OAuth).
- * All data stored in Supabase gmail_connections table.
+ * All data stored in Supabase email_connections table.
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
@@ -14,7 +14,7 @@ export const IntegrationService = {
   async getGmailConnectionStatus(companyId: string): Promise<boolean> {
     const supabase = requireSupabase();
     const { data, error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("id")
       .eq("company_id", companyId)
       .limit(1);
@@ -33,7 +33,7 @@ export const IntegrationService = {
   async disconnectGmail(companyId: string): Promise<void> {
     const supabase = requireSupabase();
     const { error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .delete()
       .eq("company_id", companyId);
 

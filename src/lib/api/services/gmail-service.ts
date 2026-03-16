@@ -2,7 +2,7 @@
  * OPS Web - Gmail Service
  *
  * Manages Gmail OAuth connections and email syncing.
- * Stores tokens in Supabase gmail_connections table.
+ * Stores tokens in Supabase email_connections table.
  * Syncs inbox using Gmail History API to auto-log Activities.
  */
 
@@ -82,7 +82,7 @@ async function refreshAccessToken(connection: GmailConnection): Promise<string> 
   // Persist updated token
   const supabase = requireSupabase();
   await supabase
-    .from("gmail_connections")
+    .from("email_connections")
     .update({
       access_token: json.access_token,
       expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
@@ -106,7 +106,7 @@ export const GmailService = {
     const supabase = requireSupabase();
 
     const { data, error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("*")
       .eq("company_id", companyId)
       .order("created_at");
@@ -119,7 +119,7 @@ export const GmailService = {
     const supabase = requireSupabase();
 
     const { data: created, error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .insert({
         company_id: data.companyId,
         type: data.type,
@@ -162,7 +162,7 @@ export const GmailService = {
     }
 
     const { data: updated, error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .update(row)
       .eq("id", id)
       .select()
@@ -176,7 +176,7 @@ export const GmailService = {
     const supabase = requireSupabase();
 
     const { error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .delete()
       .eq("id", id);
 
@@ -199,7 +199,7 @@ export const GmailService = {
 
     // Load connection
     const { data: connRow, error: connError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("*")
       .eq("id", connectionId)
       .single();
@@ -230,7 +230,7 @@ export const GmailService = {
       const profile = await profileResp.json() as { historyId?: string };
       if (profile.historyId) {
         await supabase
-          .from("gmail_connections")
+          .from("email_connections")
           .update({ history_id: profile.historyId, last_synced_at: new Date().toISOString() })
           .eq("id", connectionId);
       }
@@ -279,7 +279,7 @@ export const GmailService = {
     // Update historyId and lastSyncedAt
     if (newHistoryId) {
       await supabase
-        .from("gmail_connections")
+        .from("email_connections")
         .update({
           history_id: newHistoryId,
           last_synced_at: new Date().toISOString(),

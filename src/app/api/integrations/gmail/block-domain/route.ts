@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Read current sync_filters and append domain to excludeDomains
     const { data: connection, error: readError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("id, sync_filters")
       .eq("id", connectionId)
       .single();
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const updatedFilters = { ...syncFilters, excludeDomains };
 
     const { error: updateError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .update({ sync_filters: updatedFilters })
       .eq("id", connectionId);
 

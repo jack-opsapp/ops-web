@@ -45,7 +45,7 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
 
   const supabase = getServiceRoleClient();
   await supabase
-    .from("gmail_connections")
+    .from("email_connections")
     .update({
       access_token: json.access_token,
       expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: connRow, error: connError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("id, access_token, refresh_token, expires_at")
       .eq("id", connectionId)
       .single();

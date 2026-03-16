@@ -2,7 +2,7 @@
  * OPS Web - Gmail OAuth Callback
  *
  * GET /api/integrations/gmail/callback?code=...&state=companyId
- * Exchanges auth code for tokens, stores in gmail_connections table.
+ * Exchanges auth code for tokens, stores in email_connections table.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -85,10 +85,10 @@ export async function GET(request: NextRequest) {
       // Non-critical — email is nice to have
     }
 
-    // Store tokens in gmail_connections table
+    // Store tokens in email_connections table
     const supabase = getServiceRoleClient();
     const { error: upsertError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .upsert(
         {
           company_id: companyId,

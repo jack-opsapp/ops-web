@@ -46,7 +46,7 @@ export async function getValidGmailToken(conn: GmailConnectionRow): Promise<stri
 
   const supabase = getServiceRoleClient();
   const { error: updateErr } = await supabase
-    .from("gmail_connections")
+    .from("email_connections")
     .update({
       access_token: json.access_token,
       expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),

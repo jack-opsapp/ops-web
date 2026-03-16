@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { data: connections, error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("id, company_id, email, sync_interval_minutes, last_synced_at")
       .eq("sync_enabled", true);
 

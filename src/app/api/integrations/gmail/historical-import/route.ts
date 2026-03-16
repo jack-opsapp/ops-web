@@ -85,7 +85,7 @@ async function refreshAccessToken(
 
   const supabase = requireSupabase();
   await supabase
-    .from("gmail_connections")
+    .from("email_connections")
     .update({
       access_token: json.access_token,
       expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
 
     // Load connection
     const { data: connRow, error: connError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("*")
       .eq("id", connectionId)
       .eq("company_id", companyId)
@@ -491,7 +491,7 @@ export async function POST(request: NextRequest) {
     const profile = (await profileResp.json()) as { historyId?: string };
     if (profile.historyId) {
       await supabase
-        .from("gmail_connections")
+        .from("email_connections")
         .update({ history_id: profile.historyId })
         .eq("id", connectionId);
     }

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     // Load connection
     const { data: connRow, error: connError } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("id, company_id, access_token, refresh_token, expires_at")
       .eq("id", connectionId)
       .single();

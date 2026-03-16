@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Load active connections for this company only
     const { data: connections, error } = await supabase
-      .from("gmail_connections")
+      .from("email_connections")
       .select("id, company_id, email")
       .eq("company_id", companyId)
       .eq("sync_enabled", true);
