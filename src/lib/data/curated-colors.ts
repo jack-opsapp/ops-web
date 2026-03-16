@@ -1,15 +1,17 @@
 /**
- * Curated color palette for task types.
- * Colors sourced from real paint companies — desaturated pastels
- * that read well against the OPS dark theme (#0A0A0A background).
+ * Centralized OPS color system.
+ * Single source of truth for every color picker in the app.
  *
- * Organized into 5 families for auto-assignment based on task tags.
+ * Two palettes:
+ *   CURATED_COLORS — 35 desaturated pastels for task type labels (grouped by family)
+ *   ACCENT_COLORS  — 16 mid-saturation colors for UI accents, portal branding, personalization
+ *
+ * Names pulled from the job site — materials, weather, textures.
  */
 
 export interface CuratedColor {
   hex: string;
   name: string;
-  source: string;
   family: ColorFamily;
 }
 
@@ -60,58 +62,57 @@ export const TAG_TO_FAMILY: Record<string, ColorFamily> = {
 
 /**
  * The curated palette — 35 colors across 5 families.
- * All hex codes verified against encycolorpedia.com, hextoral.com, color-name.com.
  */
 export const CURATED_COLORS: CuratedColor[] = [
-  // ── Warm Earth family (reds, terracotta, brown) ──
-  // Suggested: demolition, excavation, site prep tasks
-  { hex: "#C79A95", name: "Cinder Rose", source: "Farrow & Ball", family: "warm" },
-  { hex: "#A0837F", name: "Sulking Room Pink", source: "Farrow & Ball", family: "warm" },
-  { hex: "#8B534E", name: "Toile Red", source: "Sherwin-Williams", family: "warm" },
-  { hex: "#A47864", name: "Mocha Mousse", source: "Pantone", family: "warm" },
-  { hex: "#B7788D", name: "Rangwali", source: "Farrow & Ball", family: "warm" },
-  { hex: "#7A6455", name: "Cobble Brown", source: "Sherwin-Williams", family: "warm" },
-  { hex: "#716354", name: "Smokehouse", source: "Sherwin-Williams", family: "warm" },
+  // ── Warm family (reds, terracotta, brown) ──
+  // Demolition, excavation, site prep
+  { hex: "#C79A95", name: "Fired Clay", family: "warm" },
+  { hex: "#A0837F", name: "Worn Saddle", family: "warm" },
+  { hex: "#8B534E", name: "Rust", family: "warm" },
+  { hex: "#A47864", name: "Terra", family: "warm" },
+  { hex: "#B7788D", name: "Dusk", family: "warm" },
+  { hex: "#7A6455", name: "Timber", family: "warm" },
+  { hex: "#716354", name: "Ironbark", family: "warm" },
 
-  // ── Warm Neutral family (sand, olive, gold) ──
-  // Suggested: planning, permitting, administrative tasks
-  { hex: "#E7CCB8", name: "Raleigh Peach", source: "Benjamin Moore", family: "neutral" },
-  { hex: "#C4B2A2", name: "Jitney", source: "Farrow & Ball", family: "neutral" },
-  { hex: "#C4A998", name: "Dead Salmon", source: "Farrow & Ball", family: "neutral" },
-  { hex: "#A79473", name: "Roycroft Suede", source: "Sherwin-Williams", family: "neutral" },
-  { hex: "#97896A", name: "Renwick Olive", source: "Sherwin-Williams", family: "neutral" },
-  { hex: "#948674", name: "Kingsport Gray", source: "Benjamin Moore", family: "neutral" },
-  { hex: "#8B8A77", name: "Treron", source: "Farrow & Ball", family: "neutral" },
+  // ── Neutral family (sand, olive, gold) ──
+  // Planning, permitting, admin
+  { hex: "#E7CCB8", name: "Sandstone", family: "neutral" },
+  { hex: "#C4B2A2", name: "Limestone", family: "neutral" },
+  { hex: "#C4A998", name: "Adobe", family: "neutral" },
+  { hex: "#A79473", name: "Rawhide", family: "neutral" },
+  { hex: "#97896A", name: "Field Sage", family: "neutral" },
+  { hex: "#948674", name: "Quarry", family: "neutral" },
+  { hex: "#8B8A77", name: "Lichen", family: "neutral" },
 
-  // ── Cool Green & Teal family ──
-  // Suggested: landscaping, environmental, mechanical/HVAC tasks
-  { hex: "#B9BEAA", name: "Pigeon", source: "Farrow & Ball", family: "earth" },
-  { hex: "#BBBE9F", name: "Vert De Terre", source: "Farrow & Ball", family: "earth" },
-  { hex: "#73806E", name: "Card Room Green", source: "Farrow & Ball", family: "earth" },
-  { hex: "#6F9587", name: "Spotswood Teal", source: "Benjamin Moore", family: "earth" },
-  { hex: "#636F65", name: "Green Smoke", source: "Farrow & Ball", family: "earth" },
-  { hex: "#7B8070", name: "Dried Thyme", source: "Sherwin-Williams", family: "earth" },
-  { hex: "#48929B", name: "Asagi-iro", source: "Japanese Traditional", family: "earth" },
+  // ── Earth family (greens, teals) ──
+  // Landscaping, mechanical, HVAC
+  { hex: "#B9BEAA", name: "Morning Fog", family: "earth" },
+  { hex: "#BBBE9F", name: "New Growth", family: "earth" },
+  { hex: "#73806E", name: "Patina", family: "earth" },
+  { hex: "#6F9587", name: "Verdigris", family: "earth" },
+  { hex: "#636F65", name: "Deep Forest", family: "earth" },
+  { hex: "#7B8070", name: "Moss", family: "earth" },
+  { hex: "#48929B", name: "Oxidized Copper", family: "earth" },
 
-  // ── Cool Blue & Lavender family ──
-  // Suggested: electrical, plumbing, finish/inspection tasks
-  { hex: "#89C3EB", name: "Wasurenagusa-iro", source: "Japanese Traditional", family: "cool" },
-  { hex: "#5D8CAE", name: "Gunjou-iro", source: "Japanese Traditional", family: "cool" },
-  { hex: "#7E9EA0", name: "Wythe Blue", source: "Benjamin Moore", family: "cool" },
-  { hex: "#90A0A6", name: "Debonair", source: "Sherwin-Williams", family: "cool" },
-  { hex: "#8595AA", name: "Dried Lavender", source: "Sherwin-Williams", family: "cool" },
-  { hex: "#8990A3", name: "Dusty Heather", source: "Sherwin-Williams", family: "cool" },
-  { hex: "#89729E", name: "Fuji-iro", source: "Japanese Traditional", family: "cool" },
+  // ── Cool family (blues, lavenders) ──
+  // Electrical, plumbing, finish work
+  { hex: "#89C3EB", name: "Clear Sky", family: "cool" },
+  { hex: "#5D8CAE", name: "Steel Blue", family: "cool" },
+  { hex: "#7E9EA0", name: "Weathered Zinc", family: "cool" },
+  { hex: "#90A0A6", name: "Overcast", family: "cool" },
+  { hex: "#8595AA", name: "Blue Haze", family: "cool" },
+  { hex: "#8990A3", name: "Drift", family: "cool" },
+  { hex: "#89729E", name: "Last Light", family: "cool" },
 
-  // ── Neutral Gray & Stone family ──
-  // Suggested: general overhead, travel, meetings, untyped tasks
-  { hex: "#979CA0", name: "Plummett", source: "Farrow & Ball", family: "muted" },
-  { hex: "#949495", name: "Nezumi-iro", source: "Japanese Traditional", family: "muted" },
-  { hex: "#748284", name: "De Nimes", source: "Farrow & Ball", family: "muted" },
-  { hex: "#807F79", name: "Geddy Gray", source: "Benjamin Moore", family: "muted" },
-  { hex: "#AF9C8B", name: "Dove Tale", source: "Farrow & Ball", family: "muted" },
-  { hex: "#847B77", name: "Mink", source: "Sherwin-Williams", family: "muted" },
-  { hex: "#7A8E8D", name: "Oval Room Blue", source: "Farrow & Ball", family: "muted" },
+  // ── Muted family (grays, stone) ──
+  // Inspection, testing, cleanup, overhead
+  { hex: "#979CA0", name: "Pewter", family: "muted" },
+  { hex: "#949495", name: "Raw Concrete", family: "muted" },
+  { hex: "#748284", name: "Gunmetal", family: "muted" },
+  { hex: "#807F79", name: "Gravel", family: "muted" },
+  { hex: "#AF9C8B", name: "Mortar", family: "muted" },
+  { hex: "#847B77", name: "Flint", family: "muted" },
+  { hex: "#7A8E8D", name: "Slate", family: "muted" },
 ];
 
 /** Get colors filtered by family */
@@ -166,3 +167,71 @@ export function autoAssignColors(
     return { ...tt, color: familyColors[idx].hex };
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ACCENT COLORS — UI highlights, portal branding, personalization
+// Mid-saturation colors that work as button fills, active states, and links.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export type AccentColorId =
+  | "steel-blue"
+  | "slate"
+  | "harbor"
+  | "pewter"
+  | "sage"
+  | "olive"
+  | "brick-dust"
+  | "pumice"
+  | "silt"
+  | "sandstone"
+  | "straw"
+  | "ash"
+  | "terracotta"
+  | "driftwood"
+  | "amber"
+  | "charcoal";
+
+export interface AccentColor {
+  id: AccentColorId;
+  hex: string;
+  name: string;
+}
+
+export const ACCENT_COLORS: AccentColor[] = [
+  { id: "steel-blue",  hex: "#417394", name: "Steel Blue" },
+  { id: "slate",       hex: "#7A8B99", name: "Slate" },
+  { id: "harbor",      hex: "#8FA7B8", name: "Harbor" },
+  { id: "pewter",      hex: "#6B7D8D", name: "Pewter" },
+  { id: "sage",        hex: "#7D9B76", name: "Sage" },
+  { id: "olive",       hex: "#8A8D65", name: "Olive" },
+  { id: "brick-dust",  hex: "#C2858A", name: "Brick Dust" },
+  { id: "pumice",      hex: "#B08B96", name: "Pumice" },
+  { id: "silt",        hex: "#C9A5A5", name: "Silt" },
+  { id: "sandstone",   hex: "#B8A68E", name: "Sandstone" },
+  { id: "straw",       hex: "#C4AA82", name: "Straw" },
+  { id: "ash",         hex: "#A89889", name: "Ash" },
+  { id: "terracotta",  hex: "#B5856A", name: "Terracotta" },
+  { id: "driftwood",   hex: "#9E8E78", name: "Driftwood" },
+  { id: "amber",       hex: "#C4A868", name: "Amber" },
+  { id: "charcoal",    hex: "#5A5A5A", name: "Charcoal" },
+];
+
+/** Accent color hex lookup by ID */
+export const ACCENT_COLOR_VALUES: Record<AccentColorId, string> =
+  Object.fromEntries(ACCENT_COLORS.map((c) => [c.id, c.hex])) as Record<AccentColorId, string>;
+
+/**
+ * Map old accent color IDs to current ones.
+ * Used by preferences-store migration when users have stale IDs in localStorage.
+ */
+export const ACCENT_ID_MIGRATION: Record<string, AccentColorId> = {
+  "mist": "harbor",
+  "dusty-rose": "brick-dust",
+  "mauve": "pumice",
+  "blush": "silt",
+  "quicksand": "straw",
+  "warm-taupe": "ash",
+  "amber-gold": "amber",
+  // These kept the same ID:
+  // steel-blue, slate, pewter, sage, olive, sandstone, terracotta, driftwood, charcoal
+};

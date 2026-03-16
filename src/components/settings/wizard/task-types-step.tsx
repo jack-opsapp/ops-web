@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Plus, ArrowLeft, ArrowRight } from "lucide-react";
+import { Plus, ArrowLeft, ArrowRight } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
-import {
-  mergePresets,
-  type PresetTaskTemplate,
-} from "@/lib/data/industry-presets";
+import { mergePresets, type IndustryGroup } from "@/lib/data/industry-presets";
 import { CURATED_COLORS } from "@/lib/data/curated-colors";
 import { ColorPickerPopover } from "./color-picker-popover";
 
@@ -21,7 +18,8 @@ export interface WizardTaskType {
   enabled: boolean;
   estimatedHoursMin: number;
   estimatedHoursMax: number;
-  templates: PresetTaskTemplate[];
+  industryGroup: string;
+  alsoIn: string[];
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -52,7 +50,6 @@ export function TaskTypesStep({
   // ── State ────────────────────────────────────────────────────────────────
 
   const [wizardTaskTypes, setWizardTaskTypes] = useState<WizardTaskType[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
   const colorPickerAnchorRef = useRef<HTMLElement | null>(null);
@@ -63,23 +60,25 @@ export function TaskTypesStep({
 
   useEffect(() => {
     const merged = mergePresets(industries);
-    const types: WizardTaskType[] = merged.taskTypes.map((mt) => ({
-      id: crypto.randomUUID(),
-      name: mt.name,
-      color: mt.color,
-      tags: mt.tags,
-      enabled: true,
-      estimatedHoursMin: mt.estimatedHoursMin,
-      estimatedHoursMax: mt.estimatedHoursMax,
-      templates: mt.templates,
-    }));
+    const types: WizardTaskType[] = merged.groups.flatMap((group) =>
+      group.taskTypes.map((mt) => ({
+        id: crypto.randomUUID(),
+        name: mt.name,
+        color: mt.color,
+        tags: mt.tags,
+        enabled: true,
+        estimatedHoursMin: mt.estimatedHoursMin,
+        estimatedHoursMax: mt.estimatedHoursMax,
+        industryGroup: group.industry,
+        alsoIn: mt.alsoIn,
+      }))
+    );
     setWizardTaskTypes(types);
-    setExpandedId(null);
     setEditingId(null);
     setColorPickerId(null);
   }, [industries]);
 
-  // ── Focus input when editingId changes ───────────────────────────────────
+  // ── Focus input when editingId changes ─────────────────────────────────
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -88,7 +87,7 @@ export function TaskTypesStep({
     }
   }, [editingId]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────
 
   const toggleEnabled = useCallback((id: string) => {
     setWizardTaskTypes((prev) =>
@@ -123,10 +122,6 @@ export function TaskTypesStep({
     );
   }, []);
 
-  const toggleExpanded = useCallback((id: string) => {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }, []);
-
   const addCustomType = useCallback(() => {
     const id = crypto.randomUUID();
     const newType: WizardTaskType = {
@@ -137,7 +132,8 @@ export function TaskTypesStep({
       enabled: true,
       estimatedHoursMin: 0,
       estimatedHoursMax: 0,
-      templates: [],
+      industryGroup: "Custom",
+      alsoIn: [],
     };
     setWizardTaskTypes((prev) => [...prev, newType]);
     setEditingId(id);
@@ -155,7 +151,22 @@ export function TaskTypesStep({
     [wizardTaskTypes]
   );
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // Group task types by industry for rendering
+  const industryGroups = useMemo(() => {
+    const groups: { industry: string; types: WizardTaskType[] }[] = [];
+    let currentIndustry = "";
+    for (const tt of wizardTaskTypes) {
+      if (tt.industryGroup !== currentIndustry) {
+        groups.push({ industry: tt.industryGroup, types: [tt] });
+        currentIndustry = tt.industryGroup;
+      } else {
+        groups[groups.length - 1].types.push(tt);
+      }
+    }
+    return groups;
+  }, [wizardTaskTypes]);
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <motion.div
@@ -180,33 +191,44 @@ export function TaskTypesStep({
         {t("wizard.taskTypes.colorHint")}
       </p>
 
-      {/* Task type grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-[8px] mb-[16px] max-h-[400px] overflow-y-auto scrollbar-hide">
-        {wizardTaskTypes.map((tt, index) => (
-          <TaskTypeCard
-            key={tt.id}
-            taskType={tt}
-            index={index}
-            isExpanded={expandedId === tt.id}
-            isEditing={editingId === tt.id}
-            isColorPickerOpen={colorPickerId === tt.id}
-            editInputRef={
-              editingId === tt.id ? editInputRef : undefined
-            }
-            colorPickerAnchorRef={colorPickerAnchorRef}
-            onToggleEnabled={toggleEnabled}
-            onToggleExpanded={toggleExpanded}
-            onStartEdit={setEditingId}
-            onUpdateName={updateName}
-            onCommitName={commitName}
-            onOpenColorPicker={(id, anchor) => {
-              colorPickerAnchorRef.current = anchor;
-              setColorPickerId(id);
-            }}
-            onCloseColorPicker={() => setColorPickerId(null)}
-            onUpdateColor={updateColor}
-            t={t}
-          />
+      {/* Industry-grouped task type list */}
+      <div className="space-y-[16px] mb-[16px] max-h-[400px] overflow-y-auto scrollbar-hide">
+        {industryGroups.map((group) => (
+          <div key={group.industry}>
+            {/* Industry header — only show if multiple industries selected */}
+            {industries.length > 1 && (
+              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest mb-[6px] block">
+                {group.industry}
+              </span>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[8px]">
+              {group.types.map((tt, index) => (
+                <TaskTypeCard
+                  key={tt.id}
+                  taskType={tt}
+                  index={index}
+                  isEditing={editingId === tt.id}
+                  isColorPickerOpen={colorPickerId === tt.id}
+                  editInputRef={
+                    editingId === tt.id ? editInputRef : undefined
+                  }
+                  colorPickerAnchorRef={colorPickerAnchorRef}
+                  onToggleEnabled={toggleEnabled}
+                  onStartEdit={setEditingId}
+                  onUpdateName={updateName}
+                  onCommitName={commitName}
+                  onOpenColorPicker={(id, anchor) => {
+                    colorPickerAnchorRef.current = anchor;
+                    setColorPickerId(id);
+                  }}
+                  onCloseColorPicker={() => setColorPickerId(null)}
+                  onUpdateColor={updateColor}
+                  t={t}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -250,13 +272,11 @@ export function TaskTypesStep({
 interface TaskTypeCardProps {
   taskType: WizardTaskType;
   index: number;
-  isExpanded: boolean;
   isEditing: boolean;
   isColorPickerOpen: boolean;
   editInputRef?: React.RefObject<HTMLInputElement | null>;
   colorPickerAnchorRef: React.RefObject<HTMLElement | null>;
   onToggleEnabled: (id: string) => void;
-  onToggleExpanded: (id: string) => void;
   onStartEdit: (id: string) => void;
   onUpdateName: (id: string, name: string) => void;
   onCommitName: (id: string) => void;
@@ -269,13 +289,11 @@ interface TaskTypeCardProps {
 function TaskTypeCard({
   taskType,
   index,
-  isExpanded,
   isEditing,
   isColorPickerOpen,
   editInputRef,
   colorPickerAnchorRef,
   onToggleEnabled,
-  onToggleExpanded,
   onStartEdit,
   onUpdateName,
   onCommitName,
@@ -285,16 +303,11 @@ function TaskTypeCard({
   t,
 }: TaskTypeCardProps) {
   const colorDotRef = useRef<HTMLButtonElement>(null);
-  const { id, name, color, enabled, estimatedHoursMin, estimatedHoursMax, templates } = taskType;
+  const { id, name, color, enabled, estimatedHoursMin, estimatedHoursMax, alsoIn } = taskType;
 
   const hoursLabel =
     estimatedHoursMin > 0 || estimatedHoursMax > 0
       ? `${estimatedHoursMin}-${estimatedHoursMax} ${t("wizard.taskTypes.hours")}`
-      : null;
-
-  const templateLabel =
-    templates.length > 0
-      ? `${templates.length} ${t("wizard.taskTypes.templates")}`
       : null;
 
   return (
@@ -397,61 +410,13 @@ function TaskTypeCard({
               {hoursLabel}
             </span>
           )}
-          {templateLabel && (
-            <span className="font-mono text-[10px] text-text-disabled whitespace-nowrap">
-              {templateLabel}
+          {alsoIn.length > 0 && (
+            <span className="font-kosugi text-[9px] text-text-disabled whitespace-nowrap">
+              {t("wizard.taskTypes.alsoIn").replace("{industries}", alsoIn.join(", "))}
             </span>
           )}
         </div>
-
-        {/* Expand chevron */}
-        {templates.length > 0 && (
-          <button
-            type="button"
-            onClick={() => onToggleExpanded(id)}
-            className="shrink-0 p-[2px] text-text-disabled hover:text-text-secondary transition-colors"
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-          >
-            <motion.div
-              animate={{ rotate: isExpanded ? 180 : 0 }}
-              transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-            >
-              <ChevronDown className="w-[14px] h-[14px]" />
-            </motion.div>
-          </button>
-        )}
       </div>
-
-      {/* Expanded template list */}
-      <AnimatePresence>
-        {isExpanded && templates.length > 0 && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-            className="overflow-hidden"
-          >
-            <div className="pt-[8px] mt-[8px] border-t border-[rgba(255,255,255,0.04)]">
-              {templates.map((tmpl, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between py-[3px]"
-                >
-                  <span className="font-kosugi text-[11px] text-text-disabled">
-                    {tmpl.title}
-                  </span>
-                  {tmpl.estimatedHours != null && (
-                    <span className="font-mono text-[10px] text-text-disabled opacity-60">
-                      {tmpl.estimatedHours}h
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Color picker popover */}
       <AnimatePresence>

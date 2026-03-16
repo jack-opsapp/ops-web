@@ -113,14 +113,9 @@ async function updateBranding(
   return mapBrandingFromDb(data);
 }
 
-// ─── Preset accent colors (derived from shared preferences store) ────────────
+// ─── Preset accent colors (centralized palette) ─────────────────────────────
 
-import { ACCENT_COLOR_VALUES } from "@/stores/preferences-store";
-
-const ACCENT_PRESETS = Object.entries(ACCENT_COLOR_VALUES).map(([id, hex]) => ({
-  label: id.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
-  value: hex,
-}));
+import { ACCENT_COLORS } from "@/lib/data/curated-colors";
 
 // ─── Template configs ────────────────────────────────────────────────────────
 
@@ -585,30 +580,30 @@ export function PortalBrandingTab() {
         <CardContent className="space-y-2">
           {/* Preset swatches — grid of larger color chips */}
           <div className="grid grid-cols-4 gap-1.5">
-            {ACCENT_PRESETS.map((preset) => (
+            {ACCENT_COLORS.map((color) => (
               <button
-                key={preset.value}
+                key={color.hex}
                 disabled={!canManage}
                 onClick={() => {
                   if (!canManage) return;
-                  setAccentColor(preset.value);
+                  setAccentColor(color.hex);
                   markDirty();
                 }}
                 className={cn(
                   "relative flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
-                  accentColor === preset.value
+                  accentColor === color.hex
                     ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
                     : "border-border hover:border-border-medium"
                 )}
               >
                 <span
                   className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)]"
-                  style={{ backgroundColor: preset.value }}
+                  style={{ backgroundColor: color.hex }}
                 />
                 <span className="font-kosugi text-[10px] text-text-tertiary leading-tight">
-                  {preset.label}
+                  {color.name}
                 </span>
-                {accentColor === preset.value && (
+                {accentColor === color.hex && (
                   <div className="absolute top-1 right-1 w-[14px] h-[14px] rounded-full bg-white/20 flex items-center justify-center">
                     <Check className="w-[10px] h-[10px] text-white" />
                   </div>

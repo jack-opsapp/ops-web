@@ -9,28 +9,9 @@ import {
   usePreferencesStore,
   ACCENT_COLOR_VALUES,
   FONT_SIZE_SCALES,
-  type AccentColorId,
   type FontSizeId,
 } from "@/stores/preferences-store";
-
-const ACCENT_COLORS: { id: AccentColorId; labelKey: string }[] = [
-  { id: "steel-blue", labelKey: "appearance.steelBlue" },
-  { id: "slate", labelKey: "appearance.slate" },
-  { id: "mist", labelKey: "appearance.mist" },
-  { id: "pewter", labelKey: "appearance.pewter" },
-  { id: "sage", labelKey: "appearance.sage" },
-  { id: "olive", labelKey: "appearance.olive" },
-  { id: "dusty-rose", labelKey: "appearance.dustyRose" },
-  { id: "mauve", labelKey: "appearance.mauve" },
-  { id: "blush", labelKey: "appearance.blush" },
-  { id: "sandstone", labelKey: "appearance.sandstone" },
-  { id: "quicksand", labelKey: "appearance.quicksand" },
-  { id: "warm-taupe", labelKey: "appearance.warmTaupe" },
-  { id: "terracotta", labelKey: "appearance.terracotta" },
-  { id: "driftwood", labelKey: "appearance.driftwood" },
-  { id: "amber-gold", labelKey: "appearance.amberGold" },
-  { id: "charcoal", labelKey: "appearance.charcoal" },
-];
+import { ACCENT_COLORS } from "@/lib/data/curated-colors";
 
 const FONT_SIZES: { id: FontSizeId; labelKey: string; scale: string }[] = [
   { id: "small", labelKey: "appearance.small", scale: "90%" },
@@ -95,14 +76,13 @@ export function AppearanceTab() {
         <CardContent>
           <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
             {ACCENT_COLORS.map((color) => {
-              const colorLabel = t(color.labelKey);
               const isActive = accentColor === color.id;
               return (
               <button
                 key={color.id}
                 onClick={() => {
                   setAccentColor(color.id);
-                  toast.success(`${t("appearance.toast.accent")} ${colorLabel}`);
+                  toast.success(`${t("appearance.toast.accent")} ${color.name}`);
                 }}
                 className={cn(
                   "relative flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
@@ -116,9 +96,9 @@ export function AppearanceTab() {
                     "w-[16px] h-[16px] rounded-full shrink-0",
                     isActive ? "ring-2 ring-white/40 ring-offset-1 ring-offset-background-card" : "border border-[rgba(255,255,255,0.2)]"
                   )}
-                  style={{ backgroundColor: ACCENT_COLOR_VALUES[color.id] }}
+                  style={{ backgroundColor: color.hex }}
                 />
-                <span className="font-mohave text-body-sm text-text-secondary truncate">{colorLabel}</span>
+                <span className="font-mohave text-body-sm text-text-secondary truncate">{color.name}</span>
                 {isActive && (
                   <Check className="w-[12px] h-[12px] text-ops-accent absolute right-[6px] shrink-0" />
                 )}

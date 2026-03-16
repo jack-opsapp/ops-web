@@ -11,7 +11,6 @@ import { useDictionary } from "@/i18n/client";
 interface ReviewTaskType {
   name: string;
   color: string;
-  templateCount: number;
 }
 
 interface DependencyTimelineItem {
@@ -47,15 +46,12 @@ export function ReviewStep({
   const { t } = useDictionary("settings");
   const [status, setStatus] = useState<"idle" | "creating" | "success">("idle");
 
-  const totalTemplates = taskTypes.reduce((sum, tt) => sum + tt.templateCount, 0);
-
   async function handleCreate() {
     setStatus("creating");
     try {
       await onCreateAll();
       setStatus("success");
     } catch (err) {
-      // (#8) Show error toast on failure
       const message =
         err instanceof Error ? err.message : "Something went wrong";
       toast.error(message);
@@ -63,7 +59,7 @@ export function ReviewStep({
     }
   }
 
-  // (#4) Elapsed time for success screen
+  // Elapsed time for success screen
   if (status === "success") {
     const elapsedSeconds = Math.round((Date.now() - wizardStartTime) / 1000);
 
@@ -106,9 +102,7 @@ export function ReviewStep({
 
       {/* Summary line */}
       <p className="font-mohave text-body text-text-secondary mb-[4px]">
-        {t("wizard.review.summary")
-          .replace("{count}", String(taskTypes.length))
-          .replace("{templateCount}", String(totalTemplates))}
+        {t("wizard.review.summary").replace("{count}", String(taskTypes.length))}
       </p>
       {hasDependencies && (
         <p className="font-kosugi text-[11px] text-text-disabled mb-[16px]">
@@ -130,16 +124,11 @@ export function ReviewStep({
             <span className="font-mohave text-body-sm text-text-primary flex-1">
               {tt.name}
             </span>
-            {tt.templateCount > 0 && (
-              <span className="font-mono text-[10px] text-text-disabled">
-                {tt.templateCount} {t("wizard.taskTypes.templates")}
-              </span>
-            )}
           </div>
         ))}
       </div>
 
-      {/* (#9) Mini dependency timeline */}
+      {/* Mini dependency timeline */}
       {hasDependencies && dependencyTimeline && dependencyTimeline.length > 1 && (
         <div className="mb-[24px]">
           <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest mb-[6px] block">

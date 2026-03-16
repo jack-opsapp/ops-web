@@ -111,7 +111,7 @@ export function ColorPickerPopover({
                     onSelect(color.hex);
                     onClose();
                   }}
-                  title={`${color.name} — ${color.source}`}
+                  title={color.name}
                   className="relative w-[20px] h-[20px] rounded-sm transition-transform hover:scale-110 focus:outline-none"
                   style={{ backgroundColor: color.hex }}
                 >
@@ -128,11 +128,6 @@ export function ColorPickerPopover({
           </div>
         </div>
       ))}
-      <div className="mt-[8px] pt-[6px] border-t border-[rgba(255,255,255,0.06)]">
-        <span className="font-kosugi text-[9px] text-text-disabled">
-          Colors from Farrow & Ball, Benjamin Moore, Sherwin-Williams
-        </span>
-      </div>
     </motion.div>,
     document.body
   );

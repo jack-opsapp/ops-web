@@ -12,7 +12,7 @@ import {
   type TimelineItem,
 } from "./wizard/dependency-timeline-step";
 import { ReviewStep } from "./wizard/review-step";
-import { TaskTypeService, TaskTemplateService, CompanyService } from "@/lib/api/services";
+import { TaskTypeService, CompanyService } from "@/lib/api/services";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { TaskTypeDependency } from "@/lib/types/scheduling";
@@ -41,7 +41,7 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [wizardStartTime] = useState(() => Date.now());
 
-  // ── Refs for idempotent batch creation (#2) ─────────────────────────────
+  // ── Refs for idempotent batch creation ─────────────────────────────────
 
   const createdIdsRef = useRef<Map<string, string>>(new Map());
   const queryClient = useQueryClient();
@@ -101,7 +101,7 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
     const companyId = store.company?.id;
     if (!companyId) throw new Error("No company");
 
-    // (#3) Update company industries if changed
+    // Update company industries if changed
     const originalIndustries = store.company?.industries ?? [];
     const industriesChanged =
       selectedIndustries.length !== originalIndustries.length ||
@@ -113,10 +113,9 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
       });
     }
 
-    // (#2) Idempotent: skip already-created types on retry
+    // Idempotent: skip already-created types on retry
     const createdIds = createdIdsRef.current;
 
-    // (#11) Call services directly — invalidate once at the end
     for (const tt of wizardTaskTypes) {
       if (createdIds.has(tt.id)) continue;
 
@@ -127,20 +126,9 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
       });
 
       createdIds.set(tt.id, taskTypeId);
-
-      for (let i = 0; i < tt.templates.length; i++) {
-        const tmpl = tt.templates[i];
-        await TaskTemplateService.createTaskTemplate({
-          taskTypeId,
-          title: tmpl.title,
-          estimatedHours: tmpl.estimatedHours,
-          companyId,
-          displayOrder: i,
-        });
-      }
     }
 
-    // (#1) Persist dependencies from timeline
+    // Persist dependencies from timeline
     if (useDependencies && timelineItems.length > 1) {
       for (let i = 1; i < timelineItems.length; i++) {
         const item = timelineItems[i];
@@ -160,9 +148,8 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
       }
     }
 
-    // (#11) Single invalidation at the end
+    // Single invalidation at the end
     await queryClient.invalidateQueries({ queryKey: queryKeys.taskTypes.all });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.taskTemplates.all });
     if (industriesChanged) {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.company.detail(companyId),
@@ -181,15 +168,14 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
     onComplete,
   ]);
 
-  // ── Review data (#13: wizardTaskTypes already contains only enabled) ─────
+  // ── Review data ─────────────────────────────────────────────────────────
 
   const reviewTaskTypes = wizardTaskTypes.map((tt) => ({
     name: tt.name,
     color: tt.color,
-    templateCount: tt.templates.length,
   }));
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full">
