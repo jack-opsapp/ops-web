@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Building2, Save, Upload, Loader2, Copy, Check, Crosshair } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Building2, Save, Upload, Loader2, Copy, Check, Crosshair, Search, X } from "lucide-react";
+import { INDUSTRIES } from "@/lib/data/industries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +13,108 @@ import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
+
+// ---------------------------------------------------------------------------
+// Industry Picker — searchable, scrollable, with selected tags
+// ---------------------------------------------------------------------------
+function IndustryPicker({
+  industries,
+  setIndustries,
+  search,
+  setSearch,
+  disabled,
+}: {
+  industries: string[];
+  setIndustries: React.Dispatch<React.SetStateAction<string[]>>;
+  search: string;
+  setSearch: (s: string) => void;
+  disabled: boolean;
+}) {
+  const filtered = useMemo(() => {
+    if (!search.trim()) return INDUSTRIES;
+    const q = search.trim().toLowerCase();
+    return INDUSTRIES.filter((i) => i.toLowerCase().includes(q));
+  }, [search]);
+
+  function toggle(industry: string) {
+    setIndustries((prev) =>
+      prev.includes(industry) ? prev.filter((i) => i !== industry) : [...prev, industry]
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        Industries
+      </label>
+
+      {/* Selected tags */}
+      {industries.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {industries.map((ind) => (
+            <button
+              key={ind}
+              type="button"
+              disabled={disabled}
+              onClick={() => toggle(ind)}
+              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-sm border border-ops-accent/40 bg-ops-accent/12 text-ops-accent font-mohave text-caption transition-colors hover:bg-ops-accent/20 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {ind}
+              <X className="w-[10px] h-[10px]" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border border-border bg-background-input">
+        <Search className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search trades..."
+          className="flex-1 bg-transparent text-text-primary font-mohave text-body-sm placeholder:text-text-disabled outline-none"
+        />
+        {search && (
+          <button type="button" onClick={() => setSearch("")} className="text-text-disabled hover:text-text-tertiary">
+            <X className="w-[12px] h-[12px]" />
+          </button>
+        )}
+      </div>
+
+      {/* Scrollable options grid */}
+      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded-sm border border-border bg-background-input/50 p-1">
+        <div className="flex flex-wrap gap-[4px]">
+          {filtered.map((ind) => {
+            const isSelected = industries.includes(ind);
+            return (
+              <button
+                key={ind}
+                type="button"
+                disabled={disabled}
+                onClick={() => toggle(ind)}
+                className={cn(
+                  "px-[8px] py-[3px] rounded-sm font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                  isSelected
+                    ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                    : "bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-[rgba(255,255,255,0.18)]"
+                )}
+              >
+                {ind}
+              </button>
+            );
+          })}
+          {filtered.length === 0 && (
+            <span className="font-kosugi text-[11px] text-text-disabled px-1 py-2">
+              No trades found
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function CompanyTab() {
   const { t } = useDictionary("settings");
@@ -45,6 +148,7 @@ export function CompanyTab() {
   const [industries, setIndustries] = useState<string[]>([]);
   const [companySize, setCompanySize] = useState("");
   const [companyAge, setCompanyAge] = useState("");
+  const [industrySearch, setIndustrySearch] = useState("");
 
   useEffect(() => {
     if (company) {
@@ -235,40 +339,20 @@ export function CompanyTab() {
             </div>
           </div>
 
-          {/* Industries */}
-          <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-              Industries
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {["General Contracting", "Plumbing", "Electrical", "HVAC", "Roofing", "Landscaping", "Painting", "Flooring", "Concrete", "Demolition", "Excavation", "Fencing", "Framing", "Insulation", "Masonry", "Solar", "Welding", "Windows & Doors"].map((ind) => (
-                <button
-                  key={ind}
-                  type="button"
-                  disabled={!can("settings.company")}
-                  onClick={() =>
-                    setIndustries((prev) =>
-                      prev.includes(ind) ? prev.filter((i) => i !== ind) : [...prev, ind]
-                    )
-                  }
-                  className={cn(
-                    "px-2 py-0.5 rounded-sm text-caption font-mohave transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
-                    industries.includes(ind)
-                      ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                      : "bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-text-tertiary"
-                  )}
-                >
-                  {ind}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* ── Industries ────────────────────────────────────── */}
+          <IndustryPicker
+            industries={industries}
+            setIndustries={setIndustries}
+            search={industrySearch}
+            setSearch={setIndustrySearch}
+            disabled={!can("settings.company")}
+          />
 
-          {/* Company Size + Age */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-            <div className="flex flex-col gap-0.5">
+          {/* ── Company Size & Age — side by side ─────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
               <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-                Company Size
+                Team Size
               </label>
               <div className="flex gap-1">
                 {["1-5", "6-15", "16-50", "51-200", "200+"].map((opt) => (
@@ -278,7 +362,7 @@ export function CompanyTab() {
                     disabled={!can("settings.company")}
                     onClick={() => setCompanySize(opt)}
                     className={cn(
-                      "flex-1 px-2 py-1 rounded-sm text-caption font-mohave transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                      "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                       companySize === opt
                         ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
                         : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
@@ -290,25 +374,31 @@ export function CompanyTab() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
-                Company Age
+                Years in Business
               </label>
-              <div className="flex gap-1 flex-wrap">
-                {["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+"].map((opt) => (
+              <div className="flex gap-1">
+                {[
+                  { label: "<1 yr", value: "Less than 1 year" },
+                  { label: "1-3 yr", value: "1-3 years" },
+                  { label: "3-5 yr", value: "3-5 years" },
+                  { label: "5-10 yr", value: "5-10 years" },
+                  { label: "10+", value: "10+" },
+                ].map((opt) => (
                   <button
-                    key={opt}
+                    key={opt.value}
                     type="button"
                     disabled={!can("settings.company")}
-                    onClick={() => setCompanyAge(opt)}
+                    onClick={() => setCompanyAge(opt.value)}
                     className={cn(
-                      "px-2 py-1 rounded-sm text-caption font-mohave transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
-                      companyAge === opt
+                      "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                      companyAge === opt.value
                         ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
                         : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
                     )}
                   >
-                    {opt}
+                    {opt.label}
                   </button>
                 ))}
               </div>

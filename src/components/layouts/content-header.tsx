@@ -68,10 +68,21 @@ export function ContentHeader() {
     return defaultBreadcrumbs;
   }, [parentCrumbs, defaultBreadcrumbs, entityName]);
 
-  // Only render breadcrumbs for nested routes (2+ segments).
-  // Top-level pages handle their own headers with counts, actions, etc.
-  if (breadcrumbs.length <= 1) return null;
+  // No breadcrumbs at all (shouldn't happen, but guard)
+  if (breadcrumbs.length === 0) return null;
 
+  // Top-level route — render page title
+  if (breadcrumbs.length === 1) {
+    return (
+      <div className="px-3 pt-2 pb-1 shrink-0">
+        <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
+          {breadcrumbs[0].label}
+        </h1>
+      </div>
+    );
+  }
+
+  // Nested route — render breadcrumb trail
   return (
     <div className="px-3 pt-2 pb-1 shrink-0">
       <div className="flex items-center gap-[6px]">

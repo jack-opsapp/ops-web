@@ -93,14 +93,9 @@ export default function ProductsPage() {
     <div className="space-y-3 pb-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
-            {t("products.title")}
-          </h1>
-          <p className="font-mohave text-body-sm text-text-tertiary">
-            {stats.total} {t("products.items")} — {stats.active} {t("products.active")}, {stats.inactive} {t("products.inactive")}
-          </p>
-        </div>
+        <p className="font-mohave text-body-sm text-text-tertiary">
+          {stats.total} {t("products.items")} — {stats.active} {t("products.active")}, {stats.inactive} {t("products.inactive")}
+        </p>
         {can("products.manage") && (
           <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
             <Plus className="w-[14px] h-[14px]" />

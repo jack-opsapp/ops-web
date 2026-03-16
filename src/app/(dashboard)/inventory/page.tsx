@@ -98,11 +98,8 @@ function InventoryContent() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="font-mohave text-heading font-semibold uppercase tracking-wider text-text-primary">
-            INVENTORY
-          </h1>
           <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-1.5 py-[2px] rounded-sm">
-            {stats.total}
+            {stats.total} items
           </span>
         </div>
         {(stats.warning > 0 || stats.critical > 0) && (

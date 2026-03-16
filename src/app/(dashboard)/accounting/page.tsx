@@ -460,14 +460,9 @@ export default function AccountingPage() {
     <div className="space-y-3 pb-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
-            {t("title")}
-          </h1>
-          <p className="font-mohave text-body-sm text-text-tertiary">
-            {t("subtitle")}
-          </p>
-        </div>
+        <p className="font-mohave text-body-sm text-text-tertiary">
+          {t("subtitle")}
+        </p>
 
         {/* Tabs */}
         <div className="flex bg-background-card border border-border rounded-lg p-0.5">

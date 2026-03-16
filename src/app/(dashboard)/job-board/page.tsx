@@ -65,11 +65,16 @@ import {
 // ---------------------------------------------------------------------------
 type ColumnId = "rfq" | "estimated" | "accepted" | "in-progress" | "completed" | "closed";
 
+interface TeamMemberAvatar {
+  name: string;
+  imageUrl: string | null;
+}
+
 interface JobCard {
   id: string;
   name: string;
   client: string;
-  teamMembers: string[];
+  teamMembers: TeamMemberAvatar[];
   date?: string;
   endDate?: string;
   taskCount: number;
@@ -227,9 +232,11 @@ function SortableKanbanCard({
     <div
       ref={setNodeRef}
       style={isDraggingOverlay ? undefined : style}
+      {...attributes}
+      {...listeners}
       className={cn(
         "bg-background-card-dark border border-border rounded p-1.5",
-        "cursor-pointer transition-all duration-150",
+        "cursor-grab active:cursor-grabbing transition-all duration-150 touch-none",
         "group",
         isDragging && !isDraggingOverlay && "opacity-30 scale-[0.98]",
         isDraggingOverlay &&
@@ -244,13 +251,8 @@ function SortableKanbanCard({
     >
       {/* Top row: drag handle + name */}
       <div className="flex items-start gap-[6px]">
-        <div
-          {...attributes}
-          {...listeners}
-          className="mt-[2px] cursor-grab active:cursor-grabbing touch-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className="w-[14px] h-[14px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        <div className="mt-[2px] shrink-0">
+          <GripVertical className="w-[14px] h-[14px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-mohave text-body-sm text-text-primary truncate">{card.name}</h4>
@@ -289,19 +291,27 @@ function SortableKanbanCard({
             card.teamMembers.slice(0, 3).map((member, i) => (
               <div
                 key={i}
-                className="w-[20px] h-[20px] rounded-full border-2 border-ops-accent flex items-center justify-center"
-                title={member}
+                className="w-[20px] h-[20px] rounded-full border border-border-subtle flex items-center justify-center overflow-hidden bg-background-elevated"
+                title={member.name}
               >
-                <span className="font-mohave text-[9px] text-ops-accent">
-                  {member.charAt(0)}
-                </span>
+                {member.imageUrl ? (
+                  <img
+                    src={member.imageUrl}
+                    alt={member.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="font-mohave text-[9px] text-text-tertiary">
+                    {member.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
             ))
           ) : (
             <span className="font-kosugi text-[9px] text-text-disabled">{t("card.unassigned")}</span>
           )}
           {card.teamMembers.length > 3 && (
-            <div className="w-[20px] h-[20px] rounded-full bg-background-elevated border border-background-card-dark flex items-center justify-center">
+            <div className="w-[20px] h-[20px] rounded-full bg-background-elevated border border-border-subtle flex items-center justify-center">
               <span className="font-mono text-[8px] text-text-disabled">
                 +{card.teamMembers.length - 3}
               </span>
@@ -352,11 +362,14 @@ function CollapsedJobColumn({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center h-full rounded-sm border transition-colors duration-150 cursor-pointer overflow-hidden",
-        isOver
-          ? "bg-ops-accent-muted border-ops-accent"
-          : "bg-[rgba(10,10,10,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]"
+        "relative flex flex-col items-center h-full rounded-sm border transition-all duration-200 cursor-pointer overflow-hidden",
+        !isOver && "bg-[rgba(10,10,10,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]"
       )}
+      style={isOver ? {
+        backgroundColor: `${colorHex}12`,
+        borderColor: colorHex,
+        boxShadow: `0 0 10px 0 ${colorHex}30, inset 0 0 8px 0 ${colorHex}15`,
+      } : undefined}
     >
       {/* Fill level — bottom to top */}
       {column.cards.length > 0 && (
@@ -414,11 +427,19 @@ function ArchiveDropZone({ isDragging }: { isDragging: boolean }) {
     <div
       ref={setNodeRef}
       className={cn(
-        "sticky bottom-0 z-10 flex items-center justify-center gap-2 py-2 rounded border transition-all duration-200",
+        "sticky bottom-0 z-10 flex items-center justify-center gap-2 py-2.5 rounded border-2 border-dashed transition-all duration-200",
         isOver
-          ? "bg-status-archived/20 border-status-archived text-status-archived"
-          : "bg-background-panel/90 backdrop-blur-sm border-border text-text-tertiary"
+          ? "text-status-archived"
+          : "text-text-tertiary"
       )}
+      style={isOver ? {
+        backgroundColor: "rgba(161, 130, 181, 0.15)",
+        borderColor: "#A182B5",
+        boxShadow: "0 0 12px 0 rgba(161, 130, 181, 0.3), inset 0 0 8px 0 rgba(161, 130, 181, 0.1)",
+      } : {
+        backgroundColor: "rgba(10, 10, 10, 0.7)",
+        borderColor: "rgba(255, 255, 255, 0.15)",
+      }}
     >
       <Archive className="w-[16px] h-[16px]" />
       <span className="font-mohave text-body-sm uppercase tracking-wider">
@@ -526,12 +547,23 @@ function KanbanColumn({
         </div>
       </div>
 
-      {/* Cards area */}
+      {/* Cards area — also the column droppable target */}
       <SortableContext
         items={column.cards.map((c) => c.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex-1 bg-background-panel/50 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px]">
+        <div
+          ref={setDropRef}
+          className={cn(
+            "flex-1 border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] transition-all duration-200",
+            !isDropOver && "bg-background-panel/50 border-border"
+          )}
+          style={isDropOver ? {
+            backgroundColor: `${COLUMN_COLOR_HEX[column.id]}10`,
+            borderColor: COLUMN_COLOR_HEX[column.id],
+            boxShadow: `inset 0 0 12px 0 ${COLUMN_COLOR_HEX[column.id]}18, 0 0 8px 0 ${COLUMN_COLOR_HEX[column.id]}25`,
+          } : undefined}
+        >
           {column.cards.map((card) => (
             <SortableKanbanCard
               key={card.id}
@@ -542,16 +574,25 @@ function KanbanColumn({
           ))}
 
           {column.cards.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-[120px] border border-dashed border-border-subtle rounded gap-1">
+            <div
+              className="flex flex-col items-center justify-center h-[120px] border border-dashed rounded gap-1 transition-colors duration-200"
+              style={isDropOver ? {
+                borderColor: COLUMN_COLOR_HEX[column.id],
+              } : {
+                borderColor: "rgba(255, 255, 255, 0.06)",
+              }}
+            >
               <div className="w-[32px] h-[32px] rounded-full bg-background-elevated flex items-center justify-center">
                 <LayoutGrid className="w-[14px] h-[14px] text-text-disabled" />
               </div>
               <span className="font-kosugi text-[11px] text-text-disabled">
-                {t("column.noProjects")}
+                {isDropOver ? t("column.dropHere") : t("column.noProjects")}
               </span>
-              <span className="font-kosugi text-[9px] text-text-disabled">
-                {t("column.dropHere")}
-              </span>
+              {!isDropOver && (
+                <span className="font-kosugi text-[9px] text-text-disabled">
+                  {t("column.dropHere")}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -856,10 +897,13 @@ export default function JobBoardPage() {
 
   // Build lookup maps
   const teamMemberMap = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, TeamMemberAvatar>();
     if (teamData?.users) {
       for (const user of teamData.users) {
-        map.set(user.id, getUserFullName(user));
+        map.set(user.id, {
+          name: getUserFullName(user),
+          imageUrl: user.profileImageURL ?? null,
+        });
       }
     }
     return map;
@@ -887,8 +931,8 @@ export default function JobBoardPage() {
   // ─── Map Projects to JobCards and group into Columns ──────────────────────
   const projectToCard = useCallback(
     (project: Project): JobCard => {
-      const memberNames = (project.teamMemberIds ?? []).map(
-        (id) => teamMemberMap.get(id) ?? "Unknown"
+      const memberAvatars = (project.teamMemberIds ?? []).map(
+        (id) => teamMemberMap.get(id) ?? { name: "Unknown", imageUrl: null }
       );
       const clientName = project.clientId
         ? clientMap.get(project.clientId) ?? "No Client"
@@ -898,7 +942,7 @@ export default function JobBoardPage() {
         id: project.id,
         name: project.title,
         client: clientName,
-        teamMembers: memberNames,
+        teamMembers: memberAvatars,
         date: formatDate(project.startDate),
         endDate: formatDate(project.endDate),
         taskCount: 0,

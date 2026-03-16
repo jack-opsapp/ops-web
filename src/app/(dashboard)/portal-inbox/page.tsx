@@ -272,14 +272,9 @@ export default function PortalInboxPage() {
 
   return (
     <div className="space-y-2">
-      <div>
-        <h1 className="font-mohave text-display text-text-primary">
-          {t("portalInbox.title")}
-        </h1>
-        <p className="font-kosugi text-caption-sm text-text-tertiary mt-[4px] uppercase">
-          {t("portalInbox.subtitle")}
-        </p>
-      </div>
+      <p className="font-kosugi text-caption-sm text-text-tertiary uppercase">
+        {t("portalInbox.subtitle")}
+      </p>
 
       <PortalInbox
         conversations={conversations}
