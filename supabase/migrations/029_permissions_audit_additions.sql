@@ -62,24 +62,20 @@ ON CONFLICT (role_id, permission) DO NOTHING;
 -- 3. Feature flags
 -- ------------------------------------------------------------
 
+-- Update existing accounting flag to include estimates + invoices routes/permissions
+UPDATE feature_flags
+SET
+  routes = ARRAY['/accounting', '/estimates', '/invoices'],
+  permissions = ARRAY[
+    'accounting.view','accounting.manage_connections',
+    'estimates.view','estimates.create','estimates.edit','estimates.delete','estimates.send','estimates.convert',
+    'invoices.view','invoices.create','invoices.edit','invoices.delete','invoices.send','invoices.record_payment','invoices.void'
+  ],
+  updated_at = now()
+WHERE slug = 'accounting';
+
 INSERT INTO feature_flags (slug, label, description, enabled, routes, permissions)
 VALUES
-  (
-    'estimates',
-    'Estimates',
-    'Estimate creation and management',
-    true,
-    ARRAY['/estimates'],
-    ARRAY['estimates.view','estimates.create','estimates.edit','estimates.delete','estimates.send','estimates.convert']
-  ),
-  (
-    'invoices',
-    'Invoices',
-    'Invoice creation and management',
-    true,
-    ARRAY['/invoices'],
-    ARRAY['invoices.view','invoices.create','invoices.edit','invoices.delete','invoices.send','invoices.record_payment','invoices.void']
-  ),
   (
     'products',
     'Products & Services',

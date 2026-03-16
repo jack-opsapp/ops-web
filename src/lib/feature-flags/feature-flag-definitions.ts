@@ -10,9 +10,7 @@
 /** Routes gated by each feature flag slug. */
 export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   pipeline: ["/pipeline"],
-  accounting: ["/accounting"],
-  estimates: ["/estimates"],
-  invoices: ["/invoices"],
+  accounting: ["/accounting", "/estimates", "/invoices"],
   products: ["/products"],
   inventory: ["/inventory"],
   portal: ["/portal-inbox"],
@@ -23,16 +21,15 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
 /** RBAC permissions gated by each feature flag slug. */
 export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   pipeline: ["pipeline.view", "pipeline.manage", "pipeline.configure_stages"],
-  accounting: ["accounting.view", "accounting.manage_connections"],
-  estimates: [
+  accounting: [
+    "accounting.view",
+    "accounting.manage_connections",
     "estimates.view",
     "estimates.create",
     "estimates.edit",
     "estimates.delete",
     "estimates.send",
     "estimates.convert",
-  ],
-  invoices: [
     "invoices.view",
     "invoices.create",
     "invoices.edit",
