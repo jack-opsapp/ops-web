@@ -60,9 +60,11 @@ export interface SyncProfile {
 
   // Wizard state
   wizardCompleted?: boolean;
-  wizardStep?: number;
+  wizardStep?: string | number;
   lastScanJobId?: string;
-  lastScanSummary?: Record<string, unknown>;
+  lastScanSummary?: Record<string, unknown> | string;
+  lastScanTotal?: number;
+  lastScanImportCount?: number;
 }
 
 export interface EmailFilterRule {
