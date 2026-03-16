@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ShieldOff, UserX, Check, Headphones, Zap, Crown, Building2 } from "lucide-react";
+import { ShieldOff, UserX, Check, Headphones, Zap, Crown, Building2, Users } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
@@ -164,8 +165,10 @@ function RequestButton({
   const [sent, setSent] = useState(() => isWithinCooldown(userId));
   const [sending, setSending] = useState(false);
 
+  const noAdmins = adminIds.length === 0;
+
   const handleRequest = useCallback(async () => {
-    if (sent || sending) return;
+    if (sent || sending || noAdmins) return;
     setSending(true);
 
     try {
@@ -196,7 +199,10 @@ function RequestButton({
     } finally {
       setSending(false);
     }
-  }, [sent, sending, adminIds, companyId, userName, reason, userId]);
+  }, [sent, sending, noAdmins, adminIds, companyId, userName, reason, userId]);
+
+  // If there are no admins to notify, don't show the button
+  if (noAdmins) return null;
 
   return (
     <Button
@@ -377,11 +383,15 @@ function FooterLinks({ showDifferentAccount }: { showDifferentAccount?: boolean 
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+/** Routes where the lockout overlay is suppressed for admins — they need access to fix the subscription. */
+const LOCKOUT_EXEMPT_ROUTES = ["/settings"];
+
 export function LockoutOverlay() {
   const { company, currentUser } = useAuthStore();
   const isAdmin = useAuthStore(selectIsAdminOrOwner);
   const { t } = useDictionary("auth");
   const prefersReducedMotion = useReducedMotion();
+  const pathname = usePathname();
 
   const userId = currentUser?.id ?? null;
   const companyId = company?.id;
@@ -396,10 +406,26 @@ export function LockoutOverlay() {
   const admins = useAdminNames(company?.adminIds);
 
   // Determine lockout reason
-  const lockoutReason = useMemo(
+  const rawLockoutReason = useMemo(
     () => getLockoutReason(company, userId),
     [company, userId]
   );
+
+  // Exempt admins on certain routes so they can fix the underlying issue:
+  // - /settings: fix subscription (for subscription_expired)
+  // - /team: manage seats (for unseated)
+  const isExemptRoute = LOCKOUT_EXEMPT_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+  const isOnTeamPage = pathname === "/team" || pathname.startsWith("/team/");
+  const lockoutReason = useMemo(() => {
+    if (!rawLockoutReason) return null;
+    // Admin on /settings with expired subscription → let them through to fix it
+    if (isExemptRoute && isAdmin && rawLockoutReason === "subscription_expired") return null;
+    // Admin on /team while unseated → let them through to add their seat
+    if (isOnTeamPage && isAdmin && rawLockoutReason === "unseated") return null;
+    return rawLockoutReason;
+  }, [rawLockoutReason, isExemptRoute, isOnTeamPage, isAdmin]);
 
   // Pick animation variants based on reduced motion preference
   const backdropVariants = prefersReducedMotion
@@ -516,8 +542,38 @@ export function LockoutOverlay() {
               </>
             )}
 
-            {/* ── State 3: Unseated User ── */}
-            {lockoutReason === "unseated" && (
+            {/* ── State 3: Unseated User — Admin/Owner (self-service) ── */}
+            {lockoutReason === "unseated" && isAdmin && (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-full bg-ops-amber/15">
+                    <Users className="w-[20px] h-[20px] text-ops-amber animate-pulse-live" />
+                  </div>
+                </div>
+
+                <h2 id="lockout-heading" className="font-mohave text-display text-text-primary mb-1">
+                  {t("lockout.unseatedAdmin.title")}
+                </h2>
+                <p className="font-mohave text-body text-text-secondary leading-relaxed">
+                  {t("lockout.unseatedAdmin.body")}
+                </p>
+
+                <a href="/team" className="block mt-3">
+                  <Button variant="primary" size="lg" className="w-full">
+                    {t("lockout.unseatedAdmin.manageTeam")}
+                  </Button>
+                </a>
+
+                <FooterLinks />
+
+                <p className="font-mono text-[9px] text-text-disabled tracking-wider mt-2 opacity-40">
+                  {t("lockout.unseatedAdmin.sysMessage")}
+                </p>
+              </>
+            )}
+
+            {/* ── State 4: Unseated User — Non-Admin ── */}
+            {lockoutReason === "unseated" && !isAdmin && (
               <>
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-1.5 rounded-full bg-ops-amber/15">

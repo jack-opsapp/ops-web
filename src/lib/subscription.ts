@@ -141,11 +141,17 @@ export function getSubscriptionInfo(company: Pick<
     daysRemaining = Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
   }
 
+  // A trialing status with an expired trial end date is NOT active.
+  // This catches trials managed outside Stripe where the backend never flips the status.
+  const trialExpired = status === "trialing" && daysRemaining !== undefined && daysRemaining <= 0;
+
   const isActive =
-    status === "active" ||
-    status === "trialing" ||
-    status === "grace" ||
-    (tier === "trial" && daysRemaining !== undefined && daysRemaining > 0);
+    !trialExpired && (
+      status === "active" ||
+      status === "trialing" ||
+      status === "grace" ||
+      (tier === "trial" && daysRemaining !== undefined && daysRemaining > 0)
+    );
 
   return {
     tier,
