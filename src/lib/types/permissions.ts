@@ -259,6 +259,17 @@ const settingsModule: PermissionModule = {
   ],
 };
 
+const emailModule: PermissionModule = {
+  id: "email",
+  label: "Email Integration",
+  actions: [
+    { id: "email.connect", label: "Connect email accounts", scopes: ["all"] },
+    { id: "email.view", label: "View email activity", scopes: ["all", "own"] },
+    { id: "email.manage", label: "Manage email integration", scopes: ["all"] },
+    { id: "email.configure_ai", label: "Configure AI features", scopes: ["all"] },
+  ],
+};
+
 const portalModule: PermissionModule = {
   id: "portal",
   label: "Portal",
@@ -302,7 +313,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "admin",
     label: "Admin",
-    modules: [settingsModule, portalModule, reportsModule],
+    modules: [settingsModule, emailModule, portalModule, reportsModule],
   },
 ];
 
@@ -377,6 +388,7 @@ const DESTRUCTIVE_SUFFIXES = [
   "integrations",
   "void",
   "configure",
+  "configure_ai",
   "convert",
 ];
 
