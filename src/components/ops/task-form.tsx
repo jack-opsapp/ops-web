@@ -9,6 +9,7 @@ import { trackTaskCreated, trackFormAbandoned } from "@/lib/analytics/analytics"
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { CalendarScheduler } from "@/components/ops/calendar-scheduler";
+import { useDictionary } from "@/i18n/client";
 import {
   type ProjectTask,
   type TaskType,
@@ -18,6 +19,7 @@ import {
   getUserFullName,
   getInitials,
 } from "@/lib/types/models";
+import { type TaskTypeDependency } from "@/lib/types/scheduling";
 
 // ─── Validation Schema ───────────────────────────────────────────────────────
 
@@ -28,6 +30,10 @@ const taskFormSchema = z.object({
   teamMemberIds: z.array(z.string()).optional().default([]),
   startDate: z.string().optional().default(""),
   endDate: z.string().optional().default(""),
+  dependencyOverrides: z.array(z.object({
+    depends_on_task_type_id: z.string(),
+    overlap_percentage: z.number().min(0).max(100),
+  })).nullable().optional(),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -51,6 +57,14 @@ export interface TaskFormProps {
   calendarStartDate?: Date | null;
   /** End date from calendar event (for edit mode) */
   calendarEndDate?: Date | null;
+  /** Existing tasks in the project for calendar display */
+  projectTasks?: ProjectTask[];
+  /** Team scheduling conflicts from other projects */
+  teamConflicts?: Array<{
+    date: Date;
+    memberName: string;
+    projectTitle: string;
+  }>;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -379,6 +393,106 @@ function TeamMemberDropdown({
   );
 }
 
+// ─── Dependency Section ──────────────────────────────────────────────────────
+
+function DependencySection({
+  dependencies,
+  taskTypes,
+  overrides,
+  onOverridesChange,
+}: {
+  dependencies: TaskTypeDependency[];
+  taskTypes: TaskType[];
+  overrides: TaskTypeDependency[] | null;
+  onOverridesChange: (overrides: TaskTypeDependency[] | null) => void;
+}) {
+  const { t } = useDictionary("projects");
+  const [showOverride, setShowOverride] = useState(false);
+  const activeDeps = overrides ?? dependencies;
+
+  function overlapLabel(pct: number): string {
+    if (pct === 0) return t("taskForm.noOverlap");
+    if (pct === 100) return t("taskForm.fullOverlap");
+    return `${pct}${t("taskForm.overlap")}`;
+  }
+
+  function resolveTaskTypeName(id: string): string {
+    return taskTypes.find((tt) => tt.id === id)?.display ?? "Unknown";
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        {t("taskForm.dependencies")}
+      </label>
+      {activeDeps.length === 0 ? (
+        <p className="font-mohave text-body-sm text-text-disabled">{t("taskForm.noDependencies")}</p>
+      ) : (
+        <div className="space-y-1">
+          {activeDeps.map((dep, i) => (
+            <div key={dep.depends_on_task_type_id} className="flex items-center gap-2">
+              {showOverride && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = activeDeps.filter((_, idx) => idx !== i);
+                    onOverridesChange(next.length > 0 ? next : null);
+                  }}
+                  className="text-text-disabled hover:text-ops-error p-0.5"
+                >
+                  <X className="w-[12px] h-[12px]" />
+                </button>
+              )}
+              <span className="font-mohave text-body-sm text-text-primary">
+                {t("taskForm.afterTask")} {resolveTaskTypeName(dep.depends_on_task_type_id)}
+              </span>
+              {showOverride ? (
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={dep.overlap_percentage}
+                  onChange={(e) => {
+                    const next = [...activeDeps];
+                    next[i] = { ...next[i], overlap_percentage: Number(e.target.value) };
+                    onOverridesChange(next);
+                  }}
+                  className="w-[50px] font-mono text-data-sm bg-background-card border border-border rounded-[2px] px-1.5 py-0.5 text-text-primary outline-none focus:border-ops-accent"
+                />
+              ) : (
+                <span className="font-mohave text-body-sm text-text-tertiary">
+                  ({overlapLabel(dep.overlap_percentage)})
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {!showOverride && activeDeps.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowOverride(true)}
+          className="text-ops-accent text-caption-sm cursor-pointer hover:underline self-start mt-0.5"
+        >
+          {t("taskForm.override")}
+        </button>
+      )}
+      {showOverride && (
+        <button
+          type="button"
+          onClick={() => {
+            onOverridesChange(null);
+            setShowOverride(false);
+          }}
+          className="text-ops-accent text-caption-sm cursor-pointer hover:underline self-start mt-0.5"
+        >
+          {t("taskForm.resetDefaults")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── TaskForm Component ──────────────────────────────────────────────────────
 
 function TaskForm({
@@ -390,7 +504,10 @@ function TaskForm({
   onCancel,
   calendarStartDate,
   calendarEndDate,
+  projectTasks,
+  teamConflicts,
 }: TaskFormProps) {
+  const { t } = useDictionary("projects");
   const isEditMode = !!task;
 
   const defaultValues: TaskFormValues = useMemo(
@@ -438,6 +555,34 @@ function TaskForm({
   const startDate = watch("startDate");
   const endDate = watch("endDate");
 
+  // ── Dependency logic ────────────────────────────────────────────────────
+  const selectedTaskType = taskTypes.find((tt) => tt.id === currentTaskTypeId);
+  const defaultDependencies: TaskTypeDependency[] = selectedTaskType?.dependencies ?? [];
+  const currentOverrides = watch("dependencyOverrides");
+
+  const blockedDates = useMemo(() => {
+    const deps = currentOverrides ?? defaultDependencies;
+    if (deps.length === 0 || !projectTasks) return [];
+
+    const blocks: Array<{ start: Date; end: Date; reason: string }> = [];
+    for (const dep of deps) {
+      if (dep.overlap_percentage >= 100) continue;
+      const depTasks = (projectTasks ?? []).filter(
+        (pt) => pt.taskTypeId === dep.depends_on_task_type_id && pt.endDate
+      );
+      for (const depTask of depTasks) {
+        if (!depTask.endDate) continue;
+        const typeName = taskTypes.find((tt) => tt.id === dep.depends_on_task_type_id)?.display ?? "task";
+        blocks.push({
+          start: new Date(0),
+          end: new Date(depTask.endDate),
+          reason: `Cannot start before ${new Date(depTask.endDate).toLocaleDateString()} — depends on ${typeName}`,
+        });
+      }
+    }
+    return blocks;
+  }, [currentOverrides, defaultDependencies, projectTasks, taskTypes]);
+
   function handleFormSubmit(values: TaskFormValues) {
     if (!isEditMode) {
       const hasSchedule = !!(values.startDate || values.endDate);
@@ -461,15 +606,12 @@ function TaskForm({
   return (
     <form
       onSubmit={handleSubmit(handleFormSubmit)}
-      className={cn(
-        "bg-background-elevated border border-border-medium rounded-sm p-2",
-        "animate-fade-in space-y-2"
-      )}
+      className="p-4 space-y-3"
     >
       {/* Form Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-mohave text-body-lg text-text-primary">
-          {isEditMode ? "Edit Task" : "New Task"}
+          {isEditMode ? t("taskForm.title.edit") : t("taskForm.title.create")}
         </h3>
         <button
           type="button"
@@ -480,8 +622,8 @@ function TaskForm({
         </button>
       </div>
 
-      {/* Task Type + Status row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+      {/* Task Type + Status + Team + Dependencies grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <TaskTypeDropdown
           value={currentTaskTypeId}
           onChange={(id) => setValue("taskTypeId", id)}
@@ -492,6 +634,19 @@ function TaskForm({
         <StatusDropdown
           value={selectedStatus}
           onChange={(s) => setValue("status", s)}
+        />
+
+        <TeamMemberDropdown
+          selectedIds={selectedTeamMemberIds}
+          onChange={(ids) => setValue("teamMemberIds", ids)}
+          members={teamMembers}
+        />
+
+        <DependencySection
+          dependencies={defaultDependencies}
+          taskTypes={taskTypes}
+          overrides={currentOverrides ?? null}
+          onOverridesChange={(ovr) => setValue("dependencyOverrides", ovr)}
         />
       </div>
 
@@ -507,13 +662,16 @@ function TaskForm({
           setValue("startDate", "");
           setValue("endDate", "");
         }}
-      />
-
-      {/* Team Members */}
-      <TeamMemberDropdown
-        selectedIds={selectedTeamMemberIds}
-        onChange={(ids) => setValue("teamMemberIds", ids)}
-        members={teamMembers}
+        projectTasks={projectTasks?.map((pt) => ({
+          id: pt.id,
+          startDate: pt.startDate,
+          endDate: pt.endDate,
+          taskColor: pt.taskColor,
+          title: pt.customTitle || pt.taskTypeId,
+        }))}
+        teamConflicts={teamConflicts}
+        blockedDates={blockedDates}
+        alwaysExpanded
       />
 
       {/* Actions */}
@@ -525,7 +683,7 @@ function TaskForm({
           onClick={handleCancel}
           disabled={isSubmitting}
         >
-          Cancel
+          {t("taskForm.cancel")}
         </Button>
         <Button
           type="submit"
@@ -535,7 +693,7 @@ function TaskForm({
           loading={isSubmitting}
         >
           <Save className="w-[14px] h-[14px]" />
-          {isEditMode ? "Save Changes" : "Create Task"}
+          {isEditMode ? t("taskForm.saveChanges") : t("taskForm.createTask")}
         </Button>
       </div>
     </form>
