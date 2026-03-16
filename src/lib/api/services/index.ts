@@ -67,3 +67,25 @@ export { EmailFilterService } from "./email-filter-service";
 
 export { EmailMatchingService } from "./email-matching-service";
 export type { MatchResult } from "./email-matching-service";
+
+export { EmailService } from "./email-service";
+
+export { PatternDetectionService } from "./pattern-detection-service";
+export type { DetectedSource, PatternDetectionResult } from "./pattern-detection-service";
+
+export { EmailAIClassifier } from "./email-ai-classifier";
+export type { ClassificationInput, ClassificationResult, ThreadAnalysisInput, ThreadAnalysisResult } from "./email-ai-classifier";
+
+export { EmailMatchingServiceV2 } from "./email-matching-service-v2";
+export type { MatchResultV2 } from "./email-matching-service-v2";
+
+export { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
+export type { PlatformMatch } from "./known-platforms";
+
+export { SyncEngine } from "./sync-engine";
+export type { SyncCycleResult } from "./sync-engine";
+
+export { StageEvaluator } from "./stage-evaluator";
+export type { ThreadState, StageEvaluation } from "./stage-evaluator";
+
+export { AdminFeatureOverrideService } from "./admin-feature-override-service";
