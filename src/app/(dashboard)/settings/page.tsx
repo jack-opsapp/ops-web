@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useDictionary } from "@/i18n/client";
 import { ProfileTab } from "@/components/settings/profile-tab";
 import { CompanyTab } from "@/components/settings/company-tab";
@@ -226,6 +227,7 @@ export default function SettingsPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const can = usePermissionStore((s) => s.can);
   const permReady = usePermissionStore(selectPermissionsReady);
+  const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
   const { t } = useDictionary("settings");
 
   // Filter sub-tabs based on permissions (memoize to prevent infinite re-render loop)
@@ -235,13 +237,16 @@ export default function SettingsPage() {
           ...group,
           subTabs: group.subTabs.filter((sub) => {
             const required = SUB_TAB_PERMISSIONS[sub.id];
-            return !required || can(required);
+            if (!required) return true;
+            // Check both: feature flag must be enabled AND RBAC permission granted
+            if (!isPermissionUnlocked(required)) return false;
+            return can(required);
           }),
         })).filter((group) => group.subTabs.length > 0)
       : BASE_GROUP_DEFS;
 
     return currentUser?.devPermission ? [...base, DEV_GROUP] : base;
-  }, [permReady, can, currentUser?.devPermission]);
+  }, [permReady, can, isPermissionUnlocked, currentUser?.devPermission]);
 
   const searchParams = useSearchParams();
   const router = useRouter();

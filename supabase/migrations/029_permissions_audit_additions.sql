@@ -69,7 +69,9 @@ SET
   permissions = ARRAY[
     'accounting.view','accounting.manage_connections',
     'estimates.view','estimates.create','estimates.edit','estimates.delete','estimates.send','estimates.convert',
-    'invoices.view','invoices.create','invoices.edit','invoices.delete','invoices.send','invoices.record_payment','invoices.void'
+    'invoices.view','invoices.create','invoices.edit','invoices.delete','invoices.send','invoices.record_payment','invoices.void',
+    'expenses.view','expenses.create','expenses.edit','expenses.delete','expenses.approve','expenses.configure',
+    'documents.manage_templates'
   ],
   updated_at = now()
 WHERE slug = 'accounting';
