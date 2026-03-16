@@ -24,11 +24,13 @@ import { resolveCrewStatus } from "@/lib/api/services/crew-location-service";
 import type { CrewLocation } from "@/lib/api/services/crew-location-service";
 import {
   createProjectPinWithLabel,
+  createStackedProjectPin,
   createTaskPinIcon,
   createCrewPinIcon,
 } from "./pin-icons";
 import {
   projectPopupHtml,
+  groupedProjectPopupHtml,
   taskPopupHtml,
   crewPopupHtml,
   POPUP_OPTIONS,
@@ -129,10 +131,10 @@ export function DashboardMapBackground() {
       zoom: 11,
       zoomControl: false,
       attributionControl: false,
-      dragging: true,
-      touchZoom: true,
-      doubleClickZoom: true,
-      scrollWheelZoom: true,
+      dragging: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      scrollWheelZoom: false,
       boxZoom: false,
       keyboard: false,
     });
@@ -277,22 +279,49 @@ export function DashboardMapBackground() {
         animateMarker(marker.getElement(), idx++);
       }
     } else {
-      // ── ACTIVE / ALL / TODAY-fallback: Project pins ──
-      filteredProjects.forEach((project, i) => {
-        const lat = project.latitude!;
-        const lng = project.longitude!;
+      // ── ACTIVE / ALL / TODAY-fallback: Project pins (grouped by location) ──
+      // Group projects sharing the same coordinates to stack labels
+      const locationGroups = new Map<string, Project[]>();
+      for (const project of filteredProjects) {
+        const key = `${project.latitude!.toFixed(6)},${project.longitude!.toFixed(6)}`;
+        const group = locationGroups.get(key) ?? [];
+        group.push(project);
+        locationGroups.set(key, group);
+      }
+
+      let idx = 0;
+      for (const [_key, groupProjects] of locationGroups) {
+        const lat = groupProjects[0].latitude!;
+        const lng = groupProjects[0].longitude!;
         bounds.push([lat, lng]);
 
-        const dimmed = view === "all" && isDimmedStatus(project.status);
-        const icon = createProjectPinWithLabel(
-          project.status,
-          project.title,
-          dimmed
-        );
-        const marker = L.marker([lat, lng], { icon }).addTo(layer);
-        marker.bindPopup(projectPopupHtml(project), POPUP_OPTIONS);
-        animateMarker(marker.getElement(), i);
-      });
+        const dimmed = view === "all" && groupProjects.every((p) => isDimmedStatus(p.status));
+
+        if (groupProjects.length === 1) {
+          // Single project — standard labeled pin
+          const project = groupProjects[0];
+          const icon = createProjectPinWithLabel(
+            project.status,
+            project.title,
+            dimmed
+          );
+          const marker = L.marker([lat, lng], { icon }).addTo(layer);
+          marker.bindPopup(projectPopupHtml(project), POPUP_OPTIONS);
+          animateMarker(marker.getElement(), idx++);
+        } else {
+          // Multiple projects — stacked label pin with count badge
+          const icon = createStackedProjectPin(
+            groupProjects.map((p) => ({ status: p.status, title: p.title })),
+            dimmed
+          );
+          const marker = L.marker([lat, lng], { icon }).addTo(layer);
+          marker.bindPopup(
+            groupedProjectPopupHtml(groupProjects),
+            POPUP_OPTIONS
+          );
+          animateMarker(marker.getElement(), idx++);
+        }
+      }
     }
 
     centerMap(map, bounds);
@@ -323,11 +352,11 @@ export function DashboardMapBackground() {
     <>
       <div
         className={cn(
-          "fixed top-0 bottom-0 right-0 z-0 transition-all duration-200 ease-out",
+          "fixed top-0 bottom-0 right-0 z-0 transition-all duration-200 ease-out pointer-events-none",
           isCollapsed ? "left-[72px]" : "left-[256px]"
         )}
       >
-        <div ref={containerRef} className="w-full h-full" />
+        <div ref={containerRef} className="w-full h-full pointer-events-none" />
 
         {/* Vertical fade — map visible in middle ~50%, fades to black at top 25% and bottom 25% */}
         <div

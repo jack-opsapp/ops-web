@@ -145,10 +145,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <TopBar />
         <ContentHeader />
         <UnassignedRoleBanner />
-        <div className={cn(
-          "flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]",
-          pathname === "/dashboard" && "pointer-events-none"
-        )}>
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]">
           {children}
         </div>
       </main>

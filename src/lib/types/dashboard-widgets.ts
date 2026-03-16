@@ -68,6 +68,9 @@ export type WidgetTypeId =
   // Stats — ranking (2)
   | "stat-client-ranking"
   | "stat-project-ranking"
+  // Stats — visual charts (2)
+  | "project-status-chart"
+  | "task-status-chart"
   // Schedule (2)
   | "calendar"
   | "task-list"
@@ -677,6 +680,32 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
       },
     ],
     requiredPermission: "projects.view",
+  },
+
+  // ── STATISTICS — Visual Charts (2) ────────────────────────────────────
+  "project-status-chart": {
+    label: "Project Status Chart",
+    description: "Ring chart of project status distribution",
+    category: "stats",
+    tags: ["essential", "office"],
+    icon: "PieChart",
+    supportedSizes: ["sm", "md", "lg"],
+    defaultSize: "md",
+    allowMultiple: false,
+    configSchema: [],
+    requiredPermission: "projects.view",
+  },
+  "task-status-chart": {
+    label: "Task Status Chart",
+    description: "Ring chart of task status distribution",
+    category: "stats",
+    tags: ["essential", "scheduling"],
+    icon: "PieChart",
+    supportedSizes: ["sm", "md", "lg"],
+    defaultSize: "md",
+    allowMultiple: false,
+    configSchema: [],
+    requiredPermission: "tasks.view",
   },
 
   // ── SCHEDULE (2) ────────────────────────────────────────────────────────

@@ -89,6 +89,102 @@ export function createProjectPinWithLabel(
   });
 }
 
+// ── Stacked Project Pin: single teardrop + vertically stacked project labels ──
+export function createStackedProjectPin(
+  projects: { status: ProjectStatus; title: string }[],
+  dimmed = false
+): L.DivIcon {
+  const primaryColor = PROJECT_STATUS_COLORS[projects[0].status] || "#8195B5";
+  const opacity = dimmed ? 0.5 : 1;
+  const count = projects.length;
+
+  // Build stacked label lines — show up to 4 names, then "+N more"
+  const maxLabels = 4;
+  const labelLines = projects.slice(0, maxLabels).map((p) => {
+    const color = PROJECT_STATUS_COLORS[p.status] || "#8195B5";
+    const name = truncate(p.title, 16);
+    return `<span style="
+      display: flex; align-items: center; gap: 3px;
+      font-family: 'Kosugi', sans-serif;
+      font-size: 9px;
+      color: #A7A7A7;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      line-height: 1.3;
+    "><span style="
+      width: 5px; height: 5px; border-radius: 50%;
+      background: ${color}; flex-shrink: 0;
+    "></span>${name}</span>`;
+  }).join("");
+
+  const moreLine = count > maxLabels
+    ? `<span style="
+        font-family: 'Kosugi', sans-serif;
+        font-size: 8px; color: rgba(167,167,167,0.5);
+        text-transform: uppercase; letter-spacing: 0.3px;
+        white-space: nowrap;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        line-height: 1.3;
+      ">+${count - maxLabels} more</span>`
+    : "";
+
+  // Icon height scales with number of labels
+  const labelCount = Math.min(count, maxLabels) + (count > maxLabels ? 1 : 0);
+  const iconHeight = 32 + labelCount * 14;
+
+  return L.divIcon({
+    html: `
+      <div class="ops-pin ops-pin--project-labeled" style="
+        display: flex; flex-direction: column; align-items: center;
+        opacity: ${opacity};
+      ">
+        <div style="position: relative;">
+          <div style="
+            width: 28px; height: 28px;
+            background: ${primaryColor};
+            border: 2px solid rgba(0,0,0,0.4);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 0 12px ${primaryColor}4D;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+          ">
+            <div style="
+              width: 10px; height: 10px;
+              background: white;
+              border-radius: 50%;
+              margin: 7px auto 0;
+              transform: rotate(45deg);
+            "></div>
+          </div>
+          <span style="
+            position: absolute; top: -4px; right: -8px;
+            background: rgba(10,10,10,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 16px; height: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Kosugi', sans-serif;
+            font-size: 8px; color: #E5E5E5;
+          ">${count}</span>
+        </div>
+        <div style="
+          display: flex; flex-direction: column; align-items: flex-start;
+          margin-top: 3px; gap: 0px;
+        ">
+          ${labelLines}
+          ${moreLine}
+        </div>
+      </div>
+    `,
+    className: "ops-map-marker",
+    iconSize: [100, iconHeight],
+    iconAnchor: [50, 28],
+    popupAnchor: [0, -28],
+  });
+}
+
 // ── Task Pin (TODAY mode): circle with task color ring + task name + project sublabel ──
 export function createTaskPinIcon(
   taskLabel: string,

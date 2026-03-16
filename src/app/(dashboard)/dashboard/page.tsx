@@ -89,6 +89,8 @@ import { FollowUpsDueWidget } from "@/components/dashboard/widgets/follow-ups-du
 import { SiteVisitsWidget } from "@/components/dashboard/widgets/site-visits-widget";
 import { CrewLocationsWidget } from "@/components/dashboard/widgets/crew-locations-widget";
 import { ClientRankingWidget, ProjectRankingWidget } from "@/components/dashboard/widgets/ranking-widget";
+import { ProjectStatusChartWidget } from "@/components/dashboard/widgets/project-status-chart-widget";
+import { TaskStatusChartWidget } from "@/components/dashboard/widgets/task-status-chart-widget";
 import { SpacerWidget } from "@/components/dashboard/widgets/spacer-widget";
 
 // ---------------------------------------------------------------------------
@@ -509,6 +511,26 @@ export default function DashboardPage() {
       case "stat-project-ranking":
         return <ProjectRankingWidget size={size} config={config} />;
 
+      // ── VISUAL CHART WIDGETS ──
+      case "project-status-chart":
+        return (
+          <ProjectStatusChartWidget
+            size={size}
+            projects={projects}
+            isLoading={projectsLoading}
+            config={config}
+          />
+        );
+      case "task-status-chart":
+        return (
+          <TaskStatusChartWidget
+            size={size}
+            tasks={tasks}
+            isLoading={tasksLoading}
+            config={config}
+          />
+        );
+
       // ── SCHEDULE ──
       case "calendar":
         return (
@@ -524,6 +546,8 @@ export default function DashboardPage() {
           <TaskListWidget
             size={size}
             tasks={upcomingTasks}
+            projects={projects}
+            clients={clientsData?.clients}
             isLoading={tasksLoading}
             today={today}
             onNavigate={navigate}
@@ -635,14 +659,17 @@ export default function DashboardPage() {
   }, [
     visibleInstances,
     projects,
+    tasks,
     projectsLoading,
     calendarLoading,
     tasksLoading,
     teamLoading,
+    clientsLoading,
     weekEvents,
     upcomingTasks,
     today,
     teamMembers,
+    clientsData,
     isDataLoading,
     activeProjectCount,
   ]);

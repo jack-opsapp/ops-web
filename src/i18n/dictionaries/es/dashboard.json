@@ -509,5 +509,22 @@
   "products.margin": "Margen",
   "products.cancel": "Cancelar",
   "products.update": "Actualizar",
-  "products.create": "Crear"
+  "products.create": "Crear",
+
+  "projectStatusChart.title": "Estado de Proyectos",
+  "projectStatusChart.total": "total",
+  "projectStatusChart.loading": "Cargando proyectos...",
+  "projectStatusChart.empty": "Sin proyectos",
+  "projectStatusChart.projects": "PROYECTOS",
+
+  "taskStatusChart.title": "Estado de Tareas",
+  "taskStatusChart.total": "total",
+  "taskStatusChart.loading": "Cargando tareas...",
+  "taskStatusChart.empty": "Sin tareas",
+  "taskStatusChart.tasks": "TAREAS",
+  "taskStatusChart.cancelled": "Cancelada",
+
+  "calendar.viewFull": "Ver todo",
+  "calendar.eventSingular": "evento",
+  "calendar.eventPlural": "eventos"
 }

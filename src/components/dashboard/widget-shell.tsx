@@ -124,8 +124,19 @@ export function WidgetShell({
       data-widget-size={size}
       {...(isCustomizing ? { ...attributes, ...listeners } : {})}
     >
+      {/* Frosted backdrop — blocks map bleed-through for all real widgets */}
+      {!isSpacer && (
+        <div
+          className="absolute inset-0 rounded-md"
+          style={{
+            background: "rgba(10, 10, 10, 0.85)",
+            backdropFilter: "blur(24px) saturate(1.1)",
+            WebkitBackdropFilter: "blur(24px) saturate(1.1)",
+          }}
+        />
+      )}
       {/* Wrap children so widget content is non-interactive during edit mode */}
-      <div className={cn("h-full", isCustomizing && "pointer-events-none")}>
+      <div className={cn("h-full relative", isCustomizing && "pointer-events-none")}>
         {children}
       </div>
 

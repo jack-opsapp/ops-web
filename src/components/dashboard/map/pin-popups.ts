@@ -32,6 +32,42 @@ export function projectPopupHtml(project: Project): string {
   </div>`;
 }
 
+// ── Grouped Project Popup (multiple projects at same location) ──
+export function groupedProjectPopupHtml(projects: Project[]): string {
+  const projectLines = projects
+    .slice(0, 6)
+    .map((p) => {
+      const color = PROJECT_STATUS_COLORS[p.status] || "#8195B5";
+      return `<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${color}; box-shadow: 0 0 4px ${color}; flex-shrink: 0;"></span>
+        <div style="min-width: 0;">
+          <div style="font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.title}</div>
+          <div style="font-size: 9px; color: ${color}; font-family: 'Kosugi', sans-serif; text-transform: uppercase;">${p.status}</div>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  const moreLine =
+    projects.length > 6
+      ? `<div style="font-size: 10px; color: #666; font-family: 'Kosugi', sans-serif; margin-top: 2px;">+${projects.length - 6} more</div>`
+      : "";
+
+  const address = projects[0]?.address || "No address";
+
+  return `<div style="
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    color: #E5E5E5; padding: 10px 12px;
+    border-radius: 4px; font-family: 'Mohave', sans-serif;
+    min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
+  ">
+    <div style="font-size: 10px; color: #666; font-family: 'Kosugi', sans-serif; margin-bottom: 6px; text-transform: uppercase;">${address}</div>
+    ${projectLines}
+    ${moreLine}
+  </div>`;
+}
+
 // ── Task Popup (for TODAY mode — grouped tasks at a project location) ──
 export function taskPopupHtml(
   tasks: ProjectTask[],

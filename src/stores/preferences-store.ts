@@ -9,46 +9,19 @@ import {
   WIDGET_TYPE_REGISTRY,
   createWidgetInstance,
 } from "@/lib/types/dashboard-widgets";
+import {
+  type AccentColorId,
+  ACCENT_COLOR_VALUES,
+  ACCENT_ID_MIGRATION,
+} from "@/lib/data/curated-colors";
 
-export type AccentColorId =
-  | "steel-blue"
-  | "slate"
-  | "mist"
-  | "pewter"
-  | "sage"
-  | "olive"
-  | "dusty-rose"
-  | "mauve"
-  | "blush"
-  | "sandstone"
-  | "quicksand"
-  | "warm-taupe"
-  | "terracotta"
-  | "driftwood"
-  | "amber-gold"
-  | "charcoal";
+// Re-export so existing consumers don't break
+export type { AccentColorId };
+export { ACCENT_COLOR_VALUES };
+
 export type FontSizeId = "small" | "default" | "large";
 export type DashboardLayoutId = "default" | "compact" | "data-dense";
 export type SchedulingTypeId = "all-day" | "time-slots" | "both";
-
-export const ACCENT_COLOR_VALUES: Record<AccentColorId, string> = {
-  "steel-blue": "#417394",
-  "slate": "#7A8B99",
-  "mist": "#8FA7B8",
-  "pewter": "#6B7D8D",
-  "sage": "#7D9B76",
-  "olive": "#8A8D65",
-  "dusty-rose": "#C2858A",
-  "mauve": "#B08B96",
-  "blush": "#C9A5A5",
-  "sandstone": "#B8A68E",
-  "quicksand": "#C4AA82",
-  "warm-taupe": "#A89889",
-  "terracotta": "#B5856A",
-  "driftwood": "#9E8E78",
-  "amber-gold": "#C4A868",
-  "charcoal": "#5A5A5A",
-};
 
 export const FONT_SIZE_SCALES: Record<FontSizeId, number> = {
   small: 0.9,
@@ -242,10 +215,18 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
+
+        // ── v9 → v10: Centralized color palette — rename accent IDs ──
+        if (version < 10) {
+          const old = state.accentColor as string | undefined;
+          if (old && old in ACCENT_ID_MIGRATION) {
+            state.accentColor = ACCENT_ID_MIGRATION[old];
+          }
+        }
 
         // ── v8 → v9: Accent color palette expanded to 16 muted earth tones ──
         if (version < 9) {

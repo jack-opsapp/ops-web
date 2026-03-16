@@ -4,6 +4,7 @@ import { useRef, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeftRight, ArrowUpDown, GripVertical } from "lucide-react";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { useMapInstanceStore } from "@/stores/map-filter-store";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -231,9 +232,9 @@ export function SpacerWidget({
     [colSpan, rowSpan, instanceId, config, updateWidgetInstance]
   );
 
-  // ── Normal mode: completely invisible, no interaction ──
+  // ── Normal mode: transparent map interaction window ──
   if (!isCustomizing) {
-    return <div className="w-full h-full pointer-events-none" aria-hidden="true" />;
+    return <SpacerMapWindow />;
   }
 
   // ── Customize mode: animated border, handles, size label ──
@@ -327,5 +328,90 @@ export function SpacerWidget({
         />
       </AnimatePresence>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SpacerMapWindow — transparent overlay that forwards interactions to the map
+// ---------------------------------------------------------------------------
+
+function SpacerMapWindow() {
+  const map = useMapInstanceStore((s) => s.map);
+  const windowRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Wheel → zoom
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (!map) return;
+      e.stopPropagation();
+      // deltaY negative = scroll up = zoom in, positive = scroll down = zoom out
+      if (e.deltaY < 0) {
+        map.zoomIn(1, { animate: true });
+      } else if (e.deltaY > 0) {
+        map.zoomOut(1, { animate: true });
+      }
+    },
+    [map]
+  );
+
+  // Drag → pan
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!map) return;
+      e.stopPropagation();
+      isDraggingRef.current = true;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [map]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!map || !isDraggingRef.current || !lastPointerRef.current) return;
+      e.stopPropagation();
+      const dx = e.clientX - lastPointerRef.current.x;
+      const dy = e.clientY - lastPointerRef.current.y;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      // panBy takes pixel offsets — negative because dragging right should pan map left
+      map.panBy([-dx, -dy], { animate: false });
+    },
+    [map]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      isDraggingRef.current = false;
+      lastPointerRef.current = null;
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    },
+    []
+  );
+
+  // Double-click → zoom in
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!map) return;
+      e.stopPropagation();
+      map.zoomIn(1, { animate: true });
+    },
+    [map]
+  );
+
+  return (
+    <div
+      ref={windowRef}
+      className="w-full h-full cursor-grab active:cursor-grabbing pointer-events-auto"
+      style={{ touchAction: "none" }}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
+      aria-label="Map interaction window"
+    />
   );
 }
