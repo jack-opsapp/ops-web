@@ -4,7 +4,11 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 // ─── Module-level helpers ───────────────────────────────────────────────────
 
@@ -66,7 +70,7 @@ async function deepToneAnalysis(
   if (emailTexts.length < 3) return;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {

@@ -7,7 +7,11 @@ import { WritingProfileService } from "./writing-profile-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 export interface DraftResult {
   draft: string;
@@ -96,7 +100,7 @@ ${memoryContext.clientHistory.length > 0 ? JSON.stringify(memoryContext.clientHi
 
 Write a natural reply. Do NOT mention that you are AI. Match the owner's voice exactly. Include relevant business details (pricing, promotions, next steps) if appropriate.`;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
