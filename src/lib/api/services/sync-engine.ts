@@ -386,12 +386,13 @@ async function createSyncNotification(
 
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
 
+/** Returns true if the email was unmatched (no pattern, no thread link). */
 async function processInboundEmail(
   email: NormalizedEmail,
   connection: EmailConnection,
   profile: SyncProfile,
   result: SyncCycleResult
-): Promise<void> {
+): Promise<boolean> {
   const supabase = requireSupabase();
 
   // Dedup: check if we already have this email
@@ -401,7 +402,7 @@ async function processInboundEmail(
     .eq("email_message_id", email.id)
     .limit(1);
 
-  if (existing && existing.length > 0) return;
+  if (existing && existing.length > 0) return false;
 
   // Thread inheritance — is this thread already linked to an OPS lead?
   const { data: threadLink } = await supabase
@@ -427,7 +428,7 @@ async function processInboundEmail(
     await applyLabel(email.threadId, connection, result);
     result.activitiesCreated++;
     result.matched++;
-    return;
+    return false;
   }
 
   // Pattern matching
@@ -494,9 +495,11 @@ async function processInboundEmail(
       result.needsReview++;
       result.activitiesCreated++;
     }
+    return false; // Matched by pattern
   }
-  // If no pattern match and AI review not enabled, email is ignored (noise)
-  // Plan 4 adds AI classification here when feature-gated
+
+  // Unmatched — will be sent to AI classification if feature-gated
+  return true;
 }
 
 async function processSentEmail(
@@ -660,9 +663,11 @@ export const SyncEngine = {
         return result;
       }
 
-      // Step 2-4: Process inbound emails
+      // Step 2-4: Process inbound emails, collect unmatched for AI review
+      const unmatchedEmails: NormalizedEmail[] = [];
       for (const email of inboxEmails) {
-        await processInboundEmail(email, connection, profile, result);
+        const unmatched = await processInboundEmail(email, connection, profile, result);
+        if (unmatched) unmatchedEmails.push(email);
       }
 
       // Step 3: Process sent emails (sent folder safety net)
@@ -678,13 +683,28 @@ export const SyncEngine = {
         // Get company context for AI
         const { data: company } = await supabase
           .from("companies")
-          .select("name")
+          .select("name, industry")
           .eq("id", connection.companyId)
           .single();
 
         const companyName = (company?.name as string) || "";
+        const companyIndustry = (company?.industry as string) || "trades";
 
-        // AI stage evaluation for threads that received new emails
+        // Step 5: AI classification for unmatched emails
+        if (unmatchedEmails.length > 0) {
+          const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
+            unmatchedEmails,
+            connection,
+            {
+              name: companyName,
+              industry: companyIndustry,
+              domains: profile.companyDomains || [],
+            }
+          );
+          result.newLeads += aiResult.newLeadsClassified;
+        }
+
+        // Step 6: AI stage evaluation for threads that received new emails
         const activeThreadIds: string[] = [];
         for (const email of [...inboxEmails, ...sentEmails]) {
           const { data: tl } = await supabase

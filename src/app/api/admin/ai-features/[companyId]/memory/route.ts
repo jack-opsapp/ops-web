@@ -33,30 +33,35 @@ export async function GET(
 
   const { companyId } = await params;
   const db = getServiceRoleClient();
+  setSupabaseOverride(db);
 
-  const { data: facts } = await db
-    .from("agent_memories")
-    .select(
-      "id, memory_type, category, content, confidence, source, created_at"
-    )
-    .eq("company_id", companyId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  try {
+    const { data: facts } = await db
+      .from("agent_memories")
+      .select(
+        "id, memory_type, category, content, confidence, source, created_at"
+      )
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(100);
 
-  const { data: edges } = await db
-    .from("agent_knowledge_graph")
-    .select(
-      "id, subject_type, subject_id, predicate, object_type, object_id, properties, created_at"
-    )
-    .eq("company_id", companyId)
-    .is("valid_to", null)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    const { data: edges } = await db
+      .from("agent_knowledge_graph")
+      .select(
+        "id, subject_type, subject_id, predicate, object_type, object_id, properties, created_at"
+      )
+      .eq("company_id", companyId)
+      .is("valid_to", null)
+      .order("created_at", { ascending: false })
+      .limit(100);
 
-  return NextResponse.json({
-    facts: facts ?? [],
-    edges: edges ?? [],
-  });
+    return NextResponse.json({
+      facts: facts ?? [],
+      edges: edges ?? [],
+    });
+  } finally {
+    setSupabaseOverride(null);
+  }
 }
 
 export async function DELETE(

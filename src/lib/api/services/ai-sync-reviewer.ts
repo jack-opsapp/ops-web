@@ -43,7 +43,7 @@ export const AISyncReviewer = {
   async reviewUnmatchedEmails(
     unmatchedEmails: NormalizedEmail[],
     connection: EmailConnection,
-    companyContext: { name: string; domains: string[] }
+    companyContext: { name: string; industry: string; domains: string[] }
   ): Promise<AIReviewResult> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
@@ -69,7 +69,7 @@ export const AISyncReviewer = {
       })),
       {
         companyName: companyContext.name,
-        industry: "trades",
+        industry: companyContext.industry,
         ownerEmail: connection.email,
         companyDomains: companyContext.domains,
       }

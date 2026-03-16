@@ -183,7 +183,7 @@ export function DraftReplyButton({
                     )}
                   </div>
                 ) : (
-                  <div className="py-4 text-center font-mohave text-sm text-[#999]">
+                  <div className="py-4 font-mohave text-sm text-[#999]">
                     {draftResult?.reason || "Unable to generate draft"}
                   </div>
                 )}

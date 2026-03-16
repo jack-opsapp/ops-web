@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { DraftGenerator } from "@/lib/api/services/draft-generator";
+import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { WritingProfileService } from "@/lib/api/services/writing-profile-service";
 
 export const maxDuration = 300;
 
@@ -16,13 +18,37 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { companyId, userId, opportunityId } = body;
+    const { companyId, userId, opportunityId, checkOnly } = body;
 
     if (!companyId || !userId || !opportunityId) {
       return NextResponse.json(
         { error: "companyId, userId, and opportunityId required" },
         { status: 400 }
       );
+    }
+
+    // Quick availability check — no AI calls
+    if (checkOnly) {
+      const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+        companyId,
+        "ai_email_memory"
+      );
+      if (!enabled) {
+        return NextResponse.json({ available: false, confidence: 0, draft: "", sources: [], reason: "AI memory not enabled" });
+      }
+      const profile = await WritingProfileService.getProfile(companyId, userId);
+      const confidence = WritingProfileService.getConfidence(
+        (profile?.emails_analyzed as number) || 0
+      );
+      return NextResponse.json({
+        available: confidence >= 0.5,
+        confidence,
+        draft: "",
+        sources: [],
+        reason: confidence < 0.5
+          ? `Need more email data (${(profile?.emails_analyzed as number) || 0}/100 emails, confidence: ${(confidence * 100).toFixed(0)}%)`
+          : undefined,
+      });
     }
 
     // Fetch opportunity + client

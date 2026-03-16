@@ -102,7 +102,7 @@ export const MemoryService = {
       // Check for duplicate/existing fact before inserting
       const { data: existing } = await supabase
         .from("agent_memories")
-        .select("id, confidence")
+        .select("id, confidence, access_count")
         .eq("company_id", companyId)
         .eq("category", fact.category)
         .ilike("content", `%${fact.content.slice(0, 50)}%`)
@@ -119,7 +119,7 @@ export const MemoryService = {
               ((current.confidence as number) || 0.5) + 0.05
             ),
             last_accessed_at: new Date().toISOString(),
-            access_count: ((current as Record<string, unknown>).access_count as number || 0) + 1,
+            access_count: ((current.access_count as number) || 0) + 1,
           })
           .eq("id", current.id);
       } else {

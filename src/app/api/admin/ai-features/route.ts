@@ -12,7 +12,6 @@ export const maxDuration = 300;
 
 export const GET = withAdmin(async (req) => {
   await requireAdmin(req);
-
   const db = getAdminSupabase();
 
   // Get all companies

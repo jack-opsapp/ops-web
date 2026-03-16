@@ -174,11 +174,11 @@ export function AIFeaturesPanel() {
 
           <div className="max-h-[500px] overflow-y-auto scrollbar-hide">
             {loading ? (
-              <div className="p-4 text-center text-[#999] font-mohave text-sm">
+              <div className="p-4 text-left text-[#999] font-mohave text-sm">
                 Loading...
               </div>
             ) : filtered.length === 0 ? (
-              <div className="p-4 text-center text-[#999] font-mohave text-sm">
+              <div className="p-4 text-left text-[#999] font-mohave text-sm">
                 No companies found
               </div>
             ) : (
@@ -224,11 +224,11 @@ export function AIFeaturesPanel() {
         {/* Company detail */}
         <div className="rounded border border-white/10 bg-[#0D0D0D]">
           {detailLoading ? (
-            <div className="p-6 text-center text-[#999] font-mohave text-sm">
+            <div className="p-6 text-left text-[#999] font-mohave text-sm">
               Loading...
             </div>
           ) : !selectedCompany ? (
-            <div className="p-6 text-center text-[#999] font-mohave text-sm">
+            <div className="p-6 text-left text-[#999] font-mohave text-sm">
               Select a company to manage AI features
             </div>
           ) : (
