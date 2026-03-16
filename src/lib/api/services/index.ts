@@ -89,3 +89,14 @@ export { StageEvaluator } from "./stage-evaluator";
 export type { ThreadState, StageEvaluation } from "./stage-evaluator";
 
 export { AdminFeatureOverrideService } from "./admin-feature-override-service";
+
+export { AISyncReviewer } from "./ai-sync-reviewer";
+export type { AIReviewResult } from "./ai-sync-reviewer";
+
+export { MemoryService } from "./memory-service";
+export type { MemoryFact } from "./memory-service";
+
+export { WritingProfileService } from "./writing-profile-service";
+
+export { DraftGenerator } from "./draft-generator";
+export type { DraftResult } from "./draft-generator";
