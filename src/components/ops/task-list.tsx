@@ -20,6 +20,16 @@ import { UnscheduledBadge, UnassignedBadge } from "@/components/ops/task-badge";
 import { PermissionGate } from "@/components/ops/permission-gate";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useTeamScheduleConflicts } from "@/lib/hooks/use-team-conflicts";
+import {
+  MiniCalendarPopover,
+  MiniTeamPickerPopover,
+} from "@/components/ops/badge-popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -124,6 +134,10 @@ interface TaskRowProps {
   onDelete: (task: ProjectTask) => void;
   onStatusChange: (task: ProjectTask, status: TaskStatus) => void;
   isUpdating: boolean;
+  onScheduleSave: (task: ProjectTask, start: string, end: string) => void;
+  onAssignSave: (task: ProjectTask, memberIds: string[]) => void;
+  projectTasks: ProjectTask[];
+  teamConflicts: Array<{ date: Date; memberName: string; projectTitle: string }>;
 }
 
 function TaskRow({
@@ -134,6 +148,10 @@ function TaskRow({
   onDelete,
   onStatusChange,
   isUpdating,
+  onScheduleSave,
+  onAssignSave,
+  projectTasks,
+  teamConflicts,
 }: TaskRowProps) {
   const { locale } = useLocale();
   const title = getTaskDisplayTitle(task, task.taskType ?? taskTypes.find((t) => t.id === task.taskTypeId));
@@ -203,9 +221,17 @@ function TaskRow({
             )}
           </div>
         ) : (
-          <button onClick={() => onEdit(task)} className="cursor-pointer">
-            <UnassignedBadge />
-          </button>
+          <MiniTeamPickerPopover
+            trigger={
+              <button className="cursor-pointer">
+                <UnassignedBadge />
+              </button>
+            }
+            selectedIds={task.teamMemberIds}
+            members={teamMembers}
+            onSave={(ids) => onAssignSave(task, ids)}
+            onEditFullTask={() => onEdit(task)}
+          />
         )}
       </div>
 
@@ -221,9 +247,18 @@ function TaskRow({
             {dateRange}
           </span>
         ) : (
-          <button onClick={() => onEdit(task)} className="cursor-pointer">
-            <UnscheduledBadge />
-          </button>
+          <MiniCalendarPopover
+            trigger={
+              <button className="cursor-pointer">
+                <UnscheduledBadge />
+              </button>
+            }
+            task={task}
+            projectTasks={projectTasks}
+            teamConflicts={teamConflicts}
+            onSave={(start, end) => onScheduleSave(task, start, end)}
+            onEditFullTask={() => onEdit(task)}
+          />
         )}
       </div>
 
@@ -334,6 +369,20 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
 
   const { data: teamData } = useTeamMembers();
   const teamMembers = useMemo(() => teamData?.users ?? [], [teamData]);
+
+  const memberNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of teamMembers) {
+      map.set(m.id, getUserFullName(m));
+    }
+    return map;
+  }, [teamMembers]);
+
+  const { data: teamConflicts = [] } = useTeamScheduleConflicts(
+    teamMembers.map((m) => m.id),
+    projectId,
+    memberNameMap
+  );
 
   const { data: taskTypes = [] } = useQuery({
     queryKey: queryKeys.taskTypes.list(companyId),
@@ -461,6 +510,29 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     );
   }, [deletingTask, deleteTaskMutation, projectId]);
 
+  const handleScheduleSave = useCallback(
+    (task: ProjectTask, start: string, end: string) => {
+      updateTaskMutation.mutate({
+        id: task.id,
+        data: {
+          startDate: start ? new Date(start + "T00:00:00") : null,
+          endDate: end ? new Date(end + "T00:00:00") : null,
+        },
+      });
+    },
+    [updateTaskMutation]
+  );
+
+  const handleAssignSave = useCallback(
+    (task: ProjectTask, memberIds: string[]) => {
+      updateTaskMutation.mutate({
+        id: task.id,
+        data: { teamMemberIds: memberIds },
+      });
+    },
+    [updateTaskMutation]
+  );
+
   // ── Render ────────────────────────────────────────────────────
 
   if (isLoadingTasks) {
@@ -501,45 +573,77 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <PermissionGate permission="tasks.create">
-          {!showCreateForm && !editingTask && (
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-ops-accent text-white font-mohave text-body-sm rounded-[3px] px-4 py-1.5 hover:opacity-90 transition-opacity"
-            >
-              + {t("taskList.addTask")}
-            </button>
-          )}
-        </PermissionGate>
+        <Popover
+          open={showCreateForm}
+          onOpenChange={(open) => {
+            if (!open) setShowCreateForm(false);
+          }}
+        >
+          <PopoverTrigger asChild>
+            <PermissionGate permission="tasks.create">
+              {!editingTask && (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="bg-ops-accent text-white font-mohave text-body-sm rounded-[3px] px-4 py-1.5 hover:opacity-90 transition-opacity"
+                >
+                  + {t("taskList.addTask")}
+                </button>
+              )}
+            </PermissionGate>
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="end"
+            className="w-[480px] p-0"
+          >
+            <TaskForm
+              taskTypes={taskTypes}
+              teamMembers={teamMembers}
+              isSubmitting={
+                createTaskMutation.isPending ||
+                createTaskWithEventMutation.isPending
+              }
+              onSubmit={handleCreateSubmit}
+              onCancel={() => setShowCreateForm(false)}
+              projectTasks={activeTasks}
+              teamConflicts={teamConflicts}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
-      {/* Create form */}
-      {showCreateForm && (
-        <TaskForm
-          taskTypes={taskTypes}
-          teamMembers={teamMembers}
-          isSubmitting={
-            createTaskMutation.isPending ||
-            createTaskWithEventMutation.isPending
-          }
-          onSubmit={handleCreateSubmit}
-          onCancel={() => setShowCreateForm(false)}
-        />
-      )}
-
-      {/* Edit form */}
-      {editingTask && (
-        <TaskForm
-          task={editingTask}
-          taskTypes={taskTypes}
-          teamMembers={teamMembers}
-          isSubmitting={updateTaskMutation.isPending}
-          onSubmit={handleEditSubmit}
-          onCancel={() => setEditingTask(null)}
-          calendarStartDate={editingTask.startDate}
-          calendarEndDate={editingTask.endDate}
-        />
-      )}
+      {/* Edit form popover (no visible trigger — opened programmatically) */}
+      <Popover
+        open={!!editingTask}
+        onOpenChange={(open) => {
+          if (!open) setEditingTask(null);
+        }}
+      >
+        <PopoverTrigger asChild>
+          <span className="sr-only" />
+        </PopoverTrigger>
+        <PopoverContent
+          side="bottom"
+          align="center"
+          className="w-[480px] p-0"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {editingTask && (
+            <TaskForm
+              task={editingTask}
+              taskTypes={taskTypes}
+              teamMembers={teamMembers}
+              isSubmitting={updateTaskMutation.isPending}
+              onSubmit={handleEditSubmit}
+              onCancel={() => setEditingTask(null)}
+              calendarStartDate={editingTask.startDate}
+              calendarEndDate={editingTask.endDate}
+              projectTasks={activeTasks}
+              teamConflicts={teamConflicts}
+            />
+          )}
+        </PopoverContent>
+      </Popover>
 
       {/* Task rows */}
       {sortedTasks.length === 0 && !showCreateForm ? (
@@ -567,6 +671,10 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               onDelete={(task) => setDeletingTask(task)}
               onStatusChange={handleStatusChange}
               isUpdating={isUpdating}
+              onScheduleSave={handleScheduleSave}
+              onAssignSave={handleAssignSave}
+              projectTasks={activeTasks}
+              teamConflicts={teamConflicts}
             />
           ))}
         </div>
