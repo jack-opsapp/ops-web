@@ -245,11 +245,18 @@ export const queryKeys = {
       [...queryKeys.dashboardPreferences.all, userId, companyId] as const,
   },
 
-  // Gmail
+  // Gmail (legacy — use emailConnections for new code)
   gmailConnections: {
     all: ["gmailConnections"] as const,
     list: (companyId: string) =>
       [...queryKeys.gmailConnections.all, companyId] as const,
+  },
+
+  // Email connections (provider-agnostic)
+  emailConnections: {
+    all: ["emailConnections"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.emailConnections.all, companyId] as const,
   },
 
   // Inventory
