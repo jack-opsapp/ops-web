@@ -1,0 +1,167 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { motion } from "framer-motion";
+import { Check, CheckCircle, Loader2, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
+const staggerItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } } };
+
+const INTERVAL_OPTIONS = [
+  { value: 15, label: "Every 15 min" },
+  { value: 60, label: "Every hour" },
+  { value: 120, label: "Every 2 hours" },
+  { value: 1440, label: "Once daily" },
+  { value: 0, label: "Manual only" },
+];
+
+interface ActivateStepProps {
+  connectionId: string;
+  companyId: string;
+  syncProfile: ImportPayload["syncProfile"];
+  importResult: ImportResult;
+  onActivate: (interval: number) => Promise<void>;
+  onComplete: () => void;
+}
+
+export function ActivateStep({
+  importResult,
+  onActivate,
+  onComplete,
+}: ActivateStepProps) {
+  const [selectedInterval, setSelectedInterval] = useState(60);
+  const [activating, setActivating] = useState(false);
+  const [activated, setActivated] = useState(false);
+
+  const handleActivate = useCallback(async () => {
+    setActivating(true);
+    try {
+      await onActivate(selectedInterval);
+      setActivated(true);
+    } catch (err) {
+      console.error("Activation failed:", err);
+    } finally {
+      setActivating(false);
+    }
+  }, [selectedInterval, onActivate]);
+
+  return (
+    <motion.div variants={staggerContainer} initial="hidden" animate="show">
+      {/* Import summary */}
+      <motion.div
+        variants={staggerItem}
+        className="p-4 border border-[#9DB582]/20 bg-[#9DB582]/5 mb-6"
+        style={{ borderRadius: 3 }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <CheckCircle size={16} className="text-[#9DB582]" />
+          <span className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#9DB582]">
+            Import Complete
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="font-mohave text-[22px] font-semibold text-white">
+              {importResult.leadsCreated}
+            </p>
+            <p className="font-mohave text-[11px] text-[#666]">Leads created</p>
+          </div>
+          <div>
+            <p className="font-mohave text-[22px] font-semibold text-white">
+              {importResult.clientsCreated}
+            </p>
+            <p className="font-mohave text-[11px] text-[#666]">New clients</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Label info */}
+      <motion.div variants={staggerItem} className="mb-6">
+        <p className="font-mohave text-[14px] text-white mb-1">
+          Your imported leads have been labeled as{" "}
+          <span className="text-[#597794] font-medium">OPS Pipeline</span>{" "}
+          in your inbox.
+        </p>
+        <p className="font-mohave text-[12px] text-[#666]">
+          New emails matching your patterns will be tagged automatically.
+        </p>
+      </motion.div>
+
+      {/* Sync frequency */}
+      {!activated && (
+        <motion.div variants={staggerItem} className="mb-6">
+          <p className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#999] mb-3">
+            Sync Frequency
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {INTERVAL_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedInterval(opt.value)}
+                className="px-3 py-1.5 border transition-all font-mohave text-[12px]"
+                style={{
+                  borderRadius: 2,
+                  borderColor:
+                    selectedInterval === opt.value
+                      ? "#597794"
+                      : "rgba(255,255,255,0.1)",
+                  background:
+                    selectedInterval === opt.value
+                      ? "rgba(89,119,148,0.15)"
+                      : "transparent",
+                  color:
+                    selectedInterval === opt.value ? "#597794" : "#999",
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="font-mohave text-[11px] text-[#666] mt-2">
+            Real-time sync via push notifications is always active. Scheduled sync runs as a safety net.
+          </p>
+        </motion.div>
+      )}
+
+      {/* Activate / Done */}
+      <motion.div variants={staggerItem}>
+        {activated ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-[#9DB582]" />
+              <span className="font-mohave text-[13px] text-[#9DB582]">
+                Pipeline sync is active
+              </span>
+            </div>
+            <Button
+              onClick={onComplete}
+              className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2"
+              style={{ borderRadius: 3 }}
+            >
+              Done
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={handleActivate}
+            disabled={activating}
+            className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-8 py-2.5 w-full disabled:opacity-40"
+            style={{ borderRadius: 3 }}
+          >
+            {activating ? (
+              <>
+                <Loader2 size={14} className="animate-spin mr-2" />
+                Activating...
+              </>
+            ) : (
+              "Activate Pipeline Sync"
+            )}
+          </Button>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}

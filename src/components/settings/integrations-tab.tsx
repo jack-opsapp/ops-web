@@ -16,10 +16,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { GmailSyncFilters } from "@/lib/types/pipeline";
 import { Button } from "@/components/ui/button";
-import { EmailFilterBuilder } from "@/components/settings/email-filter-builder";
-import { EmailSetupWizard } from "@/components/settings/email-setup-wizard";
+import { ImportPipelineWizard } from "./import-pipeline-wizard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -27,7 +25,6 @@ import {
   useDeleteGmailConnection,
   useUpdateGmailConnection,
   useTriggerGmailSync,
-  useGmailImport,
   useImportHistory,
   useCompanySettings,
   useUpdateCompanySettings,
@@ -113,57 +110,27 @@ export function IntegrationsTab() {
   const deleteConnection = useDeleteGmailConnection();
   const updateConnection = useUpdateGmailConnection();
   const triggerSync = useTriggerGmailSync();
-  const gmailImport = useGmailImport();
   const { data: importHistory = [] } = useImportHistory(companyId || undefined);
 
-  const [importStarted, setImportStarted] = useState(false);
-  const [showCustomDate, setShowCustomDate] = useState(false);
-  const [customDate, setCustomDate] = useState("");
-
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardInitialStep, setWizardInitialStep] = useState<string | undefined>();
-  const [isFirstConnect, setIsFirstConnect] = useState(false);
-  const [scanState, setScanState] = useState<{
-    scanning: boolean;
-    progress?: { stage: string; message: string };
-  }>({ scanning: false });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("tab") === "integrations" && params.get("status") === "connected") {
       toast.success(t("integrations.toast.gmailConnected"));
+      // Auto-open the wizard for first-time connection
       if (params.get("firstConnect") === "true") {
-        setIsFirstConnect(true);
+        setWizardOpen(true);
       }
       window.history.replaceState({}, "", "/settings?tab=integrations");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount
   }, []);
-
-  useEffect(() => {
-    if (!isFirstConnect) return;
-    // Wait for connections to load, then scroll to import section
-    const timer = setTimeout(() => {
-      const importSection = document.getElementById("gmail-import-section");
-      if (importSection) {
-        importSection.scrollIntoView({ behavior: "smooth", block: "center" });
-        importSection.classList.add("animate-glow-flash");
-        importSection.addEventListener("animationend", () => {
-          importSection.classList.remove("animate-glow-flash");
-        }, { once: true });
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [isFirstConnect]);
 
   const companyConnections = connections.filter((c) => c.type === "company");
   const individualConnections = connections.filter((c) => c.type === "individual");
   const hasAnyConnection = connections.length > 0;
   const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
-  const hasSavedScan = !wizardDone && !!companyConnections[0]?.syncFilters?.lastScanJobId;
-  const savedScanSummary = companyConnections[0]?.syncFilters?.lastScanSummary;
-  const savedScanTotal = companyConnections[0]?.syncFilters?.lastScanTotal;
-  const savedScanImportCount = companyConnections[0]?.syncFilters?.lastScanImportCount;
-  const savedWizardStep = companyConnections[0]?.syncFilters?.wizardStep;
 
   function handleConnectGmail(type: "company" | "individual") {
     if (!can("settings.integrations")) return;
@@ -213,63 +180,22 @@ export function IntegrationsTab() {
     );
   }
 
-  function handleUpdateFilters(id: string, filters: GmailSyncFilters) {
-    if (!can("settings.integrations")) return;
-    updateConnection.mutate(
-      { id, data: { id, syncFilters: filters } },
-      {
-        onSuccess: () => toast.success("Email filters updated"),
-        onError: (err) => toast.error("Failed to update filters", { description: err.message }),
-      }
-    );
-  }
-
-  function handleStartImport(daysBack: number) {
-    if (!can("settings.integrations")) return;
-    const firstConnection = connections[0];
-    if (!firstConnection) return;
-
-    const importAfter = new Date();
-    importAfter.setDate(importAfter.getDate() - daysBack);
-    const dateStr = importAfter.toISOString().split("T")[0];
-
-    startImportFromDate(firstConnection.id, dateStr);
-  }
-
-  function handleStartImportCustom() {
-    if (!can("settings.integrations")) return;
-    const firstConnection = connections[0];
-    if (!firstConnection || !customDate) return;
-    startImportFromDate(firstConnection.id, customDate);
-  }
-
-  function startImportFromDate(connectionId: string, dateStr: string) {
-    setImportStarted(true);
-    gmailImport.startImport.mutate(
-      { companyId, connectionId, importAfter: dateStr },
-      {
-        onSuccess: () => toast.success("Historical import started"),
-        onError: (err) => {
-          toast.error("Failed to start import", { description: err.message });
-          setImportStarted(false);
-        },
-      }
-    );
-  }
-
-  function openWizard(step?: string) {
-    setWizardInitialStep(step);
+  function openWizard() {
     setWizardOpen(true);
   }
 
   return (
     <div className="space-y-3">
-      {/* Email Setup Wizard */}
-      <EmailSetupWizard
+      {/* Import Pipeline Wizard */}
+      <ImportPipelineWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
-        initialStep={wizardInitialStep}
-        onScanStateChange={setScanState}
+        connectionId={companyConnections[0]?.id}
+        companyId={companyId}
+        onComplete={() => {
+          setWizardOpen(false);
+          toast.success("Pipeline import complete");
+        }}
       />
 
       {/* Company Gmail */}
@@ -347,24 +273,28 @@ export function IntegrationsTab() {
 
           {hasAnyConnection && (
             <div className="pt-[4px] flex items-center gap-[6px]">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSync}
-                loading={triggerSync.isPending}
-                className="gap-[6px]"
-              >
-                <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
-                {t("integrations.syncNow")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openWizard()}
-                className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
-              >
-                Setup Wizard
-              </Button>
+              {wizardDone ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSync}
+                  loading={triggerSync.isPending}
+                  className="gap-[6px]"
+                >
+                  <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
+                  {t("integrations.syncNow")}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openWizard()}
+                  className="gap-[6px]"
+                >
+                  <Mail className="w-[14px] h-[14px]" />
+                  Complete Setup
+                </Button>
+              )}
             </div>
           )}
 
@@ -390,206 +320,57 @@ export function IntegrationsTab() {
             </div>
           )}
 
-          {/* Before wizard: warning + setup CTA */}
+          {/* Before wizard: setup CTA */}
           {hasAnyConnection && !wizardDone && (
             <div className="space-y-1.5">
-              {/* Scan in progress indicator */}
-              {scanState.scanning ? (
-                <button
-                  onClick={() => openWizard("scan")}
-                  className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
-                >
-                  <Loader2 className="w-[18px] h-[18px] text-ops-accent shrink-0 animate-spin" />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-mohave text-body text-ops-accent block">
-                      Email scan in progress
-                    </span>
-                    <span className="font-kosugi text-[10px] text-text-disabled">
-                      {scanState.progress?.message || "Analyzing your inbox..."}
-                    </span>
-                  </div>
-                </button>
-              ) : (
-                <>
-                  {hasSavedScan ? (
-                    <>
-                      {/* AI analysis complete — resume CTA */}
-                      <button
-                        onClick={() => openWizard(savedWizardStep ?? "filters")}
-                        className="w-full flex items-center gap-[8px] px-2 py-2.5 rounded border border-[#9DB582]/40 bg-[#9DB582]/8 hover:bg-[#9DB582]/14 hover:border-[#9DB582]/60 transition-colors text-left"
-                      >
-                        <CheckCircle className="w-[18px] h-[18px] text-[#9DB582] shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mohave text-body text-[#9DB582] block">
-                            AI Analysis Complete
-                          </span>
-                          <span className="font-kosugi text-[10px] text-text-tertiary block mt-[1px]">
-                            {savedScanTotal && savedScanImportCount != null
-                              ? `${savedScanTotal} emails scanned · ${savedScanImportCount} to import`
-                              : "Continue setting up your email import"}
-                          </span>
-                        </div>
-                        <span className="font-mohave text-body-sm text-[#9DB582] shrink-0">
-                          Continue →
-                        </span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {/* Warning banner */}
-                      <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
-                        <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
-                            Email sync is paused
-                          </span>
-                          <span className="font-kosugi text-[10px] text-text-disabled">
-                            Filters are not configured. Complete the setup wizard to start syncing emails into your pipeline.
-                          </span>
-                        </div>
-                      </div>
+              <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
+                <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
+                    Pipeline import not configured
+                  </span>
+                  <span className="font-kosugi text-[10px] text-text-disabled">
+                    Run the import wizard to discover leads in your inbox and activate ongoing sync.
+                  </span>
+                </div>
+              </div>
 
-                      {/* Setup CTA */}
-                      <button
-                        onClick={() => openWizard()}
-                        className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
-                      >
-                        <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mohave text-body text-ops-accent block">
-                            Set Up Email Import
-                          </span>
-                          <span className="font-kosugi text-[10px] text-text-disabled">
-                            Configure filters and import historical emails from your inbox
-                          </span>
-                        </div>
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
+              <button
+                onClick={() => openWizard()}
+                className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+              >
+                <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-mohave text-body text-ops-accent block">
+                    Import Your Pipeline
+                  </span>
+                  <span className="font-kosugi text-[10px] text-text-disabled">
+                    Automatically discover leads, classify with AI, and import into your pipeline
+                  </span>
+                </div>
+              </button>
             </div>
           )}
 
-          {/* After wizard: show advanced filters + import */}
+          {/* After wizard: sync active + re-run option */}
           {hasAnyConnection && wizardDone && (
             <>
-              <details className="pt-[4px]">
-                <summary className="font-kosugi text-[11px] text-text-disabled cursor-pointer hover:text-text-secondary">
-                  Advanced email filters
-                </summary>
-                <div className="mt-1 mb-1">
+              <div className="pt-[4px]">
+                <div className="flex items-center gap-[6px] px-2 py-1.5 rounded border border-[rgba(107,143,113,0.2)] bg-[rgba(107,143,113,0.08)]">
+                  <CheckCircle className="w-[16px] h-[16px] text-[#6B8F71] shrink-0" />
+                  <span className="font-mohave text-body-sm text-[#6B8F71]">
+                    Pipeline sync is active
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => openWizard("filters")}
-                    className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
+                    onClick={() => openWizard()}
+                    className="ml-auto gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
                   >
-                    Re-run Filter Wizard
+                    Re-import
                   </Button>
                 </div>
-                <div className="mt-1 space-y-1.5 pl-[4px] border-l-2 border-border">
-                  {/* Filter Builder */}
-                  {companyConnections[0] && (
-                    <div>
-                      <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px]">
-                        Filter rules — only import/sync emails that match
-                      </label>
-                      <EmailFilterBuilder
-                        filters={companyConnections[0].syncFilters}
-                        connectionId={companyConnections[0].id}
-                        onUpdate={(updated) =>
-                          handleUpdateFilters(companyConnections[0].id, updated)
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* Preset blocklist toggle */}
-                  <div className="flex items-center gap-[6px] pt-[4px]">
-                    <button
-                      onClick={() => {
-                        const conn = companyConnections[0];
-                        if (!conn) return;
-                        handleUpdateFilters(conn.id, {
-                          ...conn.syncFilters,
-                          usePresetBlocklist: !conn.syncFilters.usePresetBlocklist,
-                        });
-                      }}
-                      className="shrink-0"
-                    >
-                      {companyConnections[0]?.syncFilters.usePresetBlocklist ? (
-                        <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
-                      ) : (
-                        <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
-                      )}
-                    </button>
-                    <span className="font-kosugi text-[11px] text-text-secondary">
-                      Block known newsletter & notification domains (60+ pre-configured)
-                    </span>
-                  </div>
-                </div>
-              </details>
-
-              {!importStarted && (
-                <div id="gmail-import-section" className="pt-[4px] space-y-[6px] transition-all duration-300">
-                  <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
-                    <Mail className="w-[14px] h-[14px] text-text-disabled" />
-                    Import Historical Emails
-                  </label>
-                  <p className="font-mohave text-body-sm text-text-disabled">
-                    Scan past emails for leads that may already be in your inbox.
-                  </p>
-                  <div className="flex flex-wrap gap-[6px]">
-                    {[
-                      { label: "Last 7 days", days: 7 },
-                      { label: "Last 30 days", days: 30 },
-                      { label: "Last 90 days", days: 90 },
-                      { label: "6 months", days: 180 },
-                    ].map((preset) => (
-                      <Button
-                        key={preset.days}
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleStartImport(preset.days)}
-                        disabled={gmailImport.isImporting}
-                        className="font-kosugi text-[11px]"
-                      >
-                        {preset.label}
-                      </Button>
-                    ))}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setShowCustomDate(!showCustomDate)}
-                      disabled={gmailImport.isImporting}
-                      className="font-kosugi text-[11px]"
-                    >
-                      Custom
-                    </Button>
-                  </div>
-                  {showCustomDate && (
-                    <div className="flex items-center gap-[6px] mt-[6px]">
-                      <input
-                        type="date"
-                        value={customDate}
-                        onChange={(e) => setCustomDate(e.target.value)}
-                        max={new Date().toISOString().split("T")[0]}
-                        className="bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
-                      />
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleStartImportCustom}
-                        disabled={!customDate || gmailImport.isImporting}
-                        className="font-kosugi text-[11px]"
-                      >
-                        Import
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+              </div>
 
               {/* Sync History — last 3 import jobs */}
               {importHistory.length > 0 && (
@@ -641,20 +422,6 @@ export function IntegrationsTab() {
                 </div>
               )}
             </>
-          )}
-
-          {importStarted && gmailImport.isImporting && (
-            <div className="flex items-center gap-[6px] pt-[4px]">
-              <Loader2 className="w-[14px] h-[14px] text-ops-accent animate-spin" />
-              <span className="font-mohave text-body-sm text-text-secondary">
-                Importing emails&hellip;{" "}
-                {gmailImport.status?.processedEmails != null && (
-                  <span className="text-text-disabled">
-                    ({gmailImport.status.processedEmails} processed)
-                  </span>
-                )}
-              </span>
-            </div>
           )}
 
           <p className="font-kosugi text-[11px] text-text-disabled">
