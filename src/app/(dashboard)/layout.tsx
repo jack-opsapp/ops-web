@@ -7,6 +7,7 @@ import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissi
 import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flags-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { LockoutOverlay } from "@/components/ops/lockout-overlay";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Route → Permission mapping ──────────────────────────────────────────────
@@ -92,18 +93,26 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
 
   if (routeDenied) {
     return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
-          <span className="font-mohave text-[64px] text-text-disabled leading-none">404</span>
-          <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-wider">
-            {t("pageNotFound")}
-          </p>
-        </div>
-      </DashboardLayout>
+      <>
+        <DashboardLayout>
+          <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
+            <span className="font-mohave text-[64px] text-text-disabled leading-none">404</span>
+            <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-wider">
+              {t("pageNotFound")}
+            </p>
+          </div>
+        </DashboardLayout>
+        <LockoutOverlay />
+      </>
     );
   }
 
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return (
+    <>
+      <DashboardLayout>{children}</DashboardLayout>
+      <LockoutOverlay />
+    </>
+  );
 }
 
 export default function DashboardGroupLayout({
