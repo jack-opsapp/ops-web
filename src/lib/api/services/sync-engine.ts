@@ -6,6 +6,9 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 import { StageEvaluator } from "./stage-evaluator";
+import { AISyncReviewer } from "./ai-sync-reviewer";
+import { MemoryService } from "./memory-service";
+import { WritingProfileService } from "./writing-profile-service";
 import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
 import type {
   EmailConnection,
@@ -288,6 +291,62 @@ async function applyLabel(
   }
 }
 
+async function createTerminalFlagNotification(
+  stageResult: { threadId: string; terminalFlag: string | null },
+  connection: EmailConnection
+): Promise<void> {
+  if (!stageResult.terminalFlag || !connection.userId) return;
+
+  const supabase = requireSupabase();
+
+  const { data: threadLink } = await supabase
+    .from("opportunity_email_threads")
+    .select("opportunity_id")
+    .eq("thread_id", stageResult.threadId)
+    .eq("connection_id", connection.id)
+    .limit(1);
+
+  if (!threadLink || threadLink.length === 0) return;
+
+  const oppId = threadLink[0].opportunity_id;
+  const { data: opp } = await supabase
+    .from("opportunities")
+    .select("title, client_id")
+    .eq("id", oppId)
+    .single();
+
+  let clientName = "A client";
+  if (opp?.client_id) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("name")
+      .eq("id", opp.client_id as string)
+      .single();
+    if (client?.name) clientName = client.name as string;
+  }
+
+  const action =
+    stageResult.terminalFlag === "likely_won"
+      ? "accepted your estimate"
+      : "declined";
+
+  await supabase.from("notifications").insert({
+    user_id: connection.userId,
+    company_id: connection.companyId,
+    type: "role_needed",
+    title:
+      stageResult.terminalFlag === "likely_won"
+        ? "Possible deal won"
+        : "Possible deal lost",
+    body: `${clientName} may have ${action}. Review and confirm.`,
+    is_read: false,
+    persistent: true,
+    action_url: "/pipeline",
+    action_label:
+      stageResult.terminalFlag === "likely_won" ? "Mark as Won" : "Review",
+  });
+}
+
 async function createSyncNotification(
   connection: EmailConnection,
   result: SyncCycleResult
@@ -478,6 +537,21 @@ async function processSentEmail(
       email.date,
       result
     );
+    // Memory update for outbound emails (feature-gated, fire and forget)
+    if (connection.userId) {
+      Promise.all([
+        MemoryService.processOutboundEmail(
+          connection.companyId,
+          connection.userId,
+          { from: email.from, to: email.to, subject: email.subject, bodyText: email.bodyText, date: email.date.toISOString() }
+        ),
+        WritingProfileService.updateFromEmail(
+          connection.companyId,
+          connection.userId,
+          { bodyText: email.bodyText }
+        ),
+      ]).catch((err) => console.error("[sync-engine] Memory update error:", err));
+    }
     result.activitiesCreated++;
     result.matched++;
     return;
@@ -594,6 +668,54 @@ export const SyncEngine = {
       // Step 3: Process sent emails (sent folder safety net)
       for (const email of sentEmails) {
         await processSentEmail(email, connection, profile, result);
+      }
+
+      // Step 5: AI classification for unmatched emails (feature-gated)
+      // Step 6: AI stage evaluation for leads with new emails (feature-gated)
+      try {
+        const supabase = requireSupabase();
+
+        // Get company context for AI
+        const { data: company } = await supabase
+          .from("companies")
+          .select("name")
+          .eq("id", connection.companyId)
+          .single();
+
+        const companyName = (company?.name as string) || "";
+
+        // AI stage evaluation for threads that received new emails
+        const activeThreadIds: string[] = [];
+        for (const email of [...inboxEmails, ...sentEmails]) {
+          const { data: tl } = await supabase
+            .from("opportunity_email_threads")
+            .select("thread_id")
+            .eq("thread_id", email.threadId)
+            .eq("connection_id", connection.id)
+            .limit(1);
+          if (tl && tl.length > 0 && !activeThreadIds.includes(email.threadId)) {
+            activeThreadIds.push(email.threadId);
+          }
+        }
+
+        if (activeThreadIds.length > 0) {
+          const stageResults = await AISyncReviewer.evaluateStages(
+            activeThreadIds,
+            connection,
+            { name: companyName }
+          );
+
+          for (const sr of stageResults) {
+            if (sr.terminalFlag) {
+              await createTerminalFlagNotification(sr, connection);
+            }
+            if (sr.newStage) {
+              result.stageChanges++;
+            }
+          }
+        }
+      } catch (aiErr) {
+        console.error("[sync-engine] AI review error (non-fatal):", aiErr);
       }
 
       // Step 11: Notifications
