@@ -9,6 +9,8 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {

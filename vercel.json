@@ -16,10 +16,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/gmail-sync",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/email-sync",
       "schedule": "*/15 * * * *"
     },

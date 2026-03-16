@@ -21,12 +21,23 @@ export interface StageEvaluation {
 
 const TERMINAL_STAGES = ["won", "lost"];
 
-export class StageEvaluator {
+const STAGE_ORDER = [
+  "new_lead",
+  "qualifying",
+  "quoting",
+  "quoted",
+  "follow_up",
+  "negotiation",
+];
+
+// ─── Service ────────────────────────────────────────────────────────────────
+
+export const StageEvaluator = {
   /**
    * Evaluate pipeline stage based on correspondence counts.
    * Never advances to terminal stages (won/lost) — those require user confirmation.
    */
-  static evaluate(state: ThreadState): StageEvaluation {
+  evaluate(state: ThreadState): StageEvaluation {
     // Never touch terminal stages
     if (TERMINAL_STAGES.includes(state.currentStage)) {
       return {
@@ -84,14 +95,6 @@ export class StageEvaluator {
     }
 
     // Only advance forward, never go backward (unless follow_up → negotiation above)
-    const STAGE_ORDER = [
-      "new_lead",
-      "qualifying",
-      "quoting",
-      "quoted",
-      "follow_up",
-      "negotiation",
-    ];
     const currentIndex = STAGE_ORDER.indexOf(state.currentStage);
     const suggestedIndex = STAGE_ORDER.indexOf(suggestedStage);
 
@@ -108,5 +111,5 @@ export class StageEvaluator {
       changed: false,
       reason: "No stage change warranted",
     };
-  }
-}
+  },
+};

@@ -9,6 +9,8 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
 
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -77,7 +79,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, synced: results.length, results });
+    // Sweep stale leads (follow-up detection independent of new email arrival)
+    let staleSweepChanges = 0;
+    try {
+      staleSweepChanges = await SyncEngine.sweepStaleLeads();
+    } catch (sweepErr) {
+      console.error("[email-cron-sync] stale sweep error:", sweepErr);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      synced: results.length,
+      staleSweepChanges,
+      results,
+    });
   } catch (err) {
     console.error("[email-cron-sync]", err);
     return NextResponse.json(

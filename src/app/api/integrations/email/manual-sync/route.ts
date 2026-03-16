@@ -9,6 +9,8 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
 
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
