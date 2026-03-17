@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -21,11 +22,67 @@ const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
 
 const ALL_STAGES = Object.keys(STAGE_CONFIG);
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Extract a bare email address from a "Name <email>" string */
+function extractEmail(from: string): string {
+  const match = from.match(/<([^>]+)>/);
+  return (match ? match[1] : from).toLowerCase().trim();
+}
+
+/** Extract a display name from a "Name <email>" string */
+function extractName(from: string): string {
+  const match = from.match(/^"?([^"<]+)"?\s*</);
+  if (match) return match[1].trim();
+  // Fallback: humanize the local part
+  const local = from.split("@")[0] || from;
+  return local
+    .replace(/[._-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+interface Participant {
+  name: string;
+  email: string;
+  count: number;
+}
+
+/** Derive unique non-owner participants from a lead's emails array */
+function getUniqueParticipants(
+  emails: AnalyzedLead["emails"],
+  companyDomains: string[]
+): Participant[] {
+  const companyDomainSet = new Set(companyDomains.map((d) => d.toLowerCase()));
+  const participantMap = new Map<string, Participant>();
+
+  for (const e of emails) {
+    if (e.direction === "outbound") continue;
+    const email = extractEmail(e.from);
+    const domain = email.split("@")[1] || "";
+    // Skip emails from company domains (owner + team)
+    if (domain && companyDomainSet.has(domain)) continue;
+    if (!participantMap.has(email)) {
+      participantMap.set(email, {
+        name: extractName(e.from),
+        email,
+        count: 0,
+      });
+    }
+    participantMap.get(email)!.count++;
+  }
+
+  return [...participantMap.values()];
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 interface ReviewImportStepProps {
   leads: AnalyzedLead[];
   onLeadsChanged: (leads: AnalyzedLead[]) => void;
   onImport: () => Promise<void>;
   importing: boolean;
+  companyDomains: string[];
 }
 
 export function ReviewImportStep({
@@ -33,10 +90,12 @@ export function ReviewImportStep({
   onLeadsChanged,
   onImport,
   importing,
+  companyDomains,
 }: ReviewImportStepProps) {
   const [expandedStages, setExpandedStages] = useState<Set<string>>(
     new Set(ALL_STAGES)
   );
+  const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set());
 
   const grouped = useMemo(() => {
     const groups: Record<string, AnalyzedLead[]> = {};
@@ -61,6 +120,15 @@ export function ReviewImportStep({
       const next = new Set(prev);
       if (next.has(stage)) next.delete(stage);
       else next.add(stage);
+      return next;
+    });
+  };
+
+  const toggleExpandLead = (leadId: string) => {
+    setExpandedLeads((prev) => {
+      const next = new Set(prev);
+      if (next.has(leadId)) next.delete(leadId);
+      else next.add(leadId);
       return next;
     });
   };
@@ -126,68 +194,122 @@ export function ReviewImportStep({
                     animate="show"
                     className="space-y-1 mt-1 ml-4"
                   >
-                    {stageLeads.map((lead) => (
-                      <motion.div
-                        key={lead.id}
-                        variants={staggerItem}
-                        className="flex items-center gap-3 p-2.5 border border-white/8 bg-[#111] transition-all"
-                        style={{
-                          borderRadius: 2,
-                          opacity: lead.enabled ? 1 : 0.35,
-                        }}
-                      >
-                        {/* Toggle */}
-                        <button
-                          onClick={() => toggleLead(lead.id)}
-                          className="flex-shrink-0 w-4 h-4 border border-white/20 flex items-center justify-center transition-all"
+                    {stageLeads.map((lead) => {
+                      const participants = getUniqueParticipants(lead.emails, companyDomains);
+                      const hasMultipleParticipants = participants.length > 1;
+                      const isLeadExpanded = expandedLeads.has(lead.id);
+
+                      return (
+                        <motion.div
+                          key={lead.id}
+                          variants={staggerItem}
+                          className="p-2.5 border border-white/8 bg-[#111] transition-all"
                           style={{
                             borderRadius: 2,
-                            background: lead.enabled ? "#597794" : "transparent",
-                            borderColor: lead.enabled ? "#597794" : "rgba(255,255,255,0.2)",
+                            opacity: lead.enabled ? 1 : 0.35,
                           }}
                         >
-                          {lead.enabled && (
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 3.5L3.5 6L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </button>
+                          <div className="flex items-center gap-3">
+                            {/* Toggle */}
+                            <button
+                              onClick={() => toggleLead(lead.id)}
+                              className="flex-shrink-0 w-4 h-4 border border-white/20 flex items-center justify-center transition-all"
+                              style={{
+                                borderRadius: 2,
+                                background: lead.enabled ? "#597794" : "transparent",
+                                borderColor: lead.enabled ? "#597794" : "rgba(255,255,255,0.2)",
+                              }}
+                            >
+                              {lead.enabled && (
+                                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                  <path d="M1 3.5L3.5 6L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </button>
 
-                        {/* Lead info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-mohave text-[13px] text-white truncate">
-                            {lead.client.name}
-                          </p>
-                          <p className="font-mohave text-[11px] text-[#666] truncate">
-                            {lead.client.email}
-                            {lead.correspondenceCount > 1 && (
-                              <span className="ml-2">{lead.correspondenceCount} emails</span>
+                            {/* Lead info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-mohave text-[13px] text-white truncate">
+                                {lead.client.name}
+                              </p>
+                              <p className="font-mohave text-[11px] text-[#666] truncate">
+                                {lead.client.email}
+                                {lead.correspondenceCount > 1 && (
+                                  <span className="ml-2">{lead.correspondenceCount} emails</span>
+                                )}
+                              </p>
+                            </div>
+
+                            {/* Match indicator */}
+                            {lead.matchResult.existingClientName && (
+                              <span className="font-mohave text-[10px] text-[#C4A868] flex-shrink-0">
+                                &rarr; {lead.matchResult.existingClientName}
+                              </span>
                             )}
-                          </p>
-                        </div>
 
-                        {/* Match indicator */}
-                        {lead.matchResult.existingClientName && (
-                          <span className="font-mohave text-[10px] text-[#C4A868] flex-shrink-0">
-                            → {lead.matchResult.existingClientName}
-                          </span>
-                        )}
+                            {/* Expand button — only for leads with multiple unique senders */}
+                            {hasMultipleParticipants && (
+                              <button
+                                onClick={() => toggleExpandLead(lead.id)}
+                                className="flex-shrink-0 p-0.5 text-[#555] hover:text-[#999] transition-colors"
+                              >
+                                <ChevronDown
+                                  size={12}
+                                  className={cn(
+                                    "transition-transform duration-200",
+                                    isLeadExpanded && "rotate-180"
+                                  )}
+                                />
+                              </button>
+                            )}
 
-                        {/* Stage selector */}
-                        <select
-                          value={lead.stage}
-                          onChange={(e) => changeLeadStage(lead.id, e.target.value)}
-                          className="font-mohave text-[11px] text-[#999] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0"
-                          style={{ borderRadius: 2 }}
-                        >
-                          {ALL_STAGES.map((s) => (
-                            <option key={s} value={s} className="bg-[#1a1a1a]">
-                              {STAGE_CONFIG[s].label}
-                            </option>
-                          ))}
-                        </select>
-                      </motion.div>
-                    ))}
+                            {/* Stage selector */}
+                            <select
+                              value={lead.stage}
+                              onChange={(e) => changeLeadStage(lead.id, e.target.value)}
+                              className="font-mohave text-[11px] text-[#999] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0"
+                              style={{ borderRadius: 2 }}
+                            >
+                              {ALL_STAGES.map((s) => (
+                                <option key={s} value={s} className="bg-[#1a1a1a]">
+                                  {STAGE_CONFIG[s].label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Expandable participant list */}
+                          <AnimatePresence>
+                            {isLeadExpanded && hasMultipleParticipants && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1, transition: { duration: 0.25, ease: EASE } }}
+                                exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: EASE } }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                                  <p className="font-kosugi text-[8px] tracking-[0.12em] uppercase text-[#666]">
+                                    Contacts in this thread
+                                  </p>
+                                  {participants.map((p) => (
+                                    <div key={p.email} className="flex items-center gap-2 py-0.5">
+                                      <span className="font-mohave text-[12px] text-white">{p.name}</span>
+                                      <span className="font-mohave text-[11px] text-[#666]">{p.email}</span>
+                                      <span className="font-mohave text-[10px] text-[#555]">
+                                        {p.count} email{p.count !== 1 ? "s" : ""}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  <p className="font-mohave text-[10px] text-[#555] mt-1">
+                                    Sub-contacts will be created for additional email addresses
+                                  </p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
                   </motion.div>
                 )}
               </div>

@@ -385,6 +385,7 @@ export function ImportPipelineWizard({
                   onLeadsChanged={setConfirmedLeads}
                   onImport={handleImport}
                   importing={importing}
+                  companyDomains={analysisResult?.companyDomains || []}
                 />
               )}
               {step === 5 && importResult && (

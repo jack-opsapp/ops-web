@@ -10,6 +10,7 @@ export interface PlatformMatch {
 const PLATFORM_DOMAINS: Record<string, PlatformMatch> = {
   // Website form builders
   'wix-forms.com': { category: 'website_form', platformName: 'Wix' },
+  'wixforms.com': { category: 'website_form', platformName: 'Wix' },
   'wix.com': { category: 'website_form', platformName: 'Wix' },
   'wordpress.com': { category: 'website_form', platformName: 'WordPress' },
   'squarespace.com': { category: 'website_form', platformName: 'Squarespace' },

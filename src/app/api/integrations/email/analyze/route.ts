@@ -23,11 +23,19 @@ import { PatternDetectionService } from "@/lib/api/services/pattern-detection-se
 import { EmailAIClassifier } from "@/lib/api/services/email-ai-classifier";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { matchPlatform } from "@/lib/api/services/known-platforms";
+import OpenAI from 'openai';
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { ThreadSummaryInput, ThreadClassificationResult } from "@/lib/api/services/email-ai-classifier";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+// ─── Lazy OpenAI client ──────────────────────────────────────────────────────
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 export const maxDuration = 300;
 
@@ -586,12 +594,25 @@ async function runAnalysis(
           ? "outbound"
           : "inbound",
       })),
-      client: aiClassification?.client || {
-        name: clientName,
-        email: clientEmail,
-        phone: null,
-        description: thread.subject,
-      },
+      client: aiClassification?.client || (() => {
+        // For forwarder/platform threads, try to extract phone & description from form body
+        let phone: string | null = null;
+        let description: string = thread.subject;
+        if (source === 'forwarder' || source === 'platform') {
+          for (const email of thread.emails) {
+            const text = email.bodyText || email.snippet;
+            if (text) {
+              const parsed = parseFormSubmissionBody(text);
+              if (parsed) {
+                if (parsed.phone) phone = parsed.phone;
+                if (parsed.message) description = parsed.message;
+                break;
+              }
+            }
+          }
+        }
+        return { name: clientName, email: clientEmail, phone, description };
+      })(),
       stage,
       stageConfidence,
       estimatedValue,
@@ -662,6 +683,86 @@ async function runAnalysis(
 
 // ─── Helper functions ──────────────────────────────────────────────────────
 
+// ─── Platform email detection ─────────────────────────────────────────────
+// These are notification senders / form platforms whose addresses should NEVER
+// be treated as a client email. If the only candidate address is one of these,
+// we need to parse the email body for the real client info instead.
+
+const PLATFORM_EMAIL_PATTERNS = [
+  'wixforms.com', 'wix-forms.com', 'wix.com',
+  'wordpress.com', 'squarespace.com', 'jotform.com',
+  'typeform.com', 'formstack.com', 'hubspot.com',
+  'smartbidnet.com', 'procore.com', 'buildertrend.com',
+  'reply-to+', 'noreply', 'no-reply', 'notifications@',
+  'mailer-daemon', 'postmaster@',
+];
+
+function isPlatformEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  return PLATFORM_EMAIL_PATTERNS.some((p) => lower.includes(p));
+}
+
+// ─── AI-based form body extraction ────────────────────────────────────────
+// Extracts structured client info from forwarded form submissions using AI.
+// Every form platform (Wix, WordPress, Squarespace, Jotform, HubSpot, etc.)
+// uses a different format — regex fails on most of them. Instead, we send the
+// body to GPT-4o-mini to extract structured data. Cost: ~$0.001 per email.
+
+interface ExtractedFormClient {
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+}
+
+async function extractClientFromFormBody(
+  bodyText: string,
+  snippet: string
+): Promise<ExtractedFormClient | null> {
+  if (!bodyText && !snippet) return null;
+
+  const text = bodyText || snippet;
+
+  // Quick check — does this even look like a form submission?
+  // Look for at least one email address in the body
+  const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
+  if (!hasEmail) return null;
+
+  try {
+    const response = await getOpenAI().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `Extract the customer's contact information from this form submission email. Return ONLY a JSON object with: name, email, phone (null if not found), message (null if not found). If you cannot identify a customer email, return null.`
+        },
+        {
+          role: 'user',
+          content: text.slice(0, 2000) // Cap to control tokens
+        }
+      ],
+      temperature: 0,
+      max_tokens: 100,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) return null;
+
+    const parsed = JSON.parse(content);
+    if (!parsed.email || isPlatformEmail(parsed.email)) return null;
+
+    return {
+      name: parsed.name || parsed.email.split('@')[0],
+      email: parsed.email.toLowerCase().trim(),
+      phone: parsed.phone || null,
+      message: parsed.message || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Determine pipeline stage from correspondence counts (for pattern-matched threads) */
 function correspondenceBasedStage(thread: ThreadInfo): string {
   const { outboundCount, messageCount, dateRange, hasUserReply } = thread;
@@ -684,19 +785,45 @@ function findClientEmail(
   ownerEmailLower: string,
   companyDomainSet: Set<string>
 ): string {
-  // Look through participants for someone who isn't the owner or from a company domain
+  // For forwarder threads, try to extract client info from the form body first.
+  // Forwarded form submissions (e.g. Wix) have the real client email in the body,
+  // while the "from" / "reply-to" headers point to platform notification addresses.
+  if (thread.patternSource === 'forwarder') {
+    for (const email of thread.emails) {
+      const text = email.bodyText || email.snippet;
+      if (text) {
+        const parsed = parseFormSubmissionBody(text);
+        if (parsed?.email) return parsed.email;
+      }
+    }
+  }
+
+  // Look through participants for someone who isn't the owner, not from a company domain,
+  // and not a platform notification address (e.g. wixforms.com reply-to addresses).
   for (const participant of thread.participants) {
     if (participant.includes(ownerEmailLower)) continue;
     const domain = safe(participant).split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
     // Extract just the email address if it contains a name like "John Smith <john@example.com>"
     const emailMatch = participant.match(/<([^>]+)>/);
-    return emailMatch ? emailMatch[1] : participant;
+    const cleanEmail = emailMatch ? emailMatch[1] : participant;
+    // Skip platform notification addresses
+    if (isPlatformEmail(cleanEmail)) continue;
+    return cleanEmail;
   }
-  // Fallback: use the first sender if they're not the owner
+  // Fallback: use the first sender if they're not the owner and not a platform address
   if (!safe(thread.firstSender).includes(ownerEmailLower)) {
     const emailMatch = thread.firstSender.match(/<([^>]+)>/);
-    return emailMatch ? emailMatch[1] : thread.firstSender;
+    const cleanEmail = emailMatch ? emailMatch[1] : thread.firstSender;
+    if (!isPlatformEmail(cleanEmail)) return cleanEmail;
+  }
+  // Last resort: try parsing ANY email body for form submission data
+  for (const email of thread.emails) {
+    const text = email.bodyText || email.snippet;
+    if (text) {
+      const parsed = parseFormSubmissionBody(text);
+      if (parsed?.email) return parsed.email;
+    }
   }
   return thread.firstSender;
 }
@@ -707,13 +834,36 @@ function findClientName(
   ownerEmailLower: string,
   companyDomainSet: Set<string>
 ): string {
-  // Find the first non-owner, non-company email and extract name
+  // For forwarder threads, try to extract client name from the form body first.
+  if (thread.patternSource === 'forwarder') {
+    for (const email of thread.emails) {
+      const text = email.bodyText || email.snippet;
+      if (text) {
+        const parsed = parseFormSubmissionBody(text);
+        if (parsed?.name) return parsed.name;
+      }
+    }
+  }
+
+  // Find the first non-owner, non-company, non-platform email and extract name
   for (const email of thread.emails) {
     if (safe(email.from).includes(ownerEmailLower)) continue;
     const domain = safe(email.from).split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
+    // Skip platform senders — their fromName is e.g. "Wix Forms" not a client name
+    const emailMatch = email.from.match(/<([^>]+)>/);
+    const cleanEmail = emailMatch ? emailMatch[1] : email.from;
+    if (isPlatformEmail(cleanEmail)) continue;
     if (email.fromName && email.fromName !== (email.from || "").split('@')[0]) {
       return email.fromName;
+    }
+  }
+  // Last resort: try parsing ANY email body for form submission data
+  for (const email of thread.emails) {
+    const text = email.bodyText || email.snippet;
+    if (text) {
+      const parsed = parseFormSubmissionBody(text);
+      if (parsed?.name) return parsed.name;
     }
   }
   // Fallback: extract from first sender
