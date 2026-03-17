@@ -247,7 +247,20 @@ async function runAnalysis(
   );
   console.log(`[email-analyze] Phase 2: ${detection.allInboxEmails.length} inbox + ${detection.allSentEmails.length} sent = ${validEmails.length} valid emails`);
 
-  const ownerEmailLower = safe(connection.email);
+  // Determine owner email — fall back to detecting it from sent mail if connection.email is empty
+  let ownerEmailLower = safe(connection.email);
+  if (!ownerEmailLower && detection.allSentEmails.length > 0) {
+    // The FROM address of sent emails IS the owner
+    const firstSentFrom = detection.allSentEmails[0].from;
+    const match = firstSentFrom.match(/<([^>]+)>/);
+    ownerEmailLower = (match ? match[1] : firstSentFrom).toLowerCase().trim();
+    console.log(`[email-analyze] Owner email was empty on connection — detected from sent mail: ${ownerEmailLower}`);
+    // Also fix the connection so future runs don't hit this
+    await supabase.from("email_connections").update({ email: ownerEmailLower }).eq("id", connectionId);
+  }
+  if (!ownerEmailLower) {
+    console.error("[email-analyze] CRITICAL: Cannot determine owner email — results will be unreliable");
+  }
   const companyDomainSet = new Set(detection.companyDomains.map((d) => d.toLowerCase()));
   const forwarderEmailSet = new Set(detection.teamForwarders.map((f) => f.toLowerCase()));
   const estimateThreadIds = new Set(
