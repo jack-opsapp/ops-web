@@ -1,17 +1,26 @@
 /**
- * OPS Web - Email Analyze Endpoint
+ * OPS Web - Email Analyze Endpoint (Phase A)
  *
  * POST /api/integrations/email/analyze
- * Kicks off inbox analysis — pattern detection + AI classification.
+ * Kicks off inbox analysis — pattern detection + AI classification + lead building.
  * Returns a jobId for polling via analyze-status.
  *
- * Architecture: Thread-first approach.
+ * Architecture: Two-phase chained execution (each gets its own 800s budget).
+ *
+ * Phase A (this file):
  * 1. Pattern detection identifies known sources (estimate threads, platforms, forwarders)
  * 2. All emails are grouped by threadId into thread summaries
  * 3. Pattern-matched threads become leads DIRECTLY (no AI needed)
  * 4. Non-pattern threads are sent to AI as thread summaries (not individual emails)
- * 5. Leads are deduplicated by client email
- * 6. Full thread content is fetched for accurate stage analysis
+ * 5. Leads are built with client info extraction (including form body AI extraction)
+ * → Saves intermediate AnalyzedLead[] to job.result, chains to Phase B
+ *
+ * Phase B (/api/integrations/email/analyze-continue):
+ * 6. Full thread content fetched for AI-classified leads (stage refinement)
+ * 7. Hard-filter invalid leads (null, owner, employee, company domain, platform)
+ * 8. Deduplicate leads by client email
+ * 9. AI validation pass (approve/reject with company context)
+ * → Saves final results
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,23 +48,6 @@ function getOpenAI(): OpenAI {
 }
 
 export const maxDuration = 800; // Pro plan max
-
-// ─── Timeout helper for thread fetches ───────────────────────────────────────
-
-async function fetchWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
-    ]);
-  } catch {
-    return null;
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 // ─── Valid stages for safety checks ──────────────────────────────────────────
 
@@ -122,7 +114,7 @@ export async function POST(request: NextRequest) {
     .from("gmail_scan_jobs")
     .select("id, status, created_at")
     .eq("connection_id", connectionId)
-    .in("status", ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"])
+    .in("status", ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads", "building_leads"])
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -178,14 +170,17 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", connectionId);
 
-  // Run analysis in background — manages its own setSupabaseOverride lifecycle
+  // Run Phase A (pattern detection + AI classification) in background.
+  // When Phase A completes, it saves intermediate data and chains to
+  // /api/integrations/email/analyze-continue for Phase B (lead building + validation).
+  // Each phase gets its own 800s budget.
   after(async () => {
     const bgSupabase = getServiceRoleClient();
     setSupabaseOverride(bgSupabase);
     try {
-      await runAnalysis(job.id, connection, companyId, connectionId, bgSupabase);
+      await runPhaseA(job.id, connection, companyId, connectionId, bgSupabase);
     } catch (err) {
-      console.error("[email-analyze] Analysis failed:", err);
+      console.error("[email-analyze] Phase A failed:", err);
       await bgSupabase
         .from("gmail_scan_jobs")
         .update({
@@ -201,7 +196,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ jobId: job.id });
 }
 
-async function runAnalysis(
+async function runPhaseA(
   jobId: string,
   connection: EmailConnection,
   companyId: string,
@@ -517,8 +512,6 @@ async function runAnalysis(
     70
   );
 
-  const provider = EmailService.getProvider(connection);
-
   // Collect all lead threads: pattern-matched + AI-classified leads
   const leadThreads: Array<{
     thread: ThreadInfo;
@@ -606,95 +599,13 @@ async function runAnalysis(
     console.log(`[email-analyze] AI form extraction complete: ${formExtractionMap.size}/${formExtractionThreads.length} threads had extractable client info`);
   }
 
+  // ─── Phase 7: Build AnalyzedLead[] (without full thread analysis — that's Phase B) ─
   await updateProgress(
-    "analyzing_threads",
-    "Analyzing thread stages...",
-    85
+    "building_leads",
+    "Building leads...",
+    70
   );
 
-  // ─── Phase 6: Fetch full threads for stage analysis (cap at 20) ──────────
-  // Cap at 20 to avoid Gmail API rate limits and long hangs.
-  // Threads beyond the cap get correspondence-based staging (fast + free).
-  const threadAnalysisInputs: Array<{
-    threadId: string;
-    messages: Array<{
-      from: string;
-      to: string[];
-      subject: string;
-      bodyText: string;
-      date: string;
-      direction: 'inbound' | 'outbound';
-    }>;
-  }> = [];
-  const threadMessageCounts = new Map<string, number>();
-
-  // Only fetch full threads for leads that need AI stage analysis
-  // Pattern-matched threads use correspondence-based stage heuristics
-  const threadsNeedingFullFetch = leadThreads
-    .filter((lt) => lt.source === 'ai')
-    .slice(0, 20);
-
-  let fetchedCount = 0;
-  let skippedCount = 0;
-
-  for (const { thread } of threadsNeedingFullFetch) {
-    try {
-      // 10-second timeout per thread to prevent hangs on large threads or rate limits
-      const fetchedMessages = await fetchWithTimeout(
-        provider.fetchThread(thread.threadId),
-        10_000
-      );
-
-      if (!fetchedMessages) {
-        console.warn(`[email-analyze] Thread ${thread.threadId} timed out after 10s — skipping`);
-        skippedCount++;
-        // Rate limit pause even on timeout
-        await delay(200);
-        continue;
-      }
-
-      threadMessageCounts.set(thread.threadId, fetchedMessages.length);
-      threadAnalysisInputs.push({
-        threadId: thread.threadId,
-        messages: fetchedMessages.map((m) => ({
-          from: m.from,
-          to: m.to,
-          subject: m.subject,
-          bodyText: m.bodyText,
-          date: m.date.toISOString(),
-          direction: (safe(m.from).includes(ownerEmailLower)
-            ? "outbound"
-            : "inbound") as "inbound" | "outbound",
-        })),
-      });
-      fetchedCount++;
-    } catch (err) {
-      console.error(
-        `[email-analyze] Failed to fetch thread ${thread.threadId}:`,
-        err
-      );
-      skippedCount++;
-    }
-
-    // 200ms delay between fetches to avoid Gmail API rate limits
-    await delay(200);
-  }
-
-  console.log(`[email-analyze] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped (timeout/error), ${Math.max(0, leadThreads.filter((lt) => lt.source === 'ai').length - 20)} beyond cap`);
-
-  const threadAnalyses = await EmailAIClassifier.analyzeThreads(
-    threadAnalysisInputs,
-    {
-      companyName: company?.name || "",
-      ownerEmail: connection.email,
-    }
-  );
-
-  const threadAnalysisMap = new Map(
-    threadAnalyses.map((ta) => [ta.threadId, ta])
-  );
-
-  // ─── Phase 7: Build AnalyzedLead[] ───────────────────────────────────────
   const leads: AnalyzedLead[] = [];
 
   for (const { thread, source, aiClassification } of leadThreads) {
@@ -706,35 +617,21 @@ async function runAnalysis(
     const clientName = aiClassification?.client?.name
       || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap, clientEmail, employeeEmailSet);
 
-    // Determine stage
+    // Determine stage — AI leads use aiClassification stage, pattern leads use correspondence heuristics.
+    // Phase B will refine AI lead stages via full thread fetch + analyzeThreads.
     let stage: string;
     let stageConfidence: number;
     let estimatedValue: number | null = null;
-    const terminalFlag: 'likely_won' | 'likely_lost' | null = null;
 
-    if (source === 'ai') {
-      // AI-classified leads: use thread analysis if available, else AI classification
-      const threadAnalysis = threadAnalysisMap.get(thread.threadId);
-      if (threadAnalysis) {
-        stage = sanitizeStage(threadAnalysis.stage);
-        stageConfidence = threadAnalysis.confidence;
-        estimatedValue = threadAnalysis.estimatedValue;
-      } else if (aiClassification) {
-        stage = sanitizeStage(aiClassification.stage);
-        stageConfidence = aiClassification.confidence;
-        estimatedValue = aiClassification.estimatedValue;
-      } else {
-        stage = correspondenceBasedStage(thread);
-        stageConfidence = 0.6;
-      }
+    if (source === 'ai' && aiClassification) {
+      stage = sanitizeStage(aiClassification.stage);
+      stageConfidence = aiClassification.confidence;
+      estimatedValue = aiClassification.estimatedValue;
     } else {
-      // Pattern-matched leads: use correspondence-based heuristics (Fix 3)
+      // Pattern-matched leads: use correspondence-based heuristics
       stage = correspondenceBasedStage(thread);
       stageConfidence = 0.7;
     }
-
-    // Get actual thread message count (from fetched thread or from our emails)
-    const actualThreadCount = threadMessageCounts.get(thread.threadId) || thread.messageCount;
 
     // Source label
     const SOURCE_LABELS: Record<string, string> = {
@@ -828,7 +725,7 @@ async function runAnalysis(
       stage,
       stageConfidence,
       estimatedValue,
-      correspondenceCount: actualThreadCount,
+      correspondenceCount: thread.messageCount,
       outboundCount: thread.outboundCount,
       lastMessageDate: thread.dateRange.last,
       source,
@@ -860,112 +757,36 @@ async function runAnalysis(
     });
   }
 
-  // ─── Phase 7b: Hard-filter obvious invalid leads ─────────────────────────
-  // Remove clearly invalid leads. AI validation (Phase 9) handles nuance.
-  const filteredLeads = leads.filter(lead => {
-    const email = cleanEmailAddress(lead.client.email);
-    if (!email || !lead.client.name) {
-      console.log(`[filter] REMOVED (null): name=${lead.client.name}, email=${lead.client.email}`);
-      return false;
-    }
-    if (email === ownerEmailLower) {
-      console.log(`[filter] REMOVED (owner exact): ${email}`);
-      return false;
-    }
-    if (employeeEmailSet.has(email)) {
-      console.log(`[filter] REMOVED (employee): ${email}`);
-      return false;
-    }
-    const domain = email.split('@')[1] || '';
-    if (domain && companyDomainSet.has(domain)) {
-      console.log(`[filter] REMOVED (company domain ${domain}): ${email}`);
-      return false;
-    }
-    if (isPlatformEmail(email)) {
-      console.log(`[filter] REMOVED (platform): ${email}`);
-      return false;
-    }
-    return true;
-  });
+  // ─── Save intermediate results and chain to Phase B ───────────────────────
+  console.log(`[email-analyze] Phase A complete: ${leads.length} raw leads built. Saving intermediate data and chaining to Phase B...`);
 
-  console.log(`[email-analyze] Leads after hard-filter: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed — owner/platform/null)`);
-
-  await updateProgress("analyzing_threads", "Deduplicating leads...", 92);
-
-  // ─── Phase 8: Deduplicate leads by client email ─────────────────────────
-  const deduplicatedLeads = deduplicateLeads(filteredLeads);
-
-  console.log(`[email-analyze] Leads after dedup: ${deduplicatedLeads.length} (${filteredLeads.length} before dedup)`);
-
-  // ─── Phase 9: AI Validation Pass ────────────────────────────────────────
-  // Send the candidate list + company context to AI for a quick approval check.
-  // The AI sees the company name, domain, employee emails/names, and each candidate —
-  // then returns just the approved IDs. Catches false positives that rule-based
-  // filtering can't (vendors, internal contacts, spam).
-  await updateProgress("analyzing_threads", "Validating leads...", 95);
-
-  // Build employee context strings for the AI (reuse data from earlier fetch)
-  const employeeDescriptions = (companyUsers || []).map((u: { email: string; first_name: string; last_name: string }) =>
-    `${(u.first_name || '').trim()} ${(u.last_name || '').trim()} (${u.email})`
-  ).filter((s: string) => s.trim() !== '()');
-
-  const validatedLeads = await validateLeadsWithAI(
-    deduplicatedLeads,
-    {
-      companyName: company?.name || "",
-      companyDomain: [...companyDomainSet].join(', ') || ownerEmailLower.split('@')[1] || "",
-      industry: (company?.industry as string) || "trades",
-      ownerEmail: ownerEmailLower,
-      employeeEmails: [...employeeEmailSet],
-      employeeNames: [...employeeNameSet],
-      employeeDescriptions,
-    }
-  );
-
-  console.log(`[email-analyze] Leads after AI validation: ${validatedLeads.length} (${deduplicatedLeads.length - validatedLeads.length} rejected by AI)`);
-
-  await updateProgress("complete", `Analysis complete! Found ${validatedLeads.length} leads.`, 100);
-
-  // Save results
-  await supabase
-    .from("gmail_scan_jobs")
-    .update({
-      status: "complete",
-      progress: { stage: "complete", message: "Analysis complete!", percent: 100, discoveredLeadNames: discoveredLeadNames.slice(-12) },
-      result: {
+  await supabase.from("gmail_scan_jobs").update({
+    status: "building_leads",
+    progress: { stage: "building_leads", percent: 70, message: "Building leads...", discoveredLeadNames: discoveredLeadNames.slice(-12) },
+    result: {
+      phase: "leads_built",
+      detection: {
         estimatePattern: detection.estimatePattern,
         estimatePatternConfidence: detection.estimatePatternConfidence,
         estimateThreadCount: detection.estimateThreadCount,
         detectedSources: detection.detectedSources,
-        companyDomains: detection.companyDomains,
+        companyDomains: [...companyDomainSet],
         teamForwarders: detection.teamForwarders,
-        leads: validatedLeads,
-        totalScanned: detection.totalEmailsScanned,
+        totalEmailsScanned: detection.totalEmailsScanned,
       },
-    })
-    .eq("id", jobId);
+      leads: leads, // The raw AnalyzedLead[] before filtering
+      ownerEmail: ownerEmailLower,
+      discoveredLeadNames,
+    },
+  }).eq("id", jobId);
 
-  // ─── Update connection wizard state on completion ─────────────────────────
-  // Fetch current sync_filters to merge (they may have been updated during analysis)
-  const { data: currentConn } = await supabase
-    .from("email_connections")
-    .select("sync_filters")
-    .eq("id", connectionId)
-    .single();
-
-  const existingFilters = (currentConn?.sync_filters as Record<string, unknown>) || {};
-
-  await supabase
-    .from("email_connections")
-    .update({
-      sync_filters: {
-        ...existingFilters,
-        wizardStep: 3,
-        lastScanJobId: jobId,
-        lastScanComplete: true,
-      },
-    })
-    .eq("id", connectionId);
+  // Chain to Phase B — a separate function invocation with its own 800s budget
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  await fetch(`${baseUrl}/api/integrations/email/analyze-continue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jobId, connectionId, companyId }),
+  });
 }
 
 // ─── Helper functions ──────────────────────────────────────────────────────
@@ -1223,169 +1044,3 @@ function normalizeSubject(subject: string): string {
     .trim();
 }
 
-/** Deduplicate leads by client email — merge leads from the same client (Fix 5) */
-function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
-  const byClientEmail = new Map<string, AnalyzedLead[]>();
-
-  for (const lead of leads) {
-    const normalizedEmail = cleanEmailAddress(lead.client.email);
-
-    if (!byClientEmail.has(normalizedEmail)) {
-      byClientEmail.set(normalizedEmail, []);
-    }
-    byClientEmail.get(normalizedEmail)!.push(lead);
-  }
-
-  const deduplicated: AnalyzedLead[] = [];
-
-  for (const [, group] of byClientEmail) {
-    if (group.length === 1) {
-      deduplicated.push(group[0]);
-      continue;
-    }
-
-    // Multiple leads with the same client email — merge them
-    // Keep the one with the most correspondence, merge the rest into it
-    group.sort((a, b) => b.correspondenceCount - a.correspondenceCount);
-    const primary = { ...group[0] };
-
-    // Sum correspondence counts and merge emails from other leads
-    for (let i = 1; i < group.length; i++) {
-      const other = group[i];
-      primary.correspondenceCount += other.correspondenceCount;
-      primary.outboundCount += other.outboundCount;
-      primary.emails = [...primary.emails, ...other.emails];
-
-      // If the other lead has a higher value, use it
-      if (other.estimatedValue && (!primary.estimatedValue || other.estimatedValue > primary.estimatedValue)) {
-        primary.estimatedValue = other.estimatedValue;
-      }
-
-      // Use the later date
-      if (other.lastMessageDate > primary.lastMessageDate) {
-        primary.lastMessageDate = other.lastMessageDate;
-      }
-    }
-
-    // Update the ID to reflect it's a merged lead
-    primary.duplicateGroupId = group.map((g) => g.threadId).join(',');
-
-    deduplicated.push(primary);
-  }
-
-  return deduplicated;
-}
-
-// ─── Phase 9: AI Validation ──────────────────────────────────────────────────
-// Second-pass AI check: sends a compact enumerated list of candidate leads
-// plus company context. AI returns just the approved numbers.
-// Cost: ~$0.001-0.005 per run (one API call, minimal tokens).
-
-async function validateLeadsWithAI(
-  leads: AnalyzedLead[],
-  context: {
-    companyName: string;
-    companyDomain: string;
-    industry: string;
-    ownerEmail: string;
-    employeeEmails: string[];
-    employeeNames: string[];
-    employeeDescriptions: string[];
-  }
-): Promise<AnalyzedLead[]> {
-  if (leads.length === 0) return [];
-
-  const systemPrompt = `You are validating a list of potential leads for a ${context.industry} business.
-
-Company: ${context.companyName}
-Company domain(s): ${context.companyDomain || 'unknown'}
-Owner email: ${context.ownerEmail}
-Team members:
-${context.employeeDescriptions.length > 0 ? context.employeeDescriptions.map(d => `  - ${d}`).join('\n') : '  (none known)'}
-
-Below is a numbered list of candidates detected from the owner's email inbox.
-Review each one and return ONLY the numbers of legitimate customer/client leads.
-
-REJECT (do not include):
-- Company employees or team members (emails matching company domain or employee list, OR names matching team members even if the email differs)
-- The company owner themselves
-- Vendors, suppliers, or subtrades selling TO the company (not buying FROM the company). Read the email excerpts — if they are pitching their services or sending invoices TO the company, they are a vendor, not a client.
-- Spam, newsletters, automated notifications
-- Platform/service accounts (noreply, notifications, system emails)
-- Internal business contacts (accountants, lawyers, insurance) unless they're also clients
-
-APPROVE:
-- Homeowners, property owners, or residents requesting work
-- Builders, general contractors, or developers hiring the company as a subtrade
-- Commercial clients requesting quotes or estimates
-- Anyone the company has sent an estimate/quote to
-- Referral contacts who are potential customers
-
-CRITICAL RULE: Candidates with source "Estimate thread" have RECEIVED a quote/estimate from the company. They are definitively customers — APPROVE them UNLESS their email matches a team member.
-
-Each candidate includes up to 6 email excerpts. Use these to verify the relationship direction (is the company selling TO them or buying FROM them?).
-
-RESPOND WITH JSON: { "approved": [1, 3, 5, ...] }
-Only the numbers. No explanation.`;
-
-  // Build candidate list with email excerpts for informed validation
-  const candidateList = leads.map((lead, i) => {
-    const header = [
-      `--- #${i + 1} ---`,
-      `Name: ${lead.client.name}`,
-      `Email: ${lead.client.email}`,
-      `Source: ${lead.sourceLabel}`,
-      `Stage: ${lead.stage}`,
-      `Messages: ${lead.correspondenceCount} total, ${lead.outboundCount} outbound`,
-    ].join('\n');
-
-    // Include email excerpts with body content
-    let emailSection = '';
-    if (lead.emailExcerpts?.length) {
-      emailSection = '\nEmails:\n' + lead.emailExcerpts.map((e) => {
-        const bodyPreview = e.body || '';
-        return `  [${e.direction.toUpperCase()}] ${e.fromName || e.from} (${e.date.slice(0, 10)})\n    ${bodyPreview}`;
-      }).join('\n');
-    }
-
-    return header + emailSection;
-  }).join('\n\n');
-
-  try {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: candidateList },
-      ],
-      temperature: 0,
-      max_tokens: Math.max(leads.length * 4, 100),
-      response_format: { type: 'json_object' },
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      console.error('[email-analyze] AI validation returned empty response — keeping all leads');
-      return leads;
-    }
-
-    const parsed = JSON.parse(content);
-    const approved = new Set<number>(
-      (parsed.approved || []).map((n: number) => n)
-    );
-
-    console.log(`[email-analyze] AI validation: ${approved.size}/${leads.length} approved`);
-
-    // Log rejected leads for debugging
-    leads.forEach((lead, i) => {
-      if (!approved.has(i + 1)) {
-        console.log(`[ai-validate] REJECTED #${i + 1}: ${lead.client.name} (${lead.client.email}) — ${lead.sourceLabel}`);
-      }
-    });
-
-    return leads.filter((_, i) => approved.has(i + 1));
-  } catch (err) {
-    console.error('[email-analyze] AI validation failed — keeping all leads:', err);
-    return leads; // Fail open — don't lose leads if validation fails
-  }
-}
