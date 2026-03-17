@@ -517,32 +517,35 @@ async function runPhaseB(
     }
   }
 
-  // ─── Stage fallback: correspondence-based heuristic for unfetched AI leads ─
-  // AI leads beyond the 15-thread cap keep their raw "new_lead" default.
-  // Apply a message-count heuristic so 51-message threads don't show as "new_lead".
+  // ─── Stage floor: enforce minimum stage based on message count ──────────
+  // Applies to ALL leads (including those refined by thread analysis).
+  // A 44-message thread can NEVER be "new_lead" — the AI sometimes returns
+  // bad stage values, and this catches them.
   for (const lead of leads) {
-    if (lead.source !== 'ai') continue;
-    // Skip leads that already got refined by thread analysis
-    if (threadAnalysisInputs.some((t) => t.threadId === lead.threadId)) continue;
-
-    // Heuristic based on correspondence counts
     const msgs = lead.correspondenceCount;
     const out = lead.outboundCount;
-    if (out === 0) {
-      lead.stage = 'new_lead';
-    } else if (msgs >= 6 && out >= 3) {
+
+    // For leads that didn't get thread analysis, apply full heuristic
+    const hadThreadAnalysis = threadAnalysisInputs.some((t) => t.threadId === lead.threadId);
+    if (!hadThreadAnalysis && lead.source === 'ai') {
+      if (out === 0) {
+        lead.stage = 'new_lead';
+      } else if (msgs >= 6 && out >= 3) {
+        lead.stage = 'quoted';
+      } else if (msgs >= 4 && out >= 2) {
+        lead.stage = 'quoting';
+      } else if (out >= 1) {
+        lead.stage = 'qualifying';
+      }
+    }
+
+    // Floor: minimum stage based on message count — overrides bad AI values
+    if (msgs >= 20 && (lead.stage === 'new_lead' || lead.stage === 'qualifying')) {
       lead.stage = 'quoted';
-    } else if (msgs >= 4 && out >= 2) {
+    } else if (msgs >= 10 && lead.stage === 'new_lead') {
       lead.stage = 'quoting';
-    } else if (out >= 1) {
+    } else if (msgs >= 4 && out >= 1 && lead.stage === 'new_lead') {
       lead.stage = 'qualifying';
-    }
-    // If the thread has 10+ messages, it's at least quoting
-    if (msgs >= 10 && (lead.stage === 'new_lead' || lead.stage === 'qualifying')) {
-      lead.stage = 'quoting';
-    }
-    if (msgs >= 20) {
-      lead.stage = 'quoted';
     }
   }
 

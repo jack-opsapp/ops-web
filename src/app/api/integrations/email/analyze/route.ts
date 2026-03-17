@@ -470,7 +470,7 @@ async function runPhaseA(
         to: e.to,
         date: e.date.toISOString(),
         direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: (e.bodyText || e.snippet || '').slice(0, 2000),
+        body: (e.bodyText || e.snippet || '').slice(0, 4000),
       })),
     };
   });
@@ -614,8 +614,10 @@ async function runPhaseA(
     const clientEmail = cleanEmailAddress(
       findClientEmail(thread, ownerEmailLower, companyDomainSet, formExtractionMap)
     );
-    const clientName = aiClassification?.client?.name
-      || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap, clientEmail, employeeEmailSet);
+    const clientName = capitalizeName(
+      aiClassification?.client?.name
+        || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap, clientEmail, employeeEmailSet)
+    );
 
     // Determine stage — AI leads use aiClassification stage, pattern leads use correspondence heuristics.
     // Phase B will refine AI lead stages via full thread fetch + analyzeThreads.
@@ -673,7 +675,11 @@ async function runPhaseA(
       for (const ac of aiClassification.additionalContacts) {
         const acEmail = cleanEmailAddress(ac.email);
         if (acEmail && acEmail !== primaryEmailLower && acEmail !== ownerEmailLower && !isPlatformEmail(acEmail)) {
-          subContacts.push({ name: ac.name, email: acEmail, phone: ac.phone || null });
+          // Filter out employees and company domain addresses
+          if (employeeEmailSet.has(acEmail)) continue;
+          const acDomain = acEmail.split('@')[1] || '';
+          if (acDomain && companyDomainSet.has(acDomain)) continue;
+          subContacts.push({ name: capitalizeName(ac.name), email: acEmail, phone: ac.phone || null });
         }
       }
     }
@@ -685,10 +691,10 @@ async function runPhaseA(
         const pClean = cleanEmailAddress(participant);
         if (!pClean || pClean === primaryEmailLower || pClean === ownerEmailLower) continue;
         if (isPlatformEmail(pClean)) continue;
+        if (employeeEmailSet.has(pClean)) continue;
         const pDomain = pClean.split('@')[1] || '';
         if (pDomain === clientDomain && !subContacts.some((sc) => sc.email === pClean)) {
-          // Same domain as client — likely a colleague/family member
-          const pName = extractNameFromEmail(participant);
+          const pName = capitalizeName(extractNameFromEmail(participant));
           subContacts.push({ name: pName, email: pClean, phone: null });
         }
       }
@@ -700,10 +706,20 @@ async function runPhaseA(
     // e.g., projects@storyconstruction.ca → client = "Story Construction", Stephanie Hay = sub-contact
     let finalClientName = clientName;
     const clientDomainForCompanyCheck = primaryEmailLower.split('@')[1] || '';
+    // Domains that look personal/institutional — should NOT trigger company-as-client
+    const PERSONAL_DOMAIN_PATTERNS = [
+      '.edu', '.ac.', '.gov', '.mil', '.org',
+      'university', 'college', 'school', 'uvic.', 'ubc.', 'sfu.',
+      'bcit.', 'camosun.', 'viu.', 'unbc.',
+    ];
+    const isPersonalInstitution = PERSONAL_DOMAIN_PATTERNS.some((p) =>
+      clientDomainForCompanyCheck.includes(p)
+    );
     if (
       clientDomainForCompanyCheck &&
       !PUBLIC_EMAIL_DOMAINS.has(clientDomainForCompanyCheck) &&
-      !companyDomainSet.has(clientDomainForCompanyCheck)
+      !companyDomainSet.has(clientDomainForCompanyCheck) &&
+      !isPersonalInstitution
     ) {
       // Business domain — extract company name from domain
       const companyFromDomain = clientDomainForCompanyCheck
@@ -773,7 +789,7 @@ async function runPhaseA(
             fromName: e.fromName,
             direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
             date: e.date.toISOString(),
-            body: (e.bodyText || e.snippet || '').slice(0, 2000),
+            body: (e.bodyText || e.snippet || '').slice(0, 4000),
           }));
       })(),
       duplicateGroupId: aiClassification?.duplicateOf?.[0] || null,
@@ -1064,6 +1080,15 @@ function extractNameFromEmail(email: string): string {
   const localPart = email.split("@")[0] || email;
   return localPart
     .replace(/[._-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+/** Capitalize a name properly — "shaii mnl" → "Shaii Mnl", "KARA BEACH" → "Kara Beach" */
+function capitalizeName(name: string): string {
+  if (!name) return name;
+  return name
+    .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 }

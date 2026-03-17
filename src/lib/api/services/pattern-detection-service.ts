@@ -172,7 +172,7 @@ export const PatternDetectionService = {
     estimateThreadIds: string[];
     allSentEmails: NormalizedEmail[];
   }> {
-    const sent = await provider.searchEmails('in:sent', { after: afterDate, maxResults: 500 });
+    const sent = await provider.searchEmails('in:sent', { after: afterDate, maxResults: 2000 });
 
     // Group by normalized subject (strip Re:, Fwd:, whitespace)
     const subjectGroups = new Map<string, { count: number; uniqueRecipients: Set<string>; threadIds: string[] }>();
@@ -231,7 +231,7 @@ export const PatternDetectionService = {
       samples: Array<{ from: string; subject: string; date: string }>;
     }>;
   }> {
-    const inbox = await provider.searchEmails('in:inbox', { after: afterDate, maxResults: 500 });
+    const inbox = await provider.searchEmails('in:inbox', { after: afterDate, maxResults: 2000 });
     const byPlatform: Record<string, { category: string; count: number; samples: Array<{ from: string; subject: string; date: string }> }> = {};
 
     for (const email of inbox) {
@@ -261,7 +261,7 @@ export const PatternDetectionService = {
     provider: EmailProviderInterface,
     afterDate: Date
   ): Promise<NormalizedEmail[]> {
-    return provider.searchEmails('category:primary', { after: afterDate, maxResults: 500 });
+    return provider.searchEmails('category:primary', { after: afterDate, maxResults: 2000 });
   },
 
   /**
