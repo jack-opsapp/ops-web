@@ -689,12 +689,23 @@ async function runAnalysis(
   // Also filter out leads whose client email is a company domain (employee) or platform address
   const filteredLeads = leads.filter(lead => {
     const email = cleanEmailAddress(lead.client.email);
-    if (!email || !lead.client.name) return false; // null/empty email or name
-    if (email === ownerEmailLower) return false; // owner's own email
-    if (email.includes(ownerEmailLower)) return false; // owner's email as substring
+    if (!email || !lead.client.name) {
+      console.log(`[filter] REMOVED (null): name=${lead.client.name}, email=${lead.client.email}`);
+      return false;
+    }
+    if (email === ownerEmailLower) {
+      console.log(`[filter] REMOVED (owner exact): ${email}`);
+      return false;
+    }
     const domain = email.split('@')[1] || '';
-    if (companyDomainSet.has(domain)) return false; // company employee
-    if (isPlatformEmail(email)) return false; // platform notification address
+    if (companyDomainSet.has(domain)) {
+      console.log(`[filter] REMOVED (company domain ${domain}): ${email}`);
+      return false;
+    }
+    if (isPlatformEmail(email)) {
+      console.log(`[filter] REMOVED (platform): ${email}`);
+      return false;
+    }
     return true;
   });
 
@@ -872,24 +883,51 @@ function findClientEmail(
     if (extracted?.email) return cleanEmailAddress(extracted.email);
   }
 
-  // Look through participants for someone who isn't the owner, not from a company domain,
-  // and not a platform notification address (e.g. wixforms.com reply-to addresses).
+  console.log(`[findClientEmail] Thread ${thread.threadId} (source: ${thread.patternSource}): ${thread.participants.length} participants, ${thread.emails.length} emails`);
+
+  // For estimate threads, the client is the RECIPIENT of the owner's outbound email.
+  // Check 'to' addresses from outbound emails first.
+  for (const email of thread.emails) {
+    if (!safe(email.from).includes(ownerEmailLower)) continue; // only outbound emails
+    for (const toAddr of email.to) {
+      const cleaned = cleanEmailAddress(toAddr);
+      if (!cleaned) continue;
+      if (cleaned.includes(ownerEmailLower)) continue;
+      const domain = cleaned.split('@')[1] || "";
+      if (domain && companyDomainSet.has(domain)) continue;
+      if (isPlatformEmail(cleaned)) continue;
+      console.log(`[findClientEmail] → Found via outbound 'to': ${cleaned}`);
+      return cleaned;
+    }
+  }
+
+  // Then look through all participants for someone who isn't the owner or company
   for (const participant of thread.participants) {
     const cleaned = cleanEmailAddress(participant);
     if (!cleaned) continue;
     if (cleaned.includes(ownerEmailLower)) continue;
     const domain = cleaned.split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
-    // Skip platform notification addresses
     if (isPlatformEmail(cleaned)) continue;
+    console.log(`[findClientEmail] → Found via participant: ${cleaned}`);
     return cleaned;
   }
-  // Fallback: use the first sender if they're not the owner and not a platform address
-  const cleanedFirstSender = cleanEmailAddress(thread.firstSender);
-  if (cleanedFirstSender && !cleanedFirstSender.includes(ownerEmailLower)) {
-    if (!isPlatformEmail(cleanedFirstSender)) return cleanedFirstSender;
+
+  // Then check inbound email senders
+  for (const email of thread.emails) {
+    if (safe(email.from).includes(ownerEmailLower)) continue; // skip outbound
+    const cleaned = cleanEmailAddress(email.from);
+    if (!cleaned) continue;
+    const domain = cleaned.split('@')[1] || "";
+    if (domain && companyDomainSet.has(domain)) continue;
+    if (isPlatformEmail(cleaned)) continue;
+    console.log(`[findClientEmail] → Found via inbound sender: ${cleaned}`);
+    return cleaned;
   }
-  return cleanedFirstSender || thread.firstSender;
+
+  // Last resort: return empty (will be filtered out)
+  console.log(`[findClientEmail] → FAILED to find client email. Participants: ${thread.participants.map(p => cleanEmailAddress(p)).join(', ')}`);
+  return '';
 }
 
 /** Find the client display name from thread participants */
