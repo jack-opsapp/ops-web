@@ -77,6 +77,7 @@ function cleanEmailAddress(raw: string | null | undefined): string {
 const PLATFORM_EMAIL_PATTERNS = [
   'reply-to+', 'noreply', 'no-reply', 'notifications@',
   'mailer-daemon', 'postmaster@',
+  'inbound.opsapp.co', '@opsapp.co',
   ...Object.keys(PLATFORM_DOMAINS),
 ];
 
@@ -513,6 +514,35 @@ async function runPhaseB(
       if (actualCount) {
         lead.correspondenceCount = actualCount;
       }
+    }
+  }
+
+  // ─── Stage fallback: correspondence-based heuristic for unfetched AI leads ─
+  // AI leads beyond the 15-thread cap keep their raw "new_lead" default.
+  // Apply a message-count heuristic so 51-message threads don't show as "new_lead".
+  for (const lead of leads) {
+    if (lead.source !== 'ai') continue;
+    // Skip leads that already got refined by thread analysis
+    if (threadAnalysisInputs.some((t) => t.threadId === lead.threadId)) continue;
+
+    // Heuristic based on correspondence counts
+    const msgs = lead.correspondenceCount;
+    const out = lead.outboundCount;
+    if (out === 0) {
+      lead.stage = 'new_lead';
+    } else if (msgs >= 6 && out >= 3) {
+      lead.stage = 'quoted';
+    } else if (msgs >= 4 && out >= 2) {
+      lead.stage = 'quoting';
+    } else if (out >= 1) {
+      lead.stage = 'qualifying';
+    }
+    // If the thread has 10+ messages, it's at least quoting
+    if (msgs >= 10 && (lead.stage === 'new_lead' || lead.stage === 'qualifying')) {
+      lead.stage = 'quoting';
+    }
+    if (msgs >= 20) {
+      lead.stage = 'quoted';
     }
   }
 

@@ -694,9 +694,38 @@ async function runPhaseA(
       }
     }
 
+    // ─── Company-as-client pattern ──────────────────────────────────────────
+    // When the client email is at a business domain (not a personal email provider),
+    // the company is the actual client and the individual is a sub-contact.
+    // e.g., projects@storyconstruction.ca → client = "Story Construction", Stephanie Hay = sub-contact
+    let finalClientName = clientName;
+    const clientDomainForCompanyCheck = primaryEmailLower.split('@')[1] || '';
+    if (
+      clientDomainForCompanyCheck &&
+      !PUBLIC_EMAIL_DOMAINS.has(clientDomainForCompanyCheck) &&
+      !companyDomainSet.has(clientDomainForCompanyCheck)
+    ) {
+      // Business domain — extract company name from domain
+      const companyFromDomain = clientDomainForCompanyCheck
+        .split('.')[0] // "storyconstruction" from "storyconstruction.ca"
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .trim();
+
+      // Only swap if the individual name differs from the company name
+      // (avoid creating a sub-contact with the same name as the client)
+      if (clientName && companyFromDomain.toLowerCase() !== clientName.toLowerCase()) {
+        // Move the individual to sub-contacts
+        if (!subContacts.some((sc) => sc.email === primaryEmailLower)) {
+          subContacts.unshift({ name: clientName, email: primaryEmailLower, phone: null });
+        }
+        finalClientName = companyFromDomain;
+      }
+    }
+
     // Track discovered name for the fading UI display
-    if (clientName && !discoveredLeadNames.includes(clientName)) {
-      discoveredLeadNames.push(clientName);
+    if (finalClientName && !discoveredLeadNames.includes(finalClientName)) {
+      discoveredLeadNames.push(finalClientName);
     }
 
     leads.push({
@@ -714,13 +743,14 @@ async function runPhaseA(
       client: aiClassification?.client
         ? {
             ...aiClassification.client,
+            name: finalClientName || aiClassification.client.name,
             email: cleanEmailAddress(aiClassification.client.email),
           }
         : (() => {
             const extracted = formExtractionMap.get(thread.threadId);
             const phone = extracted?.phone || null;
             const description = extracted?.message || thread.subject;
-            return { name: clientName, email: clientEmail, phone, description };
+            return { name: finalClientName, email: clientEmail, phone, description };
           })(),
       stage,
       stageConfidence,
@@ -811,6 +841,8 @@ const PLATFORM_EMAIL_PATTERNS = [
   // Hard-coded patterns that aren't just domains
   'reply-to+', 'noreply', 'no-reply', 'notifications@',
   'mailer-daemon', 'postmaster@',
+  // OPS internal addresses (inbound lead capture, system emails)
+  'inbound.opsapp.co', '@opsapp.co',
   // All domains from the known-platforms registry
   ...Object.keys(PLATFORM_DOMAINS),
 ];

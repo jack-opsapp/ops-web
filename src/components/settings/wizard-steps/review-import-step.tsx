@@ -238,6 +238,23 @@ export function ReviewImportStep({
                                   <span className="ml-2">{lead.correspondenceCount} emails</span>
                                 )}
                               </p>
+                              {lead.subContacts && lead.subContacts.length > 0 && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="font-kosugi text-[8px] tracking-[0.1em] uppercase text-[#555]">
+                                    Contacts:
+                                  </span>
+                                  {lead.subContacts.slice(0, 3).map((sc, i) => (
+                                    <span key={sc.email} className="font-mohave text-[10px] text-[#597794]">
+                                      {sc.name}{i < Math.min(lead.subContacts.length, 3) - 1 ? ',' : ''}
+                                    </span>
+                                  ))}
+                                  {lead.subContacts.length > 3 && (
+                                    <span className="font-mohave text-[10px] text-[#555]">
+                                      +{lead.subContacts.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             {/* Match indicator */}
