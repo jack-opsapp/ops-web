@@ -170,7 +170,10 @@ async function runAnalysis(
     (e) => e.threadId && e.threadId !== "undefined" && e.threadId !== "null"
   );
 
-  const ownerEmailLower = connection.email.toLowerCase();
+  // Safe lowercase helper — Gmail messages can have null/undefined fields
+  const safe = (s: string | null | undefined): string => (s || "").toLowerCase();
+
+  const ownerEmailLower = safe(connection.email);
   const companyDomainSet = new Set(detection.companyDomains.map((d) => d.toLowerCase()));
   const forwarderEmailSet = new Set(detection.teamForwarders.map((f) => f.toLowerCase()));
   const estimateThreadIds = new Set(
@@ -196,7 +199,7 @@ async function runAnalysis(
 
   for (const email of validEmails) {
     if (!threadMap.has(email.threadId)) {
-      const isFromOwner = email.from.toLowerCase().includes(ownerEmailLower);
+      const isFromOwner = safe(email.from).includes(ownerEmailLower);
       const direction: 'inbound' | 'outbound' = isFromOwner ? 'outbound' : 'inbound';
 
       // Determine pattern source for this thread
@@ -205,7 +208,7 @@ async function runAnalysis(
         patternSource = 'estimate_pattern';
       } else if (matchPlatform(email.from)) {
         patternSource = 'platform';
-      } else if (forwarderEmailSet.has(email.from.toLowerCase())) {
+      } else if (forwarderEmailSet.has(safe(email.from))) {
         patternSource = 'forwarder';
       }
 
@@ -233,7 +236,7 @@ async function runAnalysis(
     thread.emails.push(email);
     thread.messageCount++;
 
-    const isOutbound = email.from.toLowerCase().includes(ownerEmailLower);
+    const isOutbound = safe(email.from).includes(ownerEmailLower);
     if (isOutbound) {
       thread.outboundCount++;
       thread.hasUserReply = true;
@@ -242,7 +245,7 @@ async function runAnalysis(
     // Track participants
     const allAddresses = [email.from, ...email.to, ...email.cc];
     for (const addr of allAddresses) {
-      const normalized = addr.toLowerCase();
+      const normalized = safe(addr);
       if (!thread.participants.includes(normalized)) {
         thread.participants.push(normalized);
       }
@@ -276,7 +279,7 @@ async function runAnalysis(
 
   for (const thread of threadMap.values()) {
     // Skip threads from the owner's company domains (internal threads)
-    const firstSenderDomain = thread.firstSender.split('@')[1]?.toLowerCase();
+    const firstSenderDomain = safe(thread.firstSender).split('@')[1] || "";
     const isInternal = firstSenderDomain && companyDomainSet.has(firstSenderDomain)
       && !thread.patternSource; // Don't skip if it's a forwarder match
 
@@ -405,7 +408,7 @@ async function runAnalysis(
           subject: m.subject,
           bodyText: m.bodyText,
           date: m.date.toISOString(),
-          direction: (m.from.toLowerCase().includes(ownerEmailLower)
+          direction: (safe(m.from).includes(ownerEmailLower)
             ? "outbound"
             : "inbound") as "inbound" | "outbound",
         })),
@@ -509,7 +512,7 @@ async function runAnalysis(
         from: e.from,
         subject: e.subject,
         date: e.date.toISOString(),
-        direction: e.from.toLowerCase().includes(ownerEmailLower)
+        direction: safe(e.from).includes(ownerEmailLower)
           ? "outbound"
           : "inbound",
       })),
@@ -592,14 +595,14 @@ function findClientEmail(
   // Look through participants for someone who isn't the owner or from a company domain
   for (const participant of thread.participants) {
     if (participant.includes(ownerEmailLower)) continue;
-    const domain = participant.split('@')[1]?.toLowerCase();
+    const domain = safe(participant).split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
     // Extract just the email address if it contains a name like "John Smith <john@example.com>"
     const emailMatch = participant.match(/<([^>]+)>/);
     return emailMatch ? emailMatch[1] : participant;
   }
   // Fallback: use the first sender if they're not the owner
-  if (!thread.firstSender.toLowerCase().includes(ownerEmailLower)) {
+  if (!safe(thread.firstSender).includes(ownerEmailLower)) {
     const emailMatch = thread.firstSender.match(/<([^>]+)>/);
     return emailMatch ? emailMatch[1] : thread.firstSender;
   }
@@ -614,10 +617,10 @@ function findClientName(
 ): string {
   // Find the first non-owner, non-company email and extract name
   for (const email of thread.emails) {
-    if (email.from.toLowerCase().includes(ownerEmailLower)) continue;
-    const domain = email.from.split('@')[1]?.toLowerCase();
+    if (safe(email.from).includes(ownerEmailLower)) continue;
+    const domain = safe(email.from).split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
-    if (email.fromName && email.fromName !== email.from.split('@')[0]) {
+    if (email.fromName && email.fromName !== (email.from || "").split('@')[0]) {
       return email.fromName;
     }
   }
@@ -651,7 +654,7 @@ function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
   const byClientEmail = new Map<string, AnalyzedLead[]>();
 
   for (const lead of leads) {
-    const clientEmail = lead.client.email.toLowerCase().trim();
+    const clientEmail = safe(lead.client.email).trim();
     // Also handle "Name <email>" format
     const emailMatch = clientEmail.match(/<([^>]+)>/);
     const normalizedEmail = emailMatch ? emailMatch[1] : clientEmail;
