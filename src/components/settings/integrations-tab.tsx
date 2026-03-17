@@ -28,6 +28,8 @@ import {
   useImportHistory,
 } from "@/lib/hooks";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/query-client";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
@@ -276,6 +278,9 @@ export function IntegrationsTab() {
     );
   }
 
+  // Invalidate connections query when wizard analysis starts (via onComplete or page load)
+  const queryClient = useQueryClient();
+
   const openWizard = useCallback(() => {
     setWizardOpen(true);
   }, []);
@@ -291,6 +296,7 @@ export function IntegrationsTab() {
         onComplete={() => {
           setWizardOpen(false);
           toast.success("Pipeline import complete");
+          queryClient.invalidateQueries({ queryKey: queryKeys.gmailConnections.all });
         }}
       />
 

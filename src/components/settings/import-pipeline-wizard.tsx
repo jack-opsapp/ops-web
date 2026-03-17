@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { X, CheckCircle, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,10 @@ import { AnalyzeStep } from "./wizard-steps/analyze-step";
 import { ConfirmSourcesStep } from "./wizard-steps/confirm-sources-step";
 import { ReviewImportStep } from "./wizard-steps/review-import-step";
 import { ActivateStep } from "./wizard-steps/activate-step";
+import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/query-client";
+import { useAuthStore } from "@/lib/store/auth-store";
 import type { AnalysisResult, AnalyzedLead, ImportPayload, ImportResult } from "@/lib/types/email-import";
 import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
 
@@ -76,7 +80,32 @@ export function ImportPipelineWizard({
   const [syncInterval, setSyncInterval] = useState(60);
   const [existingJobId, setExistingJobId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
+
+  // ─── State restoration ──────────────────────────────────────────────────────
+  // Track whether the async state check has completed. This prevents AnalyzeStep
+  // from mounting (and re-starting analysis) before we know if there's a running job.
+  const [stateCheckComplete, setStateCheckComplete] = useState(!initialConnectionId);
   const wizardStateCheckedRef = useRef(false);
+
+  // ─── Running job tracking ───────────────────────────────────────────────────
+  // The parent tracks the jobId so minimize→reopen doesn't need an async lookup.
+  // AnalyzeStep reports it via onJobStarted, background polling uses it directly.
+  const [runningJobId, setRunningJobId] = useState<string | null>(null);
+
+  // ─── Background progress (for minimized card) ──────────────────────────────
+  const [bgProgress, setBgProgress] = useState({ percent: 0, message: "Analyzing..." });
+  const bgPollRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ─── Notification system ───────────────────────────────────────────────────
+  const { showPrompt, removePrompt } = useActionPromptStore();
+  const showPromptRef = useRef(showPrompt);
+  showPromptRef.current = showPrompt;
+  const removePromptRef = useRef(removePrompt);
+  removePromptRef.current = removePrompt;
+
+  // ─── Query invalidation ────────────────────────────────────────────────────
+  const queryClient = useQueryClient();
+  const { company } = useAuthStore();
 
   // When the wizard opens, un-minimize
   useEffect(() => {
@@ -84,7 +113,6 @@ export function ImportPipelineWizard({
   }, [open]);
 
   // Auto-advance to Step 2 when connectionId prop arrives after OAuth redirect
-  // Use a ref to avoid re-running on every step/connectionId change
   const autoAdvancedRef = useRef(false);
   useEffect(() => {
     if (autoAdvancedRef.current) return;
@@ -100,10 +128,21 @@ export function ImportPipelineWizard({
 
   // ─── Restore wizard state on open ──────────────────────────────────────────
   // When the wizard opens with a connectionId, check the connection's sync_filters
-  // to determine if we should reconnect to a running/completed analysis
+  // to determine if we should reconnect to a running/completed analysis.
+  // Setting stateCheckComplete=false blocks AnalyzeStep rendering until this finishes.
   useEffect(() => {
     if (!open || !initialConnectionId || wizardStateCheckedRef.current) return;
     wizardStateCheckedRef.current = true;
+
+    // If we already know the running job (from a previous AnalyzeStep session),
+    // skip the async check entirely — we can render immediately.
+    if (runningJobId) {
+      setExistingJobId(runningJobId);
+      setStateCheckComplete(true);
+      return;
+    }
+
+    setStateCheckComplete(false);
 
     const checkWizardState = async () => {
       try {
@@ -129,37 +168,132 @@ export function ImportPipelineWizard({
             if (jobData.result.estimatePattern) {
               setEstimatePattern(jobData.result.estimatePattern);
             }
+            setRunningJobId(null);
             setDirection(1);
             setStep(3);
           } else if (jobData.status === "error") {
-            // Error — go to Step 2, which will restart (duplicate prevention returns new job)
+            // Error — go to Step 2, which will restart
+            setRunningJobId(null);
             setDirection(1);
             setStep(2);
           } else if (
             ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"].includes(jobData.status)
           ) {
-            // Still running — reconnect to it via existingJobId
+            // Still running — reconnect
             setExistingJobId(filters.lastScanJobId);
+            setRunningJobId(filters.lastScanJobId);
+            if (jobData.progress) {
+              setBgProgress({
+                percent: jobData.progress.percent || 0,
+                message: jobData.progress.message || "Analyzing...",
+              });
+            }
             setDirection(1);
             setStep(2);
           }
         }
       } catch (err) {
         console.error("[wizard] Failed to check wizard state:", err);
+      } finally {
+        setStateCheckComplete(true);
       }
     };
 
     checkWizardState();
-  }, [open, initialConnectionId]);
+  }, [open, initialConnectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset the wizard state check flag when the wizard closes so it re-checks on next open
+  // Reset state check when the wizard closes so it re-checks on next open
   useEffect(() => {
     if (!open) {
       wizardStateCheckedRef.current = false;
       autoAdvancedRef.current = false;
-      // Don't clear existingJobId here — it gets cleared naturally when a new job starts
+      // Reset stateCheckComplete only if there's a connection to check
+      if (initialConnectionId) {
+        setStateCheckComplete(false);
+      }
     }
-  }, [open]);
+  }, [open, initialConnectionId]);
+
+  // ─── Background polling (minimized state) ─────────────────────────────────
+  // When minimized, poll the running job for progress + completion.
+  // On completion: fire action prompt, set results, advance to step 3.
+  useEffect(() => {
+    if (!minimized || !runningJobId) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/integrations/email/analyze-status?jobId=${runningJobId}`);
+        if (!res.ok) {
+          bgPollRef.current = setTimeout(poll, 5000);
+          return;
+        }
+        const data = await res.json();
+
+        if (data.progress) {
+          setBgProgress({
+            percent: data.progress.percent || 0,
+            message: data.progress.message || "Analyzing...",
+          });
+        }
+
+        if (data.status === "complete" && data.result) {
+          // Analysis finished while minimized — store results
+          setAnalysisResult(data.result);
+          setConfirmedSources(data.result.detectedSources);
+          setConfirmedLeads(data.result.leads);
+          if (data.result.estimatePattern) {
+            setEstimatePattern(data.result.estimatePattern);
+          }
+          setRunningJobId(null);
+          setExistingJobId(null);
+          setBgProgress({ percent: 100, message: "Analysis complete!" });
+
+          // Invalidate connections query so integrations tab updates
+          if (company?.id) {
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.gmailConnections.all,
+            });
+          }
+
+          // Fire action prompt to notify the user
+          showPromptRef.current({
+            id: "email-analysis-complete",
+            icon: CheckCircle,
+            title: "Pipeline analysis complete",
+            description: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
+            ctaLabel: "Review Leads",
+            ctaAction: () => {
+              removePromptRef.current("email-analysis-complete");
+              setMinimized(false);
+              setDirection(1);
+              setStep(3);
+              onOpenChange(true);
+            },
+            persistent: false,
+            dismissable: true,
+            variant: "accent",
+          });
+
+          return; // Stop polling
+        }
+
+        if (data.status === "error") {
+          setBgProgress({ percent: 0, message: data.error || "Analysis failed" });
+          setRunningJobId(null);
+          return; // Stop polling
+        }
+
+        bgPollRef.current = setTimeout(poll, 3000);
+      } catch {
+        bgPollRef.current = setTimeout(poll, 5000);
+      }
+    };
+
+    poll();
+    return () => {
+      if (bgPollRef.current) clearTimeout(bgPollRef.current);
+    };
+  }, [minimized, runningJobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goTo = useCallback((target: 1 | 2 | 3 | 4 | 5) => {
     setDirection(target > step ? 1 : -1);
@@ -175,6 +309,22 @@ export function ImportPipelineWizard({
     [goTo]
   );
 
+  // Called by AnalyzeStep when it starts/reconnects to a job
+  const handleJobStarted = useCallback((jobId: string) => {
+    setRunningJobId(jobId);
+    // Invalidate connections so integrations tab sees the active job
+    if (company?.id) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.gmailConnections.all,
+      });
+    }
+  }, [company?.id, queryClient]);
+
+  // Called by AnalyzeStep to report progress to the parent (for minimized card)
+  const handleProgressUpdate = useCallback((percent: number, message: string) => {
+    setBgProgress({ percent, message });
+  }, []);
+
   const handleAnalysisComplete = useCallback(
     (result: AnalysisResult["result"]) => {
       setAnalysisResult(result);
@@ -185,11 +335,18 @@ export function ImportPipelineWizard({
           setEstimatePattern(result.estimatePattern);
         }
       }
-      // Clear existing job ID since analysis is done
+      // Clear job IDs since analysis is done
       setExistingJobId(null);
+      setRunningJobId(null);
+      // Invalidate connections query so integrations tab updates
+      if (company?.id) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.gmailConnections.all,
+        });
+      }
       goTo(3);
     },
-    [goTo]
+    [goTo, company?.id, queryClient]
   );
 
   const handleImport = useCallback(async () => {
@@ -244,7 +401,6 @@ export function ImportPipelineWizard({
       goTo(5);
     } catch (err) {
       console.error("Import failed:", err);
-      // Surface the error to the user via the toast library
       const { toast } = await import("sonner");
       toast.error(err instanceof Error ? err.message : "Import failed. Please try again.");
     } finally {
@@ -293,28 +449,77 @@ export function ImportPipelineWizard({
     onComplete?.();
   }, [onOpenChange, onComplete]);
 
+  // Determine if we completed while minimized (show "Review Leads" instead of spinner)
+  const bgComplete = bgProgress.percent >= 100 && analysisResult;
+
   return (
     <>
     {/* Minimized bar — shows at bottom of screen when wizard is minimized during analysis */}
     {minimized && !open && (
-      <div
-        className="fixed bottom-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 border border-white/10"
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.3, ease: EASE }}
+        className="fixed bottom-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 border border-white/10 cursor-pointer"
         style={{
           background: 'rgba(13, 13, 13, 0.9)',
           backdropFilter: 'blur(20px) saturate(1.2)',
           WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
           borderRadius: 4,
+          minWidth: 280,
+        }}
+        onClick={() => {
+          if (bgComplete) {
+            // Analysis done — open wizard at step 3
+            setMinimized(false);
+            setDirection(1);
+            setStep(3);
+            onOpenChange(true);
+          } else {
+            setMinimized(false);
+            onOpenChange(true);
+          }
         }}
       >
-        <div className="w-4 h-4 border-2 border-ops-accent/30 border-t-ops-accent rounded-full animate-spin" />
-        <span className="font-mohave text-[13px] text-white">Analyzing your inbox...</span>
-        <button
-          onClick={() => { setMinimized(false); onOpenChange(true); }}
-          className="font-mohave text-[12px] text-ops-accent hover:text-white transition-colors ml-2"
-        >
-          Expand
-        </button>
-      </div>
+        {bgComplete ? (
+          <>
+            <CheckCircle size={16} className="text-[#9DB582] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="font-mohave text-[13px] text-[#9DB582]">
+                Analysis complete — {analysisResult.leads?.length ?? 0} leads found
+              </span>
+            </div>
+            <span className="font-mohave text-[12px] text-ops-accent shrink-0">
+              Review
+            </span>
+          </>
+        ) : (
+          <>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Loader2 size={14} className="text-ops-accent animate-spin shrink-0" />
+                <span className="font-mohave text-[13px] text-white">
+                  Analyzing your inbox...
+                </span>
+                <span className="font-mohave text-[11px] text-[#666] ml-auto shrink-0">
+                  {Math.round(bgProgress.percent)}%
+                </span>
+              </div>
+              <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
+                <motion.div
+                  className="h-full bg-[#597794]"
+                  animate={{ width: `${Math.round(bgProgress.percent)}%` }}
+                  transition={{ duration: 0.8, ease: EASE }}
+                />
+              </div>
+            </div>
+            <span className="font-mohave text-[12px] text-ops-accent hover:text-white transition-colors shrink-0 ml-2">
+              Expand
+            </span>
+          </>
+        )}
+      </motion.div>
     )}
 
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -390,13 +595,25 @@ export function ImportPipelineWizard({
                 />
               )}
               {step === 2 && connectionId && (
-                <AnalyzeStep
-                  connectionId={connectionId}
-                  companyId={companyId}
-                  existingJobId={existingJobId || undefined}
-                  onComplete={handleAnalysisComplete}
-                  onMinimize={() => { setMinimized(true); onOpenChange(false); }}
-                />
+                !stateCheckComplete ? (
+                  // Loading state while checking for existing job — prevents restart flicker
+                  <div className="flex flex-col items-center justify-center py-16 gap-4">
+                    <Loader2 size={24} className="text-ops-accent animate-spin" />
+                    <p className="font-mohave text-[14px] text-[#999]">
+                      Reconnecting to analysis...
+                    </p>
+                  </div>
+                ) : (
+                  <AnalyzeStep
+                    connectionId={connectionId}
+                    companyId={companyId}
+                    existingJobId={runningJobId || existingJobId || undefined}
+                    onComplete={handleAnalysisComplete}
+                    onMinimize={() => { setMinimized(true); onOpenChange(false); }}
+                    onJobStarted={handleJobStarted}
+                    onProgressUpdate={handleProgressUpdate}
+                  />
+                )
               )}
               {step === 3 && analysisResult && (
                 <ConfirmSourcesStep

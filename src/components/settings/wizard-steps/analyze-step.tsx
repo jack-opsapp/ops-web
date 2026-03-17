@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types/email-import";
@@ -21,24 +21,65 @@ interface AnalyzeStepProps {
   existingJobId?: string; // If set, reconnect to this job instead of starting new
   onComplete: (result: AnalysisResult["result"]) => void;
   onMinimize?: () => void; // Closes the wizard — analysis continues server-side
+  onJobStarted?: (jobId: string) => void; // Report jobId to parent for minimize/restore
+  onProgressUpdate?: (percent: number, message: string, status: string) => void; // Report progress to parent
 }
 
-export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize }: AnalyzeStepProps) {
+export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize, onJobStarted, onProgressUpdate }: AnalyzeStepProps) {
   const [jobId, setJobId] = useState<string | null>(existingJobId || null);
-  const [status, setStatus] = useState<string>("pending");
-  const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState("Starting analysis...");
+  const [status, setStatus] = useState<string>(existingJobId ? "analyzing_sent" : "pending");
+  const [serverProgress, setServerProgress] = useState(0);
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const [message, setMessage] = useState(existingJobId ? "Reconnecting to analysis..." : "Starting analysis...");
   const [error, setError] = useState<string | null>(null);
   const [completedStages, setCompletedStages] = useState<Set<string>>(new Set());
   const [showMinimize, setShowMinimize] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const startedRef = useRef(false);
+  const interpolateRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Stable refs for callbacks to avoid re-triggering poll effect
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const onJobStartedRef = useRef(onJobStarted);
+  onJobStartedRef.current = onJobStarted;
+  const onProgressUpdateRef = useRef(onProgressUpdate);
+  onProgressUpdateRef.current = onProgressUpdate;
 
   // Show minimize button after 10 seconds of analysis
   useEffect(() => {
     const timer = setTimeout(() => setShowMinimize(true), 10000);
     return () => clearTimeout(timer);
   }, []);
+
+  // ─── Smooth progress interpolation ───────────────────────────────────────
+  // Between server polls, slowly animate progress toward the current stage's range end.
+  // When a new server value arrives, snap to it (handled in the poll effect).
+  useEffect(() => {
+    if (status === "complete" || status === "error" || status === "pending") return;
+
+    const currentStage = STAGES.find((s) => s.key === status);
+    const maxForStage = currentStage ? currentStage.range[1] - 1 : displayProgress;
+
+    interpolateRef.current = setInterval(() => {
+      setDisplayProgress((prev) => {
+        if (prev >= maxForStage) return prev;
+        // Creep ~1.5% per second (every 100ms = 0.15%)
+        return Math.min(prev + 0.15, maxForStage);
+      });
+    }, 100);
+
+    return () => {
+      if (interpolateRef.current) clearInterval(interpolateRef.current);
+    };
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Snap displayProgress when serverProgress jumps ahead
+  useEffect(() => {
+    if (serverProgress > displayProgress) {
+      setDisplayProgress(serverProgress);
+    }
+  }, [serverProgress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Start analysis (or reconnect to existing job)
   useEffect(() => {
@@ -64,6 +105,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
           return;
         }
         setJobId(data.jobId);
+        onJobStartedRef.current?.(data.jobId);
       } catch {
         setError("Failed to start analysis");
       }
@@ -72,55 +114,59 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     startAnalysis();
   }, [connectionId, companyId, existingJobId]);
 
-  // Poll for status
+  // Poll for status — uses stable refs so dependencies don't cause restart
+  const pollCallback = useCallback(async (currentJobId: string) => {
+    try {
+      const res = await fetch(`/api/integrations/email/analyze-status?jobId=${currentJobId}`);
+      const data = await res.json();
+
+      setStatus(data.status);
+      if (data.progress) {
+        setServerProgress(data.progress.percent);
+        setMessage(data.progress.message);
+        onProgressUpdateRef.current?.(data.progress.percent, data.progress.message, data.status);
+
+        // Track completed stages
+        const stageIndex = STAGES.findIndex((s) => s.key === data.progress.stage);
+        if (stageIndex >= 0) {
+          setCompletedStages((prev) => {
+            const next = new Set(prev);
+            for (let i = 0; i < stageIndex; i++) {
+              next.add(STAGES[i].key);
+            }
+            return next;
+          });
+        }
+      }
+
+      if (data.status === "complete" && data.result) {
+        setServerProgress(100);
+        setDisplayProgress(100);
+        // Brief celebration pause before advancing
+        setTimeout(() => onCompleteRef.current(data.result), 1200);
+        return;
+      }
+
+      if (data.status === "error") {
+        setError(data.error || "Analysis failed");
+        return;
+      }
+
+      pollRef.current = setTimeout(() => pollCallback(currentJobId), 2000);
+    } catch {
+      pollRef.current = setTimeout(() => pollCallback(currentJobId), 3000);
+    }
+  }, []);
+
+  // Start polling when jobId is set
   useEffect(() => {
     if (!jobId) return;
 
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/integrations/email/analyze-status?jobId=${jobId}`);
-        const data = await res.json();
-
-        setStatus(data.status);
-        if (data.progress) {
-          setProgress(data.progress.percent);
-          setMessage(data.progress.message);
-
-          // Track completed stages
-          const stageIndex = STAGES.findIndex((s) => s.key === data.progress.stage);
-          if (stageIndex >= 0) {
-            setCompletedStages((prev) => {
-              const next = new Set(prev);
-              for (let i = 0; i < stageIndex; i++) {
-                next.add(STAGES[i].key);
-              }
-              return next;
-            });
-          }
-        }
-
-        if (data.status === "complete" && data.result) {
-          // Brief celebration pause before advancing
-          setTimeout(() => onComplete(data.result), 1200);
-          return;
-        }
-
-        if (data.status === "error") {
-          setError(data.error || "Analysis failed");
-          return;
-        }
-
-        pollRef.current = setTimeout(poll, 2000);
-      } catch {
-        pollRef.current = setTimeout(poll, 3000);
-      }
-    };
-
-    poll();
+    pollCallback(jobId);
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [jobId, onComplete]);
+  }, [jobId, pollCallback]);
 
   return (
     <div>
@@ -142,12 +188,12 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
               <motion.div
                 className="h-full bg-[#597794]"
                 initial={{ width: "0%" }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.8, ease: EASE }}
+                animate={{ width: `${Math.round(displayProgress)}%` }}
+                transition={{ duration: 0.6, ease: EASE }}
               />
             </div>
             <p className="font-mohave text-[12px] text-[#666] mt-2">
-              {progress}% complete
+              {Math.round(displayProgress)}% complete
             </p>
           </div>
 
