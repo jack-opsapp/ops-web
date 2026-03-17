@@ -37,7 +37,7 @@ function getOpenAI(): OpenAI {
   return _openai;
 }
 
-export const maxDuration = 300;
+export const maxDuration = 900; // 15 min — Pro plan max. Analysis should complete well under this.
 
 // ─── Timeout helper for thread fetches ───────────────────────────────────────
 
@@ -381,16 +381,8 @@ async function runAnalysis(
     .eq("id", companyId)
     .single();
 
-  // Cap unmatched threads to avoid exceeding Vercel's 300s function limit.
-  // Most leads come from pattern matching. AI handles the long tail.
-  const AI_THREAD_CAP = 50;
-  const cappedUnmatchedThreads = unmatchedThreads.slice(0, AI_THREAD_CAP);
-  if (unmatchedThreads.length > AI_THREAD_CAP) {
-    console.log(`[email-analyze] Capped AI classification: ${cappedUnmatchedThreads.length} of ${unmatchedThreads.length} threads (${unmatchedThreads.length - AI_THREAD_CAP} skipped)`);
-  }
-
-  // Build thread summary inputs for AI
-  const threadSummaryInputs: ThreadSummaryInput[] = cappedUnmatchedThreads.map((t) => ({
+  // Build thread summary inputs for AI — send ALL unmatched threads
+  const threadSummaryInputs: ThreadSummaryInput[] = unmatchedThreads.map((t) => ({
     threadId: t.threadId,
     subject: t.subject,
     participants: t.participants,
