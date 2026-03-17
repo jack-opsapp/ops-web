@@ -26,6 +26,8 @@ export interface PatternDetectionResult {
   unclassifiedPersonalEmails: NormalizedEmail[];
   /** All personal inbox emails before any filtering — used by the analyze route to send ALL candidates to AI */
   allInboxEmails: NormalizedEmail[];
+  /** All sent emails from the analysis period — needed to find outbound recipients for client email detection */
+  allSentEmails: NormalizedEmail[];
   /** Map from email ID to its match source, for emails that were pattern-matched */
   emailSourceMap: Record<string, 'estimate_pattern' | 'platform' | 'forwarder'>;
   totalEmailsScanned: number;
@@ -144,6 +146,7 @@ export const PatternDetectionService = {
       teamForwarders: teamForwarders.map((f) => f.email),
       unclassifiedPersonalEmails,
       allInboxEmails: allPersonalInboxEmails,
+      allSentEmails: sentAnalysis.allSentEmails,
       emailSourceMap,
       totalEmailsScanned: inboxEmails.length + sentAnalysis.allSentEmails.length,
     };

@@ -222,11 +222,14 @@ async function runAnalysis(
     30
   );
 
-  // ─── Phase 2: Build thread map from ALL inbox emails ─────────────────────
-  // Filter out emails with no valid threadId (Fix 6)
-  const validEmails = detection.allInboxEmails.filter(
+  // ─── Phase 2: Build thread map from ALL inbox + sent emails ──────────────
+  // Merge inbox and sent emails to get complete thread picture.
+  // Without sent emails, we can't find who the owner sent estimates TO.
+  const allEmails = [...detection.allInboxEmails, ...detection.allSentEmails];
+  const validEmails = allEmails.filter(
     (e) => e.threadId && e.threadId !== "undefined" && e.threadId !== "null"
   );
+  console.log(`[email-analyze] Phase 2: ${detection.allInboxEmails.length} inbox + ${detection.allSentEmails.length} sent = ${validEmails.length} valid emails`);
 
   const ownerEmailLower = safe(connection.email);
   const companyDomainSet = new Set(detection.companyDomains.map((d) => d.toLowerCase()));
