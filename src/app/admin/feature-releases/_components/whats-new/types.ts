@@ -1,5 +1,5 @@
 import {
-  Lightbulb, Clock, FlaskConical, Rocket, PackageCheck, CheckCircle2,
+  Lightbulb, Clock, FlaskConical, CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -54,10 +54,8 @@ export interface StatusOption {
 }
 
 export const STATUS_OPTIONS: StatusOption[] = [
-  { value: "planned", label: "Planned", chip: "Plan", icon: Lightbulb, color: "#6B6B6B" },
-  { value: "in_development", label: "In Development", chip: "Dev", icon: Clock, color: "#E5E5E5" },
-  { value: "in_testing", label: "In Testing", chip: "Test", icon: FlaskConical, color: "#C4A868" },
-  { value: "coming_soon", label: "Coming Soon", chip: "Soon", icon: Rocket, color: "#8195B5" },
-  { value: "shipped", label: "Shipped", chip: "Ship", icon: PackageCheck, color: "#9DB582" },
-  { value: "completed", label: "Completed", chip: "Done", icon: CheckCircle2, color: "#9DB582" },
+  { value: "planned", label: "Planning", chip: "Plan", icon: Lightbulb, color: "#6B6B6B" },
+  { value: "in_development", label: "Development", chip: "Dev", icon: Clock, color: "#E5E5E5" },
+  { value: "in_testing", label: "Testing", chip: "Test", icon: FlaskConical, color: "#C4A868" },
+  { value: "completed", label: "Done", chip: "Done", icon: CheckCircle2, color: "#9DB582" },
 ];
