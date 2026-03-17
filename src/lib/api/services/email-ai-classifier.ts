@@ -1,13 +1,14 @@
 // src/lib/api/services/email-ai-classifier.ts
-// Redesigned AI classification — validates ALL candidates, extracts client info,
+// Redesigned AI classification — thread-first approach.
+// Classifies threads (not individual emails) as leads, extracts client info,
 // assigns pipeline stages, and detects duplicates across threads.
 //
-// Key differences from email-classifier.ts:
-// - Validates pattern-matched leads (not just unmatched)
-// - Returns per-email structured data (not just filter recommendations)
+// Key design:
+// - Accepts thread summaries, not individual emails
+// - Returns per-thread structured data
 // - Detects duplicates across threads
-// - Assigns pipeline stages based on thread content
-// - Minimal output tokens (~50 per email)
+// - Assigns pipeline stages based on thread context
+// - Validates stage values — never allows likely_won/likely_lost as stage
 
 import OpenAI from 'openai';
 
@@ -16,6 +17,31 @@ function getOpenAI(): OpenAI {
   if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   return _openai;
 }
+
+// Valid pipeline stages — used for validation
+const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation'] as const;
+type ValidStage = typeof VALID_STAGES[number];
+
+function isValidStage(stage: string): stage is ValidStage {
+  return (VALID_STAGES as readonly string[]).includes(stage);
+}
+
+/** Sanitize a stage value from AI output. Moves likely_won/likely_lost to flag if needed. */
+function sanitizeStageAndFlag(
+  rawStage: string | null | undefined,
+  rawFlag: string | null | undefined
+): { stage: string; terminalFlag: 'likely_won' | 'likely_lost' | null } {
+  const stage = rawStage && isValidStage(rawStage) ? rawStage : 'new_lead';
+  // If AI put likely_won/likely_lost in the stage field, rescue it to flag
+  let terminalFlag: 'likely_won' | 'likely_lost' | null =
+    (rawFlag === 'likely_won' || rawFlag === 'likely_lost') ? rawFlag : null;
+  if (!terminalFlag && (rawStage === 'likely_won' || rawStage === 'likely_lost')) {
+    terminalFlag = rawStage;
+  }
+  return { stage, terminalFlag };
+}
+
+// ─── Legacy single-email classification (kept for backward compatibility) ─────
 
 export interface ClassificationInput {
   id: string;
@@ -44,6 +70,40 @@ export interface ClassificationResult {
   terminalFlag: 'likely_won' | 'likely_lost' | null;
 }
 
+// ─── Thread-based classification (new primary approach) ─────────────────────
+
+export interface ThreadSummaryInput {
+  threadId: string;
+  subject: string;
+  participants: string[];
+  messageCount: number;
+  hasUserReply: boolean;
+  latestSnippet: string;
+  firstSender: string;
+  firstSenderName: string;
+  direction: 'inbound' | 'outbound';
+  dateRange: { first: string; last: string };
+  outboundCount: number;
+}
+
+export interface ThreadClassificationResult {
+  threadId: string;
+  verdict: 'lead' | 'biz' | 'skip';
+  confidence: number;
+  stage: string;
+  estimatedValue: number | null;
+  client: {
+    name: string;
+    email: string;
+    phone: string | null;
+    description: string;
+  } | null;
+  duplicateOf: string[];
+  terminalFlag: 'likely_won' | 'likely_lost' | null;
+}
+
+// ─── Thread analysis (full content for stage determination) ─────────────────
+
 export interface ThreadAnalysisInput {
   threadId: string;
   messages: Array<{
@@ -67,8 +127,33 @@ export interface ThreadAnalysisResult {
 
 export const EmailAIClassifier = {
   /**
-   * Classify a batch of emails — validates all candidates including pattern-matched ones.
-   * Extracts client info, detects duplicates. Minimal output tokens.
+   * Classify a batch of THREAD SUMMARIES — the primary classification method.
+   * Each entry represents one email thread, not an individual message.
+   * Returns per-thread classification with client info and stage.
+   */
+  async classifyThreadBatch(
+    threads: ThreadSummaryInput[],
+    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+  ): Promise<ThreadClassificationResult[]> {
+    if (threads.length === 0) return [];
+
+    const results: ThreadClassificationResult[] = [];
+    // Batch 30 threads per API call (thread summaries are denser than single emails)
+    for (let i = 0; i < threads.length; i += 30) {
+      const batch = threads.slice(i, i + 30);
+      const batchResults = await EmailAIClassifier.classifySingleThreadBatch(batch, context);
+      results.push(...batchResults);
+      if (i + 30 < threads.length) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+
+    return results;
+  },
+
+  /**
+   * Legacy: Classify a batch of individual emails.
+   * Kept for backward compatibility but the thread-based method is preferred.
    */
   async classifyBatch(
     emails: ClassificationInput[],
@@ -76,13 +161,11 @@ export const EmailAIClassifier = {
   ): Promise<ClassificationResult[]> {
     if (emails.length === 0) return [];
 
-    // Batch into groups of 50 to keep token counts manageable
     const results: ClassificationResult[] = [];
     for (let i = 0; i < emails.length; i += 50) {
       const batch = emails.slice(i, i + 50);
       const batchResults = await EmailAIClassifier.classifySingleBatch(batch, context);
       results.push(...batchResults);
-      // Rate limit: 200ms between batches
       if (i + 50 < emails.length) {
         await new Promise((r) => setTimeout(r, 200));
       }
@@ -102,7 +185,6 @@ export const EmailAIClassifier = {
     if (threads.length === 0) return [];
 
     const results: ThreadAnalysisResult[] = [];
-    // Process 5 threads per API call to amortize system prompt
     for (let i = 0; i < threads.length; i += 5) {
       const batch = threads.slice(i, i + 5);
       const batchResults = await EmailAIClassifier.analyzeThreadBatch(batch, context);
@@ -115,7 +197,102 @@ export const EmailAIClassifier = {
     return results;
   },
 
-  // --- Private ---
+  // ─── Private ────────────────────────────────────────────────────────────────
+
+  async classifySingleThreadBatch(
+    threads: ThreadSummaryInput[],
+    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+  ): Promise<ThreadClassificationResult[]> {
+    const systemPrompt = `You are classifying email THREADS for a trades/construction business.
+Each item is a THREAD SUMMARY (not a single email). Use thread-level context for classification.
+
+Company: ${context.companyName}
+Industry: ${context.industry}
+Owner email: ${context.ownerEmail}
+Company domains: ${context.companyDomains.join(', ')}
+
+For each thread, determine:
+- verdict: "lead" (customer inquiry/project conversation), "biz" (subtrade/vendor/contractor), "skip" (noise/spam/newsletter/internal)
+- confidence: 0.0 to 1.0
+- stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation". NEVER use "likely_won" or "likely_lost" as a stage — those go ONLY in the flag field.
+  Stage heuristics when unsure:
+  - 0 outbound replies → "new_lead"
+  - 1 outbound reply → "qualifying"
+  - 2+ outbound, 4+ total messages → "quoting"
+  - 3+ outbound, 6+ total → "quoted"
+  - last message is outbound and thread seems dormant → "follow_up"
+- val: estimated dollar value if pricing is mentioned. null otherwise.
+- client: { name, email, phone, desc } — extract the CUSTOMER's info (not the owner). null if not a lead.
+- dupes: array of other threadIds in this batch that appear to be the same client/project (for dedup)
+- flag: "likely_won" if client confirmed/accepted, "likely_lost" if client declined/went elsewhere, null otherwise. This is the ONLY place for terminal flags.
+
+IMPORTANT: In trades, any personal email thread with a non-company person about work/projects/quotes/estimates IS a lead. Be inclusive — err on the side of "lead" over "skip" for ambiguous threads.
+
+RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
+
+    const userPrompt = JSON.stringify(
+      threads.map((t) => ({
+        tid: t.threadId,
+        subj: t.subject,
+        from: t.firstSender,
+        fromName: t.firstSenderName,
+        participants: t.participants.slice(0, 5),
+        msgs: t.messageCount,
+        outbound: t.outboundCount,
+        replied: t.hasUserReply,
+        dir: t.direction,
+        snip: t.latestSnippet.slice(0, 300),
+        dates: t.dateRange,
+      }))
+    );
+
+    try {
+      const response = await getOpenAI().chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: threads.length * 100,
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content || '{"results":[]}';
+      const parsed = JSON.parse(content);
+      const rawResults = parsed.results || parsed;
+
+      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
+        const { stage, terminalFlag } = sanitizeStageAndFlag(
+          (r.stage as string) || null,
+          (r.flag as string) || (r.terminalFlag as string) || null
+        );
+
+        return {
+          threadId: (r.tid as string) || (r.threadId as string),
+          verdict: ((r.verdict as string) || 'skip') as ThreadClassificationResult['verdict'],
+          confidence: (r.confidence as number) || (r.c as number) || 0,
+          stage,
+          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
+          client: (r.client as ThreadClassificationResult['client']) || null,
+          duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
+          terminalFlag,
+        };
+      });
+    } catch (err) {
+      console.error('[email-ai-classifier] Thread batch classification failed:', err);
+      return threads.map((t) => ({
+        threadId: t.threadId,
+        verdict: 'skip' as const,
+        confidence: 0,
+        stage: 'new_lead',
+        estimatedValue: null,
+        client: null,
+        duplicateOf: [],
+        terminalFlag: null,
+      }));
+    }
+  },
 
   async classifySingleBatch(
     emails: ClassificationInput[],
@@ -131,11 +308,11 @@ Company domains: ${context.companyDomains.join(', ')}
 For each email, determine:
 - verdict: "lead" (customer inquiry/conversation), "biz" (subtrade/vendor/contractor), "skip" (noise/spam/newsletter)
 - confidence: 0.0 to 1.0
-- stage: pipeline stage if lead. One of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation". null if not a lead.
+- stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation". NEVER use "likely_won" or "likely_lost" as a stage value — those go ONLY in the flag field. null if not a lead.
 - val: estimated dollar value if pricing is mentioned. null otherwise.
 - client: { name, email, phone, desc } if lead. Extract from email content. null otherwise.
 - dupes: array of other email IDs in this batch that appear to be from the same client/project
-- flag: "likely_won" if client confirmed, "likely_lost" if client declined, null otherwise
+- flag: "likely_won" if client confirmed, "likely_lost" if client declined, null otherwise. This is the ONLY place for terminal flags.
 
 RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize output tokens.`;
 
@@ -167,19 +344,24 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => ({
-        id: r.id as string,
-        verdict: ((r.verdict as string) || 'skip') as ClassificationResult['verdict'],
-        confidence: (r.confidence as number) || (r.c as number) || 0,
-        stage: (r.stage as string) || null,
-        estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
-        client: (r.client as ClassificationResult['client']) || null,
-        duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
-        terminalFlag: ((r.flag || r.terminalFlag) as ClassificationResult['terminalFlag']) || null,
-      }));
+      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
+        const rawStage = (r.stage as string) || null;
+        const rawFlag = (r.flag as string) || (r.terminalFlag as string) || null;
+        const { stage, terminalFlag } = sanitizeStageAndFlag(rawStage, rawFlag);
+
+        return {
+          id: r.id as string,
+          verdict: ((r.verdict as string) || 'skip') as ClassificationResult['verdict'],
+          confidence: (r.confidence as number) || (r.c as number) || 0,
+          stage: r.verdict === 'lead' ? stage : null,
+          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
+          client: (r.client as ClassificationResult['client']) || null,
+          duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
+          terminalFlag,
+        };
+      });
     } catch (err) {
       console.error('[email-ai-classifier] Batch classification failed:', err);
-      // Return all as skip on error — don't lose the emails
       return emails.map((e) => ({
         id: e.id,
         verdict: 'skip' as const,
@@ -210,14 +392,16 @@ Pipeline stages (in order):
 - follow_up: waiting for client response after quote
 - negotiation: client responded to quote, discussing terms
 
+CRITICAL: stage MUST be one of the above values. NEVER use "likely_won" or "likely_lost" as a stage value — those go ONLY in the flag field.
+
 For each thread, determine:
-- stage: most accurate pipeline stage based on content
+- stage: most accurate pipeline stage based on content (MUST be one of the 6 stages above)
 - c: confidence 0.0 to 1.0
 - val: dollar value if pricing detected
 - signals: array of short codes for what you detected (e.g., "pricing_sent", "photos_requested", "promo_mentioned")
 - flag: "likely_won" or "likely_lost" if terminal language detected, null otherwise
 
-RESPOND ONLY WITH JSON ARRAY. No explanation.`;
+RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
     const userPrompt = JSON.stringify(
       threads.map((t) => ({
@@ -248,14 +432,21 @@ RESPOND ONLY WITH JSON ARRAY. No explanation.`;
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => ({
-        threadId: (r.tid as string) || (r.threadId as string),
-        stage: (r.stage as string) || 'new_lead',
-        confidence: (r.c as number) || (r.confidence as number) || 0.5,
-        estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
-        signals: (r.signals as string[]) || [],
-        terminalFlag: ((r.flag || r.terminalFlag) as ThreadAnalysisResult['terminalFlag']) || null,
-      }));
+      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
+        const { stage, terminalFlag } = sanitizeStageAndFlag(
+          (r.stage as string) || null,
+          (r.flag as string) || (r.terminalFlag as string) || null
+        );
+
+        return {
+          threadId: (r.tid as string) || (r.threadId as string),
+          stage,
+          confidence: (r.c as number) || (r.confidence as number) || 0.5,
+          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
+          signals: (r.signals as string[]) || [],
+          terminalFlag,
+        };
+      });
     } catch (err) {
       console.error('[email-ai-classifier] Thread analysis failed:', err);
       return threads.map((t) => ({

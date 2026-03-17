@@ -74,7 +74,7 @@ export { PatternDetectionService } from "./pattern-detection-service";
 export type { DetectedSource, PatternDetectionResult } from "./pattern-detection-service";
 
 export { EmailAIClassifier } from "./email-ai-classifier";
-export type { ClassificationInput, ClassificationResult, ThreadAnalysisInput, ThreadAnalysisResult } from "./email-ai-classifier";
+export type { ClassificationInput, ClassificationResult, ThreadSummaryInput, ThreadClassificationResult, ThreadAnalysisInput, ThreadAnalysisResult } from "./email-ai-classifier";
 
 export { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 export type { MatchResultV2 } from "./email-matching-service-v2";

@@ -265,7 +265,7 @@ export class GmailProvider implements EmailProviderInterface {
 
     return {
       id: msg.id as string,
-      threadId: msg.threadId as string,
+      threadId: (msg.threadId as string) || "",
       from: getHeader("From"),
       fromName: this.extractName(getHeader("From")),
       to: this.parseAddressList(getHeader("To")),
