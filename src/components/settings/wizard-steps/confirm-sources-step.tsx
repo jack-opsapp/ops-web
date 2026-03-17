@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Pencil, Plus, Mail, Globe, Users, Zap } from "lucide-react";
+import { Check, Pencil, Plus, Mail, Globe, Users, Zap, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AnalysisResult } from "@/lib/types/email-import";
 import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
@@ -16,6 +16,13 @@ const SOURCE_ICONS: Record<string, typeof Mail> = {
   platform: Globe,
   forwarder: Users,
   ai_detected: Zap,
+};
+
+const SOURCE_DESCRIPTIONS: Record<string, string> = {
+  platform: "Emails from this platform that may contain leads or bid invitations",
+  forwarder: "This team member forwards customer inquiries to you",
+  ai_detected: "These emails were identified by AI as likely customer conversations",
+  estimate_pattern: "Threads where you've sent estimates to potential clients",
 };
 
 interface ConfirmSourcesStepProps {
@@ -100,6 +107,9 @@ export function ConfirmSourcesStep({
                     </span>
                   </p>
                 )}
+                <p className="font-mohave text-[10px] text-[#555] mt-0.5">
+                  This is the subject line you use when sending estimates to clients. We&apos;ll use it to identify your pipeline conversations.
+                </p>
               </div>
             </div>
             {!editingPattern && (
@@ -142,29 +152,15 @@ export function ConfirmSourcesStep({
                 <p className="font-mohave text-[11px] text-[#666]">
                   {source.count} email{source.count !== 1 ? "s" : ""} found
                 </p>
+                <p className="font-mohave text-[10px] text-[#555] mt-0.5">
+                  {SOURCE_DESCRIPTIONS[source.type]}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSource(i);
-                }}
-                className="flex-shrink-0 w-9 h-[22px] rounded-full transition-colors duration-200 relative"
-                style={{
-                  background: source.enabled
-                    ? "rgba(89,119,148,0.4)"
-                    : "rgba(255,255,255,0.06)",
-                }}
-                aria-label={source.enabled ? "Disable source" : "Enable source"}
-              >
-                <div
-                  className="absolute top-[3px] w-4 h-4 rounded-full transition-all duration-200"
-                  style={{
-                    left: source.enabled ? 18 : 3,
-                    background: source.enabled ? "#597794" : "#555",
-                  }}
-                />
-              </button>
+              {source.enabled ? (
+                <ToggleRight className="w-[28px] h-[28px] text-[#597794] shrink-0" />
+              ) : (
+                <ToggleLeft className="w-[28px] h-[28px] text-[#555] shrink-0" />
+              )}
             </motion.div>
           );
         })}
