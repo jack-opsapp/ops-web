@@ -766,8 +766,8 @@ export function ImportPipelineWizard({
           </AnimatePresence>
         </div>
 
-        {/* Back button footer — hide during background jobs */}
-        {step > 1 && !importJobId && !runningJobId && (
+        {/* Back button footer — hide during background jobs, and on steps 2/3 (can't go back to analysis) */}
+        {step > 3 && !importJobId && !runningJobId && (
           <div className="flex items-center justify-between px-6 pb-4">
             <button
               onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}
