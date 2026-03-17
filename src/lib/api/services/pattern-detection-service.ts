@@ -54,8 +54,8 @@ export const PatternDetectionService = {
       PatternDetectionService.fetchPersonalInbox(provider, afterDate),
     ]);
 
-    // Identify company domains from sent mail
-    const companyDomains = PatternDetectionService.identifyCompanyDomains(
+    // Identify company domains from sent mail (first pass — without forwarders)
+    const initialCompanyDomains = PatternDetectionService.identifyCompanyDomains(
       sentAnalysis.allSentEmails,
       connection.email
     );
@@ -63,7 +63,14 @@ export const PatternDetectionService = {
     // Detect team forwarders (people from company domains who forward form submissions)
     const teamForwarders = PatternDetectionService.detectForwarders(
       inboxEmails,
-      companyDomains
+      initialCompanyDomains
+    );
+
+    // Second pass: add forwarder domains to company domains
+    const companyDomains = PatternDetectionService.identifyCompanyDomains(
+      sentAnalysis.allSentEmails,
+      connection.email,
+      teamForwarders.map((f) => f.email)
     );
 
     // Build detected sources list
@@ -262,14 +269,18 @@ export const PatternDetectionService = {
    */
   identifyCompanyDomains(
     sentEmails: NormalizedEmail[],
-    userEmail: string
+    userEmail: string,
+    teamForwarders: string[] = []
   ): string[] {
     const userDomain = userEmail.split('@')[1]?.toLowerCase();
     const domainCounts = new Map<string, number>();
 
     for (const email of sentEmails) {
-      for (const cc of email.cc) {
-        const domain = cc.split('@')[1]?.toLowerCase();
+      // Check both TO and CC recipients for company domain patterns
+      const allRecipients = [...email.to, ...email.cc];
+      for (const recipient of allRecipients) {
+        const cleaned = recipient.match(/<([^>]+)>/)?.[1] || recipient;
+        const domain = cleaned.split('@')[1]?.toLowerCase();
         if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain)) {
           domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
         }
@@ -280,8 +291,17 @@ export const PatternDetectionService = {
       .filter(([, count]) => count >= 3)
       .map(([domain]) => domain);
 
+    // User's own domain (if not a public email provider)
     if (userDomain && !PUBLIC_EMAIL_DOMAINS.has(userDomain) && !companyDomains.includes(userDomain)) {
       companyDomains.push(userDomain);
+    }
+
+    // Team forwarder domains are always company domains
+    for (const forwarder of teamForwarders) {
+      const domain = forwarder.split('@')[1]?.toLowerCase();
+      if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain) && !companyDomains.includes(domain)) {
+        companyDomains.push(domain);
+      }
     }
 
     return companyDomains;
