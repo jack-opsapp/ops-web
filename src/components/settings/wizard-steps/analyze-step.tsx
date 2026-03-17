@@ -224,7 +224,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
           <p className="font-mohave text-[14px] text-[#FF6B4A]">{error}</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Progress bar */}
           <div>
             <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
@@ -243,36 +243,35 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                 {isComplete && <CheckCircle size={11} className="inline mr-1 -mt-0.5" />}
                 {percentText}
               </p>
+              {/* Fading discovered name — inline next to progress */}
+              <div className="h-4 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  {visibleName && !isComplete && (
+                    <motion.span
+                      key={visibleName}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.5 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.4, ease: EASE }}
+                      className="font-mohave text-[11px] text-[#597794]"
+                    >
+                      {visibleName}
+                    </motion.span>
+                  )}
+                  {isComplete && (
+                    <motion.span
+                      key="complete"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5, ease: EASE }}
+                      className="font-mohave text-[11px] text-[#9DB582]"
+                    >
+                      Preparing results...
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
-          </div>
-
-          {/* Fading discovered name */}
-          <div className="h-6 overflow-hidden">
-            <AnimatePresence mode="wait">
-              {visibleName && !isComplete && (
-                <motion.p
-                  key={visibleName}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 0.6, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.4, ease: EASE }}
-                  className="font-mohave text-[13px] text-[#597794]"
-                >
-                  Found: {visibleName}
-                </motion.p>
-              )}
-              {isComplete && (
-                <motion.p
-                  key="complete"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, ease: EASE }}
-                  className="font-mohave text-[13px] text-[#9DB582]"
-                >
-                  Analysis complete — preparing results...
-                </motion.p>
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Stage indicators */}
