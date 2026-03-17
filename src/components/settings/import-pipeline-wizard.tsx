@@ -100,6 +100,9 @@ export function ImportPipelineWizard({
 
   // ─── Background progress (for minimized card) ──────────────────────────────
   const [bgProgress, setBgProgress] = useState({ percent: 0, message: "Working..." });
+  const [bgDiscoveredNames, setBgDiscoveredNames] = useState<string[]>([]);
+  const [bgVisibleName, setBgVisibleName] = useState<string | null>(null);
+  const bgNameIndexRef = useRef(0);
   const bgPollRef = useRef<NodeJS.Timeout | null>(null);
 
   // ─── Notification system ───────────────────────────────────────────────────
@@ -108,6 +111,19 @@ export function ImportPipelineWizard({
   showPromptRef.current = showPrompt;
   const removePromptRef = useRef(removePrompt);
   removePromptRef.current = removePrompt;
+
+  // ─── Cycle discovered names on minimized card ──────────────────────────────
+  useEffect(() => {
+    if (!minimized || bgDiscoveredNames.length === 0) return;
+    const cycle = () => {
+      const idx = bgNameIndexRef.current % bgDiscoveredNames.length;
+      setBgVisibleName(bgDiscoveredNames[idx]);
+      bgNameIndexRef.current++;
+    };
+    cycle();
+    const interval = setInterval(cycle, 2500);
+    return () => clearInterval(interval);
+  }, [minimized, bgDiscoveredNames]);
 
   // ─── Query invalidation ────────────────────────────────────────────────────
   const queryClient = useQueryClient();
@@ -279,6 +295,9 @@ export function ImportPipelineWizard({
 
         if (data.progress) {
           setBgProgress({ percent: data.progress.percent || 0, message: data.progress.message || "Working..." });
+          if (data.progress.discoveredLeadNames?.length) {
+            setBgDiscoveredNames(data.progress.discoveredLeadNames);
+          }
         }
 
         // ── Analysis completed while minimized ─────────────────────────
@@ -566,7 +585,7 @@ export function ImportPipelineWizard({
         ) : (
           <>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-2 mb-1">
                 <Loader2 size={14} className="text-ops-accent animate-spin shrink-0" />
                 <span className="font-mohave text-[13px] text-white">
                   {minimizedLabel}
@@ -575,6 +594,20 @@ export function ImportPipelineWizard({
                   {Math.round(bgProgress.percent)}%
                 </span>
               </div>
+              {bgVisibleName && runningJobType === "analysis" && (
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={bgVisibleName}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.5 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3, ease: EASE }}
+                    className="font-mohave text-[11px] text-[#597794] mb-1 truncate"
+                  >
+                    Found: {bgVisibleName}
+                  </motion.p>
+                </AnimatePresence>
+              )}
               <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
                 <motion.div
                   className="h-full bg-[#597794]"

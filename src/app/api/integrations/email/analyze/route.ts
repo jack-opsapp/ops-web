@@ -207,6 +207,9 @@ async function runAnalysis(
   connectionId: string,
   supabase: SupabaseClient
 ) {
+  // Track discovered lead names — streamed to the client for fading display
+  const discoveredLeadNames: string[] = [];
+
   const updateProgress = async (
     stage: string,
     message: string,
@@ -216,7 +219,7 @@ async function runAnalysis(
       .from("gmail_scan_jobs")
       .update({
         status: stage,
-        progress: { stage, message, percent },
+        progress: { stage, message, percent, discoveredLeadNames: discoveredLeadNames.slice(-12) },
       })
       .eq("id", jobId);
   };
@@ -406,8 +409,14 @@ async function runAnalysis(
       companyDomains: detection.companyDomains,
     },
     // Granular progress: smoothly updates from 35% to 65% as AI processes batches
-    async (processed, total) => {
+    // Also collects discovered lead names for the fading UI display
+    async (processed, total, batchResults) => {
       const aiProgress = 35 + Math.round((processed / total) * 30);
+      for (const c of batchResults) {
+        if (c.verdict === 'lead' && c.client?.name && !discoveredLeadNames.includes(c.client.name)) {
+          discoveredLeadNames.push(c.client.name);
+        }
+      }
       await updateProgress(
         "classifying_ai",
         `AI classified ${processed} of ${total} threads...`,
@@ -706,6 +715,11 @@ async function runAnalysis(
           subContacts.push({ name: pName, email: pClean, phone: null });
         }
       }
+    }
+
+    // Track discovered name for the fading UI display
+    if (clientName && !discoveredLeadNames.includes(clientName)) {
+      discoveredLeadNames.push(clientName);
     }
 
     leads.push({
