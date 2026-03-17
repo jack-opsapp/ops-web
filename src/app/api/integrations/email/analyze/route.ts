@@ -23,6 +23,7 @@ import { PatternDetectionService } from "@/lib/api/services/pattern-detection-se
 import { EmailAIClassifier } from "@/lib/api/services/email-ai-classifier";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { matchPlatform, PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
+import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import OpenAI from 'openai';
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
@@ -261,7 +262,56 @@ async function runAnalysis(
   if (!ownerEmailLower) {
     console.error("[email-analyze] CRITICAL: Cannot determine owner email — results will be unreliable");
   }
+
+  // ─── Build company domain set ─────────────────────────────────────────────
+  // Include: pattern detection domains + employee email domains + company name match
   const companyDomainSet = new Set(detection.companyDomains.map((d) => d.toLowerCase()));
+
+  // Add domains from employee emails (users table)
+  const { data: companyUsers } = await supabase
+    .from("users")
+    .select("email, first_name, last_name")
+    .eq("company_id", companyId);
+
+  const employeeEmailSet = new Set<string>();
+  const employeeNameSet = new Set<string>();
+  for (const u of (companyUsers || [])) {
+    if (u.email) employeeEmailSet.add(u.email.toLowerCase().trim());
+    const fullName = `${(u.first_name || '').trim()} ${(u.last_name || '').trim()}`.trim().toLowerCase();
+    if (fullName) employeeNameSet.add(fullName);
+  }
+
+  // Fetch company info (needed for domain matching and AI context)
+  const { data: company } = await supabase
+    .from("companies")
+    .select("name, industry")
+    .eq("id", companyId)
+    .single();
+
+  // Scan all emails for non-public domains that match the company name
+  // e.g., company "Canpro Deck and Rail" → domain "canprodeckandrail.com"
+  const companyNameLower = (company?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (companyNameLower.length >= 4) {
+    const allDomains = new Set<string>();
+    for (const email of validEmails) {
+      for (const addr of [email.from, ...email.to, ...email.cc]) {
+        const cleaned = (addr.match(/<([^>]+)>/)?.[1] || addr).toLowerCase().trim();
+        const domain = cleaned.split('@')[1];
+        if (domain) allDomains.add(domain);
+      }
+    }
+    for (const domain of allDomains) {
+      const domainClean = domain.replace(/[^a-z0-9]/g, '');
+      if (domainClean.includes(companyNameLower) || companyNameLower.includes(domainClean.replace(/\.(com|ca|net|org)$/g, ''))) {
+        if (!PUBLIC_EMAIL_DOMAINS.has(domain)) {
+          companyDomainSet.add(domain);
+          console.log(`[email-analyze] Detected company domain from name match: ${domain}`);
+        }
+      }
+    }
+  }
+
+  console.log(`[email-analyze] Company domains: [${[...companyDomainSet].join(', ')}], Employee emails: ${employeeEmailSet.size}, Employee names: ${employeeNameSet.size}`);
   const forwarderEmailSet = new Set(detection.teamForwarders.map((f) => f.toLowerCase()));
   const estimateThreadIds = new Set(
     detection.detectedSources
@@ -390,13 +440,6 @@ async function runAnalysis(
     `Classifying ${unmatchedThreads.length} threads with AI...`,
     35
   );
-
-  // Fetch company info for AI context
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name, industry")
-    .eq("id", companyId)
-    .single();
 
   // Build thread summary inputs for AI — send ALL unmatched threads
   const threadSummaryInputs: ThreadSummaryInput[] = unmatchedThreads.map((t) => ({
@@ -637,7 +680,7 @@ async function runAnalysis(
       findClientEmail(thread, ownerEmailLower, companyDomainSet, formExtractionMap)
     );
     const clientName = aiClassification?.client?.name
-      || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap);
+      || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap, clientEmail, employeeEmailSet);
 
     // Determine stage
     let stage: string;
@@ -779,7 +822,7 @@ async function runAnalysis(
   }
 
   // ─── Phase 7b: Hard-filter obvious invalid leads ─────────────────────────
-  // Only remove leads that are clearly invalid — AI validation (Phase 9) handles nuance.
+  // Remove clearly invalid leads. AI validation (Phase 9) handles nuance.
   const filteredLeads = leads.filter(lead => {
     const email = cleanEmailAddress(lead.client.email);
     if (!email || !lead.client.name) {
@@ -788,6 +831,15 @@ async function runAnalysis(
     }
     if (email === ownerEmailLower) {
       console.log(`[filter] REMOVED (owner exact): ${email}`);
+      return false;
+    }
+    if (employeeEmailSet.has(email)) {
+      console.log(`[filter] REMOVED (employee): ${email}`);
+      return false;
+    }
+    const domain = email.split('@')[1] || '';
+    if (domain && companyDomainSet.has(domain)) {
+      console.log(`[filter] REMOVED (company domain ${domain}): ${email}`);
       return false;
     }
     if (isPlatformEmail(email)) {
@@ -808,29 +860,26 @@ async function runAnalysis(
 
   // ─── Phase 9: AI Validation Pass ────────────────────────────────────────
   // Send the candidate list + company context to AI for a quick approval check.
-  // The AI sees the company name, domain, employee emails, and each candidate —
+  // The AI sees the company name, domain, employee emails/names, and each candidate —
   // then returns just the approved IDs. Catches false positives that rule-based
-  // filtering can't (employees, vendors, internal contacts, spam).
+  // filtering can't (vendors, internal contacts, spam).
   await updateProgress("analyzing_threads", "Validating leads...", 95);
 
-  // Fetch company employees for context
-  const { data: employees } = await supabase
-    .from("users")
-    .select("email, name")
-    .eq("company_id", companyId);
-
-  const employeeEmails = (employees || [])
-    .map((e: { email: string }) => e.email?.toLowerCase())
-    .filter(Boolean);
+  // Build employee context strings for the AI (reuse data from earlier fetch)
+  const employeeDescriptions = (companyUsers || []).map((u: { email: string; first_name: string; last_name: string }) =>
+    `${(u.first_name || '').trim()} ${(u.last_name || '').trim()} (${u.email})`
+  ).filter((s: string) => s.trim() !== '()');
 
   const validatedLeads = await validateLeadsWithAI(
     deduplicatedLeads,
     {
       companyName: company?.name || "",
-      companyDomain: ownerEmailLower.split('@')[1] || "",
+      companyDomain: [...companyDomainSet].join(', ') || ownerEmailLower.split('@')[1] || "",
       industry: (company?.industry as string) || "trades",
       ownerEmail: ownerEmailLower,
-      employeeEmails,
+      employeeEmails: [...employeeEmailSet],
+      employeeNames: [...employeeNameSet],
+      employeeDescriptions,
     }
   );
 
@@ -1050,12 +1099,14 @@ function findClientEmail(
   return '';
 }
 
-/** Find the client display name from thread participants */
+/** Find the client display name — matches against the actual client email address */
 function findClientName(
   thread: ThreadInfo,
   ownerEmailLower: string,
   companyDomainSet: Set<string>,
-  formExtraction: Map<string, ExtractedFormClient>
+  formExtraction: Map<string, ExtractedFormClient>,
+  clientEmail?: string,
+  employeeEmailSet?: Set<string>
 ): string {
   // For forwarder/platform threads, use AI-extracted client name from the form body first.
   if (thread.patternSource === 'forwarder' || thread.patternSource === 'platform') {
@@ -1063,20 +1114,52 @@ function findClientName(
     if (extracted?.name) return extracted.name;
   }
 
-  // Find the first non-owner, non-company, non-platform email and extract name
+  const clientEmailLower = clientEmail?.toLowerCase() || '';
+
+  // Priority 1: Find the display name from headers that match the client email exactly.
+  // This prevents picking up a CC'd team member's name instead of the client's name.
+  if (clientEmailLower) {
+    // Check TO/CC headers of outbound emails for "Display Name <client@email.com>"
+    for (const email of thread.emails) {
+      if (!safe(email.from).includes(ownerEmailLower)) continue; // only outbound
+      for (const addr of [...email.to, ...email.cc]) {
+        const addrClean = cleanEmailAddress(addr);
+        if (addrClean === clientEmailLower) {
+          // Extract display name from this header
+          const nameMatch = addr.match(/^"?([^"<]+)"?\s*</);
+          if (nameMatch && nameMatch[1].trim()) {
+            return nameMatch[1].trim();
+          }
+        }
+      }
+    }
+
+    // Check FROM headers of inbound emails from the client
+    for (const email of thread.emails) {
+      const fromClean = cleanEmailAddress(email.from);
+      if (fromClean === clientEmailLower && email.fromName) {
+        return email.fromName;
+      }
+    }
+  }
+
+  // Priority 2: Find first non-owner, non-company, non-employee sender
   for (const email of thread.emails) {
     if (safe(email.from).includes(ownerEmailLower)) continue;
-    const domain = safe(email.from).split('@')[1] || "";
+    const fromClean = cleanEmailAddress(email.from);
+    const domain = fromClean.split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
-    // Skip platform senders — their fromName is e.g. "Wix Forms" not a client name
-    const emailMatch = email.from.match(/<([^>]+)>/);
-    const cleanEmail = emailMatch ? emailMatch[1] : email.from;
-    if (isPlatformEmail(cleanEmail)) continue;
+    if (employeeEmailSet?.has(fromClean)) continue;
+    if (isPlatformEmail(fromClean)) continue;
     if (email.fromName && email.fromName !== (email.from || "").split('@')[0]) {
       return email.fromName;
     }
   }
-  // Fallback: extract from first sender
+
+  // Fallback: extract from the client email address itself
+  if (clientEmailLower) {
+    return extractNameFromEmail(clientEmailLower);
+  }
   return extractNameFromEmail(thread.firstSender);
 }
 
@@ -1167,6 +1250,8 @@ async function validateLeadsWithAI(
     industry: string;
     ownerEmail: string;
     employeeEmails: string[];
+    employeeNames: string[];
+    employeeDescriptions: string[];
   }
 ): Promise<AnalyzedLead[]> {
   if (leads.length === 0) return [];
@@ -1174,9 +1259,10 @@ async function validateLeadsWithAI(
   const systemPrompt = `You are validating a list of potential leads for a ${context.industry} business.
 
 Company: ${context.companyName}
-Company domain: ${context.companyDomain}
+Company domain(s): ${context.companyDomain || 'unknown'}
 Owner email: ${context.ownerEmail}
-Employee emails: ${context.employeeEmails.join(', ') || 'none known'}
+Team members:
+${context.employeeDescriptions.length > 0 ? context.employeeDescriptions.map(d => `  - ${d}`).join('\n') : '  (none known)'}
 
 Below is a numbered list of candidates detected from the owner's email inbox.
 Review each one and return ONLY the numbers of legitimate customer/client leads.
