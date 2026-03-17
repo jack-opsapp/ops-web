@@ -778,10 +778,8 @@ async function runAnalysis(
     });
   }
 
-  // ─── Phase 7b: Filter out invalid leads ──────────────────────────────────
-  // Fix 1: Remove leads where the client email is the owner's own email
-  // Fix 5: Remove leads with null/empty email or name
-  // Also filter out leads whose client email is a company domain (employee) or platform address
+  // ─── Phase 7b: Hard-filter obvious invalid leads ─────────────────────────
+  // Only remove leads that are clearly invalid — AI validation (Phase 9) handles nuance.
   const filteredLeads = leads.filter(lead => {
     const email = cleanEmailAddress(lead.client.email);
     if (!email || !lead.client.name) {
@@ -792,11 +790,6 @@ async function runAnalysis(
       console.log(`[filter] REMOVED (owner exact): ${email}`);
       return false;
     }
-    const domain = email.split('@')[1] || '';
-    if (companyDomainSet.has(domain)) {
-      console.log(`[filter] REMOVED (company domain ${domain}): ${email}`);
-      return false;
-    }
     if (isPlatformEmail(email)) {
       console.log(`[filter] REMOVED (platform): ${email}`);
       return false;
@@ -804,23 +797,53 @@ async function runAnalysis(
     return true;
   });
 
-  console.log(`[email-analyze] Leads after filtering: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed — owner/company/platform/null)`);
+  console.log(`[email-analyze] Leads after hard-filter: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed — owner/platform/null)`);
 
-  await updateProgress("analyzing_threads", "Deduplicating leads...", 95);
+  await updateProgress("analyzing_threads", "Deduplicating leads...", 92);
 
-  // ─── Phase 8: Deduplicate leads by client email (Fix 5) ─────────────────
+  // ─── Phase 8: Deduplicate leads by client email ─────────────────────────
   const deduplicatedLeads = deduplicateLeads(filteredLeads);
 
-  console.log(`[email-analyze] Final leads: ${deduplicatedLeads.length} (${leads.length} before dedup)`);
+  console.log(`[email-analyze] Leads after dedup: ${deduplicatedLeads.length} (${filteredLeads.length} before dedup)`);
 
-  await updateProgress("complete", `Analysis complete! Found ${deduplicatedLeads.length} leads.`, 100);
+  // ─── Phase 9: AI Validation Pass ────────────────────────────────────────
+  // Send the candidate list + company context to AI for a quick approval check.
+  // The AI sees the company name, domain, employee emails, and each candidate —
+  // then returns just the approved IDs. Catches false positives that rule-based
+  // filtering can't (employees, vendors, internal contacts, spam).
+  await updateProgress("analyzing_threads", "Validating leads...", 95);
+
+  // Fetch company employees for context
+  const { data: employees } = await supabase
+    .from("users")
+    .select("email, name")
+    .eq("company_id", companyId);
+
+  const employeeEmails = (employees || [])
+    .map((e: { email: string }) => e.email?.toLowerCase())
+    .filter(Boolean);
+
+  const validatedLeads = await validateLeadsWithAI(
+    deduplicatedLeads,
+    {
+      companyName: company?.name || "",
+      companyDomain: ownerEmailLower.split('@')[1] || "",
+      industry: (company?.industry as string) || "trades",
+      ownerEmail: ownerEmailLower,
+      employeeEmails,
+    }
+  );
+
+  console.log(`[email-analyze] Leads after AI validation: ${validatedLeads.length} (${deduplicatedLeads.length - validatedLeads.length} rejected by AI)`);
+
+  await updateProgress("complete", `Analysis complete! Found ${validatedLeads.length} leads.`, 100);
 
   // Save results
   await supabase
     .from("gmail_scan_jobs")
     .update({
       status: "complete",
-      progress: { stage: "complete", message: "Analysis complete!", percent: 100 },
+      progress: { stage: "complete", message: "Analysis complete!", percent: 100, discoveredLeadNames: discoveredLeadNames.slice(-12) },
       result: {
         estimatePattern: detection.estimatePattern,
         estimatePatternConfidence: detection.estimatePatternConfidence,
@@ -828,7 +851,7 @@ async function runAnalysis(
         detectedSources: detection.detectedSources,
         companyDomains: detection.companyDomains,
         teamForwarders: detection.teamForwarders,
-        leads: deduplicatedLeads,
+        leads: validatedLeads,
         totalScanned: detection.totalEmailsScanned,
       },
     })
@@ -1129,4 +1152,106 @@ function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
   }
 
   return deduplicated;
+}
+
+// ─── Phase 9: AI Validation ──────────────────────────────────────────────────
+// Second-pass AI check: sends a compact enumerated list of candidate leads
+// plus company context. AI returns just the approved numbers.
+// Cost: ~$0.001-0.005 per run (one API call, minimal tokens).
+
+async function validateLeadsWithAI(
+  leads: AnalyzedLead[],
+  context: {
+    companyName: string;
+    companyDomain: string;
+    industry: string;
+    ownerEmail: string;
+    employeeEmails: string[];
+  }
+): Promise<AnalyzedLead[]> {
+  if (leads.length === 0) return [];
+
+  const systemPrompt = `You are validating a list of potential leads for a ${context.industry} business.
+
+Company: ${context.companyName}
+Company domain: ${context.companyDomain}
+Owner email: ${context.ownerEmail}
+Employee emails: ${context.employeeEmails.join(', ') || 'none known'}
+
+Below is a numbered list of candidates detected from the owner's email inbox.
+Review each one and return ONLY the numbers of legitimate customer/client leads.
+
+REJECT (do not include):
+- Company employees or team members (emails matching company domain or employee list)
+- The company owner themselves
+- Vendors, suppliers, or subtrades selling TO the company (not buying FROM the company)
+- Spam, newsletters, automated notifications
+- Platform/service accounts (noreply, notifications, system emails)
+- Internal business contacts (accountants, lawyers, insurance) unless they're also clients
+
+APPROVE:
+- Homeowners, property owners, or residents requesting work
+- Builders, general contractors, or developers hiring the company as a subtrade
+- Commercial clients requesting quotes or estimates
+- Anyone the company has sent an estimate/quote to
+- Referral contacts who are potential customers
+
+RESPOND WITH JSON: { "approved": [1, 3, 5, ...] }
+Only the numbers. No explanation.`;
+
+  // Build compact enumerated list
+  const candidateList = leads.map((lead, i) => {
+    const parts = [
+      `${i + 1}.`,
+      lead.client.name,
+      `|`,
+      lead.client.email,
+      `|`,
+      lead.sourceLabel,
+      `|`,
+      lead.stage,
+    ];
+    if (lead.client.description) {
+      parts.push(`|`, lead.client.description.slice(0, 80));
+    }
+    return parts.join(' ');
+  }).join('\n');
+
+  try {
+    const response = await getOpenAI().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: candidateList },
+      ],
+      temperature: 0,
+      max_tokens: Math.max(leads.length * 4, 100),
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      console.error('[email-analyze] AI validation returned empty response — keeping all leads');
+      return leads;
+    }
+
+    const parsed = JSON.parse(content);
+    const approved = new Set<number>(
+      (parsed.approved || []).map((n: number) => n)
+    );
+
+    console.log(`[email-analyze] AI validation: ${approved.size}/${leads.length} approved`);
+
+    // Log rejected leads for debugging
+    leads.forEach((lead, i) => {
+      if (!approved.has(i + 1)) {
+        console.log(`[ai-validate] REJECTED #${i + 1}: ${lead.client.name} (${lead.client.email}) — ${lead.sourceLabel}`);
+      }
+    });
+
+    return leads.filter((_, i) => approved.has(i + 1));
+  } catch (err) {
+    console.error('[email-analyze] AI validation failed — keeping all leads:', err);
+    return leads; // Fail open — don't lose leads if validation fails
+  }
 }
