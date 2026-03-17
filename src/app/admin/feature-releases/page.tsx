@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { FeatureReleasesContent } from "./_components/feature-releases-content";
-import { WhatsNewContent } from "./_components/whats-new-content";
+import { WhatsNewContent } from "./_components/whats-new";
 
 type Tab = "flags" | "whats-new";
 
