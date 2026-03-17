@@ -129,9 +129,11 @@ export function WidgetShell({
         <div
           className="absolute inset-0 rounded-md"
           style={{
-            background: "rgba(10, 10, 10, 0.85)",
-            backdropFilter: "blur(24px) saturate(1.1)",
-            WebkitBackdropFilter: "blur(24px) saturate(1.1)",
+            background: "rgba(10, 10, 10, 0.70)",
+            backdropFilter: "blur(20px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "6px",
           }}
         />
       )}
