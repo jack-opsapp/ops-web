@@ -53,6 +53,14 @@ export interface AnalyzedLead {
   sourceLabel: string;
   duplicateGroupId: string | null;
   subContacts: Array<{ name: string; email: string; phone: string | null }>;
+  /** Up to 6 email excerpts (3 client + 3 owner) with body content for AI validation */
+  emailExcerpts?: Array<{
+    from: string;
+    fromName: string;
+    direction: 'inbound' | 'outbound';
+    date: string;
+    body: string;
+  }>;
   matchResult: {
     existingClientId: string | null;
     existingClientName: string | null;

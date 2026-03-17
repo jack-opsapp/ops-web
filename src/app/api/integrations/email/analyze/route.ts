@@ -442,19 +442,43 @@ async function runAnalysis(
   );
 
   // Build thread summary inputs for AI — send ALL unmatched threads
-  const threadSummaryInputs: ThreadSummaryInput[] = unmatchedThreads.map((t) => ({
-    threadId: t.threadId,
-    subject: t.subject,
-    participants: t.participants,
-    messageCount: t.messageCount,
-    hasUserReply: t.hasUserReply,
-    latestSnippet: t.latestSnippet,
-    firstSender: t.firstSender,
-    firstSenderName: t.firstSenderName,
-    direction: t.direction,
-    dateRange: t.dateRange,
-    outboundCount: t.outboundCount,
-  }));
+  // Include up to 6 email excerpts per thread (3 client + 3 owner) for accurate classification
+  const threadSummaryInputs: ThreadSummaryInput[] = unmatchedThreads.map((t) => {
+    // Sort emails by date descending (most recent first)
+    const sorted = [...t.emails].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    // Split into client (inbound) and owner (outbound) emails
+    const clientEmails = sorted.filter((e) => !safe(e.from).includes(ownerEmailLower));
+    const ownerEmails = sorted.filter((e) => safe(e.from).includes(ownerEmailLower));
+
+    // Take up to 3 of each, most recent first
+    const excerpts = [
+      ...clientEmails.slice(0, 3),
+      ...ownerEmails.slice(0, 3),
+    ].sort((a, b) => a.date.getTime() - b.date.getTime()); // chronological for the AI
+
+    return {
+      threadId: t.threadId,
+      subject: t.subject,
+      participants: t.participants,
+      messageCount: t.messageCount,
+      hasUserReply: t.hasUserReply,
+      latestSnippet: t.latestSnippet,
+      firstSender: t.firstSender,
+      firstSenderName: t.firstSenderName,
+      direction: t.direction,
+      dateRange: t.dateRange,
+      outboundCount: t.outboundCount,
+      emailExcerpts: excerpts.map((e) => ({
+        from: e.from,
+        fromName: e.fromName,
+        to: e.to,
+        date: e.date.toISOString(),
+        direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
+        body: (e.bodyText || e.snippet || '').slice(0, 500),
+      })),
+    };
+  });
 
   const aiClassifications = await EmailAIClassifier.classifyThreadBatch(
     threadSummaryInputs,
@@ -810,6 +834,21 @@ async function runAnalysis(
       source,
       sourceLabel: SOURCE_LABELS[source] || "AI detected",
       subContacts,
+      // Build email excerpts: 3 most recent from client + 3 most recent from owner
+      emailExcerpts: (() => {
+        const sorted = [...thread.emails].sort((a, b) => b.date.getTime() - a.date.getTime());
+        const client = sorted.filter((e) => !safe(e.from).includes(ownerEmailLower)).slice(0, 3);
+        const owner = sorted.filter((e) => safe(e.from).includes(ownerEmailLower)).slice(0, 3);
+        return [...client, ...owner]
+          .sort((a, b) => a.date.getTime() - b.date.getTime())
+          .map((e) => ({
+            from: e.from,
+            fromName: e.fromName,
+            direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
+            date: e.date.toISOString(),
+            body: (e.bodyText || e.snippet || '').slice(0, 500),
+          }));
+      })(),
       duplicateGroupId: aiClassification?.duplicateOf?.[0] || null,
       matchResult: {
         existingClientId: matchResult.clientId,
@@ -1268,9 +1307,9 @@ Below is a numbered list of candidates detected from the owner's email inbox.
 Review each one and return ONLY the numbers of legitimate customer/client leads.
 
 REJECT (do not include):
-- Company employees or team members (emails matching company domain or employee list)
+- Company employees or team members (emails matching company domain or employee list, OR names matching team members even if the email differs)
 - The company owner themselves
-- Vendors, suppliers, or subtrades selling TO the company (not buying FROM the company)
+- Vendors, suppliers, or subtrades selling TO the company (not buying FROM the company). Read the email excerpts — if they are pitching their services or sending invoices TO the company, they are a vendor, not a client.
 - Spam, newsletters, automated notifications
 - Platform/service accounts (noreply, notifications, system emails)
 - Internal business contacts (accountants, lawyers, insurance) unless they're also clients
@@ -1282,26 +1321,35 @@ APPROVE:
 - Anyone the company has sent an estimate/quote to
 - Referral contacts who are potential customers
 
+CRITICAL RULE: Candidates with source "Estimate thread" have RECEIVED a quote/estimate from the company. They are definitively customers — APPROVE them UNLESS their email matches a team member.
+
+Each candidate includes up to 6 email excerpts. Use these to verify the relationship direction (is the company selling TO them or buying FROM them?).
+
 RESPOND WITH JSON: { "approved": [1, 3, 5, ...] }
 Only the numbers. No explanation.`;
 
-  // Build compact enumerated list
+  // Build candidate list with email excerpts for informed validation
   const candidateList = leads.map((lead, i) => {
-    const parts = [
-      `${i + 1}.`,
-      lead.client.name,
-      `|`,
-      lead.client.email,
-      `|`,
-      lead.sourceLabel,
-      `|`,
-      lead.stage,
-    ];
-    if (lead.client.description) {
-      parts.push(`|`, lead.client.description.slice(0, 80));
+    const header = [
+      `--- #${i + 1} ---`,
+      `Name: ${lead.client.name}`,
+      `Email: ${lead.client.email}`,
+      `Source: ${lead.sourceLabel}`,
+      `Stage: ${lead.stage}`,
+      `Messages: ${lead.correspondenceCount} total, ${lead.outboundCount} outbound`,
+    ].join('\n');
+
+    // Include email excerpts with body content
+    let emailSection = '';
+    if (lead.emailExcerpts?.length) {
+      emailSection = '\nEmails:\n' + lead.emailExcerpts.map((e) => {
+        const bodyPreview = e.body?.slice(0, 300) || '';
+        return `  [${e.direction.toUpperCase()}] ${e.fromName || e.from} (${e.date.slice(0, 10)})\n    ${bodyPreview}`;
+      }).join('\n');
     }
-    return parts.join(' ');
-  }).join('\n');
+
+    return header + emailSection;
+  }).join('\n\n');
 
   try {
     const response = await getOpenAI().chat.completions.create({

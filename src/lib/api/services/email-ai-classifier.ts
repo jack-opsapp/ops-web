@@ -84,6 +84,15 @@ export interface ThreadSummaryInput {
   direction: 'inbound' | 'outbound';
   dateRange: { first: string; last: string };
   outboundCount: number;
+  /** Up to 6 email excerpts (3 client + 3 owner) for context-rich classification */
+  emailExcerpts?: Array<{
+    from: string;
+    fromName: string;
+    to: string[];
+    date: string;
+    direction: 'inbound' | 'outbound';
+    body: string; // first 500 chars
+  }>;
 }
 
 export interface ThreadClassificationResult {
@@ -140,15 +149,16 @@ export const EmailAIClassifier = {
     if (threads.length === 0) return [];
 
     const results: ThreadClassificationResult[] = [];
-    // Batch 30 threads per API call (thread summaries are denser than single emails)
-    for (let i = 0; i < threads.length; i += 30) {
-      const batch = threads.slice(i, i + 30);
+    // Batch 10 threads per API call (email excerpts make each thread ~3KB)
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < threads.length; i += BATCH_SIZE) {
+      const batch = threads.slice(i, i + BATCH_SIZE);
       const batchResults = await EmailAIClassifier.classifySingleThreadBatch(batch, context);
       results.push(...batchResults);
       if (onProgress) {
-        await onProgress(Math.min(i + 30, threads.length), threads.length, batchResults);
+        await onProgress(Math.min(i + BATCH_SIZE, threads.length), threads.length, batchResults);
       }
-      if (i + 30 < threads.length) {
+      if (i + BATCH_SIZE < threads.length) {
         await new Promise((r) => setTimeout(r, 200));
       }
     }
@@ -209,7 +219,7 @@ export const EmailAIClassifier = {
     context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
   ): Promise<ThreadClassificationResult[]> {
     const systemPrompt = `You are classifying email THREADS for a trades/construction business.
-Each item is a THREAD SUMMARY (not a single email). Use thread-level context for classification.
+Each item is a THREAD SUMMARY with up to 6 email excerpts (3 from client, 3 from owner). Use the email content, signatures, and headers to extract accurate client information.
 
 Company: ${context.companyName}
 Industry: ${context.industry}
@@ -250,6 +260,17 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
         dir: t.direction,
         snip: t.latestSnippet.slice(0, 300),
         dates: t.dateRange,
+        // Include email excerpts for context-rich classification
+        ...(t.emailExcerpts?.length ? {
+          emails: t.emailExcerpts.map((e) => ({
+            from: e.from,
+            name: e.fromName,
+            to: e.to.slice(0, 3),
+            dir: e.direction,
+            date: e.date,
+            body: e.body,
+          }))
+        } : {}),
       }))
     );
 
@@ -261,7 +282,7 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.1,
-        max_tokens: threads.length * 100,
+        max_tokens: threads.length * 150,
         response_format: { type: 'json_object' },
       });
 
