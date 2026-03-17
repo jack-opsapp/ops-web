@@ -78,15 +78,19 @@ export function ImportPipelineWizard({
   const wizardStateCheckedRef = useRef(false);
 
   // Auto-advance to Step 2 when connectionId prop arrives after OAuth redirect
+  // Use a ref to avoid re-running on every step/connectionId change
+  const autoAdvancedRef = useRef(false);
   useEffect(() => {
-    if (initialConnectionId && !connectionId && step === 1) {
+    if (autoAdvancedRef.current) return;
+    if (initialConnectionId && !connectionId) {
+      autoAdvancedRef.current = true;
       setConnectionId(initialConnectionId);
-      setDirection(1);
-      setStep(2);
-    } else if (initialConnectionId && connectionId !== initialConnectionId) {
-      setConnectionId(initialConnectionId);
+      if (step === 1) {
+        setDirection(1);
+        setStep(2);
+      }
     }
-  }, [initialConnectionId, connectionId, step]);
+  }, [initialConnectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Restore wizard state on open ──────────────────────────────────────────
   // When the wizard opens with a connectionId, check the connection's sync_filters
@@ -146,7 +150,8 @@ export function ImportPipelineWizard({
   useEffect(() => {
     if (!open) {
       wizardStateCheckedRef.current = false;
-      setExistingJobId(null);
+      autoAdvancedRef.current = false;
+      // Don't clear existingJobId here — it gets cleared naturally when a new job starts
     }
   }, [open]);
 
