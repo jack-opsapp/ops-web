@@ -114,17 +114,29 @@ export async function POST(request: NextRequest) {
   }
 
   // ─── Prevent duplicate analysis jobs ────────────────────────────────────────
-  // If there's already a running job for this connection, return it instead
+  // If there's a running job for this connection less than 5 min old, return it.
+  // Jobs older than 5 min are considered stale/dead (Vercel killed the function).
+  const STALE_THRESHOLD_MS = 5 * 60 * 1000;
   const { data: existingJobs } = await supabase
     .from("gmail_scan_jobs")
-    .select("id, status")
+    .select("id, status, created_at")
     .eq("connection_id", connectionId)
     .in("status", ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"])
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (existingJobs && existingJobs.length > 0) {
-    return NextResponse.json({ jobId: existingJobs[0].id });
+    const jobAge = Date.now() - new Date(existingJobs[0].created_at).getTime();
+    if (jobAge < STALE_THRESHOLD_MS) {
+      // Job is still fresh — reconnect to it
+      return NextResponse.json({ jobId: existingJobs[0].id });
+    }
+    // Job is stale — mark it as error and create a new one
+    console.log(`[email-analyze] Stale job ${existingJobs[0].id} (${Math.round(jobAge / 1000)}s old), marking as error`);
+    await supabase.from("gmail_scan_jobs").update({
+      status: "error",
+      error_message: "Timed out — function exceeded max duration",
+    }).eq("id", existingJobs[0].id);
   }
 
   // Create analysis job
@@ -369,8 +381,16 @@ async function runAnalysis(
     .eq("id", companyId)
     .single();
 
+  // Cap unmatched threads to avoid exceeding Vercel's 300s function limit.
+  // Most leads come from pattern matching. AI handles the long tail.
+  const AI_THREAD_CAP = 50;
+  const cappedUnmatchedThreads = unmatchedThreads.slice(0, AI_THREAD_CAP);
+  if (unmatchedThreads.length > AI_THREAD_CAP) {
+    console.log(`[email-analyze] Capped AI classification: ${cappedUnmatchedThreads.length} of ${unmatchedThreads.length} threads (${unmatchedThreads.length - AI_THREAD_CAP} skipped)`);
+  }
+
   // Build thread summary inputs for AI
-  const threadSummaryInputs: ThreadSummaryInput[] = unmatchedThreads.map((t) => ({
+  const threadSummaryInputs: ThreadSummaryInput[] = cappedUnmatchedThreads.map((t) => ({
     threadId: t.threadId,
     subject: t.subject,
     participants: t.participants,
