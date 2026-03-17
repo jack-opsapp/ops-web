@@ -273,7 +273,7 @@ export class GmailProvider implements EmailProviderInterface {
       subject: getHeader("Subject"),
       snippet: (msg.snippet as string) || "",
       bodyText: this.extractBody(payload),
-      date: new Date(parseInt(msg.internalDate as string)),
+      date: msg.internalDate ? new Date(parseInt(msg.internalDate as string)) : new Date(),
       labelIds: (msg.labelIds as string[]) || [],
       isRead: !((msg.labelIds as string[]) || []).includes("UNREAD"),
       hasAttachments: this.hasAttachments(payload),
