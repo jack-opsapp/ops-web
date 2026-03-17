@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle, Loader2 } from "lucide-react";
+import { X, CheckCircle, Loader2, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { ConnectStep } from "./wizard-steps/connect-step";
 import { AnalyzeStep } from "./wizard-steps/analyze-step";
 import { ConfirmSourcesStep } from "./wizard-steps/confirm-sources-step";
 import { ReviewImportStep } from "./wizard-steps/review-import-step";
+import { ImportProgress } from "./wizard-steps/import-progress";
 import { ActivateStep } from "./wizard-steps/activate-step";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,9 +45,11 @@ const STEPS = [
   { num: 1, label: "CONNECT" },
   { num: 2, label: "ANALYZE" },
   { num: 3, label: "SOURCES" },
-  { num: 4, label: "REVIEW" },
+  { num: 4, label: "IMPORT" },
   { num: 5, label: "ACTIVATE" },
 ];
+
+type JobType = "analysis" | "import";
 
 interface ImportPipelineWizardProps {
   open: boolean;
@@ -76,24 +79,27 @@ export function ImportPipelineWizard({
   const [confirmedLeads, setConfirmedLeads] = useState<AnalyzedLead[]>([]);
   const [estimatePattern, setEstimatePattern] = useState<string>("");
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [importing, setImporting] = useState(false);
   const [syncInterval, setSyncInterval] = useState(60);
   const [existingJobId, setExistingJobId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
 
   // ─── State restoration ──────────────────────────────────────────────────────
-  // Track whether the async state check has completed. This prevents AnalyzeStep
-  // from mounting (and re-starting analysis) before we know if there's a running job.
   const [stateCheckComplete, setStateCheckComplete] = useState(!initialConnectionId);
   const wizardStateCheckedRef = useRef(false);
 
   // ─── Running job tracking ───────────────────────────────────────────────────
-  // The parent tracks the jobId so minimize→reopen doesn't need an async lookup.
-  // AnalyzeStep reports it via onJobStarted, background polling uses it directly.
+  // Tracks either analysis or import jobs — both use gmail_scan_jobs and same poll pattern
   const [runningJobId, setRunningJobId] = useState<string | null>(null);
+  const [runningJobType, setRunningJobType] = useState<JobType | null>(null);
+
+  // ─── Import job tracking ───────────────────────────────────────────────────
+  // When the user clicks "Import" in step 4, this is set to the background job ID.
+  // Step 4 then renders ImportProgress instead of ReviewImportStep.
+  const [importJobId, setImportJobId] = useState<string | null>(null);
+  const [importLeadCount, setImportLeadCount] = useState(0);
 
   // ─── Background progress (for minimized card) ──────────────────────────────
-  const [bgProgress, setBgProgress] = useState({ percent: 0, message: "Analyzing..." });
+  const [bgProgress, setBgProgress] = useState({ percent: 0, message: "Working..." });
   const bgPollRef = useRef<NodeJS.Timeout | null>(null);
 
   // ─── Notification system ───────────────────────────────────────────────────
@@ -106,6 +112,12 @@ export function ImportPipelineWizard({
   // ─── Query invalidation ────────────────────────────────────────────────────
   const queryClient = useQueryClient();
   const { company } = useAuthStore();
+
+  const invalidateConnections = useCallback(() => {
+    if (company?.id) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gmailConnections.all });
+    }
+  }, [company?.id, queryClient]);
 
   // When the wizard opens, un-minimize
   useEffect(() => {
@@ -127,15 +139,11 @@ export function ImportPipelineWizard({
   }, [initialConnectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Restore wizard state on open ──────────────────────────────────────────
-  // When the wizard opens with a connectionId, check the connection's sync_filters
-  // to determine if we should reconnect to a running/completed analysis.
-  // Setting stateCheckComplete=false blocks AnalyzeStep rendering until this finishes.
   useEffect(() => {
     if (!open || !initialConnectionId || wizardStateCheckedRef.current) return;
     wizardStateCheckedRef.current = true;
 
-    // If we already know the running job (from a previous AnalyzeStep session),
-    // skip the async check entirely — we can render immediately.
+    // If we already know the running job, skip the async check
     if (runningJobId) {
       setExistingJobId(runningJobId);
       setStateCheckComplete(true);
@@ -154,39 +162,86 @@ export function ImportPipelineWizard({
         // Wizard already completed — nothing to restore
         if (filters.wizardCompleted) return;
 
-        // There's a scan job we can check on
+        // ── Check for import job first (higher wizard step) ──────────────
+        if (filters.lastImportJobId) {
+          const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastImportJobId}`);
+          if (jobRes.ok) {
+            const jobData = await jobRes.json();
+
+            if (jobData.status === "import_complete" && jobData.result) {
+              // Import done — advance to step 5
+              setImportResult(jobData.result);
+              // We also need analysis result for the activate step's sync profile
+              if (filters.lastScanJobId) {
+                const scanRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+                if (scanRes.ok) {
+                  const scanData = await scanRes.json();
+                  if (scanData.result) {
+                    setAnalysisResult(scanData.result);
+                    setConfirmedSources(scanData.result.detectedSources);
+                    if (scanData.result.estimatePattern) setEstimatePattern(scanData.result.estimatePattern);
+                  }
+                }
+              }
+              setDirection(1);
+              setStep(5);
+              return;
+            } else if (jobData.status === "importing") {
+              // Import still running — reconnect
+              setImportJobId(filters.lastImportJobId);
+              setImportLeadCount(jobData.progress?.totalLeads || 0);
+              setRunningJobId(filters.lastImportJobId);
+              setRunningJobType("import");
+              if (jobData.progress) {
+                setBgProgress({ percent: jobData.progress.percent || 0, message: jobData.progress.message || "Importing..." });
+              }
+              // Load analysis result for later steps
+              if (filters.lastScanJobId) {
+                const scanRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+                if (scanRes.ok) {
+                  const scanData = await scanRes.json();
+                  if (scanData.result) {
+                    setAnalysisResult(scanData.result);
+                    setConfirmedSources(scanData.result.detectedSources);
+                    setConfirmedLeads(scanData.result.leads);
+                    if (scanData.result.estimatePattern) setEstimatePattern(scanData.result.estimatePattern);
+                  }
+                }
+              }
+              setDirection(1);
+              setStep(4);
+              return;
+            }
+            // import_error: fall through to check scan job
+          }
+        }
+
+        // ── Check for scan/analysis job ──────────────────────────────────
         if (filters.lastScanJobId) {
           const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
           if (!jobRes.ok) return;
           const jobData = await jobRes.json();
 
           if (jobData.status === "complete" && jobData.result) {
-            // Analysis done — skip straight to Step 3 with results
             setAnalysisResult(jobData.result);
             setConfirmedSources(jobData.result.detectedSources);
             setConfirmedLeads(jobData.result.leads);
-            if (jobData.result.estimatePattern) {
-              setEstimatePattern(jobData.result.estimatePattern);
-            }
+            if (jobData.result.estimatePattern) setEstimatePattern(jobData.result.estimatePattern);
             setRunningJobId(null);
             setDirection(1);
             setStep(3);
           } else if (jobData.status === "error") {
-            // Error — go to Step 2, which will restart
             setRunningJobId(null);
             setDirection(1);
             setStep(2);
           } else if (
             ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"].includes(jobData.status)
           ) {
-            // Still running — reconnect
             setExistingJobId(filters.lastScanJobId);
             setRunningJobId(filters.lastScanJobId);
+            setRunningJobType("analysis");
             if (jobData.progress) {
-              setBgProgress({
-                percent: jobData.progress.percent || 0,
-                message: jobData.progress.message || "Analyzing...",
-              });
+              setBgProgress({ percent: jobData.progress.percent || 0, message: jobData.progress.message || "Analyzing..." });
             }
             setDirection(1);
             setStep(2);
@@ -202,60 +257,42 @@ export function ImportPipelineWizard({
     checkWizardState();
   }, [open, initialConnectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset state check when the wizard closes so it re-checks on next open
+  // Reset state check when the wizard closes
   useEffect(() => {
     if (!open) {
       wizardStateCheckedRef.current = false;
       autoAdvancedRef.current = false;
-      // Reset stateCheckComplete only if there's a connection to check
-      if (initialConnectionId) {
-        setStateCheckComplete(false);
-      }
+      if (initialConnectionId) setStateCheckComplete(false);
     }
   }, [open, initialConnectionId]);
 
   // ─── Background polling (minimized state) ─────────────────────────────────
-  // When minimized, poll the running job for progress + completion.
-  // On completion: fire action prompt, set results, advance to step 3.
+  // Polls the running job (analysis OR import) for progress + completion.
   useEffect(() => {
     if (!minimized || !runningJobId) return;
 
     const poll = async () => {
       try {
         const res = await fetch(`/api/integrations/email/analyze-status?jobId=${runningJobId}`);
-        if (!res.ok) {
-          bgPollRef.current = setTimeout(poll, 5000);
-          return;
-        }
+        if (!res.ok) { bgPollRef.current = setTimeout(poll, 5000); return; }
         const data = await res.json();
 
         if (data.progress) {
-          setBgProgress({
-            percent: data.progress.percent || 0,
-            message: data.progress.message || "Analyzing...",
-          });
+          setBgProgress({ percent: data.progress.percent || 0, message: data.progress.message || "Working..." });
         }
 
-        if (data.status === "complete" && data.result) {
-          // Analysis finished while minimized — store results
+        // ── Analysis completed while minimized ─────────────────────────
+        if (data.status === "complete" && data.result && runningJobType === "analysis") {
           setAnalysisResult(data.result);
           setConfirmedSources(data.result.detectedSources);
           setConfirmedLeads(data.result.leads);
-          if (data.result.estimatePattern) {
-            setEstimatePattern(data.result.estimatePattern);
-          }
+          if (data.result.estimatePattern) setEstimatePattern(data.result.estimatePattern);
           setRunningJobId(null);
+          setRunningJobType(null);
           setExistingJobId(null);
           setBgProgress({ percent: 100, message: "Analysis complete!" });
+          invalidateConnections();
 
-          // Invalidate connections query so integrations tab updates
-          if (company?.id) {
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.gmailConnections.all,
-            });
-          }
-
-          // Fire action prompt to notify the user
           showPromptRef.current({
             id: "email-analysis-complete",
             icon: CheckCircle,
@@ -273,14 +310,44 @@ export function ImportPipelineWizard({
             dismissable: true,
             variant: "accent",
           });
-
-          return; // Stop polling
+          return;
         }
 
-        if (data.status === "error") {
-          setBgProgress({ percent: 0, message: data.error || "Analysis failed" });
+        // ── Import completed while minimized ───────────────────────────
+        if (data.status === "import_complete" && data.result && runningJobType === "import") {
+          setImportResult(data.result);
+          setImportJobId(null);
           setRunningJobId(null);
-          return; // Stop polling
+          setRunningJobType(null);
+          setBgProgress({ percent: 100, message: "Import complete!" });
+          invalidateConnections();
+
+          showPromptRef.current({
+            id: "email-import-complete",
+            icon: FileText,
+            title: "Pipeline import complete",
+            description: `Created ${data.result.clientsCreated} clients and ${data.result.leadsCreated} leads`,
+            ctaLabel: "Activate Sync",
+            ctaAction: () => {
+              removePromptRef.current("email-import-complete");
+              setMinimized(false);
+              setDirection(1);
+              setStep(5);
+              onOpenChange(true);
+            },
+            persistent: false,
+            dismissable: true,
+            variant: "accent",
+          });
+          return;
+        }
+
+        // ── Error states ───────────────────────────────────────────────
+        if (data.status === "error" || data.status === "import_error") {
+          setBgProgress({ percent: 0, message: data.error || "Failed" });
+          setRunningJobId(null);
+          setRunningJobType(null);
+          return;
         }
 
         bgPollRef.current = setTimeout(poll, 3000);
@@ -290,10 +357,10 @@ export function ImportPipelineWizard({
     };
 
     poll();
-    return () => {
-      if (bgPollRef.current) clearTimeout(bgPollRef.current);
-    };
-  }, [minimized, runningJobId]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { if (bgPollRef.current) clearTimeout(bgPollRef.current); };
+  }, [minimized, runningJobId, runningJobType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Navigation ───────────────────────────────────────────────────────────
 
   const goTo = useCallback((target: 1 | 2 | 3 | 4 | 5) => {
     setDirection(target > step ? 1 : -1);
@@ -309,18 +376,14 @@ export function ImportPipelineWizard({
     [goTo]
   );
 
-  // Called by AnalyzeStep when it starts/reconnects to a job
+  // ─── Analysis handlers ────────────────────────────────────────────────────
+
   const handleJobStarted = useCallback((jobId: string) => {
     setRunningJobId(jobId);
-    // Invalidate connections so integrations tab sees the active job
-    if (company?.id) {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.gmailConnections.all,
-      });
-    }
-  }, [company?.id, queryClient]);
+    setRunningJobType("analysis");
+    invalidateConnections();
+  }, [invalidateConnections]);
 
-  // Called by AnalyzeStep to report progress to the parent (for minimized card)
   const handleProgressUpdate = useCallback((percent: number, message: string) => {
     setBgProgress({ percent, message });
   }, []);
@@ -331,31 +394,26 @@ export function ImportPipelineWizard({
       if (result) {
         setConfirmedSources(result.detectedSources);
         setConfirmedLeads(result.leads);
-        if (result.estimatePattern) {
-          setEstimatePattern(result.estimatePattern);
-        }
+        if (result.estimatePattern) setEstimatePattern(result.estimatePattern);
       }
-      // Clear job IDs since analysis is done
       setExistingJobId(null);
       setRunningJobId(null);
-      // Invalidate connections query so integrations tab updates
-      if (company?.id) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.gmailConnections.all,
-        });
-      }
+      setRunningJobType(null);
+      invalidateConnections();
       goTo(3);
     },
-    [goTo, company?.id, queryClient]
+    [goTo, invalidateConnections]
   );
+
+  // ─── Import handlers ─────────────────────────────────────────────────────
 
   const handleImport = useCallback(async () => {
     if (!connectionId || !analysisResult) return;
 
-    setImporting(true);
-    try {
-      const enabledLeads = confirmedLeads.filter((l) => l.enabled);
+    const enabledLeads = confirmedLeads.filter((l) => l.enabled);
+    setImportLeadCount(enabledLeads.length);
 
+    try {
       const payload: ImportPayload = {
         connectionId,
         companyId,
@@ -396,17 +454,29 @@ export function ImportPipelineWizard({
         throw new Error(errorData.error || `Import failed (${res.status})`);
       }
 
-      const result: ImportResult = await res.json();
-      setImportResult(result);
-      goTo(5);
+      const { jobId } = await res.json();
+      setImportJobId(jobId);
+      setRunningJobId(jobId);
+      setRunningJobType("import");
+      setBgProgress({ percent: 0, message: `Starting import of ${enabledLeads.length} leads...` });
+      invalidateConnections();
     } catch (err) {
       console.error("Import failed:", err);
       const { toast } = await import("sonner");
       toast.error(err instanceof Error ? err.message : "Import failed. Please try again.");
-    } finally {
-      setImporting(false);
     }
-  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, goTo]);
+  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, invalidateConnections]);
+
+  const handleImportComplete = useCallback((result: ImportResult) => {
+    setImportResult(result);
+    setImportJobId(null);
+    setRunningJobId(null);
+    setRunningJobType(null);
+    invalidateConnections();
+    goTo(5);
+  }, [goTo, invalidateConnections]);
+
+  // ─── Activate & complete ─────────────────────────────────────────────────
 
   const handleActivate = useCallback(
     async (interval: number) => {
@@ -446,15 +516,21 @@ export function ImportPipelineWizard({
 
   const handleComplete = useCallback(() => {
     onOpenChange(false);
+    invalidateConnections();
     onComplete?.();
-  }, [onOpenChange, onComplete]);
+  }, [onOpenChange, onComplete, invalidateConnections]);
 
-  // Determine if we completed while minimized (show "Review Leads" instead of spinner)
-  const bgComplete = bgProgress.percent >= 100 && analysisResult;
+  // ─── Minimized card state ─────────────────────────────────────────────────
+  const bgComplete = runningJobId === null && bgProgress.percent >= 100;
+  const isImportPhase = runningJobType === "import" || importJobId;
+  const minimizedLabel = isImportPhase ? "Importing leads..." : "Analyzing your inbox...";
+  const minimizedCompleteLabel = isImportPhase
+    ? `Import complete — ${importResult?.leadsCreated ?? 0} leads created`
+    : `Analysis complete — ${analysisResult?.leads?.length ?? 0} leads found`;
 
   return (
     <>
-    {/* Minimized bar — shows at bottom of screen when wizard is minimized during analysis */}
+    {/* Minimized bar — shows at bottom of screen when wizard is minimized */}
     {minimized && !open && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -470,16 +546,8 @@ export function ImportPipelineWizard({
           minWidth: 280,
         }}
         onClick={() => {
-          if (bgComplete) {
-            // Analysis done — open wizard at step 3
-            setMinimized(false);
-            setDirection(1);
-            setStep(3);
-            onOpenChange(true);
-          } else {
-            setMinimized(false);
-            onOpenChange(true);
-          }
+          setMinimized(false);
+          onOpenChange(true);
         }}
       >
         {bgComplete ? (
@@ -487,7 +555,7 @@ export function ImportPipelineWizard({
             <CheckCircle size={16} className="text-[#9DB582] shrink-0" />
             <div className="flex-1 min-w-0">
               <span className="font-mohave text-[13px] text-[#9DB582]">
-                Analysis complete — {analysisResult.leads?.length ?? 0} leads found
+                {minimizedCompleteLabel}
               </span>
             </div>
             <span className="font-mohave text-[12px] text-ops-accent shrink-0">
@@ -500,7 +568,7 @@ export function ImportPipelineWizard({
               <div className="flex items-center gap-2 mb-1.5">
                 <Loader2 size={14} className="text-ops-accent animate-spin shrink-0" />
                 <span className="font-mohave text-[13px] text-white">
-                  Analyzing your inbox...
+                  {minimizedLabel}
                 </span>
                 <span className="font-mohave text-[11px] text-[#666] ml-auto shrink-0">
                   {Math.round(bgProgress.percent)}%
@@ -558,18 +626,13 @@ export function ImportPipelineWizard({
               <div
                 className="h-[2px] transition-all duration-500"
                 style={{
-                  background:
-                    s.num <= step
-                      ? "#597794"
-                      : "rgba(255,255,255,0.08)",
+                  background: s.num <= step ? "#597794" : "rgba(255,255,255,0.08)",
                   transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
               />
               <span
                 className="font-kosugi text-[8px] tracking-[0.12em] uppercase transition-colors duration-300"
-                style={{
-                  color: s.num <= step ? "#597794" : "#666",
-                }}
+                style={{ color: s.num <= step ? "#597794" : "#666" }}
               >
                 {s.label}
               </span>
@@ -581,7 +644,7 @@ export function ImportPipelineWizard({
         <div className="px-6 pb-2 pt-4 min-h-[400px] overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
-              key={step}
+              key={`${step}-${importJobId ? "importing" : "review"}`}
               custom={direction}
               variants={stepVariants}
               initial="enter"
@@ -596,7 +659,6 @@ export function ImportPipelineWizard({
               )}
               {step === 2 && connectionId && (
                 !stateCheckComplete ? (
-                  // Loading state while checking for existing job — prevents restart flicker
                   <div className="flex flex-col items-center justify-center py-16 gap-4">
                     <Loader2 size={24} className="text-ops-accent animate-spin" />
                     <p className="font-mohave text-[14px] text-[#999]">
@@ -626,13 +688,25 @@ export function ImportPipelineWizard({
                 />
               )}
               {step === 4 && (
-                <ReviewImportStep
-                  leads={confirmedLeads}
-                  onLeadsChanged={setConfirmedLeads}
-                  onImport={handleImport}
-                  importing={importing}
-                  companyDomains={analysisResult?.companyDomains || []}
-                />
+                importJobId ? (
+                  // Import is running as a background job — show progress
+                  <ImportProgress
+                    jobId={importJobId}
+                    totalLeads={importLeadCount}
+                    onComplete={handleImportComplete}
+                    onMinimize={() => { setMinimized(true); onOpenChange(false); }}
+                    onProgressUpdate={handleProgressUpdate}
+                  />
+                ) : (
+                  // Review mode — user hasn't clicked Import yet
+                  <ReviewImportStep
+                    leads={confirmedLeads}
+                    onLeadsChanged={setConfirmedLeads}
+                    onImport={handleImport}
+                    importing={false}
+                    companyDomains={analysisResult?.companyDomains || []}
+                  />
+                )
               )}
               {step === 5 && importResult && (
                 <ActivateStep
@@ -658,8 +732,8 @@ export function ImportPipelineWizard({
           </AnimatePresence>
         </div>
 
-        {/* Back button footer */}
-        {step > 1 && (
+        {/* Back button footer — hide during background jobs */}
+        {step > 1 && !importJobId && !runningJobId && (
           <div className="flex items-center justify-between px-6 pb-4">
             <button
               onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}

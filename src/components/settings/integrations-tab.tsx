@@ -235,6 +235,36 @@ export function IntegrationsTab() {
 
   const companyConnections = connections.filter((c) => c.type === "company");
   const hasAnyConnection = connections.length > 0;
+
+  // ─── Abandoned wizard prompt ──────────────────────────────────────────────
+  // If the wizard was started but not completed, nudge the user to finish.
+  const { showPrompt: showActionPrompt, removePrompt: removeActionPrompt } = useActionPromptStore();
+  const abandonedPromptFiredRef = useRef(false);
+  useEffect(() => {
+    if (abandonedPromptFiredRef.current || !hasAnyConnection) return;
+    const conn = companyConnections[0];
+    if (!conn) return;
+    const filters = conn.syncFilters as unknown as Record<string, unknown> | undefined;
+    if (!filters) return;
+    // Only prompt if analysis is done but wizard was never completed
+    if (filters.lastScanComplete === true && filters.wizardCompleted !== true) {
+      abandonedPromptFiredRef.current = true;
+      showActionPrompt({
+        id: "email-wizard-abandoned",
+        icon: Mail,
+        title: "You have leads waiting",
+        description: "Your inbox analysis found leads. Finish the import to add them to your pipeline.",
+        ctaLabel: "Continue Import",
+        ctaAction: () => {
+          removeActionPrompt("email-wizard-abandoned");
+          setWizardOpen(true);
+        },
+        persistent: false,
+        dismissable: true,
+        variant: "accent",
+      });
+    }
+  }, [hasAnyConnection, companyConnections]); // eslint-disable-line react-hooks/exhaustive-deps
   const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
 
   // Determine if there's a running analysis job to show progress for
@@ -502,14 +532,12 @@ export function IntegrationsTab() {
                   <span className="font-mohave text-body-sm text-[#6B8F71]">
                     Pipeline sync is active
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
                     onClick={() => openWizard()}
-                    className="ml-auto gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
+                    className="ml-auto font-kosugi text-[10px] text-text-disabled/50 hover:text-text-disabled transition-colors"
                   >
-                    Re-import
-                  </Button>
+                    re-scan
+                  </button>
                 </div>
               </div>
 
