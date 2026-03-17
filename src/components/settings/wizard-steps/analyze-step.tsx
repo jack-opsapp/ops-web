@@ -20,17 +20,25 @@ interface AnalyzeStepProps {
   companyId: string;
   existingJobId?: string; // If set, reconnect to this job instead of starting new
   onComplete: (result: AnalysisResult["result"]) => void;
+  onMinimize?: () => void; // Closes the wizard — analysis continues server-side
 }
 
-export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete }: AnalyzeStepProps) {
+export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize }: AnalyzeStepProps) {
   const [jobId, setJobId] = useState<string | null>(existingJobId || null);
   const [status, setStatus] = useState<string>("pending");
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("Starting analysis...");
   const [error, setError] = useState<string | null>(null);
   const [completedStages, setCompletedStages] = useState<Set<string>>(new Set());
+  const [showMinimize, setShowMinimize] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const startedRef = useRef(false);
+
+  // Show minimize button after 10 seconds of analysis
+  useEffect(() => {
+    const timer = setTimeout(() => setShowMinimize(true), 10000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Start analysis (or reconnect to existing job)
   useEffect(() => {
@@ -206,6 +214,23 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
               );
             })}
           </div>
+
+          {/* Minimize button — appears after 10s so user can close wizard while analysis continues */}
+          {showMinimize && onMinimize && status !== 'complete' && status !== 'error' && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: EASE }}
+              className="mt-6 pt-4 border-t border-white/8"
+            >
+              <button
+                onClick={onMinimize}
+                className="font-mohave text-[13px] text-[#666] hover:text-white transition-colors"
+              >
+                Minimize — we&apos;ll notify you when it&apos;s ready
+              </button>
+            </motion.div>
+          )}
         </div>
       )}
     </div>

@@ -366,6 +366,7 @@ export function ImportPipelineWizard({
                   companyId={companyId}
                   existingJobId={existingJobId || undefined}
                   onComplete={handleAnalysisComplete}
+                  onMinimize={() => onOpenChange(false)}
                 />
               )}
               {step === 3 && analysisResult && (

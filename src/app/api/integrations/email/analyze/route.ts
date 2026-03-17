@@ -31,6 +31,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 300;
 
+// ─── Timeout helper for thread fetches ───────────────────────────────────────
+
+async function fetchWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ─── Valid stages for safety checks ──────────────────────────────────────────
 
 const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation'];
@@ -406,7 +423,9 @@ async function runAnalysis(
 
   console.log(`[email-analyze] Lead threads: ${leadThreads.length} (${patternThreads.length} pattern + ${leadThreads.length - patternThreads.length} AI)`);
 
-  // ─── Phase 6: Fetch full threads for stage analysis (cap at 100) ─────────
+  // ─── Phase 6: Fetch full threads for stage analysis (cap at 20) ──────────
+  // Cap at 20 to avoid Gmail API rate limits and long hangs.
+  // Threads beyond the cap get correspondence-based staging (fast + free).
   const threadAnalysisInputs: Array<{
     threadId: string;
     messages: Array<{
@@ -424,11 +443,27 @@ async function runAnalysis(
   // Pattern-matched threads use correspondence-based stage heuristics
   const threadsNeedingFullFetch = leadThreads
     .filter((lt) => lt.source === 'ai')
-    .slice(0, 100);
+    .slice(0, 20);
+
+  let fetchedCount = 0;
+  let skippedCount = 0;
 
   for (const { thread } of threadsNeedingFullFetch) {
     try {
-      const fetchedMessages = await provider.fetchThread(thread.threadId);
+      // 10-second timeout per thread to prevent hangs on large threads or rate limits
+      const fetchedMessages = await fetchWithTimeout(
+        provider.fetchThread(thread.threadId),
+        10_000
+      );
+
+      if (!fetchedMessages) {
+        console.warn(`[email-analyze] Thread ${thread.threadId} timed out after 10s — skipping`);
+        skippedCount++;
+        // Rate limit pause even on timeout
+        await delay(200);
+        continue;
+      }
+
       threadMessageCounts.set(thread.threadId, fetchedMessages.length);
       threadAnalysisInputs.push({
         threadId: thread.threadId,
@@ -443,13 +478,20 @@ async function runAnalysis(
             : "inbound") as "inbound" | "outbound",
         })),
       });
+      fetchedCount++;
     } catch (err) {
       console.error(
         `[email-analyze] Failed to fetch thread ${thread.threadId}:`,
         err
       );
+      skippedCount++;
     }
+
+    // 200ms delay between fetches to avoid Gmail API rate limits
+    await delay(200);
   }
+
+  console.log(`[email-analyze] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped (timeout/error), ${Math.max(0, leadThreads.filter((lt) => lt.source === 'ai').length - 20)} beyond cap`);
 
   const threadAnalyses = await EmailAIClassifier.analyzeThreads(
     threadAnalysisInputs,
