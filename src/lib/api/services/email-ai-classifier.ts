@@ -258,7 +258,7 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
         outbound: t.outboundCount,
         replied: t.hasUserReply,
         dir: t.direction,
-        snip: t.latestSnippet.slice(0, 300),
+        snip: t.latestSnippet,
         dates: t.dateRange,
         // Include email excerpts for context-rich classification
         ...(t.emailExcerpts?.length ? {

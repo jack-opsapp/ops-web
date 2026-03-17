@@ -475,7 +475,7 @@ async function runAnalysis(
         to: e.to,
         date: e.date.toISOString(),
         direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: (e.bodyText || e.snippet || '').slice(0, 500),
+        body: (e.bodyText || e.snippet || '').slice(0, 2000),
       })),
     };
   });
@@ -846,7 +846,7 @@ async function runAnalysis(
             fromName: e.fromName,
             direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
             date: e.date.toISOString(),
-            body: (e.bodyText || e.snippet || '').slice(0, 500),
+            body: (e.bodyText || e.snippet || '').slice(0, 2000),
           }));
       })(),
       duplicateGroupId: aiClassification?.duplicateOf?.[0] || null,
@@ -1343,7 +1343,7 @@ Only the numbers. No explanation.`;
     let emailSection = '';
     if (lead.emailExcerpts?.length) {
       emailSection = '\nEmails:\n' + lead.emailExcerpts.map((e) => {
-        const bodyPreview = e.body?.slice(0, 300) || '';
+        const bodyPreview = e.body || '';
         return `  [${e.direction.toUpperCase()}] ${e.fromName || e.from} (${e.date.slice(0, 10)})\n    ${bodyPreview}`;
       }).join('\n');
     }
