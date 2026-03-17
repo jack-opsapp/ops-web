@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types/email-import";
 
@@ -18,11 +18,11 @@ const STAGES = [
 interface AnalyzeStepProps {
   connectionId: string;
   companyId: string;
-  existingJobId?: string; // If set, reconnect to this job instead of starting new
+  existingJobId?: string;
   onComplete: (result: AnalysisResult["result"]) => void;
-  onMinimize?: () => void; // Closes the wizard — analysis continues server-side
-  onJobStarted?: (jobId: string) => void; // Report jobId to parent for minimize/restore
-  onProgressUpdate?: (percent: number, message: string, status: string) => void; // Report progress to parent
+  onMinimize?: () => void;
+  onJobStarted?: (jobId: string) => void;
+  onProgressUpdate?: (percent: number, message: string, status: string) => void;
 }
 
 export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize, onJobStarted, onProgressUpdate }: AnalyzeStepProps) {
@@ -34,11 +34,19 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
   const [error, setError] = useState<string | null>(null);
   const [completedStages, setCompletedStages] = useState<Set<string>>(new Set());
   const [showMinimize, setShowMinimize] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const [leadCount, setLeadCount] = useState(0);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const startedRef = useRef(false);
   const interpolateRef = useRef<NodeJS.Timeout | null>(null);
+  const completeResultRef = useRef<AnalysisResult["result"] | null>(null);
 
-  // Stable refs for callbacks to avoid re-triggering poll effect
+  // ─── Fading discovered names ──────────────────────────────────────────────
+  const [discoveredNames, setDiscoveredNames] = useState<string[]>([]);
+  const [visibleName, setVisibleName] = useState<string | null>(null);
+  const nameIndexRef = useRef(0);
+
+  // Stable refs for callbacks
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
   const onJobStartedRef = useRef(onJobStarted);
@@ -46,17 +54,30 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
   const onProgressUpdateRef = useRef(onProgressUpdate);
   onProgressUpdateRef.current = onProgressUpdate;
 
-  // Show minimize button after 10 seconds of analysis
+  // Show minimize button after 10 seconds
   useEffect(() => {
     const timer = setTimeout(() => setShowMinimize(true), 10000);
     return () => clearTimeout(timer);
   }, []);
 
-  // ─── Smooth progress interpolation ───────────────────────────────────────
-  // Between server polls, slowly animate progress toward the current stage's range end.
-  // When a new server value arrives, snap to it (handled in the poll effect).
+  // ─── Cycle through discovered names with fade ─────────────────────────────
   useEffect(() => {
-    if (status === "complete" || status === "error" || status === "pending") return;
+    if (discoveredNames.length === 0 || isComplete) return;
+
+    const cycle = () => {
+      const idx = nameIndexRef.current % discoveredNames.length;
+      setVisibleName(discoveredNames[idx]);
+      nameIndexRef.current++;
+    };
+
+    cycle(); // Show first immediately
+    const interval = setInterval(cycle, 2500);
+    return () => clearInterval(interval);
+  }, [discoveredNames, isComplete]);
+
+  // ─── Smooth progress interpolation ───────────────────────────────────────
+  useEffect(() => {
+    if (isComplete || status === "error" || status === "pending") return;
 
     const currentStage = STAGES.find((s) => s.key === status);
     const maxForStage = currentStage ? currentStage.range[1] - 1 : displayProgress;
@@ -64,7 +85,6 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     interpolateRef.current = setInterval(() => {
       setDisplayProgress((prev) => {
         if (prev >= maxForStage) return prev;
-        // Creep ~1.5% per second (every 100ms = 0.15%)
         return Math.min(prev + 0.15, maxForStage);
       });
     }, 100);
@@ -72,7 +92,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     return () => {
       if (interpolateRef.current) clearInterval(interpolateRef.current);
     };
-  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status, isComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Snap displayProgress when serverProgress jumps ahead
   useEffect(() => {
@@ -86,7 +106,6 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     if (startedRef.current) return;
     startedRef.current = true;
 
-    // If we have an existing job ID, skip starting a new analysis — go straight to polling
     if (existingJobId) {
       setJobId(existingJobId);
       return;
@@ -114,7 +133,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     startAnalysis();
   }, [connectionId, companyId, existingJobId]);
 
-  // Poll for status — uses stable refs so dependencies don't cause restart
+  // Poll for status
   const pollCallback = useCallback(async (currentJobId: string) => {
     try {
       const res = await fetch(`/api/integrations/email/analyze-status?jobId=${currentJobId}`);
@@ -126,7 +145,6 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
         setMessage(data.progress.message);
         onProgressUpdateRef.current?.(data.progress.percent, data.progress.message, data.status);
 
-        // Track completed stages
         const stageIndex = STAGES.findIndex((s) => s.key === data.progress.stage);
         if (stageIndex >= 0) {
           setCompletedStages((prev) => {
@@ -140,10 +158,28 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
       }
 
       if (data.status === "complete" && data.result) {
+        // ─── Completion celebration ─────────────────────────────────────
+        // 1. Snap progress to 100% and turn bar green
         setServerProgress(100);
         setDisplayProgress(100);
-        // Brief celebration pause before advancing
-        setTimeout(() => onCompleteRef.current(data.result), 1200);
+        setIsComplete(true);
+        setLeadCount(data.result.leads?.length ?? 0);
+        completeResultRef.current = data.result;
+
+        // Mark all stages as completed
+        setCompletedStages(new Set(STAGES.map((s) => s.key)));
+
+        // Collect discovered names for final display
+        if (data.result.leads?.length) {
+          const names = data.result.leads
+            .slice(0, 8)
+            .map((l: { client?: { name?: string } }) => l.client?.name)
+            .filter(Boolean) as string[];
+          setDiscoveredNames(names);
+        }
+
+        // 2. Hold for 2.5s so the user sees the green success state
+        setTimeout(() => onCompleteRef.current(data.result), 2500);
         return;
       }
 
@@ -152,21 +188,28 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
         return;
       }
 
+      // Extract discovered lead names from result preview (if server provides them)
+      if (data.progress?.discoveredLeadNames?.length) {
+        setDiscoveredNames(data.progress.discoveredLeadNames);
+      }
+
       pollRef.current = setTimeout(() => pollCallback(currentJobId), 2000);
     } catch {
       pollRef.current = setTimeout(() => pollCallback(currentJobId), 3000);
     }
   }, []);
 
-  // Start polling when jobId is set
   useEffect(() => {
     if (!jobId) return;
-
     pollCallback(jobId);
-    return () => {
-      if (pollRef.current) clearTimeout(pollRef.current);
-    };
+    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
   }, [jobId, pollCallback]);
+
+  // Progress bar color — green when complete, accent during analysis
+  const barColor = isComplete ? "#9DB582" : "#597794";
+  const percentText = isComplete
+    ? `${leadCount} lead${leadCount !== 1 ? "s" : ""} found`
+    : `${Math.round(displayProgress)}% complete`;
 
   return (
     <div>
@@ -186,22 +229,57 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
           <div>
             <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
               <motion.div
-                className="h-full bg-[#597794]"
+                className="h-full"
                 initial={{ width: "0%" }}
-                animate={{ width: `${Math.round(displayProgress)}%` }}
+                animate={{
+                  width: `${Math.round(displayProgress)}%`,
+                  backgroundColor: barColor,
+                }}
                 transition={{ duration: 0.6, ease: EASE }}
               />
             </div>
-            <p className="font-mohave text-[12px] text-[#666] mt-2">
-              {Math.round(displayProgress)}% complete
-            </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="font-mohave text-[12px] transition-colors duration-500" style={{ color: isComplete ? "#9DB582" : "#666" }}>
+                {isComplete && <CheckCircle size={11} className="inline mr-1 -mt-0.5" />}
+                {percentText}
+              </p>
+            </div>
+          </div>
+
+          {/* Fading discovered name */}
+          <div className="h-6 overflow-hidden">
+            <AnimatePresence mode="wait">
+              {visibleName && !isComplete && (
+                <motion.p
+                  key={visibleName}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 0.6, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.4, ease: EASE }}
+                  className="font-mohave text-[13px] text-[#597794]"
+                >
+                  Found: {visibleName}
+                </motion.p>
+              )}
+              {isComplete && (
+                <motion.p
+                  key="complete"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: EASE }}
+                  className="font-mohave text-[13px] text-[#9DB582]"
+                >
+                  Analysis complete — preparing results...
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Stage indicators */}
           <div className="space-y-2">
             {STAGES.map((stage, i) => {
-              const isCompleted = completedStages.has(stage.key);
-              const isCurrent = stage.key === status;
+              const isStageCompleted = completedStages.has(stage.key);
+              const isCurrent = stage.key === status && !isComplete;
               const Icon = stage.icon;
 
               return (
@@ -209,7 +287,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                   key={stage.key}
                   initial={{ opacity: 0, x: -12 }}
                   animate={{
-                    opacity: isCompleted || isCurrent || i === 0 ? 1 : 0.3,
+                    opacity: isStageCompleted || isCurrent || i === 0 ? 1 : 0.3,
                     x: 0,
                   }}
                   transition={{ delay: i * 0.1, duration: 0.4, ease: EASE }}
@@ -219,19 +297,19 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                     className="w-7 h-7 flex items-center justify-center border transition-all duration-300"
                     style={{
                       borderRadius: 2,
-                      borderColor: isCompleted
+                      borderColor: isStageCompleted
                         ? "rgba(157,181,130,0.5)"
                         : isCurrent
                           ? "rgba(89,119,148,0.5)"
                           : "rgba(255,255,255,0.08)",
-                      background: isCompleted
+                      background: isStageCompleted
                         ? "rgba(157,181,130,0.1)"
                         : isCurrent
                           ? "rgba(89,119,148,0.1)"
                           : "transparent",
                     }}
                   >
-                    {isCompleted ? (
+                    {isStageCompleted ? (
                       <CheckCircle size={14} className="text-[#9DB582]" />
                     ) : isCurrent ? (
                       <div className="w-3 h-3 border-2 border-[#597794]/40 border-t-[#597794] rounded-full animate-spin" />
@@ -242,7 +320,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                   <span
                     className="font-mohave text-[13px] transition-colors duration-300"
                     style={{
-                      color: isCompleted ? "#9DB582" : isCurrent ? "#fff" : "#666",
+                      color: isStageCompleted ? "#9DB582" : isCurrent ? "#fff" : "#666",
                     }}
                   >
                     {stage.label}
@@ -261,8 +339,8 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
             })}
           </div>
 
-          {/* Minimize button — appears after 10s so user can close wizard while analysis continues */}
-          {showMinimize && onMinimize && status !== 'complete' && status !== 'error' && (
+          {/* Minimize button */}
+          {showMinimize && onMinimize && !isComplete && status !== 'error' && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}

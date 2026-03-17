@@ -307,6 +307,34 @@ async function runImport(
         result.leadsCreated++;
       }
 
+      // Create sub-clients from detected sub-contacts (spouse, PM, site super, etc.)
+      if (lead.subContacts?.length) {
+        for (const sc of lead.subContacts) {
+          try {
+            const { data: existingSub } = await supabase
+              .from("sub_clients")
+              .select("id")
+              .eq("client_id", clientId)
+              .ilike("email", sc.email.toLowerCase())
+              .is("deleted_at", null)
+              .limit(1);
+
+            if (!existingSub || existingSub.length === 0) {
+              await ClientService.createSubClient(
+                {
+                  name: sc.name,
+                  clientId,
+                  email: sc.email.toLowerCase(),
+                },
+                companyId
+              );
+            }
+          } catch (subErr) {
+            console.error(`[email-import] Failed to create sub-contact ${sc.email}:`, subErr);
+          }
+        }
+      }
+
       // Create opportunity_email_threads record — ON CONFLICT DO NOTHING
       // The UNIQUE(thread_id, connection_id) constraint prevents duplicates
       await supabase.from("opportunity_email_threads").upsert(

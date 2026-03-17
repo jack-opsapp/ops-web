@@ -429,6 +429,7 @@ export function ImportPipelineWizard({
           existingClientId: lead.matchResult.existingClientId,
           action: lead.matchResult.action as "create_new" | "link" | "create_subclient",
           mergeWithLeadId: lead.duplicateGroupId,
+          subContacts: lead.subContacts || [],
         })),
         syncProfile: {
           estimateSubjectPatterns: estimatePattern ? [estimatePattern] : [],

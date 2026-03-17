@@ -52,6 +52,7 @@ export interface AnalyzedLead {
   source: 'pattern' | 'platform' | 'forwarder' | 'ai';
   sourceLabel: string;
   duplicateGroupId: string | null;
+  subContacts: Array<{ name: string; email: string; phone: string | null }>;
   matchResult: {
     existingClientId: string | null;
     existingClientName: string | null;
@@ -77,6 +78,7 @@ export interface ImportPayload {
     existingClientId: string | null;
     action: 'create_new' | 'link' | 'create_subclient';
     mergeWithLeadId: string | null;
+    subContacts?: Array<{ name: string; email: string; phone: string | null }>;
   }>;
   syncProfile: {
     estimateSubjectPatterns: string[];

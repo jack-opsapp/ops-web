@@ -98,6 +98,7 @@ export interface ThreadClassificationResult {
     phone: string | null;
     description: string;
   } | null;
+  additionalContacts: Array<{ name: string; email: string; phone: string | null }>;
   duplicateOf: string[];
   terminalFlag: 'likely_won' | 'likely_lost' | null;
 }
@@ -227,6 +228,8 @@ For each thread, determine:
   - last message is outbound and thread seems dormant → "follow_up"
 - val: estimated dollar value if pricing is mentioned. null otherwise.
 - client: { name, email, phone, desc } — extract the CUSTOMER's info (not the owner). null if not a lead.
+  IMPORTANT: Always use the person's FULL NAME (first + last name). Check the "from" display name, email signature, and message body for the last name. If the email header says "Laura" but the body or signature says "Laura Eby", use "Laura Eby". Never return just a first name when a last name is available anywhere in the thread.
+- additionalContacts: array of other people mentioned in the thread who are NOT the primary client and NOT the owner. Each has { name, email, phone }. These might be project managers, office staff, spouses, or other stakeholders cc'd or mentioned. Only include if you can identify a real name or email. null if none.
 - dupes: array of other threadIds in this batch that appear to be the same client/project (for dedup)
 - flag: "likely_won" if client confirmed/accepted, "likely_lost" if client declined/went elsewhere, null otherwise. This is the ONLY place for terminal flags.
 
@@ -279,6 +282,7 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
           stage,
           estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
           client: (r.client as ThreadClassificationResult['client']) || null,
+          additionalContacts: (r.additionalContacts as ThreadClassificationResult['additionalContacts']) || [],
           duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
           terminalFlag,
         };
@@ -292,6 +296,7 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
         stage: 'new_lead',
         estimatedValue: null,
         client: null,
+        additionalContacts: [],
         duplicateOf: [],
         terminalFlag: null,
       }));

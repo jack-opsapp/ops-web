@@ -677,6 +677,37 @@ async function runAnalysis(
       existingClientName = clientData?.name || null;
     }
 
+    // ─── Build sub-contacts list ────────────────────────────────────────────
+    // Combine AI-detected additional contacts + same-domain participant grouping
+    const subContacts: Array<{ name: string; email: string; phone: string | null }> = [];
+    const primaryEmailLower = clientEmail.toLowerCase();
+
+    // 1. AI-detected additional contacts
+    if (aiClassification?.additionalContacts?.length) {
+      for (const ac of aiClassification.additionalContacts) {
+        const acEmail = cleanEmailAddress(ac.email);
+        if (acEmail && acEmail !== primaryEmailLower && acEmail !== ownerEmailLower && !isPlatformEmail(acEmail)) {
+          subContacts.push({ name: ac.name, email: acEmail, phone: ac.phone || null });
+        }
+      }
+    }
+
+    // 2. Same-domain participant grouping — find other participants from the client's domain
+    const clientDomain = primaryEmailLower.split('@')[1] || '';
+    if (clientDomain && !companyDomainSet.has(clientDomain)) {
+      for (const participant of thread.participants) {
+        const pClean = cleanEmailAddress(participant);
+        if (!pClean || pClean === primaryEmailLower || pClean === ownerEmailLower) continue;
+        if (isPlatformEmail(pClean)) continue;
+        const pDomain = pClean.split('@')[1] || '';
+        if (pDomain === clientDomain && !subContacts.some((sc) => sc.email === pClean)) {
+          // Same domain as client — likely a colleague/family member
+          const pName = extractNameFromEmail(participant);
+          subContacts.push({ name: pName, email: pClean, phone: null });
+        }
+      }
+    }
+
     leads.push({
       id: `lead-${thread.threadId}`,
       threadId: thread.threadId,
@@ -695,7 +726,6 @@ async function runAnalysis(
             email: cleanEmailAddress(aiClassification.client.email),
           }
         : (() => {
-            // For forwarder/platform threads, use AI-extracted phone & message from form body
             const extracted = formExtractionMap.get(thread.threadId);
             const phone = extracted?.phone || null;
             const description = extracted?.message || thread.subject;
@@ -709,6 +739,7 @@ async function runAnalysis(
       lastMessageDate: thread.dateRange.last,
       source,
       sourceLabel: SOURCE_LABELS[source] || "AI detected",
+      subContacts,
       duplicateGroupId: aiClassification?.duplicateOf?.[0] || null,
       matchResult: {
         existingClientId: matchResult.clientId,
