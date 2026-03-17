@@ -1494,10 +1494,42 @@ export interface EmailFilterPreset {
 }
 
 export const PUBLIC_EMAIL_DOMAINS = new Set([
-  "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com",
-  "icloud.com", "protonmail.com", "live.com", "comcast.net", "att.net",
-  "verizon.net", "msn.com", "me.com", "mac.com", "ymail.com",
-  "mail.com", "zoho.com", "gmx.com", "inbox.com",
+  // Global providers
+  "gmail.com", "googlemail.com",
+  "yahoo.com", "yahoo.ca", "yahoo.co.uk", "yahoo.com.au", "ymail.com", "rocketmail.com",
+  "outlook.com", "outlook.ca", "outlook.co.uk", "outlook.com.au",
+  "hotmail.com", "hotmail.ca", "hotmail.co.uk", "hotmail.com.au",
+  "live.com", "live.ca", "live.co.uk", "live.com.au",
+  "msn.com", "msn.ca",
+  "aol.com", "aol.ca",
+  "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "pm.me",
+  "mail.com", "email.com",
+  "zoho.com", "zohomail.com",
+  "gmx.com", "gmx.net", "gmx.ca",
+  "inbox.com", "fastmail.com",
+  "tutanota.com", "tuta.io",
+  "hey.com",
+  // US ISPs
+  "comcast.net", "xfinity.com",
+  "att.net", "sbcglobal.net", "bellsouth.net",
+  "verizon.net",
+  "cox.net", "charter.net", "spectrum.net",
+  "earthlink.net", "windstream.net", "frontier.com",
+  "centurylink.net", "centurytel.net",
+  // Canadian ISPs
+  "telus.net", "telusplanet.net",
+  "shaw.ca", "shawcable.com",
+  "bell.net", "bell.ca", "bellnet.ca", "sympatico.ca",
+  "rogers.com", "cogeco.ca", "cogeco.net",
+  "videotron.ca", "videotron.qc.ca",
+  "eastlink.ca", "ns.sympatico.ca",
+  "sasktel.net", "mts.net", "tbaytel.net",
+  "execulink.com", "persona.ca", "teksavvy.com",
+  // UK ISPs
+  "btinternet.com", "virginmedia.com", "sky.com", "talktalk.net", "plusnet.com",
+  // Australian ISPs
+  "bigpond.com", "bigpond.net.au", "optusnet.com.au", "tpg.com.au",
 ]);
 
 export const DEFAULT_SYNC_FILTERS: GmailSyncFilters = {

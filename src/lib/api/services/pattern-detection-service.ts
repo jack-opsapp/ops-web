@@ -265,38 +265,30 @@ export const PatternDetectionService = {
   },
 
   /**
-   * Identify company domains from sent mail patterns
+   * Identify company domains — the owner's own domain + team forwarder domains.
+   *
+   * Previous approach counted any domain with 3+ sent emails as "company" — this
+   * incorrectly classified client domains (construction companies, contractors)
+   * and ISP domains (yahoo.ca, telus.net) as internal. For trades businesses,
+   * the owner frequently emails the same clients, so frequency ≠ internal.
+   *
+   * New approach: only the owner's email domain and explicit team forwarders
+   * are treated as company domains. Everything else is a potential client.
    */
   identifyCompanyDomains(
-    sentEmails: NormalizedEmail[],
+    _sentEmails: NormalizedEmail[],
     userEmail: string,
     teamForwarders: string[] = []
   ): string[] {
+    const companyDomains: string[] = [];
     const userDomain = userEmail.split('@')[1]?.toLowerCase();
-    const domainCounts = new Map<string, number>();
-
-    for (const email of sentEmails) {
-      // Check both TO and CC recipients for company domain patterns
-      const allRecipients = [...email.to, ...email.cc];
-      for (const recipient of allRecipients) {
-        const cleaned = recipient.match(/<([^>]+)>/)?.[1] || recipient;
-        const domain = cleaned.split('@')[1]?.toLowerCase();
-        if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain)) {
-          domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
-        }
-      }
-    }
-
-    const companyDomains = [...domainCounts.entries()]
-      .filter(([, count]) => count >= 3)
-      .map(([domain]) => domain);
 
     // User's own domain (if not a public email provider)
-    if (userDomain && !PUBLIC_EMAIL_DOMAINS.has(userDomain) && !companyDomains.includes(userDomain)) {
+    if (userDomain && !PUBLIC_EMAIL_DOMAINS.has(userDomain)) {
       companyDomains.push(userDomain);
     }
 
-    // Team forwarder domains are always company domains
+    // Team forwarder domains are company domains
     for (const forwarder of teamForwarders) {
       const domain = forwarder.split('@')[1]?.toLowerCase();
       if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain) && !companyDomains.includes(domain)) {
