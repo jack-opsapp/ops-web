@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Mail,
-  ExternalLink,
-  MessageCircle,
   Check,
   RefreshCw,
   Trash2,
@@ -28,8 +26,6 @@ import {
   useUpdateGmailConnection,
   useTriggerGmailSync,
   useImportHistory,
-  useCompanySettings,
-  useUpdateCompanySettings,
 } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -209,69 +205,10 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   );
 }
 
-function FollowUpMonitoringCard() {
-  const { t } = useDictionary("settings");
-  const can = usePermissionStore((s) => s.can);
-  const { data: settings, isLoading } = useCompanySettings();
-  const updateSettings = useUpdateCompanySettings();
-
-  const followUpDays = settings?.followUpReminderDays ?? 3;
-  const isEnabled = followUpDays > 0;
-
-  function handleToggle() {
-    if (!can("settings.integrations")) return;
-    updateSettings.mutate(
-      { followUpReminderDays: isEnabled ? 0 : 3 },
-      {
-        onSuccess: () => toast.success(t("preferences.toast.settingUpdated")),
-        onError: (err) => toast.error(t("preferences.toast.updateFailed"), { description: err.message }),
-      }
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("integrations.followUpMonitoring")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between py-[4px]">
-          <div className="flex items-center gap-1.5">
-            <MessageCircle className="w-[24px] h-[24px] text-ops-accent shrink-0" />
-            <div>
-              <p className="font-mohave text-body text-text-primary">
-                {isLoading ? "..." : isEnabled ? t("integrations.active") : t("integrations.disabled") ?? "Disabled"}
-              </p>
-              <p className="font-kosugi text-[11px] text-text-disabled">
-                {t("integrations.followUpDesc")}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleToggle}
-            disabled={isLoading}
-            className={cn(
-              "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-              isEnabled ? "bg-ops-accent" : "bg-background-elevated"
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                isEnabled ? "right-[2px]" : "left-[2px]"
-              )}
-            />
-          </button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function IntegrationsTab() {
   const { t } = useDictionary("settings");
   const can = usePermissionStore((s) => s.can);
-  const { company, currentUser } = useAuthStore();
+  const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: connections = [], isLoading: connectionsLoading } = useGmailConnections();
   const deleteConnection = useDeleteGmailConnection();
@@ -295,23 +232,11 @@ export function IntegrationsTab() {
   }, []);
 
   const companyConnections = connections.filter((c) => c.type === "company");
-  const individualConnections = connections.filter((c) => c.type === "individual");
   const hasAnyConnection = connections.length > 0;
   const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
 
   // Determine if there's a running analysis job to show progress for
   const activeJobId = (!wizardDone && companyConnections[0]?.syncFilters?.lastScanJobId) || null;
-  const scanNotComplete = activeJobId && companyConnections[0]?.syncFilters?.lastScanComplete !== true;
-
-  function handleConnectGmail(type: "company" | "individual") {
-    if (!can("settings.integrations")) return;
-    const params = new URLSearchParams({
-      companyId,
-      type,
-      ...(type === "individual" && currentUser?.id ? { userId: currentUser.id } : {}),
-    });
-    window.location.href = `/api/integrations/gmail?${params}`;
-  }
 
   function handleDisconnect(id: string) {
     if (!can("settings.integrations")) return;
@@ -414,10 +339,12 @@ export function IntegrationsTab() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleToggleSync(conn.id, conn.syncEnabled)}
-                      title={conn.syncEnabled ? t("integrations.pauseSync") : t("integrations.enableSync")}
+                      onClick={() => wizardDone && handleToggleSync(conn.id, conn.syncEnabled)}
+                      title={!wizardDone ? "Complete pipeline import first" : conn.syncEnabled ? t("integrations.pauseSync") : t("integrations.enableSync")}
+                      className={!wizardDone ? "opacity-40 cursor-not-allowed" : ""}
+                      disabled={!wizardDone}
                     >
-                      {conn.syncEnabled ? (
+                      {conn.syncEnabled && wizardDone ? (
                         <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
                       ) : (
                         <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
@@ -435,7 +362,24 @@ export function IntegrationsTab() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : activeJobId && !wizardDone ? (
+            <button
+              onClick={() => openWizard()}
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+            >
+              <div className="relative w-[18px] h-[18px] shrink-0">
+                <div className="w-full h-full border-2 border-ops-accent/30 border-t-ops-accent rounded-full animate-spin" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="font-mohave text-body text-ops-accent block">
+                  Analysis in progress...
+                </span>
+                <span className="font-kosugi text-[10px] text-text-disabled">
+                  Click to view progress
+                </span>
+              </div>
+            </button>
+          ) : !wizardDone ? (
             <button
               onClick={() => openWizard()}
               className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
@@ -450,7 +394,7 @@ export function IntegrationsTab() {
                 </span>
               </div>
             </button>
-          )}
+          ) : null}
 
           {/* Analysis Progress Banner — shows when analysis is running/complete and wizard is closed */}
           {hasAnyConnection && !wizardDone && activeJobId && (
@@ -621,71 +565,6 @@ export function IntegrationsTab() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      {/* Personal Gmail */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{t("integrations.myGmail")}</CardTitle>
-            {individualConnections.length > 0 && (
-              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-[10px] uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
-                <Check className="w-[12px] h-[12px]" />
-                {t("integrations.connected")}
-              </span>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-1.5">
-          <p className="font-mohave text-body-sm text-text-secondary">
-            {t("integrations.myGmailDesc")}
-          </p>
-
-          {individualConnections.length > 0 ? (
-            <div className="space-y-1">
-              {individualConnections.map((conn) => (
-                <div
-                  key={conn.id}
-                  className="flex items-center justify-between px-1.5 py-1 bg-[rgba(107,143,113,0.08)] border border-[rgba(107,143,113,0.2)] rounded"
-                >
-                  <div className="flex items-center gap-[6px] min-w-0">
-                    <Mail className="w-[16px] h-[16px] text-[#6B8F71] shrink-0" />
-                    <div className="min-w-0">
-                      <span className="font-mono text-data-sm text-[#6B8F71] block truncate">
-                        {conn.email}
-                      </span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
-                        {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDisconnect(conn.id)}
-                    className="text-text-disabled hover:text-ops-error shrink-0"
-                  >
-                    <Trash2 className="w-[14px] h-[14px]" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Button
-              variant="secondary"
-              onClick={() => handleConnectGmail("individual")}
-              className="gap-[6px]"
-            >
-              <ExternalLink className="w-[14px] h-[14px]" />
-              {t("integrations.connectMyGmail")}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      </div>
-
-      {/* Follow-up Monitoring */}
-      <FollowUpMonitoringCard />
     </div>
   );
 }

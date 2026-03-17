@@ -22,7 +22,7 @@ import { EmailService } from "@/lib/api/services/email-service";
 import { PatternDetectionService } from "@/lib/api/services/pattern-detection-service";
 import { EmailAIClassifier } from "@/lib/api/services/email-ai-classifier";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
-import { matchPlatform } from "@/lib/api/services/known-platforms";
+import { matchPlatform, PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import OpenAI from 'openai';
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
@@ -421,10 +421,39 @@ async function runAnalysis(
     leadThreads.push({ thread, source, aiClassification: null });
   }
 
+  // ─── Pre-declare formExtractionMap so Fix 4 (AI platform email re-extraction) can use it ─
+  const formExtractionMap = new Map<string, ExtractedFormClient>();
+
   // AI-classified lead threads (confidence >= 0.5 — lowered from 0.7 since threads give better context)
+  // Fix 4: If the AI's suggested client email is a platform address, attempt form extraction first.
   for (const thread of unmatchedThreads) {
     const classification = aiClassificationMap.get(thread.threadId);
     if (classification && classification.verdict === 'lead' && classification.confidence >= 0.5) {
+      // Check if AI-suggested email is a platform notification address
+      const aiClientEmail = cleanEmailAddress(classification.client?.email);
+      if (aiClientEmail && isPlatformEmail(aiClientEmail)) {
+        // AI classified this as a lead but the email is a platform address (e.g. wixforms.com).
+        // Try to extract the real client from the form body.
+        let extracted: ExtractedFormClient | null = null;
+        for (const email of thread.emails) {
+          extracted = await extractClientFromFormBody(email.bodyText || '', email.snippet);
+          if (extracted) {
+            formExtractionMap.set(thread.threadId, extracted);
+            break;
+          }
+        }
+        if (!extracted) {
+          // Cannot extract real client — skip this lead entirely
+          continue;
+        }
+        // Override the AI classification's client info with extracted data
+        if (classification.client) {
+          classification.client.email = extracted.email;
+          classification.client.name = extracted.name;
+          if (extracted.phone) classification.client.phone = extracted.phone;
+          if (extracted.message) classification.client.description = extracted.message;
+        }
+      }
       leadThreads.push({ thread, source: 'ai', aiClassification: classification });
     }
   }
@@ -434,7 +463,6 @@ async function runAnalysis(
   // ─── Phase 5b: AI-extract client info from forwarder/platform form bodies ─
   // Pre-extract all form submissions so the sync helpers can use a lookup map.
   // Runs in parallel for speed. Cost: ~$0.001 per email, < $0.05 for 30 forms.
-  const formExtractionMap = new Map<string, ExtractedFormClient>();
   const formExtractionThreads = leadThreads.filter(
     (lt) => lt.source === 'forwarder' || lt.source === 'platform'
   );
@@ -545,7 +573,10 @@ async function runAnalysis(
 
   for (const { thread, source, aiClassification } of leadThreads) {
     // Determine the client email (who is NOT the owner)
-    const clientEmail = findClientEmail(thread, ownerEmailLower, companyDomainSet, formExtractionMap);
+    // cleanEmailAddress strips "Name <email>" format so we always store clean addresses
+    const clientEmail = cleanEmailAddress(
+      findClientEmail(thread, ownerEmailLower, companyDomainSet, formExtractionMap)
+    );
     const clientName = aiClassification?.client?.name
       || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap);
 
@@ -621,13 +652,18 @@ async function runAnalysis(
           ? "outbound"
           : "inbound",
       })),
-      client: aiClassification?.client || (() => {
-        // For forwarder/platform threads, use AI-extracted phone & message from form body
-        const extracted = formExtractionMap.get(thread.threadId);
-        const phone = extracted?.phone || null;
-        const description = extracted?.message || thread.subject;
-        return { name: clientName, email: clientEmail, phone, description };
-      })(),
+      client: aiClassification?.client
+        ? {
+            ...aiClassification.client,
+            email: cleanEmailAddress(aiClassification.client.email),
+          }
+        : (() => {
+            // For forwarder/platform threads, use AI-extracted phone & message from form body
+            const extracted = formExtractionMap.get(thread.threadId);
+            const phone = extracted?.phone || null;
+            const description = extracted?.message || thread.subject;
+            return { name: clientName, email: clientEmail, phone, description };
+          })(),
       stage,
       stageConfidence,
       estimatedValue,
@@ -647,8 +683,25 @@ async function runAnalysis(
     });
   }
 
+  // ─── Phase 7b: Filter out invalid leads ──────────────────────────────────
+  // Fix 1: Remove leads where the client email is the owner's own email
+  // Fix 5: Remove leads with null/empty email or name
+  // Also filter out leads whose client email is a company domain (employee) or platform address
+  const filteredLeads = leads.filter(lead => {
+    const email = cleanEmailAddress(lead.client.email);
+    if (!email || !lead.client.name) return false; // null/empty email or name
+    if (email === ownerEmailLower) return false; // owner's own email
+    if (email.includes(ownerEmailLower)) return false; // owner's email as substring
+    const domain = email.split('@')[1] || '';
+    if (companyDomainSet.has(domain)) return false; // company employee
+    if (isPlatformEmail(email)) return false; // platform notification address
+    return true;
+  });
+
+  console.log(`[email-analyze] Leads after filtering: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed — owner/company/platform/null)`);
+
   // ─── Phase 8: Deduplicate leads by client email (Fix 5) ─────────────────
-  const deduplicatedLeads = deduplicateLeads(leads);
+  const deduplicatedLeads = deduplicateLeads(filteredLeads);
 
   console.log(`[email-analyze] Final leads: ${deduplicatedLeads.length} (${leads.length} before dedup)`);
 
@@ -698,18 +751,28 @@ async function runAnalysis(
 
 // ─── Helper functions ──────────────────────────────────────────────────────
 
+// ─── Clean "Name <email>" format ──────────────────────────────────────────
+// Gmail stores addresses as "Laura Eby <laurakeby@gmail.com>" — extract just the email part.
+
+function cleanEmailAddress(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const match = raw.match(/<([^>]+)>/);
+  return (match ? match[1] : raw).toLowerCase().trim();
+}
+
 // ─── Platform email detection ─────────────────────────────────────────────
 // These are notification senders / form platforms whose addresses should NEVER
 // be treated as a client email. If the only candidate address is one of these,
 // we need to parse the email body for the real client info instead.
+// Auto-includes all domains from the known-platforms registry so any new
+// platform added there is automatically excluded.
 
 const PLATFORM_EMAIL_PATTERNS = [
-  'wixforms.com', 'wix-forms.com', 'wix.com',
-  'wordpress.com', 'squarespace.com', 'jotform.com',
-  'typeform.com', 'formstack.com', 'hubspot.com',
-  'smartbidnet.com', 'procore.com', 'buildertrend.com',
+  // Hard-coded patterns that aren't just domains
   'reply-to+', 'noreply', 'no-reply', 'notifications@',
   'mailer-daemon', 'postmaster@',
+  // All domains from the known-platforms registry
+  ...Object.keys(PLATFORM_DOMAINS),
 ];
 
 function isPlatformEmail(email: string): boolean {
@@ -806,29 +869,27 @@ function findClientEmail(
   // while the "from" / "reply-to" headers point to platform notification addresses.
   if (thread.patternSource === 'forwarder' || thread.patternSource === 'platform') {
     const extracted = formExtraction.get(thread.threadId);
-    if (extracted?.email) return extracted.email;
+    if (extracted?.email) return cleanEmailAddress(extracted.email);
   }
 
   // Look through participants for someone who isn't the owner, not from a company domain,
   // and not a platform notification address (e.g. wixforms.com reply-to addresses).
   for (const participant of thread.participants) {
-    if (participant.includes(ownerEmailLower)) continue;
-    const domain = safe(participant).split('@')[1] || "";
+    const cleaned = cleanEmailAddress(participant);
+    if (!cleaned) continue;
+    if (cleaned.includes(ownerEmailLower)) continue;
+    const domain = cleaned.split('@')[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
-    // Extract just the email address if it contains a name like "John Smith <john@example.com>"
-    const emailMatch = participant.match(/<([^>]+)>/);
-    const cleanEmail = emailMatch ? emailMatch[1] : participant;
     // Skip platform notification addresses
-    if (isPlatformEmail(cleanEmail)) continue;
-    return cleanEmail;
+    if (isPlatformEmail(cleaned)) continue;
+    return cleaned;
   }
   // Fallback: use the first sender if they're not the owner and not a platform address
-  if (!safe(thread.firstSender).includes(ownerEmailLower)) {
-    const emailMatch = thread.firstSender.match(/<([^>]+)>/);
-    const cleanEmail = emailMatch ? emailMatch[1] : thread.firstSender;
-    if (!isPlatformEmail(cleanEmail)) return cleanEmail;
+  const cleanedFirstSender = cleanEmailAddress(thread.firstSender);
+  if (cleanedFirstSender && !cleanedFirstSender.includes(ownerEmailLower)) {
+    if (!isPlatformEmail(cleanedFirstSender)) return cleanedFirstSender;
   }
-  return thread.firstSender;
+  return cleanedFirstSender || thread.firstSender;
 }
 
 /** Find the client display name from thread participants */
@@ -887,10 +948,7 @@ function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
   const byClientEmail = new Map<string, AnalyzedLead[]>();
 
   for (const lead of leads) {
-    const clientEmail = safe(lead.client.email).trim();
-    // Also handle "Name <email>" format
-    const emailMatch = clientEmail.match(/<([^>]+)>/);
-    const normalizedEmail = emailMatch ? emailMatch[1] : clientEmail;
+    const normalizedEmail = cleanEmailAddress(lead.client.email);
 
     if (!byClientEmail.has(normalizedEmail)) {
       byClientEmail.set(normalizedEmail, []);

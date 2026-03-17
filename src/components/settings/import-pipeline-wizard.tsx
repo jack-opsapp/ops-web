@@ -75,7 +75,13 @@ export function ImportPipelineWizard({
   const [importing, setImporting] = useState(false);
   const [syncInterval, setSyncInterval] = useState(60);
   const [existingJobId, setExistingJobId] = useState<string | null>(null);
+  const [minimized, setMinimized] = useState(false);
   const wizardStateCheckedRef = useRef(false);
+
+  // When the wizard opens, un-minimize
+  useEffect(() => {
+    if (open) setMinimized(false);
+  }, [open]);
 
   // Auto-advance to Step 2 when connectionId prop arrives after OAuth redirect
   // Use a ref to avoid re-running on every step/connectionId change
@@ -288,6 +294,29 @@ export function ImportPipelineWizard({
   }, [onOpenChange, onComplete]);
 
   return (
+    <>
+    {/* Minimized bar — shows at bottom of screen when wizard is minimized during analysis */}
+    {minimized && !open && (
+      <div
+        className="fixed bottom-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 border border-white/10"
+        style={{
+          background: 'rgba(13, 13, 13, 0.9)',
+          backdropFilter: 'blur(20px) saturate(1.2)',
+          WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
+          borderRadius: 4,
+        }}
+      >
+        <div className="w-4 h-4 border-2 border-ops-accent/30 border-t-ops-accent rounded-full animate-spin" />
+        <span className="font-mohave text-[13px] text-white">Analyzing your inbox...</span>
+        <button
+          onClick={() => { setMinimized(false); onOpenChange(true); }}
+          className="font-mohave text-[12px] text-ops-accent hover:text-white transition-colors ml-2"
+        >
+          Expand
+        </button>
+      </div>
+    )}
+
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-[680px] p-0 border border-white/10 bg-[#0D0D0D] overflow-hidden"
@@ -366,7 +395,7 @@ export function ImportPipelineWizard({
                   companyId={companyId}
                   existingJobId={existingJobId || undefined}
                   onComplete={handleAnalysisComplete}
-                  onMinimize={() => onOpenChange(false)}
+                  onMinimize={() => { setMinimized(true); onOpenChange(false); }}
                 />
               )}
               {step === 3 && analysisResult && (
@@ -425,5 +454,6 @@ export function ImportPipelineWizard({
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

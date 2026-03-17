@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, Mail, Zap, MessageCircle, CheckCircle } from "lucide-react";
+import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -220,13 +220,15 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: EASE }}
+              transition={{ duration: 0.5, ease: EASE }}
               className="mt-6 pt-4 border-t border-white/8"
             >
               <button
                 onClick={onMinimize}
-                className="font-mohave text-[13px] text-[#666] hover:text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/15 transition-all font-mohave text-[13px] text-[#999] hover:text-white"
+                style={{ borderRadius: 3 }}
               >
+                <Minimize2 size={14} />
                 Minimize — we&apos;ll notify you when it&apos;s ready
               </button>
             </motion.div>
