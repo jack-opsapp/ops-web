@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import {
@@ -74,6 +74,17 @@ export function ImportPipelineWizard({
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [syncInterval, setSyncInterval] = useState(60);
+
+  // Auto-advance to Step 2 when connectionId prop arrives after OAuth redirect
+  useEffect(() => {
+    if (initialConnectionId && !connectionId && step === 1) {
+      setConnectionId(initialConnectionId);
+      setDirection(1);
+      setStep(2);
+    } else if (initialConnectionId && connectionId !== initialConnectionId) {
+      setConnectionId(initialConnectionId);
+    }
+  }, [initialConnectionId, connectionId, step]);
 
   const goTo = useCallback((target: 1 | 2 | 3 | 4 | 5) => {
     setDirection(target > step ? 1 : -1);
