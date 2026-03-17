@@ -431,6 +431,33 @@ async function runAnalysis(
 
   console.log(`[email-analyze] Lead threads: ${leadThreads.length} (${patternThreads.length} pattern + ${leadThreads.length - patternThreads.length} AI)`);
 
+  // ─── Phase 5b: AI-extract client info from forwarder/platform form bodies ─
+  // Pre-extract all form submissions so the sync helpers can use a lookup map.
+  // Runs in parallel for speed. Cost: ~$0.001 per email, < $0.05 for 30 forms.
+  const formExtractionMap = new Map<string, ExtractedFormClient>();
+  const formExtractionThreads = leadThreads.filter(
+    (lt) => lt.source === 'forwarder' || lt.source === 'platform'
+  );
+
+  if (formExtractionThreads.length > 0) {
+    console.log(`[email-analyze] Extracting client info from ${formExtractionThreads.length} form submission threads via AI...`);
+    const extractionPromises = formExtractionThreads.map(async ({ thread }) => {
+      // Try each email in the thread until we get a result
+      for (const email of thread.emails) {
+        const extracted = await extractClientFromFormBody(
+          email.bodyText || '',
+          email.snippet
+        );
+        if (extracted) {
+          formExtractionMap.set(thread.threadId, extracted);
+          return;
+        }
+      }
+    });
+    await Promise.all(extractionPromises);
+    console.log(`[email-analyze] AI form extraction complete: ${formExtractionMap.size}/${formExtractionThreads.length} threads had extractable client info`);
+  }
+
   // ─── Phase 6: Fetch full threads for stage analysis (cap at 20) ──────────
   // Cap at 20 to avoid Gmail API rate limits and long hangs.
   // Threads beyond the cap get correspondence-based staging (fast + free).
@@ -518,9 +545,9 @@ async function runAnalysis(
 
   for (const { thread, source, aiClassification } of leadThreads) {
     // Determine the client email (who is NOT the owner)
-    const clientEmail = findClientEmail(thread, ownerEmailLower, companyDomainSet);
+    const clientEmail = findClientEmail(thread, ownerEmailLower, companyDomainSet, formExtractionMap);
     const clientName = aiClassification?.client?.name
-      || findClientName(thread, ownerEmailLower, companyDomainSet);
+      || findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap);
 
     // Determine stage
     let stage: string;
@@ -595,22 +622,10 @@ async function runAnalysis(
           : "inbound",
       })),
       client: aiClassification?.client || (() => {
-        // For forwarder/platform threads, try to extract phone & description from form body
-        let phone: string | null = null;
-        let description: string = thread.subject;
-        if (source === 'forwarder' || source === 'platform') {
-          for (const email of thread.emails) {
-            const text = email.bodyText || email.snippet;
-            if (text) {
-              const parsed = parseFormSubmissionBody(text);
-              if (parsed) {
-                if (parsed.phone) phone = parsed.phone;
-                if (parsed.message) description = parsed.message;
-                break;
-              }
-            }
-          }
-        }
+        // For forwarder/platform threads, use AI-extracted phone & message from form body
+        const extracted = formExtractionMap.get(thread.threadId);
+        const phone = extracted?.phone || null;
+        const description = extracted?.message || thread.subject;
         return { name: clientName, email: clientEmail, phone, description };
       })(),
       stage,
@@ -783,19 +798,15 @@ function correspondenceBasedStage(thread: ThreadInfo): string {
 function findClientEmail(
   thread: ThreadInfo,
   ownerEmailLower: string,
-  companyDomainSet: Set<string>
+  companyDomainSet: Set<string>,
+  formExtraction: Map<string, ExtractedFormClient>
 ): string {
-  // For forwarder threads, try to extract client info from the form body first.
+  // For forwarder threads, use AI-extracted client info from the form body first.
   // Forwarded form submissions (e.g. Wix) have the real client email in the body,
   // while the "from" / "reply-to" headers point to platform notification addresses.
-  if (thread.patternSource === 'forwarder') {
-    for (const email of thread.emails) {
-      const text = email.bodyText || email.snippet;
-      if (text) {
-        const parsed = parseFormSubmissionBody(text);
-        if (parsed?.email) return parsed.email;
-      }
-    }
+  if (thread.patternSource === 'forwarder' || thread.patternSource === 'platform') {
+    const extracted = formExtraction.get(thread.threadId);
+    if (extracted?.email) return extracted.email;
   }
 
   // Look through participants for someone who isn't the owner, not from a company domain,
@@ -817,14 +828,6 @@ function findClientEmail(
     const cleanEmail = emailMatch ? emailMatch[1] : thread.firstSender;
     if (!isPlatformEmail(cleanEmail)) return cleanEmail;
   }
-  // Last resort: try parsing ANY email body for form submission data
-  for (const email of thread.emails) {
-    const text = email.bodyText || email.snippet;
-    if (text) {
-      const parsed = parseFormSubmissionBody(text);
-      if (parsed?.email) return parsed.email;
-    }
-  }
   return thread.firstSender;
 }
 
@@ -832,17 +835,13 @@ function findClientEmail(
 function findClientName(
   thread: ThreadInfo,
   ownerEmailLower: string,
-  companyDomainSet: Set<string>
+  companyDomainSet: Set<string>,
+  formExtraction: Map<string, ExtractedFormClient>
 ): string {
-  // For forwarder threads, try to extract client name from the form body first.
-  if (thread.patternSource === 'forwarder') {
-    for (const email of thread.emails) {
-      const text = email.bodyText || email.snippet;
-      if (text) {
-        const parsed = parseFormSubmissionBody(text);
-        if (parsed?.name) return parsed.name;
-      }
-    }
+  // For forwarder/platform threads, use AI-extracted client name from the form body first.
+  if (thread.patternSource === 'forwarder' || thread.patternSource === 'platform') {
+    const extracted = formExtraction.get(thread.threadId);
+    if (extracted?.name) return extracted.name;
   }
 
   // Find the first non-owner, non-company, non-platform email and extract name
@@ -856,14 +855,6 @@ function findClientName(
     if (isPlatformEmail(cleanEmail)) continue;
     if (email.fromName && email.fromName !== (email.from || "").split('@')[0]) {
       return email.fromName;
-    }
-  }
-  // Last resort: try parsing ANY email body for form submission data
-  for (const email of thread.emails) {
-    const text = email.bodyText || email.snippet;
-    if (text) {
-      const parsed = parseFormSubmissionBody(text);
-      if (parsed?.name) return parsed.name;
     }
   }
   // Fallback: extract from first sender
