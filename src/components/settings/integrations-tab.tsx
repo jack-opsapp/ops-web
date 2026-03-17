@@ -67,6 +67,14 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   const completeFiredRef = useRef(false);
   const { showPrompt, removePrompt } = useActionPromptStore();
 
+  // Use refs for callbacks to avoid re-triggering the poll effect
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const showPromptRef = useRef(showPrompt);
+  showPromptRef.current = showPrompt;
+  const removePromptRef = useRef(removePrompt);
+  removePromptRef.current = removePrompt;
+
   useEffect(() => {
     // Don't poll when the wizard is open — the wizard handles its own polling
     if (wizardOpen) {
@@ -92,15 +100,15 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           setTotalScanned(data.result.totalScanned ?? 0);
 
           // Fire action prompt notification
-          showPrompt({
+          showPromptRef.current({
             id: "email-analysis-complete",
             icon: CheckCircle,
             title: "Pipeline analysis complete",
             description: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
             ctaLabel: "Review Leads",
             ctaAction: () => {
-              removePrompt("email-analysis-complete");
-              onComplete();
+              removePromptRef.current("email-analysis-complete");
+              onCompleteRef.current();
             },
             persistent: false,
             dismissable: true,
@@ -124,7 +132,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [jobId, wizardOpen, showPrompt, removePrompt, onComplete]);
+  }, [jobId, wizardOpen]); // Only re-run when jobId or wizardOpen changes
 
   const isComplete = status === "complete";
   const isError = status === "error";
