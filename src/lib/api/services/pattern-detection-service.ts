@@ -24,6 +24,10 @@ export interface PatternDetectionResult {
   companyDomains: string[];
   teamForwarders: string[];
   unclassifiedPersonalEmails: NormalizedEmail[];
+  /** All personal inbox emails before any filtering — used by the analyze route to send ALL candidates to AI */
+  allInboxEmails: NormalizedEmail[];
+  /** Map from email ID to its match source, for emails that were pattern-matched */
+  emailSourceMap: Record<string, 'estimate_pattern' | 'platform' | 'forwarder'>;
   totalEmailsScanned: number;
 }
 
@@ -99,24 +103,34 @@ export const PatternDetectionService = {
       });
     }
 
-    // Collect IDs/threadIds that are already matched
+    // Collect IDs/threadIds that are already matched and build source map
     const matchedFromEmails = new Set<string>();
+    const emailSourceMap: Record<string, 'estimate_pattern' | 'platform' | 'forwarder'> = {};
+
+    const forwarderEmailSet = new Set(teamForwarders.map((f) => f.email.toLowerCase()));
+    const alreadyMatchedThreadIds = new Set(sentAnalysis.estimateThreadIds);
+
     for (const email of inboxEmails) {
       if (matchPlatform(email.from)) {
         matchedFromEmails.add(email.id);
+        emailSourceMap[email.id] = 'platform';
+      } else if (alreadyMatchedThreadIds.has(email.threadId)) {
+        emailSourceMap[email.id] = 'estimate_pattern';
+      } else if (forwarderEmailSet.has(email.from.toLowerCase())) {
+        emailSourceMap[email.id] = 'forwarder';
       }
     }
-    const forwarderEmails = new Set(teamForwarders.map((f) => f.email.toLowerCase()));
-    const alreadyMatchedThreadIds = new Set(sentAnalysis.estimateThreadIds);
 
-    const unclassifiedPersonalEmails = inboxEmails.filter((email) => {
+    // Filter out non-personal categories for ALL emails (pattern-matched and unclassified)
+    const allPersonalInboxEmails = inboxEmails.filter((email) => {
+      if (email.labelIds.some((l) => l.startsWith('CATEGORY_') && l !== 'CATEGORY_PERSONAL')) return false;
+      return true;
+    });
+
+    const unclassifiedPersonalEmails = allPersonalInboxEmails.filter((email) => {
       if (matchedFromEmails.has(email.id)) return false;
       if (alreadyMatchedThreadIds.has(email.threadId)) return false;
-      // Skip if from a known forwarder
-      if (forwarderEmails.has(email.from.toLowerCase())) return false;
-      // Skip promotions, updates, social, forums (Gmail categories)
-      if (email.labelIds.some((l) => l.startsWith('CATEGORY_') && l !== 'CATEGORY_PERSONAL')) return false;
-      // Skip known platform senders
+      if (forwarderEmailSet.has(email.from.toLowerCase())) return false;
       if (matchPlatform(email.from)) return false;
       return true;
     });
@@ -129,6 +143,8 @@ export const PatternDetectionService = {
       companyDomains,
       teamForwarders: teamForwarders.map((f) => f.email),
       unclassifiedPersonalEmails,
+      allInboxEmails: allPersonalInboxEmails,
+      emailSourceMap,
       totalEmailsScanned: inboxEmails.length + sentAnalysis.allSentEmails.length,
     };
   },

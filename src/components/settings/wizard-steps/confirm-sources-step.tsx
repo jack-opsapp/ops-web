@@ -123,11 +123,11 @@ export function ConfirmSourcesStep({
             <motion.div
               key={`${source.type}-${source.pattern}-${i}`}
               variants={staggerItem}
-              className="flex items-center gap-3 p-3 border border-white/10 bg-[#141414] transition-all"
-              style={{
-                borderRadius: 3,
-                opacity: source.enabled ? 1 : 0.4,
-              }}
+              className="flex items-center gap-3 p-3 border border-white/10 bg-[#141414] cursor-pointer select-none"
+              style={{ borderRadius: 3 }}
+              animate={{ opacity: source.enabled ? 1 : 0.4 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => toggleSource(i)}
             >
               <div
                 className="w-7 h-7 flex items-center justify-center border border-white/10"
@@ -144,19 +144,24 @@ export function ConfirmSourcesStep({
                 </p>
               </div>
               <button
-                onClick={() => toggleSource(i)}
-                className="flex-shrink-0 w-8 h-5 rounded-full transition-all duration-200 relative"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSource(i);
+                }}
+                className="flex-shrink-0 w-9 h-[22px] rounded-full transition-colors duration-200 relative"
                 style={{
                   background: source.enabled
-                    ? "rgba(89,119,148,0.3)"
-                    : "rgba(255,255,255,0.08)",
+                    ? "rgba(89,119,148,0.4)"
+                    : "rgba(255,255,255,0.06)",
                 }}
+                aria-label={source.enabled ? "Disable source" : "Enable source"}
               >
                 <div
-                  className="absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200"
+                  className="absolute top-[3px] w-4 h-4 rounded-full transition-all duration-200"
                   style={{
-                    left: source.enabled ? 16 : 2,
-                    background: source.enabled ? "#597794" : "#666",
+                    left: source.enabled ? 18 : 3,
+                    background: source.enabled ? "#597794" : "#555",
                   }}
                 />
               </button>

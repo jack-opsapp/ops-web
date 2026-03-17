@@ -221,6 +221,7 @@ export function ImportPipelineWizard({
       <DialogContent
         className="max-w-[680px] p-0 border border-white/10 bg-[#0D0D0D] overflow-hidden"
         style={{ borderRadius: 4 }}
+        hideClose
       >
         <DialogTitle className="sr-only">Import Your Pipeline</DialogTitle>
         <DialogDescription className="sr-only">
@@ -272,7 +273,7 @@ export function ImportPipelineWizard({
         </div>
 
         {/* Step content */}
-        <div className="px-6 pb-6 pt-4 min-h-[400px] overflow-y-auto">
+        <div className="px-6 pb-2 pt-4 min-h-[400px] overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={step}
@@ -336,6 +337,18 @@ export function ImportPipelineWizard({
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Back button footer */}
+        {step > 1 && (
+          <div className="flex items-center justify-between px-6 pb-4">
+            <button
+              onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}
+              className="font-mohave text-[13px] text-[#666] hover:text-white transition-colors"
+            >
+              &larr; Back
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

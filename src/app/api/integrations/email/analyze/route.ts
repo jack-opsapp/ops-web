@@ -128,10 +128,10 @@ async function runAnalysis(
     40
   );
 
-  // Phase 2: AI classification of unmatched emails
+  // Phase 2: AI classification of ALL personal inbox emails (pattern-matched + unclassified)
   await updateProgress(
     "classifying_ai",
-    `Classifying ${detection.unclassifiedPersonalEmails.length} emails with AI...`,
+    `Classifying ${detection.allInboxEmails.length} emails with AI...`,
     50
   );
 
@@ -142,7 +142,8 @@ async function runAnalysis(
     .eq("id", companyId)
     .single();
 
-  const classificationInputs = detection.unclassifiedPersonalEmails.map(
+  // Send ALL inbox emails to AI — the spec says "AI validates ALL candidates"
+  const classificationInputs = detection.allInboxEmails.map(
     (e) => ({
       id: e.id,
       threadId: e.threadId,
@@ -190,11 +191,23 @@ async function runAnalysis(
     ),
   ] as string[];
 
-  // Fetch threads in batches (cap at 100)
-  const threadAnalysisInputs = [];
+  // Fetch full threads for accurate message counts and stage analysis (cap at 100)
+  const threadAnalysisInputs: Array<{
+    threadId: string;
+    messages: Array<{
+      from: string;
+      to: string[];
+      subject: string;
+      bodyText: string;
+      date: string;
+      direction: "inbound" | "outbound";
+    }>;
+  }> = [];
+  const threadMessageCounts = new Map<string, number>();
   for (const threadId of uniqueThreadIds.slice(0, 100)) {
     try {
       const thread = await provider.fetchThread(threadId);
+      threadMessageCounts.set(threadId, thread.length);
       threadAnalysisInputs.push({
         threadId,
         messages: thread.map((m) => ({
@@ -226,7 +239,7 @@ async function runAnalysis(
     }
   );
 
-  // Phase 4: Build AnalyzedLead[] from classifications + thread analyses
+  // Phase 4: Build AnalyzedLead[] from ALL lead classifications + thread analyses
   const threadAnalysisMap = new Map(
     threadAnalyses.map((ta) => [ta.threadId, ta])
   );
@@ -280,6 +293,26 @@ async function runAnalysis(
       (e) => e.direction === "outbound"
     ).length;
 
+    // Bug 2 fix: Use actual thread message count from fetched thread data,
+    // not the count of emails in classificationInputs (which may be a subset)
+    const actualThreadCount = threadMessageCounts.get(input.threadId) || threadEmails.length;
+
+    // Determine source tag based on pattern detection's emailSourceMap
+    const patternSource = detection.emailSourceMap[input.id];
+    const SOURCE_LABELS: Record<string, string> = {
+      estimate_pattern: "Estimate thread",
+      platform: "Platform email",
+      forwarder: "Forwarded lead",
+    };
+    const source: "pattern" | "platform" | "forwarder" | "ai" = patternSource === "estimate_pattern"
+      ? "pattern"
+      : patternSource === "platform"
+        ? "platform"
+        : patternSource === "forwarder"
+          ? "forwarder"
+          : "ai";
+    const sourceLabel = patternSource ? SOURCE_LABELS[patternSource] : "AI detected";
+
     leads.push({
       id: `lead-${input.threadId}`,
       threadId: input.threadId,
@@ -302,15 +335,15 @@ async function runAnalysis(
         threadAnalysis?.estimatedValue ||
         classification.estimatedValue ||
         null,
-      correspondenceCount: threadEmails.length,
+      correspondenceCount: actualThreadCount,
       outboundCount,
       lastMessageDate:
         threadEmails.sort(
           (a, b) =>
             new Date(b.date).getTime() - new Date(a.date).getTime()
         )[0]?.date || input.date,
-      source: "ai",
-      sourceLabel: "AI detected",
+      source,
+      sourceLabel,
       duplicateGroupId:
         classification.duplicateOf.length > 0
           ? classification.duplicateOf[0]
