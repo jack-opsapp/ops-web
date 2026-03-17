@@ -624,7 +624,15 @@ export function ImportPipelineWizard({
       </motion.div>
     )}
 
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen && runningJobId) {
+        // Job is running — minimize instead of closing
+        setMinimized(true);
+        onOpenChange(false);
+        return;
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogContent
         className="max-w-[680px] p-0 border border-white/10 bg-[#0D0D0D] overflow-hidden"
         style={{ borderRadius: 4 }}
@@ -646,7 +654,15 @@ export function ImportPipelineWizard({
             </p>
           </div>
           <button
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              if (runningJobId) {
+                // Job is running — minimize instead of closing
+                setMinimized(true);
+                onOpenChange(false);
+              } else {
+                onOpenChange(false);
+              }
+            }}
             className="p-1.5 text-[#999] hover:text-white transition-colors"
           >
             <X size={16} />
