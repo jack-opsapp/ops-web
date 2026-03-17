@@ -222,16 +222,17 @@ async function runAnalysis(
   };
 
   // ─── Phase 1: Pattern detection ──────────────────────────────────────────
-  await updateProgress("analyzing_sent", "Analyzing your sent emails...", 10);
+  await updateProgress("analyzing_sent", "Scanning your inbox and sent mail...", 5);
 
   const detection = await PatternDetectionService.detect(connection, {
     monthsBack: 3,
   });
 
+  const totalEmails = detection.allInboxEmails.length + detection.allSentEmails.length;
   await updateProgress(
     "detecting_platforms",
-    `Found ${detection.detectedSources.length} sources. Building thread map...`,
-    30
+    `Scanned ${totalEmails} emails. Found ${detection.detectedSources.length} lead sources. Mapping threads...`,
+    20
   );
 
   // ─── Phase 2: Build thread map from ALL inbox + sent emails ──────────────
@@ -371,7 +372,7 @@ async function runAnalysis(
   await updateProgress(
     "classifying_ai",
     `Classifying ${unmatchedThreads.length} threads with AI...`,
-    50
+    35
   );
 
   // Fetch company info for AI context
@@ -403,6 +404,15 @@ async function runAnalysis(
       industry: (company?.industry as string) || "trades",
       ownerEmail: connection.email,
       companyDomains: detection.companyDomains,
+    },
+    // Granular progress: smoothly updates from 35% to 65% as AI processes batches
+    async (processed, total) => {
+      const aiProgress = 35 + Math.round((processed / total) * 30);
+      await updateProgress(
+        "classifying_ai",
+        `AI classified ${processed} of ${total} threads...`,
+        aiProgress
+      );
     }
   );
 
@@ -475,6 +485,12 @@ async function runAnalysis(
 
   console.log(`[email-analyze] Lead threads: ${leadThreads.length} (${patternThreads.length} pattern + ${leadThreads.length - patternThreads.length} AI)`);
 
+  await updateProgress(
+    "analyzing_threads",
+    `Extracting client info from ${leadThreads.length} lead threads...`,
+    75
+  );
+
   // ─── Phase 5b: AI-extract client info from forwarder/platform form bodies ─
   // Pre-extract all form submissions so the sync helpers can use a lookup map.
   // Runs in parallel for speed. Cost: ~$0.001 per email, < $0.05 for 30 forms.
@@ -500,6 +516,12 @@ async function runAnalysis(
     await Promise.all(extractionPromises);
     console.log(`[email-analyze] AI form extraction complete: ${formExtractionMap.size}/${formExtractionThreads.length} threads had extractable client info`);
   }
+
+  await updateProgress(
+    "analyzing_threads",
+    "Analyzing thread stages...",
+    85
+  );
 
   // ─── Phase 6: Fetch full threads for stage analysis (cap at 20) ──────────
   // Cap at 20 to avoid Gmail API rate limits and long hangs.
@@ -726,12 +748,14 @@ async function runAnalysis(
 
   console.log(`[email-analyze] Leads after filtering: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed — owner/company/platform/null)`);
 
+  await updateProgress("analyzing_threads", "Deduplicating leads...", 95);
+
   // ─── Phase 8: Deduplicate leads by client email (Fix 5) ─────────────────
   const deduplicatedLeads = deduplicateLeads(filteredLeads);
 
   console.log(`[email-analyze] Final leads: ${deduplicatedLeads.length} (${leads.length} before dedup)`);
 
-  await updateProgress("complete", "Analysis complete!", 100);
+  await updateProgress("complete", `Analysis complete! Found ${deduplicatedLeads.length} leads.`, 100);
 
   // Save results
   await supabase

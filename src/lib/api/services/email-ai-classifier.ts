@@ -133,7 +133,8 @@ export const EmailAIClassifier = {
    */
   async classifyThreadBatch(
     threads: ThreadSummaryInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
+    onProgress?: (processed: number, total: number) => Promise<void>
   ): Promise<ThreadClassificationResult[]> {
     if (threads.length === 0) return [];
 
@@ -143,6 +144,9 @@ export const EmailAIClassifier = {
       const batch = threads.slice(i, i + 30);
       const batchResults = await EmailAIClassifier.classifySingleThreadBatch(batch, context);
       results.push(...batchResults);
+      if (onProgress) {
+        await onProgress(Math.min(i + 30, threads.length), threads.length);
+      }
       if (i + 30 < threads.length) {
         await new Promise((r) => setTimeout(r, 200));
       }
