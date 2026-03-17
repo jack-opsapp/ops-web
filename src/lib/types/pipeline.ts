@@ -1448,6 +1448,8 @@ export interface GmailSyncFilters {
   wizardStep?: string;
   /** The scan job ID from the most recent completed scan (for resuming) */
   lastScanJobId?: string;
+  /** Whether the last scan job has completed */
+  lastScanComplete?: boolean;
   /** AI analysis summary from the last completed scan */
   lastScanSummary?: string;
   /** Total emails scanned in the last scan */

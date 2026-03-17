@@ -62,6 +62,7 @@ export interface SyncProfile {
   wizardCompleted?: boolean;
   wizardStep?: string | number;
   lastScanJobId?: string;
+  lastScanComplete?: boolean;
   lastScanSummary?: Record<string, unknown> | string;
   lastScanTotal?: number;
   lastScanImportCount?: number;

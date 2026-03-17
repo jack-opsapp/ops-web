@@ -40,6 +40,9 @@ function sanitizeStage(stage: string | null | undefined): string {
   return 'new_lead';
 }
 
+// Safe lowercase helper — Gmail messages can have null/undefined fields
+const safe = (s: string | null | undefined): string => (s || "").toLowerCase();
+
 // ─── Thread map types ────────────────────────────────────────────────────────
 
 interface ThreadInfo {
@@ -85,6 +88,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ─── Prevent duplicate analysis jobs ────────────────────────────────────────
+  // If there's already a running job for this connection, return it instead
+  const { data: existingJobs } = await supabase
+    .from("gmail_scan_jobs")
+    .select("id, status")
+    .eq("connection_id", connectionId)
+    .in("status", ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"])
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (existingJobs && existingJobs.length > 0) {
+    return NextResponse.json({ jobId: existingJobs[0].id });
+  }
+
   // Create analysis job
   const { data: job, error } = await supabase
     .from("gmail_scan_jobs")
@@ -108,12 +125,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ─── Persist wizard state on the connection ────────────────────────────────
+  await supabase
+    .from("email_connections")
+    .update({
+      sync_filters: {
+        ...connection.syncFilters,
+        wizardStep: 2,
+        lastScanJobId: job.id,
+        wizardCompleted: false,
+        lastScanComplete: false,
+      },
+      status: "setup_incomplete",
+    })
+    .eq("id", connectionId);
+
   // Run analysis in background — manages its own setSupabaseOverride lifecycle
   after(async () => {
     const bgSupabase = getServiceRoleClient();
     setSupabaseOverride(bgSupabase);
     try {
-      await runAnalysis(job.id, connection, companyId, bgSupabase);
+      await runAnalysis(job.id, connection, companyId, connectionId, bgSupabase);
     } catch (err) {
       console.error("[email-analyze] Analysis failed:", err);
       await bgSupabase
@@ -135,6 +167,7 @@ async function runAnalysis(
   jobId: string,
   connection: EmailConnection,
   companyId: string,
+  connectionId: string,
   supabase: SupabaseClient
 ) {
   const updateProgress = async (
@@ -170,16 +203,13 @@ async function runAnalysis(
     (e) => e.threadId && e.threadId !== "undefined" && e.threadId !== "null"
   );
 
-  // Safe lowercase helper — Gmail messages can have null/undefined fields
-  const safe = (s: string | null | undefined): string => (s || "").toLowerCase();
-
   const ownerEmailLower = safe(connection.email);
   const companyDomainSet = new Set(detection.companyDomains.map((d) => d.toLowerCase()));
   const forwarderEmailSet = new Set(detection.teamForwarders.map((f) => f.toLowerCase()));
   const estimateThreadIds = new Set(
     detection.detectedSources
       .filter((s) => s.type === 'estimate_pattern')
-      .flatMap((s) => {
+      .flatMap(() => {
         // Get thread IDs from emailSourceMap
         return validEmails
           .filter((e) => detection.emailSourceMap[e.id] === 'estimate_pattern')
@@ -245,7 +275,7 @@ async function runAnalysis(
     // Track participants
     const allAddresses = [email.from, ...email.to, ...email.cc];
     for (const addr of allAddresses) {
-      const normalized = safe(addr);
+      const normalized = addr.toLowerCase();
       if (!thread.participants.includes(normalized)) {
         thread.participants.push(normalized);
       }
@@ -446,7 +476,7 @@ async function runAnalysis(
     let stage: string;
     let stageConfidence: number;
     let estimatedValue: number | null = null;
-    let terminalFlag: 'likely_won' | 'likely_lost' | null = null;
+    const terminalFlag: 'likely_won' | 'likely_lost' | null = null;
 
     if (source === 'ai') {
       // AI-classified leads: use thread analysis if available, else AI classification
@@ -455,12 +485,10 @@ async function runAnalysis(
         stage = sanitizeStage(threadAnalysis.stage);
         stageConfidence = threadAnalysis.confidence;
         estimatedValue = threadAnalysis.estimatedValue;
-        terminalFlag = threadAnalysis.terminalFlag;
       } else if (aiClassification) {
         stage = sanitizeStage(aiClassification.stage);
         stageConfidence = aiClassification.confidence;
         estimatedValue = aiClassification.estimatedValue;
-        terminalFlag = aiClassification.terminalFlag;
       } else {
         stage = correspondenceBasedStage(thread);
         stageConfidence = 0.6;
@@ -566,6 +594,28 @@ async function runAnalysis(
       },
     })
     .eq("id", jobId);
+
+  // ─── Update connection wizard state on completion ─────────────────────────
+  // Fetch current sync_filters to merge (they may have been updated during analysis)
+  const { data: currentConn } = await supabase
+    .from("email_connections")
+    .select("sync_filters")
+    .eq("id", connectionId)
+    .single();
+
+  const existingFilters = (currentConn?.sync_filters as Record<string, unknown>) || {};
+
+  await supabase
+    .from("email_connections")
+    .update({
+      sync_filters: {
+        ...existingFilters,
+        wizardStep: 3,
+        lastScanJobId: jobId,
+        lastScanComplete: true,
+      },
+    })
+    .eq("id", connectionId);
 }
 
 // ─── Helper functions ──────────────────────────────────────────────────────

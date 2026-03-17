@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Search, Mail, Zap, MessageCircle, CheckCircle } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types/email-import";
 
@@ -18,11 +18,12 @@ const STAGES = [
 interface AnalyzeStepProps {
   connectionId: string;
   companyId: string;
+  existingJobId?: string; // If set, reconnect to this job instead of starting new
   onComplete: (result: AnalysisResult["result"]) => void;
 }
 
-export function AnalyzeStep({ connectionId, companyId, onComplete }: AnalyzeStepProps) {
-  const [jobId, setJobId] = useState<string | null>(null);
+export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete }: AnalyzeStepProps) {
+  const [jobId, setJobId] = useState<string | null>(existingJobId || null);
   const [status, setStatus] = useState<string>("pending");
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("Starting analysis...");
@@ -31,10 +32,16 @@ export function AnalyzeStep({ connectionId, companyId, onComplete }: AnalyzeStep
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const startedRef = useRef(false);
 
-  // Start analysis
+  // Start analysis (or reconnect to existing job)
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
+
+    // If we have an existing job ID, skip starting a new analysis — go straight to polling
+    if (existingJobId) {
+      setJobId(existingJobId);
+      return;
+    }
 
     const startAnalysis = async () => {
       try {
@@ -49,13 +56,13 @@ export function AnalyzeStep({ connectionId, companyId, onComplete }: AnalyzeStep
           return;
         }
         setJobId(data.jobId);
-      } catch (err) {
+      } catch {
         setError("Failed to start analysis");
       }
     };
 
     startAnalysis();
-  }, [connectionId, companyId]);
+  }, [connectionId, companyId, existingJobId]);
 
   // Poll for status
   useEffect(() => {
@@ -107,12 +114,12 @@ export function AnalyzeStep({ connectionId, companyId, onComplete }: AnalyzeStep
     };
   }, [jobId, onComplete]);
 
-  const currentStageIndex = STAGES.findIndex((s) => s.key === status);
-
   return (
     <div>
       <p className="font-mohave text-[15px] text-[#999] mb-8">
-        Scanning your inbox for business patterns and potential leads.
+        {existingJobId
+          ? "Reconnecting to your running analysis..."
+          : "Scanning your inbox for business patterns and potential leads."}
       </p>
 
       {error ? (

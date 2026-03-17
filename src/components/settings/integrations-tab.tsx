@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
 import {
   Mail,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,9 @@ import {
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useActionPromptStore } from "@/stores/action-prompt-store";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 function formatTimeAgo(date: Date | null): string {
   if (!date) return "Never";
@@ -40,6 +45,160 @@ function formatTimeAgo(date: Date | null): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+// ─── Analysis Progress Banner ─────────────────────────────────────────────────
+// Shows inline progress when analysis is running and the wizard is closed
+
+interface AnalysisProgressBannerProps {
+  jobId: string;
+  wizardOpen: boolean;
+  onComplete: () => void;
+  onClick: () => void;
+}
+
+function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: AnalysisProgressBannerProps) {
+  const [progress, setProgress] = useState(0);
+  const [message, setMessage] = useState("Analyzing...");
+  const [status, setStatus] = useState<string>("pending");
+  const [leadCount, setLeadCount] = useState<number | null>(null);
+  const [totalScanned, setTotalScanned] = useState<number | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const completeFiredRef = useRef(false);
+  const { showPrompt, removePrompt } = useActionPromptStore();
+
+  useEffect(() => {
+    // Don't poll when the wizard is open — the wizard handles its own polling
+    if (wizardOpen) {
+      if (pollRef.current) clearTimeout(pollRef.current);
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/integrations/email/analyze-status?jobId=${jobId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        setStatus(data.status);
+        if (data.progress) {
+          setProgress(data.progress.percent);
+          setMessage(data.progress.message);
+        }
+
+        if (data.status === "complete" && data.result && !completeFiredRef.current) {
+          completeFiredRef.current = true;
+          setLeadCount(data.result.leads?.length ?? 0);
+          setTotalScanned(data.result.totalScanned ?? 0);
+
+          // Fire action prompt notification
+          showPrompt({
+            id: "email-analysis-complete",
+            icon: CheckCircle,
+            title: "Pipeline analysis complete",
+            description: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
+            ctaLabel: "Review Leads",
+            ctaAction: () => {
+              removePrompt("email-analysis-complete");
+              onComplete();
+            },
+            persistent: false,
+            dismissable: true,
+            variant: "accent",
+          });
+          return;
+        }
+
+        if (data.status === "error") {
+          setMessage(data.error || "Analysis failed");
+          return;
+        }
+
+        pollRef.current = setTimeout(poll, 3000);
+      } catch {
+        pollRef.current = setTimeout(poll, 5000);
+      }
+    };
+
+    poll();
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [jobId, wizardOpen, showPrompt, removePrompt, onComplete]);
+
+  const isComplete = status === "complete";
+  const isError = status === "error";
+
+  if (isComplete) {
+    return (
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[rgba(157,181,130,0.3)] bg-[rgba(157,181,130,0.08)] hover:bg-[rgba(157,181,130,0.15)] transition-colors text-left"
+      >
+        <CheckCircle className="w-[16px] h-[16px] text-[#9DB582] shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="font-mohave text-body-sm text-[#9DB582] block">
+            Analysis complete — {leadCount} lead{leadCount !== 1 ? "s" : ""} found
+          </span>
+          <span className="font-kosugi text-[10px] text-text-disabled">
+            {totalScanned} emails scanned
+          </span>
+        </div>
+        <span className="font-mohave text-[12px] text-[#597794] shrink-0">
+          Review Leads
+        </span>
+      </button>
+    );
+  }
+
+  if (isError) {
+    return (
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#93321A]/30 bg-[#93321A]/08 hover:bg-[#93321A]/15 transition-colors text-left"
+      >
+        <AlertTriangle className="w-[16px] h-[16px] text-[#FF6B4A] shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="font-mohave text-body-sm text-[#FF6B4A] block">
+            Analysis failed
+          </span>
+          <span className="font-kosugi text-[10px] text-text-disabled">
+            {message}
+          </span>
+        </div>
+        <span className="font-mohave text-[12px] text-[#597794] shrink-0">
+          Retry
+        </span>
+      </button>
+    );
+  }
+
+  // In-progress state
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#597794]/30 bg-[#597794]/08 hover:bg-[#597794]/12 transition-colors text-left"
+    >
+      <Search className="w-[16px] h-[16px] text-[#597794] shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-mohave text-body-sm text-[#597794] block">
+            Analyzing your inbox...
+          </span>
+          <span className="font-mohave text-[11px] text-[#666]">
+            {progress}%
+          </span>
+        </div>
+        <div className="mt-1 h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
+          <motion.div
+            className="h-full bg-[#597794]"
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.8, ease: EASE }}
+          />
+        </div>
+      </div>
+    </button>
+  );
 }
 
 function FollowUpMonitoringCard() {
@@ -132,6 +291,10 @@ export function IntegrationsTab() {
   const hasAnyConnection = connections.length > 0;
   const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
 
+  // Determine if there's a running analysis job to show progress for
+  const activeJobId = (!wizardDone && companyConnections[0]?.syncFilters?.lastScanJobId) || null;
+  const scanNotComplete = activeJobId && companyConnections[0]?.syncFilters?.lastScanComplete !== true;
+
   function handleConnectGmail(type: "company" | "individual") {
     if (!can("settings.integrations")) return;
     const params = new URLSearchParams({
@@ -180,9 +343,9 @@ export function IntegrationsTab() {
     );
   }
 
-  function openWizard() {
+  const openWizard = useCallback(() => {
     setWizardOpen(true);
-  }
+  }, []);
 
   return (
     <div className="space-y-3">
@@ -281,6 +444,16 @@ export function IntegrationsTab() {
             </button>
           )}
 
+          {/* Analysis Progress Banner — shows when analysis is running/complete and wizard is closed */}
+          {hasAnyConnection && !wizardDone && activeJobId && (
+            <AnalysisProgressBanner
+              jobId={activeJobId}
+              wizardOpen={wizardOpen}
+              onComplete={openWizard}
+              onClick={openWizard}
+            />
+          )}
+
           {hasAnyConnection && (
             <div className="pt-[4px] flex items-center gap-[6px]">
               {wizardDone ? (
@@ -294,7 +467,7 @@ export function IntegrationsTab() {
                   <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
                   {t("integrations.syncNow")}
                 </Button>
-              ) : (
+              ) : !activeJobId ? (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -304,7 +477,7 @@ export function IntegrationsTab() {
                   <Mail className="w-[14px] h-[14px]" />
                   Complete Setup
                 </Button>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -330,8 +503,8 @@ export function IntegrationsTab() {
             </div>
           )}
 
-          {/* Before wizard: setup CTA */}
-          {hasAnyConnection && !wizardDone && (
+          {/* Before wizard: setup CTA (only show if no active analysis job) */}
+          {hasAnyConnection && !wizardDone && !activeJobId && (
             <div className="space-y-1.5">
               <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
                 <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />

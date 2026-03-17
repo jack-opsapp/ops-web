@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import {
@@ -74,6 +74,8 @@ export function ImportPipelineWizard({
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [syncInterval, setSyncInterval] = useState(60);
+  const [existingJobId, setExistingJobId] = useState<string | null>(null);
+  const wizardStateCheckedRef = useRef(false);
 
   // Auto-advance to Step 2 when connectionId prop arrives after OAuth redirect
   useEffect(() => {
@@ -85,6 +87,68 @@ export function ImportPipelineWizard({
       setConnectionId(initialConnectionId);
     }
   }, [initialConnectionId, connectionId, step]);
+
+  // ─── Restore wizard state on open ──────────────────────────────────────────
+  // When the wizard opens with a connectionId, check the connection's sync_filters
+  // to determine if we should reconnect to a running/completed analysis
+  useEffect(() => {
+    if (!open || !initialConnectionId || wizardStateCheckedRef.current) return;
+    wizardStateCheckedRef.current = true;
+
+    const checkWizardState = async () => {
+      try {
+        const res = await fetch(`/api/integrations/email/connection?id=${initialConnectionId}`);
+        if (!res.ok) return;
+        const conn = await res.json();
+        const filters = conn.syncFilters || {};
+
+        // Wizard already completed — nothing to restore
+        if (filters.wizardCompleted) return;
+
+        // There's a scan job we can check on
+        if (filters.lastScanJobId) {
+          const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+          if (!jobRes.ok) return;
+          const jobData = await jobRes.json();
+
+          if (jobData.status === "complete" && jobData.result) {
+            // Analysis done — skip straight to Step 3 with results
+            setAnalysisResult(jobData.result);
+            setConfirmedSources(jobData.result.detectedSources);
+            setConfirmedLeads(jobData.result.leads);
+            if (jobData.result.estimatePattern) {
+              setEstimatePattern(jobData.result.estimatePattern);
+            }
+            setDirection(1);
+            setStep(3);
+          } else if (jobData.status === "error") {
+            // Error — go to Step 2, which will restart (duplicate prevention returns new job)
+            setDirection(1);
+            setStep(2);
+          } else if (
+            ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"].includes(jobData.status)
+          ) {
+            // Still running — reconnect to it via existingJobId
+            setExistingJobId(filters.lastScanJobId);
+            setDirection(1);
+            setStep(2);
+          }
+        }
+      } catch (err) {
+        console.error("[wizard] Failed to check wizard state:", err);
+      }
+    };
+
+    checkWizardState();
+  }, [open, initialConnectionId]);
+
+  // Reset the wizard state check flag when the wizard closes so it re-checks on next open
+  useEffect(() => {
+    if (!open) {
+      wizardStateCheckedRef.current = false;
+      setExistingJobId(null);
+    }
+  }, [open]);
 
   const goTo = useCallback((target: 1 | 2 | 3 | 4 | 5) => {
     setDirection(target > step ? 1 : -1);
@@ -110,6 +174,8 @@ export function ImportPipelineWizard({
           setEstimatePattern(result.estimatePattern);
         }
       }
+      // Clear existing job ID since analysis is done
+      setExistingJobId(null);
       goTo(3);
     },
     [goTo]
@@ -293,6 +359,7 @@ export function ImportPipelineWizard({
                 <AnalyzeStep
                   connectionId={connectionId}
                   companyId={companyId}
+                  existingJobId={existingJobId || undefined}
                   onComplete={handleAnalysisComplete}
                 />
               )}
