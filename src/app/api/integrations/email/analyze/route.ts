@@ -37,7 +37,7 @@ function getOpenAI(): OpenAI {
   return _openai;
 }
 
-export const maxDuration = 900; // 15 min — Pro plan max. Analysis should complete well under this.
+export const maxDuration = 800; // Pro plan max
 
 // ─── Timeout helper for thread fetches ───────────────────────────────────────
 
