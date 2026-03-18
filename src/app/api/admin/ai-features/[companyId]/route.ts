@@ -64,41 +64,31 @@ export async function GET(
 
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
-  let stats = { factsCount: 0, graphEdgesCount: 0, profilesCount: 0 };
+  let stats: Awaited<ReturnType<typeof MemoryService.getStats>>;
   try {
     stats = await MemoryService.getStats(companyId);
+  } catch {
+    stats = {
+      factsCount: 0, graphEdgesCount: 0, profilesCount: 0,
+      entitiesByType: {}, factsByCategory: {}, profilesByType: [],
+    };
   } finally {
     setSupabaseOverride(null);
   }
 
-  const { data: profiles } = await db
-    .from("agent_writing_profiles")
-    .select("user_id, emails_analyzed, updated_at")
-    .eq("company_id", companyId);
-
   return NextResponse.json({
     company: { id: company.id, name: company.name },
     features: {
-      ai_email_review: overrideMap.ai_email_review || {
-        enabled: false,
-        enabledBy: null,
-        enabledAt: null,
-      },
-      ai_email_memory: overrideMap.ai_email_memory || {
-        enabled: false,
-        enabledBy: null,
-        enabledAt: null,
-      },
+      ai_email_review: overrideMap.ai_email_review || { enabled: false, enabledBy: null, enabledAt: null },
+      ai_email_memory: overrideMap.ai_email_memory || { enabled: false, enabledBy: null, enabledAt: null },
     },
     memory: {
       facts: stats.factsCount,
       graphEdges: stats.graphEdgesCount,
       profiles: stats.profilesCount,
-      writingProfiles: (profiles ?? []).map((p) => ({
-        userId: p.user_id,
-        emailsAnalyzed: p.emails_analyzed,
-        lastUpdated: p.updated_at,
-      })),
+      entitiesByType: stats.entitiesByType,
+      factsByCategory: stats.factsByCategory,
+      writingProfiles: stats.profilesByType,
     },
   });
 }
