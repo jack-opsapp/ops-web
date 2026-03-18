@@ -226,6 +226,59 @@ Be concise. 1-2 sentences per fact max. Only extract facts that would be useful 
   }
 }
 
+// ─── Phase C extraction (expanded prompt with entities + edges) ─────────────
+
+async function extractEntitiesAndFacts(
+  thread: {
+    messages: Array<{ from: string; to: string[]; subject: string; bodyText: string; date: string; direction: string }>;
+    classification: string;
+  }
+): Promise<ExtractionResult> {
+  try {
+    // Build message context — last 8 messages, truncated to 800 chars each
+    const messageSummary = thread.messages
+      .slice(-8)
+      .map(m => `[${m.direction}] From: ${m.from} | Subject: ${m.subject}\n${m.bodyText.slice(0, 800)}`)
+      .join('\n---\n');
+
+    const response = await getOpenAI().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `Extract business facts and entities from this email thread. Return ONLY notable facts — skip generic pleasantries.
+
+Fact categories: ${FACT_CATEGORIES.join(', ')}
+
+Return JSON:
+{
+  "facts": [{"category": "pricing", "content": "Quoted $3,200 for 40ft cedar fence", "confidence": 0.9, "entity_email": "john@acme.com"}],
+  "entities": [{"name": "John Henderson", "email": "john@acme.com", "type": "person"}, {"name": "Acme Properties", "domain": "acme.com", "type": "company"}],
+  "edges": [{"from_email": "john@acme.com", "predicate": "quoted_for", "to_name": "cedar fence", "to_type": "service", "properties": {"amount": 3200}}]
+}
+
+Be concise. 1-2 sentences per fact max. Only extract facts useful for future email drafting, pricing, analytics, or relationship tracking.`,
+        },
+        { role: 'user', content: `Thread classification: ${thread.classification}\n\n${messageSummary}` },
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content || '{"facts":[],"entities":[],"edges":[]}';
+    const parsed = JSON.parse(content);
+    return {
+      facts: Array.isArray(parsed.facts) ? parsed.facts : [],
+      entities: Array.isArray(parsed.entities) ? parsed.entities : [],
+      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+    };
+  } catch (err) {
+    console.error('[memory-service] Entity+fact extraction failed:', err);
+    return { facts: [], entities: [], edges: [] };
+  }
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const MemoryService = {
