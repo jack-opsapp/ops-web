@@ -290,3 +290,19 @@ export { useSmartInsert } from "./use-smart-insert";
 
 // Page Title
 export { usePageTitle } from "./use-page-title";
+
+// Intel Graph (Galaxy Visualization)
+export {
+  useIntelGraph,
+  type IntelEntity,
+  type IntelEdge,
+  type IntelVoiceProfile,
+  type IntelGraphData,
+} from "./use-intel-graph";
+
+export {
+  useIntelEntity,
+  type IntelFact,
+  type IntelKnowledgeEdge,
+  type IntelEntityDetail,
+} from "./use-intel-entity";
