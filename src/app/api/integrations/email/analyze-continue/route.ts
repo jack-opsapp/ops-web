@@ -577,6 +577,14 @@ async function runPhaseB(
       }
     }
 
+    // Apply terminal flag from AI (likely_won / likely_lost)
+    if (extraction.terminalFlag) {
+      lead.terminalFlag = extraction.terminalFlag;
+      lead.stage = extraction.terminalFlag === 'likely_won' ? 'won' : 'lost';
+      lead.enabled = extraction.terminalFlag === 'likely_won';
+      console.log(`[deep-extract] TERMINAL: ${lead.client.name} (${lead.client.email}) — ${extraction.terminalFlag}`);
+    }
+
     // Apply review flags
     if (extraction.needsReview) {
       lead.needsReview = true;

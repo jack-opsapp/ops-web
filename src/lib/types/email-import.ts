@@ -68,6 +68,8 @@ export interface AnalyzedLead {
     confidence: string;
   };
   enabled: boolean;
+  /** AI-detected terminal state: likely already won or lost */
+  terminalFlag?: 'likely_won' | 'likely_lost' | null;
   /** Flagged for user review — not a standard lead but needs attention */
   needsReview?: boolean;
   /** Why this was flagged for review */

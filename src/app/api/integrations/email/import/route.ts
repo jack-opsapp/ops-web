@@ -254,8 +254,11 @@ async function runImport(
         quoted: OpportunityStage.Quoted,
         follow_up: OpportunityStage.FollowUp,
         negotiation: OpportunityStage.Negotiation,
+        won: OpportunityStage.Won,
+        lost: OpportunityStage.Lost,
       };
       const stage = stageMap[lead.stage] || OpportunityStage.NewLead;
+      const isTerminal = stage === OpportunityStage.Won || stage === OpportunityStage.Lost;
 
       // Check for existing open opportunity for this client
       const { data: existingOpps } = await supabase
@@ -292,10 +295,12 @@ async function runImport(
           assignedTo: null,
           priority: null,
           estimatedValue: lead.estimatedValue,
-          actualValue: null,
-          winProbability: stage === "new_lead" ? 20 : stage === "quoted" ? 50 : 30,
+          actualValue: stage === OpportunityStage.Won ? lead.estimatedValue : null,
+          winProbability: isTerminal
+            ? (stage === OpportunityStage.Won ? 100 : 0)
+            : stage === OpportunityStage.Quoted ? 50 : stage === OpportunityStage.NewLead ? 20 : 30,
           expectedCloseDate: null,
-          actualCloseDate: null,
+          actualCloseDate: isTerminal ? new Date().toISOString() : null,
           projectId: null,
           lostReason: null,
           lostNotes: null,
