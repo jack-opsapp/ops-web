@@ -34,6 +34,8 @@ import {
   User,
   ArrowDownLeft,
   ArrowUpRight,
+  Archive,
+  Trash2,
 } from "lucide-react";
 import {
   type Opportunity,
@@ -72,6 +74,8 @@ interface DealDetailSheetProps {
   onAdvanceStage?: () => void;
   onMarkWon?: () => void;
   onMarkLost?: () => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -532,7 +536,7 @@ function EmailThreadsPanel({
         const DirectionIcon = directionIcon;
 
         return (
-          <div key={thread.threadId} className="rounded border border-border">
+          <div key={thread.threadId} className="bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-[4px]">
             {/* Thread header - clickable */}
             <button
               onClick={() => toggleThread(thread.threadId)}
@@ -647,6 +651,8 @@ export function DealDetailSheet({
   onAdvanceStage,
   onMarkWon,
   onMarkLost,
+  onArchive,
+  onDelete,
 }: DealDetailSheetProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
@@ -656,6 +662,7 @@ export function DealDetailSheet({
   const { data: siteVisits } = useSiteVisits({ opportunityId: opportunity?.id ?? undefined });
   const [showCreateSiteVisit, setShowCreateSiteVisit] = useState(false);
   const [selectedSiteVisitId, setSelectedSiteVisitId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!opportunity) {
     return (
@@ -778,7 +785,60 @@ export function DealDetailSheet({
                 {t("detail.lost")}
               </Button>
             )}
+            {onArchive && (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-[4px] flex-1 text-text-secondary border-border"
+                onClick={onArchive}
+              >
+                <Archive className="w-[14px] h-[14px]" />
+                {t("actions.archive")}
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-[4px] flex-1 text-ops-error border-ops-error/30"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="w-[14px] h-[14px]" />
+                {t("actions.delete")}
+              </Button>
+            )}
           </div>
+
+          {/* Delete confirmation */}
+          {showDeleteConfirm && (
+            <div className="flex flex-col gap-2 px-2 py-2 bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-[4px]">
+              <p className="font-kosugi text-[11px] text-text-secondary">
+                {t("actions.deleteConfirm")}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 h-auto py-[5px]"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  {t("transition.cancel")}
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex-1 h-auto py-[5px]"
+                  style={{ color: "#93321A", borderColor: "rgba(147,50,26,0.3)" }}
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    onDelete?.();
+                  }}
+                >
+                  {t("actions.delete")}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           {opportunity.description && (
