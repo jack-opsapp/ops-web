@@ -17,7 +17,7 @@ export default function IntelPage() {
 
   return (
     <div
-      className="fixed top-0 bottom-0 right-0 bg-[#0A0A0A]"
+      className="fixed top-0 bottom-0 right-0 bg-[#0A0A0A] z-[96]"
       style={{ left: sidebarWidth }}
     >
       <Suspense fallback={<div className="w-full h-full bg-[#0A0A0A]" />}>

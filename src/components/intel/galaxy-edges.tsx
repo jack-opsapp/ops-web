@@ -18,7 +18,7 @@ import { useRef, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { PositionedEntity } from "./galaxy-layout";
-import { useIntelStore } from "@/stores/intel-store";
+import { useIntelStore, liveNodePositions } from "@/stores/intel-store";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -28,7 +28,10 @@ import { useIntelStore } from "@/stores/intel-store";
 // within this distance of either endpoint node. We project camera → XY
 // because the camera sits at Z=20 by default — using raw 3D distance would
 // mean all nodes are 20+ units away and no edges would ever reveal.
-const REVEAL_DISTANCE = 6;
+// Reduced from 6 → 3. With 335 entities, 6 was revealing almost all edges
+// simultaneously. 3 reveals only the immediate neighborhood of the camera's
+// focus point — about one cluster's worth of connections.
+const REVEAL_DISTANCE = 3;
 
 // Selected node: all its edges are visible regardless of camera distance.
 // This provides full relationship context on click.
@@ -103,8 +106,16 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
 
     for (let i = 0; i < edges.length && lineIndex < maxEdges; i++) {
       const edge = edges[i];
-      const sourcePos = positionMap.get(edge.sourceId);
-      const targetPos = positionMap.get(edge.targetId);
+      // Prefer live (drifted) positions from the nodes' per-frame update.
+      // Fall back to static layout positions if live aren't available yet.
+      const liveSrc = liveNodePositions.get(edge.sourceId);
+      const liveTgt = liveNodePositions.get(edge.targetId);
+      const sourcePos = liveSrc
+        ? { x: liveSrc.x, y: liveSrc.y, z: liveSrc.z, distanceTo: (v: THREE.Vector3) => Math.sqrt((liveSrc.x - v.x) ** 2 + (liveSrc.y - v.y) ** 2 + (liveSrc.z - v.z) ** 2) }
+        : positionMap.get(edge.sourceId);
+      const targetPos = liveTgt
+        ? { x: liveTgt.x, y: liveTgt.y, z: liveTgt.z, distanceTo: (v: THREE.Vector3) => Math.sqrt((liveTgt.x - v.x) ** 2 + (liveTgt.y - v.y) ** 2 + (liveTgt.z - v.z) ** 2) }
+        : positionMap.get(edge.targetId);
 
       if (!sourcePos || !targetPos) continue;
 
@@ -121,9 +132,9 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
         // any edge from revealing via proximity. XY distance accurately reflects
         // what the user is "looking at" regardless of zoom level on the Z axis.
         cameraXY.set(cameraPos.x, cameraPos.y);
-        nodeXY.set(sourcePos.x, sourcePos.y);
+        nodeXY.set(sourcePos.x as number, sourcePos.y as number);
         const distToSource = nodeXY.distanceTo(cameraXY);
-        nodeXY.set(targetPos.x, targetPos.y);
+        nodeXY.set(targetPos.x as number, targetPos.y as number);
         const distToTarget = nodeXY.distanceTo(cameraXY);
 
         if (Math.min(distToSource, distToTarget) > REVEAL_DISTANCE) continue;

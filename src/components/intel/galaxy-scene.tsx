@@ -188,22 +188,30 @@ export function GalaxyScene() {
             enableRotate={is3DUnlocked}
             enableZoom={true}
             enablePan={true}
-            // Zoom limits: don't let user fly infinitely far or clip through
+            // Zoom limits
             minDistance={3}
             maxDistance={50}
-            // Smooth damping for all camera moves
+            // Smooth damping
             enableDamping={!prefersReducedMotion}
             dampingFactor={0.05}
-            // Touch: pinch to zoom, two-finger pan.
-            // One-finger drag = rotate (if unlocked) or pan (if locked).
+            // Mouse buttons:
+            //   Left drag = pan (or rotate if 3D unlocked)
+            //   Middle drag (scroll button) = orbit/rotate (always, even when locked)
+            //   Right drag = pan
+            //   Scroll wheel = zoom to cursor position
+            mouseButtons={{
+              LEFT: is3DUnlocked ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+              MIDDLE: THREE.MOUSE.ROTATE,
+              RIGHT: THREE.MOUSE.PAN,
+            }}
+            // Scroll zoom targets cursor position (default OrbitControls behavior)
+            // Touch: pinch to zoom, two-finger pan
             touches={{
               ONE: is3DUnlocked ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN,
               TWO: THREE.TOUCH.DOLLY_PAN,
             }}
-            // NOTE: onStart fires on ALL interactions (pan, zoom, rotate).
-            // We detect rotation attempts via a separate pointer handler below
-            // instead of using onStart, which would spam the gate prompt on
-            // every pan/zoom gesture.
+            // Zoom speed — scroll wheel sensitivity
+            zoomSpeed={1.2}
           />
 
           {/* Background: ambient star field */}

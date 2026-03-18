@@ -17,7 +17,44 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { CLUSTER_COLORS, type PositionedEntity } from "./galaxy-layout";
-import { useIntelStore } from "@/stores/intel-store";
+import { useIntelStore, liveNodePositions } from "@/stores/intel-store";
+
+// ---------------------------------------------------------------------------
+// Glow sprite texture — generated once, shared across all clusters.
+// Creates a soft radial gradient: bright center fading to transparent edges.
+// The falloff follows inverse-square-ish curve: intensity = 1 / (1 + r^2 * k)
+// This produces the "point of light in vacuum" aesthetic.
+// ---------------------------------------------------------------------------
+function createGlowTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const center = size / 2;
+
+  // Radial gradient with inverse-square-inspired falloff.
+  // The gradient is white — color is applied per-instance via vertex colors.
+  const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+  gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");    // Bright core
+  gradient.addColorStop(0.1, "rgba(255, 255, 255, 0.8)");  // Still bright
+  gradient.addColorStop(0.25, "rgba(255, 255, 255, 0.35)"); // Rapid falloff
+  gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");  // Very faint
+  gradient.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");   // Transparent edge
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+let _glowTexture: THREE.Texture | null = null;
+function getGlowTexture(): THREE.Texture {
+  if (!_glowTexture) _glowTexture = createGlowTexture();
+  return _glowTexture;
+}
 
 // ---------------------------------------------------------------------------
 // Reduced motion — read once at module level (SSR-safe)
@@ -30,10 +67,11 @@ const prefersReducedMotion =
 // Constants
 // ---------------------------------------------------------------------------
 
-// Node sphere radius. Small and uniform — these are points of light, not UI
-// elements. 0.06 world units is approximately 3-4px on screen at default zoom.
-const NODE_RADIUS = 0.06;
-const NODE_SEGMENTS = 8; // Low poly is fine — nodes are tiny
+// Node size: these are POINTS OF LIGHT, not spheres. Using a sprite-based
+// approach with a soft radial gradient texture for glow. The "radius" here
+// controls the sprite size, not geometry. 0.15 gives a visible point that
+// remains small and ethereal at default zoom.
+const NODE_SIZE = 0.15;
 
 // Ambient drift: slow sine oscillation to feel alive without being distracting.
 // Amplitude 0.08 units, frequency varies per node (seeded by index).
@@ -204,6 +242,10 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
   useFrame((state) => {
     if (!meshRef.current || !isVisible) return;
 
+    // Billboard: make all sprites face the camera. Extract camera quaternion
+    // once per frame and apply to every instance.
+    const cameraQuaternion = state.camera.quaternion;
+
     const t = state.clock.elapsedTime;
 
     // Capture activation start time on first frame where activationPlaying is true
@@ -234,11 +276,13 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
         ? 0
         : Math.sin(t * data.driftSpeed + data.driftPhase) * DRIFT_AMPLITUDE;
 
-      dummy.position.set(
-        data.basePosition.x,
-        data.basePosition.y + driftY,
-        data.basePosition.z
-      );
+      const px = data.basePosition.x;
+      const py = data.basePosition.y + driftY;
+      const pz = data.basePosition.z;
+      dummy.position.set(px, py, pz);
+
+      // Write live position for edge renderer to read
+      liveNodePositions.set(data.entityId, { x: px, y: py, z: pz });
 
       // Scale: uniform small size. Slightly larger on hover for feedback.
       // During activation, new nodes pulse: scale 1.0 → 1.15 → 1.0
@@ -253,6 +297,9 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
         scale = 1.0 + Math.sin(pulseT) * 0.15 * damping;
       }
       dummy.scale.setScalar(scale);
+
+      // Billboard: rotate each sprite to face the camera
+      dummy.quaternion.copy(cameraQuaternion);
 
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
@@ -312,15 +359,22 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
         onClick={handleClick}
         frustumCulled={false}
       >
-        <sphereGeometry args={[NODE_RADIUS, NODE_SEGMENTS, NODE_SEGMENTS]} />
+        {/* PlaneGeometry instead of SphereGeometry — nodes are flat sprites
+            that always face the camera (billboard). The glow texture creates
+            the illusion of a point of light, not a 3D sphere. */}
+        <planeGeometry args={[NODE_SIZE, NODE_SIZE]} />
         <meshBasicMaterial
+          map={getGlowTexture()}
           color={color}
           transparent
           opacity={0.9}
-          // Additive blending: overlapping nodes create soft glow accumulation,
+          // Additive blending: overlapping glow halos accumulate brightness,
           // mimicking how light from multiple sources combines in vacuum.
+          // Nearby nodes create soft nebula-like brightening.
           blending={THREE.AdditiveBlending}
           depthWrite={false}
+          // Side: DoubleSide so the sprite is visible from behind during 3D rotation
+          side={THREE.DoubleSide}
         />
       </instancedMesh>
 

@@ -45,6 +45,14 @@ const ALL_CLUSTERS = new Set([
   "financial",
 ]);
 
+// ---------------------------------------------------------------------------
+// Mutable per-frame node positions — shared between GalaxyNodes and GalaxyEdges.
+// This is NOT React state. It is mutated every frame by the nodes component
+// and read by the edges component. Using a module-level Map avoids Zustand
+// re-renders on every frame (60 updates/sec would destroy performance).
+// ---------------------------------------------------------------------------
+export const liveNodePositions = new Map<string, { x: number; y: number; z: number }>();
+
 export const useIntelStore = create<IntelState>()((set) => ({
   hoveredNodeId: null,
   selectedNodeId: null,
