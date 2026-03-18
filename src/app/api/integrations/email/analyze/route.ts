@@ -562,7 +562,7 @@ async function runPhaseA(
     // Fallback name extraction — will be overridden by Phase B deep extraction
     let clientName = capitalizeName(
       findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap, clientEmail, employeeEmailSet)
-    );
+    ) || '';
 
     // Name refinement from email body (still useful as fallback)
     if (isNameSuspicious(clientName, clientEmail)) {
@@ -571,12 +571,12 @@ async function runPhaseA(
         clientName = capitalizeName(sigName);
       } else {
         const greetName = extractGreetingName(thread.emails, ownerEmailLower);
-        if (greetName && greetName.length > clientName.length) {
+        if (greetName && greetName.length > (clientName || '').length) {
           clientName = capitalizeName(greetName);
         }
       }
     }
-    if (clientName.split(' ').length < 2) {
+    if ((clientName || '').split(' ').length < 2) {
       const sigName = extractSignatureName(thread.emails, ownerEmailLower, employeeEmailSet);
       if (sigName && sigName.split(' ').length >= 2) {
         clientName = capitalizeName(sigName);
