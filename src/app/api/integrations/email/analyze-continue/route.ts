@@ -322,7 +322,7 @@ async function runPhaseB(
 
   const { data: company } = await supabase
     .from("companies")
-    .select("name, industry")
+    .select("name, industry, industries")
     .eq("id", companyId)
     .single();
 
@@ -450,6 +450,7 @@ async function runPhaseB(
     {
       companyName: company?.name || '',
       industry: (company?.industry as string) || 'trades',
+      industries: (company as Record<string, unknown>)?.industries as string[] || [],
       ownerEmail: ownerEmailLower,
       companyDomains: [...companyDomainSet],
       employeeNames,
@@ -580,7 +581,7 @@ async function runPhaseB(
     if (!extraction.isLead) {
       (lead as unknown as Record<string, unknown>)._aiRejected = true;
       extractionStats.flaggedNotLead++;
-      console.log(`[deep-extract] Flagged not-lead: ${lead.client.name} (${lead.client.email}) — ${extraction.client.description || 'no reason'}`);
+      console.log(`[deep-extract] Flagged not-lead: ${lead.client.name} (${lead.client.email}) — ${extraction.reason || 'no reason'}`);
     }
   }
 
@@ -714,9 +715,14 @@ async function runPhaseB(
             stage: e.stage,
             stageC: e.stageConfidence,
             isLead: e.isLead,
+            reason: e.reason,
             companyName: e.companyName,
             subContactCount: e.subContacts.length,
           })),
+          // All not-lead rejections with reasons
+          notLeadReasons: extractions
+            .filter((e) => !e.isLead)
+            .map((e) => ({ tid: e.threadId, name: e.client.name, email: e.client.email, reason: e.reason })),
         },
       },
     })

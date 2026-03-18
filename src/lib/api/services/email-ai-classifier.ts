@@ -195,6 +195,7 @@ export interface DeepExtractionResult {
   stageConfidence: number;
   estimatedValue: number | null;
   isLead: boolean;
+  reason: string | null;
   terminalFlag: 'likely_won' | 'likely_lost' | null;
 }
 
@@ -316,6 +317,7 @@ export const EmailAIClassifier = {
     context: {
       companyName: string;
       industry: string;
+      industries?: string[];
       ownerEmail: string;
       companyDomains: string[];
       employeeNames: string[];
@@ -730,6 +732,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
     context: {
       companyName: string;
       industry: string;
+      industries?: string[];
       ownerEmail: string;
       companyDomains: string[];
       employeeNames: string[];
@@ -740,13 +743,19 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
       ? context.employeeEmails.map((e, i) => `${context.employeeNames[i] || 'unknown'} (${e})`).join(', ')
       : 'none known';
 
+    const servicesLine = context.industries?.length
+      ? `Services offered: ${context.industries.join(', ')}`
+      : `Industry: ${context.industry}`;
+
     const systemPrompt = `You are extracting detailed lead information from email threads for a trades/construction business.
 
 Company: ${context.companyName}
-Industry: ${context.industry}
+${servicesLine}
 Owner email: ${context.ownerEmail}
 Company domains: ${context.companyDomains.join(', ')}
 Team members: ${teamList}
+
+UNDERSTANDING THE BUSINESS: ${context.companyName} PROVIDES the services listed above. They build, install, and repair things for their CLIENTS. Their clients are homeowners, property managers, general contractors, developers, and businesses who HIRE them. Anyone who SELLS products, materials, or services TO ${context.companyName} is a VENDOR, not a client.
 
 For each thread, extract ALL of the following:
 
@@ -778,8 +787,25 @@ For each thread, extract ALL of the following:
 
 5. stageC: Stage confidence 0.0-1.0
 6. val: Dollar value if pricing mentioned, null otherwise
-7. isLead: true if genuinely a customer/client lead. false if on closer inspection this is a vendor, spam, internal, or not a customer.
-8. flag: "likely_won" if client confirmed/accepted, "likely_lost" if declined, null otherwise. This is the ONLY place for terminal flags.
+
+7. isLead: Is this person/company a CUSTOMER who hires or pays ${context.companyName} for work? Think carefully about RELATIONSHIP DIRECTION.
+   TRUE (is a lead):
+   - Someone REQUESTING work, quotes, or estimates FROM ${context.companyName}
+   - Someone who RECEIVED an estimate/quote from ${context.companyName}
+   - A homeowner, property manager, GC, or developer HIRING the company
+   - A strata/co-op requesting maintenance or repairs
+
+   FALSE (not a lead):
+   - A SUPPLIER or VENDOR selling materials/products TO ${context.companyName} (glass manufacturers, lumber yards, railing suppliers, hardware stores). Key signal: THEY send invoices/POs to the company, THEY coordinate deliveries TO the company, THEIR signature says "Sales Rep" or "Account Manager"
+   - A SERVICE PROVIDER working FOR ${context.companyName} (lawyers, accountants, insurance brokers, marketing agencies, advertising reps, bookkeepers). Key signal: they provide professional services TO the company, not construction work
+   - A JOB SEEKER looking for employment — asking about hiring, sending a resume, inquiring about positions
+   - A SUBTRADE or CONTRACTOR pitching their construction services TO ${context.companyName} (not hiring them)
+   - Spam, newsletters, automated notifications, platform emails
+   - App/software companies (analytics tools, review platforms, ad platforms)
+
+8. reason: One sentence explaining WHY this is or is not a lead. Be specific about the relationship direction. Example: "Client requested a deck railing quote" or "Vendor — Vitrum is a glass supplier sending POs to the company"
+
+9. flag: "likely_won" if client confirmed/accepted, "likely_lost" if declined, null otherwise. This is the ONLY place for terminal flags.
 
 CRITICAL: Each result MUST include the "tid" field echoed back from the input. Without it, results cannot be matched to threads.
 
@@ -805,13 +831,13 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.1,
-        max_tokens: threads.length * 250,
+        max_tokens: threads.length * 300,
         response_format: { type: 'json_object' },
       });
 
@@ -821,6 +847,12 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
       // Log raw AI output for debugging
       console.log(`[deep-extract] Batch of ${threads.length} threads → ${Array.isArray(rawResults) ? rawResults.length : 0} results`);
+      // Log isLead=false decisions with reasons
+      for (const r of (Array.isArray(rawResults) ? rawResults : [])) {
+        if (r.isLead === false) {
+          console.log(`[deep-extract] NOT LEAD: tid=${r.tid} reason="${r.reason || 'no reason'}"`);
+        }
+      }
 
       const results = (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>, idx: number) => {
         const { stage, terminalFlag } = sanitizeStageAndFlag(
@@ -850,6 +882,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
           stageConfidence: (r.stageC as number) || (r.stageConfidence as number) || 0.5,
           estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
           isLead: r.isLead !== false, // Default true — fail open
+          reason: (r.reason as string) || null,
           terminalFlag,
         };
       });
@@ -867,6 +900,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
             stageConfidence: 0.3,
             estimatedValue: null,
             isLead: true,
+            reason: null,
             terminalFlag: null,
           });
         }
@@ -885,6 +919,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
         stageConfidence: 0.3,
         estimatedValue: null,
         isLead: true,
+        reason: 'extraction_failed',
         terminalFlag: null,
       }));
     }
