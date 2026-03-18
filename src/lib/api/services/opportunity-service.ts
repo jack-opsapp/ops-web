@@ -39,6 +39,8 @@ export interface FetchOpportunitiesOptions {
   clientId?: string;
   /** Include soft-deleted opportunities */
   includeDeleted?: boolean;
+  /** Include archived opportunities */
+  includeArchived?: boolean;
   /** Sort field (snake_case column name) */
   sortField?: string;
   /** Sort direction – true for descending */
@@ -100,6 +102,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
     deletedAt: parseDate(row.deleted_at),
+    archivedAt: row.archived_at ? parseDate(row.archived_at) : null,
   };
 }
 
@@ -319,6 +322,11 @@ export const OpportunityService = {
       query = query.is("deleted_at", null);
     }
 
+    // Archive filter
+    if (!options.includeArchived) {
+      query = query.is("archived_at", null);
+    }
+
     // Single stage filter
     if (options.stage) {
       query = query.eq("stage", options.stage);
@@ -516,6 +524,34 @@ export const OpportunityService = {
     if (error) {
       throw new Error(`Failed to delete opportunity ${id}: ${error.message}`);
     }
+  },
+
+  /**
+   * Archive an opportunity.
+   * Sets archived_at timestamp — the opportunity is hidden from the default
+   * pipeline view but remains queryable via includeArchived option.
+   */
+  async archiveOpportunity(id: string): Promise<void> {
+    const supabase = requireSupabase();
+    const { error } = await supabase
+      .from("opportunities")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw new Error(`Failed to archive opportunity: ${error.message}`);
+  },
+
+  /**
+   * Unarchive an opportunity.
+   * Clears the archived_at timestamp, making it visible in the default
+   * pipeline view again.
+   */
+  async unarchiveOpportunity(id: string): Promise<void> {
+    const supabase = requireSupabase();
+    const { error } = await supabase
+      .from("opportunities")
+      .update({ archived_at: null })
+      .eq("id", id);
+    if (error) throw new Error(`Failed to unarchive opportunity: ${error.message}`);
   },
 
   // ─── Activities ───────────────────────────────────────────────────────────
