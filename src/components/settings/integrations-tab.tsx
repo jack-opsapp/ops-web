@@ -114,15 +114,19 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
             variant: "accent",
           });
 
-          // Phase C background indexing toast — fires after Phase B completion
+          // Phase C background indexing toast — fires after Phase B completion.
+          // Navigates to /intel where the activation animation plays.
           setTimeout(() => {
             showPromptRef.current({
               id: `phase-c-indexing-${jobId}`,
               icon: Database,
-              title: "Indexing your business data",
-              description: "This runs in the background — you can keep working.",
-              ctaLabel: "Dismiss",
-              ctaAction: () => removePromptRef.current(`phase-c-indexing-${jobId}`),
+              title: "New intel available",
+              description: "Your business data is being indexed.",
+              ctaLabel: "View Intel",
+              ctaAction: () => {
+                removePromptRef.current(`phase-c-indexing-${jobId}`);
+                window.location.href = "/intel";
+              },
               persistent: false,
               dismissable: true,
               autoDismissMs: 8000,

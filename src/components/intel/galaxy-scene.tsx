@@ -30,6 +30,7 @@ import { ClusterLegend } from "./hud/cluster-legend";
 import { PhaseCGatePrompt } from "./hud/phase-c-gate-prompt";
 import { NodeInfo } from "./node-info";
 import { RedactedText } from "./redacted-text";
+import { ActivationSequence } from "./activation-sequence";
 
 import { useIntelGraph } from "@/lib/hooks/use-intel-graph";
 import { useIntelStore } from "@/stores/intel-store";
@@ -221,6 +222,9 @@ export function GalaxyScene() {
           </span>
         </div>
       )}
+
+      {/* Activation animation controller — no visual output */}
+      <ActivationSequence />
 
       {/* ── HUD Overlays ─────────────────────────────────────────────── */}
 

@@ -373,8 +373,8 @@ async function runPhaseC(
     body: `${totalDataPoints} data points captured`,
     is_read: false,
     persistent: false,
-    action_url: '/settings',
-    action_label: 'View Details',
+    action_url: '/intel',
+    action_label: 'View Intel',
   });
 
   console.log(`[analyze-memory] Phase C complete in ${(processingTimeMs / 1000).toFixed(1)}s — ${stats.factsExtracted} facts, ${stats.entitiesCreated} entities, ${stats.edgesCreated} edges, ${stats.profilesBuilt} profiles`);
