@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
   Loader2,
@@ -15,6 +15,8 @@ import {
   Wrench,
   HelpCircle,
   Globe,
+  Mail,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AnalyzedLead } from "@/lib/types/email-import";
@@ -79,16 +81,75 @@ const REVIEW_REASON_CONFIG: Record<string, { label: string; description: string;
 
 // ─── Lead card (shared across all sections) ──────────────────────────────────
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Format an ISO date string to a short relative/absolute label */
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 30) return `${diffDays}d ago`;
+  const months = Math.floor(diffDays / 30);
+  return months === 1 ? "1mo ago" : `${months}mo ago`;
+}
+
+/** Truncate body text to a max length, adding ellipsis */
+function truncateBody(body: string, max: number): string {
+  // Strip excessive whitespace
+  const clean = body.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  return clean.slice(0, max).trimEnd() + "…";
+}
+
+// ─── Lead card (shared across all sections) ──────────────────────────────────
+
 interface LeadCardProps {
   lead: AnalyzedLead;
   onToggle: () => void;
   onStageChange: (stage: string) => void;
+  onNameChange: (name: string) => void;
   variant?: "active" | "review" | "terminal";
 }
 
-function LeadCard({ lead, onToggle, onStageChange, variant = "active" }: LeadCardProps) {
+function LeadCard({ lead, onToggle, onStageChange, onNameChange, variant = "active" }: LeadCardProps) {
   const isReview = variant === "review";
   const isTerminal = variant === "terminal";
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(lead.client.name);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
+
+  const commitNameEdit = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== lead.client.name) {
+      onNameChange(trimmed);
+    } else {
+      setEditName(lead.client.name);
+    }
+    setIsEditingName(false);
+  };
+
+  // Last 3 excerpts sorted most recent first
+  const recentExcerpts = useMemo(() => {
+    if (!lead.emailExcerpts || lead.emailExcerpts.length === 0) return [];
+    return [...lead.emailExcerpts]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
+  }, [lead.emailExcerpts]);
+
+  const hasExcerpts = recentExcerpts.length > 0;
 
   // Border tint for review/terminal cards
   const borderColor = isReview
@@ -130,10 +191,40 @@ function LeadCard({ lead, onToggle, onStageChange, variant = "active" }: LeadCar
         {/* Lead info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-mohave text-[13px] text-white truncate">
-              {lead.client.name}
-            </p>
-            {lead.subContacts && lead.subContacts.length > 0 && (
+            {isEditingName ? (
+              <div className="flex items-center gap-1 flex-1 min-w-0">
+                <input
+                  ref={nameInputRef}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={commitNameEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitNameEdit();
+                    if (e.key === "Escape") {
+                      setEditName(lead.client.name);
+                      setIsEditingName(false);
+                    }
+                  }}
+                  className="font-mohave text-[13px] text-white bg-transparent border-b border-[#597794] outline-none w-full py-0"
+                  style={{ borderRadius: 0 }}
+                />
+                <button
+                  onClick={commitNameEdit}
+                  className="flex-shrink-0 text-[#597794] hover:text-white transition-colors"
+                >
+                  <Check size={11} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="font-mohave text-[13px] text-white truncate text-left hover:text-[#597794] transition-colors cursor-text"
+                title="Click to edit name"
+              >
+                {lead.client.name}
+              </button>
+            )}
+            {!isEditingName && lead.subContacts && lead.subContacts.length > 0 && (
               <span className="font-mohave text-[10px] text-[#555]">
                 +{lead.subContacts.length} contact{lead.subContacts.length !== 1 ? "s" : ""}
               </span>
@@ -154,6 +245,17 @@ function LeadCard({ lead, onToggle, onStageChange, variant = "active" }: LeadCar
           </span>
         )}
 
+        {/* Email preview toggle */}
+        {hasExcerpts && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex-shrink-0 p-0.5 text-[#555] hover:text-[#999] transition-colors"
+            title="Show recent emails"
+          >
+            <Mail size={12} />
+          </button>
+        )}
+
         {/* Stage selector — show all stages including won/lost */}
         <select
           value={lead.stage}
@@ -171,6 +273,43 @@ function LeadCard({ lead, onToggle, onStageChange, variant = "active" }: LeadCar
           ))}
         </select>
       </div>
+
+      {/* Email excerpts (expandable) */}
+      <AnimatePresence>
+        {isExpanded && hasExcerpts && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1, transition: { duration: 0.25, ease: EASE } }}
+            exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: EASE } }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
+              {recentExcerpts.map((excerpt, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="font-mohave text-[10px] flex-shrink-0 mt-px" style={{
+                    color: excerpt.direction === "inbound" ? "#597794" : "#666",
+                  }}>
+                    {excerpt.direction === "inbound" ? "←" : "→"}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mohave text-[11px] text-[#999] truncate">
+                        {excerpt.fromName}
+                      </span>
+                      <span className="font-mohave text-[10px] text-[#444] flex-shrink-0">
+                        {formatShortDate(excerpt.date)}
+                      </span>
+                    </div>
+                    <p className="font-mohave text-[10px] text-[#555] leading-[1.4]">
+                      {truncateBody(excerpt.body, 120)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Review reason badge */}
       {isReview && lead.reviewReason && REVIEW_REASON_CONFIG[lead.reviewReason] && (
@@ -326,6 +465,14 @@ export function ReviewImportStep({
     );
   };
 
+  const changeLeadName = (leadId: string, newName: string) => {
+    onLeadsChanged(
+      leads.map((l) =>
+        l.id === leadId ? { ...l, client: { ...l.client, name: newName } } : l
+      )
+    );
+  };
+
   const toggleSection = (key: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -378,6 +525,7 @@ export function ReviewImportStep({
                       lead={lead}
                       onToggle={() => toggleLead(lead.id)}
                       onStageChange={(s) => changeLeadStage(lead.id, s)}
+                      onNameChange={(n) => changeLeadName(lead.id, n)}
                       variant="review"
                     />
                   ))}
@@ -415,6 +563,7 @@ export function ReviewImportStep({
                       lead={lead}
                       onToggle={() => toggleLead(lead.id)}
                       onStageChange={(s) => changeLeadStage(lead.id, s)}
+                      onNameChange={(n) => changeLeadName(lead.id, n)}
                       variant="terminal"
                     />
                   ))}
@@ -478,6 +627,7 @@ export function ReviewImportStep({
                         lead={lead}
                         onToggle={() => toggleLead(lead.id)}
                         onStageChange={(s) => changeLeadStage(lead.id, s)}
+                        onNameChange={(n) => changeLeadName(lead.id, n)}
                         variant="active"
                       />
                     ))}
