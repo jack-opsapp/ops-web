@@ -12,6 +12,58 @@
 
 import OpenAI from 'openai';
 
+// ─── Quoted reply stripping ─────────────────────────────────────────────────
+// Strips quoted reply chains from email bodies to reduce token usage.
+// Email chains repeat the entire conversation in every reply — this extracts
+// only the NEW content from each message.
+
+const QUOTE_MARKERS = [
+  // Gmail: "On Mon, Jan 15, 2026 at 3:45 PM John Smith <john@example.com> wrote:"
+  /^On .{10,80} wrote:\s*$/m,
+  // Outlook: "-----Original Message-----"
+  /^-{3,}\s*Original Message\s*-{3,}/mi,
+  // Outlook: "From: ... Sent: ... To: ..."
+  /^From:\s.+\nSent:\s.+\nTo:\s/m,
+  // Apple Mail: "On Jan 15, 2026, at 3:45 PM, John Smith wrote:"
+  /^On .{10,60}, at .{5,20}, .{2,60} wrote:/m,
+  // Forwarded message
+  /^-{5,}\s*Forwarded message\s*-{5,}/mi,
+  // Begin forwarded message
+  /^Begin forwarded message:/mi,
+  // Generic ">" quote blocks (3+ consecutive lines starting with >)
+  /(?:^>.*\n){3,}/m,
+  // Outlook web: "________________________________\nFrom:"
+  /^_{10,}\s*\nFrom:/m,
+  // "Get Outlook for iOS/Android" footer
+  /^Get Outlook for (?:iOS|Android)/m,
+];
+
+/**
+ * Strip quoted reply content from an email body.
+ * Returns only the NEW content from this specific message.
+ */
+export function stripQuotedContent(body: string): string {
+  if (!body) return body;
+
+  let earliest = body.length;
+
+  for (const marker of QUOTE_MARKERS) {
+    const match = body.match(marker);
+    if (match?.index !== undefined && match.index < earliest) {
+      earliest = match.index;
+    }
+  }
+
+  // If we found a quote marker, trim to just the content before it
+  if (earliest < body.length) {
+    const stripped = body.slice(0, earliest).trimEnd();
+    // Don't return empty — if the entire message IS a quote, keep a small preview
+    return stripped.length > 20 ? stripped : body.slice(0, 500);
+  }
+
+  return body;
+}
+
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

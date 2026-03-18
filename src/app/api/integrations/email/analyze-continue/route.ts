@@ -19,7 +19,7 @@ import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
-import { EmailAIClassifier } from "@/lib/api/services/email-ai-classifier";
+import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import type { AnalyzedLead } from "@/lib/types/email-import";
@@ -429,7 +429,7 @@ async function runPhaseB(
         to: m.to,
         date: m.date.toISOString(),
         direction: (safe(m.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: m.bodyText || m.snippet || '',
+        body: stripQuotedContent(m.bodyText || m.snippet || ''),
       })),
     });
     extractionThreadIds.push(lead.threadId);

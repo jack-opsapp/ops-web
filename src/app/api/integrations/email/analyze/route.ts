@@ -30,7 +30,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PatternDetectionService } from "@/lib/api/services/pattern-detection-service";
-import { EmailAIClassifier } from "@/lib/api/services/email-ai-classifier";
+import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { matchPlatform, PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
@@ -456,7 +456,7 @@ async function runPhaseA(
         to: e.to,
         date: e.date.toISOString(),
         direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: e.bodyText || e.snippet || '',
+        body: stripQuotedContent(e.bodyText || e.snippet || ''),
       })),
     };
   });
