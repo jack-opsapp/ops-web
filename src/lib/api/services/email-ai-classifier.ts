@@ -831,7 +831,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-5.4-nano-2026-03-17',
+        model: 'gpt-5.4-nano',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -908,7 +908,9 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
       return results;
     } catch (err) {
-      console.error('[email-ai-classifier] Deep extraction batch failed:', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errDetail = (err as Record<string, unknown>)?.status || (err as Record<string, unknown>)?.code || '';
+      console.error(`[email-ai-classifier] Deep extraction batch FAILED: ${errMsg} ${errDetail}`);
       // Return empty results so leads aren't lost — Phase B will use fallback data
       return threads.map((t) => ({
         threadId: t.threadId,
