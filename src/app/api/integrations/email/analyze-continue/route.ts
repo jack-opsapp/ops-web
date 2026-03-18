@@ -762,4 +762,15 @@ async function runPhaseB(
     .eq("id", connectionId);
 
   console.log(`[email-analyze-continue] Phase B complete. ${deduplicatedLeads.length} leads saved.`);
+
+  // ─── 11. Chain to Phase C — background data indexing ──────────────────────
+  // Phase C checks its own feature gate — always chain regardless
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  fetch(`${baseUrl}/api/integrations/email/analyze-memory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jobId, connectionId, companyId }),
+  }).catch(() => {}); // Fire and forget — Phase C failure doesn't affect import
+
+  console.log(`[email-analyze-continue] Phase C chain fired for job ${jobId}`);
 }

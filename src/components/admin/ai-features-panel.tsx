@@ -27,10 +27,12 @@ interface CompanyDetail {
     facts: number;
     graphEdges: number;
     profiles: number;
+    entitiesByType: Record<string, number>;
+    factsByCategory: Record<string, number>;
     writingProfiles: Array<{
-      userId: string;
+      profileType: string;
       emailsAnalyzed: number;
-      lastUpdated: string;
+      updatedAt: string;
     }>;
   };
 }
@@ -336,7 +338,42 @@ export function AIFeaturesPanel() {
                   </div>
                 </div>
 
-                {/* Writing profiles */}
+                {/* Entity breakdown */}
+                {Object.keys(selectedCompany.memory.entitiesByType).length > 0 && (
+                  <div className="mt-2">
+                    <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                      [ ENTITIES ]
+                    </div>
+                    <div className="px-2 py-1.5 rounded bg-[#141414] border border-white/5">
+                      <span className="font-mohave text-xs text-white">
+                        {Object.entries(selectedCompany.memory.entitiesByType)
+                          .filter(([, count]) => count > 0)
+                          .map(([type, count]) => `${count} ${type}`)
+                          .join(', ')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fact categories (top 5) */}
+                {Object.keys(selectedCompany.memory.factsByCategory).length > 0 && (
+                  <div className="mt-2">
+                    <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                      [ TOP FACT CATEGORIES ]
+                    </div>
+                    <div className="px-2 py-1.5 rounded bg-[#141414] border border-white/5">
+                      <span className="font-mohave text-xs text-white">
+                        {Object.entries(selectedCompany.memory.factsByCategory)
+                          .sort(([, a], [, b]) => b - a)
+                          .slice(0, 5)
+                          .map(([cat, count]) => `${cat} (${count})`)
+                          .join(', ')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Writing profiles by type */}
                 {selectedCompany.memory.writingProfiles.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999]">
@@ -344,15 +381,20 @@ export function AIFeaturesPanel() {
                     </div>
                     {selectedCompany.memory.writingProfiles.map((wp) => (
                       <div
-                        key={wp.userId}
+                        key={wp.profileType}
                         className="flex items-center justify-between px-2 py-1.5 rounded bg-[#141414] border border-white/5"
                       >
                         <span className="font-mohave text-xs text-white truncate max-w-[180px]">
-                          {wp.userId}
+                          {wp.profileType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                         </span>
-                        <span className="font-mohave text-xs text-[#999]">
-                          {wp.emailsAnalyzed} emails
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mohave text-xs text-[#999]">
+                            {wp.emailsAnalyzed} emails
+                          </span>
+                          <span className="font-mohave text-[10px] text-[#666]">
+                            {wp.updatedAt ? new Date(wp.updatedAt).toLocaleDateString() : ''}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Search,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,22 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
             dismissable: true,
             variant: "accent",
           });
+
+          // Phase C background indexing toast — fires after Phase B completion
+          setTimeout(() => {
+            showPromptRef.current({
+              id: `phase-c-indexing-${jobId}`,
+              icon: Database,
+              title: "Indexing your business data",
+              description: "This runs in the background — you can keep working.",
+              ctaLabel: "Dismiss",
+              ctaAction: () => removePromptRef.current(`phase-c-indexing-${jobId}`),
+              persistent: false,
+              dismissable: true,
+              autoDismissMs: 8000,
+              variant: "accent",
+            });
+          }, 2000); // Slight delay so it doesn't overlap the Phase B toast
           return;
         }
 
