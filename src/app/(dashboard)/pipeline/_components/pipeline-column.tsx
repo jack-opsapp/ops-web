@@ -1,17 +1,26 @@
 "use client";
 
+import { useMemo } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
-import { useDroppable } from "@dnd-kit/core";
-import { Plus, Target } from "lucide-react";
 import {
   type Opportunity,
-  type OpportunityStage,
+  type PipelineStageDefault,
+  OpportunityStage,
+  OPPORTUNITY_STAGE_COLORS,
+  PIPELINE_STAGES_DEFAULT,
   getStageDisplayName,
-  getStageColor,
   formatCurrency,
 } from "@/lib/types/pipeline";
-import type { Client } from "@/lib/types/models";
+import {
+  pipelineColumnStagger,
+  pipelineColumnStaggerReduced,
+  pipelineCardEntryVariants,
+  pipelineCardEntryVariantsReduced,
+} from "@/lib/utils/motion";
 import { PipelineCard } from "./pipeline-card";
 
 // ---------------------------------------------------------------------------
@@ -20,173 +29,189 @@ import { PipelineCard } from "./pipeline-card";
 interface PipelineColumnProps {
   stage: OpportunityStage;
   opportunities: Opportunity[];
-  clientMap: Map<string, Client>;
-  onSelectOpportunity: (opportunity: Opportunity) => void;
-  onAdvanceStage?: (opportunity: Opportunity) => void;
+  clients: Map<string, string>;
+  expandedCardId: string | null;
+  onToggleExpand: (id: string) => void;
+  onAdvance: (opportunity: Opportunity) => void;
+  onRetreat: (opportunity: Opportunity) => void;
+  onLogCall: (opportunityId: string) => void;
+  onLogText: (opportunityId: string) => void;
+  onAddNote: (opportunityId: string, note: string) => void;
+  onArchive: (opportunityId: string) => void;
+  onMarkWon: (opportunity: Opportunity) => void;
+  onMarkLost: (opportunity: Opportunity) => void;
+  onOpenDetail: (opportunity: Opportunity) => void;
+  onAssign: (opportunityId: string) => void;
+  onScheduleFollowUp: (opportunityId: string) => void;
   onAddLead?: () => void;
-  narrow?: boolean;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  maxCount: number;
+  canManage: boolean;
+  activeId: string | null;
+  isTerminal: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Collapsed Column — narrow strip with vertical stage name
+// DraggableCard — wraps PipelineCard with dnd-kit useDraggable
 // ---------------------------------------------------------------------------
-function CollapsedColumn({
-  stage,
-  count,
-  maxCount,
-  isOver,
+function DraggableCard({
+  opportunity,
+  clientName,
+  isExpanded,
+  onToggleExpand,
+  onAdvance,
+  onRetreat,
+  onLogCall,
+  onLogText,
+  onAddNote,
+  onArchive,
+  onMarkWon,
+  onMarkLost,
+  onOpenDetail,
+  onAssign,
+  onScheduleFollowUp,
+  canManage,
+  stageConfig,
 }: {
-  stage: OpportunityStage;
-  count: number;
-  maxCount: number;
-  isOver: boolean;
+  opportunity: Opportunity;
+  clientName: string;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onAdvance: () => void;
+  onRetreat: () => void;
+  onLogCall: () => void;
+  onLogText: () => void;
+  onAddNote: (note: string) => void;
+  onArchive: () => void;
+  onMarkWon: () => void;
+  onMarkLost: () => void;
+  onOpenDetail: () => void;
+  onAssign: () => void;
+  onScheduleFollowUp: () => void;
+  canManage: boolean;
+  stageConfig: PipelineStageDefault;
 }) {
-  const stageColor = getStageColor(stage);
-  const stageName = getStageDisplayName(stage);
-  const fillPercent = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: opportunity.id,
+    data: { opportunity },
+  });
 
   return (
-    <div
-      className={cn(
-        "relative flex flex-col items-center h-full rounded-sm border transition-colors duration-150 cursor-pointer overflow-hidden",
-        isOver
-          ? "bg-ops-accent-muted border-ops-accent"
-          : "bg-[rgba(10,10,10,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]"
-      )}
-    >
-      {/* Fill level — bottom to top */}
-      {count > 0 && (
-        <div
-          className="absolute bottom-0 left-0 right-0 transition-all duration-500 ease-out rounded-b-sm"
-          style={{
-            height: `${fillPercent}%`,
-            backgroundColor: stageColor,
-            opacity: 0.12,
-          }}
-        />
-      )}
-
-      {/* Stage color bar */}
-      <div
-        className="relative w-full h-[2px] shrink-0 rounded-t-sm"
-        style={{ backgroundColor: stageColor }}
+    <div ref={setNodeRef} {...listeners} {...attributes}>
+      <PipelineCard
+        opportunity={opportunity}
+        clientName={clientName}
+        isExpanded={isExpanded}
+        onToggleExpand={onToggleExpand}
+        onAdvance={onAdvance}
+        onRetreat={onRetreat}
+        onLogCall={onLogCall}
+        onLogText={onLogText}
+        onAddNote={onAddNote}
+        onArchive={onArchive}
+        onMarkWon={onMarkWon}
+        onMarkLost={onMarkLost}
+        onOpenDetail={onOpenDetail}
+        onAssign={onAssign}
+        onScheduleFollowUp={onScheduleFollowUp}
+        canManage={canManage}
+        isDragging={isDragging}
+        stageConfig={stageConfig}
       />
-
-      {/* Vertical stage name */}
-      <div className="relative flex-1 flex items-center justify-center py-2 overflow-hidden">
-        <span
-          className="font-mohave text-caption-sm uppercase tracking-[0.08em] whitespace-nowrap"
-          style={{
-            color: stageColor,
-            writingMode: "vertical-rl",
-            transform: "rotate(180deg)",
-          }}
-        >
-          {stageName}
-        </span>
-      </div>
-
-      {/* Count badge */}
-      {count > 0 && (
-        <div className="relative shrink-0 pb-1.5">
-          <span className="font-mono text-[10px] text-text-disabled bg-background-elevated px-[5px] py-[2px] rounded-sm">
-            {count}
-          </span>
-        </div>
-      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline Column
+// PipelineColumn
 // ---------------------------------------------------------------------------
 export function PipelineColumn({
   stage,
   opportunities,
-  clientMap,
-  onSelectOpportunity,
-  onAdvanceStage,
-  onAddLead,
-  narrow = false,
-  isExpanded,
+  clients,
+  expandedCardId,
   onToggleExpand,
-  maxCount,
+  onAdvance,
+  onRetreat,
+  onLogCall,
+  onLogText,
+  onAddNote,
+  onArchive,
+  onMarkWon,
+  onMarkLost,
+  onOpenDetail,
+  onAssign,
+  onScheduleFollowUp,
+  onAddLead,
+  canManage,
+  activeId,
+  isTerminal,
 }: PipelineColumnProps) {
   const { t } = useDictionary("pipeline");
+  const prefersReducedMotion = useReducedMotion();
+
+  // ── Droppable ──────────────────────────────────────────────────────────
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
-  const stageColor = getStageColor(stage);
+  // ── Derived values ─────────────────────────────────────────────────────
+  const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
   const stageName = getStageDisplayName(stage);
-  const columnValue = opportunities.reduce(
-    (sum, o) => sum + (o.estimatedValue ?? 0),
-    0
+
+  const columnValue = useMemo(
+    () => opportunities.reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0),
+    [opportunities]
   );
 
-  /** Resolve display name for an opportunity */
+  const stageConfig = useMemo(
+    () =>
+      PIPELINE_STAGES_DEFAULT.find((s) => s.slug === stage) ??
+      PIPELINE_STAGES_DEFAULT[0],
+    [stage]
+  );
+
+  // ── Motion variants ────────────────────────────────────────────────────
+  const containerVariants = prefersReducedMotion
+    ? pipelineColumnStaggerReduced
+    : pipelineColumnStagger;
+
+  const cardVariants = prefersReducedMotion
+    ? pipelineCardEntryVariantsReduced
+    : pipelineCardEntryVariants;
+
+  // ── Client name resolver ───────────────────────────────────────────────
   const resolveClientName = (opp: Opportunity): string => {
     if (opp.clientId) {
-      return clientMap.get(opp.clientId)?.name ?? opp.contactName ?? t("card.unknown");
+      return clients.get(opp.clientId) ?? opp.contactName ?? t("card.unknown");
     }
-    return opp.contactName ?? t("newLead");
+    return opp.contactName ?? t("card.unknown");
   };
 
-  // Collapsed column — still droppable for drag-and-drop
-  if (!isExpanded) {
-    return (
-      <div
-        ref={setNodeRef}
-        onClick={onToggleExpand}
-        className="flex flex-col shrink-0 w-[44px] min-h-[200px]"
-        title={`${stageName} (${opportunities.length})`}
-      >
-        <CollapsedColumn
-          stage={stage}
-          count={opportunities.length}
-          maxCount={maxCount}
-          isOver={isOver}
-        />
-      </div>
-    );
-  }
+  // ── Show add lead button only on NewLead stage with permission ─────────
+  const showAddLead =
+    stage === OpportunityStage.NewLead && !!onAddLead && canManage;
 
-  // Expanded column
   return (
     <div
       className={cn(
-        "flex flex-col shrink-0",
-        narrow ? "w-[200px]" : "w-[280px]"
+        "flex flex-col h-full",
+        isTerminal
+          ? "w-[200px] min-w-[200px]"
+          : "w-[260px] min-w-[260px]"
       )}
     >
-      {/* Column header — click to collapse */}
+      {/* ── Column header ──────────────────────────────────────────────── */}
       <div
-        className="border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0 cursor-pointer"
+        className="border-t-[3px] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] rounded-t-[4px] px-[10px] py-[8px]"
         style={{ borderTopColor: stageColor }}
-        onClick={onToggleExpand}
-        title={`Collapse ${stageName}`}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <h3
-              className="font-mohave text-body font-medium uppercase tracking-wider"
-              style={{ color: stageColor }}
-            >
-              {stageName}
-            </h3>
-            <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
-              {opportunities.length}
-            </span>
-          </div>
-          {onAddLead && (
+          <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
+            {stageName}
+          </span>
+
+          {showAddLead && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddLead();
-              }}
-              className="p-[4px] rounded text-text-disabled hover:text-text-tertiary hover:bg-background-elevated transition-colors cursor-pointer"
+              type="button"
+              onClick={onAddLead}
+              className="p-[2px] rounded-[2px] text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-all duration-150 cursor-pointer"
               title={t("column.addNewLead")}
             >
               <Plus className="w-[14px] h-[14px]" />
@@ -194,52 +219,76 @@ export function PipelineColumn({
           )}
         </div>
 
-        {/* Column value */}
-        {columnValue > 0 && (
-          <div className="mt-[2px]">
-            <span className="font-mono text-[10px] text-text-disabled">
-              {formatCurrency(columnValue)}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-[6px] mt-[2px]">
+          <span className="font-mohave text-body-lg text-text-primary">
+            {opportunities.length}
+          </span>
+          {columnValue > 0 && (
+            <>
+              <span className="font-mohave text-body-lg text-text-disabled">
+                /
+              </span>
+              <span className="font-mohave text-body-lg text-text-primary">
+                {formatCurrency(columnValue)}
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Droppable cards area */}
-      <div
-        ref={setNodeRef}
-        className={cn(
-          "flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] transition-colors duration-150",
-          isOver
-            ? "bg-ops-accent-muted border-ops-accent"
-            : "bg-[rgba(10,10,10,0.5)]"
-        )}
-      >
-        {opportunities.map((opp) => (
-          <PipelineCard
-            key={opp.id}
-            opportunity={opp}
-            clientName={resolveClientName(opp)}
-            onSelect={() => onSelectOpportunity(opp)}
-            onAdvanceStage={
-              onAdvanceStage ? () => onAdvanceStage(opp) : undefined
-            }
-          />
-        ))}
-
-        {opportunities.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-[120px] border border-dashed border-border-subtle rounded gap-1">
-            <div className="w-[32px] h-[32px] rounded-full bg-background-elevated flex items-center justify-center">
-              <Target className="w-[14px] h-[14px] text-text-disabled" />
-            </div>
-            <span className="font-kosugi text-[11px] text-text-disabled">
-              {t("column.noDeals")}
-            </span>
-            <span className="font-kosugi text-[9px] text-text-disabled">
-              {t("column.dropHere")}
-            </span>
-          </div>
-        )}
-      </div>
+      {/* ── Card container (droppable zone) ────────────────────────────── */}
+      {opportunities.length > 0 ? (
+        <motion.div
+          ref={setNodeRef}
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className={cn(
+            "flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-[6px] p-[6px]",
+            isOver && "bg-[rgba(89,119,148,0.08)]"
+          )}
+        >
+          {opportunities.map((opp) => (
+            <motion.div key={opp.id} variants={cardVariants}>
+              <DraggableCard
+                opportunity={opp}
+                clientName={resolveClientName(opp)}
+                isExpanded={expandedCardId === opp.id}
+                onToggleExpand={() => onToggleExpand(opp.id)}
+                onAdvance={() => onAdvance(opp)}
+                onRetreat={() => onRetreat(opp)}
+                onLogCall={() => onLogCall(opp.id)}
+                onLogText={() => onLogText(opp.id)}
+                onAddNote={(note) => onAddNote(opp.id, note)}
+                onArchive={() => onArchive(opp.id)}
+                onMarkWon={() => onMarkWon(opp)}
+                onMarkLost={() => onMarkLost(opp)}
+                onOpenDetail={() => onOpenDetail(opp)}
+                onAssign={() => onAssign(opp.id)}
+                onScheduleFollowUp={() => onScheduleFollowUp(opp.id)}
+                canManage={canManage}
+                stageConfig={stageConfig}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
+      ) : (
+        /* ── Empty state ─────────────────────────────────────────────── */
+        <div
+          ref={setNodeRef}
+          className={cn(
+            "border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px] flex-1 flex flex-col items-center justify-center gap-[4px] min-h-[120px]",
+            isOver && "bg-[rgba(89,119,148,0.08)]"
+          )}
+        >
+          <span className="font-mohave text-body-sm text-text-disabled">
+            {t("empty.noDeals")}
+          </span>
+          <span className="font-kosugi text-micro-sm text-text-disabled hidden md:block">
+            {t("empty.dropHere")}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
