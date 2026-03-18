@@ -151,9 +151,8 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
       <bufferGeometry ref={lineRef}>
         <bufferAttribute
           attach="attributes-position"
-          array={linePositions}
+          args={[linePositions, 3]}
           count={maxEdges * 2}
-          itemSize={3}
         />
       </bufferGeometry>
       <lineBasicMaterial
