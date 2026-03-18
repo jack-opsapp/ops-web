@@ -300,7 +300,7 @@ async function runImport(
             ? (stage === OpportunityStage.Won ? 100 : 0)
             : stage === OpportunityStage.Quoted ? 50 : stage === OpportunityStage.NewLead ? 20 : 30,
           expectedCloseDate: null,
-          actualCloseDate: isTerminal ? new Date().toISOString() : null,
+          actualCloseDate: isTerminal ? new Date() : null,
           projectId: null,
           lostReason: null,
           lostNotes: null,
