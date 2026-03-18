@@ -327,15 +327,28 @@ export const EmailAIClassifier = {
 
     const results: DeepExtractionResult[] = [];
     const BATCH_SIZE = 5;
+    const CONCURRENCY = 3; // Run 3 API calls concurrently — gpt-4o-mini has high RPM limits
+    const STRIDE = BATCH_SIZE * CONCURRENCY; // 15 threads per round
 
-    for (let i = 0; i < threads.length; i += BATCH_SIZE) {
-      const batch = threads.slice(i, i + BATCH_SIZE);
-      const batchResults = await EmailAIClassifier.deepExtractSingleBatch(batch, context);
-      results.push(...batchResults);
-      if (onProgress) {
-        await onProgress(Math.min(i + BATCH_SIZE, threads.length), threads.length);
+    for (let i = 0; i < threads.length; i += STRIDE) {
+      // Launch up to CONCURRENCY batches in parallel
+      const promises: Promise<DeepExtractionResult[]>[] = [];
+      for (let j = 0; j < CONCURRENCY; j++) {
+        const start = i + j * BATCH_SIZE;
+        if (start >= threads.length) break;
+        const batch = threads.slice(start, start + BATCH_SIZE);
+        promises.push(EmailAIClassifier.deepExtractSingleBatch(batch, context));
       }
-      if (i + BATCH_SIZE < threads.length) {
+
+      const batchResults = await Promise.all(promises);
+      for (const br of batchResults) {
+        results.push(...br);
+      }
+
+      if (onProgress) {
+        await onProgress(Math.min(i + STRIDE, threads.length), threads.length);
+      }
+      if (i + STRIDE < threads.length) {
         await new Promise((r) => setTimeout(r, 200));
       }
     }
