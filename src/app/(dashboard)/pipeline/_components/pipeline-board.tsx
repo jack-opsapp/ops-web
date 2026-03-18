@@ -1,24 +1,27 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type DragCancelEvent,
 } from "@dnd-kit/core";
-import { useDictionary } from "@/i18n/client";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import {
   type Opportunity,
   OpportunityStage,
+  PIPELINE_STAGES_DEFAULT,
   getActiveStages,
-  formatCurrency,
+  nextOpportunityStage,
+  previousOpportunityStage,
 } from "@/lib/types/pipeline";
-import type { Client } from "@/lib/types/models";
 import { PipelineColumn } from "./pipeline-column";
 import { PipelineCard } from "./pipeline-card";
 
@@ -27,13 +30,21 @@ import { PipelineCard } from "./pipeline-card";
 // ---------------------------------------------------------------------------
 interface PipelineBoardProps {
   opportunities: Opportunity[];
-  clientMap: Map<string, Client>;
-  searchQuery: string;
-  stageFilter: OpportunityStage | null;
-  onMoveStage: (id: string, newStage: OpportunityStage) => void;
-  onAdvanceStage: (opportunity: Opportunity) => void;
-  onSelectOpportunity: (opportunity: Opportunity) => void;
+  clients: Map<string, string>;
+  expandedCardId: string | null;
+  onToggleExpand: (id: string) => void;
+  onMoveStage: (opportunityId: string, newStage: OpportunityStage) => void;
+  onLogCall: (opportunityId: string) => void;
+  onLogText: (opportunityId: string) => void;
+  onAddNote: (opportunityId: string, note: string) => void;
+  onArchive: (opportunityId: string) => void;
+  onMarkWon: (opportunity: Opportunity) => void;
+  onMarkLost: (opportunity: Opportunity) => void;
+  onOpenDetail: (opportunity: Opportunity) => void;
+  onAssign: (opportunityId: string) => void;
+  onScheduleFollowUp: (opportunityId: string) => void;
   onAddLead: () => void;
+  canManage: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,188 +57,81 @@ const TERMINAL_STAGES: OpportunityStage[] = [
 ];
 const ALL_BOARD_STAGES = [...ACTIVE_STAGES, ...TERMINAL_STAGES];
 
-const EXPANDED_WIDTH = 280;
-const EXPANDED_NARROW = 200;
-const COLLAPSED_WIDTH = 44;
-const GAP = 8;
-const SEPARATOR_WIDTH = 17; // 1px line + px-1 padding
-
 // ---------------------------------------------------------------------------
-// Auto-collapse: calculate which stages fit expanded
-// ---------------------------------------------------------------------------
-function calcDefaultExpanded(containerWidth: number): Set<OpportunityStage> {
-  const expanded = new Set<OpportunityStage>();
-  let remaining = containerWidth;
-
-  // Active stages left to right
-  for (const stage of ACTIVE_STAGES) {
-    const needed = EXPANDED_WIDTH + GAP;
-    if (remaining >= needed) {
-      expanded.add(stage);
-      remaining -= needed;
-    } else {
-      remaining -= COLLAPSED_WIDTH + GAP;
-    }
-  }
-
-  remaining -= SEPARATOR_WIDTH;
-
-  // Terminal stages
-  for (const stage of TERMINAL_STAGES) {
-    const needed = EXPANDED_NARROW + GAP;
-    if (remaining >= needed) {
-      expanded.add(stage);
-      remaining -= needed;
-    } else {
-      remaining -= COLLAPSED_WIDTH + GAP;
-    }
-  }
-
-  return expanded;
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline Board - DndContext wrapper with columns
+// PipelineBoard
 // ---------------------------------------------------------------------------
 export function PipelineBoard({
   opportunities,
-  clientMap,
-  searchQuery,
-  stageFilter,
+  clients,
+  expandedCardId,
+  onToggleExpand,
   onMoveStage,
-  onAdvanceStage,
-  onSelectOpportunity,
+  onLogCall,
+  onLogText,
+  onAddNote,
+  onArchive,
+  onMarkWon,
+  onMarkLost,
+  onOpenDetail,
+  onAssign,
+  onScheduleFollowUp,
   onAddLead,
+  canManage,
 }: PipelineBoardProps) {
-  const { t } = useDictionary("pipeline");
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // ── Expanded state ─────────────────────────────────────────────────
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [expandedStages, setExpandedStages] = useState<Set<OpportunityStage>>(
-    () => new Set(ALL_BOARD_STAGES) // start all expanded, auto-collapse after measure
-  );
-  const [userOverrides, setUserOverrides] = useState<Set<OpportunityStage>>(
-    () => new Set()
-  );
-
-  // Auto-collapse on mount and resize (only for non-overridden stages)
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      const width = entry.contentRect.width;
-      const autoExpanded = calcDefaultExpanded(width);
-
-      setExpandedStages((prev) => {
-        const next = new Set<OpportunityStage>();
-        for (const stage of ALL_BOARD_STAGES) {
-          if (userOverrides.has(stage)) {
-            // Keep user's manual choice
-            next.add(stage); // will be in prev if user expanded it
-            if (!prev.has(stage)) next.delete(stage);
-          } else {
-            // Auto-collapse/expand
-            if (autoExpanded.has(stage)) next.add(stage);
-          }
-        }
-        return next;
-      });
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [userOverrides]);
-
-  const toggleStage = useCallback((stage: OpportunityStage) => {
-    setUserOverrides((prev) => {
-      const next = new Set(prev);
-      next.add(stage);
-      return next;
-    });
-    setExpandedStages((prev) => {
-      const next = new Set(prev);
-      if (next.has(stage)) {
-        next.delete(stage);
-      } else {
-        next.add(stage);
-      }
-      return next;
-    });
-  }, []);
-
+  // -- Sensors ---------------------------------------------------------------
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
   );
 
-  // ── Filter opportunities ─────────────────────────────────────────────
-  const filteredOpportunities = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-
-    return opportunities.filter((opp) => {
-      // Stage filter
-      if (stageFilter && opp.stage !== stageFilter) return false;
-
-      // Search filter
-      if (query) {
-        const clientName =
-          opp.clientId
-            ? (clientMap.get(opp.clientId)?.name ?? "")
-            : "";
-        const contactName = opp.contactName ?? "";
-        const title = opp.title ?? "";
-
-        const matchesSearch =
-          clientName.toLowerCase().includes(query) ||
-          contactName.toLowerCase().includes(query) ||
-          title.toLowerCase().includes(query);
-
-        if (!matchesSearch) return false;
-      }
-
-      return true;
-    });
-  }, [opportunities, searchQuery, stageFilter, clientMap]);
-
-  // ── Group opportunities by stage ─────────────────────────────────────
+  // -- Group opportunities by stage ------------------------------------------
   const opportunitiesByStage = useMemo(() => {
     const map = new Map<OpportunityStage, Opportunity[]>();
     for (const stage of ALL_BOARD_STAGES) {
       map.set(stage, []);
     }
-    for (const opp of filteredOpportunities) {
+    for (const opp of opportunities) {
       const list = map.get(opp.stage);
       if (list) {
         list.push(opp);
       }
     }
     return map;
-  }, [filteredOpportunities]);
+  }, [opportunities]);
 
-  // ── Max count across all stages (for collapsed fill indicator) ──────
-  const maxStageCount = useMemo(() => {
-    let max = 0;
-    for (const [, list] of opportunitiesByStage) {
-      if (list.length > max) max = list.length;
-    }
-    return max;
-  }, [opportunitiesByStage]);
+  // -- Active drag opportunity -----------------------------------------------
+  const activeOpportunity = useMemo(
+    () =>
+      activeId ? opportunities.find((o) => o.id === activeId) ?? null : null,
+    [activeId, opportunities]
+  );
 
-  // ── Active drag card ─────────────────────────────────────────────────
-  const activeOpportunity = activeId
-    ? opportunities.find((o) => o.id === activeId) ?? null
-    : null;
+  // -- Advance / retreat handlers --------------------------------------------
+  const handleAdvance = useCallback(
+    (opportunity: Opportunity) => {
+      const next = nextOpportunityStage(opportunity.stage);
+      if (next) {
+        onMoveStage(opportunity.id, next);
+      }
+    },
+    [onMoveStage]
+  );
 
-  const activeClientName = activeOpportunity
-    ? activeOpportunity.clientId
-      ? (clientMap.get(activeOpportunity.clientId)?.name ??
-        activeOpportunity.contactName ??
-        t("card.unknown"))
-      : (activeOpportunity.contactName ?? t("newLead"))
-    : "";
+  const handleRetreat = useCallback(
+    (opportunity: Opportunity) => {
+      const prev = previousOpportunityStage(opportunity.stage);
+      if (prev) {
+        onMoveStage(opportunity.id, prev);
+      }
+    },
+    [onMoveStage]
+  );
 
-  // ── Drag handlers ────────────────────────────────────────────────────
+  // -- Drag handlers ---------------------------------------------------------
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
   }
@@ -238,77 +142,129 @@ export function PipelineBoard({
 
     if (!over) return;
 
-    const opportunityId = active.id as string;
-    const newStage = over.id as OpportunityStage;
+    const opportunity = active.data.current?.opportunity as
+      | Opportunity
+      | undefined;
+    if (!opportunity) return;
 
-    // Validate target is a valid stage
-    if (!ALL_BOARD_STAGES.includes(newStage)) return;
+    const targetStage = over.id as OpportunityStage;
 
-    // Find opportunity and check it actually moved
-    const opportunity = opportunities.find((o) => o.id === opportunityId);
-    if (!opportunity || opportunity.stage === newStage) return;
+    // Validate target is a real stage
+    if (!ALL_BOARD_STAGES.includes(targetStage)) return;
 
-    onMoveStage(opportunityId, newStage);
+    // Only move if actually changing stage
+    if (opportunity.stage === targetStage) return;
+
+    onMoveStage(opportunity.id, targetStage);
+  }
+
+  function handleDragCancel(_event: DragCancelEvent) {
+    setActiveId(null);
   }
 
   return (
-    <div ref={containerRef} className="h-full">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-1 min-w-min h-full">
-          {/* Active stage columns */}
-          {ACTIVE_STAGES.map((stage) => (
-            <PipelineColumn
-              key={stage}
-              stage={stage}
-              opportunities={opportunitiesByStage.get(stage) ?? []}
-              clientMap={clientMap}
-              onSelectOpportunity={onSelectOpportunity}
-              onAdvanceStage={onAdvanceStage}
-              onAddLead={stage === OpportunityStage.NewLead ? onAddLead : undefined}
-              isExpanded={expandedStages.has(stage)}
-              onToggleExpand={() => toggleStage(stage)}
-              maxCount={maxStageCount}
-            />
-          ))}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="flex gap-[8px] overflow-x-auto scrollbar-hide pb-2 h-full">
+        {/* Active stage columns */}
+        {ACTIVE_STAGES.map((stage) => (
+          <PipelineColumn
+            key={stage}
+            stage={stage}
+            opportunities={opportunitiesByStage.get(stage) ?? []}
+            clients={clients}
+            expandedCardId={expandedCardId}
+            onToggleExpand={onToggleExpand}
+            onAdvance={handleAdvance}
+            onRetreat={handleRetreat}
+            onLogCall={onLogCall}
+            onLogText={onLogText}
+            onAddNote={onAddNote}
+            onArchive={onArchive}
+            onMarkWon={onMarkWon}
+            onMarkLost={onMarkLost}
+            onOpenDetail={onOpenDetail}
+            onAssign={onAssign}
+            onScheduleFollowUp={onScheduleFollowUp}
+            onAddLead={
+              stage === OpportunityStage.NewLead ? onAddLead : undefined
+            }
+            canManage={canManage}
+            activeId={activeId}
+            isTerminal={false}
+          />
+        ))}
 
-          {/* Visual separator */}
-          <div className="flex items-stretch py-4 px-0.5">
-            <div className="w-[1px] bg-border-subtle" />
-          </div>
+        {/* Separator before terminal columns */}
+        <div className="w-px self-stretch bg-[rgba(255,255,255,0.06)] mx-[4px] shrink-0" />
 
-          {/* Terminal columns (Won / Lost) */}
-          {TERMINAL_STAGES.map((stage) => (
-            <PipelineColumn
-              key={stage}
-              stage={stage}
-              opportunities={opportunitiesByStage.get(stage) ?? []}
-              clientMap={clientMap}
-              onSelectOpportunity={onSelectOpportunity}
-              narrow
-              isExpanded={expandedStages.has(stage)}
-              onToggleExpand={() => toggleStage(stage)}
-              maxCount={maxStageCount}
-            />
-          ))}
-        </div>
+        {/* Terminal columns (Won / Lost) */}
+        {TERMINAL_STAGES.map((stage) => (
+          <PipelineColumn
+            key={stage}
+            stage={stage}
+            opportunities={opportunitiesByStage.get(stage) ?? []}
+            clients={clients}
+            expandedCardId={expandedCardId}
+            onToggleExpand={onToggleExpand}
+            onAdvance={handleAdvance}
+            onRetreat={handleRetreat}
+            onLogCall={onLogCall}
+            onLogText={onLogText}
+            onAddNote={onAddNote}
+            onArchive={onArchive}
+            onMarkWon={onMarkWon}
+            onMarkLost={onMarkLost}
+            onOpenDetail={onOpenDetail}
+            onAssign={onAssign}
+            onScheduleFollowUp={onScheduleFollowUp}
+            canManage={canManage}
+            activeId={activeId}
+            isTerminal={true}
+          />
+        ))}
+      </div>
 
-        {/* Drag overlay */}
-        <DragOverlay>
-          {activeOpportunity ? (
-            <PipelineCard
-              opportunity={activeOpportunity}
-              clientName={activeClientName}
-              isDragOverlay
-              onSelect={() => {}}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-    </div>
+      {/* Drag overlay — no drop animation, layout handled by Framer Motion */}
+      <DragOverlay dropAnimation={null}>
+        {activeOpportunity ? (
+          <PipelineCard
+            isOverlay
+            opportunity={activeOpportunity}
+            clientName={
+              activeOpportunity.clientId
+                ? (clients.get(activeOpportunity.clientId) ??
+                  activeOpportunity.contactName ??
+                  "Unknown")
+                : (activeOpportunity.contactName ?? "Unknown")
+            }
+            isExpanded={false}
+            onToggleExpand={() => {}}
+            onAdvance={() => {}}
+            onRetreat={() => {}}
+            onLogCall={() => {}}
+            onLogText={() => {}}
+            onAddNote={() => {}}
+            onArchive={() => {}}
+            onMarkWon={() => {}}
+            onMarkLost={() => {}}
+            onOpenDetail={() => {}}
+            onAssign={() => {}}
+            onScheduleFollowUp={() => {}}
+            canManage={false}
+            stageConfig={
+              PIPELINE_STAGES_DEFAULT.find(
+                (s) => s.slug === activeOpportunity.stage
+              ) ?? PIPELINE_STAGES_DEFAULT[0]
+            }
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
