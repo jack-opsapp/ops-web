@@ -747,7 +747,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
       ? `Services offered: ${context.industries.join(', ')}`
       : `Industry: ${context.industry}`;
 
-    const systemPrompt = `You are extracting detailed lead information from email threads for a trades/construction business.
+    const systemPrompt = `You are extracting lead information from email threads for a trades/construction business.
 
 Company: ${context.companyName}
 ${servicesLine}
@@ -757,59 +757,45 @@ Team members: ${teamList}
 
 UNDERSTANDING THE BUSINESS: ${context.companyName} PROVIDES the services listed above. They build, install, and repair things for their CLIENTS. Their clients are homeowners, property managers, general contractors, developers, and businesses who HIRE them. Anyone who SELLS products, materials, or services TO ${context.companyName} is a VENDOR, not a client.
 
-For each thread, extract ALL of the following:
+STEP 1 — DETERMINE RELATIONSHIP DIRECTION. For each thread, decide: is this person a CUSTOMER of ${context.companyName}?
 
-1. client: The primary CUSTOMER's info (not the owner, not an employee)
-   - name: FULL NAME (first + last). Search these locations in order:
-     a. Email signature blocks (name on its own line, often followed by title/phone)
-     b. Sign-offs: "Sincerely, [Name]", "Thanks, [Name]", "Best regards, [Name]", "Cheers, [Name]"
-     c. Owner's greeting in replies: "Hi [Name]," — gives at least first name
-     d. FROM display name in email headers
-     NEVER derive a name from the email address local part. "paulkaren101@shaw.ca" is NOT "Paul Karen".
-     If FROM name looks like a username/handle (e.g. "shaii mnl"), search the body for a real name.
-     If you can only find a first name, search signatures for the last name. Return first name alone only as last resort.
-   - email: The customer's email address
-   - phone: Phone number if found in body/signature, null otherwise
-   - desc: Brief description of what they need (1-2 sentences)
+CUSTOMER (include in "leads"):
+- Someone REQUESTING work, quotes, or estimates FROM ${context.companyName}
+- Someone who RECEIVED an estimate/quote from ${context.companyName}
+- A homeowner, property manager, GC, or developer HIRING the company
+- A strata/co-op requesting maintenance or repairs
+- A general contractor who hires ${context.companyName} as a subtrade for THEIR projects
 
-2. subContacts: Other people mentioned/CC'd who are NOT the primary client and NOT the owner/employees. Array of { name, email, phone }. Empty array if none.
+NOT A CUSTOMER (include in "skip"):
+- A SUPPLIER/VENDOR selling materials TO ${context.companyName} (glass, lumber, railing supplies). Signal: THEY send invoices/POs/delivery notices TO the company, signature says "Sales Rep"/"Account Manager"
+- A SERVICE PROVIDER working FOR the company (lawyers, accountants, insurance, marketing, bookkeepers)
+- A JOB SEEKER sending a resume or asking about employment
+- Spam, newsletters, automated notifications, platform/app emails
+- Internal company emails between employees
 
-3. companyName: If the client represents a business (not a personal email domain like gmail/hotmail/shaw/telus), extract the company/organization name from the email content, signatures, or domain. null for personal clients.
+STEP 2 — FOR LEADS ONLY, extract:
+- client.name: FULL NAME from signatures, sign-offs, or owner's greeting ("Hi [Name],"). NEVER derive from email address.
+- client.email: Customer's email
+- client.phone: If found in body/signature (omit if not found)
+- client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title
+- subContacts: Other non-owner, non-employee people [{name, email}] (omit if none)
+- companyName: Business name if client is a company (omit for personal clients)
+- stage: "new_lead"|"qualifying"|"quoting"|"quoted"|"follow_up"|"negotiation"
+- stageC: Confidence 0.0-1.0
+- val: Dollar value if mentioned (omit if none)
+- flag: "likely_won"|"likely_lost" (omit if neither)
 
-4. stage: Pipeline stage. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation". NEVER use "likely_won" or "likely_lost" as a stage — those go ONLY in the flag field.
-   Heuristics:
-   - No outbound replies → "new_lead"
-   - Initial contact, gathering info/photos → "qualifying"
-   - Building/discussing estimate → "quoting"
-   - Estimate with pricing sent → "quoted"
-   - Waiting for client response after quote → "follow_up"
-   - Client responded to quote, discussing terms → "negotiation"
+TOKEN EFFICIENCY RULES:
+- OMIT any field that would be null, empty, or []. Do not include it at all.
+- For non-leads, include ONLY the tid in the "skip" array — no other fields needed.
+- Keep desc concise but specific (it becomes the opportunity title in CRM).
 
-5. stageC: Stage confidence 0.0-1.0
-6. val: Dollar value if pricing mentioned, null otherwise
-
-7. isLead: Is this person/company a CUSTOMER who hires or pays ${context.companyName} for work? Think carefully about RELATIONSHIP DIRECTION.
-   TRUE (is a lead):
-   - Someone REQUESTING work, quotes, or estimates FROM ${context.companyName}
-   - Someone who RECEIVED an estimate/quote from ${context.companyName}
-   - A homeowner, property manager, GC, or developer HIRING the company
-   - A strata/co-op requesting maintenance or repairs
-
-   FALSE (not a lead):
-   - A SUPPLIER or VENDOR selling materials/products TO ${context.companyName} (glass manufacturers, lumber yards, railing suppliers, hardware stores). Key signal: THEY send invoices/POs to the company, THEY coordinate deliveries TO the company, THEIR signature says "Sales Rep" or "Account Manager"
-   - A SERVICE PROVIDER working FOR ${context.companyName} (lawyers, accountants, insurance brokers, marketing agencies, advertising reps, bookkeepers). Key signal: they provide professional services TO the company, not construction work
-   - A JOB SEEKER looking for employment — asking about hiring, sending a resume, inquiring about positions
-   - A SUBTRADE or CONTRACTOR pitching their construction services TO ${context.companyName} (not hiring them)
-   - Spam, newsletters, automated notifications, platform emails
-   - App/software companies (analytics tools, review platforms, ad platforms)
-
-8. reason: One sentence explaining WHY this is or is not a lead. Be specific about the relationship direction. Example: "Client requested a deck railing quote" or "Vendor — Vitrum is a glass supplier sending POs to the company"
-
-9. flag: "likely_won" if client confirmed/accepted, "likely_lost" if declined, null otherwise. This is the ONLY place for terminal flags.
-
-CRITICAL: Each result MUST include the "tid" field echoed back from the input. Without it, results cannot be matched to threads.
-
-RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Include ALL fields for every thread.`;
+RESPOND WITH JSON:
+{
+  "leads": [{ "tid": "...", "client": {...}, "stage": "...", "stageC": 0.8, ... }],
+  "skip": ["tid1", "tid2", ...]
+}
+No explanation.`;
 
     const userPrompt = JSON.stringify(
       threads.map((t) => ({
@@ -831,44 +817,46 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-5.4-nano-2026-03-17',
+        model: 'gpt-5.4-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.1,
-        max_completion_tokens: threads.length * 300,
+        max_completion_tokens: threads.length * 250,
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content || '{"results":[]}';
+      const content = response.choices[0]?.message?.content || '{"leads":[],"skip":[]}';
       const parsed = JSON.parse(content);
-      const rawResults = parsed.results || parsed;
 
-      // Log raw AI output for debugging
-      console.log(`[deep-extract] Batch of ${threads.length} threads → ${Array.isArray(rawResults) ? rawResults.length : 0} results`);
-      // Log isLead=false decisions with reasons
-      for (const r of (Array.isArray(rawResults) ? rawResults : [])) {
-        if (r.isLead === false) {
-          console.log(`[deep-extract] NOT LEAD: tid=${r.tid} reason="${r.reason || 'no reason'}"`);
-        }
+      // New format: { "leads": [...], "skip": ["tid1", ...] }
+      // Fall back to old format { "results": [...] } for compatibility
+      const rawLeads: Record<string, unknown>[] = parsed.leads || parsed.results || [];
+      const skipTids = new Set<string>((parsed.skip || []) as string[]);
+
+      console.log(`[deep-extract] Batch of ${threads.length} threads → ${rawLeads.length} leads, ${skipTids.size} skipped`);
+      if (skipTids.size > 0) {
+        console.log(`[deep-extract] Skipped tids: ${[...skipTids].join(', ')}`);
       }
 
-      const results = (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>, idx: number) => {
+      const results: DeepExtractionResult[] = [];
+
+      // Parse leads
+      for (let idx = 0; idx < rawLeads.length; idx++) {
+        const r = rawLeads[idx];
         const { stage, terminalFlag } = sanitizeStageAndFlag(
           (r.stage as string) || null,
-          (r.flag as string) || (r.terminalFlag as string) || null
+          (r.flag as string) || null
         );
         const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string } | null;
 
-        // Resolve threadId: prefer AI-returned tid, fall back to input order
         let threadId = (r.tid as string) || (r.threadId as string);
         if (!threadId && idx < threads.length) {
           threadId = threads[idx].threadId;
-          console.log(`[deep-extract] Result #${idx} missing tid — mapped to input thread ${threadId}`);
         }
 
-        return {
+        results.push({
           threadId,
           client: {
             name: client?.name || '',
@@ -881,18 +869,35 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
           stage,
           stageConfidence: (r.stageC as number) || (r.stageConfidence as number) || 0.5,
           estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
-          isLead: r.isLead !== false, // Default true — fail open
+          isLead: true,
           reason: (r.reason as string) || null,
           terminalFlag,
-        };
-      });
+        });
+      }
 
-      // If AI returned fewer results than inputs, fill remaining from input order
-      if (results.length < threads.length) {
-        console.warn(`[deep-extract] AI returned ${results.length} results for ${threads.length} threads — filling ${threads.length - results.length} gaps`);
-        for (let idx = results.length; idx < threads.length; idx++) {
+      // Mark skipped threads as not-lead
+      for (const tid of skipTids) {
+        results.push({
+          threadId: tid,
+          client: { name: '', email: '', phone: null, description: '' },
+          subContacts: [],
+          companyName: null,
+          stage: 'new_lead',
+          stageConfidence: 0,
+          estimatedValue: null,
+          isLead: false,
+          reason: 'skipped by extraction',
+          terminalFlag: null,
+        });
+      }
+
+      // Fill any threads not accounted for in either leads or skip (fail open)
+      const accountedTids = new Set(results.map((r) => r.threadId));
+      for (const t of threads) {
+        if (!accountedTids.has(t.threadId)) {
+          console.warn(`[deep-extract] Thread ${t.threadId} not in leads or skip — keeping as lead (fail open)`);
           results.push({
-            threadId: threads[idx].threadId,
+            threadId: t.threadId,
             client: { name: '', email: '', phone: null, description: '' },
             subContacts: [],
             companyName: null,
