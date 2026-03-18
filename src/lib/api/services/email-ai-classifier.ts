@@ -309,7 +309,7 @@ export const EmailAIClassifier = {
   /**
    * Deep extract leads — rich second pass that extracts everything from full thread context.
    * Used in Phase B after full thread fetch. Sends last 6 messages with full body text.
-   * Batches 3/call for rich context per thread.
+   * Batches 5/call for rich context per thread.
    */
   async deepExtractLeads(
     threads: DeepExtractionInput[],
@@ -326,7 +326,7 @@ export const EmailAIClassifier = {
     if (threads.length === 0) return [];
 
     const results: DeepExtractionResult[] = [];
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 5;
 
     for (let i = 0; i < threads.length; i += BATCH_SIZE) {
       const batch = threads.slice(i, i + BATCH_SIZE);

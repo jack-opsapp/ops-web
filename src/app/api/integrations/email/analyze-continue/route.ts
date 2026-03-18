@@ -327,6 +327,8 @@ async function runPhaseB(
     .single();
 
   // ─── 3. Full thread fetch for ALL confirmed leads (no cap) ─────────────────
+  // Parallelized: fetch 5 threads concurrently to stay within 800s budget.
+  // Sequential at ~2s/thread: 200 leads = 400s. Parallel 5×: 200 leads = ~80s.
   await updateProgress(
     "analyzing_threads",
     "Fetching full thread content...",
@@ -335,45 +337,52 @@ async function runPhaseB(
 
   const provider = EmailService.getProvider(connection);
 
-  // NO cap — fetch every lead's thread for deep extraction
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fetchedThreads = new Map<string, Array<any>>();
 
   let fetchedCount = 0;
   let skippedCount = 0;
+  const FETCH_CONCURRENCY = 5;
 
-  for (const lead of leads) {
-    try {
-      const fetchedMessages = await fetchWithTimeout(
-        provider.fetchThread(lead.threadId),
-        10_000
-      );
+  for (let i = 0; i < leads.length; i += FETCH_CONCURRENCY) {
+    const batch = leads.slice(i, i + FETCH_CONCURRENCY);
 
-      if (!fetchedMessages) {
-        console.warn(`[email-analyze-continue] Thread ${lead.threadId} timed out — skipping`);
+    const results = await Promise.allSettled(
+      batch.map(async (lead) => {
+        const fetchedMessages = await fetchWithTimeout(
+          provider.fetchThread(lead.threadId),
+          10_000
+        );
+        return { lead, fetchedMessages };
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value.fetchedMessages) {
+        const { lead, fetchedMessages } = result.value;
+        fetchedThreads.set(lead.threadId, fetchedMessages);
+        lead.correspondenceCount = fetchedMessages.length;
+        lead.outboundCount = fetchedMessages.filter(
+          (m: { from: string }) => safe(m.from).includes(ownerEmailLower)
+        ).length;
+        fetchedCount++;
+      } else {
         skippedCount++;
-        await delay(200);
-        continue;
+        if (result.status === 'rejected') {
+          console.error(`[email-analyze-continue] Thread fetch failed:`, result.reason);
+        } else {
+          console.warn(`[email-analyze-continue] Thread timed out — skipping`);
+        }
       }
-
-      fetchedThreads.set(lead.threadId, fetchedMessages);
-
-      // Update actual correspondence count from full thread
-      lead.correspondenceCount = fetchedMessages.length;
-      lead.outboundCount = fetchedMessages.filter(
-        (m: { from: string }) => safe(m.from).includes(ownerEmailLower)
-      ).length;
-
-      fetchedCount++;
-    } catch (err) {
-      console.error(`[email-analyze-continue] Failed to fetch thread ${lead.threadId}:`, err);
-      skippedCount++;
     }
 
-    await delay(200);
+    // 200ms delay between batches (not between individual fetches)
+    if (i + FETCH_CONCURRENCY < leads.length) {
+      await delay(200);
+    }
 
-    // Progress update every 10 threads
-    if ((fetchedCount + skippedCount) % 10 === 0) {
+    // Progress update every 2 batches
+    if ((i / FETCH_CONCURRENCY) % 2 === 0) {
       const pct = 75 + Math.round(((fetchedCount + skippedCount) / leads.length) * 7);
       await updateProgress("analyzing_threads", `Fetched ${fetchedCount}/${leads.length} threads...`, pct);
     }
