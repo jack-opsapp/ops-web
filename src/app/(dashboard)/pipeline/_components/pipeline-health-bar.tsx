@@ -40,7 +40,7 @@ export function PipelineHealthBar({
   daysInStage,
   expectedDays,
 }: PipelineHealthBarProps) {
-  const t = useDictionary("pipeline");
+  const { t } = useDictionary("pipeline");
   const prefersReducedMotion = useReducedMotion();
 
   // Edge case: if expectedDays is 0 or falsy, render empty bar
@@ -66,10 +66,10 @@ export function PipelineHealthBar({
   // aria-label key lookup
   const ariaLabel: string =
     zone === "healthy"
-      ? t["healthBar.healthy"]
+      ? t("healthBar.healthy")
       : zone === "atRisk"
-        ? t["healthBar.atRisk"]
-        : t["healthBar.overdue"];
+        ? t("healthBar.atRisk")
+        : t("healthBar.overdue");
 
   // Width as a percentage of the track. 150% raw maps to 100% visual fill.
   // We normalise so 150 raw = 100% display width.
