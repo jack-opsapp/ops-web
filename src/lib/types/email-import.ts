@@ -68,6 +68,10 @@ export interface AnalyzedLead {
     confidence: string;
   };
   enabled: boolean;
+  /** Flagged for user review — not a standard lead but needs attention */
+  needsReview?: boolean;
+  /** Why this was flagged for review */
+  reviewReason?: 'legal' | 'job_seeker' | 'collections' | 'platform_bid' | 'warranty' | 'ambiguous' | null;
 }
 
 // Step 4 → Step 5: import payload

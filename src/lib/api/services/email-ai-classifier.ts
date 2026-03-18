@@ -195,6 +195,8 @@ export interface DeepExtractionResult {
   stageConfidence: number;
   estimatedValue: number | null;
   isLead: boolean;
+  needsReview: boolean;
+  reviewReason: 'legal' | 'job_seeker' | 'collections' | 'platform_bid' | 'warranty' | 'ambiguous' | null;
   reason: string | null;
   terminalFlag: 'likely_won' | 'likely_lost' | null;
 }
@@ -784,27 +786,41 @@ Team members: ${teamList}
 
 UNDERSTANDING THE BUSINESS: ${context.companyName} PROVIDES the services listed above. They build, install, and repair things for their CLIENTS. Their clients are homeowners, property managers, general contractors, developers, and businesses who HIRE them. Anyone who SELLS products, materials, or services TO ${context.companyName} is a VENDOR, not a client.
 
-STEP 1 — DETERMINE RELATIONSHIP DIRECTION. For each thread, decide: is this person a CUSTOMER of ${context.companyName}?
+STEP 1 — CLASSIFY each thread into one of three categories:
 
-CUSTOMER (include in "leads"):
+LEAD (include in "leads") — a CUSTOMER who hires or pays ${context.companyName}:
 - Someone REQUESTING work, quotes, or estimates FROM ${context.companyName}
 - Someone who RECEIVED an estimate/quote from ${context.companyName}
 - A homeowner, property manager, GC, or developer HIRING the company
 - A strata/co-op requesting maintenance or repairs
 - A general contractor who hires ${context.companyName} as a subtrade for THEIR projects
 
-NOT A CUSTOMER (include in "skip"):
+REVIEW (include in "review") — not a standard client lead but needs the owner's attention:
+- Legal matters: settlement agreements, disputes, liens, lawyer correspondence about a project
+- Job seekers: someone looking for work/employment (the owner may want to hire them)
+- Collections/credit: invoice disputes, overdue payment follow-ups from creditors
+- Platform bid requests: notifications from Procore, Buildertrend, BuildingConnected, SmartBidNet, or similar construction platforms about bid invitations or submittals — the ACTUAL client is behind the platform and should be reviewed
+- Warranty/callback: a past client reporting an issue after project completion
+- Anything ambiguous where the relationship direction is unclear
+
+SKIP (include in "skip") — definitely NOT a lead or review item:
 - A SUPPLIER/VENDOR selling materials TO ${context.companyName} (glass, lumber, railing supplies). Signal: THEY send invoices/POs/delivery notices TO the company, signature says "Sales Rep"/"Account Manager"
-- A SERVICE PROVIDER working FOR the company (lawyers, accountants, insurance, marketing, bookkeepers)
-- A JOB SEEKER sending a resume or asking about employment
-- Spam, newsletters, automated notifications, platform/app emails
+- A SERVICE PROVIDER working FOR the company (accountants, insurance, marketing, bookkeepers) — UNLESS it's a legal matter (→ review)
+- Spam, newsletters, automated notifications, app/software platform emails
 - Internal company emails between employees
 
 STEP 2 — FOR LEADS ONLY, extract:
 
 CLIENT INFO:
 - client.name: For PERSONAL clients (gmail/yahoo/hotmail/shaw/telus/icloud/outlook), extract the person's FULL NAME from signatures, sign-offs, or owner's greeting ("Hi [Name],"). NEVER derive from email address.
-  For BUSINESS clients (custom domain like @storyconstruction.ca, @firstgeneral.ca), the client.name MUST be the COMPANY name — properly capitalized with correct word spacing. Extract the company name from email signatures, the email domain, or the email content. Examples: "Colyvan Pacific" not "Colyvanpacific", "W&J Construction" not "Wj Construction", "Market Ready Ltd" not "Marketreadyltd", "JZ Construction" not "Jz Construction". The individual person goes in subContacts.
+  For BUSINESS clients (custom domain like @storyconstruction.ca, @firstgeneral.ca), the client.name MUST be the COMPANY name with PROPER formatting. Do NOT just lowercase or capitalize the email domain. Look for the real company name in email signatures, the email body, or letterhead. Split concatenated domain words and capitalize properly:
+  - "colyvanpacific.com" → "Colyvan Pacific"
+  - "wjconstruction.ca" → "W&J Construction Ltd." (look for the real name in email content)
+  - "firstgeneral.ca" → "First General Services" (from their signature block)
+  - "kpfstructural.com" → "KPF Structural" (preserve acronyms)
+  - "marketreadyltd.com" → "Market Ready Ltd."
+  - "lorvalcapital.ca" → "Lorval Capital"
+  The individual person goes in subContacts.
 - client.email: The primary contact email for this client
 - client.phone: Primary contact phone if found (omit if not found)
 - client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title in CRM. Be specific: include addresses, measurements, materials mentioned.
@@ -821,14 +837,19 @@ PIPELINE:
 - val: Dollar value if pricing is mentioned (omit if none)
 - flag: "likely_won"|"likely_lost" (omit if neither)
 
+STEP 3 — FOR REVIEW items, extract minimal info:
+- tid, client.name, client.email, client.desc (what the thread is about — "Settlement agreement for Mike Geric project", "Job application from Grade 12 student", "Procore bid invitation for Royal Bay Apartments")
+- reviewReason: one of "legal"|"job_seeker"|"collections"|"platform_bid"|"warranty"|"ambiguous"
+
 TOKEN EFFICIENCY RULES:
 - OMIT any field that would be null, empty, or []. Do not include it at all.
-- For non-leads, include ONLY the tid in the "skip" array — no other fields needed.
+- For skipped threads, include ONLY the tid in the "skip" array.
 - Keep desc concise but specific (it becomes the opportunity title in CRM).
 
 RESPOND WITH JSON:
 {
   "leads": [{ "tid": "...", "client": {...}, "stage": "...", "stageC": 0.8, ... }],
+  "review": [{ "tid": "...", "client": {...}, "reviewReason": "legal" }],
   "skip": ["tid1", "tid2", ...]
 }
 No explanation.`;
@@ -866,15 +887,12 @@ No explanation.`;
       const content = response.choices[0]?.message?.content || '{"leads":[],"skip":[]}';
       const parsed = JSON.parse(content);
 
-      // New format: { "leads": [...], "skip": ["tid1", ...] }
-      // Fall back to old format { "results": [...] } for compatibility
+      // Format: { "leads": [...], "review": [...], "skip": ["tid1", ...] }
       const rawLeads: Record<string, unknown>[] = parsed.leads || parsed.results || [];
+      const rawReview: Record<string, unknown>[] = parsed.review || [];
       const skipTids = new Set<string>((parsed.skip || []) as string[]);
 
-      console.log(`[deep-extract] Batch of ${threads.length} threads → ${rawLeads.length} leads, ${skipTids.size} skipped`);
-      if (skipTids.size > 0) {
-        console.log(`[deep-extract] Skipped tids: ${[...skipTids].join(', ')}`);
-      }
+      console.log(`[deep-extract] Batch of ${threads.length} threads → ${rawLeads.length} leads, ${rawReview.length} review, ${skipTids.size} skipped`);
 
       const results: DeepExtractionResult[] = [];
 
@@ -906,8 +924,38 @@ No explanation.`;
           stageConfidence: (r.stageC as number) || (r.stageConfidence as number) || 0.5,
           estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
           isLead: true,
+          needsReview: false,
+          reviewReason: null,
           reason: (r.reason as string) || null,
           terminalFlag,
+        });
+      }
+
+      // Parse review items — flagged for user attention
+      for (const r of rawReview) {
+        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string } | null;
+        const threadId = (r.tid as string) || (r.threadId as string);
+        const reviewReason = (r.reviewReason as string) || 'ambiguous';
+        console.log(`[deep-extract] REVIEW: tid=${threadId} reason=${reviewReason} name=${client?.name || '?'}`);
+
+        results.push({
+          threadId,
+          client: {
+            name: client?.name || '',
+            email: client?.email || '',
+            phone: client?.phone || null,
+            description: client?.desc || client?.description || '',
+          },
+          subContacts: [],
+          companyName: null,
+          stage: 'new_lead',
+          stageConfidence: 0.5,
+          estimatedValue: null,
+          isLead: true, // Keep in results — user decides
+          needsReview: true,
+          reviewReason: reviewReason as DeepExtractionResult['reviewReason'],
+          reason: null,
+          terminalFlag: null,
         });
       }
 
@@ -922,16 +970,18 @@ No explanation.`;
           stageConfidence: 0,
           estimatedValue: null,
           isLead: false,
+          needsReview: false,
+          reviewReason: null,
           reason: 'skipped by extraction',
           terminalFlag: null,
         });
       }
 
-      // Fill any threads not accounted for in either leads or skip (fail open)
+      // Fill any threads not accounted for (fail open)
       const accountedTids = new Set(results.map((r) => r.threadId));
       for (const t of threads) {
         if (!accountedTids.has(t.threadId)) {
-          console.warn(`[deep-extract] Thread ${t.threadId} not in leads or skip — keeping as lead (fail open)`);
+          console.warn(`[deep-extract] Thread ${t.threadId} not in leads/review/skip — keeping as lead (fail open)`);
           results.push({
             threadId: t.threadId,
             client: { name: '', email: '', phone: null, description: '' },
@@ -941,6 +991,8 @@ No explanation.`;
             stageConfidence: 0.3,
             estimatedValue: null,
             isLead: true,
+            needsReview: false,
+            reviewReason: null,
             reason: null,
             terminalFlag: null,
           });
@@ -962,6 +1014,8 @@ No explanation.`;
         stageConfidence: 0.3,
         estimatedValue: null,
         isLead: true,
+        needsReview: false,
+        reviewReason: null,
         reason: 'extraction_failed',
         terminalFlag: null,
       }));

@@ -577,6 +577,14 @@ async function runPhaseB(
       }
     }
 
+    // Apply review flags
+    if (extraction.needsReview) {
+      lead.needsReview = true;
+      lead.reviewReason = extraction.reviewReason;
+      lead.enabled = false; // Default disabled — user must explicitly enable review items
+      console.log(`[deep-extract] REVIEW: ${lead.client.name} (${lead.client.email}) — ${extraction.reviewReason}`);
+    }
+
     // Mark non-leads flagged by deep extraction
     if (!extraction.isLead) {
       (lead as unknown as Record<string, unknown>)._aiRejected = true;
@@ -723,6 +731,10 @@ async function runPhaseB(
           notLeadReasons: extractions
             .filter((e) => !e.isLead)
             .map((e) => ({ tid: e.threadId, name: e.client.name, email: e.client.email, reason: e.reason })),
+          // All review-flagged items
+          reviewItems: extractions
+            .filter((e) => e.needsReview)
+            .map((e) => ({ tid: e.threadId, name: e.client.name, email: e.client.email, reviewReason: e.reviewReason, desc: e.client.description })),
         },
       },
     })
