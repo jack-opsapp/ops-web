@@ -6,7 +6,7 @@
  * resolves named entities into a knowledge graph, and builds per-relationship-type
  * writing profiles. Fire-and-forget from Phase B completion.
  *
- * Feature-gated: ai_email_memory
+ * Feature-gated: phase_c
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -127,13 +127,13 @@ export async function POST(request: NextRequest) {
   setSupabaseOverride(supabase);
   let enabled: boolean;
   try {
-    enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "ai_email_memory");
+    enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c");
   } finally {
     setSupabaseOverride(null);
   }
 
   if (!enabled) {
-    console.log(`[analyze-memory] Phase C skipped — ai_email_memory disabled for ${companyId}`);
+    console.log(`[analyze-memory] Phase C skipped — phase_c disabled for ${companyId}`);
     return NextResponse.json({ skipped: true });
   }
 

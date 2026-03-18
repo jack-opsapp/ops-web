@@ -284,7 +284,7 @@ Be concise. 1-2 sentences per fact max. Only extract facts useful for future ema
 export const MemoryService = {
   /**
    * Process an outbound email and extract memory facts.
-   * Called by the sync engine for every outbound email when ai_email_memory is enabled.
+   * Called by the sync engine for every outbound email when phase_c is enabled.
    */
   async processOutboundEmail(
     companyId: string,
@@ -299,7 +299,7 @@ export const MemoryService = {
   ): Promise<void> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
-      "ai_email_memory"
+      "phase_c"
     );
     if (!enabled) return;
 

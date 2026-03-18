@@ -80,7 +80,7 @@ export async function GET(
     company: { id: company.id, name: company.name },
     features: {
       ai_email_review: overrideMap.ai_email_review || { enabled: false, enabledBy: null, enabledAt: null },
-      ai_email_memory: overrideMap.ai_email_memory || { enabled: false, enabledBy: null, enabledAt: null },
+      phase_c: overrideMap.phase_c || { enabled: false, enabledBy: null, enabledAt: null },
     },
     memory: {
       facts: stats.factsCount,
@@ -106,7 +106,7 @@ export async function PATCH(
   const body = await req.json();
   const db = getAdminSupabase();
 
-  const validFeatures = ["ai_email_review", "ai_email_memory"];
+  const validFeatures = ["ai_email_review", "phase_c"];
   const updates: Array<{ feature: string; enabled: boolean }> = [];
 
   for (const feature of validFeatures) {

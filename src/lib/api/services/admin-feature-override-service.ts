@@ -2,7 +2,7 @@
  * OPS Web - Admin Feature Override Service
  *
  * Controls per-company AI feature gating. AI features require BOTH:
- * 1. The product-level feature flag (ai_email_review, ai_email_memory)
+ * 1. The product-level feature flag (ai_email_review, phase_c)
  * 2. An admin override enabling it for the specific company
  *
  * Uses getServiceRoleClient() because this bypasses RLS — the
@@ -12,7 +12,7 @@
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { AdminFeatureOverride } from "@/lib/types/email-connection";
 
-type AIFeatureKey = "ai_email_review" | "ai_email_memory";
+type AIFeatureKey = "ai_email_review" | "phase_c";
 
 // ─── Database ↔ TypeScript Mapping ──────────────────────────────────────────
 

@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
     if (checkOnly) {
       const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
         companyId,
-        "ai_email_memory"
+        "phase_c"
       );
       if (!enabled) {
-        return NextResponse.json({ available: false, confidence: 0, draft: "", sources: [], reason: "AI memory not enabled" });
+        return NextResponse.json({ available: false, confidence: 0, draft: "", sources: [], reason: "Phase C not enabled" });
       }
       const profile = await WritingProfileService.getProfile(companyId, userId);
       const confidence = WritingProfileService.getConfidence(

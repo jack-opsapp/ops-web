@@ -42,7 +42,7 @@ export const DraftGenerator = {
     // Check feature gate
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
-      "ai_email_memory"
+      "phase_c"
     );
     if (!enabled) {
       return {

@@ -6,7 +6,7 @@ interface CompanyAIStatus {
   id: string;
   name: string;
   aiEmailReview: { enabled: boolean; enabledAt: string | null };
-  aiEmailMemory: { enabled: boolean; enabledAt: string | null };
+  phaseC: { enabled: boolean; enabledAt: string | null };
 }
 
 interface CompanyDetail {
@@ -17,7 +17,7 @@ interface CompanyDetail {
       enabledBy: string | null;
       enabledAt: string | null;
     };
-    ai_email_memory: {
+    phase_c: {
       enabled: boolean;
       enabledBy: string | null;
       enabledAt: string | null;
@@ -88,7 +88,7 @@ export function AIFeaturesPanel() {
 
   const toggleFeature = async (
     companyId: string,
-    feature: "ai_email_review" | "ai_email_memory",
+    feature: "ai_email_review" | "phase_c",
     enabled: boolean
   ) => {
     setToggling(feature);
@@ -100,7 +100,7 @@ export function AIFeaturesPanel() {
       });
       if (!res.ok) throw new Error("Toggle failed");
       showMessage(
-        `${feature === "ai_email_review" ? "AI Review" : "AI Memory"} ${enabled ? "enabled" : "disabled"}`,
+        `${feature === "ai_email_review" ? "AI Review" : "Phase C"} ${enabled ? "enabled" : "disabled"}`,
         "success"
       );
       await selectCompany(companyId);
@@ -132,7 +132,7 @@ export function AIFeaturesPanel() {
   );
 
   const enabledCount = companies.filter(
-    (c) => c.aiEmailReview.enabled || c.aiEmailMemory.enabled
+    (c) => c.aiEmailReview.enabled || c.phaseC.enabled
   ).length;
 
   return (
@@ -208,13 +208,13 @@ export function AIFeaturesPanel() {
                     </span>
                     <span
                       className={`inline-block px-1.5 py-0.5 text-[10px] font-kosugi uppercase tracking-wider rounded ${
-                        c.aiEmailMemory.enabled
+                        c.phaseC.enabled
                           ? "bg-[#9DB582]/15 text-[#9DB582]"
                           : "bg-white/5 text-[#999]"
                       }`}
                     >
-                      Memory{" "}
-                      {c.aiEmailMemory.enabled ? "ON" : "OFF"}
+                      Phase C{" "}
+                      {c.phaseC.enabled ? "ON" : "OFF"}
                     </span>
                   </div>
                 </button>
@@ -276,30 +276,30 @@ export function AIFeaturesPanel() {
                 <div className="flex items-center justify-between p-3 rounded border border-white/10 bg-[#141414]">
                   <div>
                     <div className="font-mohave text-sm text-white">
-                      AI Memory
+                      Phase C
                     </div>
                     <div className="font-mohave text-xs text-[#999]">
-                      Fact extraction + draft generation
+                      Intelligence layer + knowledge graph
                     </div>
                   </div>
                   <button
                     onClick={() =>
                       toggleFeature(
                         selectedCompany.company.id,
-                        "ai_email_memory",
-                        !selectedCompany.features.ai_email_memory.enabled
+                        "phase_c",
+                        !selectedCompany.features.phase_c.enabled
                       )
                     }
-                    disabled={toggling === "ai_email_memory"}
+                    disabled={toggling === "phase_c"}
                     className={`px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded transition-colors ${
-                      selectedCompany.features.ai_email_memory.enabled
+                      selectedCompany.features.phase_c.enabled
                         ? "bg-[#9DB582]/15 text-[#9DB582] border border-[#9DB582]/20 hover:bg-[#93321A]/15 hover:text-[#93321A] hover:border-[#93321A]/20"
                         : "bg-white/5 text-[#999] border border-white/10 hover:bg-[#9DB582]/15 hover:text-[#9DB582] hover:border-[#9DB582]/20"
                     }`}
                   >
-                    {toggling === "ai_email_memory"
+                    {toggling === "phase_c"
                       ? "..."
-                      : selectedCompany.features.ai_email_memory.enabled
+                      : selectedCompany.features.phase_c.enabled
                         ? "Enabled"
                         : "Disabled"}
                   </button>

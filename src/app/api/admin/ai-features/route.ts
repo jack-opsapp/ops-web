@@ -54,7 +54,7 @@ export const GET = withAdmin(async (req) => {
       enabled: false,
       enabledAt: null,
     },
-    aiEmailMemory: overrideMap[c.id]?.ai_email_memory || {
+    phaseC: overrideMap[c.id]?.phase_c || {
       enabled: false,
       enabledAt: null,
     },
