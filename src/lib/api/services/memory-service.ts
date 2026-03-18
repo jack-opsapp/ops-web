@@ -21,6 +21,109 @@ export interface MemoryFact {
   source: string;
 }
 
+// ─── Phase C Constants ──────────────────────────────────────────────────────
+
+export const PROFILE_CLUSTER_MAP: Record<string, string> = {
+  client_new_inquiry: 'client',
+  client_quoting: 'client',
+  client_active_project: 'client',
+  client_followup: 'client',
+  vendor_ordering: 'vendor',
+  vendor_inquiry: 'vendor',
+  subtrade_coordination: 'subtrade',
+  warranty_claim: 'client',
+  internal: 'internal',
+  general: 'general',
+};
+
+export const ENTITY_CLUSTER_MAP: Record<string, string> = {
+  person: 'people',
+  company: 'organizations',
+  project: 'projects',
+  service: 'services',
+  material: 'materials',
+  document: 'documents',
+};
+
+export const SKIP_CLASSIFICATION_KEYWORDS: Record<string, string[]> = {
+  spam: ['automated', 'newsletter', 'marketing email', 'unsubscribe', 'noreply',
+         'no-reply', 'bulk', 'spam', 'mailing list', 'promotional'],
+  vendor: ['vendor', 'supplier', 'sales rep', 'sales representative', 'wholesale',
+           'distributor', 'supply company', 'invoice from', 'purchase order',
+           'product catalog', 'price list', 'account representative'],
+  subtrade: ['subtrade', 'subcontractor', 'sub-contractor', 'general contractor',
+             'trade partner', 'site coordination', 'job site', 'gc ', 'foreman'],
+  internal: ['internal', 'employee', 'team member', 'coworker', 'staff',
+             'company email', 'same company'],
+};
+
+export const VALID_PROFILE_TYPES = [
+  'client_new_inquiry', 'client_quoting', 'client_active_project', 'client_followup',
+  'vendor_ordering', 'vendor_inquiry', 'subtrade_coordination',
+  'warranty_claim', 'internal', 'general',
+] as const;
+
+export type ProfileType = typeof VALID_PROFILE_TYPES[number];
+
+export const PROFILE_TYPE_DESCRIPTIONS: Record<ProfileType, string> = {
+  client_new_inquiry: 'new potential clients making their first inquiry',
+  client_quoting: 'clients you are sending estimates or discussing pricing with',
+  client_active_project: 'clients with active ongoing projects',
+  client_followup: 'clients you are following up with after sending a quote',
+  vendor_ordering: 'suppliers you are placing material orders with',
+  vendor_inquiry: 'vendors you are asking about products or pricing',
+  subtrade_coordination: 'subtrades and general contractors you coordinate with on job sites',
+  warranty_claim: 'clients contacting you about warranty or callback issues',
+  internal: 'your own employees and team members',
+  general: 'general business contacts',
+};
+
+export const FACT_CATEGORIES = [
+  'pricing', 'commitment', 'client_preference', 'client_behavior', 'budget_signal',
+  'material_usage', 'supplier_pricing', 'supplier_relationship', 'employee_pattern',
+  'project_event', 'seasonal_pattern', 'service_capability', 'service_area',
+  'process', 'relationship_health', 'promotion',
+] as const;
+
+export interface ClassifiedThread {
+  threadId: string;
+  classification: 'client' | 'vendor' | 'subtrade' | 'internal' | 'unknown';
+  profileType: ProfileType | null;
+  confidence: number;
+  messages: Array<{
+    from: string;
+    fromName: string;
+    to: string[];
+    subject: string;
+    bodyText: string;
+    date: string;
+    direction: 'inbound' | 'outbound';
+  }>;
+}
+
+interface ExtractionResult {
+  facts: Array<{
+    category: string;
+    content: string;
+    confidence: number;
+    entity_email?: string;
+  }>;
+  entities: Array<{
+    name: string;
+    email?: string;
+    domain?: string;
+    type: 'person' | 'company' | 'service' | 'material';
+  }>;
+  edges: Array<{
+    from_email?: string;
+    from_name?: string;
+    predicate: string;
+    to_name: string;
+    to_type: string;
+    properties?: Record<string, unknown>;
+  }>;
+}
+
 // ─── Module-level helpers ───────────────────────────────────────────────────
 
 async function extractFacts(
