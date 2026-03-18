@@ -4,12 +4,61 @@
 
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
+import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import OpenAI from "openai";
 
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   return _openai;
+}
+
+// ─── Phase C Helpers (copied from analyze-continue to avoid route imports) ──
+
+const PLATFORM_EMAIL_PATTERNS = [
+  'reply-to+', 'noreply', 'no-reply', 'notifications@',
+  'mailer-daemon', 'postmaster@',
+  'inbound.opsapp.co', '@opsapp.co',
+  ...Object.keys(PLATFORM_DOMAINS),
+];
+
+function isPlatformEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  return PLATFORM_EMAIL_PATTERNS.some((p) => lower.includes(p));
+}
+
+/**
+ * Split a concatenated domain name into proper words using a business word dictionary.
+ * "ardentproperties" → "Ardent Properties", "storyconstruction" → "Story Construction"
+ */
+function splitDomainName(domainLocal: string): string {
+  const lower = domainLocal.toLowerCase();
+  const SUFFIXES = [
+    'construction', 'renovations', 'renovation', 'properties', 'property',
+    'developments', 'development', 'contracting', 'contractors', 'contractor',
+    'installations', 'installation', 'engineering', 'landscaping', 'restoration',
+    'restorations', 'improvements', 'improvement', 'fabrication', 'consulting',
+    'maintenance', 'enterprises', 'mechanical', 'management', 'industries',
+    'associates', 'woodworks', 'woodwork', 'solutions', 'interiors', 'exteriors',
+    'millwork', 'builders', 'building', 'services', 'plumbing', 'painting',
+    'electric', 'electrical', 'flooring', 'roofing', 'fencing', 'decking',
+    'masonry', 'welding', 'designs', 'design', 'studios', 'studio',
+    'realty', 'supply', 'homes', 'home', 'group', 'works', 'hvac',
+    'media', 'labs', 'corp', 'coop', 'pros', 'pro',
+  ];
+  for (const suffix of SUFFIXES) {
+    if (lower.endsWith(suffix) && lower.length > suffix.length) {
+      const prefix = lower.slice(0, -suffix.length);
+      if (prefix.length >= 2) {
+        const capPrefix = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+        let capSuffix = suffix.charAt(0).toUpperCase() + suffix.slice(1);
+        if (suffix === 'coop') capSuffix = 'Co-op';
+        return `${capPrefix} ${capSuffix}`;
+      }
+    }
+  }
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 export interface MemoryFact {
@@ -267,6 +316,191 @@ export const MemoryService = {
           console.error("[memory-service] Knowledge graph upsert failed:", err);
         });
     }
+  },
+
+  /**
+   * Phase C: Deterministic entity resolution from classified email threads.
+   * Creates/updates person and company entities in graph_entities,
+   * and relationship edges in agent_knowledge_graph.
+   */
+  async resolveEntities(
+    companyId: string,
+    threads: ClassifiedThread[],
+    ownerEmail: string,
+    employeeEmails: Set<string>,
+  ): Promise<{ entitiesCreated: number; edgesCreated: number }> {
+    const supabase = requireSupabase();
+    let entitiesCreated = 0;
+    let edgesCreated = 0;
+
+    // Collect all unique email addresses across all thread messages
+    const emailsToProcess = new Map<string, { name: string; classification: string; confidence: number }>();
+
+    for (const thread of threads) {
+      for (const msg of thread.messages) {
+        const allEmails = [msg.from, ...msg.to];
+        for (const raw of allEmails) {
+          const email = raw.toLowerCase().trim();
+          if (
+            !email ||
+            email === ownerEmail.toLowerCase() ||
+            employeeEmails.has(email) ||
+            isPlatformEmail(email)
+          ) continue;
+
+          const domain = email.split('@')[1];
+          if (!domain || PUBLIC_EMAIL_DOMAINS.has(domain)) continue;
+
+          const existing = emailsToProcess.get(email);
+          if (!existing || msg.fromName.length > existing.name.length) {
+            emailsToProcess.set(email, {
+              name: msg.fromName || email.split('@')[0],
+              classification: thread.classification,
+              confidence: thread.confidence,
+            });
+          }
+        }
+      }
+    }
+
+    // Ensure a "self" company entity exists for the user's own company
+    const ownerDomain = ownerEmail.toLowerCase().split('@')[1];
+    let selfCompanyId: string | null = null;
+    if (ownerDomain && !PUBLIC_EMAIL_DOMAINS.has(ownerDomain)) {
+      const selfCompanyName = splitDomainName(ownerDomain.split('.')[0]);
+      const { data: selfEntity } = await supabase
+        .from("graph_entities")
+        .upsert({
+          company_id: companyId,
+          entity_type: 'company',
+          name: selfCompanyName,
+          normalized_name: ownerDomain.toLowerCase(),
+          properties: { domain: ownerDomain, is_self: true },
+          confidence: 1.0,
+          source: 'email_import',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,entity_type,normalized_name' })
+        .select("id")
+        .single();
+      selfCompanyId = selfEntity?.id || null;
+    }
+
+    // Process each unique email → person entity + company entity
+    const domainCompanyIds = new Map<string, string>(); // domain → entity UUID
+
+    for (const [email, info] of emailsToProcess) {
+      if (info.confidence < 0.7) continue;
+
+      const domain = email.split('@')[1];
+      const personName = info.name.length > 2
+        ? info.name.replace(/\b\w/g, c => c.toUpperCase()).trim()
+        : email.split('@')[0];
+
+      // Upsert person entity
+      const { data: personEntity } = await supabase
+        .from("graph_entities")
+        .upsert({
+          company_id: companyId,
+          entity_type: 'person',
+          name: personName,
+          normalized_name: email,
+          email,
+          properties: { domain },
+          confidence: Math.min(1.0, info.confidence),
+          source: 'email_import',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,entity_type,normalized_name' })
+        .select("id, name")
+        .single();
+
+      if (personEntity) {
+        entitiesCreated++;
+
+        // Update name if new name is longer (better data)
+        // The upsert above handles insert-or-update, but for name we want longest wins
+        const { data: existing } = await supabase
+          .from("graph_entities")
+          .select("name")
+          .eq("id", personEntity.id)
+          .single();
+        if (existing && personName.length > (existing.name as string).length) {
+          await supabase
+            .from("graph_entities")
+            .update({ name: personName, updated_at: new Date().toISOString() })
+            .eq("id", personEntity.id);
+        }
+      }
+
+      // Upsert company entity from domain
+      if (!domainCompanyIds.has(domain)) {
+        const companyName = splitDomainName(domain.split('.')[0]);
+        const { data: companyEntity } = await supabase
+          .from("graph_entities")
+          .upsert({
+            company_id: companyId,
+            entity_type: 'company',
+            name: companyName,
+            normalized_name: domain.toLowerCase(),
+            properties: { domain },
+            confidence: Math.min(1.0, info.confidence),
+            source: 'email_import',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'company_id,entity_type,normalized_name' })
+          .select("id")
+          .single();
+
+        if (companyEntity) {
+          domainCompanyIds.set(domain, companyEntity.id);
+          entitiesCreated++;
+        }
+      }
+
+      // Create works_for edge: person → company
+      const companyEntityId = domainCompanyIds.get(domain);
+      if (personEntity && companyEntityId) {
+        await supabase
+          .from("agent_knowledge_graph")
+          .upsert({
+            company_id: companyId,
+            source_entity_id: personEntity.id,
+            predicate: 'works_for',
+            target_entity_id: companyEntityId,
+            link_type: 'extracted',
+            valid_from: new Date().toISOString(),
+          }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' })
+          .then(null, (err) => {
+            console.error("[memory-service] works_for edge upsert failed:", err);
+          });
+        edgesCreated++;
+      }
+
+      // Create relationship edge: external company → self company
+      if (companyEntityId && selfCompanyId && companyEntityId !== selfCompanyId) {
+        let predicate = 'communicates_with';
+        if (info.classification === 'client') predicate = 'client_of';
+        else if (info.classification === 'vendor') predicate = 'vendor_of';
+        else if (info.classification === 'subtrade') predicate = 'subtrade_of';
+
+        if (predicate !== 'communicates_with') {
+          await supabase
+            .from("agent_knowledge_graph")
+            .upsert({
+              company_id: companyId,
+              source_entity_id: companyEntityId,
+              predicate,
+              target_entity_id: selfCompanyId,
+              link_type: 'extracted',
+              valid_from: new Date().toISOString(),
+            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' })
+            .then(null, (err) => {
+              console.error(`[memory-service] ${predicate} edge upsert failed:`, err);
+            });
+          edgesCreated++;
+        }
+      }
+    }
+
+    return { entitiesCreated, edgesCreated };
   },
 
   /**
