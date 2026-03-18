@@ -912,16 +912,19 @@ Return JSON:
   },
 
   /**
-   * Get memory stats for admin panel.
+   * Get memory stats for admin panel (enriched with Phase C data).
    */
   async getStats(companyId: string): Promise<{
     factsCount: number;
     graphEdgesCount: number;
     profilesCount: number;
+    entitiesByType: Record<string, number>;
+    factsByCategory: Record<string, number>;
+    profilesByType: Array<{ profileType: string; emailsAnalyzed: number; updatedAt: string }>;
   }> {
     const supabase = requireSupabase();
 
-    const [facts, edges, profiles] = await Promise.all([
+    const [facts, edges, profiles, entities, factCategories, profileDetails] = await Promise.all([
       supabase
         .from("agent_memories")
         .select("id", { count: "exact", head: true })
@@ -934,31 +937,62 @@ Return JSON:
         .from("agent_writing_profiles")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId),
+      supabase
+        .from("graph_entities")
+        .select("entity_type")
+        .eq("company_id", companyId),
+      supabase
+        .from("agent_memories")
+        .select("category")
+        .eq("company_id", companyId),
+      supabase
+        .from("agent_writing_profiles")
+        .select("profile_type, emails_analyzed, updated_at")
+        .eq("company_id", companyId),
     ]);
+
+    // Count entities by type
+    const entitiesByType: Record<string, number> = {};
+    for (const e of (entities.data || [])) {
+      const t = e.entity_type as string;
+      entitiesByType[t] = (entitiesByType[t] || 0) + 1;
+    }
+
+    // Count facts by category
+    const factsByCategory: Record<string, number> = {};
+    for (const f of (factCategories.data || [])) {
+      const c = f.category as string;
+      factsByCategory[c] = (factsByCategory[c] || 0) + 1;
+    }
 
     return {
       factsCount: facts.count || 0,
       graphEdgesCount: edges.count || 0,
       profilesCount: profiles.count || 0,
+      entitiesByType,
+      factsByCategory,
+      profilesByType: (profileDetails.data || []).map(p => ({
+        profileType: p.profile_type as string,
+        emailsAnalyzed: p.emails_analyzed as number,
+        updatedAt: p.updated_at as string,
+      })),
     };
   },
 
   /**
    * Reset all memory for a company (admin action).
+   * Order matters: delete referencing tables first, then graph_entities.
    */
   async resetMemory(companyId: string): Promise<void> {
     const supabase = requireSupabase();
 
+    // Delete tables that reference graph_entities first
     await Promise.all([
       supabase.from("agent_memories").delete().eq("company_id", companyId),
-      supabase
-        .from("agent_knowledge_graph")
-        .delete()
-        .eq("company_id", companyId),
-      supabase
-        .from("agent_writing_profiles")
-        .delete()
-        .eq("company_id", companyId),
+      supabase.from("agent_knowledge_graph").delete().eq("company_id", companyId),
+      supabase.from("agent_writing_profiles").delete().eq("company_id", companyId),
     ]);
+    // Now safe to delete entities (no more FK references)
+    await supabase.from("graph_entities").delete().eq("company_id", companyId);
   },
 };
