@@ -774,15 +774,24 @@ NOT A CUSTOMER (include in "skip"):
 - Internal company emails between employees
 
 STEP 2 — FOR LEADS ONLY, extract:
-- client.name: FULL NAME from signatures, sign-offs, or owner's greeting ("Hi [Name],"). NEVER derive from email address.
-- client.email: Customer's email
-- client.phone: If found in body/signature (omit if not found)
-- client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title
-- subContacts: Other non-owner, non-employee people [{name, email}] (omit if none)
-- companyName: Business name if client is a company (omit for personal clients)
+
+CLIENT INFO:
+- client.name: For PERSONAL clients (gmail/yahoo/hotmail/shaw/telus/icloud/outlook), extract the person's FULL NAME from signatures, sign-offs, or owner's greeting ("Hi [Name],"). NEVER derive from email address.
+  For BUSINESS clients (custom domain like @storyconstruction.ca, @firstgeneral.ca), the client.name MUST be the COMPANY name — properly capitalized with correct word spacing. Extract the company name from email signatures, the email domain, or the email content. Examples: "Colyvan Pacific" not "Colyvanpacific", "W&J Construction" not "Wj Construction", "Market Ready Ltd" not "Marketreadyltd", "JZ Construction" not "Jz Construction". The individual person goes in subContacts.
+- client.email: The primary contact email for this client
+- client.phone: Primary contact phone if found (omit if not found)
+- client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title in CRM. Be specific: include addresses, measurements, materials mentioned.
+
+SUBCONTACTS — People at the client who are NOT the owner and NOT employees of ${context.companyName}:
+- For BUSINESS clients: the primary person MUST be the first subContact (same email/phone as client). Add any other people from CC/signatures.
+- For PERSONAL clients: only add if there are additional people involved (spouse, project manager, etc.)
+- Each subContact: { name, email, phone }. The name MUST be a real person's name — NEVER an email address, NEVER a phone number. If you can only find a first name, use just the first name. Omit phone if not found.
+- CRITICAL: The email field must contain an email address. The phone field must contain a phone number. Never swap them.
+
+PIPELINE:
 - stage: "new_lead"|"qualifying"|"quoting"|"quoted"|"follow_up"|"negotiation"
 - stageC: Confidence 0.0-1.0
-- val: Dollar value if mentioned (omit if none)
+- val: Dollar value if pricing is mentioned (omit if none)
 - flag: "likely_won"|"likely_lost" (omit if neither)
 
 TOKEN EFFICIENCY RULES:
