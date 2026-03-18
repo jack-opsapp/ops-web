@@ -334,17 +334,44 @@ export const EmailAIClassifier = {
 
     for (let i = 0; i < threads.length; i += STRIDE) {
       // Launch up to CONCURRENCY batches in parallel
-      const promises: Promise<DeepExtractionResult[]>[] = [];
+      const batchInputs: DeepExtractionInput[][] = [];
       for (let j = 0; j < CONCURRENCY; j++) {
         const start = i + j * BATCH_SIZE;
         if (start >= threads.length) break;
-        const batch = threads.slice(start, start + BATCH_SIZE);
-        promises.push(EmailAIClassifier.deepExtractSingleBatch(batch, context));
+        batchInputs.push(threads.slice(start, start + BATCH_SIZE));
       }
 
-      const batchResults = await Promise.all(promises);
-      for (const br of batchResults) {
-        results.push(...br);
+      const promises = batchInputs.map((batch) =>
+        EmailAIClassifier.deepExtractSingleBatch(batch, context)
+      );
+
+      const settled = await Promise.allSettled(promises);
+
+      // Collect results + identify failed batches for retry
+      const failedBatches: DeepExtractionInput[][] = [];
+      for (let k = 0; k < settled.length; k++) {
+        const result = settled[k];
+        if (result.status === 'fulfilled') {
+          // Check if this batch returned all fallback data (stageConfidence 0.3 = error fallback)
+          const allFallback = result.value.every((r) => r.stageConfidence === 0.3 && r.reason === 'extraction_failed');
+          if (allFallback && result.value.length > 0) {
+            failedBatches.push(batchInputs[k]);
+          } else {
+            results.push(...result.value);
+          }
+        } else {
+          failedBatches.push(batchInputs[k]);
+        }
+      }
+
+      // Retry failed batches sequentially (avoids rate limit issues)
+      if (failedBatches.length > 0) {
+        console.log(`[deep-extract] Retrying ${failedBatches.length} failed batches sequentially...`);
+        for (const batch of failedBatches) {
+          await new Promise((r) => setTimeout(r, 500)); // longer delay before retry
+          const retryResult = await EmailAIClassifier.deepExtractSingleBatch(batch, context);
+          results.push(...retryResult);
+        }
       }
 
       if (onProgress) {
@@ -832,7 +859,7 @@ No explanation.`;
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.1,
-        max_completion_tokens: threads.length * 250,
+        max_completion_tokens: 4096,
         response_format: { type: 'json_object' },
       });
 
