@@ -831,13 +831,13 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-5.4-nano',
+        model: 'gpt-5.4-nano-2026-03-17',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.1,
-        max_tokens: threads.length * 300,
+        max_completion_tokens: threads.length * 300,
         response_format: { type: 'json_object' },
       });
 
