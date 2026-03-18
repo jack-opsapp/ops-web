@@ -557,6 +557,108 @@ export const MemoryService = {
   },
 
   /**
+   * Phase C: Build per-relationship-type writing profiles from outbound emails.
+   * Groups emails by profile type, analyzes style for each type with 3+ samples.
+   */
+  async buildWritingProfiles(
+    companyId: string,
+    userId: string,
+    emailsByProfileType: Map<string, Array<{ subject: string; bodyText: string; date: string }>>
+  ): Promise<number> {
+    const supabase = requireSupabase();
+    let profilesBuilt = 0;
+
+    for (const [profileType, emails] of emailsByProfileType) {
+      // Need at least 3 emails to build a meaningful profile
+      if (emails.length < 3) continue;
+
+      // Validate profile type
+      if (!VALID_PROFILE_TYPES.includes(profileType as ProfileType)) continue;
+
+      // Select up to 10 most recent with diverse subjects
+      const sorted = [...emails].sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const seen = new Set<string>();
+      const selected: typeof emails = [];
+      for (const e of sorted) {
+        const subjectKey = e.subject.toLowerCase().replace(/^re:\s*/i, '').trim();
+        if (!seen.has(subjectKey)) {
+          seen.add(subjectKey);
+          selected.push(e);
+        }
+        if (selected.length >= 10) break;
+      }
+
+      try {
+        const description = PROFILE_TYPE_DESCRIPTIONS[profileType as ProfileType] || profileType;
+        const response = await getOpenAI().chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Analyze these outbound emails from a business owner to characterize their writing style for this relationship type. These are all emails to ${description}.
+
+Return JSON:
+{
+  "greeting_patterns": ["Hey {name},", "Hi {name},"],
+  "closing_patterns": ["Thanks,", "Best,"],
+  "avg_sentence_length": 12,
+  "formality_score": 6,
+  "tone_traits": ["direct", "professional", "warm"],
+  "vocabulary_preferences": ["appreciate", "looking forward to", "let me know"],
+  "common_phrases": ["happy to help", "sounds good"],
+  "hedging_tendency": "low",
+  "punctuation_habits": {"exclamation_marks": "occasional", "ellipsis": "never", "oxford_comma": true}
+}`,
+            },
+            {
+              role: 'user',
+              content: selected.map(e => `Subject: ${e.subject}\n${e.bodyText.slice(0, 600)}`).join('\n---\n'),
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 400,
+          response_format: { type: 'json_object' },
+        });
+
+        const content = response.choices[0]?.message?.content || '{}';
+        const parsed = JSON.parse(content);
+
+        // Store common_phrases, hedging_tendency, punctuation_habits inside vocabulary_preferences JSONB
+        const vocabPrefs = {
+          words: Array.isArray(parsed.vocabulary_preferences) ? parsed.vocabulary_preferences : [],
+          common_phrases: Array.isArray(parsed.common_phrases) ? parsed.common_phrases : [],
+          hedging_tendency: parsed.hedging_tendency || 'unknown',
+          punctuation_habits: parsed.punctuation_habits || {},
+        };
+
+        await supabase
+          .from("agent_writing_profiles")
+          .upsert({
+            company_id: companyId,
+            user_id: userId,
+            profile_type: profileType,
+            greeting_patterns: Array.isArray(parsed.greeting_patterns) ? parsed.greeting_patterns : [],
+            closing_patterns: Array.isArray(parsed.closing_patterns) ? parsed.closing_patterns : [],
+            avg_sentence_length: parsed.avg_sentence_length || 0,
+            formality_score: parsed.formality_score || 5,
+            tone_traits: Array.isArray(parsed.tone_traits) ? parsed.tone_traits : [],
+            vocabulary_preferences: vocabPrefs,
+            emails_analyzed: selected.length,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'company_id,user_id,profile_type' });
+
+        profilesBuilt++;
+      } catch (err) {
+        console.error(`[memory-service] Writing profile analysis failed for ${profileType}:`, err);
+      }
+    }
+
+    return profilesBuilt;
+  },
+
+  /**
    * Query memory for context relevant to drafting a reply.
    */
   async getContextForDraft(
