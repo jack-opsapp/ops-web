@@ -104,8 +104,10 @@ export function GalaxyScene() {
         .map(e => e.id);
       if (newIds.length > 0) setNewEntityIds(newIds);
     }
-    // Update last viewed timestamp
-    localStorage.setItem("intel_last_viewed_at", new Date().toISOString());
+    // NOTE: localStorage timestamp is NOT updated here. It's updated by
+    // ActivationSequence after the animation completes. If we update it
+    // immediately, a user who navigates away before the animation finishes
+    // would lose the "new" state on their next visit.
   }, [data?.entities, setNewEntityIds]);
 
   // Compute galaxy layout from entities
@@ -122,16 +124,28 @@ export function GalaxyScene() {
     });
   }, [data?.entities]);
 
-  // Handle rotation attempt when 3D is locked
-  const handleRotationAttempt = useCallback(() => {
-    if (!is3DUnlocked) {
-      setShowGatePrompt(true);
-      // Snap back to flat view
-      if (controlsRef.current) {
-        controlsRef.current.reset();
-      }
+  // Detect rotation attempts when 3D is locked.
+  // OrbitControls' onStart fires on ALL interactions (pan, zoom, rotate),
+  // so we can't use it. Instead, detect right-click drag or middle-click drag
+  // (the gestures that map to rotation in OrbitControls' default config).
+  // On desktop: left-click drag without modifier = rotate. But since we set
+  // enableRotate=false, OrbitControls remaps left-drag to pan. So the user
+  // can't actually "attempt" rotation via OrbitControls. Instead, we show
+  // the gate prompt once on first visit (if not already shown this session).
+  const gatePromptShownRef = useRef(false);
+  useEffect(() => {
+    if (!is3DUnlocked && !gatePromptShownRef.current && data?.entities && data.entities.length > 0) {
+      // Show gate prompt once after data loads, with a delay so the galaxy
+      // renders first and the user sees what they're missing
+      const timer = setTimeout(() => {
+        if (!gatePromptShownRef.current) {
+          gatePromptShownRef.current = true;
+          setShowGatePrompt(true);
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [is3DUnlocked, setShowGatePrompt]);
+  }, [is3DUnlocked, data?.entities, setShowGatePrompt]);
 
   // Click on empty space dismisses selection
   const handleCanvasClick = useCallback(
@@ -184,12 +198,10 @@ export function GalaxyScene() {
               ONE: is3DUnlocked ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN,
               TWO: THREE.TOUCH.DOLLY_PAN,
             }}
-            // When rotation is disabled, detect the attempt for gate prompt
-            onStart={() => {
-              if (!is3DUnlocked) {
-                handleRotationAttempt();
-              }
-            }}
+            // NOTE: onStart fires on ALL interactions (pan, zoom, rotate).
+            // We detect rotation attempts via a separate pointer handler below
+            // instead of using onStart, which would spam the gate prompt on
+            // every pan/zoom gesture.
           />
 
           {/* Background: ambient star field */}

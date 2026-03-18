@@ -47,9 +47,9 @@ export function NodeInfo({ entities }: NodeInfoProps) {
 
   // Tier 3: fetch full detail when expanded
   const { data: entityDetail, isLoading: detailLoading } = useIntelEntity(
-    expandedNodeId || null,
-    selectedEntity?.type || null,
-    company?.id || null
+    expandedNodeId || undefined,
+    selectedEntity?.type || undefined,
+    company?.id || undefined
   );
 
   // Escape key dismisses

@@ -113,11 +113,13 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
         activeNodeId === edge.sourceId || activeNodeId === edge.targetId;
 
       if (!isActiveEdge) {
-        // Camera proximity check — distance from camera to edge midpoint
-        tempVec.copy(sourcePos).add(targetPos).multiplyScalar(0.5);
-        const distToCamera = tempVec.distanceTo(cameraPos);
+        // Camera proximity check — distance from camera to EITHER endpoint.
+        // Using endpoints (not midpoint) because long cross-cluster edges could
+        // have their midpoint in deep space, far from both endpoints and the camera.
+        const distToSource = sourcePos.distanceTo(cameraPos);
+        const distToTarget = targetPos.distanceTo(cameraPos);
 
-        if (distToCamera > REVEAL_DISTANCE) continue;
+        if (Math.min(distToSource, distToTarget) > REVEAL_DISTANCE) continue;
       }
 
       // Write positions to buffer

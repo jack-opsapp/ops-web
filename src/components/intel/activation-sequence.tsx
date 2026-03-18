@@ -71,6 +71,10 @@ export function ActivationSequence() {
       setActivationPlaying(false);
       // Clear new entity IDs — they've been animated, now they're "seen"
       setNewEntityIds([]);
+      // NOW update the last-viewed timestamp. We deliberately wait until
+      // the animation completes so that a user who navigates away mid-animation
+      // will see the activation again on their next visit.
+      localStorage.setItem("intel_last_viewed_at", new Date().toISOString());
     }, duration);
 
     return () => {

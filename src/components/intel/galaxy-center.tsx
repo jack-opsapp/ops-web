@@ -7,7 +7,7 @@
 // name label with dark-halo legibility treatment.
 // ---------------------------------------------------------------------------
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -23,17 +23,8 @@ const prefersReducedMotion =
 // Constants
 // ---------------------------------------------------------------------------
 
-// Slightly larger than regular nodes (0.06) to establish hierarchy
-// without being ostentatiously big. The center earns its prominence
-// through position and brightness, not size.
 const CENTER_RADIUS = 0.09;
-
-// Accent color — the center uses the brand accent since it represents "you"
 const CENTER_COLOR = "#597794";
-
-// Label visibility threshold: show company name when camera is within
-// this distance (world units). Matches the semantic-zoom philosophy —
-// detail emerges with proximity.
 const LABEL_DISTANCE_THRESHOLD = 12;
 
 // ---------------------------------------------------------------------------
@@ -54,29 +45,32 @@ export function GalaxyCenterNode({ companyName }: GalaxyCenterNodeProps) {
 
   const threeColor = useMemo(() => new THREE.Color(CENTER_COLOR), []);
 
-  // Track whether label should show (camera distance or hover)
-  const isLabelVisible = useRef(false);
+  // Label visibility: controlled by React state so it triggers re-render.
+  // Updated from useFrame only when the value CHANGES to avoid per-frame renders.
+  const [labelVisible, setLabelVisible] = useState(false);
+  const prevVisibleRef = useRef(false);
   const isHovered = useRef(false);
 
   useFrame((state) => {
     if (!meshRef.current) return;
 
-    // Gentle breathing pulse: the center node slowly pulses in emissive
-    // intensity, suggesting it's alive — the heartbeat of the network.
-    // Sine wave: period ~4 seconds, amplitude ±0.1 emissive units.
+    // Gentle breathing pulse
     if (!prefersReducedMotion) {
       const t = state.clock.elapsedTime;
-      // Breathing rate: 0.25 Hz = 4-second period. Amplitude 0.1.
-      // Added to base emissive of 0.6 → oscillates between 0.5 and 0.7.
       const breathe = Math.sin(t * Math.PI * 0.5) * 0.1;
       const mat = meshRef.current.material as THREE.MeshBasicMaterial;
       const intensity = 0.6 + breathe + (isHovered.current ? 0.3 : 0);
       mat.color.copy(threeColor).multiplyScalar(intensity);
     }
 
-    // Semantic zoom: show label when camera is close enough
-    const dist = camera.position.length(); // Distance from origin
-    isLabelVisible.current = dist < LABEL_DISTANCE_THRESHOLD || isHovered.current;
+    // Semantic zoom: show label when camera is close enough or hovered.
+    // Only update React state when visibility transitions to avoid per-frame re-renders.
+    const dist = camera.position.length();
+    const shouldShow = dist < LABEL_DISTANCE_THRESHOLD || isHovered.current;
+    if (shouldShow !== prevVisibleRef.current) {
+      prevVisibleRef.current = shouldShow;
+      setLabelVisible(shouldShow);
+    }
   });
 
   return (
@@ -98,28 +92,30 @@ export function GalaxyCenterNode({ companyName }: GalaxyCenterNodeProps) {
       </mesh>
 
       {/* Company name label — shows on hover or close zoom */}
-      <Html
-        position={[0, 0.3, 0]}
-        center
-        distanceFactor={15}
-        style={{ pointerEvents: "none" }}
-      >
-        <div
-          className="text-center whitespace-nowrap transition-opacity duration-300"
-          style={{
-            background: "radial-gradient(ellipse, rgba(10,10,10,0.7) 0%, transparent 70%)",
-            padding: "8px 16px",
-            opacity: 0.9,
-          }}
+      {labelVisible && (
+        <Html
+          position={[0, 0.3, 0]}
+          center
+          distanceFactor={15}
+          style={{ pointerEvents: "none" }}
         >
-          <div className="font-mohave text-xs text-white leading-tight">
-            {companyName}
+          <div
+            className="text-left whitespace-nowrap"
+            style={{
+              background: "radial-gradient(ellipse, rgba(10,10,10,0.7) 0%, transparent 70%)",
+              padding: "8px 16px",
+              opacity: 0.9,
+            }}
+          >
+            <div className="font-mohave text-xs text-white leading-tight">
+              {companyName}
+            </div>
+            <div className="font-kosugi text-[9px] uppercase tracking-wider text-[#597794] mt-0.5">
+              your network
+            </div>
           </div>
-          <div className="font-kosugi text-[9px] uppercase tracking-wider text-[#597794] mt-0.5">
-            your network
-          </div>
-        </div>
-      </Html>
+        </Html>
+      )}
     </>
   );
 }

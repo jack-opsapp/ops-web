@@ -61,6 +61,12 @@ interface GalaxyNodesProps {
 export function GalaxyNodes({ positionedEntities, entities }: GalaxyNodesProps) {
   // Group positioned entities by cluster for instanced rendering
   const clusterGroups = useMemo(() => {
+    // Build entity lookup map first: O(n) instead of O(n*m) with .find()
+    const entityLookup = new Map<string, { name: string; type: string }>();
+    for (const e of entities) {
+      entityLookup.set(e.id, { name: e.name, type: e.type });
+    }
+
     const groups = new Map<string, { positions: PositionedEntity[]; entityMap: Map<string, { name: string; type: string }> }>();
 
     for (const pe of positionedEntities) {
@@ -70,9 +76,9 @@ export function GalaxyNodes({ positionedEntities, entities }: GalaxyNodesProps) 
       const group = groups.get(pe.cluster)!;
       group.positions.push(pe);
 
-      const entity = entities.find(e => e.id === pe.entityId);
+      const entity = entityLookup.get(pe.entityId);
       if (entity) {
-        group.entityMap.set(pe.entityId, { name: entity.name, type: entity.type });
+        group.entityMap.set(pe.entityId, entity);
       }
     }
 
@@ -126,6 +132,15 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
   // Three.js color object (cached)
   const threeColor = useMemo(() => new THREE.Color(color), [color]);
 
+  // Activation start time: captured when activationPlaying transitions to true.
+  // All activation animation math uses (t - activationStartTime) for correct
+  // relative timing, regardless of when the Canvas clock started.
+  const activationStartTime = useRef<number | null>(null);
+
+  // Pre-allocated working color to avoid GC pressure from Color.clone().
+  // Without this, 200 nodes at 60fps = 12,000 Color allocations/sec per cluster.
+  const workingColor = useMemo(() => new THREE.Color(), []);
+
   // Per-instance data: base position + drift phase (deterministic per entity)
   const instanceData = useMemo(() => {
     return positions.map((pe, idx) => ({
@@ -140,10 +155,19 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
     }));
   }, [positions]);
 
+  // Touch device detection: suppress hover behavior on mobile.
+  // Spec: "Mobile: No hover tier. Tap = Tier 2 directly."
+  const isTouchDeviceRef = useRef(
+    typeof window !== "undefined" && "ontouchstart" in window
+  );
+
   // Raycasting for hover/click: we need per-instance hit detection
-  // R3F's built-in raycasting works with InstancedMesh and reports instanceId
+  // R3F's built-in raycasting works with InstancedMesh and reports instanceId.
+  // On touch devices: pointerMove still fires, but we skip hover to avoid
+  // showing labels on tap-drag. The click handler handles Tier 2 directly.
   const handlePointerMove = useCallback(
     (e: THREE.Event & { instanceId?: number }) => {
+      if (isTouchDeviceRef.current) return; // No hover tier on touch
       if (e.instanceId !== undefined && e.instanceId < instanceData.length) {
         e.stopPropagation?.();
         setHoveredNode(instanceData[e.instanceId].entityId);
@@ -153,6 +177,7 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
   );
 
   const handlePointerOut = useCallback(() => {
+    if (isTouchDeviceRef.current) return;
     setHoveredNode(null);
   }, [setHoveredNode]);
 
@@ -173,6 +198,22 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
     if (!meshRef.current || !isVisible) return;
 
     const t = state.clock.elapsedTime;
+
+    // Capture activation start time on first frame where activationPlaying is true
+    if (activationPlaying && activationStartTime.current === null) {
+      activationStartTime.current = t;
+    }
+    if (!activationPlaying) {
+      activationStartTime.current = null;
+    }
+
+    // Activation elapsed: time since activation started (not since Canvas mounted).
+    // Without this, activation math would use absolute clock time and produce
+    // incorrect results if the Canvas has been running for any duration before data loads.
+    const activationElapsed = activationStartTime.current !== null
+      ? t - activationStartTime.current
+      : 0;
+
     const isNewIdSet = new Set(newEntityIds);
 
     for (let i = 0; i < instanceData.length; i++) {
@@ -183,7 +224,7 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
       const isSearchHit = searchQuery && searchResults.includes(data.entityId);
 
       // Position: base + ambient drift (sine wave on Y axis)
-      // Drift is disabled during reduced motion and during activation
+      // Drift is disabled during reduced motion
       const driftY = prefersReducedMotion
         ? 0
         : Math.sin(t * data.driftSpeed + data.driftPhase) * DRIFT_AMPLITUDE;
@@ -200,9 +241,11 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
       if (isHovered || isSelected) scale = 1.3;
       if (isSearchHit) scale = 1.2;
       if (activationPlaying && isNew) {
-        // Pulse: quick ease-out at 3Hz, damped
-        const pulseT = (t * 3 + data.driftPhase) % (Math.PI * 2);
-        scale = 1.0 + Math.sin(pulseT) * 0.15 * Math.max(0, 1 - t * 0.3);
+        // Pulse using activation-relative time. 3Hz frequency, damped over 2.5s.
+        // The damping factor (1 - elapsed * 0.4) decays the pulse to zero by ~2.5s.
+        const pulseT = (activationElapsed * 3 + data.driftPhase) % (Math.PI * 2);
+        const damping = Math.max(0, 1 - activationElapsed * 0.4);
+        scale = 1.0 + Math.sin(pulseT) * 0.15 * damping;
       }
       dummy.scale.setScalar(scale);
 
@@ -219,11 +262,13 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
         if (isHovered || isSelected) base += HOVER_EMISSIVE_BOOST;
         if (isSearchHit) base += 0.15;
 
-        // During activation: new nodes start very dim, existing nodes dim slightly
+        // During activation: new nodes start very dim, existing nodes dim slightly.
+        // Uses activationElapsed (relative to start) not absolute clock time.
         if (activationPlaying) {
           if (isNew) {
-            // Brighten from 0.05 to full over ~800ms
-            base = Math.min(base, Math.max(NEW_ENTITY_DIM_OPACITY, t * 1.2));
+            // Brighten from 0.05 to full over ~0.8s (Beat 1 duration).
+            // 1.2 factor: reaches 1.0 at t=0.83s
+            base = Math.min(base, Math.max(NEW_ENTITY_DIM_OPACITY, activationElapsed * 1.2));
           } else {
             // Existing nodes dim to 30% during activation
             base *= 0.3;
@@ -233,9 +278,9 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
         return Math.min(1.0, base);
       })();
 
-      // Set per-instance color via the color buffer
-      const instanceColor = threeColor.clone().multiplyScalar(emissiveIntensity);
-      meshRef.current.setColorAt(i, instanceColor);
+      // Reuse pre-allocated working color (avoids 12K allocations/sec GC pressure)
+      workingColor.copy(threeColor).multiplyScalar(emissiveIntensity);
+      meshRef.current.setColorAt(i, workingColor);
     }
 
     meshRef.current.instanceMatrix.needsUpdate = true;
