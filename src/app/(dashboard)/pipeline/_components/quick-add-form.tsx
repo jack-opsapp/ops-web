@@ -72,7 +72,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
   return (
     <div
       className={cn(
-        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-ops-accent/40 rounded-[5px] p-1.5",
+        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-[4px] p-1.5",
         "space-y-1 animate-scale-in"
       )}
       onKeyDown={handleKeyDown}
