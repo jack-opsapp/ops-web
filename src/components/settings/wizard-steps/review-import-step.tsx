@@ -95,10 +95,28 @@ function formatShortDate(iso: string): string {
   return months === 1 ? "1mo ago" : `${months}mo ago`;
 }
 
-/** Truncate body text to a max length, adding ellipsis */
+/** Strip HTML tags and decode common entities, then truncate */
 function truncateBody(body: string, max: number): string {
-  // Strip excessive whitespace
-  const clean = body.replace(/\s+/g, " ").trim();
+  // Strip all HTML tags
+  let clean = body.replace(/<[^>]*>/g, " ");
+  // Decode common HTML entities
+  clean = clean
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&rsquo;/gi, "\u2019")
+    .replace(/&lsquo;/gi, "\u2018")
+    .replace(/&rdquo;/gi, "\u201D")
+    .replace(/&ldquo;/gi, "\u201C")
+    .replace(/&mdash;/gi, "\u2014")
+    .replace(/&ndash;/gi, "\u2013")
+    .replace(/&#\d+;/g, ""); // strip remaining numeric entities
+  // Collapse whitespace
+  clean = clean.replace(/\s+/g, " ").trim();
+  if (!clean || clean.length === 0) return "(no text content)";
   if (clean.length <= max) return clean;
   return clean.slice(0, max).trimEnd() + "…";
 }
