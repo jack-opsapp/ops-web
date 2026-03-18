@@ -2,52 +2,47 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Search,
-  Plus,
-  X,
-  ListFilter,
-  TrendingUp,
-  Target,
-  Loader2,
-  DollarSign,
-  Mail,
-} from "lucide-react";
-import { trackScreenView } from "@/lib/analytics/analytics";
+import { Mail, X, Loader2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
-import { cn } from "@/lib/utils/cn";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { trackScreenView } from "@/lib/analytics/analytics";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   useOpportunities,
   useClients,
+  useTeamMembers,
   useMoveOpportunityStage,
   useUpdateOpportunity,
   useCreateOpportunity,
+  useCreateActivity,
+  useArchiveOpportunity,
+  useUnarchiveOpportunity,
   useGmailConnections,
 } from "@/lib/hooks";
 import {
   type Opportunity,
   OpportunityStage,
   OpportunitySource,
+  ActivityType,
   getStageDisplayName,
-  getStageColor,
   isActiveStage,
-  getAllStages,
-  formatCurrency,
   nextOpportunityStage,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
-import type { Client } from "@/lib/types/models";
+import {
+  actionPromptVariants,
+  actionPromptVariantsReduced,
+} from "@/lib/utils/motion";
 
 import { PipelineBoard } from "./_components/pipeline-board";
+import { PipelineMobile } from "./_components/pipeline-mobile";
+import { PipelineMetricsBar } from "./_components/pipeline-metrics-bar";
+import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { QuickAddForm } from "./_components/quick-add-form";
@@ -74,16 +69,15 @@ function PipelineSkeleton() {
         </div>
 
         {/* Metrics skeleton */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-1 flex items-center gap-1.5">
-              <div className="w-[32px] h-[32px] rounded bg-background-elevated animate-pulse" />
-              <div className="space-y-1">
-                <div className="h-[10px] w-[60px] bg-background-elevated rounded animate-pulse" />
-                <div className="h-[14px] w-[40px] bg-background-elevated rounded animate-pulse" />
+        <div className="bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] rounded-[4px]">
+          <div className="flex items-center gap-[16px] px-3 py-[8px]">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col gap-[2px]">
+                <div className="h-[18px] w-[60px] bg-background-elevated rounded animate-pulse" />
+                <div className="h-[10px] w-[40px] bg-background-elevated rounded animate-pulse" />
               </div>
-            </Card>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -132,27 +126,68 @@ function PipelineSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
+// Responsive breakpoint hook
+// ---------------------------------------------------------------------------
+function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline Page - Main Orchestrator
 // ---------------------------------------------------------------------------
 export default function PipelinePage() {
   usePageTitle("Pipeline");
   const { t } = useDictionary("pipeline");
   const router = useRouter();
+  const isMobile = useIsMobile();
 
-  // ── State ──────────────────────────────────────────────────────────────
+  // ── Reduced motion ────────────────────────────────────────────────────
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const toastVariants = prefersReducedMotion
+    ? actionPromptVariantsReduced
+    : actionPromptVariants;
+
+  // ── Filter / search state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
-  const [stageFilter, setStageFilter] = useState<OpportunityStage | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [stageFilter, setStageFilter] = useState<OpportunityStage | "all">(
+    "all"
+  );
+  const [assigneeFilter, setAssigneeFilter] = useState<string | "all">("all");
+
+  // ── Card expand state (single card accordion) ─────────────────────────
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+
+  // ── Quick add ─────────────────────────────────────────────────────────
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+
+  // ── Inbox leads / email review ────────────────────────────────────────
   const [showInboxLeads, setShowInboxLeads] = useState(false);
   const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
+
+  // ── Gmail banner ──────────────────────────────────────────────────────
   const [gmailBannerDismissed, setGmailBannerDismissed] = useState(false);
 
-  // Detail sheet
+  // ── Detail sheet ──────────────────────────────────────────────────────
   const [selectedOpportunity, setSelectedOpportunity] =
     useState<Opportunity | null>(null);
 
-  // Stage transition dialog
+  // ── Stage transition dialog ───────────────────────────────────────────
   const [transitionType, setTransitionType] = useState<"won" | "lost" | null>(
     null
   );
@@ -163,10 +198,18 @@ export default function PipelinePage() {
     stage: OpportunityStage;
   } | null>(null);
 
-  // Track screen view
-  useEffect(() => { trackScreenView("pipeline"); }, []);
+  // ── Archive undo state ────────────────────────────────────────────────
+  const [archiveUndoState, setArchiveUndoState] = useState<{
+    id: string;
+    timer: NodeJS.Timeout;
+  } | null>(null);
 
-  // Handle ?action=new from FAB navigation
+  // ── Track screen view ─────────────────────────────────────────────────
+  useEffect(() => {
+    trackScreenView("pipeline");
+  }, []);
+
+  // ── Handle ?action=new from FAB navigation ────────────────────────────
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams.get("action") === "new") {
@@ -174,11 +217,11 @@ export default function PipelinePage() {
     }
   }, [searchParams]);
 
-  // ── Auth ───────────────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();
   const can = usePermissionStore((s) => s.can);
 
-  // ── Setup gate ──────────────────────────────────────────────────────
+  // ── Setup gate ────────────────────────────────────────────────────────
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
 
@@ -190,9 +233,10 @@ export default function PipelinePage() {
     setShowQuickAdd(true);
   }, [setupComplete]);
 
-  // ── Data fetching ──────────────────────────────────────────────────────
+  // ── Data fetching ─────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const { data: teamData } = useTeamMembers();
   const { data: gmailConnections = [] } = useGmailConnections();
 
   const { data: reviewCount = 0 } = useQuery({
@@ -206,88 +250,175 @@ export default function PipelinePage() {
       return Array.isArray(json.items) ? json.items.length : 0;
     },
     enabled: !!company?.id,
-    refetchInterval: 30000, // refresh every 30s
+    refetchInterval: 30000,
   });
 
   const isLoading = oppsLoading || clientsLoading;
 
-  // ── Mutations ──────────────────────────────────────────────────────────
+  // ── Mutations ─────────────────────────────────────────────────────────
   const moveStage = useMoveOpportunityStage();
   const updateOpportunity = useUpdateOpportunity();
   const createOpportunity = useCreateOpportunity();
+  const createActivity = useCreateActivity();
+  const archiveMutation = useArchiveOpportunity();
+  const unarchiveMutation = useUnarchiveOpportunity();
 
-  // ── Client map ─────────────────────────────────────────────────────────
-  const clientMap = useMemo(() => {
-    const map = new Map<string, Client>();
+  // ── Client name map ───────────────────────────────────────────────────
+  const clientNameMap = useMemo(() => {
+    const map = new Map<string, string>();
     if (clientsData?.clients) {
       for (const client of clientsData.clients) {
-        map.set(client.id, client);
+        map.set(client.id, client.name);
       }
     }
     return map;
   }, [clientsData]);
 
-  // ── Active (non-deleted) opportunities ─────────────────────────────────
+  // ── Team members for filter dropdown ──────────────────────────────────
+  const teamMembers = useMemo(() => {
+    if (!teamData?.users) return [];
+    return teamData.users.map((u) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+    }));
+  }, [teamData]);
+
+  // ── Active (non-deleted, non-archived) opportunities ──────────────────
   const activeOpportunities = useMemo(() => {
     if (!opportunities) return [];
-    return opportunities.filter((o) => !o.deletedAt);
+    return opportunities.filter(
+      (o) => !o.deletedAt && !o.archivedAt
+    );
   }, [opportunities]);
 
-  // ── Metrics ────────────────────────────────────────────────────────────
-  const metrics = useMemo(() => {
-    const active = activeOpportunities.filter((o) => isActiveStage(o.stage));
-    const won = activeOpportunities.filter(
-      (o) => o.stage === OpportunityStage.Won
-    );
-    const lost = activeOpportunities.filter(
-      (o) => o.stage === OpportunityStage.Lost
-    );
+  // ── Filtered opportunities ────────────────────────────────────────────
+  const filteredOpportunities = useMemo(() => {
+    let result = activeOpportunities;
 
-    const pipelineValue = active.reduce(
-      (sum, o) => sum + (o.estimatedValue ?? 0),
-      0
-    );
-    const activeDeals = active.length;
-    const wonDeals = won.length;
-    const lostDeals = lost.length;
-    const conversionRate =
-      wonDeals + lostDeals > 0
-        ? Math.round((wonDeals / (wonDeals + lostDeals)) * 100)
-        : 0;
-
-    return { pipelineValue, activeDeals, wonDeals, conversionRate };
-  }, [activeOpportunities]);
-
-  // ── Stage counts for bottom bar ────────────────────────────────────────
-  const stageCounts = useMemo(() => {
-    const counts = new Map<OpportunityStage, number>();
-    for (const stage of getAllStages()) {
-      counts.set(stage, 0);
+    // Stage filter
+    if (stageFilter !== "all") {
+      result = result.filter((o) => o.stage === stageFilter);
     }
-    // Apply same filters as the board to keep counts in sync
+
+    // Assignee filter
+    if (assigneeFilter !== "all") {
+      result = result.filter((o) => o.assignedTo === assigneeFilter);
+    }
+
+    // Search query
     const query = searchQuery.toLowerCase().trim();
-    for (const opp of activeOpportunities) {
-      // Stage filter
-      if (stageFilter && opp.stage !== stageFilter) continue;
-      // Search filter
-      if (query) {
+    if (query) {
+      result = result.filter((opp) => {
         const clientName = opp.clientId
-          ? (clientMap.get(opp.clientId)?.name ?? "")
+          ? (clientNameMap.get(opp.clientId) ?? "")
           : "";
         const contactName = opp.contactName ?? "";
         const title = opp.title ?? "";
-        const matches =
+        return (
           clientName.toLowerCase().includes(query) ||
           contactName.toLowerCase().includes(query) ||
-          title.toLowerCase().includes(query);
-        if (!matches) continue;
-      }
-      counts.set(opp.stage, (counts.get(opp.stage) ?? 0) + 1);
+          title.toLowerCase().includes(query)
+        );
+      });
     }
-    return counts;
-  }, [activeOpportunities, searchQuery, stageFilter, clientMap]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────
+    return result;
+  }, [activeOpportunities, stageFilter, assigneeFilter, searchQuery, clientNameMap]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────
+
+  /** Toggle card expand — only one at a time */
+  const handleToggleExpand = useCallback((id: string) => {
+    setExpandedCardId((prev) => (prev === id ? null : id));
+  }, []);
+
+  /** One-tap call logging */
+  const handleLogCall = useCallback(
+    (opportunityId: string) => {
+      createActivity.mutate({
+        companyId: company?.id ?? "",
+        opportunityId,
+        clientId: null,
+        estimateId: null,
+        invoiceId: null,
+        type: ActivityType.Call,
+        subject: "Phone call",
+        content: null,
+        outcome: null,
+        direction: "outbound",
+        durationMinutes: null,
+        createdBy: currentUser?.id ?? null,
+      });
+      toast.success(t("card.callLogged"));
+    },
+    [createActivity, company?.id, currentUser?.id, t]
+  );
+
+  /** One-tap text logging */
+  const handleLogText = useCallback(
+    (opportunityId: string) => {
+      createActivity.mutate({
+        companyId: company?.id ?? "",
+        opportunityId,
+        clientId: null,
+        estimateId: null,
+        invoiceId: null,
+        type: ActivityType.TextMessage,
+        subject: "Text message",
+        content: null,
+        outcome: null,
+        direction: "outbound",
+        durationMinutes: null,
+        createdBy: currentUser?.id ?? null,
+      });
+      toast.success(t("card.textLogged"));
+    },
+    [createActivity, company?.id, currentUser?.id, t]
+  );
+
+  /** Add note to an opportunity */
+  const handleAddNote = useCallback(
+    (opportunityId: string, note: string) => {
+      createActivity.mutate({
+        companyId: company?.id ?? "",
+        opportunityId,
+        clientId: null,
+        estimateId: null,
+        invoiceId: null,
+        type: ActivityType.Note,
+        subject: t("detail.noteSubject"),
+        content: note,
+        outcome: null,
+        direction: null,
+        durationMinutes: null,
+        createdBy: currentUser?.id ?? null,
+      });
+      toast.success(t("card.noteAdded"));
+    },
+    [createActivity, company?.id, currentUser?.id, t]
+  );
+
+  /** Archive with undo */
+  const handleArchive = useCallback(
+    (opportunityId: string) => {
+      archiveMutation.mutate(opportunityId);
+      // Clear any existing undo timer
+      if (archiveUndoState?.timer) clearTimeout(archiveUndoState.timer);
+      const timer = setTimeout(() => setArchiveUndoState(null), 5000);
+      setArchiveUndoState({ id: opportunityId, timer });
+    },
+    [archiveMutation, archiveUndoState]
+  );
+
+  /** Undo archive */
+  const handleUndoArchive = useCallback(() => {
+    if (archiveUndoState) {
+      clearTimeout(archiveUndoState.timer);
+      unarchiveMutation.mutate(archiveUndoState.id);
+      setArchiveUndoState(null);
+    }
+  }, [archiveUndoState, unarchiveMutation]);
 
   /** Handle stage move from drag-and-drop or advance button */
   const handleMoveStage = useCallback(
@@ -316,28 +447,37 @@ export default function PipelinePage() {
         { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            toast.success(`${t("toast.movedTo")} ${getStageDisplayName(newStage)}`, {
-              description: opp.title,
-            });
+            toast.success(
+              `${t("toast.movedTo")} ${getStageDisplayName(newStage)}`,
+              { description: opp.title }
+            );
           },
           onError: (error) => {
             toast.error(t("toast.failedMove"), {
               description:
-                error instanceof Error ? error.message : t("toast.errorOccurred"),
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
             });
           },
         }
       );
     },
-    [activeOpportunities, moveStage, currentUser]
+    [activeOpportunities, moveStage, currentUser, can, t]
   );
 
-  /** Handle quick advance: move to next stage */
-  const handleAdvanceStage = useCallback(
+  /** Mark won — opens transition dialog */
+  const handleMarkWon = useCallback(
     (opportunity: Opportunity) => {
-      const next = nextOpportunityStage(opportunity.stage);
-      if (!next) return;
-      handleMoveStage(opportunity.id, next);
+      handleMoveStage(opportunity.id, OpportunityStage.Won);
+    },
+    [handleMoveStage]
+  );
+
+  /** Mark lost — opens transition dialog */
+  const handleMarkLost = useCallback(
+    (opportunity: Opportunity) => {
+      handleMoveStage(opportunity.id, OpportunityStage.Lost);
     },
     [handleMoveStage]
   );
@@ -354,12 +494,10 @@ export default function PipelinePage() {
 
       const { id, stage } = pendingStageMove;
 
-      // Move stage
       moveStage.mutate(
         { id, stage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            // Update opportunity with additional data
             const updateData: Record<string, unknown> = {};
             if (data.actualValue !== undefined) {
               updateData.actualValue = data.actualValue;
@@ -376,7 +514,9 @@ export default function PipelinePage() {
             }
 
             const toastMsg =
-              stage === OpportunityStage.Won ? t("toast.dealMarkedWon") : t("toast.dealMarkedLost");
+              stage === OpportunityStage.Won
+                ? t("toast.dealMarkedWon")
+                : t("toast.dealMarkedLost");
             toast.success(toastMsg, {
               description: transitionOpportunity.title,
             });
@@ -384,18 +524,27 @@ export default function PipelinePage() {
           onError: (error) => {
             toast.error(t("toast.failedUpdate"), {
               description:
-                error instanceof Error ? error.message : t("toast.errorOccurred"),
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
             });
           },
         }
       );
 
-      // Clean up dialog state
       setTransitionType(null);
       setTransitionOpportunity(null);
       setPendingStageMove(null);
     },
-    [pendingStageMove, transitionOpportunity, moveStage, updateOpportunity, currentUser]
+    [
+      pendingStageMove,
+      transitionOpportunity,
+      moveStage,
+      updateOpportunity,
+      currentUser,
+      can,
+      t,
+    ]
   );
 
   /** Cancel Won/Lost transition */
@@ -450,13 +599,15 @@ export default function PipelinePage() {
           onError: (error) => {
             toast.error(t("toast.failedCreateLead"), {
               description:
-                error instanceof Error ? error.message : t("toast.errorOccurred"),
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
             });
           },
         }
       );
     },
-    [company, currentUser, createOpportunity]
+    [company, currentUser, createOpportunity, can, t]
   );
 
   /** Open detail sheet for an opportunity */
@@ -464,229 +615,133 @@ export default function PipelinePage() {
     setSelectedOpportunity(opp);
   }, []);
 
-  // ── All stages for filter dropdown ─────────────────────────────────────
-  const allStages = getAllStages();
+  /** Handle quick advance: move to next stage */
+  const handleAdvanceStage = useCallback(
+    (opportunity: Opportunity) => {
+      const next = nextOpportunityStage(opportunity.stage);
+      if (!next) return;
+      handleMoveStage(opportunity.id, next);
+    },
+    [handleMoveStage]
+  );
 
-  // ── Loading state ──────────────────────────────────────────────────────
+  /** Create lead from email — shared between inbox and review panel */
+  const createLeadFromEmail = useCallback(
+    (prefill: { title: string; notes?: string; sourceEmail?: string }) => {
+      if (!company) return;
+      createOpportunity.mutate(
+        {
+          companyId: company.id,
+          clientId: null,
+          title: prefill.title,
+          description: prefill.notes || null,
+          contactName: null,
+          contactEmail: prefill.sourceEmail || null,
+          contactPhone: null,
+          stage: OpportunityStage.NewLead,
+          source: OpportunitySource.Email,
+          assignedTo: currentUser?.id ?? null,
+          priority: null,
+          estimatedValue: null,
+          actualValue: null,
+          winProbability: 10,
+          expectedCloseDate: null,
+          actualCloseDate: null,
+          projectId: null,
+          lostReason: null,
+          lostNotes: null,
+          quoteDeliveryMethod: null,
+          address: null,
+          tags: [],
+        },
+        {
+          onSuccess: () => {
+            toast.success(t("toast.leadFromEmail"), {
+              description: prefill.title,
+            });
+          },
+        }
+      );
+    },
+    [company, currentUser, createOpportunity, t]
+  );
+
+  /** Placeholder: assign (opened via detail sheet for now) */
+  const handleAssign = useCallback(
+    (opportunityId: string) => {
+      const opp = activeOpportunities.find((o) => o.id === opportunityId);
+      if (opp) setSelectedOpportunity(opp);
+    },
+    [activeOpportunities]
+  );
+
+  /** Placeholder: schedule follow-up (opened via detail sheet for now) */
+  const handleScheduleFollowUp = useCallback(
+    (opportunityId: string) => {
+      const opp = activeOpportunities.find((o) => o.id === opportunityId);
+      if (opp) setSelectedOpportunity(opp);
+    },
+    [activeOpportunities]
+  );
+
+  // ── Loading state ─────────────────────────────────────────────────────
   if (isLoading) {
     return <PipelineSkeleton />;
   }
 
-  const totalDeals = activeOpportunities.length;
+  const canManage = can("pipeline.manage");
+
+  // ── Shared board/mobile props ─────────────────────────────────────────
+  const sharedBoardProps = {
+    opportunities: filteredOpportunities,
+    clients: clientNameMap,
+    expandedCardId,
+    onToggleExpand: handleToggleExpand,
+    onMoveStage: handleMoveStage,
+    onLogCall: handleLogCall,
+    onLogText: handleLogText,
+    onAddNote: handleAddNote,
+    onArchive: handleArchive,
+    onMarkWon: handleMarkWon,
+    onMarkLost: handleMarkLost,
+    onOpenDetail: handleSelectOpportunity,
+    onAssign: handleAssign,
+    onScheduleFollowUp: handleScheduleFollowUp,
+    onAddLead: gatedOpenCreate,
+    canManage,
+  } as const;
 
   return (
-    <div className="flex flex-col h-full space-y-2 min-w-0 overflow-x-hidden">
-      {/* Header */}
-      <div className="shrink-0 space-y-1">
-        <div className="flex items-center justify-between flex-wrap gap-1">
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="font-kosugi text-caption-sm text-text-tertiary">
-                {t("subtitle")}
-              </p>
-              <span className="font-mono text-[11px] text-text-disabled">
-                {totalDeals} deal{totalDeals !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            <div className="max-w-[250px]">
-              <Input
-                placeholder={t("search.placeholder")}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                prefixIcon={<Search className="w-[16px] h-[16px]" />}
-                suffixIcon={
-                  searchQuery ? (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="text-text-disabled hover:text-text-tertiary cursor-pointer"
-                    >
-                      <X className="w-[14px] h-[14px]" />
-                    </button>
-                  ) : undefined
-                }
-              />
-            </div>
-            <Button
-              variant={showFilters ? "default" : "secondary"}
-              size="sm"
-              className="gap-[6px]"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <ListFilter className="w-[14px] h-[14px]" />
-              {t("filter")}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-[6px]"
-              onClick={() => setShowInboxLeads(!showInboxLeads)}
-            >
-              <Mail className="w-[14px] h-[14px]" />
-              {t("inbox")}
-            </Button>
-            {reviewCount > 0 && (
-              <button
-                onClick={() => setReviewPanelOpen(true)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#417394]/15 text-[#8BB8D4] text-xs font-medium hover:bg-[#417394]/25 transition-colors"
-              >
-                <Mail className="w-3.5 h-3.5" />
-                Review Emails
-                <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#417394] text-[9px] font-bold text-white">
-                  {reviewCount > 99 ? "99+" : reviewCount}
-                </span>
-              </button>
-            )}
-            {can("pipeline.manage") && (
-              <Button
-                variant="default"
-                size="sm"
-                className="gap-[6px]"
-                onClick={() => setShowQuickAdd(true)}
-              >
-                <Plus className="w-[14px] h-[14px]" />
-                {t("newLead")}
-              </Button>
-            )}
-          </div>
-        </div>
+    <div className="space-y-2 h-full flex flex-col">
+      {/* Metrics bar */}
+      <PipelineMetricsBar
+        opportunities={filteredOpportunities}
+        isLoading={false}
+      />
 
-        {/* Metrics bar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {/* Pipeline Value */}
-          <Card className="p-1 flex items-center gap-1.5">
-            <div className="w-[32px] h-[32px] rounded bg-ops-accent-muted flex items-center justify-center shrink-0">
-              <DollarSign className="w-[16px] h-[16px] text-ops-accent" />
-            </div>
-            <div>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                {t("metrics.pipelineValue")}
-              </span>
-              <span className="font-mono text-data text-ops-accent">
-                {formatCurrency(metrics.pipelineValue)}
-              </span>
-            </div>
-          </Card>
-
-          {/* Active Deals */}
-          <Card className="p-1 flex items-center gap-1.5">
-            <div className="w-[32px] h-[32px] rounded bg-ops-amber-muted flex items-center justify-center shrink-0">
-              <Target className="w-[16px] h-[16px] text-ops-amber" />
-            </div>
-            <div>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                {t("metrics.activeDeals")}
-              </span>
-              <span className="font-mono text-data text-ops-amber">
-                {metrics.activeDeals}
-              </span>
-            </div>
-          </Card>
-
-          {/* Won */}
-          <Card className="p-1 flex items-center gap-1.5">
-            <div className="w-[32px] h-[32px] rounded bg-status-success/15 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-[16px] h-[16px] text-status-success" />
-            </div>
-            <div>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                {t("metrics.won")}
-              </span>
-              <span className="font-mono text-data text-status-success">
-                {metrics.wonDeals}
-              </span>
-            </div>
-          </Card>
-
-          {/* Conversion Rate */}
-          <Card className="p-1 flex items-center gap-1.5">
-            <div className="w-[32px] h-[32px] rounded bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0">
-              <TrendingUp className="w-[16px] h-[16px] text-text-secondary" />
-            </div>
-            <div>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest block">
-                {t("metrics.conversion")}
-              </span>
-              <span className="font-mono text-data text-text-primary">
-                {metrics.conversionRate}%
-              </span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Expanded filter panel */}
-        {showFilters && (
-          <Card className="p-1.5 animate-slide-up">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1">
-                <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                  {t("filter.stage")}
-                </span>
-                <select
-                  value={stageFilter ?? ""}
-                  onChange={(e) =>
-                    setStageFilter(
-                      e.target.value
-                        ? (e.target.value as OpportunityStage)
-                        : null
-                    )
-                  }
-                  className={cn(
-                    "bg-background-input text-text-primary font-mohave text-body-sm",
-                    "px-1.5 py-[6px] rounded border border-border",
-                    "focus:border-ops-accent focus:outline-none",
-                    "cursor-pointer"
-                  )}
-                >
-                  <option value="">{t("filter.allStages")}</option>
-                  {allStages.map((stage) => (
-                    <option key={stage} value={stage}>
-                      {getStageDisplayName(stage)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {(stageFilter || searchQuery) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-[4px] text-ops-error"
-                  onClick={() => {
-                    setStageFilter(null);
-                    setSearchQuery("");
-                  }}
-                >
-                  <X className="w-[12px] h-[12px]" />
-                  {t("filter.clear")}
-                </Button>
-              )}
-
-              {stageFilter && (
-                <Badge variant="info" className="gap-[4px]">
-                  {t("filter.stage")}: {getStageDisplayName(stageFilter)}
-                  <button
-                    onClick={() => setStageFilter(null)}
-                    className="hover:text-white cursor-pointer"
-                  >
-                    <X className="w-[10px] h-[10px]" />
-                  </button>
-                </Badge>
-              )}
-            </div>
-          </Card>
-        )}
-      </div>
+      {/* Filter row */}
+      <PipelineFilterRow
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        stageFilter={stageFilter}
+        onStageFilterChange={setStageFilter}
+        assigneeFilter={assigneeFilter}
+        onAssigneeFilterChange={setAssigneeFilter}
+        teamMembers={teamMembers}
+        onAddLead={gatedOpenCreate}
+        canManage={canManage}
+      />
 
       {/* Gmail connect prompt */}
       {gmailConnections.length === 0 && !gmailBannerDismissed && (
-        <div className="shrink-0 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-[rgba(65,115,148,0.08)] border border-ops-accent/20 animate-fade-in">
-          <div className="w-[32px] h-[32px] rounded bg-ops-accent-muted flex items-center justify-center shrink-0">
-            <Mail className="w-[16px] h-[16px] text-ops-accent" />
+        <div className="shrink-0 flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
+          <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
+            <Mail className="w-[16px] h-[16px] text-[#597794]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-mohave text-body text-text-primary">{t("gmail.connectBanner")}</p>
+            <p className="font-mohave text-body text-text-primary">
+              {t("gmail.connectBanner")}
+            </p>
             <p className="font-kosugi text-[11px] text-text-disabled">
               {t("gmail.connectDesc")}
             </p>
@@ -696,7 +751,10 @@ export default function PipelinePage() {
               size="sm"
               className="gap-[6px]"
               onClick={() => {
-                const params = new URLSearchParams({ companyId: company?.id ?? "", type: "company" });
+                const params = new URLSearchParams({
+                  companyId: company?.id ?? "",
+                  type: "company",
+                });
                 window.location.href = `/api/integrations/gmail?${params}`;
               }}
             >
@@ -714,11 +772,40 @@ export default function PipelinePage() {
         </div>
       )}
 
+      {/* Email review badge */}
+      {reviewCount > 0 && (
+        <div className="shrink-0">
+          <button
+            onClick={() => setReviewPanelOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] text-[#8BB8D4] text-xs font-medium hover:bg-[rgba(89,119,148,0.20)] transition-colors cursor-pointer"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Review Emails
+            <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#597794] text-[9px] font-bold text-white">
+              {reviewCount > 99 ? "99+" : reviewCount}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Inbox leads toggle */}
+      {showInboxLeads && (
+        <div className="shrink-0">
+          <InboxLeadsQueue
+            onCreateLead={(prefill) => {
+              setShowInboxLeads(false);
+              createLeadFromEmail(prefill);
+            }}
+            className="max-w-[600px]"
+          />
+        </div>
+      )}
+
       {/* Mutation loading indicator */}
       {moveStage.isPending && (
-        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-ops-accent-muted border border-ops-accent/30">
-          <Loader2 className="w-[14px] h-[14px] text-ops-accent animate-spin" />
-          <span className="font-kosugi text-[11px] text-ops-accent">
+        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
+          <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
+          <span className="font-kosugi text-[11px] text-[#597794]">
             {t("column.updating")}
           </span>
         </div>
@@ -736,38 +823,15 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* Pipeline Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-1 min-w-0">
-        <PipelineBoard
-          opportunities={activeOpportunities}
-          clientMap={clientMap}
-          searchQuery={searchQuery}
-          stageFilter={stageFilter}
-          onMoveStage={handleMoveStage}
-          onAdvanceStage={handleAdvanceStage}
-          onSelectOpportunity={handleSelectOpportunity}
-          onAddLead={() => setShowQuickAdd(true)}
-        />
-      </div>
-
-      {/* Bottom summary bar */}
-      <div className="shrink-0 flex items-center justify-between gap-2 px-2 py-1 rounded bg-background-panel border border-border min-w-0">
-        <div className="flex items-center gap-3 flex-wrap min-w-0">
-          {getAllStages().map((stage) => (
-            <div key={stage} className="flex items-center gap-[6px]">
-              <span
-                className="w-[6px] h-[6px] rounded-full shrink-0"
-                style={{ backgroundColor: getStageColor(stage) }}
-              />
-              <span className="font-mono text-[10px] text-text-disabled whitespace-nowrap">
-                {getStageDisplayName(stage)}: {stageCounts.get(stage) ?? 0}
-              </span>
-            </div>
-          ))}
-        </div>
-        <span className="font-kosugi text-[10px] text-text-disabled uppercase shrink-0">
-          {t("bottomBar")}
-        </span>
+      {/* Pipeline Board / Mobile */}
+      <div className="flex-1 min-h-0">
+        {isMobile ? (
+          <PipelineMobile {...sharedBoardProps} />
+        ) : (
+          <div className="h-full overflow-x-auto overflow-y-hidden pb-1 min-w-0">
+            <PipelineBoard {...sharedBoardProps} />
+          </div>
+        )}
       </div>
 
       {/* Deal Detail Sheet */}
@@ -809,53 +873,6 @@ export default function PipelinePage() {
         }
       />
 
-      {/* Inbox Leads */}
-      {showInboxLeads && (
-        <div className="shrink-0">
-          <InboxLeadsQueue
-            onCreateLead={(prefill) => {
-              setShowInboxLeads(false);
-              if (company) {
-                createOpportunity.mutate(
-                  {
-                    companyId: company.id,
-                    clientId: null,
-                    title: prefill.title,
-                    description: prefill.notes || null,
-                    contactName: null,
-                    contactEmail: prefill.sourceEmail || null,
-                    contactPhone: null,
-                    stage: OpportunityStage.NewLead,
-                    source: OpportunitySource.Email,
-                    assignedTo: currentUser?.id ?? null,
-                    priority: null,
-                    estimatedValue: null,
-                    actualValue: null,
-                    winProbability: 10,
-                    expectedCloseDate: null,
-                    actualCloseDate: null,
-                    projectId: null,
-                    lostReason: null,
-                    lostNotes: null,
-                    quoteDeliveryMethod: null,
-                    address: null,
-                    tags: [],
-                  },
-                  {
-                    onSuccess: () => {
-                      toast.success(t("toast.leadFromEmail"), {
-                        description: prefill.title,
-                      });
-                    },
-                  }
-                );
-              }
-            }}
-            className="max-w-[600px]"
-          />
-        </div>
-      )}
-
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog
         type={transitionType}
@@ -874,41 +891,7 @@ export default function PipelinePage() {
         }}
         onCreateLead={(prefill) => {
           setReviewPanelOpen(false);
-          if (company) {
-            createOpportunity.mutate(
-              {
-                companyId: company.id,
-                clientId: null,
-                title: prefill.title,
-                description: prefill.notes || null,
-                contactName: null,
-                contactEmail: prefill.sourceEmail || null,
-                contactPhone: null,
-                stage: OpportunityStage.NewLead,
-                source: OpportunitySource.Email,
-                assignedTo: currentUser?.id ?? null,
-                priority: null,
-                estimatedValue: null,
-                actualValue: null,
-                winProbability: 10,
-                expectedCloseDate: null,
-                actualCloseDate: null,
-                projectId: null,
-                lostReason: null,
-                lostNotes: null,
-                quoteDeliveryMethod: null,
-                address: null,
-                tags: [],
-              },
-              {
-                onSuccess: () => {
-                  toast.success(t("toast.leadFromEmail"), {
-                    description: prefill.title,
-                  });
-                },
-              }
-            );
-          }
+          createLeadFromEmail(prefill);
         }}
       />
 
@@ -925,6 +908,30 @@ export default function PipelinePage() {
         missingSteps={missingSteps}
         triggerAction="leads"
       />
+
+      {/* Archive undo toast */}
+      <AnimatePresence>
+        {archiveUndoState && (
+          <motion.div
+            variants={toastVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 flex items-center gap-2"
+          >
+            <span className="font-mohave text-body-sm text-text-secondary">
+              {t("actions.archived")}
+            </span>
+            <span className="text-[rgba(255,255,255,0.12)]">|</span>
+            <button
+              onClick={handleUndoArchive}
+              className="font-mohave text-body-sm text-[#597794] hover:text-[#6d8fad] transition-colors cursor-pointer"
+            >
+              {t("actions.undoArchive")}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

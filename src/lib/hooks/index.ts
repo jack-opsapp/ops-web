@@ -136,6 +136,8 @@ export {
   useUpdateOpportunity,
   useMoveOpportunityStage,
   useDeleteOpportunity,
+  useArchiveOpportunity,
+  useUnarchiveOpportunity,
   useOpportunityActivities,
   useCreateActivity,
   useOpportunityFollowUps,
