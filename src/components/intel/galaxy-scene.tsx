@@ -23,10 +23,18 @@ import { GalaxyNodes } from "./galaxy-nodes";
 import { GalaxyCenterNode } from "./galaxy-center";
 import { GalaxyEdges } from "./galaxy-edges";
 import { computeGalaxyLayout, type PositionedEntity } from "./galaxy-layout";
+import { SearchPill } from "./hud/search-pill";
+import { StatsRibbon } from "./hud/stats-ribbon";
+import { ZoomControls } from "./hud/zoom-controls";
+import { ClusterLegend } from "./hud/cluster-legend";
+import { PhaseCGatePrompt } from "./hud/phase-c-gate-prompt";
+import { NodeInfo } from "./node-info";
+import { RedactedText } from "./redacted-text";
 
 import { useIntelGraph } from "@/lib/hooks/use-intel-graph";
 import { useIntelStore } from "@/stores/intel-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
 // Device + motion detection
@@ -47,6 +55,7 @@ const isLowEnd =
 export function GalaxyScene() {
   const { data, isLoading } = useIntelGraph();
   const { company } = useAuthStore();
+  const { t } = useDictionary("intel");
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
   const is3DUnlocked = useIntelStore((s) => s.is3DUnlocked);
@@ -210,6 +219,113 @@ export function GalaxyScene() {
           <span className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] animate-pulse">
             [ LOADING INTEL ]
           </span>
+        </div>
+      )}
+
+      {/* ── HUD Overlays ─────────────────────────────────────────────── */}
+
+      {/* Top-left: Search */}
+      {!isLoading && data?.entities && (
+        <div className="absolute top-4 left-4 z-10">
+          <SearchPill entities={data.entities} />
+        </div>
+      )}
+
+      {/* Top-right: Stats */}
+      {!isLoading && data?.stats && (
+        <div className="absolute top-4 right-4 z-10">
+          <StatsRibbon
+            entityCount={data.stats.entityCount}
+            edgeCount={data.stats.edgeCount}
+            profileCount={data.stats.profileCount}
+            lastScanAt={data.stats.lastScanAt}
+          />
+        </div>
+      )}
+
+      {/* Bottom-left: Cluster legend */}
+      {!isLoading && (
+        <div className="absolute bottom-4 left-4 z-10">
+          <ClusterLegend />
+        </div>
+      )}
+
+      {/* Bottom-right: Zoom controls */}
+      {!isLoading && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <ZoomControls
+            onZoomIn={() => {
+              if (controlsRef.current) {
+                // Dolly in by reducing distance. The camera moves 20% closer.
+                const controls = controlsRef.current as unknown as { dollyIn: (scale: number) => void; update: () => void };
+                if (typeof controls.dollyIn === 'function') {
+                  controls.dollyIn(1.2);
+                  controls.update();
+                }
+              }
+            }}
+            onZoomOut={() => {
+              if (controlsRef.current) {
+                const controls = controlsRef.current as unknown as { dollyOut: (scale: number) => void; update: () => void };
+                if (typeof controls.dollyOut === 'function') {
+                  controls.dollyOut(1.2);
+                  controls.update();
+                }
+              }
+            }}
+            onReset={() => {
+              controlsRef.current?.reset();
+            }}
+          />
+        </div>
+      )}
+
+      {/* Center: Phase C gate prompt */}
+      <PhaseCGatePrompt
+        onRequestAccess={() => {
+          // Open the FeatureAccessModal — dispatch via a custom event
+          // that the Intel page listens for, or directly set state.
+          // For now, navigate to settings where the request flow exists.
+          window.location.href = "/settings";
+        }}
+      />
+
+      {/* Right: Node info panel (Tier 2 + Tier 3) */}
+      {data?.entities && (
+        <NodeInfo entities={data.entities} />
+      )}
+
+      {/* Empty state: no data at all */}
+      {!isLoading && data?.entities && data.entities.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div
+            className="pointer-events-auto text-left max-w-[260px] px-6 py-5 space-y-3"
+            style={{
+              background: "rgba(10, 10, 10, 0.80)",
+              backdropFilter: "blur(20px) saturate(1.2)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              borderRadius: "3px",
+            }}
+          >
+            <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794]">
+              [ INTEL ]
+            </div>
+            <div className="font-mohave text-sm text-white leading-relaxed">
+              <RedactedText>{t("empty.noData")}</RedactedText>
+            </div>
+            <a
+              href="/settings"
+              className="inline-block font-kosugi text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
+              style={{
+                background: "rgba(89, 119, 148, 0.15)",
+                border: "1px solid rgba(89, 119, 148, 0.3)",
+                color: "#597794",
+              }}
+            >
+              {t("empty.connectEmail")}
+            </a>
+          </div>
         </div>
       )}
     </div>
