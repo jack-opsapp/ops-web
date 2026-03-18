@@ -1,44 +1,32 @@
 {
   "title": "Intel",
   "search": "Buscar entidades...",
-  "stats": {
-    "entities": "ENTIDADES",
-    "edges": "CONEXIONES",
-    "profiles": "PERFILES",
-    "lastScan": "ÚLTIMO ESCANEO"
-  },
-  "clusters": {
-    "voice": "Voz",
-    "internal": "Interno",
-    "client": "Clientes",
-    "project": "Proyectos",
-    "vendor": "Proveedores",
-    "subtrade": "Subcontratistas",
-    "financial": "Finanzas"
-  },
-  "empty": {
-    "noData": "Tu red de operaciones. ████████ tu ██████ para comenzar.",
-    "noEmail": "████████ tu correo para ████████ contactos, ██████████████, y tu estilo ████████████████.",
-    "noPhaseC": "Phase C está ████████████ para tu cuenta.",
-    "requestAccess": "Solicitar Acceso",
-    "connectEmail": "Conectar Correo"
-  },
-  "gate": {
-    "title": "PHASE C",
-    "prompt": "Desbloquea la dimensión ██████.",
-    "cta": "Solicitar Acceso Anticipado"
-  },
-  "node": {
-    "more": "MÁS",
-    "facts": "DATOS",
-    "edges": "CONEXIONES",
-    "lastContact": "Último contacto",
-    "tasks": "Tareas",
-    "value": "Valor",
-    "dismiss": "Descartar"
-  },
-  "activation": {
-    "newIntel": "nuevo intel ████████████",
-    "viewIntel": "Ver Intel"
-  }
+  "stats.entities": "ENTIDADES",
+  "stats.edges": "CONEXIONES",
+  "stats.profiles": "PERFILES",
+  "stats.lastScan": "ÚLTIMO ESCANEO",
+  "clusters.voice": "Voz",
+  "clusters.internal": "Interno",
+  "clusters.client": "Clientes",
+  "clusters.project": "Proyectos",
+  "clusters.vendor": "Proveedores",
+  "clusters.subtrade": "Subcontratistas",
+  "clusters.financial": "Finanzas",
+  "empty.noData": "Tu red de operaciones. ████████ tu ██████ para comenzar.",
+  "empty.noEmail": "████████ tu correo para ████████ contactos, ██████████████, y tu estilo ████████████████.",
+  "empty.noPhaseC": "Phase C está ████████████ para tu cuenta.",
+  "empty.requestAccess": "Solicitar Acceso",
+  "empty.connectEmail": "Conectar Correo",
+  "gate.title": "PHASE C",
+  "gate.prompt": "Desbloquea la dimensión ██████.",
+  "gate.cta": "Solicitar Acceso Anticipado",
+  "node.more": "MÁS",
+  "node.facts": "DATOS",
+  "node.edges": "CONEXIONES",
+  "node.lastContact": "Último contacto",
+  "node.tasks": "Tareas",
+  "node.value": "Valor",
+  "node.dismiss": "Descartar",
+  "activation.newIntel": "nuevo intel ████████████",
+  "activation.viewIntel": "Ver Intel"
 }
