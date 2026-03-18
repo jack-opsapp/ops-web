@@ -307,6 +307,71 @@ export function useDeleteOpportunity() {
 }
 
 /**
+ * Archive an opportunity with optimistic removal from lists.
+ */
+export function useArchiveOpportunity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => OpportunityService.archiveOpportunity(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+
+      // Optimistically remove from list caches
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+
+      queryClient.setQueriesData<Opportunity[]>(
+        { queryKey: queryKeys.opportunities.lists() },
+        (old) => {
+          if (!old) return old;
+          return old.filter((opp) => opp.id !== id);
+        }
+      );
+
+      return { previousQueries };
+    },
+
+    onError: (_err, _id, context) => {
+      // Restore previous data on error
+      if (context?.previousQueries) {
+        for (const [queryKey, data] of context.previousQueries) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.all,
+      });
+    },
+  });
+}
+
+/**
+ * Unarchive an opportunity.
+ * No optimistic update — the item isn't visible in active lists to re-add.
+ */
+export function useUnarchiveOpportunity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => OpportunityService.unarchiveOpportunity(id),
+
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.all,
+      });
+    },
+  });
+}
+
+/**
  * Create an activity for an opportunity.
  * Invalidates activities and the opportunity detail (since lastActivityAt changes).
  */
