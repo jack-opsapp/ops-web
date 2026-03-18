@@ -781,7 +781,9 @@ For each thread, extract ALL of the following:
 7. isLead: true if genuinely a customer/client lead. false if on closer inspection this is a vendor, spam, internal, or not a customer.
 8. flag: "likely_won" if client confirmed/accepted, "likely_lost" if declined, null otherwise. This is the ONLY place for terminal flags.
 
-RESPOND WITH JSON: { "results": [...] }. No explanation. Include ALL fields for every thread.`;
+CRITICAL: Each result MUST include the "tid" field echoed back from the input. Without it, results cannot be matched to threads.
+
+RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Include ALL fields for every thread.`;
 
     const userPrompt = JSON.stringify(
       threads.map((t) => ({
@@ -817,15 +819,25 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Include ALL fields for 
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
+      // Log raw AI output for debugging
+      console.log(`[deep-extract] Batch of ${threads.length} threads → ${Array.isArray(rawResults) ? rawResults.length : 0} results`);
+
+      const results = (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>, idx: number) => {
         const { stage, terminalFlag } = sanitizeStageAndFlag(
           (r.stage as string) || null,
           (r.flag as string) || (r.terminalFlag as string) || null
         );
         const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string } | null;
 
+        // Resolve threadId: prefer AI-returned tid, fall back to input order
+        let threadId = (r.tid as string) || (r.threadId as string);
+        if (!threadId && idx < threads.length) {
+          threadId = threads[idx].threadId;
+          console.log(`[deep-extract] Result #${idx} missing tid — mapped to input thread ${threadId}`);
+        }
+
         return {
-          threadId: (r.tid as string) || (r.threadId as string),
+          threadId,
           client: {
             name: client?.name || '',
             email: client?.email || '',
@@ -841,6 +853,26 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Include ALL fields for 
           terminalFlag,
         };
       });
+
+      // If AI returned fewer results than inputs, fill remaining from input order
+      if (results.length < threads.length) {
+        console.warn(`[deep-extract] AI returned ${results.length} results for ${threads.length} threads — filling ${threads.length - results.length} gaps`);
+        for (let idx = results.length; idx < threads.length; idx++) {
+          results.push({
+            threadId: threads[idx].threadId,
+            client: { name: '', email: '', phone: null, description: '' },
+            subContacts: [],
+            companyName: null,
+            stage: 'new_lead',
+            stageConfidence: 0.3,
+            estimatedValue: null,
+            isLead: true,
+            terminalFlag: null,
+          });
+        }
+      }
+
+      return results;
     } catch (err) {
       console.error('[email-ai-classifier] Deep extraction batch failed:', err);
       // Return empty results so leads aren't lost — Phase B will use fallback data

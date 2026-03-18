@@ -389,6 +389,7 @@ async function runPhaseB(
   }
 
   console.log(`[email-analyze-continue] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped`);
+  console.log(`[email-analyze-continue] Fetched threadIds sample: ${[...fetchedThreads.keys()].slice(0, 5).join(', ')}`);
 
   // ─── 4. Deep AI extraction ─────────────────────────────────────────────────
   await updateProgress("analyzing_threads", "Extracting lead details with AI...", 82);
@@ -396,10 +397,14 @@ async function runPhaseB(
   // Build deep extraction inputs — last 6 messages with full body text (no cap)
   const extractionInputs: DeepExtractionInput[] = [];
   const extractionThreadIds: string[] = [];
+  let skippedNoMessages = 0;
 
   for (const lead of leads) {
     const messages = fetchedThreads.get(lead.threadId);
-    if (!messages || messages.length === 0) continue;
+    if (!messages || messages.length === 0) {
+      skippedNoMessages++;
+      continue;
+    }
 
     // Sort by date descending, take last 6, reverse to chronological
     const sorted = [...messages].sort((a: { date: Date }, b: { date: Date }) =>
@@ -456,16 +461,33 @@ async function runPhaseB(
     }
   );
 
+  console.log(`[email-analyze-continue] Extraction inputs: ${extractionInputs.length} threads (${skippedNoMessages} skipped — no fetched messages)`);
+  console.log(`[email-analyze-continue] Extraction results: ${extractions.length} total`);
+
+  // Log extraction threadId mapping quality
+  const extractionsWithTid = extractions.filter((e) => e.threadId);
+  const extractionsWithoutTid = extractions.filter((e) => !e.threadId);
+  console.log(`[email-analyze-continue] Extraction tid mapping: ${extractionsWithTid.length} with tid, ${extractionsWithoutTid.length} missing tid`);
+
   // ─── 5. Apply extraction results to leads ──────────────────────────────────
-  const extractionMap = new Map(extractions.map((e) => [e.threadId, e]));
+  const extractionMap = new Map(extractions.filter((e) => e.threadId).map((e) => [e.threadId, e]));
+
+  // Debug: track extraction application stats
+  const extractionStats = { applied: 0, skippedNoExtraction: 0, nameOverridden: 0, stageOverridden: 0, companyApplied: 0, flaggedNotLead: 0 };
 
   for (const lead of leads) {
     const extraction = extractionMap.get(lead.threadId);
-    if (!extraction) continue;
+    if (!extraction) {
+      extractionStats.skippedNoExtraction++;
+      continue;
+    }
+    extractionStats.applied++;
 
     // Override client info if AI extracted better data
     if (extraction.client.name) {
+      const oldName = lead.client.name;
       lead.client.name = capitalizeName(extraction.client.name);
+      if (oldName !== lead.client.name) extractionStats.nameOverridden++;
     }
     if (extraction.client.email) {
       const extractedEmail = extraction.client.email.toLowerCase().trim();
@@ -481,8 +503,10 @@ async function runPhaseB(
     }
 
     // Override stage
+    const oldStage = lead.stage;
     lead.stage = sanitizeStage(extraction.stage);
     lead.stageConfidence = extraction.stageConfidence;
+    if (oldStage !== lead.stage) extractionStats.stageOverridden++;
     if (extraction.estimatedValue) {
       lead.estimatedValue = extraction.estimatedValue;
     }
@@ -506,6 +530,7 @@ async function runPhaseB(
 
     // Company-as-client: if AI provided a company name, use it
     if (extraction.companyName) {
+      extractionStats.companyApplied++;
       const currentName = lead.client.name;
       const aiCompanyName = capitalizeName(extraction.companyName);
       if (aiCompanyName && aiCompanyName.toLowerCase() !== currentName.toLowerCase()) {
@@ -554,8 +579,12 @@ async function runPhaseB(
     // Mark non-leads flagged by deep extraction
     if (!extraction.isLead) {
       (lead as unknown as Record<string, unknown>)._aiRejected = true;
+      extractionStats.flaggedNotLead++;
+      console.log(`[deep-extract] Flagged not-lead: ${lead.client.name} (${lead.client.email}) — ${extraction.client.description || 'no reason'}`);
     }
   }
+
+  console.log(`[email-analyze-continue] Extraction stats: ${JSON.stringify(extractionStats)}`);
 
   // Build emailExcerpts from fetched thread messages for the wizard UI
   for (const lead of leads) {
@@ -669,6 +698,26 @@ async function runPhaseB(
         teamForwarders: detectionData.teamForwarders,
         leads: deduplicatedLeads,
         totalScanned: detectionData.totalEmailsScanned,
+        // Debug: extraction diagnostics for review
+        _extractionDebug: {
+          totalLeadsFromPhaseA: leads.length,
+          threadsFetched: fetchedCount,
+          threadsFetchSkipped: skippedCount,
+          extractionInputCount: extractionInputs.length,
+          extractionResultCount: extractions.length,
+          extractionStats,
+          // Sample of extractions for debugging (first 10)
+          sampleExtractions: extractions.slice(0, 10).map((e) => ({
+            tid: e.threadId,
+            name: e.client.name,
+            email: e.client.email,
+            stage: e.stage,
+            stageC: e.stageConfidence,
+            isLead: e.isLead,
+            companyName: e.companyName,
+            subContactCount: e.subContacts.length,
+          })),
+        },
       },
     })
     .eq("id", jobId);
