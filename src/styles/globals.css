@@ -300,3 +300,20 @@
     overflow: hidden;
   }
 }
+
+/* ── Pipeline stale deal pulse ── */
+@keyframes pipeline-stale-pulse {
+  0%, 100% { border-left-color: rgba(147, 50, 26, 0.6); }
+  50% { border-left-color: rgba(147, 50, 26, 1); }
+}
+
+.animate-stale-pulse {
+  animation: pipeline-stale-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-stale-pulse {
+    animation: none;
+    border-left-color: #93321A;
+  }
+}
