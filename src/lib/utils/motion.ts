@@ -282,3 +282,72 @@ export const lockoutCardVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.2, delay: 0.05 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
+
+// ── Pipeline card animations ──
+
+/** Card content stagger (expanded state reveal) */
+export const pipelineCardContentVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { delay: i * 0.05, duration: 0.2, ease: EASE_SMOOTH },
+  }),
+  exit: { opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Card slide-out (archive / advance swipe) */
+export const pipelineCardSlideVariants: Variants = {
+  center: { x: 0, opacity: 1 },
+  exitRight: { x: "100%", opacity: 0, transition: { duration: 0.25, ease: EASE_SMOOTH } },
+  exitLeft: { x: "-100%", opacity: 0, transition: { duration: 0.25, ease: EASE_SMOOTH } },
+};
+
+/** Mobile stage tab content transition */
+export const pipelineTabVariants: Variants = {
+  enter: { opacity: 0, x: 20 },
+  center: { opacity: 1, x: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, x: -20, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+};
+
+/** Pipeline card column stagger on initial mount */
+export const pipelineColumnStagger: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.03 } },
+};
+
+export const pipelineCardEntryVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+};
+
+// Reduced motion variants
+export const pipelineColumnStaggerReduced: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0 } },
+};
+
+export const pipelineCardContentVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { delay: i * 0.02, duration: 0.15 },
+  }),
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+export const pipelineCardSlideVariantsReduced: Variants = {
+  center: { opacity: 1 },
+  exitRight: { opacity: 0, transition: { duration: 0.15 } },
+  exitLeft: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+export const pipelineTabVariantsReduced: Variants = {
+  enter: { opacity: 0 },
+  center: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+export const pipelineCardEntryVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+};
