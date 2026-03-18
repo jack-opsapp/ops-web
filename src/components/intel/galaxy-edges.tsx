@@ -24,9 +24,10 @@ import { useIntelStore } from "@/stores/intel-store";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Proximity threshold: edges fade in when the camera is within this distance
-// (world units) of either endpoint node. At default zoom (~20 units from
-// center), this reveals about a cluster's worth of connections.
+// Proximity threshold: edges fade in when the camera's XY projection is
+// within this distance of either endpoint node. We project camera → XY
+// because the camera sits at Z=20 by default — using raw 3D distance would
+// mean all nodes are 20+ units away and no edges would ever reveal.
 const REVEAL_DISTANCE = 6;
 
 // Selected node: all its edges are visible regardless of camera distance.
@@ -89,8 +90,9 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
     [maxEdges]
   );
 
-  // Temp vector for distance calculations (avoids allocation per frame)
-  const tempVec = useMemo(() => new THREE.Vector3(), []);
+  // Temp vectors for distance calculations (avoids allocation per frame)
+  const cameraXY = useMemo(() => new THREE.Vector2(), []);
+  const nodeXY = useMemo(() => new THREE.Vector2(), []);
 
   useFrame(() => {
     if (!lineRef.current) return;
@@ -113,11 +115,16 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
         activeNodeId === edge.sourceId || activeNodeId === edge.targetId;
 
       if (!isActiveEdge) {
-        // Camera proximity check — distance from camera to EITHER endpoint.
-        // Using endpoints (not midpoint) because long cross-cluster edges could
-        // have their midpoint in deep space, far from both endpoints and the camera.
-        const distToSource = sourcePos.distanceTo(cameraPos);
-        const distToTarget = targetPos.distanceTo(cameraPos);
+        // Camera proximity check — XY-projected distance from camera to EITHER
+        // endpoint. We project to XY because the camera sits at Z=20 by default;
+        // using raw 3D distance would make all nodes 20+ units away, preventing
+        // any edge from revealing via proximity. XY distance accurately reflects
+        // what the user is "looking at" regardless of zoom level on the Z axis.
+        cameraXY.set(cameraPos.x, cameraPos.y);
+        nodeXY.set(sourcePos.x, sourcePos.y);
+        const distToSource = nodeXY.distanceTo(cameraXY);
+        nodeXY.set(targetPos.x, targetPos.y);
+        const distToTarget = nodeXY.distanceTo(cameraXY);
 
         if (Math.min(distToSource, distToTarget) > REVEAL_DISTANCE) continue;
       }

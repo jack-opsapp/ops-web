@@ -7,36 +7,10 @@
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
+import type { IntelEntityDetail } from "@/types/intel";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface IntelFact {
-  id: string;
-  category: string;
-  content: string;
-  confidence: number;
-  validFrom: string | null;
-  validTo: string | null;
-  createdAt: string;
-}
-
-export interface IntelKnowledgeEdge {
-  id: string;
-  sourceEntityId: string;
-  targetEntityId: string;
-  predicate: string;
-  linkType: string | null;
-  confidence: number;
-  properties: Record<string, unknown>;
-  createdAt: string;
-}
-
-export interface IntelEntityDetail {
-  entity: Record<string, unknown> | null;
-  facts: IntelFact[];
-  edges: IntelKnowledgeEdge[];
-  details: Record<string, unknown>;
-}
+// Re-export types from the shared module so existing imports continue to work
+export type { IntelFact, IntelKnowledgeEdge, IntelEntityDetail } from "@/types/intel";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -57,7 +31,7 @@ export function useIntelEntity(
   queryOptions?: Partial<UseQueryOptions<IntelEntityDetail>>
 ) {
   return useQuery<IntelEntityDetail>({
-    queryKey: queryKeys.intel.entity(entityId ?? ""),
+    queryKey: [...queryKeys.intel.entity(entityId ?? ""), companyId ?? ""],
     queryFn: async (): Promise<IntelEntityDetail> => {
       const params = new URLSearchParams({
         type: type ?? "",

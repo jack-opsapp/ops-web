@@ -9,49 +9,10 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { useAuthStore } from "../store/auth-store";
+import type { IntelGraphData } from "@/types/intel";
 
-// ─── Exported Types ───────────────────────────────────────────────────────────
-
-export interface IntelEntity {
-  id: string;
-  type: "person" | "company" | "project" | "invoice" | "estimate" | "voice_profile";
-  name: string;
-  cluster: "client" | "vendor" | "subtrade" | "internal" | "project" | "financial" | "voice";
-  properties: Record<string, unknown>;
-  confidence: number;
-  createdAt: string;
-  source: "email_import" | "ops_data";
-}
-
-export interface IntelEdge {
-  sourceId: string;
-  targetId: string;
-  predicate: string;
-  properties?: Record<string, unknown>;
-}
-
-export interface IntelVoiceProfile {
-  profileType: string;
-  formalityScore: number;
-  toneTraits: string[];
-  greetingPatterns: string[];
-  closingPatterns: string[];
-  vocabularyPreferences: Record<string, unknown>;
-  emailsAnalyzed: number;
-}
-
-export interface IntelGraphData {
-  entities: IntelEntity[];
-  edges: IntelEdge[];
-  voiceProfiles: IntelVoiceProfile[];
-  stats: {
-    entityCount: number;
-    edgeCount: number;
-    profileCount: number;
-    lastScanAt: string | null;
-  };
-  phaseCEnabled: boolean;
-}
+// Re-export types from the shared module so existing imports continue to work
+export type { IntelEntity, IntelEdge, IntelVoiceProfile, IntelGraphData } from "@/types/intel";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 

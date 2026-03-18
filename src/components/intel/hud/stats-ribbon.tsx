@@ -38,7 +38,7 @@ export function StatsRibbon({
 
   return (
     <div
-      className="flex items-center gap-4 px-3 py-2"
+      className="flex items-center gap-4 px-3 py-2 flex-wrap"
       style={{
         background: "rgba(10, 10, 10, 0.70)",
         backdropFilter: "blur(20px) saturate(1.2)",

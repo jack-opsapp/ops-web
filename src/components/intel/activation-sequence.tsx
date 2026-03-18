@@ -86,14 +86,3 @@ export function ActivationSequence() {
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Exported constants for GalaxyNodes to reference during per-frame rendering
-// ---------------------------------------------------------------------------
-
-export const ACTIVATION_TIMELINE = {
-  BEAT_1_DURATION,
-  BEAT_2_DURATION,
-  BEAT_3_DURATION,
-  TOTAL_DURATION,
-  REDUCED_MOTION_DURATION,
-} as const;

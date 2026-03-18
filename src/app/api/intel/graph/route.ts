@@ -7,58 +7,18 @@
  * - Live OPS records (clients, projects, invoices, estimates) — always
  * - Phase C AI entities, edges, writing profiles — when phase_c is enabled
  *
- * No user auth required — endpoint sits behind the dashboard auth gate.
+ * Requires authentication: Firebase/Supabase JWT + company ownership check.
  * All queries use the service-role client and filter by company_id.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import type { IntelEntity, IntelEdge, IntelVoiceProfile, IntelGraphData } from "@/types/intel";
 
 export const maxDuration = 60;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface IntelEntity {
-  id: string;
-  type: "person" | "company" | "project" | "invoice" | "estimate" | "voice_profile";
-  name: string;
-  cluster: "client" | "vendor" | "subtrade" | "internal" | "project" | "financial" | "voice";
-  properties: Record<string, unknown>;
-  confidence: number;
-  createdAt: string;
-  source: "email_import" | "ops_data";
-}
-
-export interface IntelEdge {
-  sourceId: string;
-  targetId: string;
-  predicate: string;
-  properties?: Record<string, unknown>;
-}
-
-export interface IntelVoiceProfile {
-  profileType: string;
-  formalityScore: number;
-  toneTraits: string[];
-  greetingPatterns: string[];
-  closingPatterns: string[];
-  vocabularyPreferences: Record<string, unknown>;
-  emailsAnalyzed: number;
-}
-
-export interface IntelGraphData {
-  entities: IntelEntity[];
-  edges: IntelEdge[];
-  voiceProfiles: IntelVoiceProfile[];
-  stats: {
-    entityCount: number;
-    edgeCount: number;
-    profileCount: number;
-    lastScanAt: string | null;
-  };
-  phaseCEnabled: boolean;
-}
 
 // ─── UUID Validation ──────────────────────────────────────────────────────────
 
@@ -99,6 +59,12 @@ function resolvePhaseCluster(
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  // ── Auth: verify JWT + company ownership ────────────────────────────────
+  const authUser = await verifyAdminAuth(req);
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get("companyId") ?? "";
 
@@ -107,6 +73,11 @@ export async function GET(req: NextRequest) {
       { error: "companyId query parameter is required and must be a valid UUID" },
       { status: 400 }
     );
+  }
+
+  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  if (!user || (user.company_id as string) !== companyId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = getServiceRoleClient();
@@ -287,6 +258,7 @@ export async function GET(req: NextRequest) {
         dueDate: inv.due_date,
         amountPaid: inv.amount_paid,
         clientId: inv.client_id,
+        projectId: inv.project_id,
       },
       confidence: 1.0,
       createdAt: inv.created_at as string,
@@ -315,6 +287,7 @@ export async function GET(req: NextRequest) {
         status: est.status,
         sentAt: est.sent_at,
         clientId: est.client_id,
+        projectId: est.project_id,
       },
       confidence: 1.0,
       createdAt: est.created_at as string,

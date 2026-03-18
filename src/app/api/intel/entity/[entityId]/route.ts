@@ -7,43 +7,17 @@
  * Supports both Phase C AI entities (person, company, service, material)
  * and live OPS records (project, invoice, estimate, voice_profile).
  *
+ * Requires authentication: Firebase/Supabase JWT + company ownership check.
  * All queries use the service-role client and filter by company_id.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import type { IntelFact, IntelKnowledgeEdge, IntelEntityDetail } from "@/types/intel";
 
 export const maxDuration = 30;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface IntelFact {
-  id: string;
-  category: string;
-  content: string;
-  confidence: number;
-  validFrom: string | null;
-  validTo: string | null;
-  createdAt: string;
-}
-
-interface IntelKnowledgeEdge {
-  id: string;
-  sourceEntityId: string;
-  targetEntityId: string;
-  predicate: string;
-  linkType: string | null;
-  confidence: number;
-  properties: Record<string, unknown>;
-  createdAt: string;
-}
-
-type EntityDetailResponse = {
-  entity: Record<string, unknown> | null;
-  facts: IntelFact[];
-  edges: IntelKnowledgeEdge[];
-  details: Record<string, unknown>;
-};
 
 // ─── UUID Validation ──────────────────────────────────────────────────────────
 
@@ -64,6 +38,12 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ entityId: string }> }
 ) {
+  // ── Auth: verify JWT + company ownership ────────────────────────────────
+  const authUser = await verifyAdminAuth(req);
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { entityId } = await params;
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") ?? "";
@@ -78,6 +58,11 @@ export async function GET(
       { error: "companyId query parameter is required and must be a valid UUID" },
       { status: 400 }
     );
+  }
+
+  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  if (!user || (user.company_id as string) !== companyId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = getServiceRoleClient();
@@ -139,7 +124,7 @@ export async function GET(
       createdAt: e.created_at as string,
     }));
 
-    const response: EntityDetailResponse = {
+    const response: IntelEntityDetail = {
       entity: entity ? (entity as Record<string, unknown>) : null,
       facts: mappedFacts,
       edges: mappedEdges,
@@ -192,7 +177,7 @@ export async function GET(
         .eq("company_id", companyId),
     ]);
 
-    const response: EntityDetailResponse = {
+    const response: IntelEntityDetail = {
       entity: project ? (project as Record<string, unknown>) : null,
       facts: [],
       edges: [],
@@ -225,7 +210,7 @@ export async function GET(
       .eq("company_id", companyId)
       .single();
 
-    const response: EntityDetailResponse = {
+    const response: IntelEntityDetail = {
       entity: invoice ? (invoice as Record<string, unknown>) : null,
       facts: [],
       edges: [],
@@ -251,7 +236,7 @@ export async function GET(
       .eq("company_id", companyId)
       .single();
 
-    const response: EntityDetailResponse = {
+    const response: IntelEntityDetail = {
       entity: estimate ? (estimate as Record<string, unknown>) : null,
       facts: [],
       edges: [],
@@ -275,7 +260,7 @@ export async function GET(
       ? await query.eq("id", entityId).single()
       : await query.eq("profile_type", entityId).single();
 
-    const response: EntityDetailResponse = {
+    const response: IntelEntityDetail = {
       entity: profile ? (profile as Record<string, unknown>) : null,
       facts: [],
       edges: [],

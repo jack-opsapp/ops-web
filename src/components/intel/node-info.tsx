@@ -104,11 +104,11 @@ export function NodeInfo({ entities }: NodeInfoProps) {
 
           {/* Properties summary */}
           <div className="space-y-1">
-            {selectedEntity.properties.email && (
-              <InfoRow label="Email" value={selectedEntity.properties.email as string} />
+            {typeof selectedEntity.properties.email === "string" && (
+              <InfoRow label="Email" value={selectedEntity.properties.email} />
             )}
-            {selectedEntity.properties.status && (
-              <InfoRow label="Status" value={selectedEntity.properties.status as string} />
+            {typeof selectedEntity.properties.status === "string" && (
+              <InfoRow label="Status" value={selectedEntity.properties.status} />
             )}
             {selectedEntity.properties.total !== undefined && (
               <InfoRow
@@ -155,7 +155,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
                     {t("node.edges")}
                   </div>
                   <div className="space-y-0.5 max-h-24 overflow-y-auto scrollbar-hide">
-                    {entityDetail.edges.slice(0, 6).map((edge: { predicate: string; sourceId: string; targetId: string }, i: number) => (
+                    {entityDetail.edges.slice(0, 6).map((edge: { predicate: string; sourceEntityId: string; targetEntityId: string }, i: number) => (
                       <div key={i} className="font-mohave text-[11px] text-[#999]">
                         {edge.predicate.replace(/_/g, " ")}
                       </div>
@@ -191,14 +191,14 @@ export function NodeInfo({ entities }: NodeInfoProps) {
           </div>
 
           {/* Type-specific summary */}
-          {selectedEntity.properties.email && (
+          {typeof selectedEntity.properties.email === "string" && (
             <div className="font-mohave text-[11px] text-[#999]">
-              {selectedEntity.properties.email as string}
+              {selectedEntity.properties.email}
             </div>
           )}
-          {selectedEntity.properties.status && (
+          {typeof selectedEntity.properties.status === "string" && (
             <div className="font-mohave text-[11px] text-[#999]">
-              {selectedEntity.properties.status as string}
+              {selectedEntity.properties.status}
             </div>
           )}
           {selectedEntity.properties.total !== undefined && (

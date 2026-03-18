@@ -12,7 +12,7 @@
 // call, regardless of count. 500 client nodes = 1 draw call.
 // ---------------------------------------------------------------------------
 
-import { useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -141,6 +141,13 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
   // Without this, 200 nodes at 60fps = 12,000 Color allocations/sec per cluster.
   const workingColor = useMemo(() => new THREE.Color(), []);
 
+  // Pre-built Set of new entity IDs — updated only when newEntityIds changes,
+  // NOT rebuilt every frame. Without this: 420 Set constructions/sec at 60fps.
+  const newEntityIdSetRef = useRef(new Set<string>());
+  useEffect(() => {
+    newEntityIdSetRef.current = new Set(newEntityIds);
+  }, [newEntityIds]);
+
   // Per-instance data: base position + drift phase (deterministic per entity)
   const instanceData = useMemo(() => {
     return positions.map((pe, idx) => ({
@@ -166,7 +173,7 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
   // On touch devices: pointerMove still fires, but we skip hover to avoid
   // showing labels on tap-drag. The click handler handles Tier 2 directly.
   const handlePointerMove = useCallback(
-    (e: THREE.Event & { instanceId?: number }) => {
+    (e: { instanceId?: number; stopPropagation?: () => void }) => {
       if (isTouchDeviceRef.current) return; // No hover tier on touch
       if (e.instanceId !== undefined && e.instanceId < instanceData.length) {
         e.stopPropagation?.();
@@ -182,7 +189,7 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
   }, [setHoveredNode]);
 
   const handleClick = useCallback(
-    (e: THREE.Event & { instanceId?: number }) => {
+    (e: { instanceId?: number; stopPropagation?: () => void }) => {
       if (e.instanceId !== undefined && e.instanceId < instanceData.length) {
         e.stopPropagation?.();
         selectNode(instanceData[e.instanceId].entityId);
@@ -214,11 +221,9 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
       ? t - activationStartTime.current
       : 0;
 
-    const isNewIdSet = new Set(newEntityIds);
-
     for (let i = 0; i < instanceData.length; i++) {
       const data = instanceData[i];
-      const isNew = isNewIdSet.has(data.entityId);
+      const isNew = newEntityIdSetRef.current.has(data.entityId);
       const isHovered = data.entityId === hoveredNodeId;
       const isSelected = data.entityId === selectedNodeId;
       const isSearchHit = searchQuery && searchResults.includes(data.entityId);
@@ -332,7 +337,7 @@ function ClusterInstanceGroup({ cluster, color, positions, entityMap }: ClusterI
           style={{ pointerEvents: "none" }}
         >
           <div
-            className="text-center whitespace-nowrap"
+            className="text-left whitespace-nowrap"
             style={{
               // Dark halo: radial gradient from semi-transparent dark to transparent.
               // Ensures text is legible against any cluster color or edge tangle.

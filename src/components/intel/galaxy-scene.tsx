@@ -47,7 +47,7 @@ const prefersReducedMotion =
 const isLowEnd =
   typeof navigator !== "undefined" &&
   (navigator.hardwareConcurrency <= 4 ||
-    (navigator as unknown as { deviceMemory?: number }).deviceMemory! <= 4);
+    ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? Infinity) <= 4);
 
 const isTouchDevice =
   typeof window !== "undefined" && "ontouchstart" in window;
@@ -147,10 +147,12 @@ export function GalaxyScene() {
     }
   }, [is3DUnlocked, data?.entities, setShowGatePrompt]);
 
-  // Click on empty space dismisses selection
+  // Click on empty space dismisses selection.
+  // Node clicks are handled by Three.js raycasting inside the Canvas (not DOM
+  // events), so they don't propagate to this handler. We only need to check
+  // that the click target is the <canvas> element itself (not a HUD overlay).
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
-      // Only if the click target is the canvas itself (not a node)
       if ((e.target as HTMLElement).tagName === "CANVAS") {
         dismissSelection();
       }
