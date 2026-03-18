@@ -333,6 +333,13 @@ export const queryKeys = {
     list: (companyId: string) =>
       [...queryKeys.invitations.lists(), companyId] as const,
   },
+
+  // Intel (Galaxy Visualization)
+  intel: {
+    all: ["intel"] as const,
+    graph: (companyId: string) => [...queryKeys.intel.all, "graph", companyId] as const,
+    entity: (entityId: string) => [...queryKeys.intel.all, "entity", entityId] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
