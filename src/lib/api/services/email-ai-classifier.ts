@@ -831,7 +831,7 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", ... }] }. No explanation. Inclu
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5.4-nano-2026-03-17',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
