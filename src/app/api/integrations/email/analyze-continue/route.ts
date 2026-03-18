@@ -544,7 +544,7 @@ async function runPhaseB(
 
     // Mark non-leads flagged by deep extraction
     if (!extraction.isLead) {
-      (lead as Record<string, unknown>)._aiRejected = true;
+      (lead as unknown as Record<string, unknown>)._aiRejected = true;
     }
   }
 
@@ -601,7 +601,7 @@ async function runPhaseB(
   // ─── 7. Hard filter + AI rejection ─────────────────────────────────────────
   const filteredLeads = leads.filter((lead) => {
     // Remove AI-flagged non-leads from deep extraction
-    if ((lead as Record<string, unknown>)._aiRejected) {
+    if ((lead as unknown as Record<string, unknown>)._aiRejected) {
       console.log(`[filter] REMOVED (AI flagged not-lead): ${lead.client.name} (${lead.client.email})`);
       return false;
     }
@@ -633,7 +633,7 @@ async function runPhaseB(
 
   // Clean up internal flag
   for (const lead of filteredLeads) {
-    delete (lead as Record<string, unknown>)._aiRejected;
+    delete (lead as unknown as Record<string, unknown>)._aiRejected;
   }
 
   console.log(`[email-analyze-continue] Leads after hard-filter: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed)`);
