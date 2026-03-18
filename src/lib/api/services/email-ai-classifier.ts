@@ -331,8 +331,9 @@ export const EmailAIClassifier = {
 
     const results: DeepExtractionResult[] = [];
     const BATCH_SIZE = 5;
-    const CONCURRENCY = 3; // Run 3 API calls concurrently — gpt-4o-mini has high RPM limits
-    const STRIDE = BATCH_SIZE * CONCURRENCY; // 15 threads per round
+    const CONCURRENCY = 2; // Run 2 API calls concurrently — reduces rate limit pressure
+    const STRIDE = BATCH_SIZE * CONCURRENCY; // 10 threads per round
+    const MAX_RETRIES = 2;
 
     for (let i = 0; i < threads.length; i += STRIDE) {
       // Launch up to CONCURRENCY batches in parallel
@@ -350,11 +351,10 @@ export const EmailAIClassifier = {
       const settled = await Promise.allSettled(promises);
 
       // Collect results + identify failed batches for retry
-      const failedBatches: DeepExtractionInput[][] = [];
+      let failedBatches: DeepExtractionInput[][] = [];
       for (let k = 0; k < settled.length; k++) {
         const result = settled[k];
         if (result.status === 'fulfilled') {
-          // Check if this batch returned all fallback data (stageConfidence 0.3 = error fallback)
           const allFallback = result.value.every((r) => r.stageConfidence === 0.3 && r.reason === 'extraction_failed');
           if (allFallback && result.value.length > 0) {
             failedBatches.push(batchInputs[k]);
@@ -366,14 +366,28 @@ export const EmailAIClassifier = {
         }
       }
 
-      // Retry failed batches sequentially (avoids rate limit issues)
-      if (failedBatches.length > 0) {
-        console.log(`[deep-extract] Retrying ${failedBatches.length} failed batches sequentially...`);
+      // Retry failed batches sequentially with multiple attempts
+      for (let attempt = 1; attempt <= MAX_RETRIES && failedBatches.length > 0; attempt++) {
+        console.log(`[deep-extract] Retry attempt ${attempt}/${MAX_RETRIES} for ${failedBatches.length} failed batches...`);
+        const stillFailed: DeepExtractionInput[][] = [];
         for (const batch of failedBatches) {
-          await new Promise((r) => setTimeout(r, 500)); // longer delay before retry
+          await new Promise((r) => setTimeout(r, 1000 * attempt)); // increasing delay: 1s, 2s
           const retryResult = await EmailAIClassifier.deepExtractSingleBatch(batch, context);
-          results.push(...retryResult);
+          const allFallback = retryResult.every((r) => r.stageConfidence === 0.3 && r.reason === 'extraction_failed');
+          if (allFallback && retryResult.length > 0) {
+            stillFailed.push(batch);
+          } else {
+            results.push(...retryResult);
+          }
         }
+        failedBatches = stillFailed;
+      }
+
+      // Accept remaining failures as fallback
+      for (const batch of failedBatches) {
+        console.warn(`[deep-extract] Batch permanently failed after ${MAX_RETRIES} retries — using fallback for ${batch.length} threads`);
+        const fallback = await EmailAIClassifier.deepExtractSingleBatch(batch, context);
+        results.push(...fallback);
       }
 
       if (onProgress) {
