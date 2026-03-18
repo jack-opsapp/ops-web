@@ -4,7 +4,6 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
-  Loader2,
   AlertTriangle,
   Trophy,
   XCircle,
@@ -401,15 +400,13 @@ function SectionHeader({ icon: Icon, iconColor, label, count, enabledCount, isEx
 interface ReviewImportStepProps {
   leads: AnalyzedLead[];
   onLeadsChanged: (leads: AnalyzedLead[]) => void;
-  onImport: () => Promise<void>;
-  importing: boolean;
+  onConfirm: () => void;
 }
 
 export function ReviewImportStep({
   leads,
   onLeadsChanged,
-  onImport,
-  importing,
+  onConfirm,
 }: ReviewImportStepProps) {
   // Track which sections/stages are expanded
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -641,7 +638,7 @@ export function ReviewImportStep({
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0D0D0D] to-transparent" />
       </div>
 
-      {/* Floating import bar */}
+      {/* Floating confirm bar */}
       <div
         className="sticky bottom-0 mt-4 -mx-6 px-6 py-3 flex items-center justify-between border-t border-white/8"
         style={{
@@ -654,19 +651,12 @@ export function ReviewImportStep({
           {enabledCount} lead{enabledCount !== 1 ? "s" : ""} selected
         </p>
         <Button
-          onClick={onImport}
-          disabled={importing || enabledCount === 0}
+          onClick={onConfirm}
+          disabled={enabledCount === 0}
           className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2 disabled:opacity-40"
           style={{ borderRadius: 3 }}
         >
-          {importing ? (
-            <>
-              <Loader2 size={14} className="animate-spin mr-2" />
-              Importing...
-            </>
-          ) : (
-            `Import ${enabledCount} Lead${enabledCount !== 1 ? "s" : ""}`
-          )}
+          Confirm {enabledCount} Lead{enabledCount !== 1 ? "s" : ""}
         </Button>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { ConnectStep } from "./wizard-steps/connect-step";
 import { AnalyzeStep } from "./wizard-steps/analyze-step";
 import { ConfirmSourcesStep } from "./wizard-steps/confirm-sources-step";
 import { ReviewImportStep } from "./wizard-steps/review-import-step";
+import { ConfirmImportStep } from "./wizard-steps/confirm-import-step";
 import { ImportProgress } from "./wizard-steps/import-progress";
 import { ActivateStep } from "./wizard-steps/activate-step";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
@@ -79,6 +80,7 @@ export function ImportPipelineWizard({
   const [confirmedLeads, setConfirmedLeads] = useState<AnalyzedLead[]>([]);
   const [estimatePattern, setEstimatePattern] = useState<string>("");
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
   const [syncInterval, setSyncInterval] = useState(60);
   const [existingJobId, setExistingJobId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
@@ -694,7 +696,7 @@ export function ImportPipelineWizard({
         <div className="px-6 pb-2 pt-4 min-h-[400px] overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
-              key={`${step}-${importJobId ? "importing" : "review"}`}
+              key={`${step}-${importJobId ? "importing" : confirmed ? "confirm" : "review"}`}
               custom={direction}
               variants={stepVariants}
               initial="enter"
@@ -747,13 +749,21 @@ export function ImportPipelineWizard({
                     onMinimize={() => { setMinimized(true); onOpenChange(false); }}
                     onProgressUpdate={handleProgressUpdate}
                   />
+                ) : confirmed ? (
+                  // Confirm mode — duplicate detection + summary before import
+                  <ConfirmImportStep
+                    leads={confirmedLeads}
+                    companyId={companyId}
+                    onBack={() => setConfirmed(false)}
+                    onImport={handleImport}
+                    importing={false}
+                  />
                 ) : (
-                  // Review mode — user hasn't clicked Import yet
+                  // Review mode — user toggles leads, edits names
                   <ReviewImportStep
                     leads={confirmedLeads}
                     onLeadsChanged={setConfirmedLeads}
-                    onImport={handleImport}
-                    importing={false}
+                    onConfirm={() => setConfirmed(true)}
                   />
                 )
               )}
@@ -781,8 +791,8 @@ export function ImportPipelineWizard({
           </AnimatePresence>
         </div>
 
-        {/* Back button footer — hide during background jobs, and on steps 2/3 (can't go back to analysis) */}
-        {step > 3 && !importJobId && !runningJobId && (
+        {/* Back button footer — hide during background jobs, confirm step (has its own back), and on steps 2/3 */}
+        {step > 3 && !importJobId && !runningJobId && !confirmed && step !== 4 && (
           <div className="flex items-center justify-between px-6 pb-4">
             <button
               onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}
