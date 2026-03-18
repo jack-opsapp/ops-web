@@ -11,7 +11,7 @@
 // Three.js (~150KB gzip) is not in the critical render path.
 // ---------------------------------------------------------------------------
 
-import { Suspense, useMemo, useEffect, useRef, useCallback } from "react";
+import { Suspense, useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
@@ -49,6 +49,9 @@ const isLowEnd =
   (navigator.hardwareConcurrency <= 4 ||
     (navigator as unknown as { deviceMemory?: number }).deviceMemory! <= 4);
 
+const isTouchDevice =
+  typeof window !== "undefined" && "ontouchstart" in window;
+
 // ---------------------------------------------------------------------------
 // GalaxyScene
 // ---------------------------------------------------------------------------
@@ -58,6 +61,21 @@ export function GalaxyScene() {
   const { company } = useAuthStore();
   const { t } = useDictionary("intel");
   const controlsRef = useRef<OrbitControlsImpl>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  // IntersectionObserver: pause the animation loop when the canvas is off-screen.
+  // This prevents GPU work when the user navigated away but the component is
+  // still mounted (e.g., tab switching within the dashboard).
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const is3DUnlocked = useIntelStore((s) => s.is3DUnlocked);
   const set3DUnlocked = useIntelStore((s) => s.set3DUnlocked);
@@ -129,7 +147,7 @@ export function GalaxyScene() {
   const companyName = company?.name || "Your Company";
 
   return (
-    <div className="w-full h-full relative" onClick={handleCanvasClick}>
+    <div ref={containerRef} className="w-full h-full relative" onClick={handleCanvasClick}>
       <Canvas
         camera={{
           position: [0, 0, 20],
@@ -137,10 +155,12 @@ export function GalaxyScene() {
           near: 0.1,
           far: 100,
         }}
-        dpr={[1, 2]}
-        gl={{ antialias: true, alpha: false }}
+        dpr={isLowEnd ? [1, 1] : [1, 2]}
+        gl={{ antialias: !isLowEnd, alpha: false }}
         style={{ background: "#0A0A0A" }}
-        frameloop={prefersReducedMotion ? "demand" : "always"}
+        // Frame loop: "demand" for reduced motion or when not visible.
+        // "always" for continuous animation (ambient drift, breathing).
+        frameloop={prefersReducedMotion || !isVisible ? "demand" : "always"}
       >
         <Suspense fallback={null}>
           {/* Ambient light — very subtle, just enough so nodes aren't pure black */}
@@ -158,6 +178,12 @@ export function GalaxyScene() {
             // Smooth damping for all camera moves
             enableDamping={!prefersReducedMotion}
             dampingFactor={0.05}
+            // Touch: pinch to zoom, two-finger pan.
+            // One-finger drag = rotate (if unlocked) or pan (if locked).
+            touches={{
+              ONE: is3DUnlocked ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN,
+              TWO: THREE.TOUCH.DOLLY_PAN,
+            }}
             // When rotation is disabled, detect the attempt for gate prompt
             onStart={() => {
               if (!is3DUnlocked) {
