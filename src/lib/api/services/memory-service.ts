@@ -557,6 +557,192 @@ export const MemoryService = {
   },
 
   /**
+   * Phase C: Main orchestrator — runs entity resolution, fact extraction,
+   * knowledge graph building, and writing profile analysis for an import batch.
+   */
+  async processImportBatch(
+    companyId: string,
+    userId: string,
+    ownerEmail: string,
+    employeeEmails: Set<string>,
+    threads: ClassifiedThread[],
+  ): Promise<{ factsExtracted: number; entitiesCreated: number; edgesCreated: number; profilesBuilt: number }> {
+    // Validate companyId is a valid UUID
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyId)) {
+      throw new Error('Invalid companyId UUID');
+    }
+
+    const supabase = requireSupabase();
+    let factsExtracted = 0;
+    let entitiesCreated = 0;
+    let edgesCreated = 0;
+
+    // Step 1: Deterministic entity resolution
+    console.log(`[memory-service] Step 1: Resolving entities from ${threads.length} threads`);
+    const entityResult = await this.resolveEntities(companyId, threads, ownerEmail, employeeEmails);
+    entitiesCreated += entityResult.entitiesCreated;
+    edgesCreated += entityResult.edgesCreated;
+
+    // Step 2: Extract facts + entities + edges from each thread
+    console.log(`[memory-service] Step 2: Extracting facts from ${threads.length} threads`);
+    const emailsByProfileType = new Map<string, Array<{ subject: string; bodyText: string; date: string }>>();
+
+    for (const thread of threads) {
+      const extraction = await extractEntitiesAndFacts(thread);
+
+      // Store facts with ADD/UPDATE/NOOP conflict resolution
+      for (const fact of extraction.facts) {
+        // Check for similar existing fact (cheap proxy: first 50 chars ilike match)
+        const { data: existing } = await supabase
+          .from("agent_memories")
+          .select("id, confidence, access_count")
+          .eq("company_id", companyId)
+          .eq("category", fact.category)
+          .ilike("content", `%${fact.content.slice(0, 50)}%`)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          // NOOP — reinforce existing fact
+          const current = existing[0];
+          await supabase
+            .from("agent_memories")
+            .update({
+              confidence: Math.min(1.0, ((current.confidence as number) || 0.5) + 0.05),
+              last_accessed_at: new Date().toISOString(),
+              access_count: ((current.access_count as number) || 0) + 1,
+            })
+            .eq("id", current.id);
+        } else {
+          // ADD — new fact, try to link to entity via email
+          let entityId: string | null = null;
+          if (fact.entity_email) {
+            const { data: entityMatch } = await supabase
+              .from("graph_entities")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("entity_type", "person")
+              .eq("normalized_name", fact.entity_email.toLowerCase())
+              .single();
+            entityId = entityMatch?.id || null;
+          }
+
+          await supabase.from("agent_memories").insert({
+            company_id: companyId,
+            user_id: userId,
+            memory_type: 'fact',
+            category: fact.category,
+            content: fact.content,
+            confidence: fact.confidence || 0.8,
+            source: 'email_import',
+            source_id: thread.threadId,
+            entity_id: entityId,
+          });
+          factsExtracted++;
+        }
+      }
+
+      // Upsert AI-extracted entities into graph_entities
+      for (const entity of extraction.entities) {
+        const normalizedName = entity.email
+          ? entity.email.toLowerCase()
+          : (entity.domain || entity.name.toLowerCase().trim());
+
+        await supabase
+          .from("graph_entities")
+          .upsert({
+            company_id: companyId,
+            entity_type: entity.type,
+            name: entity.name,
+            normalized_name: normalizedName,
+            email: entity.email || null,
+            properties: entity.domain ? { domain: entity.domain } : {},
+            confidence: 0.8,
+            source: 'email_import',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'company_id,entity_type,normalized_name' })
+          .then(null, (err) => {
+            console.error("[memory-service] AI entity upsert failed:", err);
+          });
+      }
+
+      // Upsert AI-extracted edges into agent_knowledge_graph
+      for (const edge of extraction.edges) {
+        // Look up source entity by email or name
+        let sourceEntityId: string | null = null;
+        if (edge.from_email) {
+          const { data: src } = await supabase
+            .from("graph_entities")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("normalized_name", edge.from_email.toLowerCase())
+            .single();
+          sourceEntityId = src?.id || null;
+        }
+
+        // Look up or create target entity by name + type
+        let targetEntityId: string | null = null;
+        if (edge.to_name && edge.to_type) {
+          const targetNormalized = edge.to_name.toLowerCase().trim();
+          const { data: tgt } = await supabase
+            .from("graph_entities")
+            .upsert({
+              company_id: companyId,
+              entity_type: edge.to_type,
+              name: edge.to_name,
+              normalized_name: targetNormalized,
+              properties: edge.properties || {},
+              confidence: 0.7,
+              source: 'email_import',
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'company_id,entity_type,normalized_name' })
+            .select("id")
+            .single();
+          targetEntityId = tgt?.id || null;
+        }
+
+        if (sourceEntityId && targetEntityId) {
+          await supabase
+            .from("agent_knowledge_graph")
+            .upsert({
+              company_id: companyId,
+              source_entity_id: sourceEntityId,
+              predicate: edge.predicate,
+              target_entity_id: targetEntityId,
+              link_type: 'extracted',
+              properties: edge.properties || {},
+              valid_from: new Date().toISOString(),
+            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' })
+            .then(null, (err) => {
+              console.error("[memory-service] AI edge upsert failed:", err);
+            });
+          edgesCreated++;
+        }
+      }
+
+      // Collect outbound emails by profile type for writing profile analysis
+      if (thread.profileType) {
+        const outbound = thread.messages.filter(m => m.direction === 'outbound');
+        if (outbound.length > 0) {
+          const existing = emailsByProfileType.get(thread.profileType) || [];
+          existing.push(...outbound.map(m => ({
+            subject: m.subject,
+            bodyText: m.bodyText,
+            date: m.date,
+          })));
+          emailsByProfileType.set(thread.profileType, existing);
+        }
+      }
+    }
+
+    // Step 3: Build writing profiles
+    console.log(`[memory-service] Step 3: Building writing profiles from ${emailsByProfileType.size} types`);
+    const profilesBuilt = await this.buildWritingProfiles(companyId, userId, emailsByProfileType);
+
+    console.log(`[memory-service] processImportBatch complete: ${factsExtracted} facts, ${entitiesCreated} entities, ${edgesCreated} edges, ${profilesBuilt} profiles`);
+    return { factsExtracted, entitiesCreated, edgesCreated, profilesBuilt };
+  },
+
+  /**
    * Phase C: Build per-relationship-type writing profiles from outbound emails.
    * Groups emails by profile type, analyzes style for each type with 3+ samples.
    */
