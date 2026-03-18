@@ -15,6 +15,7 @@ export type Namespace =
   | 'schedule'
   | 'pipeline'
   | 'accounting'
-  | 'forms';
+  | 'forms'
+  | 'intel';
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

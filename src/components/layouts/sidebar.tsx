@@ -17,6 +17,7 @@ import {
   Package,
   Boxes,
   Calculator,
+  Radar,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -83,7 +84,9 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
     { label: t("nav.portalInbox"), href: "/portal-inbox", icon: MessageSquareText, permission: "portal.view" },
     "divider",
-{ label: t("nav.settings"), href: "/settings", icon: Settings },
+    { label: t("nav.intel"), href: "/intel", icon: Radar },
+    "divider",
+    { label: t("nav.settings"), href: "/settings", icon: Settings },
   ];
 }
 

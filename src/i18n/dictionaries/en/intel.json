@@ -1,0 +1,44 @@
+{
+  "title": "Intel",
+  "search": "Search entities...",
+  "stats": {
+    "entities": "ENTITIES",
+    "edges": "CONNECTIONS",
+    "profiles": "PROFILES",
+    "lastScan": "LAST SCAN"
+  },
+  "clusters": {
+    "voice": "Voice",
+    "internal": "Internal",
+    "client": "Clients",
+    "project": "Projects",
+    "vendor": "Vendors",
+    "subtrade": "Subtrades",
+    "financial": "Financials"
+  },
+  "empty": {
+    "noData": "Your operations network. ████████ your ██████ to begin.",
+    "noEmail": "████████ your email to ████████ contacts, ██████████████, and your ████████████████ style.",
+    "noPhaseC": "Phase C is ████████████ for your account.",
+    "requestAccess": "Request Access",
+    "connectEmail": "Connect Email"
+  },
+  "gate": {
+    "title": "PHASE C",
+    "prompt": "Unlock the ██████ dimension.",
+    "cta": "Request Early Access"
+  },
+  "node": {
+    "more": "MORE",
+    "facts": "FACTS",
+    "edges": "CONNECTIONS",
+    "lastContact": "Last contact",
+    "tasks": "Tasks",
+    "value": "Value",
+    "dismiss": "Dismiss"
+  },
+  "activation": {
+    "newIntel": "new intel ████████████",
+    "viewIntel": "View Intel"
+  }
+}
