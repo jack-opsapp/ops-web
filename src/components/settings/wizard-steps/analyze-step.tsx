@@ -7,6 +7,9 @@ import type { AnalysisResult } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+// building_leads is a transient Phase A status — map it to analyzing_threads for display
+const normalizeStatus = (s: string) => s === 'building_leads' ? 'analyzing_threads' : s;
+
 const STAGES = [
   { key: "analyzing_sent", icon: Mail, label: "Analyzing sent emails", range: [5, 35] },
   { key: "detecting_platforms", icon: Search, label: "Detecting form platforms", range: [35, 50] },
@@ -139,13 +142,13 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
       const res = await fetch(`/api/integrations/email/analyze-status?jobId=${currentJobId}`);
       const data = await res.json();
 
-      setStatus(data.status);
+      setStatus(normalizeStatus(data.status));
       if (data.progress) {
         setServerProgress(data.progress.percent);
         setMessage(data.progress.message);
         onProgressUpdateRef.current?.(data.progress.percent, data.progress.message, data.status);
 
-        const stageIndex = STAGES.findIndex((s) => s.key === data.progress.stage);
+        const stageIndex = STAGES.findIndex((s) => s.key === normalizeStatus(data.progress.stage));
         if (stageIndex >= 0) {
           setCompletedStages((prev) => {
             const next = new Set(prev);

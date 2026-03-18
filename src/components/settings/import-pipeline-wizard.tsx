@@ -251,7 +251,7 @@ export function ImportPipelineWizard({
             setDirection(1);
             setStep(2);
           } else if (
-            ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads"].includes(jobData.status)
+            ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads", "building_leads"].includes(jobData.status)
           ) {
             setExistingJobId(filters.lastScanJobId);
             setRunningJobId(filters.lastScanJobId);
