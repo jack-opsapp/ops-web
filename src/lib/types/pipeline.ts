@@ -79,6 +79,7 @@ export enum ActivityType {
   Note = "note",
   Email = "email",
   Call = "call",
+  TextMessage = "text_message",
   Meeting = "meeting",
   EstimateSent = "estimate_sent",
   EstimateAccepted = "estimate_accepted",
@@ -230,6 +231,7 @@ export const ACTIVITY_TYPE_COLORS: Record<ActivityType, string> = {
   [ActivityType.Note]: "#9CA3AF",
   [ActivityType.Email]: "#8195B5",
   [ActivityType.Call]: "#9DB582",
+  [ActivityType.TextMessage]: "#8195B5",
   [ActivityType.Meeting]: "#A182B5",
   [ActivityType.EstimateSent]: "#C4A868",
   [ActivityType.EstimateAccepted]: "#9DB582",
@@ -400,6 +402,7 @@ export interface Opportunity {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  archivedAt: Date | null;
 
   // Relationships (loaded separately)
   client?: Client | null;
@@ -1020,6 +1023,7 @@ export type CreateOpportunity = Omit<
   | "createdAt"
   | "updatedAt"
   | "deletedAt"
+  | "archivedAt"
   | "client"
   | "project"
   | "estimates"
