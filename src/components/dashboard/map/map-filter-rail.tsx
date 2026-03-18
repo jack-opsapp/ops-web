@@ -19,10 +19,11 @@ import {
 } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 
 interface FilterItem {
   id: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
 }
 
@@ -45,6 +46,7 @@ export function MapFilterRail() {
   const can = usePermissionStore((s) => s.can);
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
   const sidebarWidth = isCollapsed ? 72 : 256;
+  const dashboardTrayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
 
   if (pathname !== "/dashboard") return null;
 
@@ -67,11 +69,12 @@ export function MapFilterRail() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: dashboardTrayOpen ? 0 : 1, y: dashboardTrayOpen ? 8 : 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "fixed bottom-3 z-[5]",
-        "flex flex-col items-start pointer-events-auto"
+        "flex flex-col items-start",
+        dashboardTrayOpen ? "pointer-events-none" : "pointer-events-auto"
       )}
       style={{ left: sidebarWidth + 12 }}
     >
