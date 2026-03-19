@@ -234,18 +234,24 @@ async function updateCorrespondenceCounts(
 
   if (!opp) return;
 
+  const dateIso = date.toISOString();
+  const newCorrespondenceCount = (opp.correspondence_count || 0) + 1;
+  const newInboundCount = direction === "inbound" ? (opp.inbound_count || 0) + 1 : (opp.inbound_count || 0);
+  const newOutboundCount = direction === "outbound" ? (opp.outbound_count || 0) + 1 : (opp.outbound_count || 0);
+
   const updates: Record<string, unknown> = {
-    correspondence_count: (opp.correspondence_count || 0) + 1,
+    correspondence_count: newCorrespondenceCount,
+    inbound_count: newInboundCount,
+    outbound_count: newOutboundCount,
     last_message_direction: direction === "inbound" ? "in" : "out",
-    last_activity_at: date.toISOString(), // Use email date, not sync time
+    last_activity_at: dateIso,
   };
 
   if (direction === "inbound") {
-    updates.inbound_count = (opp.inbound_count || 0) + 1;
     // Only update timestamp if this email is newer than the existing one
     const existingInbound = opp.last_inbound_at ? new Date(opp.last_inbound_at) : null;
     if (!existingInbound || date > existingInbound) {
-      updates.last_inbound_at = date.toISOString();
+      updates.last_inbound_at = dateIso;
     }
     // New inbound email clears manual stage lock — situation has evolved,
     // AI should be allowed to re-evaluate the stage
@@ -253,21 +259,18 @@ async function updateCorrespondenceCounts(
       updates.stage_manually_set = false;
     }
   } else {
-    updates.outbound_count = (opp.outbound_count || 0) + 1;
     const existingOutbound = opp.last_outbound_at ? new Date(opp.last_outbound_at) : null;
     if (!existingOutbound || date > existingOutbound) {
-      updates.last_outbound_at = date.toISOString();
+      updates.last_outbound_at = dateIso;
     }
   }
 
   // Evaluate stage — but respect manual overrides
   if (!opp.stage_manually_set) {
     const evaluation = StageEvaluator.evaluate({
-      outboundCount: (updates.outbound_count ||
-        opp.outbound_count ||
-        0) as number,
-      inboundCount: (updates.inbound_count || opp.inbound_count || 0) as number,
-      totalMessages: updates.correspondence_count as number,
+      outboundCount: newOutboundCount,
+      inboundCount: newInboundCount,
+      totalMessages: newCorrespondenceCount,
       lastMessageDirection: direction === "inbound" ? "in" : "out",
       lastInboundAt:
         direction === "inbound"

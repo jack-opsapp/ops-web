@@ -120,7 +120,9 @@ export class Microsoft365Provider implements EmailProviderInterface {
     query: string,
     options?: { maxResults?: number; after?: Date }
   ): Promise<NormalizedEmail[]> {
-    let filter = `contains(subject, '${query}')`;
+    // Escape single quotes for OData string literal safety
+    const safeQuery = query.replace(/'/g, "''");
+    let filter = `contains(subject, '${safeQuery}')`;
     if (options?.after) {
       filter += ` and receivedDateTime ge ${options.after.toISOString()}`;
     }

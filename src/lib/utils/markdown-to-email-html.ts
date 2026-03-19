@@ -22,9 +22,13 @@ export function markdownToEmailHtml(markdown: string): string {
     .replace(/"/g, "&quot;");
 
   // 2. Links: [text](url) — process before bold/italic to avoid conflicts
+  // Validate URL scheme to prevent javascript: XSS
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" style="color:#597794;text-decoration:underline;">$1</a>'
+    (_, text, url) => {
+      const safe = /^https?:\/\//i.test(url) ? url : "#";
+      return `<a href="${safe}" style="color:#597794;text-decoration:underline;">${text}</a>`;
+    }
   );
 
   // 3. Bold: **text** and __text__ (process before italic)

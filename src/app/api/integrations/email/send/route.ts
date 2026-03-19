@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { getSubscriptionInfo } from "@/lib/subscription";
@@ -46,6 +48,22 @@ export async function POST(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
+    // ── Auth: verify caller identity ─────────────────────────────────────
+    // Internal callers (auto-send cron) pass CRON_SECRET to bypass user auth
+    const authHeader = request.headers.get("authorization");
+    const isInternalCaller = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+    if (!isInternalCaller) {
+      const authUser = await verifyAdminAuth(request);
+      if (!authUser) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+      if (!user) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const payload = await request.json();
     const {
       userId,

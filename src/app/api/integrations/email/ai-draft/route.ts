@@ -9,6 +9,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
 
 export const maxDuration = 120;
@@ -18,6 +20,16 @@ export async function POST(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
+    // ── Auth ──────────────────────────────────────────────────────────────
+    const authUser = await verifyAdminAuth(request);
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    if (!user) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       companyId,

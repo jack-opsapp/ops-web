@@ -446,12 +446,15 @@ export const AutoSendService = {
 
         const connectionUserId = (conn?.user_id as string) || "";
 
-        // Send via the email send endpoint (internal call)
+        // Send via the email send endpoint (internal call — use CRON_SECRET for auth)
         const sendResponse = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/email/send`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.CRON_SECRET}`,
+            },
             body: JSON.stringify({
               userId: connectionUserId,
               companyId: pending.companyId,
