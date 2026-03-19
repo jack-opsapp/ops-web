@@ -20,6 +20,7 @@
   "gate.title": "PHASE C",
   "gate.prompt": "Desbloquea la dimensión ██████.",
   "gate.cta": "Solicitar Acceso Anticipado",
+  "nav.back": "Volver",
   "node.more": "MÁS",
   "node.facts": "DATOS",
   "node.edges": "CONEXIONES",
@@ -27,6 +28,13 @@
   "node.tasks": "Tareas",
   "node.value": "Valor",
   "node.dismiss": "Descartar",
+  "node.role": "Rol",
+  "node.dates": "Fechas",
+  "node.team": "Equipo",
+  "node.address": "Dirección",
+  "node.status": "Estado",
+  "node.phone": "Teléfono",
+  "node.projects": "Proyectos",
   "activation.newIntel": "nuevo intel ████████████",
   "activation.viewIntel": "Ver Intel"
 }

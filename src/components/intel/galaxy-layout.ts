@@ -1,273 +1,399 @@
 // ---------------------------------------------------------------------------
-// Galaxy Layout Calculator — pure TypeScript, no React
-// Determines the 3D position of every entity in the Intel Galaxy scene.
+// Galaxy Layout — Hierarchical Positioning
+//
+// Computes 3D positions for all visible nodes based on the current focus level.
+// Level 1: Clients orbit the organization center (2D ring, slight z-jitter)
+// Level 2: Projects orbit the focused client; other clients dim + repulse
+// Level 3: Tasks/team/financial orbit the focused project
+//
+// Pure TypeScript — no React, no Three.js. Deterministic given the same input.
 // ---------------------------------------------------------------------------
+
+import { PROJECT_STATUS_COLORS, TASK_STATUS_COLORS, type ProjectStatus, type TaskStatus } from "@/lib/types/models";
+import type { IntelTask, IntelTeamMember, IntelClientWithStatus } from "@/types/intel";
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
-export interface PositionedEntity {
+export interface PositionedNode {
   entityId: string;
-  position: [number, number, number]; // x, y, z in Three.js world units
-  cluster: string;
-  confidence: number;
+  nodeType: "organization" | "client" | "project" | "task" | "team" | "financial";
+  position: [number, number, number];
+  color: string;
+  label: string;
+  sublabel?: string;
+  dimmed: boolean;
+  visible: boolean;
 }
 
-export interface LayoutConfig {
-  entities: Array<{
+export interface HierarchicalLayoutConfig {
+  clients: IntelClientWithStatus[];
+  projects: Array<{
     id: string;
-    cluster: string;
-    type: string;
-    confidence: number;
-    properties?: Record<string, unknown>;
+    clientId: string;
+    title: string;
+    status: string;
+    address: string | null;
   }>;
-  /** Seed is reserved for future deterministic seeding. Currently unused because
-   *  all randomness is derived from entity ID hashes (already deterministic). */
-  seed?: number;
+  tasks: IntelTask[];
+  teamMembers: IntelTeamMember[];
+  financialEntities: Array<{
+    id: string;
+    projectId: string | null;
+    name: string;
+    type: "invoice" | "estimate";
+    total: number | null;
+    status: string | null;
+  }>;
+  focusLevel: 1 | 2 | 3;
+  focusedClientId: string | null;
+  focusedProjectId: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Cluster color palette — exported so other components share the same tokens
+// Cluster color palette — exported so HUD components share the same tokens
 // ---------------------------------------------------------------------------
 
 export const CLUSTER_COLORS: Record<string, string> = {
-  voice: '#597794',     // Accent — "you" channel, near center
-  internal: '#8E8E93',  // System gray — team / employees
-  client: '#8195B5',    // Steel blue — client records
-  project: '#B58289',   // Muted rose — active projects
-  vendor: '#C4A868',    // Amber gold — vendor contacts
-  subtrade: '#9DB582',  // Muted green — subtrade contacts
-  financial: '#BCBCBC', // Neutral gray — invoices / estimates (orbit parents)
+  voice: "#597794",
+  internal: "#8E8E93",
+  client: "#8195B5",
+  project: "#B58289",
+  vendor: "#C4A868",
+  subtrade: "#9DB582",
+  financial: "#BCBCBC",
 };
 
 // ---------------------------------------------------------------------------
-// Cluster orbital geometry
-// ---------------------------------------------------------------------------
-
-// Each cluster gets a fixed sector angle (degrees from positive X axis, CCW).
-// Distributing 7 clusters evenly around 360° gives ~51.4° spacing.
-// Specific assignments are chosen so the most-used clusters (client, project)
-// appear in the upper hemisphere (left/right of center) for easy reading.
-const CLUSTER_SECTOR_DEG: Record<string, number> = {
-  voice: 0,        // Top-center — "you", closest to origin
-  internal: 51,    // Upper right
-  client: 103,     // Right
-  project: 154,    // Lower right
-  vendor: 206,     // Lower left
-  subtrade: 257,   // Left
-  financial: 309,  // Upper left (special: overridden per-entity to orbit parent)
-};
-
-// Base orbital radii (Three.js world units from the scene origin).
-// voice is closest ("you"), financial is overridden below.
-const CLUSTER_BASE_RADIUS: Record<string, number> = {
-  voice: 3,
-  internal: 5,
-  client: 8,
-  project: 8,    // Same ring as clients, different sector (154°)
-  vendor: 11,
-  subtrade: 11,  // Same ring as vendors, different sector (257°)
-  financial: 8,  // Placeholder — overridden by parent project orbit logic
-};
-
-// ---------------------------------------------------------------------------
-// Deterministic hash — maps any string → a 32-bit signed integer.
-// Using the djb2 variant: stable, cheap, no external deps.
+// Deterministic hash — djb2 variant. Maps any string → 32-bit signed integer.
+// Used for z-jitter, phase offsets, and any place we need stable randomness.
 // ---------------------------------------------------------------------------
 
 function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const chr = str.charCodeAt(i);
-    // (hash << 5) - hash  ≡  hash * 31, the djb2 multiplier
-    hash = ((hash << 5) - hash) + chr;
-    hash |= 0; // Coerce to 32-bit integer (avoids float drift)
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
   }
   return hash;
 }
 
 // ---------------------------------------------------------------------------
-// Adaptive density scale
-// Keeps the galaxy filling a consistent visual volume regardless of entity count.
+// Status color helpers
 // ---------------------------------------------------------------------------
 
-function densityScale(totalCount: number): number {
-  if (totalCount < 50) return 1.4;  // Sparse data → wider orbits, more breathing room
-  if (totalCount > 300) return 0.8; // Dense data → tighter orbits, prevents overcrowding
-  return 1.0;
+function projectStatusColor(status: string): string {
+  return PROJECT_STATUS_COLORS[status as ProjectStatus] ?? "#BCBCBC";
+}
+
+function taskStatusColor(status: string): string {
+  return TASK_STATUS_COLORS[status as TaskStatus] ?? "#8195B5";
 }
 
 // ---------------------------------------------------------------------------
-// Z-depth offset — gives the galaxy 3D depth on a flat initial view.
-// Formula: z = sin(hash * φ) * maxDepth
-// φ = 2.399 rad ≈ 137.5° (the golden angle in radians) — distributes z values
-// uniformly across [-1, 1] for any set of entity IDs, avoiding clustering at 0.
-// ---------------------------------------------------------------------------
-const GOLDEN_ANGLE_RAD = 2.399; // radians — the golden angle
-
-function zDepthForEntity(entityId: string): number {
-  const h = hashString(entityId);
-  // Normalize hash to [0, 2π] using abs, then apply golden angle phase
-  // so adjacent IDs get maximally spread z values (sunflower-style)
-  return Math.sin(h * GOLDEN_ANGLE_RAD) * 1.0;
-}
-
-// ---------------------------------------------------------------------------
-// Spiral layout within a cluster sector
-// Uses the golden angle (≈137.508°) between successive entities so that each
-// new node falls in the largest available gap — the same geometry sunflowers use.
-// This produces organic, non-repeating spacing with no parameter tuning.
-// ---------------------------------------------------------------------------
-const GOLDEN_ANGLE_DEG = 137.508; // degrees — sunflower phyllotaxis angle
-
-// ---------------------------------------------------------------------------
-// Main export
+// Level 1 — Clients orbit organization
+//
+// Evenly distributed around a 2D circle with slight z-jitter.
+// Color comes from the client's most-active project status.
 // ---------------------------------------------------------------------------
 
-export function computeGalaxyLayout(config: LayoutConfig): PositionedEntity[] {
-  const { entities } = config;
+function layoutLevel1(config: HierarchicalLayoutConfig): PositionedNode[] {
+  const result: PositionedNode[] = [];
+  const { clients } = config;
+  if (clients.length === 0) return result;
 
-  if (entities.length === 0) return [];
+  // Adaptive radius: sparser data gets wider orbits so nodes aren't crammed
+  const baseRadius = clients.length < 10 ? 7 : clients.length < 25 ? 5.5 : 4.5;
 
-  const scale = densityScale(entities.length);
+  for (let i = 0; i < clients.length; i++) {
+    const client = clients[i];
+    const angle = (i / clients.length) * Math.PI * 2;
+    const x = baseRadius * Math.cos(angle);
+    const y = baseRadius * Math.sin(angle);
+    // z-jitter: ±0.3 based on entity hash — slight depth, not flat
+    const z = ((hashString(client.id) % 60) - 30) / 100;
 
-  // ── Step 1: Group entities by cluster ────────────────────────────────────
-  const byCluster = new Map<string, typeof entities>();
-  for (const entity of entities) {
-    const group = byCluster.get(entity.cluster) ?? [];
-    group.push(entity);
-    byCluster.set(entity.cluster, group);
-  }
-
-  // ── Step 2: Compute positions for all non-financial clusters first ────────
-  // Financial entities need parent project positions to orbit around, so they
-  // must be resolved in a second pass.
-  const result: PositionedEntity[] = [];
-  const positionById = new Map<string, [number, number, number]>();
-
-  for (const [cluster, members] of byCluster.entries()) {
-    if (cluster === 'financial') continue; // Deferred — needs parent positions
-
-    const sectorDeg = CLUSTER_SECTOR_DEG[cluster] ?? 0;
-    const sectorRad = (sectorDeg * Math.PI) / 180;
-    const baseRadius = (CLUSTER_BASE_RADIUS[cluster] ?? 8) * scale;
-
-    // Sort: 'company' type entities closer to cluster center, 'person' further out.
-    // Within each tier, order by confidence descending (most confident nodes
-    // cluster tighter to the center — they're the anchor nodes).
-    const sorted = [...members].sort((a, b) => {
-      const tierA = a.type === 'company' ? 0 : 1;
-      const tierB = b.type === 'company' ? 0 : 1;
-      if (tierA !== tierB) return tierA - tierB;
-      return b.confidence - a.confidence;
+    result.push({
+      entityId: client.id,
+      nodeType: "client",
+      position: [x, y, z],
+      color: projectStatusColor(client.mostActiveProjectStatus),
+      label: client.name,
+      dimmed: false,
+      visible: true,
     });
-
-    for (let idx = 0; idx < sorted.length; idx++) {
-      const entity = sorted[idx];
-
-      // Spread radius for this entity within its cluster.
-      // Index 0 (the anchor company node) sits right at cluster center.
-      // Each subsequent node spirals outward, capped at 2.5 to keep clusters tight.
-      const spreadRadius = Math.min(0.3 + idx * 0.15, 2.5);
-
-      // Golden-angle spiral: rotate by 137.508° per entity.
-      // This is the same geometry as seeds in a sunflower — provably optimal
-      // for uniform gap distribution with arbitrary N, no bunching or lines.
-      const spiralAngleRad = (idx * GOLDEN_ANGLE_DEG * Math.PI) / 180;
-
-      // Cluster center in polar → Cartesian, then add spiral offset.
-      // The cluster center is at (baseRadius, sectorRad) in polar coords.
-      const clusterCenterX = baseRadius * Math.cos(sectorRad);
-      const clusterCenterY = baseRadius * Math.sin(sectorRad);
-
-      // Spread offset around the cluster center using the spiral angle.
-      const offsetX = spreadRadius * Math.cos(spiralAngleRad + sectorRad);
-      const offsetY = spreadRadius * Math.sin(spiralAngleRad + sectorRad);
-
-      const x = clusterCenterX + offsetX;
-      const y = clusterCenterY + offsetY;
-      const z = zDepthForEntity(entity.id);
-
-      const pos: [number, number, number] = [x, y, z];
-      positionById.set(entity.id, pos);
-      result.push({ entityId: entity.id, position: pos, cluster, confidence: entity.confidence });
-    }
-  }
-
-  // ── Step 3: Financial entities — orbit parent project ─────────────────────
-  // Invoices and estimates are children of projects. They orbit their parent
-  // at a small radius (0.8–1.2 units), evenly spaced in a ring around it.
-  // If no parent is found, fall back to the financial cluster's nominal position.
-  const financialMembers = byCluster.get('financial') ?? [];
-
-  if (financialMembers.length > 0) {
-    // Group financial entities by parent project ID.
-    // Convention: properties.projectId holds the parent project entity ID.
-    const byParent = new Map<string, typeof financialMembers>();
-    const orphans: typeof financialMembers = [];
-
-    for (const entity of financialMembers) {
-      const parentId = entity.properties?.projectId as string | undefined;
-      if (parentId && positionById.has(parentId)) {
-        const group = byParent.get(parentId) ?? [];
-        group.push(entity);
-        byParent.set(parentId, group);
-      } else {
-        orphans.push(entity);
-      }
-    }
-
-    // Orbit children around their parent
-    for (const [parentId, children] of byParent.entries()) {
-      const parentPos = positionById.get(parentId)!;
-
-      for (let idx = 0; idx < children.length; idx++) {
-        const entity = children[idx];
-
-        // Orbit radius varies between 0.8 and 1.2 based on entity hash —
-        // prevents all financials stacking at the exact same radius.
-        const hashVal = Math.abs(hashString(entity.id));
-        const orbitRadius = 0.8 + (hashVal % 100) / 250; // maps to [0.8, 1.2)
-
-        // Distribute evenly around the parent: divide full circle by child count.
-        // Add a hash-based phase offset so financials from different projects
-        // don't all start at angle 0.
-        const phaseOffset = (Math.abs(hashString(parentId)) % 628) / 100; // [0, 2π)
-        const orbitAngle = phaseOffset + (idx / children.length) * 2 * Math.PI;
-
-        const x = parentPos[0] + orbitRadius * Math.cos(orbitAngle);
-        const y = parentPos[1] + orbitRadius * Math.sin(orbitAngle);
-        const z = parentPos[2] + zDepthForEntity(entity.id) * 0.3; // tight z range near parent
-
-        const pos: [number, number, number] = [x, y, z];
-        positionById.set(entity.id, pos);
-        result.push({ entityId: entity.id, position: pos, cluster: 'financial', confidence: entity.confidence });
-      }
-    }
-
-    // Orphaned financial entities (no parent found) — place them in the financial
-    // sector at the nominal radius, using the same spiral logic as other clusters.
-    if (orphans.length > 0) {
-      const sectorDeg = CLUSTER_SECTOR_DEG['financial'] ?? 309;
-      const sectorRad = (sectorDeg * Math.PI) / 180;
-      const baseRadius = (CLUSTER_BASE_RADIUS['financial'] ?? 8) * scale;
-
-      for (let idx = 0; idx < orphans.length; idx++) {
-        const entity = orphans[idx];
-        const spreadRadius = Math.min(0.3 + idx * 0.15, 2.5);
-        const spiralAngleRad = (idx * GOLDEN_ANGLE_DEG * Math.PI) / 180;
-
-        const x = baseRadius * Math.cos(sectorRad) + spreadRadius * Math.cos(spiralAngleRad + sectorRad);
-        const y = baseRadius * Math.sin(sectorRad) + spreadRadius * Math.sin(spiralAngleRad + sectorRad);
-        const z = zDepthForEntity(entity.id);
-
-        const pos: [number, number, number] = [x, y, z];
-        positionById.set(entity.id, pos);
-        result.push({ entityId: entity.id, position: pos, cluster: 'financial', confidence: entity.confidence });
-      }
-    }
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Level 2 — Projects orbit focused client
+//
+// The focused client stays at its Level 1 position.
+// Its projects orbit it in a ring. Other clients dim and repulse outward.
+// ---------------------------------------------------------------------------
+
+function layoutLevel2(
+  config: HierarchicalLayoutConfig,
+  clientPositions: Map<string, [number, number, number]>
+): PositionedNode[] {
+  const result: PositionedNode[] = [];
+  const focusPos = clientPositions.get(config.focusedClientId!);
+  if (!focusPos) return result;
+
+  // Re-emit all clients — dimmed + repulsed if not focused
+  for (const client of config.clients) {
+    const pos = clientPositions.get(client.id);
+    if (!pos) continue;
+    const isFocused = client.id === config.focusedClientId;
+
+    let finalPos: [number, number, number] = pos;
+    if (!isFocused) {
+      // Repulse: push 1.5x further from the focused client's position.
+      // This creates visual breathing room around the focus point.
+      const dx = pos[0] - focusPos[0];
+      const dy = pos[1] - focusPos[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 0.01) {
+        finalPos = [
+          focusPos[0] + (dx / len) * len * 1.5,
+          focusPos[1] + (dy / len) * len * 1.5,
+          pos[2],
+        ];
+      }
+    }
+
+    result.push({
+      entityId: client.id,
+      nodeType: "client",
+      position: finalPos,
+      color: projectStatusColor(client.mostActiveProjectStatus),
+      label: client.name,
+      dimmed: !isFocused,
+      visible: true,
+    });
+  }
+
+  // Projects orbit the focused client
+  const clientProjects = config.projects.filter(p => p.clientId === config.focusedClientId);
+  if (clientProjects.length === 0) return result;
+
+  const pRadius = clientProjects.length < 6 ? 3 : clientProjects.length < 15 ? 2.5 : 2;
+
+  for (let i = 0; i < clientProjects.length; i++) {
+    const project = clientProjects[i];
+    const angle = (i / clientProjects.length) * Math.PI * 2;
+    const x = focusPos[0] + pRadius * Math.cos(angle);
+    const y = focusPos[1] + pRadius * Math.sin(angle);
+    const z = focusPos[2] + ((hashString(project.id) % 40) - 20) / 100;
+
+    result.push({
+      entityId: project.id,
+      nodeType: "project",
+      position: [x, y, z],
+      color: projectStatusColor(project.status),
+      label: project.title,
+      sublabel: project.address || undefined,
+      dimmed: false,
+      visible: true,
+    });
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Level 3 — Tasks / Team / Financial orbit focused project
+//
+// Inner ring: tasks (colored by taskColor)
+// Mid ring: financial entities (invoices/estimates)
+// Outer ring: team members assigned to this project's tasks
+// Non-focused projects dim + repulse. Clients deeply dim.
+// ---------------------------------------------------------------------------
+
+function layoutLevel3(
+  config: HierarchicalLayoutConfig,
+  clientPositions: Map<string, [number, number, number]>,
+  projectPositions: Map<string, [number, number, number]>
+): PositionedNode[] {
+  const result: PositionedNode[] = [];
+  const focusPos = projectPositions.get(config.focusedProjectId!);
+  if (!focusPos) return result;
+  const clientPos = clientPositions.get(config.focusedClientId!) ?? [0, 0, 0] as [number, number, number];
+
+  // ── Clients: deeply dimmed, repulsed ──────────────────────────────────
+  for (const client of config.clients) {
+    const pos = clientPositions.get(client.id);
+    if (!pos) continue;
+    const dx = pos[0] - focusPos[0];
+    const dy = pos[1] - focusPos[1];
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const finalPos: [number, number, number] = len > 0.01
+      ? [focusPos[0] + (dx / len) * len * 1.8, focusPos[1] + (dy / len) * len * 1.8, pos[2]]
+      : pos;
+
+    result.push({
+      entityId: client.id,
+      nodeType: "client",
+      position: finalPos,
+      color: projectStatusColor(client.mostActiveProjectStatus),
+      label: client.name,
+      dimmed: true,
+      visible: true,
+    });
+  }
+
+  // ── Projects of focused client: dimmed except focused ─────────────────
+  const siblingProjects = config.projects.filter(p => p.clientId === config.focusedClientId);
+  const pRadius = siblingProjects.length < 6 ? 3 : siblingProjects.length < 15 ? 2.5 : 2;
+
+  for (let i = 0; i < siblingProjects.length; i++) {
+    const project = siblingProjects[i];
+    const isFocused = project.id === config.focusedProjectId;
+    const angle = (i / siblingProjects.length) * Math.PI * 2;
+    let x = clientPos[0] + pRadius * Math.cos(angle);
+    let y = clientPos[1] + pRadius * Math.sin(angle);
+    const z = clientPos[2] + ((hashString(project.id) % 40) - 20) / 100;
+
+    if (!isFocused) {
+      // Repulse from focused project
+      const dx = x - focusPos[0];
+      const dy = y - focusPos[1];
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 0.01) {
+        x = focusPos[0] + (dx / len) * len * 1.5;
+        y = focusPos[1] + (dy / len) * len * 1.5;
+      }
+    }
+
+    result.push({
+      entityId: project.id,
+      nodeType: "project",
+      position: [x, y, z],
+      color: projectStatusColor(project.status),
+      label: project.title,
+      sublabel: project.address || undefined,
+      dimmed: !isFocused,
+      visible: true,
+    });
+  }
+
+  // ── Tasks orbit focused project (inner ring) ──────────────────────────
+  const projectTasks = config.tasks.filter(t => t.projectId === config.focusedProjectId);
+  const taskRadius = projectTasks.length < 5 ? 1.8 : projectTasks.length < 12 ? 1.4 : 1.1;
+
+  for (let i = 0; i < projectTasks.length; i++) {
+    const task = projectTasks[i];
+    const angle = (i / projectTasks.length) * Math.PI * 2;
+    const x = focusPos[0] + taskRadius * Math.cos(angle);
+    const y = focusPos[1] + taskRadius * Math.sin(angle);
+    const z = focusPos[2] + ((hashString(task.id) % 30) - 15) / 100;
+
+    // Sublabel: date + status
+    let sublabel: string = task.status;
+    if (task.startDate) {
+      const d = new Date(task.startDate);
+      const dateStr = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      sublabel = `${dateStr} · ${task.status}`;
+    }
+
+    result.push({
+      entityId: task.id,
+      nodeType: "task",
+      position: [x, y, z],
+      color: task.taskColor,
+      label: task.title,
+      sublabel,
+      dimmed: false,
+      visible: true,
+    });
+  }
+
+  // ── Team members orbit focused project (outer ring) ───────────────────
+  // Collect unique team member IDs from this project's tasks
+  const projectTeamIds = new Set<string>();
+  for (const task of projectTasks) {
+    for (const id of task.teamMemberIds) projectTeamIds.add(id);
+  }
+  const teamForProject = config.teamMembers.filter(m => projectTeamIds.has(m.id));
+  const teamRadius = 2.5;
+
+  for (let i = 0; i < teamForProject.length; i++) {
+    const member = teamForProject[i];
+    // Offset angle from tasks so they don't overlap
+    const angle = (i / Math.max(teamForProject.length, 1)) * Math.PI * 2 + Math.PI / 6;
+    const x = focusPos[0] + teamRadius * Math.cos(angle);
+    const y = focusPos[1] + teamRadius * Math.sin(angle);
+    const z = focusPos[2] + 0.1;
+
+    result.push({
+      entityId: member.id,
+      nodeType: "team",
+      position: [x, y, z],
+      color: member.userColor || "#8E8E93",
+      label: `${member.firstName} ${member.lastName}`.trim() || "Team Member",
+      sublabel: member.role,
+      dimmed: false,
+      visible: true,
+    });
+  }
+
+  // ── Financial entities orbit focused project (mid ring) ────────────────
+  const projectFinancials = config.financialEntities.filter(
+    f => f.projectId === config.focusedProjectId
+  );
+  const finRadius = 2.0;
+
+  for (let i = 0; i < projectFinancials.length; i++) {
+    const fin = projectFinancials[i];
+    // Offset angle from tasks + team
+    const angle = (i / Math.max(projectFinancials.length, 1)) * Math.PI * 2 + Math.PI / 3;
+    const x = focusPos[0] + finRadius * Math.cos(angle);
+    const y = focusPos[1] + finRadius * Math.sin(angle);
+    const z = focusPos[2] - 0.1;
+
+    result.push({
+      entityId: fin.id,
+      nodeType: "financial",
+      position: [x, y, z],
+      color: "#BCBCBC",
+      label: fin.name,
+      sublabel: fin.total != null ? `$${fin.total.toLocaleString()}` : undefined,
+      dimmed: false,
+      visible: true,
+    });
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Main export — dispatches to the appropriate level layout
+// ---------------------------------------------------------------------------
+
+export function computeHierarchicalLayout(config: HierarchicalLayoutConfig): PositionedNode[] {
+  // Always compute Level 1 positions first (client ring around origin)
+  const level1Nodes = layoutLevel1(config);
+  const clientPositions = new Map<string, [number, number, number]>();
+  for (const node of level1Nodes) {
+    clientPositions.set(node.entityId, node.position);
+  }
+
+  if (config.focusLevel === 1) return level1Nodes;
+
+  // Level 2: projects orbit focused client
+  const level2Nodes = layoutLevel2(config, clientPositions);
+  const projectPositions = new Map<string, [number, number, number]>();
+  for (const node of level2Nodes) {
+    if (node.nodeType === "project") {
+      projectPositions.set(node.entityId, node.position);
+    }
+  }
+
+  if (config.focusLevel === 2) return level2Nodes;
+
+  // Level 3: tasks/team/financial orbit focused project
+  return layoutLevel3(config, clientPositions, projectPositions);
 }

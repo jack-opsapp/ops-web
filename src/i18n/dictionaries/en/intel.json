@@ -20,6 +20,7 @@
   "gate.title": "PHASE C",
   "gate.prompt": "Unlock the ██████ dimension.",
   "gate.cta": "Request Early Access",
+  "nav.back": "Back",
   "node.more": "MORE",
   "node.facts": "FACTS",
   "node.edges": "CONNECTIONS",
@@ -27,6 +28,13 @@
   "node.tasks": "Tasks",
   "node.value": "Value",
   "node.dismiss": "Dismiss",
+  "node.role": "Role",
+  "node.dates": "Dates",
+  "node.team": "Team",
+  "node.address": "Address",
+  "node.status": "Status",
+  "node.phone": "Phone",
+  "node.projects": "Projects",
   "activation.newIntel": "new intel ████████████",
   "activation.viewIntel": "View Intel"
 }
