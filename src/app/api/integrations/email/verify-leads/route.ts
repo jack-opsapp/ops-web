@@ -8,6 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 
 interface VerifyLead {
   id: string;
@@ -29,6 +31,12 @@ interface LeadMatch {
 }
 
 export async function POST(request: NextRequest) {
+  // ─── Auth: verify caller owns the requested company ────────────────────
+  const authUser = await verifyAdminAuth(request);
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { companyId, leads } = (await request.json()) as {
     companyId: string;
     leads: VerifyLead[];
@@ -39,6 +47,11 @@ export async function POST(request: NextRequest) {
       { error: "companyId and leads required" },
       { status: 400 }
     );
+  }
+
+  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  if (!user || (user.company_id as string) !== companyId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const supabase = getServiceRoleClient();

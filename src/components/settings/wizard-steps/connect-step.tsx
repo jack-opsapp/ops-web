@@ -11,7 +11,6 @@ const staggerItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, t
 
 interface ConnectStepProps {
   companyId: string;
-  onConnected: (connectionId: string, provider: "gmail" | "microsoft365") => void;
 }
 
 export function ConnectStep({ companyId }: ConnectStepProps) {

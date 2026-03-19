@@ -389,15 +389,6 @@ export function ImportPipelineWizard({
     setStep(target);
   }, [step]);
 
-  const handleConnected = useCallback(
-    (newConnectionId: string, newProvider: "gmail" | "microsoft365") => {
-      setConnectionId(newConnectionId);
-      setProvider(newProvider);
-      goTo(2);
-    },
-    [goTo]
-  );
-
   // ─── Analysis handlers ────────────────────────────────────────────────────
 
   const handleJobStarted = useCallback((jobId: string) => {
@@ -464,8 +455,10 @@ export function ImportPipelineWizard({
           knownPlatformSenders: confirmedSources
             .filter((s) => s.type === "platform" && s.enabled)
             .map((s) => s.pattern),
-          formSubjectPatterns: [],
-          userEmailAddresses: [],
+          formSubjectPatterns: confirmedSources
+            .filter((s) => s.type === "estimate_pattern" && s.enabled)
+            .map((s) => s.pattern),
+          userEmailAddresses: analysisResult?.teamForwarders || [],
           aiClassificationThreshold: 0.7,
         },
       };
@@ -522,8 +515,10 @@ export function ImportPipelineWizard({
           knownPlatformSenders: confirmedSources
             .filter((s) => s.type === "platform" && s.enabled)
             .map((s) => s.pattern),
-          formSubjectPatterns: [],
-          userEmailAddresses: [],
+          formSubjectPatterns: confirmedSources
+            .filter((s) => s.type === "estimate_pattern" && s.enabled)
+            .map((s) => s.pattern),
+          userEmailAddresses: analysisResult?.teamForwarders || [],
           aiClassificationThreshold: 0.7,
         },
       };
@@ -716,7 +711,6 @@ export function ImportPipelineWizard({
               {step === 1 && (
                 <ConnectStep
                   companyId={companyId}
-                  onConnected={handleConnected}
                 />
               )}
               {step === 2 && connectionId && (
@@ -746,7 +740,30 @@ export function ImportPipelineWizard({
                   onSourcesChanged={setConfirmedSources}
                   estimatePattern={estimatePattern}
                   onEstimatePatternChanged={setEstimatePattern}
-                  onNext={() => goTo(4)}
+                  onNext={() => {
+                    // Filter leads based on enabled sources before entering step 4.
+                    // Map DetectedSource.type → AnalyzedLead.source naming:
+                    //   estimate_pattern → pattern, platform → platform,
+                    //   forwarder → forwarder, ai_detected → ai
+                    const sourceTypeToLeadSource: Record<string, string> = {
+                      estimate_pattern: "pattern",
+                      platform: "platform",
+                      forwarder: "forwarder",
+                      ai_detected: "ai",
+                    };
+                    const enabledLeadSources = new Set(
+                      confirmedSources
+                        .filter((s) => s.enabled)
+                        .map((s) => sourceTypeToLeadSource[s.type] || s.type)
+                    );
+                    // Disable leads whose source was toggled off (preserve them for re-enable on back)
+                    const filtered = (analysisResult.leads || []).map((lead) => ({
+                      ...lead,
+                      enabled: enabledLeadSources.has(lead.source) ? lead.enabled : false,
+                    }));
+                    setConfirmedLeads(filtered);
+                    goTo(4);
+                  }}
                 />
               )}
               {step === 4 && (
@@ -788,8 +805,10 @@ export function ImportPipelineWizard({
                     knownPlatformSenders: confirmedSources
                       .filter((s) => s.type === "platform" && s.enabled)
                       .map((s) => s.pattern),
-                    formSubjectPatterns: [],
-                    userEmailAddresses: [],
+                    formSubjectPatterns: confirmedSources
+            .filter((s) => s.type === "estimate_pattern" && s.enabled)
+            .map((s) => s.pattern),
+                    userEmailAddresses: analysisResult?.teamForwarders || [],
                     aiClassificationThreshold: 0.7,
                   }}
                   importResult={importResult}
