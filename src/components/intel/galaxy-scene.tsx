@@ -150,22 +150,22 @@ export function GalaxyScene() {
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).tagName === "CANVAS") {
-        // If R3F already handled this click (on a node), skip
         if (r3fHandledClickRef.current) {
           r3fHandledClickRef.current = false;
           return;
         }
-        // If a node is selected, deselect it first
         const state = useIntelStore.getState();
-        if (state.selectedNodeId || state.expandedNodeId) {
-          dismissSelection();
-        } else if (state.focusLevel > 1) {
-          // No selection — go back a level
+        if (state.focusLevel > 1) {
+          // At L2/L3: one click on empty space navigates back
+          state.dismissSelection();
           state.focusBack();
+        } else if (state.selectedNodeId || state.expandedNodeId) {
+          // At L1: dismiss info panel
+          state.dismissSelection();
         }
       }
     },
-    [dismissSelection]
+    []
   );
 
   const companyName = company?.name || "Your Company";

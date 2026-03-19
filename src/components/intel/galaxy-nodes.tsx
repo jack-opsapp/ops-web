@@ -266,8 +266,10 @@ function ColorInstanceGroup({ color, nodes, onNodeClick }: ColorInstanceGroupPro
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
-      // Color: base with emissive variation + dimming
-      let intensity = 0.5;
+      // Color: base intensity drives brightness. 0.8 makes the pinpoint core
+      // clearly visible with its cluster color. The glow texture already handles
+      // falloff — the visible "point" is bright, the halo is near-invisible.
+      let intensity = 0.8;
       if (isHovered || isSelected) intensity += HOVER_EMISSIVE_BOOST;
       if (isSearchHit) intensity += 0.15;
       if (data.dimmed) intensity *= DIM_FACTOR;

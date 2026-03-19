@@ -106,7 +106,10 @@ export const useIntelStore = create<IntelState>()((set) => ({
       focusLevel: 2,
       focusedClientId: clientId,
       focusedProjectId: null,
-      selectedNodeId: clientId,
+      // Do NOT set selectedNodeId — focusing IS the click result.
+      // Setting selectedNodeId would trigger the info panel, which
+      // overlaps the camera fly-to and obscures the projects.
+      selectedNodeId: null,
       expandedNodeId: null,
       cameraTarget: position,
       cameraDistance: 8,
@@ -116,7 +119,7 @@ export const useIntelStore = create<IntelState>()((set) => ({
     set({
       focusLevel: 3,
       focusedProjectId: projectId,
-      selectedNodeId: projectId,
+      selectedNodeId: null,
       expandedNodeId: null,
       cameraTarget: position,
       cameraDistance: 4,
