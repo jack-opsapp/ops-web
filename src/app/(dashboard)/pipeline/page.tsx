@@ -59,7 +59,7 @@ function PipelineSkeleton() {
   const stages = PIPELINE_STAGES_DEFAULT;
 
   return (
-    <div className="flex flex-col h-full space-y-2 min-w-0 overflow-x-hidden">
+    <div className="flex flex-col h-full space-y-2 min-w-0">
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
@@ -712,7 +712,7 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="space-y-2 h-full flex flex-col">
+    <div className="space-y-2 h-full flex flex-col min-w-0">
       {/* Metrics bar */}
       <PipelineMetricsBar
         opportunities={filteredOpportunities}
@@ -824,7 +824,7 @@ export default function PipelinePage() {
       )}
 
       {/* Pipeline Board / Mobile */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 min-w-0">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
