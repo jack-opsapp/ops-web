@@ -16,7 +16,8 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
-import type { IntelEntity, IntelEdge, IntelVoiceProfile, IntelGraphData } from "@/types/intel";
+import type { IntelEntity, IntelEdge, IntelVoiceProfile, IntelTask, IntelTeamMember, IntelClientWithStatus, IntelGraphData } from "@/types/intel";
+import { TASK_STATUS_COLORS, type TaskStatus } from "@/lib/types/models";
 
 export const maxDuration = 60;
 
@@ -94,7 +95,8 @@ export async function GET(req: NextRequest) {
     { data: projectRows },
     { data: invoiceRows },
     { data: estimateRows },
-    { data: taskCountRows },
+    { data: taskRows },
+    { data: taskTypeRows },
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -120,17 +122,122 @@ export async function GET(req: NextRequest) {
 
     supabase
       .from("project_tasks")
-      .select("project_id")
+      .select("id, project_id, status, task_color, custom_title, start_date, end_date, team_member_ids, task_type_id, display_order, created_at")
       .eq("company_id", companyId)
       .is("deleted_at", null),
+
+    supabase
+      .from("task_types_v2")
+      .select("id, display, color")
+      .eq("company_id", companyId),
   ]);
 
-  // Build task-count-per-project map
+  // Build task-count-per-project map (still used by project entity properties)
   const taskCountMap = new Map<string, number>();
-  for (const row of taskCountRows ?? []) {
+  for (const row of taskRows ?? []) {
     const pid = row.project_id as string;
     taskCountMap.set(pid, (taskCountMap.get(pid) ?? 0) + 1);
   }
+
+  // ── Task type lookup ────────────────────────────────────────────────────
+  const taskTypeMap = new Map<string, { display: string; color: string }>();
+  for (const tt of taskTypeRows ?? []) {
+    taskTypeMap.set(tt.id as string, {
+      display: (tt.display as string) ?? "Task",
+      color: (tt.color as string) ?? "#8195B5",
+    });
+  }
+
+  // ── Collect team member IDs from all tasks, batch-fetch user info ──────
+  const allTeamMemberIds = new Set<string>();
+  for (const task of taskRows ?? []) {
+    const ids = task.team_member_ids as string[] | null;
+    if (ids) {
+      for (const id of ids) {
+        if (id && id.trim()) allTeamMemberIds.add(id.trim());
+      }
+    }
+  }
+
+  let teamMemberRows: Record<string, unknown>[] = [];
+  if (allTeamMemberIds.size > 0) {
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, user_color, role, profile_image_url")
+      .in("id", Array.from(allTeamMemberIds));
+    teamMemberRows = (users ?? []) as Record<string, unknown>[];
+  }
+
+  // ── Build tasks array ──────────────────────────────────────────────────
+  const tasks: IntelTask[] = (taskRows ?? []).map((t) => {
+    const typeId = t.task_type_id as string | null;
+    const taskType = typeId ? taskTypeMap.get(typeId) : null;
+    const status = (t.status as IntelTask["status"]) ?? "Booked";
+    const rawIds = t.team_member_ids as string[] | null;
+    const memberIds = rawIds
+      ? rawIds.filter((id: string) => id && id.trim()).map((id: string) => id.trim())
+      : [];
+
+    return {
+      id: t.id as string,
+      projectId: t.project_id as string,
+      title: (t.custom_title as string) || taskType?.display || "Task",
+      status,
+      taskColor: (t.task_color as string) || taskType?.color || TASK_STATUS_COLORS[status as TaskStatus] || "#8195B5",
+      startDate: (t.start_date as string) ?? null,
+      endDate: (t.end_date as string) ?? null,
+      teamMemberIds: memberIds,
+      displayOrder: (t.display_order as number) ?? 0,
+      createdAt: t.created_at as string,
+    };
+  });
+
+  // ── Build team members array ───────────────────────────────────────────
+  const teamMembers: IntelTeamMember[] = teamMemberRows.map((u) => ({
+    id: u.id as string,
+    firstName: (u.first_name as string) ?? "",
+    lastName: (u.last_name as string) ?? "",
+    userColor: (u.user_color as string) ?? null,
+    role: (u.role as string) ?? "field_crew",
+    profileImageUrl: (u.profile_image_url as string) ?? null,
+  }));
+
+  // ── Compute mostActiveProjectStatus per client ─────────────────────────
+  // Priority: higher = more progressed. Archived excluded.
+  const STATUS_PRIORITY: Record<string, number> = {
+    RFQ: 0, Estimated: 1, Accepted: 2,
+    "In Progress": 3, Completed: 4, Closed: 5,
+  };
+
+  const projectStatusesByClient = new Map<string, string[]>();
+  for (const p of projectRows ?? []) {
+    const clientId = p.client_id as string;
+    if (!clientId) continue;
+    const status = p.status as string;
+    if (status === "Archived") continue;
+    const list = projectStatusesByClient.get(clientId) ?? [];
+    list.push(status);
+    projectStatusesByClient.set(clientId, list);
+  }
+
+  const clientsWithStatus: IntelClientWithStatus[] = (clientRows ?? []).map((c) => {
+    const statuses = projectStatusesByClient.get(c.id as string) ?? [];
+    let bestStatus = "RFQ";
+    let bestPriority = -1;
+    for (const s of statuses) {
+      const p = STATUS_PRIORITY[s] ?? 0;
+      if (p > bestPriority) { bestStatus = s; bestPriority = p; }
+    }
+    return {
+      id: c.id as string,
+      name: (c.name as string) ?? "Unknown Client",
+      email: (c.email as string) ?? null,
+      phone: (c.phone_number as string) ?? null,
+      address: (c.address as string) ?? null,
+      mostActiveProjectStatus: bestStatus,
+      createdAt: c.created_at as string,
+    };
+  });
 
   // ── Phase C queries (conditional) ────────────────────────────────────────
   let graphEntityRows: Record<string, unknown>[] = [];
@@ -381,6 +488,9 @@ export async function GET(req: NextRequest) {
     entities,
     edges,
     voiceProfiles,
+    tasks,
+    teamMembers,
+    clientsWithStatus,
     stats: {
       entityCount: entities.length,
       edgeCount: edges.length,

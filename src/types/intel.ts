@@ -31,10 +31,45 @@ export interface IntelVoiceProfile {
   emailsAnalyzed: number;
 }
 
+export interface IntelTask {
+  id: string;
+  projectId: string;
+  title: string;
+  status: "Booked" | "In Progress" | "Completed" | "Cancelled";
+  taskColor: string;
+  startDate: string | null;
+  endDate: string | null;
+  teamMemberIds: string[];
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface IntelTeamMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  userColor: string | null;
+  role: string;
+  profileImageUrl: string | null;
+}
+
+export interface IntelClientWithStatus {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  mostActiveProjectStatus: string;
+  createdAt: string;
+}
+
 export interface IntelGraphData {
   entities: IntelEntity[];
   edges: IntelEdge[];
   voiceProfiles: IntelVoiceProfile[];
+  tasks: IntelTask[];
+  teamMembers: IntelTeamMember[];
+  clientsWithStatus: IntelClientWithStatus[];
   stats: {
     entityCount: number;
     edgeCount: number;

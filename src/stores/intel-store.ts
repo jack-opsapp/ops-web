@@ -17,6 +17,15 @@ interface IntelState {
   is3DUnlocked: boolean;
   showGatePrompt: boolean;
 
+  // Focus hierarchy
+  focusLevel: 1 | 2 | 3;
+  focusedClientId: string | null;
+  focusedProjectId: string | null;
+
+  // Camera animation target (set when focusing, consumed by GalaxyCamera)
+  cameraTarget: { x: number; y: number; z: number } | null;
+  cameraDistance: number;
+
   // Activation
   newEntityIds: string[];
   activationPlaying: boolean;
@@ -33,6 +42,10 @@ interface IntelState {
   setNewEntityIds: (ids: string[]) => void;
   setActivationPlaying: (playing: boolean) => void;
   dismissSelection: () => void;
+  focusClient: (clientId: string, position: { x: number; y: number; z: number }) => void;
+  focusProject: (projectId: string, position: { x: number; y: number; z: number }) => void;
+  focusBack: () => void;
+  clearCameraTarget: () => void;
 }
 
 const ALL_CLUSTERS = new Set([
@@ -62,6 +75,11 @@ export const useIntelStore = create<IntelState>()((set) => ({
   searchResults: [],
   is3DUnlocked: false,
   showGatePrompt: false,
+  focusLevel: 1,
+  focusedClientId: null,
+  focusedProjectId: null,
+  cameraTarget: null,
+  cameraDistance: 20,
   newEntityIds: [],
   activationPlaying: false,
 
@@ -82,4 +100,58 @@ export const useIntelStore = create<IntelState>()((set) => ({
   setNewEntityIds: (ids) => set({ newEntityIds: ids }),
   setActivationPlaying: (playing) => set({ activationPlaying: playing }),
   dismissSelection: () => set({ selectedNodeId: null, expandedNodeId: null }),
+
+  focusClient: (clientId, position) =>
+    set({
+      focusLevel: 2,
+      focusedClientId: clientId,
+      focusedProjectId: null,
+      selectedNodeId: clientId,
+      expandedNodeId: null,
+      cameraTarget: position,
+      cameraDistance: 8,
+    }),
+
+  focusProject: (projectId, position) =>
+    set({
+      focusLevel: 3,
+      focusedProjectId: projectId,
+      selectedNodeId: projectId,
+      expandedNodeId: null,
+      cameraTarget: position,
+      cameraDistance: 4,
+    }),
+
+  focusBack: () =>
+    set((state) => {
+      if (state.focusLevel === 3 && state.focusedClientId) {
+        // Back to client level — read client's live position for camera target
+        const clientPos = liveNodePositions.get(state.focusedClientId);
+        return {
+          focusLevel: 2,
+          focusedProjectId: null,
+          selectedNodeId: state.focusedClientId,
+          expandedNodeId: null,
+          cameraTarget: clientPos
+            ? { x: clientPos.x, y: clientPos.y, z: clientPos.z }
+            : { x: 0, y: 0, z: 0 },
+          cameraDistance: 8,
+        };
+      }
+      if (state.focusLevel === 2) {
+        // Back to overview
+        return {
+          focusLevel: 1,
+          focusedClientId: null,
+          focusedProjectId: null,
+          selectedNodeId: null,
+          expandedNodeId: null,
+          cameraTarget: { x: 0, y: 0, z: 0 },
+          cameraDistance: 20,
+        };
+      }
+      return {};
+    }),
+
+  clearCameraTarget: () => set({ cameraTarget: null }),
 }));
