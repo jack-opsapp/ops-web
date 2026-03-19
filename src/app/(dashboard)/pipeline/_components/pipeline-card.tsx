@@ -227,7 +227,9 @@ export function PipelineCard({
         "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
         "border-l-[3px]",
         // Interaction
-        "cursor-pointer group relative",
+        "cursor-pointer group",
+        // Stacking: expanded cards must sit above siblings so dropdowns aren't clipped
+        isExpanded ? "relative z-20" : "relative z-0",
         // Hover
         "hover:border-[rgba(255,255,255,0.15)]",
         // Stale pulse animation (active stages only)
@@ -297,9 +299,9 @@ export function PipelineCard({
                     : undefined
                 }
                 className={cn(
-                  "p-[2px] rounded-[2px] cursor-pointer",
-                  "text-text-disabled hover:text-text-secondary",
-                  "hover:bg-[rgba(255,255,255,0.06)]",
+                  "p-[3px] rounded-[2px] cursor-pointer",
+                  "text-text-disabled hover:text-text-primary",
+                  "hover:bg-[rgba(255,255,255,0.10)]",
                   "transition-all duration-150",
                   // Desktop: hidden until hover. Mobile: always visible.
                   "md:opacity-0 md:group-hover:opacity-100"
@@ -323,9 +325,9 @@ export function PipelineCard({
                     : undefined
                 }
                 className={cn(
-                  "p-[2px] rounded-[2px] cursor-pointer",
-                  "text-text-disabled hover:text-text-secondary",
-                  "hover:bg-[rgba(255,255,255,0.06)]",
+                  "p-[3px] rounded-[2px] cursor-pointer",
+                  "text-text-disabled hover:text-text-primary",
+                  "hover:bg-[rgba(255,255,255,0.10)]",
                   "transition-all duration-150",
                   // Desktop: hidden until hover. Mobile: always visible.
                   "md:opacity-0 md:group-hover:opacity-100"
@@ -382,6 +384,40 @@ export function PipelineCard({
                   )}
                 </div>
               </motion.div>
+
+              {/* Email correspondence stats */}
+              {opportunity.correspondenceCount > 0 && (
+                <motion.div
+                  variants={contentVariants}
+                  custom={0.5}
+                  className="flex items-center gap-[8px]"
+                >
+                  <div className="flex items-center gap-[4px]">
+                    <Mail className="w-[11px] h-[11px] text-text-disabled" />
+                    <span className="font-kosugi text-micro-sm text-text-tertiary">
+                      {opportunity.correspondenceCount} email{opportunity.correspondenceCount !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <span className="text-text-disabled font-kosugi text-micro-sm">·</span>
+                  <span className="font-kosugi text-micro-sm text-text-disabled">
+                    {opportunity.inboundCount} in / {opportunity.outboundCount} out
+                  </span>
+                  {(opportunity.lastInboundAt || opportunity.lastOutboundAt) && (
+                    <>
+                      <span className="text-text-disabled font-kosugi text-micro-sm">·</span>
+                      <span className="font-kosugi text-micro-sm text-text-disabled">
+                        last {formatTimeAgo(
+                          opportunity.lastInboundAt && opportunity.lastOutboundAt
+                            ? (opportunity.lastInboundAt > opportunity.lastOutboundAt
+                                ? opportunity.lastInboundAt
+                                : opportunity.lastOutboundAt)
+                            : opportunity.lastInboundAt || opportunity.lastOutboundAt!
+                        )}
+                      </span>
+                    </>
+                  )}
+                </motion.div>
+              )}
 
               {/* Actions bar */}
               <motion.div variants={contentVariants} custom={1}>

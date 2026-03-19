@@ -1488,6 +1488,10 @@ export interface GmailSyncFilters {
   lastScanTotal?: number;
   /** Number of emails that passed filters (to import) in the last scan */
   lastScanImportCount?: number;
+  /** The import job ID from the most recent import */
+  lastImportJobId?: string;
+  /** True after import completes (leads are in pipeline) */
+  importComplete?: boolean;
 }
 
 // ─── Structured Filter Rules ─────────────────────────────────────────────────

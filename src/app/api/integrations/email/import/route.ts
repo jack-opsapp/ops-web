@@ -320,6 +320,16 @@ async function runImport(
         });
         opportunityId = opp.id;
         result.leadsCreated++;
+
+        // Set stage_entered_at to last correspondence date so "days in stage"
+        // reflects real timeline, not import date. CreateOpportunity omits this
+        // field (defaults to now()), so we patch it directly.
+        if (lastMessageDate) {
+          await supabase
+            .from("opportunities")
+            .update({ stage_entered_at: lastMessageDate.toISOString() })
+            .eq("id", opportunityId);
+        }
       }
 
       // Create sub-clients from detected sub-contacts (spouse, PM, site super, etc.)

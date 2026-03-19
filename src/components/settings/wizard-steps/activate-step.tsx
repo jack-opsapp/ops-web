@@ -79,14 +79,46 @@ export function ActivateStep({
       </motion.div>
 
       {/* Label info */}
-      <motion.div variants={staggerItem} className="mb-6">
+      <motion.div variants={staggerItem} className="mb-4">
         <p className="font-mohave text-[14px] text-white mb-1">
           Your imported leads have been labeled as{" "}
           <span className="text-[#597794] font-medium">OPS Pipeline</span>{" "}
           in your inbox.
         </p>
-        <p className="font-mohave text-[12px] text-[#666]">
-          New emails matching your patterns will be tagged automatically.
+      </motion.div>
+
+      {/* How ongoing sync works */}
+      <motion.div
+        variants={staggerItem}
+        className="mb-6 p-3 border border-white/8 bg-white/[0.02]"
+        style={{ borderRadius: 3 }}
+      >
+        <p className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#597794] mb-2">
+          How new leads are captured
+        </p>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="font-mohave text-[12px] text-[#597794] mt-0.5 flex-shrink-0">1.</span>
+            <p className="font-mohave text-[12px] text-[#999]">
+              <span className="text-white">Pattern matching</span> — emails from new contacts that match your detected patterns (form submissions, estimate requests, inquiry subjects) are automatically classified as leads.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-mohave text-[12px] text-[#597794] mt-0.5 flex-shrink-0">2.</span>
+            <p className="font-mohave text-[12px] text-[#999]">
+              <span className="text-white">AI classification</span> — new inbound emails are analyzed to detect potential leads, even if they don&apos;t match an existing pattern.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-mohave text-[12px] text-[#597794] mt-0.5 flex-shrink-0">3.</span>
+            <p className="font-mohave text-[12px] text-[#999]">
+              <span className="text-white">Manual label</span> — apply the{" "}
+              <span className="text-[#597794]">OPS Pipeline</span> label to any email thread in Gmail and it will be imported on the next sync.
+            </p>
+          </div>
+        </div>
+        <p className="font-mohave text-[11px] text-[#555] mt-2">
+          New leads appear in your pipeline for review. You can adjust detection sensitivity in Settings.
         </p>
       </motion.div>
 

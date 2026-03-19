@@ -287,9 +287,11 @@ export function IntegrationsTab() {
     }
   }, [hasAnyConnection, companyConnections]); // eslint-disable-line react-hooks/exhaustive-deps
   const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
+  const importComplete = companyConnections[0]?.syncFilters?.importComplete === true;
 
   // Determine if there's a running analysis job to show progress for
-  const activeJobId = (!wizardDone && companyConnections[0]?.syncFilters?.lastScanJobId) || null;
+  // Hide the analysis banner once import is complete — user should finish activation in wizard
+  const activeJobId = (!wizardDone && !importComplete && companyConnections[0]?.syncFilters?.lastScanJobId) || null;
 
   function handleDisconnect(id: string) {
     if (!can("settings.integrations")) return;
@@ -476,7 +478,7 @@ export function IntegrationsTab() {
                   <RefreshCw className={cn("w-[14px] h-[14px]", triggerSync.isPending && "animate-spin")} />
                   {t("integrations.syncNow")}
                 </Button>
-              ) : !activeJobId ? (
+              ) : !activeJobId && !importComplete ? (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -485,6 +487,16 @@ export function IntegrationsTab() {
                 >
                   <Mail className="w-[14px] h-[14px]" />
                   Complete Setup
+                </Button>
+              ) : !wizardDone && importComplete ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openWizard()}
+                  className="gap-[6px]"
+                >
+                  <CheckCircle className="w-[14px] h-[14px]" />
+                  Activate Sync
                 </Button>
               ) : null}
             </div>
@@ -515,32 +527,52 @@ export function IntegrationsTab() {
           {/* Before wizard: setup CTA (only show if no active analysis job) */}
           {hasAnyConnection && !wizardDone && !activeJobId && (
             <div className="space-y-1.5">
-              <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
-                <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
-                    Pipeline import not configured
-                  </span>
-                  <span className="font-kosugi text-[10px] text-text-disabled">
-                    Run the import wizard to discover leads in your inbox and activate ongoing sync.
-                  </span>
-                </div>
-              </div>
+              {importComplete ? (
+                /* Import done but activation pending — prompt to finish */
+                <button
+                  onClick={() => openWizard()}
+                  className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(157,181,130,0.3)] bg-[rgba(157,181,130,0.08)] hover:bg-[rgba(157,181,130,0.15)] transition-colors text-left"
+                >
+                  <CheckCircle className="w-[18px] h-[18px] text-[#9DB582] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-mohave text-body text-[#9DB582] block">
+                      Import complete — activate sync
+                    </span>
+                    <span className="font-kosugi text-[10px] text-text-disabled">
+                      Your leads are in the pipeline. Finish setup to enable ongoing sync.
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                <>
+                  <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
+                    <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
+                        Pipeline import not configured
+                      </span>
+                      <span className="font-kosugi text-[10px] text-text-disabled">
+                        Run the import wizard to discover leads in your inbox and activate ongoing sync.
+                      </span>
+                    </div>
+                  </div>
 
-              <button
-                onClick={() => openWizard()}
-                className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
-              >
-                <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-mohave text-body text-ops-accent block">
-                    Import Your Pipeline
-                  </span>
-                  <span className="font-kosugi text-[10px] text-text-disabled">
-                    Automatically discover leads, classify with AI, and import into your pipeline
-                  </span>
-                </div>
-              </button>
+                  <button
+                    onClick={() => openWizard()}
+                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+                  >
+                    <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-mohave text-body text-ops-accent block">
+                        Import Your Pipeline
+                      </span>
+                      <span className="font-kosugi text-[10px] text-text-disabled">
+                        Automatically discover leads, classify with AI, and import into your pipeline
+                      </span>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           )}
 

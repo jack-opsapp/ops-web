@@ -25,11 +25,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
+  const hasResult = job.status === "complete" || job.status === "import_complete";
+  const hasError = job.status === "error" || job.status === "import_error";
+
   return NextResponse.json({
     jobId: job.id,
     status: job.status,
     progress: job.progress,
-    result: job.status === "complete" ? job.result : undefined,
-    error: job.status === "error" ? job.error_message : undefined,
+    result: hasResult ? job.result : undefined,
+    error: hasError ? job.error_message : undefined,
   });
 }

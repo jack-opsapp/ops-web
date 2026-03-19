@@ -696,7 +696,7 @@ export function ImportPipelineWizard({
         </div>
 
         {/* Step content */}
-        <div className="px-6 pb-2 pt-4 min-h-[400px] overflow-y-auto">
+        <div className="px-6 pb-2 pt-4 min-h-[400px] max-h-[calc(85vh-140px)] overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={`${step}-${importJobId ? "importing" : confirmed ? "confirm" : "review"}`}

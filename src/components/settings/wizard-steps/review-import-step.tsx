@@ -500,16 +500,18 @@ export function ReviewImportStep({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div>
-      <p className="font-mohave text-[15px] text-[#999] mb-1">
-        {enabledCount} lead{enabledCount !== 1 ? "s" : ""} ready to import
-      </p>
-      <p className="font-mohave text-[12px] text-[#666] mb-5">
-        Review flagged items first, then confirm your leads. Toggle off anything you don&apos;t want.
-      </p>
+    <div className="flex flex-col" style={{ maxHeight: "calc(85vh - 180px)" }}>
+      <div className="flex-shrink-0">
+        <p className="font-mohave text-[15px] text-[#999] mb-1">
+          {enabledCount} lead{enabledCount !== 1 ? "s" : ""} ready to import
+        </p>
+        <p className="font-mohave text-[12px] text-[#666] mb-5">
+          Review flagged items first, then confirm your leads. Toggle off anything you don&apos;t want.
+        </p>
+      </div>
 
-      <div className="relative">
-        <div className="space-y-3 max-h-[340px] overflow-y-auto scrollbar-hide pb-8">
+      <div className="relative flex-1 min-h-0">
+        <div className="space-y-3 max-h-full overflow-y-auto scrollbar-hide pb-8">
 
           {/* ─── Section 1: Review Items ──────────────────────────────────── */}
           {reviewLeads.length > 0 && (
@@ -656,9 +658,9 @@ export function ReviewImportStep({
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0D0D0D] to-transparent" />
       </div>
 
-      {/* Floating confirm bar */}
+      {/* Fixed confirm bar — always visible at bottom */}
       <div
-        className="sticky bottom-0 mt-4 -mx-6 px-6 py-3 flex items-center justify-between border-t border-white/8"
+        className="flex-shrink-0 mt-4 -mx-6 px-6 py-3 flex items-center justify-between border-t border-white/8"
         style={{
           background: 'rgba(13, 13, 13, 0.85)',
           backdropFilter: 'blur(20px) saturate(1.2)',
