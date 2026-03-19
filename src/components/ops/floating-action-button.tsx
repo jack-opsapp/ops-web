@@ -48,7 +48,6 @@ export function FloatingActionButton() {
 
   // ── Hide on intel page (full-bleed canvas, overlaps zoom controls) ───
   const pathname = usePathname();
-  if (pathname === "/intel") return null;
 
   // ── Hide when dashboard widget tray is open ───────────────────────────
   const dashboardTrayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
@@ -174,6 +173,9 @@ export function FloatingActionButton() {
   useEffect(() => {
     return () => cancelLongPress();
   }, []);
+
+  // Hide on intel page (full-bleed canvas, overlaps zoom controls)
+  if (pathname === "/intel") return null;
 
   return (
     <>
