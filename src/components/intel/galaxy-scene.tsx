@@ -36,6 +36,7 @@ import { RedactedText } from "./redacted-text";
 import { ActivationSequence } from "./activation-sequence";
 
 import { useIntelGraph } from "@/lib/hooks/use-intel-graph";
+import type { IntelEntity, IntelClientWithStatus } from "@/types/intel";
 import { useIntelStore } from "@/stores/intel-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useDictionary } from "@/i18n/client";
@@ -304,6 +305,17 @@ export function GalaxyScene() {
         <BackButton />
       </div>
 
+      {/* Top-center: Focused entity info bar */}
+      {focusLevel >= 2 && data?.clientsWithStatus && (
+        <FocusedEntityInfo
+          focusLevel={focusLevel}
+          focusedClientId={focusedClientId}
+          focusedProjectId={focusedProjectId}
+          clients={data.clientsWithStatus}
+          entities={data.entities}
+        />
+      )}
+
       {/* Top-right: Stats */}
       {!isLoading && data?.stats && (
         <div className="absolute top-4 right-4 z-10">
@@ -396,6 +408,71 @@ export function GalaxyScene() {
             </a>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FocusedEntityInfo — compact info bar for the focused client/project
+// Positioned at top-center, frosted glass. Shows name, key details.
+// ---------------------------------------------------------------------------
+
+function FocusedEntityInfo({
+  focusLevel,
+  focusedClientId,
+  focusedProjectId,
+  clients,
+  entities,
+}: {
+  focusLevel: 1 | 2 | 3;
+  focusedClientId: string | null;
+  focusedProjectId: string | null;
+  clients: IntelClientWithStatus[];
+  entities: IntelEntity[];
+}) {
+  const client = focusedClientId ? clients.find(c => c.id === focusedClientId) : null;
+  const project = focusedProjectId ? entities.find(e => e.id === focusedProjectId) : null;
+
+  if (!client) return null;
+
+  return (
+    <div
+      className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 px-4 py-2.5"
+      style={{
+        background: "rgba(10, 10, 10, 0.70)",
+        backdropFilter: "blur(20px) saturate(1.2)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        borderRadius: "3px",
+      }}
+    >
+      {/* Client info (always shown at L2+) */}
+      <div className="text-left">
+        <div className="font-mohave text-sm text-white leading-tight">
+          {client.name}
+        </div>
+        <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#666]">
+          {client.email || client.phone || client.address || "client"}
+        </div>
+      </div>
+
+      {/* Separator + project info (at L3) */}
+      {focusLevel === 3 && project && (
+        <>
+          <div className="w-px h-6 bg-white/10" />
+          <div className="text-left">
+            <div className="font-mohave text-sm text-white leading-tight">
+              {project.name}
+            </div>
+            <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#666]">
+              {typeof project.properties.status === "string" ? project.properties.status : "project"}
+              {typeof project.properties.address === "string" && (
+                <span className="ml-2 text-[#555]">{project.properties.address}</span>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

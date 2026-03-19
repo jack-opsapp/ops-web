@@ -32,13 +32,18 @@ function createGlowTexture(): THREE.Texture {
   const ctx = canvas.getContext("2d")!;
   const center = size / 2;
 
+  // Sharp pinpoint core (1-2px on screen) with wide soft glow halo.
+  // The core is only the inner 2% of the sprite. The rest is a barely-
+  // perceptible halo that creates the "point of light" effect when
+  // multiple nodes' halos overlap and additively blend.
   const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-  gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
-  gradient.addColorStop(0.04, "rgba(255, 255, 255, 0.7)");
-  gradient.addColorStop(0.08, "rgba(255, 255, 255, 0.25)");
-  gradient.addColorStop(0.15, "rgba(255, 255, 255, 0.06)");
-  gradient.addColorStop(0.35, "rgba(255, 255, 255, 0.015)");
-  gradient.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+  gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");     // Sharp core
+  gradient.addColorStop(0.02, "rgba(255, 255, 255, 0.9)");  // Still bright
+  gradient.addColorStop(0.04, "rgba(255, 255, 255, 0.3)");  // Steep drop
+  gradient.addColorStop(0.08, "rgba(255, 255, 255, 0.08)"); // Faint halo
+  gradient.addColorStop(0.2, "rgba(255, 255, 255, 0.02)");  // Near-invisible
+  gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.005)"); // Barely there
+  gradient.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");   // Gone
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
@@ -61,8 +66,10 @@ const prefersReducedMotion =
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const NODE_SIZE = 0.5;
-const HIT_RADIUS = 0.25; // Invisible sphere radius for click targets
+// Sprite plane: 0.35 gives a small glow halo. The visible "point" is
+// only the inner 2% (~7px on screen at default zoom). The rest is halo.
+const NODE_SIZE = 0.35;
+const HIT_RADIUS = 0.3; // Click target slightly larger than visual
 const DRIFT_AMPLITUDE = 0.08;
 const HOVER_EMISSIVE_BOOST = 0.3;
 const DIM_FACTOR = 0.2;

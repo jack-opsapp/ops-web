@@ -103,16 +103,28 @@ function layoutLevel1(config: HierarchicalLayoutConfig): PositionedNode[] {
   const { clients } = config;
   if (clients.length === 0) return result;
 
-  // Adaptive radius: sparser data gets wider orbits so nodes aren't crammed
-  const baseRadius = clients.length < 10 ? 7 : clients.length < 25 ? 5.5 : 4.5;
+  // Wider base radius + per-node variation so it's NOT a perfect circle.
+  // Each node gets a hash-based radius offset (±1.5 units) creating an
+  // organic, scattered distribution that reads as a constellation.
+  const baseRadius = clients.length < 10 ? 8 : clients.length < 25 ? 7 : 6;
 
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
-    const angle = (i / clients.length) * Math.PI * 2;
-    const x = baseRadius * Math.cos(angle);
-    const y = baseRadius * Math.sin(angle);
-    // z-jitter: ±0.3 based on entity hash — slight depth, not flat
-    const z = ((hashString(client.id) % 60) - 30) / 100;
+    const h = hashString(client.id);
+
+    // Angular position: golden angle spacing (not uniform) for organic feel.
+    // Golden angle = 137.508° — same as sunflower seed distribution.
+    // Produces maximally spread positions without visible lines or rings.
+    const angle = i * 2.399; // golden angle in radians
+
+    // Per-node radius variation: ±1.5 units from base. Creates scatter.
+    const radiusOffset = ((Math.abs(h) % 300) - 150) / 100; // [-1.5, +1.5]
+    const r = baseRadius + radiusOffset;
+
+    const x = r * Math.cos(angle);
+    const y = r * Math.sin(angle);
+    // z-jitter: ±0.5 for more depth variation
+    const z = ((h % 100) - 50) / 100;
 
     result.push({
       entityId: client.id,

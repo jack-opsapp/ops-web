@@ -50,6 +50,8 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
   const selectedNodeId = useIntelStore((s) => s.selectedNodeId);
   const hoveredNodeId = useIntelStore((s) => s.hoveredNodeId);
   const focusLevel = useIntelStore((s) => s.focusLevel);
+  const focusedClientId = useIntelStore((s) => s.focusedClientId);
+  const focusedProjectId = useIntelStore((s) => s.focusedProjectId);
 
   const maxEdges = isLowEnd ? MAX_EDGES_LOW_END : MAX_EDGES_STANDARD;
 
@@ -79,10 +81,15 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
       return;
     }
 
+    // At L2: always show focused client's edges (client→project connections).
+    // At L3: always show focused project's edges (project→task/financial).
+    // Hover/selection adds additional edges on top.
+    const focusEntityId = focusLevel === 2 ? focusedClientId
+      : focusLevel === 3 ? focusedProjectId
+      : null;
     const activeNodeId = selectedNodeId || hoveredNodeId;
 
-    // No active node: no edges
-    if (!activeNodeId) {
+    if (!focusEntityId && !activeNodeId) {
       lineRef.current.setDrawRange(0, 0);
       return;
     }
@@ -92,8 +99,10 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
     for (let i = 0; i < edges.length && lineIndex < maxEdges; i++) {
       const edge = edges[i];
 
-      // Only show edges connected to the active (hovered/selected) node
-      if (activeNodeId !== edge.sourceId && activeNodeId !== edge.targetId) continue;
+      // Show edge if connected to the focused entity OR the hovered/selected node
+      const isFocusEdge = focusEntityId && (focusEntityId === edge.sourceId || focusEntityId === edge.targetId);
+      const isActiveEdge = activeNodeId && (activeNodeId === edge.sourceId || activeNodeId === edge.targetId);
+      if (!isFocusEdge && !isActiveEdge) continue;
 
       // Use live positions (includes drift), fall back to static layout
       const liveSrc = liveNodePositions.get(edge.sourceId);
