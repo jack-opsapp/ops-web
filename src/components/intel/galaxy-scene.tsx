@@ -243,8 +243,11 @@ export function GalaxyScene() {
             zoomSpeed={1.2}
           />
 
-          {/* Camera fly-to animation controller */}
-          <GalaxyCamera controlsRef={controlsRef as React.RefObject<{ target: THREE.Vector3; update: () => void } | null>} />
+          {/* Camera animation + zoom-level detection */}
+          <GalaxyCamera
+            controlsRef={controlsRef as React.RefObject<{ target: THREE.Vector3; update: () => void } | null>}
+            nodes={enrichedLayout}
+          />
 
           {/* Background star field */}
           <GalaxyStarfield />
