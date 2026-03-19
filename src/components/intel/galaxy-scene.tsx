@@ -168,10 +168,21 @@ export function GalaxyScene() {
     }
   }, [is3DUnlocked, data?.entities, setShowGatePrompt]);
 
-  // Click on empty space (canvas) dismisses selection
+  // Click on empty space (canvas) dismisses selection.
+  // R3F click handlers set this ref to true when they handle a node click.
+  // The DOM handler checks it to avoid immediately undoing the R3F action.
+  // Without this, clicking a node would: 1) focus it via R3F, then 2) dismiss
+  // it via DOM bubbling — making all clicks appear broken.
+  const r3fHandledClickRef = useRef(false);
+
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).tagName === "CANVAS") {
+        // If R3F already handled this click (on a node), skip dismissal
+        if (r3fHandledClickRef.current) {
+          r3fHandledClickRef.current = false;
+          return;
+        }
         dismissSelection();
       }
     },
@@ -286,7 +297,7 @@ export function GalaxyScene() {
 
           {/* Entity nodes (hierarchical) */}
           {enrichedLayout.length > 0 && (
-            <GalaxyNodes nodes={enrichedLayout} />
+            <GalaxyNodes nodes={enrichedLayout} onNodeClick={() => { r3fHandledClickRef.current = true; }} />
           )}
 
           {/* Edges (hover/click only, L2+) */}

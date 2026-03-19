@@ -79,13 +79,14 @@ const DIM_FACTOR = 0.2; // Dimmed nodes render at 20% brightness
 
 interface GalaxyNodesProps {
   nodes: PositionedNode[];
+  onNodeClick?: () => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function GalaxyNodes({ nodes }: GalaxyNodesProps) {
+export function GalaxyNodes({ nodes, onNodeClick }: GalaxyNodesProps) {
   // Group nodes by color for instanced rendering (one InstancedMesh per color)
   const colorGroups = useMemo(() => {
     const groups = new Map<string, PositionedNode[]>();
@@ -102,7 +103,7 @@ export function GalaxyNodes({ nodes }: GalaxyNodesProps) {
   return (
     <>
       {Array.from(colorGroups.entries()).map(([color, group]) => (
-        <ColorInstanceGroup key={color} color={color} nodes={group} />
+        <ColorInstanceGroup key={color} color={color} nodes={group} onNodeClick={onNodeClick} />
       ))}
     </>
   );
@@ -115,9 +116,10 @@ export function GalaxyNodes({ nodes }: GalaxyNodesProps) {
 interface ColorInstanceGroupProps {
   color: string;
   nodes: PositionedNode[];
+  onNodeClick?: () => void;
 }
 
-function ColorInstanceGroup({ color, nodes }: ColorInstanceGroupProps) {
+function ColorInstanceGroup({ color, nodes, onNodeClick }: ColorInstanceGroupProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
@@ -186,6 +188,10 @@ function ColorInstanceGroup({ color, nodes }: ColorInstanceGroupProps) {
     (e: { instanceId?: number; stopPropagation?: () => void }) => {
       if (e.instanceId !== undefined && e.instanceId < instanceData.length) {
         e.stopPropagation?.();
+        // Signal to the DOM handler that R3F handled this click —
+        // prevents the wrapper div from calling dismissSelection()
+        onNodeClick?.();
+
         const node = instanceData[e.instanceId];
         const pos = {
           x: node.basePosition.x,
@@ -204,7 +210,7 @@ function ColorInstanceGroup({ color, nodes }: ColorInstanceGroupProps) {
         }
       }
     },
-    [instanceData, focusLevel, focusClient, focusProject, selectNode]
+    [instanceData, focusLevel, focusClient, focusProject, selectNode, onNodeClick]
   );
 
   // ---------------------------------------------------------------------------
