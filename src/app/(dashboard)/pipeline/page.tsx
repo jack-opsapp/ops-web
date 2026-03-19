@@ -128,7 +128,7 @@ function PipelineSkeleton() {
 // ---------------------------------------------------------------------------
 // Responsive breakpoint hook
 // ---------------------------------------------------------------------------
-function useIsMobile(breakpoint = 768): boolean {
+function useIsMobile(breakpoint = 900): boolean {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -325,6 +325,11 @@ export default function PipelinePage() {
 
     return result;
   }, [activeOpportunities, stageFilter, assigneeFilter, searchQuery, clientNameMap]);
+
+  // ── Board opportunities (active stages only — Won/Lost live in metrics bar)
+  const boardOpportunities = useMemo(() => {
+    return filteredOpportunities.filter((o) => isActiveStage(o.stage));
+  }, [filteredOpportunities]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -693,7 +698,7 @@ export default function PipelinePage() {
 
   // ── Shared board/mobile props ─────────────────────────────────────────
   const sharedBoardProps = {
-    opportunities: filteredOpportunities,
+    opportunities: boardOpportunities,
     clients: clientNameMap,
     expandedCardId,
     onToggleExpand: handleToggleExpand,
@@ -713,9 +718,11 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-2 h-full flex flex-col min-w-0">
-      {/* Metrics bar */}
+      {/* Metrics bar — uses unfiltered data for big-picture stats */}
       <PipelineMetricsBar
-        opportunities={filteredOpportunities}
+        opportunities={activeOpportunities}
+        clients={clientNameMap}
+        onOpenDetail={handleSelectOpportunity}
         isLoading={false}
       />
 
@@ -828,7 +835,7 @@ export default function PipelinePage() {
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
-          <div className="h-full overflow-x-auto overflow-y-hidden pb-1 min-w-0">
+          <div className="h-full min-w-0">
             <PipelineBoard {...sharedBoardProps} />
           </div>
         )}

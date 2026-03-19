@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, Plus, ChevronDown } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Plus, ChevronDown } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
   OpportunityStage,
-  getAllStages,
+  getActiveStages,
   getStageDisplayName,
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
@@ -67,7 +67,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [open]);
 
-  const stages = getAllStages();
+  const stages = getActiveStages();
 
   const labelText =
     value === "all" ? allStagesLabel : getStageDisplayName(value);
@@ -271,8 +271,8 @@ function AssigneeDropdown({
 // ---------------------------------------------------------------------------
 
 export function PipelineFilterRow({
-  searchQuery,
-  onSearchChange,
+  searchQuery: _searchQuery,
+  onSearchChange: _onSearchChange,
   stageFilter,
   onStageFilterChange,
   assigneeFilter,
@@ -283,39 +283,8 @@ export function PipelineFilterRow({
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
 
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onSearchChange(e.target.value);
-    },
-    [onSearchChange]
-  );
-
   return (
     <div className="flex items-center gap-[8px]">
-      {/* Search input */}
-      <div
-        className={cn(
-          "flex items-center gap-[6px] flex-1 min-w-[140px] h-[30px] px-[8px]",
-          "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-          "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "focus-within:border-[rgba(255,255,255,0.14)] transition-colors"
-        )}
-      >
-        <Search className="w-[14px] h-[14px] text-text-placeholder shrink-0" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={handleSearchChange}
-          placeholder={t("search.placeholder")}
-          className={cn(
-            "flex-1 min-w-0 bg-transparent",
-            "font-mohave text-body-sm text-text-primary",
-            "placeholder:text-text-placeholder",
-            "focus:outline-none"
-          )}
-        />
-      </div>
-
       {/* Stage filter */}
       <StageDropdown
         value={stageFilter}

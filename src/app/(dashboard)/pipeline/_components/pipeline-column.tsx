@@ -189,14 +189,8 @@ export function PipelineColumn({
     stage === OpportunityStage.NewLead && !!onAddLead && canManage;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-full",
-        isTerminal
-          ? "w-[200px] min-w-[200px]"
-          : "w-[260px] min-w-[260px]"
-      )}
-    >
+    <div className="flex flex-col h-full flex-1 min-w-0">
+
       {/* ── Column header ──────────────────────────────────────────────── */}
       <div
         className="border-t-[3px] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] rounded-t-[4px] px-[10px] py-[8px]"

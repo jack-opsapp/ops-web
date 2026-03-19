@@ -23,8 +23,10 @@ function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => 
   return (
     <div
       className={cn(
-        "flex items-center gap-[6px] px-1 py-[6px] rounded",
+        "flex items-center gap-[6px] px-2 py-[6px] rounded-[4px]",
         "font-mono text-[11px] tracking-wider",
+        "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
+        "border border-[rgba(255,255,255,0.06)]",
         status === "offline" ? "text-ops-error" : "text-text-tertiary"
       )}
       title={
@@ -85,18 +87,19 @@ export function TopBar() {
         : "synced";
 
   return (
-    <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative bg-transparent">
+    <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative bg-transparent min-w-0">
       {/* Left: Notification Rail */}
       <NotificationRail />
 
       {/* Right: Search + Sync + Notifications Bell */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-[6px]">
         {/* Search trigger - styled as input, opens CommandPalette */}
         <button
           className={cn(
-            "flex items-center gap-[6px] px-1.5 py-[8px] rounded",
-            "bg-[rgba(10,10,10,0.40)] backdrop-blur-sm border border-[rgba(255,255,255,0.10)]",
-            "text-text-tertiary hover:border-[rgba(255,255,255,0.18)] hover:text-text-secondary",
+            "flex items-center gap-[6px] px-2 py-[8px] rounded-[4px]",
+            "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
+            "border border-[rgba(255,255,255,0.06)]",
+            "text-text-tertiary hover:border-[rgba(255,255,255,0.14)] hover:text-text-secondary",
             "transition-all duration-150 cursor-pointer",
             "min-w-[140px] sm:min-w-[200px]"
           )}
@@ -126,7 +129,7 @@ export function TopBar() {
         {/* Notifications bell — opens modal */}
         <button
           onClick={openModal}
-          className="relative p-[10px] rounded text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)] transition-all"
+          className="relative p-[10px] rounded-[4px] text-text-tertiary hover:text-text-secondary bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)] transition-all"
           title={t("notifications.title")}
           aria-label={t("notifications.ariaLabel")}
         >

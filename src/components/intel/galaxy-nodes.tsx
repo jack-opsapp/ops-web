@@ -135,21 +135,18 @@ function GlowInstanceGroup({ color, nodes }: { color: string; nodes: PositionedN
 
   const instanceData = useMemo(() => {
     return nodes.map((node, idx) => {
-      // Compute the initial angle from orbit center to the node's base position.
-      // This is the starting phase of the orbital rotation.
       const dx = node.position[0] - node.orbitCenter[0];
       const dy = node.position[1] - node.orbitCenter[1];
       const initialAngle = Math.atan2(dy, dx);
 
       return {
         entityId: node.entityId,
+        nodeType: node.nodeType,
         dimmed: node.dimmed,
         orbitCenter: new THREE.Vector3(...node.orbitCenter),
         orbitRadius: node.orbitRadius,
         baseZ: node.position[2],
         initialAngle,
-        // Speed variation: each node orbits at a slightly different rate
-        // so they don't move in lockstep. Range: 0.7x to 1.3x base speed.
         orbitSpeed: ORBIT_SPEED_BASE * (0.7 + (idx % 7) * 0.1),
       };
     });
@@ -187,8 +184,23 @@ function GlowInstanceGroup({ color, nodes }: { color: string; nodes: PositionedN
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
-      // Color + dimming
+      // Color + dimming + distance-based fade for child nodes.
+      // Projects/tasks/team/financial fade in based on camera distance —
+      // invisible when far, fully visible when close. Clients always visible.
       let intensity = 0.8;
+
+      // Distance-based fade: non-client nodes fade in as camera approaches.
+      // Fade range: invisible beyond 14 units, fully visible within 8 units.
+      if (d.nodeType !== "client" && d.nodeType !== "organization") {
+        const camDist = state.camera.position.distanceTo(
+          new THREE.Vector3(px, py, pz)
+        );
+        const FADE_FAR = 14;  // fully invisible beyond this
+        const FADE_NEAR = 8;  // fully visible within this
+        const fadeFactor = 1 - Math.max(0, Math.min(1, (camDist - FADE_NEAR) / (FADE_FAR - FADE_NEAR)));
+        intensity *= fadeFactor;
+      }
+
       if (isHovered || isSelected) intensity += HOVER_EMISSIVE_BOOST;
       if (isSearchHit) intensity += 0.15;
       if (d.dimmed) intensity *= DIM_FACTOR;
@@ -275,23 +287,30 @@ function ClickTargets({ nodes, onNodeClick }: { nodes: PositionedNode[]; onNodeC
 
             if (node.nodeType === "client") {
               if (focusLevel === 1) {
-                // L1: zoom into this client
                 focusClient(node.entityId, pos);
               } else if (focusLevel === 2 && node.entityId !== state.focusedClientId) {
-                // L2: switch to a different client
                 focusClient(node.entityId, pos);
               }
-              // L2 + same client = do nothing (already focused)
-              // L3 = do nothing (client is background)
             } else if (node.nodeType === "project") {
-              if (focusLevel === 2) {
-                // L2: zoom into this project
+              if (focusLevel === 1) {
+                // L1: clicking a project focuses its parent client.
+                // Find the client this project orbits by checking orbitCenter.
+                const parentClient = nodes.find(
+                  n => n.nodeType === "client" &&
+                  Math.abs(n.position[0] - node.orbitCenter[0]) < 0.01 &&
+                  Math.abs(n.position[1] - node.orbitCenter[1]) < 0.01
+                );
+                if (parentClient) {
+                  const parentLive = liveNodePositions.get(parentClient.entityId);
+                  const parentPos = parentLive
+                    ? { x: parentLive.x, y: parentLive.y, z: parentLive.z }
+                    : { x: parentClient.position[0], y: parentClient.position[1], z: parentClient.position[2] };
+                  focusClient(parentClient.entityId, parentPos);
+                }
+              } else if (focusLevel === 2) {
                 focusProject(node.entityId, pos);
               }
-              // L3 + same project = do nothing
-              // L3 + different project = do nothing (they're dimmed background)
             } else {
-              // Tasks, team, financial at L3 → show info panel
               selectNode(node.entityId);
             }
           }}

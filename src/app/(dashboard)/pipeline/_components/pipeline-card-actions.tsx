@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Phone,
   MessageSquare,
@@ -54,8 +54,7 @@ export function PipelineCardActions({
   const [showMore, setShowMore] = useState(false);
 
   const noteInputRef = useRef<HTMLInputElement>(null);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const moreContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-focus note input when it appears
   useEffect(() => {
@@ -64,48 +63,70 @@ export function PipelineCardActions({
     }
   }, [showNoteInput]);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click — uses the entire More container as boundary
   useEffect(() => {
     if (!showMore) return;
 
     function handleOutsideClick(e: MouseEvent) {
       if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node) &&
-        moreButtonRef.current &&
-        !moreButtonRef.current.contains(e.target as Node)
+        moreContainerRef.current &&
+        !moreContainerRef.current.contains(e.target as Node)
       ) {
         setShowMore(false);
       }
     }
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    // Delay registration by one frame to avoid catching the click that opened it
+    const frame = requestAnimationFrame(() => {
+      document.addEventListener("mousedown", handleOutsideClick);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
   }, [showMore]);
 
-  function handleCallClick() {
-    if (!canManage) return;
-    onLogCall();
-    setCallFlash(true);
-    setTimeout(() => setCallFlash(false), 150);
-  }
+  // -- Handlers (all stop propagation to prevent card collapse) --
 
-  function handleTextClick() {
-    if (!canManage) return;
-    onLogText();
-    setTextFlash(true);
-    setTimeout(() => setTextFlash(false), 150);
-  }
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-  function handleNoteClick() {
-    if (!canManage) return;
-    setShowNoteInput((prev) => !prev);
-    if (showNoteInput) {
-      setNoteValue("");
-    }
-  }
+  const handleCallClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!canManage) return;
+      onLogCall();
+      setCallFlash(true);
+      setTimeout(() => setCallFlash(false), 150);
+    },
+    [canManage, onLogCall]
+  );
+
+  const handleTextClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!canManage) return;
+      onLogText();
+      setTextFlash(true);
+      setTimeout(() => setTextFlash(false), 150);
+    },
+    [canManage, onLogText]
+  );
+
+  const handleNoteClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!canManage) return;
+      setShowNoteInput((prev) => !prev);
+      if (showNoteInput) {
+        setNoteValue("");
+      }
+    },
+    [canManage, showNoteInput]
+  );
 
   function handleNoteKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    e.stopPropagation();
     if (e.key === "Enter") {
       if (noteValue.trim()) {
         onAddNote(noteValue.trim());
@@ -118,15 +139,23 @@ export function PipelineCardActions({
     }
   }
 
-  function handleMoreClick() {
-    if (!canManage) return;
-    setShowMore((prev) => !prev);
-  }
+  const handleMoreClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!canManage) return;
+      setShowMore((prev) => !prev);
+    },
+    [canManage]
+  );
 
-  function handleDropdownAction(action: () => void) {
-    setShowMore(false);
-    action();
-  }
+  const handleDropdownAction = useCallback(
+    (e: React.MouseEvent, action: () => void) => {
+      e.stopPropagation();
+      setShowMore(false);
+      action();
+    },
+    []
+  );
 
   const buttonBase =
     "flex-1 flex flex-col items-center gap-[2px] py-[8px] rounded-[4px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.10)] transition-all duration-150 cursor-pointer";
@@ -134,7 +163,7 @@ export function PipelineCardActions({
   const disabledClass = !canManage ? "opacity-50 pointer-events-none" : "";
 
   return (
-    <div>
+    <div onClick={stop} onMouseDown={stop}>
       {/* Action bar */}
       <div className="flex items-center gap-[6px]">
         {/* Call button */}
@@ -185,10 +214,9 @@ export function PipelineCardActions({
           </span>
         </button>
 
-        {/* More button */}
-        <div className="flex-1 relative">
+        {/* More button + dropdown */}
+        <div ref={moreContainerRef} className="flex-1 relative">
           <button
-            ref={moreButtonRef}
             type="button"
             onClick={handleMoreClick}
             className={[
@@ -207,12 +235,11 @@ export function PipelineCardActions({
           {/* Dropdown */}
           {showMore && (
             <div
-              ref={dropdownRef}
               className="absolute top-full right-0 mt-[4px] z-10 min-w-[180px] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border border-[rgba(255,255,255,0.08)] rounded-[4px] p-[4px]"
             >
               <button
                 type="button"
-                onClick={() => handleDropdownAction(onScheduleFollowUp)}
+                onClick={(e) => handleDropdownAction(e, onScheduleFollowUp)}
                 className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
               >
                 <Calendar size={14} className="shrink-0" />
@@ -221,7 +248,7 @@ export function PipelineCardActions({
 
               <button
                 type="button"
-                onClick={() => handleDropdownAction(onAssign)}
+                onClick={(e) => handleDropdownAction(e, onAssign)}
                 className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
               >
                 <UserPlus size={14} className="shrink-0" />
@@ -231,7 +258,7 @@ export function PipelineCardActions({
               {isActiveStage(stage) && (
                 <button
                   type="button"
-                  onClick={() => handleDropdownAction(onMarkWon)}
+                  onClick={(e) => handleDropdownAction(e, onMarkWon)}
                   className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
                 >
                   <Trophy size={14} className="shrink-0" />
@@ -242,7 +269,7 @@ export function PipelineCardActions({
               {isActiveStage(stage) && (
                 <button
                   type="button"
-                  onClick={() => handleDropdownAction(onMarkLost)}
+                  onClick={(e) => handleDropdownAction(e, onMarkLost)}
                   className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
                 >
                   <XCircle size={14} className="shrink-0" />
@@ -252,7 +279,7 @@ export function PipelineCardActions({
 
               <button
                 type="button"
-                onClick={() => handleDropdownAction(onArchive)}
+                onClick={(e) => handleDropdownAction(e, onArchive)}
                 className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
               >
                 <Archive size={14} className="shrink-0" />
@@ -261,7 +288,7 @@ export function PipelineCardActions({
 
               <button
                 type="button"
-                onClick={() => handleDropdownAction(onOpenDetail)}
+                onClick={(e) => handleDropdownAction(e, onOpenDetail)}
                 className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-[#93321A] hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
               >
                 <Trash2 size={14} className="shrink-0" />
@@ -279,6 +306,7 @@ export function PipelineCardActions({
           type="text"
           value={noteValue}
           onChange={(e) => setNoteValue(e.target.value)}
+          onClick={stop}
           onKeyDown={handleNoteKeyDown}
           placeholder={t("detail.addNotePlaceholder")}
           className="w-full mt-[6px] px-[8px] py-[6px] rounded-[4px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-body-sm text-text-primary placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none"

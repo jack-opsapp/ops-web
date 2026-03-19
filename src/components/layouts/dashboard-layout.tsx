@@ -138,8 +138,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main
         className={cn(
-          "flex-1 flex flex-col min-h-screen transition-all duration-200 ease-out",
-          isCollapsed ? "ml-[72px]" : "ml-[256px]"
+          "flex flex-col h-screen min-w-0 transition-all duration-200 ease-out",
+          isCollapsed
+            ? "ml-[72px] w-[calc(100vw-72px)]"
+            : "ml-[256px] w-[calc(100vw-256px)]"
         )}
       >
         <TopBar />

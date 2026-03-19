@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, GripVertical, Phone, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, Phone, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -243,20 +243,6 @@ export function PipelineCard({
         {/* Line 1: Client name + value */}
         <div className="flex items-center justify-between gap-[8px]">
           <div className="flex items-center gap-[6px] min-w-0 flex-1">
-            {/* Drag handle — desktop only, not on overlay or terminal */}
-            {!isOverlay && !terminal && (
-              <div
-                className={cn(
-                  "shrink-0 cursor-grab active:cursor-grabbing",
-                  "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
-                  "hidden md:block"
-                )}
-                title={t("card.dragToMove")}
-              >
-                <GripVertical className="w-[14px] h-[14px] text-text-disabled" />
-              </div>
-            )}
-
             <span className="font-mohave text-body-sm font-medium text-text-primary truncate">
               {clientName}
             </span>
