@@ -106,36 +106,66 @@ function layoutLevel1(config: HierarchicalLayoutConfig): PositionedNode[] {
   if (clients.length === 0) return result;
 
   // Wider base radius + per-node variation so it's NOT a perfect circle.
-  // Each node gets a hash-based radius offset (±1.5 units) creating an
-  // organic, scattered distribution that reads as a constellation.
   const baseRadius = clients.length < 10 ? 8 : clients.length < 25 ? 7 : 6;
+
+  // First pass: position clients
+  const clientPositionsLocal = new Map<string, [number, number, number]>();
 
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
     const h = hashString(client.id);
 
-    // Angular position: golden angle spacing (not uniform) for organic feel.
-    // Golden angle = 137.508° — same as sunflower seed distribution.
-    // Produces maximally spread positions without visible lines or rings.
-    const angle = i * 2.399; // golden angle in radians
-
-    // Per-node radius variation: ±1.5 units from base. Creates scatter.
-    const radiusOffset = ((Math.abs(h) % 300) - 150) / 100; // [-1.5, +1.5]
+    // Golden angle spacing for organic distribution
+    const angle = i * 2.399;
+    const radiusOffset = ((Math.abs(h) % 300) - 150) / 100;
     const r = baseRadius + radiusOffset;
 
     const x = r * Math.cos(angle);
     const y = r * Math.sin(angle);
-    // z-jitter: ±0.5 for more depth variation
     const z = ((h % 100) - 50) / 100;
+
+    const pos: [number, number, number] = [x, y, z];
+    clientPositionsLocal.set(client.id, pos);
 
     result.push({
       entityId: client.id,
       nodeType: "client",
-      position: [x, y, z],
+      position: pos,
       orbitCenter: [0, 0, 0],
       orbitRadius: r,
       color: projectStatusColor(client.mostActiveProjectStatus),
       label: client.name,
+      dimmed: false,
+      visible: true,
+    });
+  }
+
+  // Second pass: add projects orbiting EACH client (semantic zoom).
+  // These are always present in the scene — visible when the camera is
+  // close enough. The renderer handles distance-based visibility.
+  for (const project of config.projects) {
+    const clientPos = clientPositionsLocal.get(project.clientId);
+    if (!clientPos) continue; // orphan project — no client match
+
+    // Tight orbit around the client
+    const clientProjects = config.projects.filter(p => p.clientId === project.clientId);
+    const idx = clientProjects.indexOf(project);
+    const pRadius = clientProjects.length < 6 ? 1.5 : clientProjects.length < 15 ? 1.2 : 1.0;
+    const angle = (idx / clientProjects.length) * Math.PI * 2;
+
+    const x = clientPos[0] + pRadius * Math.cos(angle);
+    const y = clientPos[1] + pRadius * Math.sin(angle);
+    const z = clientPos[2] + ((hashString(project.id) % 40) - 20) / 100;
+
+    result.push({
+      entityId: project.id,
+      nodeType: "project",
+      position: [x, y, z],
+      orbitCenter: clientPos,
+      orbitRadius: pRadius,
+      color: projectStatusColor(project.status),
+      label: project.title,
+      sublabel: project.address || undefined,
       dimmed: false,
       visible: true,
     });

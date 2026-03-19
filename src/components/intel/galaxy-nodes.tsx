@@ -71,9 +71,9 @@ const prefersReducedMotion =
 const NODE_SIZE = 0.35;
 const HIT_RADIUS = 0.3;
 
-// Orbital speed: radians per second. Slow enough to feel ambient,
-// fast enough to be clearly visible as orbital motion.
-const ORBIT_SPEED_BASE = 0.08; // ~4.6° per second — one revolution in ~78s
+// Orbital speed: radians per second. Very slow — ambient, not distracting.
+// The motion should be barely perceptible until you watch for a few seconds.
+const ORBIT_SPEED_BASE = 0.012; // ~0.7° per second — one revolution in ~524s (~8.7 min)
 const HOVER_EMISSIVE_BOOST = 0.3;
 const DIM_FACTOR = 0.2;
 
@@ -322,9 +322,17 @@ function HoverLabel({ nodes }: { nodes: PositionedNode[] }) {
 
   if (!hoveredNode) return null;
 
+  // Use LIVE orbital position, not the static layout position.
+  // Without this, the label appears where the node started (its layout position),
+  // not where it currently is after orbital motion — potentially on the opposite side.
+  const live = hoveredNodeId ? liveNodePositions.get(hoveredNodeId) : null;
+  const lx = live?.x ?? hoveredNode.position[0];
+  const ly = live?.y ?? hoveredNode.position[1];
+  const lz = live?.z ?? hoveredNode.position[2];
+
   return (
     <Html
-      position={[hoveredNode.position[0], hoveredNode.position[1] + 0.35, hoveredNode.position[2]]}
+      position={[lx, ly + 0.35, lz]}
       center
       distanceFactor={15}
       style={{ pointerEvents: "none" }}
