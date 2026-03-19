@@ -86,7 +86,8 @@ export function BugReportButton() {
   }, [title, description, formState, currentUser]);
 
   // Don't render on dashboard (map filter rail occupies bottom-left)
-  if (pathname === "/dashboard") return null;
+  // Don't render on intel (full-bleed canvas, overlaps cluster legend)
+  if (pathname === "/dashboard" || pathname === "/intel") return null;
 
   return (
     <div

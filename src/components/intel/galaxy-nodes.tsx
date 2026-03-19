@@ -33,13 +33,16 @@ function createGlowTexture(): THREE.Texture {
   const ctx = canvas.getContext("2d")!;
   const center = size / 2;
 
-  // Radial gradient with inverse-square-inspired falloff.
-  // The gradient is white — color is applied per-instance via vertex colors.
+  // Radial gradient with steep inverse-square falloff. The bright core is
+  // only the inner ~5% of the sprite — the rest is a barely-perceptible halo.
+  // This makes the visible "point" tiny while the clickable area (plane) is large.
+  // Color is white — cluster color is applied per-instance via vertex colors.
   const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-  gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");    // Bright core
-  gradient.addColorStop(0.1, "rgba(255, 255, 255, 0.8)");  // Still bright
-  gradient.addColorStop(0.25, "rgba(255, 255, 255, 0.35)"); // Rapid falloff
-  gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");  // Very faint
+  gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");     // Pinpoint core
+  gradient.addColorStop(0.04, "rgba(255, 255, 255, 0.7)");  // Still bright
+  gradient.addColorStop(0.08, "rgba(255, 255, 255, 0.25)"); // Rapid falloff
+  gradient.addColorStop(0.15, "rgba(255, 255, 255, 0.06)"); // Very faint halo
+  gradient.addColorStop(0.35, "rgba(255, 255, 255, 0.015)");// Barely visible
   gradient.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");   // Transparent edge
 
   ctx.fillStyle = gradient;
@@ -68,10 +71,11 @@ const prefersReducedMotion =
 // ---------------------------------------------------------------------------
 
 // Node size: these are POINTS OF LIGHT, not spheres. Using a sprite-based
-// approach with a soft radial gradient texture for glow. The "radius" here
-// controls the sprite size, not geometry. 0.15 gives a visible point that
-// remains small and ethereal at default zoom.
-const NODE_SIZE = 0.15;
+// approach with a soft radial gradient texture for glow. The plane is sized
+// large enough for a comfortable click target (~0.5 world units), but the
+// bright core of the glow texture is tiny — the visual "point" is only the
+// inner ~10% of the sprite. The rest is a near-invisible halo.
+const NODE_SIZE = 0.5;
 
 // Ambient drift: slow sine oscillation to feel alive without being distracting.
 // Amplitude 0.08 units, frequency varies per node (seeded by index).

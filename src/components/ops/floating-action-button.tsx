@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Plus, Minus } from "lucide-react";
 import { type FABAction, ALL_ACTIONS, DEFAULT_ACTION_IDS, isWindowAction } from "@/lib/constants/fab-actions";
 import { cn } from "@/lib/utils/cn";
 import { useWindowStore } from "@/stores/window-store";
+import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
@@ -45,6 +46,13 @@ export function FloatingActionButton() {
   // ── Reduced motion ──────────────────────────────────────────────────────
   const prefersReducedMotion = useReducedMotion();
 
+  // ── Hide on intel page (full-bleed canvas, overlaps zoom controls) ───
+  const pathname = usePathname();
+  if (pathname === "/intel") return null;
+
+  // ── Hide when dashboard widget tray is open ───────────────────────────
+  const dashboardTrayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
+
   // ── Active actions from user prefs ──────────────────────────────────────
   const userActionIds = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
   const activeActions = userActionIds
@@ -61,6 +69,15 @@ export function FloatingActionButton() {
       if (!slug) return true;
       return canAccessFeature(slug);
     });
+
+  // ── Close FAB when dashboard tray opens ─────────────────────────────────
+  useEffect(() => {
+    if (dashboardTrayOpen) {
+      setOpen(false);
+      setEditMode(false);
+      setShowAddDropdown(false);
+    }
+  }, [dashboardTrayOpen]);
 
   // ── Close on outside click ──────────────────────────────────────────────
   useEffect(() => {
@@ -183,7 +200,13 @@ export function FloatingActionButton() {
       </AnimatePresence>
 
       {/* ── FAB container ── */}
-      <div ref={containerRef} className="fixed bottom-4 right-6 z-[95]">
+      <div
+        ref={containerRef}
+        className={cn(
+          "fixed bottom-4 right-6 z-[95] transition-all duration-200",
+          dashboardTrayOpen && "opacity-0 pointer-events-none translate-y-2"
+        )}
+      >
         {/* ── Menu items — frosted glass pills, staggered from right ── */}
         <AnimatePresence>
           {(open || editMode) && (

@@ -24,21 +24,10 @@ import { useIntelStore, liveNodePositions } from "@/stores/intel-store";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Proximity threshold: edges fade in when the camera's XY projection is
-// within this distance of either endpoint node. We project camera → XY
-// because the camera sits at Z=20 by default — using raw 3D distance would
-// mean all nodes are 20+ units away and no edges would ever reveal.
-// Reduced from 6 → 3. With 335 entities, 6 was revealing almost all edges
-// simultaneously. 3 reveals only the immediate neighborhood of the camera's
-// focus point — about one cluster's worth of connections.
-const REVEAL_DISTANCE = 3;
-
-// Selected node: all its edges are visible regardless of camera distance.
-// This provides full relationship context on click.
-
-// Edge visual: ultra-thin, low opacity when revealed. The design spec says
-// 0.08 default, 0.3 when revealed near camera.
-const EDGE_OPACITY_MAX = 0.25;
+// Edge visual: ultra-thin, low opacity. Edges are ONLY visible when a node
+// is hovered or clicked — not by camera proximity. This keeps the overview
+// clean and makes connections a discovery mechanic.
+const EDGE_OPACITY_MAX = 0.12;
 
 // Line color: white with low opacity, not cluster-colored. This prevents
 // visual confusion when edges cross cluster boundaries.
@@ -93,9 +82,6 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
     [maxEdges]
   );
 
-  // Temp vectors for distance calculations (avoids allocation per frame)
-  const cameraXY = useMemo(() => new THREE.Vector2(), []);
-  const nodeXY = useMemo(() => new THREE.Vector2(), []);
 
   useFrame(() => {
     if (!lineRef.current) return;
@@ -125,20 +111,9 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
       const isActiveEdge =
         activeNodeId === edge.sourceId || activeNodeId === edge.targetId;
 
-      if (!isActiveEdge) {
-        // Camera proximity check — XY-projected distance from camera to EITHER
-        // endpoint. We project to XY because the camera sits at Z=20 by default;
-        // using raw 3D distance would make all nodes 20+ units away, preventing
-        // any edge from revealing via proximity. XY distance accurately reflects
-        // what the user is "looking at" regardless of zoom level on the Z axis.
-        cameraXY.set(cameraPos.x, cameraPos.y);
-        nodeXY.set(sourcePos.x as number, sourcePos.y as number);
-        const distToSource = nodeXY.distanceTo(cameraXY);
-        nodeXY.set(targetPos.x as number, targetPos.y as number);
-        const distToTarget = nodeXY.distanceTo(cameraXY);
-
-        if (Math.min(distToSource, distToTarget) > REVEAL_DISTANCE) continue;
-      }
+      // Edges are ONLY visible when connected to the hovered/selected node.
+      // No proximity-based reveal — keeps the overview clean.
+      if (!isActiveEdge) continue;
 
       // Write positions to buffer
       const base = lineIndex * 6;

@@ -3,12 +3,13 @@
 // ---------------------------------------------------------------------------
 // GalaxyCenterNode — the gravitational center of the Intel galaxy.
 // Represents the user's own company. Sits at origin [0, 0, 0].
-// Slightly brighter than other nodes. On hover or close zoom, shows company
-// name label with dark-halo legibility treatment.
+// Rendered as a glow sprite (same approach as entity nodes) — slightly
+// brighter and larger. Label is ALWAYS visible (per spec: "the company name
+// appears as a label").
 // ---------------------------------------------------------------------------
 
-import { useRef, useMemo, useState } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useRef, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -20,12 +21,43 @@ const prefersReducedMotion =
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ---------------------------------------------------------------------------
+// Glow texture for the center node — slightly larger, tighter core
+// ---------------------------------------------------------------------------
+function createCenterGlowTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const center = size / 2;
+
+  const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+  gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+  gradient.addColorStop(0.05, "rgba(255, 255, 255, 0.6)");
+  gradient.addColorStop(0.12, "rgba(255, 255, 255, 0.15)");
+  gradient.addColorStop(0.3, "rgba(255, 255, 255, 0.03)");
+  gradient.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+let _centerGlowTexture: THREE.Texture | null = null;
+function getCenterGlowTexture(): THREE.Texture {
+  if (!_centerGlowTexture) _centerGlowTexture = createCenterGlowTexture();
+  return _centerGlowTexture;
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const CENTER_RADIUS = 0.09;
+const CENTER_SIZE = 0.7; // Slightly larger than entity nodes (0.5)
 const CENTER_COLOR = "#597794";
-const LABEL_DISTANCE_THRESHOLD = 12;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -41,81 +73,62 @@ interface GalaxyCenterNodeProps {
 
 export function GalaxyCenterNode({ companyName }: GalaxyCenterNodeProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
-
   const threeColor = useMemo(() => new THREE.Color(CENTER_COLOR), []);
-
-  // Label visibility: controlled by React state so it triggers re-render.
-  // Updated from useFrame only when the value CHANGES to avoid per-frame renders.
-  const [labelVisible, setLabelVisible] = useState(false);
-  const prevVisibleRef = useRef(false);
-  const isHovered = useRef(false);
 
   useFrame((state) => {
     if (!meshRef.current) return;
 
-    // Gentle breathing pulse
+    // Billboard: always face the camera
+    meshRef.current.quaternion.copy(state.camera.quaternion);
+
+    // Gentle breathing pulse on the color intensity
     if (!prefersReducedMotion) {
       const t = state.clock.elapsedTime;
-      const breathe = Math.sin(t * Math.PI * 0.5) * 0.1;
+      const breathe = Math.sin(t * Math.PI * 0.5) * 0.08;
       const mat = meshRef.current.material as THREE.MeshBasicMaterial;
-      const intensity = 0.6 + breathe + (isHovered.current ? 0.3 : 0);
+      const intensity = 0.7 + breathe;
       mat.color.copy(threeColor).multiplyScalar(intensity);
-    }
-
-    // Semantic zoom: show label when camera is close enough or hovered.
-    // Only update React state when visibility transitions to avoid per-frame re-renders.
-    const dist = camera.position.length();
-    const shouldShow = dist < LABEL_DISTANCE_THRESHOLD || isHovered.current;
-    if (shouldShow !== prevVisibleRef.current) {
-      prevVisibleRef.current = shouldShow;
-      setLabelVisible(shouldShow);
     }
   });
 
   return (
     <>
-      <mesh
-        ref={meshRef}
-        position={[0, 0, 0]}
-        onPointerOver={() => { isHovered.current = true; }}
-        onPointerOut={() => { isHovered.current = false; }}
-      >
-        <sphereGeometry args={[CENTER_RADIUS, 16, 16]} />
+      <mesh ref={meshRef} position={[0, 0, 0]}>
+        <planeGeometry args={[CENTER_SIZE, CENTER_SIZE]} />
         <meshBasicMaterial
+          map={getCenterGlowTexture()}
           color={CENTER_COLOR}
           transparent
           opacity={0.95}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
+          side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Company name label — shows on hover or close zoom */}
-      {labelVisible && (
-        <Html
-          position={[0, 0.3, 0]}
-          center
-          distanceFactor={15}
-          style={{ pointerEvents: "none" }}
+      {/* Company name label — always visible */}
+      <Html
+        position={[0, 0.5, 0]}
+        center
+        distanceFactor={15}
+        style={{ pointerEvents: "none" }}
+      >
+        <div
+          className="text-left whitespace-nowrap"
+          style={{
+            background: "radial-gradient(ellipse, rgba(10,10,10,0.7) 0%, transparent 70%)",
+            padding: "8px 16px",
+            opacity: 0.9,
+          }}
         >
-          <div
-            className="text-left whitespace-nowrap"
-            style={{
-              background: "radial-gradient(ellipse, rgba(10,10,10,0.7) 0%, transparent 70%)",
-              padding: "8px 16px",
-              opacity: 0.9,
-            }}
-          >
-            <div className="font-mohave text-xs text-white leading-tight">
-              {companyName}
-            </div>
-            <div className="font-kosugi text-[9px] uppercase tracking-wider text-[#597794] mt-0.5">
-              your network
-            </div>
+          <div className="font-mohave text-xs text-white leading-tight">
+            {companyName}
           </div>
-        </Html>
-      )}
+          <div className="font-kosugi text-[9px] uppercase tracking-wider text-[#597794] mt-0.5">
+            your network
+          </div>
+        </div>
+      </Html>
     </>
   );
 }

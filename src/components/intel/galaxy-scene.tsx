@@ -185,7 +185,9 @@ export function GalaxyScene() {
           {/* OrbitControls: pan + zoom always, rotation only when Phase C unlocked */}
           <OrbitControls
             ref={controlsRef}
-            enableRotate={is3DUnlocked}
+            // Rotation always enabled — middle mouse orbits regardless of Phase C.
+            // Phase C controls DATA arrangement (2D vs 3D), not camera freedom.
+            enableRotate={true}
             enableZoom={true}
             enablePan={true}
             // Zoom limits
@@ -195,22 +197,21 @@ export function GalaxyScene() {
             enableDamping={!prefersReducedMotion}
             dampingFactor={0.05}
             // Mouse buttons:
-            //   Left drag = pan (or rotate if 3D unlocked)
-            //   Middle drag (scroll button) = orbit/rotate (always, even when locked)
+            //   Left drag = pan (always)
+            //   Middle drag (scroll button) = orbit/rotate (always)
             //   Right drag = pan
-            //   Scroll wheel = zoom to cursor position
             mouseButtons={{
-              LEFT: is3DUnlocked ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+              LEFT: THREE.MOUSE.PAN,
               MIDDLE: THREE.MOUSE.ROTATE,
               RIGHT: THREE.MOUSE.PAN,
             }}
-            // Scroll zoom targets cursor position (default OrbitControls behavior)
-            // Touch: pinch to zoom, two-finger pan
+            // Touch: one-finger pan, pinch to zoom + pan
             touches={{
-              ONE: is3DUnlocked ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN,
+              ONE: THREE.TOUCH.PAN,
               TWO: THREE.TOUCH.DOLLY_PAN,
             }}
-            // Zoom speed — scroll wheel sensitivity
+            // Scroll wheel zooms toward cursor position, not scene center
+            zoomToCursor={true}
             zoomSpeed={1.2}
           />
 
