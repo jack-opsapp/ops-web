@@ -1,0 +1,33 @@
+{
+  "title": "Inbox",
+  "tabs.pipeline": "Pipeline",
+  "tabs.allMail": "All Mail",
+
+  "pipeline.empty.title": "No email threads yet",
+  "pipeline.empty.description": "When email threads are linked to pipeline opportunities, they appear here.",
+  "pipeline.unread": "unread",
+  "pipeline.messages": "messages",
+  "pipeline.from": "From",
+  "pipeline.inbound": "Received",
+  "pipeline.outbound": "Sent",
+
+  "allMail.empty.title": "No emails found",
+  "allMail.empty.description": "Connect your email account in Settings to see your inbox here.",
+  "allMail.search.placeholder": "Search emails...",
+  "allMail.noConnection.title": "No email account connected",
+  "allMail.noConnection.description": "Connect Gmail or Microsoft 365 in Settings to access your full inbox.",
+  "allMail.noConnection.cta": "Connect Email",
+  "allMail.loadMore": "Load more",
+
+  "thread.back": "Back to inbox",
+  "thread.aiSummary": "AI Summary",
+  "thread.reply": "Reply",
+  "thread.markUnread": "Mark as unread",
+  "thread.markRead": "Mark as read",
+  "thread.noBody": "No message content available.",
+  "thread.attachments": "attachments",
+
+  "badge.unread": "new",
+  "loading": "Loading...",
+  "error": "Something went wrong. Try again."
+}

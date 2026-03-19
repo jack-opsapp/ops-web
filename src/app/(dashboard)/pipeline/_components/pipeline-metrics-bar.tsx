@@ -196,12 +196,12 @@ function WinRateRing({ rate }: { rate: number }) {
           dominantBaseline="central"
           fill="currentColor"
           className="text-text-primary"
-          style={{ fontSize: "12px", fontFamily: "Mohave, sans-serif" }}
+          style={{ fontSize: "13px", fontFamily: "Mohave, sans-serif" }}
         >
           {rate}%
         </text>
       </svg>
-      <span className="font-kosugi text-[8px] text-text-tertiary uppercase tracking-[0.15em]">
+      <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
         WIN RATE
       </span>
     </div>
@@ -372,7 +372,7 @@ export function PipelineMetricsBar({
               />
             )}
           </span>
-          <span className="font-kosugi text-[8px] text-text-tertiary uppercase tracking-[0.15em] mt-[2px]">
+          <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em] mt-[2px]">
             {t("metrics.pipelineValue")}
           </span>
         </div>
@@ -395,12 +395,12 @@ export function PipelineMetricsBar({
                   className="w-[5px] h-[5px] rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="font-mono text-[10px] text-text-disabled">
+                <span className="font-mono text-[12px] text-text-disabled">
                   {s.count}
                 </span>
               </div>
             ))}
-            <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-[0.1em] ml-auto hidden sm:inline">
+            <span className="font-kosugi text-[11px] text-text-disabled uppercase tracking-[0.08em] ml-auto hidden sm:inline">
               {metrics.activeCount} {t("metrics.active").toLowerCase()}
             </span>
           </div>
@@ -457,7 +457,7 @@ export function PipelineMetricsBar({
             </div>
           )}
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[8px] text-text-tertiary uppercase tracking-[0.15em]">
+            <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
               {t("metrics.won")}
             </span>
             <ChevronDown
@@ -513,7 +513,7 @@ export function PipelineMetricsBar({
             </div>
           )}
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[8px] text-text-tertiary uppercase tracking-[0.15em]">
+            <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
               LOST
             </span>
             <ChevronDown

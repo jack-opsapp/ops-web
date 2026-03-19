@@ -1,0 +1,33 @@
+{
+  "title": "Bandeja de entrada",
+  "tabs.pipeline": "Pipeline",
+  "tabs.allMail": "Todo el correo",
+
+  "pipeline.empty.title": "Sin hilos de correo aún",
+  "pipeline.empty.description": "Cuando los hilos de correo se vinculan a oportunidades del pipeline, aparecen aquí.",
+  "pipeline.unread": "sin leer",
+  "pipeline.messages": "mensajes",
+  "pipeline.from": "De",
+  "pipeline.inbound": "Recibido",
+  "pipeline.outbound": "Enviado",
+
+  "allMail.empty.title": "No se encontraron correos",
+  "allMail.empty.description": "Conecta tu cuenta de correo en Configuración para ver tu bandeja aquí.",
+  "allMail.search.placeholder": "Buscar correos...",
+  "allMail.noConnection.title": "Sin cuenta de correo conectada",
+  "allMail.noConnection.description": "Conecta Gmail o Microsoft 365 en Configuración para acceder a tu bandeja completa.",
+  "allMail.noConnection.cta": "Conectar correo",
+  "allMail.loadMore": "Cargar más",
+
+  "thread.back": "Volver a la bandeja",
+  "thread.aiSummary": "Resumen IA",
+  "thread.reply": "Responder",
+  "thread.markUnread": "Marcar como no leído",
+  "thread.markRead": "Marcar como leído",
+  "thread.noBody": "No hay contenido de mensaje disponible.",
+  "thread.attachments": "archivos adjuntos",
+
+  "badge.unread": "nuevo",
+  "loading": "Cargando...",
+  "error": "Algo salió mal. Inténtalo de nuevo."
+}

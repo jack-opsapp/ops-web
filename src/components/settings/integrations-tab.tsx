@@ -34,6 +34,7 @@ import { queryKeys } from "@/lib/api/query-client";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { AutoSendSettings } from "./auto-send-settings";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -649,6 +650,13 @@ export function IntegrationsTab() {
           <p className="font-kosugi text-[11px] text-text-disabled">
             {t("integrations.gmailHelper")}
           </p>
+
+          {/* Auto-Send Settings — visible after wizard is done */}
+          {hasAnyConnection && wizardDone && companyConnections[0] && (
+            <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
+              <AutoSendSettings connectionId={companyConnections[0].id} />
+            </div>
+          )}
         </CardContent>
       </Card>
 

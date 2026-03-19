@@ -26,6 +26,7 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   "/products": "products.view",
   "/inventory": "inventory.view",
   "/accounting": "accounting.view",
+  "/inbox": "pipeline.view",
   "/portal-inbox": "portal.view",
 };
 

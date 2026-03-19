@@ -49,6 +49,7 @@ import { NotificationsTab } from "@/components/settings/notifications-tab";
 import { MapPreferencesTab } from "@/components/settings/map-preferences-tab";
 import { InventoryTab } from "@/components/settings/inventory-tab";
 import { SetupWizardsTab } from "@/components/settings/setup-wizards-tab";
+import { EmailTemplatesTab } from "@/components/settings/email-templates-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,7 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "email", labelKey: "sections.email" },
       { id: "portal", labelKey: "sections.portal" },
       { id: "templates", labelKey: "sections.templates" },
+      { id: "email-templates", labelKey: "sections.emailTemplates" },
       { id: "accounting", labelKey: "sections.accounting" },
     ],
   },
@@ -188,6 +190,7 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
   email: IntegrationsTab,
   portal: PortalBrandingTab,
   templates: DocumentTemplatesTab,
+  "email-templates": EmailTemplatesTab,
   accounting: AccountingTab,
   "preferences-general": PreferencesTab,
   notifications: NotificationsTab,

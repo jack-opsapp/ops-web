@@ -5,12 +5,11 @@
 import { MemoryService } from "./memory-service";
 import { WritingProfileService } from "./writing-profile-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
-import OpenAI from "openai";
+import { getDraftingOpenAI } from "./openai-clients";
 
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
+// Uses OPENAI_API_KEY_DRAFTING — draft generation has its own key for cost isolation.
+function getOpenAI() {
+  return getDraftingOpenAI();
 }
 
 export interface DraftResult {

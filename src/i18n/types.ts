@@ -15,7 +15,11 @@ export type Namespace =
   | 'schedule'
   | 'pipeline'
   | 'accounting'
+  | 'inbox'
+  | 'compose'
+  | 'email-templates'
   | 'forms'
-  | 'intel';
+  | 'intel'
+  | 'ai-drafting';
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

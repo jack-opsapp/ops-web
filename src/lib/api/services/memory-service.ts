@@ -6,12 +6,11 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
-import OpenAI from "openai";
+import { getSyncOpenAI } from "./openai-clients";
 
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
+// Uses OPENAI_API_KEY_SYNC — memory extraction runs during ongoing sync.
+function getOpenAI() {
+  return getSyncOpenAI();
 }
 
 // ─── Phase C Helpers (copied from analyze-continue to avoid route imports) ──

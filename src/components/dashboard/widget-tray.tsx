@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
-import { X, Search, RotateCcw } from "lucide-react";
-import { Maximize2, Plus } from "lucide-react";
+import { X, Search, RotateCcw, Maximize2, Plus, Check } from "lucide-react";
+import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -60,12 +60,53 @@ function nextDetentDown(height: number): number {
   return DETENT_PEEK;
 }
 
+// ── Draggable spacer button (click to add, drag to place) ──
+function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
+  const { t } = useDictionary("dashboard");
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: "tray__spacer",
+    data: { type: "tray-widget", typeId: "spacer" },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "flex items-center gap-2 px-3 py-[6px] rounded-[4px]",
+        "border border-dashed border-[rgba(255,255,255,0.15)]",
+        "hover:border-[rgba(255,255,255,0.25)]",
+        "bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.06)]",
+        "transition-all cursor-grab active:cursor-grabbing select-none",
+        isDragging && "opacity-40"
+      )}
+    >
+      <Maximize2 className="w-[14px] h-[14px] text-text-disabled" />
+      <span className="font-mohave text-body-sm text-text-secondary">{t("tray.addSpacer")}</span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="w-[18px] h-[18px] rounded-md flex items-center justify-center border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-disabled hover:text-text-secondary transition-all ml-auto"
+        title={t("tray.addSpacer")}
+      >
+        <Plus className="w-[10px] h-[10px]" />
+      </button>
+    </div>
+  );
+}
+
 interface WidgetTrayProps {
   open: boolean;
   onClose: () => void;
+  onDone: () => void;
+  onCancel: () => void;
 }
 
-export function WidgetTray({ open, onClose }: WidgetTrayProps) {
+export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps) {
   const { t } = useDictionary("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentDetent, setCurrentDetent] = useState(DETENT_HALF);
@@ -75,6 +116,9 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
   // Transform: invert y drag delta into height change
   // (dragging up = negative y = increase height)
   const displayHeight = useTransform(sheetHeight, (h) => h);
+
+  // Toolbar sits 8px above the tray top edge
+  const toolbarBottom = useTransform(sheetHeight, (h) => h + 8);
 
   const { isCollapsed } = useSidebarStore();
   const sidebarWidth = isCollapsed ? 72 : 256;
@@ -116,7 +160,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
     for (const [id, entry] of Object.entries(WIDGET_TYPE_REGISTRY)) {
       const typeId = id as WidgetTypeId;
 
-      // Spacer is shown as a sticky button at the top, not in category rows
+      // Spacer is shown in the floating toolbar, not in category rows
       if (typeId === "spacer") continue;
 
       // Filter out widgets the user doesn't have permission to see
@@ -215,6 +259,42 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             }}
           />
 
+          {/* ── Floating toolbar — sticky above tray ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed right-0 z-40 flex items-center justify-between px-3 py-[6px] pointer-events-auto"
+            style={{
+              left: sidebarWidth,
+              bottom: toolbarBottom,
+              transition: "left 0.2s ease-out",
+            }}
+          >
+            {/* Spacer — draggable + click-to-add */}
+            <DraggableSpacerButton onAdd={() => addWidgetInstance("spacer" as WidgetTypeId)} />
+
+            {/* Done / Cancel */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onCancel}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="px-3 py-[5px] rounded-[4px] font-mohave text-body-sm text-text-secondary border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-text-primary bg-[rgba(10,10,10,0.5)] backdrop-blur-sm transition-all"
+              >
+                {t("tray.cancel")}
+              </button>
+              <button
+                onClick={onDone}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="px-3 py-[5px] rounded-[4px] font-mohave text-body-sm text-white bg-ops-accent hover:bg-ops-accent/90 flex items-center gap-[6px] transition-all"
+              >
+                <Check className="w-[12px] h-[12px]" />
+                {t("tray.done")}
+              </button>
+            </div>
+          </motion.div>
+
           {/* Bottom sheet */}
           <motion.div
             variants={trayVariants}
@@ -275,18 +355,6 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
               </div>
             </div>
 
-            {/* Sticky spacer button */}
-            <div className="px-3 pb-[6px] shrink-0">
-              <button
-                onClick={() => addWidgetInstance("spacer" as WidgetTypeId)}
-                className="w-full flex items-center gap-2 px-3 py-[6px] rounded-md border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)] transition-all"
-              >
-                <Maximize2 className="w-[14px] h-[14px] text-text-disabled" />
-                <span className="font-mohave text-body-sm text-text-secondary">{t("tray.addSpacer")}</span>
-                <Plus className="w-[12px] h-[12px] text-text-disabled ml-auto" />
-              </button>
-            </div>
-
             {/* Scrollable body — category rows with horizontal card scrolls */}
             <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-2 scrollbar-hide">
               {visibleCategories.length === 0 ? (
@@ -294,7 +362,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
                   {t("tray.noResults")}
                 </p>
               ) : (
-                <div className="space-y-[10px]">
+                <div className="space-y-[20px]">
                   {visibleCategories.map((category) => {
                     const { available, inUse } = groupedTypes[category];
                     return (
@@ -357,6 +425,7 @@ export function WidgetTray({ open, onClose }: WidgetTrayProps) {
             <div className="px-3 py-[6px] border-t border-border shrink-0">
               <button
                 onClick={resetWidgetInstances}
+                onPointerDown={(e) => e.stopPropagation()}
                 className="flex items-center gap-[6px] font-mohave text-body-sm text-text-disabled hover:text-text-secondary transition-colors w-full justify-center py-[4px]"
               >
                 <RotateCcw className="w-[12px] h-[12px]" />

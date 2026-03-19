@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react";
+import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 import { useRouter } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { TypewriterText } from "@/components/ui/typewriter-text";
@@ -148,7 +149,8 @@ export default function DashboardPage() {
   const { t } = useDictionary("dashboard");
   const [mounted, setMounted] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
-  const [trayOpen, setTrayOpen] = useState(false);
+  const trayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
+  const setTrayOpen = useDashboardCustomizeStore((s) => s.setTrayOpen);
   const [activeId, setActiveId] = useState<string | null>(null);
   // overId removed — was dead state causing unnecessary re-renders during drag
   const router = useRouter();
@@ -183,6 +185,10 @@ export default function DashboardPage() {
   const reorderWidgetInstances = usePreferencesStore((s) => s.reorderWidgetInstances);
   const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
   const addWidgetInstanceAt = usePreferencesStore((s) => s.addWidgetInstanceAt);
+  const applyWidgetInstances = usePreferencesStore((s) => s.applyWidgetInstances);
+
+  // Snapshot of widget instances when customize mode was entered (for Cancel)
+  const snapshotRef = useRef<WidgetInstance[] | null>(null);
 
   // Filter out widget instances the user lacks permission for
   const visibleInstances = useMemo(() => {
@@ -452,10 +458,29 @@ export default function DashboardPage() {
     if (isCustomizing) {
       setIsCustomizing(false);
       setTrayOpen(false);
+      snapshotRef.current = null;
     } else {
+      snapshotRef.current = [...widgetInstances];
       setIsCustomizing(true);
       setTrayOpen(true);
     }
+  };
+
+  // ── Done: commit current state and exit ──
+  const handleCustomizeDone = () => {
+    snapshotRef.current = null;
+    setIsCustomizing(false);
+    setTrayOpen(false);
+  };
+
+  // ── Cancel: revert to snapshot and exit ──
+  const handleCustomizeCancel = () => {
+    if (snapshotRef.current) {
+      applyWidgetInstances(snapshotRef.current);
+    }
+    snapshotRef.current = null;
+    setIsCustomizing(false);
+    setTrayOpen(false);
   };
 
   // ---------------------------------------------------------------------------
@@ -785,7 +810,12 @@ export default function DashboardPage() {
               {childrenMap}
             </WidgetGrid>
 
-            <WidgetTray open={trayOpen} onClose={() => setTrayOpen(false)} />
+            <WidgetTray
+              open={trayOpen}
+              onClose={() => setTrayOpen(false)}
+              onDone={handleCustomizeDone}
+              onCancel={handleCustomizeCancel}
+            />
 
             <DragOverlay dropAnimation={null}>
               {overlayContent}

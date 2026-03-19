@@ -12,6 +12,7 @@ import {
   UserCog,
   MapPin,
   GitBranch,
+  Mail,
   FileText,
   Receipt,
   Package,
@@ -38,6 +39,7 @@ import { useSignOutStore } from "@/stores/signout-store";
 import { useDictionary } from "@/i18n/client";
 import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
 import { useFeatureAccessRequests } from "@/lib/hooks/use-feature-access-requests";
+import { useInboxUnreadCount } from "@/lib/hooks/use-inbox";
 import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitions";
 import {
   DropdownMenu,
@@ -54,6 +56,8 @@ interface NavItem {
   /** Permission required to see this nav item (omit = always visible) */
   permission?: string;
   gated?: boolean;
+  /** Unread count badge */
+  badge?: number;
 }
 
 type NavEntry = NavItem | "divider";
@@ -74,6 +78,7 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
     { label: t("nav.map"), href: "/map", icon: MapPin, permission: "map.view" },
     "divider",
     { label: t("nav.pipeline"), href: "/pipeline", icon: GitBranch, permission: "pipeline.view" },
+    { label: t("nav.inbox"), href: "/inbox", icon: Mail, permission: "pipeline.view" },
     { label: t("nav.estimates"), href: "/estimates", icon: FileText, permission: "estimates.view" },
     { label: t("nav.invoices"), href: "/invoices", icon: Receipt, permission: "invoices.view" },
     "divider",
@@ -151,6 +156,18 @@ function NavItemButton({
       {!isCollapsed && (
         <span className="font-mohave text-body-sm truncate uppercase">{item.label}</span>
       )}
+      {/* Unread badge */}
+      {item.badge !== undefined && item.badge > 0 && (
+        <span
+          className={cn(
+            "inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full",
+            "font-kosugi text-[10px] leading-none bg-[#597794] text-white",
+            isCollapsed && "absolute top-0 right-0"
+          )}
+        >
+          {item.badge > 99 ? "99+" : item.badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -172,6 +189,7 @@ export function Sidebar() {
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
+  const { data: inboxUnreadCount = 0 } = useInboxUnreadCount();
   const allNavItems = useMemo(
     () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
     [t, hasInventoryAccess]
@@ -181,6 +199,10 @@ export function Sidebar() {
     if (!permissionsReady) return allNavItems;
 
     const mapped = allNavItems.map((entry) => {
+      // Inject unread badge for inbox
+      if (entry !== "divider" && entry.href === "/inbox" && inboxUnreadCount > 0) {
+        entry = { ...entry, badge: inboxUnreadCount };
+      }
       if (entry === "divider") return entry;
       if (!entry.permission) return entry;
 
@@ -201,7 +223,7 @@ export function Sidebar() {
       if (i === 0 || i === arr.length - 1) return false;
       return arr[i - 1] !== "divider";
     });
-  }, [allNavItems, can, permissionsReady, isPermissionUnlocked]);
+  }, [allNavItems, can, permissionsReady, isPermissionUnlocked, inboxUnreadCount]);
 
   const handleSignOut = useCallback(() => {
     beginSignOut(currentUser?.firstName || "", currentUser?.lastName || "");

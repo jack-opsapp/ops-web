@@ -45,7 +45,10 @@ export function NotificationRail() {
   const overflowCount = count - MAX_VISIBLE_PILLS;
 
   return (
-    <div ref={railRef} className="flex items-center gap-[3px] h-[40px]">
+    <div
+      ref={railRef}
+      className="flex items-center gap-[3px] h-[40px] px-[6px] rounded-[4px] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)]"
+    >
       <AnimatePresence mode="popLayout">
         {isExpanded ? (
           <>
@@ -91,7 +94,7 @@ export function NotificationRail() {
             {/* Collapsed pills — click to expand */}
             <motion.button
               key="pill-row"
-              className="flex items-center gap-[3px] py-[4px] px-[4px] rounded-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors duration-150 cursor-pointer"
+              className="flex items-center gap-[3px] py-[4px] px-[4px] rounded-sm hover:brightness-110 transition-all duration-150 cursor-pointer"
               onClick={expand}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

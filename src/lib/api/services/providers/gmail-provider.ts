@@ -10,6 +10,8 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import type {
   EmailProviderInterface,
   NormalizedEmail,
+  SendEmailParams,
+  SendEmailResult,
   SyncResult,
   WebhookSubscription,
 } from "../email-provider";
@@ -173,6 +175,61 @@ export class GmailProvider implements EmailProviderInterface {
     }));
   }
 
+  async sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+    const { to, cc, subject, body, contentType, inReplyTo, threadId } = params;
+
+    // For replies, fetch the original message's Message-ID header
+    // so recipient mail clients thread correctly via In-Reply-To/References
+    let inReplyToHeader = "";
+    let referencesHeader = "";
+    if (inReplyTo) {
+      const res = await this.gmailFetch(
+        `/messages/${inReplyTo}?format=metadata&metadataHeaders=Message-Id`
+      );
+      const data = await res.json();
+      const hdrs = (data.payload?.headers || []) as Array<{
+        name: string;
+        value: string;
+      }>;
+      const msgIdHeader = hdrs.find(
+        (h) => h.name.toLowerCase() === "message-id"
+      )?.value;
+      if (msgIdHeader) {
+        inReplyToHeader = msgIdHeader;
+        referencesHeader = msgIdHeader;
+      }
+    }
+
+    // Build RFC 2822 message
+    const raw = this.buildRawEmailForSend({
+      to,
+      cc: cc || [],
+      subject,
+      body,
+      contentType: contentType || "text",
+      inReplyTo: inReplyToHeader,
+      references: referencesHeader,
+    });
+
+    const requestBody: Record<string, unknown> = { raw };
+    if (threadId) requestBody.threadId = threadId;
+
+    const res = await this.gmailFetch("/messages/send", {
+      method: "POST",
+      body: JSON.stringify(requestBody),
+    });
+    const data = await res.json();
+
+    if (!data.id) {
+      throw new Error(`Gmail send failed: ${JSON.stringify(data)}`);
+    }
+
+    return {
+      messageId: data.id as string,
+      threadId: (data.threadId as string) || threadId || "",
+    };
+  }
+
   async createDraft(
     to: string,
     subject: string,
@@ -331,5 +388,35 @@ export class GmailProvider implements EmailProviderInterface {
       body,
     ].join("\r\n");
     return Buffer.from(email).toString("base64url");
+  }
+
+  private buildRawEmailForSend(params: {
+    to: string[];
+    cc: string[];
+    subject: string;
+    body: string;
+    contentType: "text" | "html";
+    inReplyTo?: string;
+    references?: string;
+  }): string {
+    const mime =
+      params.contentType === "html" ? "text/html" : "text/plain";
+    const lines: string[] = [];
+    lines.push(`To: ${params.to.join(", ")}`);
+    if (params.cc.length > 0) {
+      lines.push(`Cc: ${params.cc.join(", ")}`);
+    }
+    lines.push(`Subject: ${params.subject}`);
+    if (params.inReplyTo) {
+      lines.push(`In-Reply-To: ${params.inReplyTo}`);
+    }
+    if (params.references) {
+      lines.push(`References: ${params.references}`);
+    }
+    lines.push("MIME-Version: 1.0");
+    lines.push(`Content-Type: ${mime}; charset=utf-8`);
+    lines.push("");
+    lines.push(params.body);
+    return Buffer.from(lines.join("\r\n")).toString("base64url");
   }
 }

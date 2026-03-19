@@ -12,7 +12,7 @@
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { AdminFeatureOverride } from "@/lib/types/email-connection";
 
-type AIFeatureKey = "ai_email_review" | "phase_c";
+type AIFeatureKey = "ai_email_review" | "phase_c" | "ai_auto_send";
 
 // ─── Database ↔ TypeScript Mapping ──────────────────────────────────────────
 

@@ -1,0 +1,445 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Loader2,
+  Sparkles,
+  Clock,
+  TrendingUp,
+  Lock,
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
+import { useAuthStore } from "@/lib/store/auth-store";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface AutoSendSettingsData {
+  enabled: boolean;
+  businessHoursStart: string;
+  businessHoursEnd: string;
+  timezone: string;
+  delayMinMinutes: number;
+  delayMaxMinutes: number;
+}
+
+interface DraftStats {
+  totalSent: number;
+  sentWithoutChanges: number;
+  approvalRate: number;
+  recentDrafts: number;
+  commonChanges: Array<{ type: string; from: string; to: string; count: number }>;
+  suggestAutoSend: boolean;
+}
+
+interface AutoSendSettingsProps {
+  connectionId: string;
+}
+
+// ─── Common Timezones ───────────────────────────────────────────────────────
+
+const TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "America/Vancouver",
+  "America/Edmonton",
+  "America/Winnipeg",
+  "America/Halifax",
+  "America/St_Johns",
+  "Europe/London",
+  "Europe/Berlin",
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "Pacific/Auckland",
+];
+
+function formatTimezone(tz: string): string {
+  return tz.replace(/_/g, " ").replace(/\//g, " / ");
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
+export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
+  const { t } = useDictionary("ai-drafting");
+  const { currentUser, company } = useAuthStore();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [featureEnabled, setFeatureEnabled] = useState(false);
+  const [settings, setSettings] = useState<AutoSendSettingsData | null>(null);
+  const [stats, setStats] = useState<DraftStats | null>(null);
+
+  // ─── Fetch settings + stats ───────────────────────────────────────────
+  useEffect(() => {
+    if (!company?.id || !currentUser?.id || !connectionId) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [settingsRes, statsRes] = await Promise.all([
+          fetch(
+            `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
+          ),
+          fetch(
+            `/api/integrations/email/draft-stats?companyId=${company.id}&userId=${currentUser.id}`
+          ),
+        ]);
+
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          setFeatureEnabled(data.featureEnabled);
+          setSettings(data.settings);
+        }
+
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats(data);
+        }
+      } catch {
+        // Non-fatal
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [company?.id, currentUser?.id, connectionId]);
+
+  // ─── Save settings ────────────────────────────────────────────────────
+  const handleSave = useCallback(
+    async (updates: Partial<AutoSendSettingsData>) => {
+      if (!company?.id) return;
+      setSaving(true);
+
+      try {
+        const response = await fetch(
+          "/api/integrations/email/auto-send/settings",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyId: company.id,
+              connectionId,
+              settings: updates,
+            }),
+          }
+        );
+
+        if (!response.ok) throw new Error("Save failed");
+
+        setSettings((prev) =>
+          prev ? { ...prev, ...updates } : null
+        );
+        toast.success(t("autoSend.saved"));
+      } catch {
+        toast.error("Failed to save settings");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [company?.id, connectionId, t]
+  );
+
+  const handleToggle = useCallback(() => {
+    const newEnabled = !(settings?.enabled ?? false);
+    handleSave({ enabled: newEnabled });
+  }, [settings?.enabled, handleSave]);
+
+  // ─── Loading ──────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-4">
+        <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
+        <span className="font-mohave text-body-sm text-text-disabled">
+          Loading...
+        </span>
+      </div>
+    );
+  }
+
+  // ─── Feature gated ────────────────────────────────────────────────────
+  if (!featureEnabled) {
+    return (
+      <div className="py-3 px-3 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+        <div className="flex items-center gap-2 mb-1">
+          <Lock className="w-[14px] h-[14px] text-text-disabled" />
+          <span className="font-mohave text-body-sm text-text-secondary font-medium">
+            {t("autoSend.title")}
+          </span>
+        </div>
+        <p className="font-mohave text-caption-sm text-text-disabled">
+          {t("autoSend.featureGated.description")}
+        </p>
+      </div>
+    );
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────
+  const effectiveSettings: AutoSendSettingsData = settings ?? {
+    enabled: false,
+    businessHoursStart: "08:00",
+    businessHoursEnd: "18:00",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    delayMinMinutes: 30,
+    delayMaxMinutes: 60,
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* ─── Draft Stats ───────────────────────────────────────────────── */}
+      {stats && stats.totalSent > 0 && (
+        <div className="px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-[14px] h-[14px] text-[#597794]" />
+            <span className="font-mohave text-body-sm text-text-secondary font-medium">
+              {t("stats.title")}
+            </span>
+          </div>
+
+          {/* Approval Rate */}
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-mohave text-caption-sm text-text-disabled">
+              {t("stats.approvalRate")}
+            </span>
+            <span className="font-mohave text-body-sm text-text-primary font-semibold">
+              {(stats.approvalRate * 100).toFixed(0)}%
+            </span>
+          </div>
+          <div className="h-[3px] bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-1">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${stats.approvalRate * 100}%`,
+                backgroundColor:
+                  stats.approvalRate >= 0.95
+                    ? "#9DB582"
+                    : stats.approvalRate >= 0.7
+                      ? "#C4A868"
+                      : "#8E8E93",
+              }}
+            />
+          </div>
+          <span className="font-mohave text-[11px] text-text-disabled">
+            {t("stats.approvalRate.description")
+              .replace("{{sent}}", String(stats.sentWithoutChanges))
+              .replace("{{total}}", String(stats.totalSent))}
+          </span>
+
+          {/* Common Changes */}
+          {stats.commonChanges.length > 0 && (
+            <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
+              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block mb-1">
+                {t("stats.commonChanges")}
+              </span>
+              <div className="space-y-0.5">
+                {stats.commonChanges.slice(0, 3).map((change, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                    <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider w-[50px] shrink-0">
+                      {t(`stats.change.${change.type}`)}
+                    </span>
+                    <span className="font-mohave text-text-disabled line-through truncate">
+                      {change.from}
+                    </span>
+                    <span className="text-text-disabled">&rarr;</span>
+                    <span className="font-mohave text-text-secondary truncate">
+                      {change.to}
+                    </span>
+                    <span className="font-mohave text-text-disabled shrink-0">
+                      &times;{change.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Auto-send suggestion */}
+          {stats.suggestAutoSend && !effectiveSettings.enabled && (
+            <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)]">
+                <Sparkles className="w-[12px] h-[12px] text-[#597794] shrink-0" />
+                <span className="font-mohave text-caption-sm text-[#597794] flex-1">
+                  {t("stats.suggestAutoSend")
+                    .replace("{{rate}}", String((stats.approvalRate * 100).toFixed(0)))}
+                </span>
+                <button
+                  onClick={handleToggle}
+                  disabled={saving}
+                  className="font-kosugi text-[9px] text-[#597794] uppercase tracking-wider hover:text-text-primary transition-colors shrink-0"
+                >
+                  {t("stats.suggestAutoSend.enable")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Auto-Send Toggle + Settings ───────────────────────────────── */}
+      <div className="px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-[14px] h-[14px] text-[#597794]" />
+            <span className="font-mohave text-body-sm text-text-secondary font-medium">
+              {t("autoSend.title")}
+            </span>
+          </div>
+
+          {/* Toggle */}
+          <button
+            onClick={handleToggle}
+            disabled={saving}
+            className={cn(
+              "relative w-[36px] h-[18px] rounded-full transition-colors",
+              effectiveSettings.enabled
+                ? "bg-[#597794]"
+                : "bg-[rgba(255,255,255,0.1)]"
+            )}
+          >
+            <div
+              className={cn(
+                "absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform",
+                effectiveSettings.enabled
+                  ? "translate-x-[20px]"
+                  : "translate-x-[2px]"
+              )}
+            />
+          </button>
+        </div>
+
+        <p className="font-mohave text-caption-sm text-text-disabled mb-3">
+          {t("autoSend.description")}
+        </p>
+
+        {effectiveSettings.enabled && (
+          <div className="space-y-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
+            {/* Business Hours */}
+            <div>
+              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block mb-1">
+                {t("autoSend.businessHours")}
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="font-mohave text-caption-sm text-text-disabled w-[28px]">
+                    {t("autoSend.businessHours.start")}
+                  </span>
+                  <input
+                    type="time"
+                    value={effectiveSettings.businessHoursStart}
+                    onChange={(e) =>
+                      handleSave({ businessHoursStart: e.target.value })
+                    }
+                    className="px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-primary outline-none focus:border-[rgba(89,119,148,0.4)]"
+                  />
+                </div>
+                <span className="text-text-disabled">&ndash;</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mohave text-caption-sm text-text-disabled w-[20px]">
+                    {t("autoSend.businessHours.end")}
+                  </span>
+                  <input
+                    type="time"
+                    value={effectiveSettings.businessHoursEnd}
+                    onChange={(e) =>
+                      handleSave({ businessHoursEnd: e.target.value })
+                    }
+                    className="px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-primary outline-none focus:border-[rgba(89,119,148,0.4)]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Timezone */}
+            <div>
+              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block mb-1">
+                {t("autoSend.timezone")}
+              </span>
+              <select
+                value={effectiveSettings.timezone}
+                onChange={(e) => handleSave({ timezone: e.target.value })}
+                className="w-full px-1.5 py-1 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-primary outline-none focus:border-[rgba(89,119,148,0.4)] appearance-none"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {formatTimezone(tz)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Delay Range */}
+            <div>
+              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block mb-0.5">
+                {t("autoSend.delay")}
+              </span>
+              <span className="font-mohave text-[11px] text-text-disabled block mb-1">
+                {t("autoSend.delay.description")}
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="font-mohave text-caption-sm text-text-disabled">
+                    {t("autoSend.delay.min")}
+                  </span>
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={effectiveSettings.delayMinMinutes}
+                    onChange={(e) =>
+                      handleSave({
+                        delayMinMinutes: Math.max(
+                          5,
+                          parseInt(e.target.value) || 30
+                        ),
+                      })
+                    }
+                    className="w-[52px] px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-primary outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
+                  />
+                </div>
+                <span className="text-text-disabled">&ndash;</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mohave text-caption-sm text-text-disabled">
+                    {t("autoSend.delay.max")}
+                  </span>
+                  <input
+                    type="number"
+                    min={10}
+                    max={480}
+                    value={effectiveSettings.delayMaxMinutes}
+                    onChange={(e) =>
+                      handleSave({
+                        delayMaxMinutes: Math.max(
+                          10,
+                          parseInt(e.target.value) || 60
+                        ),
+                      })
+                    }
+                    className="w-[52px] px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-primary outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
+                  />
+                </div>
+                <span className="font-mohave text-caption-sm text-text-disabled">
+                  {t("autoSend.delay.unit")}
+                </span>
+              </div>
+            </div>
+
+            {/* Clock indicator */}
+            <div className="flex items-center gap-1.5 pt-1">
+              <Clock className="w-[11px] h-[11px] text-text-disabled" />
+              <span className="font-mohave text-[11px] text-text-disabled">
+                {t("autoSend.requiresApproval")}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

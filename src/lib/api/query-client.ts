@@ -340,6 +340,40 @@ export const queryKeys = {
     graph: (companyId: string) => [...queryKeys.intel.all, "graph", companyId] as const,
     entity: (entityId: string) => [...queryKeys.intel.all, "entity", entityId] as const,
   },
+
+  // Email Templates
+  emailTemplates: {
+    all: ["emailTemplates"] as const,
+    lists: () => [...queryKeys.emailTemplates.all, "list"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.emailTemplates.lists(), companyId] as const,
+    details: () => [...queryKeys.emailTemplates.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.emailTemplates.details(), id] as const,
+  },
+
+  // AI Drafting
+  aiDrafting: {
+    all: ["aiDrafting"] as const,
+    stats: (companyId: string, userId: string) =>
+      [...queryKeys.aiDrafting.all, "stats", companyId, userId] as const,
+    pendingSends: (companyId: string) =>
+      [...queryKeys.aiDrafting.all, "pendingSends", companyId] as const,
+    autoSendSettings: (companyId: string, connectionId: string) =>
+      [...queryKeys.aiDrafting.all, "autoSendSettings", companyId, connectionId] as const,
+  },
+
+  // Inbox (Email)
+  inbox: {
+    all: ["inbox"] as const,
+    pipelineThreads: (companyId: string) =>
+      [...queryKeys.inbox.all, "pipeline", companyId] as const,
+    allMail: (companyId: string, query?: string) =>
+      [...queryKeys.inbox.all, "allMail", companyId, query] as const,
+    threadMessages: (companyId: string, threadId: string) =>
+      [...queryKeys.inbox.all, "thread", companyId, threadId] as const,
+    unreadCount: (companyId: string) =>
+      [...queryKeys.inbox.all, "unread", companyId] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

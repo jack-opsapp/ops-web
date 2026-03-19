@@ -10,6 +10,7 @@ import { AISyncReviewer } from "./ai-sync-reviewer";
 import { MemoryService } from "./memory-service";
 import { WritingProfileService } from "./writing-profile-service";
 import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
+import { AutoSendService } from "./auto-send-service";
 import type {
   EmailConnection,
   SyncProfile,
@@ -198,11 +199,16 @@ async function createActivity(
     type: "email",
     subject: email.subject,
     content: email.snippet,
+    body_text: email.bodyText || null,
     email_message_id: email.id,
     email_thread_id: email.threadId,
     opportunity_id: opportunityId,
     direction,
     from_email: extractSenderEmail(email.from),
+    to_emails: email.to.map(extractSenderEmail),
+    cc_emails: email.cc.map(extractSenderEmail),
+    has_attachments: email.hasAttachments,
+    attachment_count: email.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
     match_needs_review: extra?.matchNeedsReview || false,
     suggested_client_id: extra?.suggestedClientId || null,
     match_confidence: extra?.matchConfidence || "pattern",
@@ -221,7 +227,7 @@ async function updateCorrespondenceCounts(
   const { data: opp } = await supabase
     .from("opportunities")
     .select(
-      "correspondence_count, outbound_count, inbound_count, stage, last_inbound_at, last_outbound_at"
+      "correspondence_count, outbound_count, inbound_count, stage, stage_manually_set, last_inbound_at, last_outbound_at"
     )
     .eq("id", opportunityId)
     .single();
@@ -231,44 +237,59 @@ async function updateCorrespondenceCounts(
   const updates: Record<string, unknown> = {
     correspondence_count: (opp.correspondence_count || 0) + 1,
     last_message_direction: direction === "inbound" ? "in" : "out",
-    last_activity_at: new Date().toISOString(),
+    last_activity_at: date.toISOString(), // Use email date, not sync time
   };
 
   if (direction === "inbound") {
     updates.inbound_count = (opp.inbound_count || 0) + 1;
-    updates.last_inbound_at = date.toISOString();
+    // Only update timestamp if this email is newer than the existing one
+    const existingInbound = opp.last_inbound_at ? new Date(opp.last_inbound_at) : null;
+    if (!existingInbound || date > existingInbound) {
+      updates.last_inbound_at = date.toISOString();
+    }
+    // New inbound email clears manual stage lock — situation has evolved,
+    // AI should be allowed to re-evaluate the stage
+    if (opp.stage_manually_set) {
+      updates.stage_manually_set = false;
+    }
   } else {
     updates.outbound_count = (opp.outbound_count || 0) + 1;
-    updates.last_outbound_at = date.toISOString();
+    const existingOutbound = opp.last_outbound_at ? new Date(opp.last_outbound_at) : null;
+    if (!existingOutbound || date > existingOutbound) {
+      updates.last_outbound_at = date.toISOString();
+    }
   }
 
-  // Evaluate stage
-  const evaluation = StageEvaluator.evaluate({
-    outboundCount: (updates.outbound_count ||
-      opp.outbound_count ||
-      0) as number,
-    inboundCount: (updates.inbound_count || opp.inbound_count || 0) as number,
-    totalMessages: updates.correspondence_count as number,
-    lastMessageDirection: direction === "inbound" ? "in" : "out",
-    lastInboundAt:
-      direction === "inbound"
-        ? date
-        : opp.last_inbound_at
-          ? new Date(opp.last_inbound_at)
-          : null,
-    lastOutboundAt:
-      direction === "outbound"
-        ? date
-        : opp.last_outbound_at
-          ? new Date(opp.last_outbound_at)
-          : null,
-    currentStage: opp.stage,
-    autoFollowUpDays: 5, // TODO: fetch from company pipeline stage config
-  });
+  // Evaluate stage — but respect manual overrides
+  if (!opp.stage_manually_set) {
+    const evaluation = StageEvaluator.evaluate({
+      outboundCount: (updates.outbound_count ||
+        opp.outbound_count ||
+        0) as number,
+      inboundCount: (updates.inbound_count || opp.inbound_count || 0) as number,
+      totalMessages: updates.correspondence_count as number,
+      lastMessageDirection: direction === "inbound" ? "in" : "out",
+      lastInboundAt:
+        direction === "inbound"
+          ? date
+          : opp.last_inbound_at
+            ? new Date(opp.last_inbound_at)
+            : null,
+      lastOutboundAt:
+        direction === "outbound"
+          ? date
+          : opp.last_outbound_at
+            ? new Date(opp.last_outbound_at)
+            : null,
+      currentStage: opp.stage,
+      autoFollowUpDays: 5,
+    });
 
-  if (evaluation.changed) {
-    updates.stage = evaluation.stage;
-    result.stageChanges++;
+    if (evaluation.changed) {
+      updates.stage = evaluation.stage;
+      updates.stage_entered_at = new Date().toISOString();
+      result.stageChanges++;
+    }
   }
 
   await supabase.from("opportunities").update(updates).eq("id", opportunityId);
@@ -429,6 +450,33 @@ async function processInboundEmail(
     await applyLabel(email.threadId, connection, result);
     result.activitiesCreated++;
     result.matched++;
+
+    // ── Auto-send trigger: schedule AI reply if enabled ──────────────
+    try {
+      const { enabled, settings } = await AutoSendService.isEnabled(
+        connection.companyId,
+        connection.id
+      );
+      if (enabled && settings && connection.userId) {
+        await AutoSendService.scheduleAutoSend({
+          companyId: connection.companyId,
+          userId: connection.userId,
+          connectionId: connection.id,
+          opportunityId: threadLink[0].opportunity_id,
+          threadId: email.threadId,
+          inReplyTo: email.id,
+          toEmails: [extractSenderEmail(email.from)],
+          subject: email.subject.startsWith("Re: ")
+            ? email.subject
+            : `Re: ${email.subject}`,
+          settings,
+        });
+      }
+    } catch (err) {
+      // Non-fatal — auto-send failure should not block sync
+      console.error("[sync-engine] Auto-send scheduling failed:", err);
+    }
+
     return false;
   }
 
@@ -486,6 +534,31 @@ async function processInboundEmail(
           matchResult.clientId!,
           connection.companyId
         );
+      }
+
+      // ── Auto-send trigger for pattern-matched inbound ───────────────
+      try {
+        const { enabled, settings } = await AutoSendService.isEnabled(
+          connection.companyId,
+          connection.id
+        );
+        if (enabled && settings && connection.userId) {
+          await AutoSendService.scheduleAutoSend({
+            companyId: connection.companyId,
+            userId: connection.userId,
+            connectionId: connection.id,
+            opportunityId: oppId,
+            threadId: email.threadId,
+            inReplyTo: email.id,
+            toEmails: [extractSenderEmail(email.from)],
+            subject: email.subject.startsWith("Re: ")
+              ? email.subject
+              : `Re: ${email.subject}`,
+            settings,
+          });
+        }
+      } catch (err) {
+        console.error("[sync-engine] Auto-send scheduling failed:", err);
       }
     } else if (matchResult.action === "review") {
       await createActivity(email, connection, null, "inbound", {
@@ -561,8 +634,17 @@ async function processSentEmail(
     return;
   }
 
-  // Sent folder safety net: user sent to a NEW external address
-  for (const recipient of email.to) {
+  // Sent folder safety net: user sent to a NEW external address.
+  // Only process the FIRST external recipient per thread to avoid
+  // duplicate thread link constraint violations (#8).
+  let threadLinkedByThisEmail = false;
+
+  // Also check CC'd recipients alongside TO recipients (#11)
+  const allRecipients = [...email.to, ...email.cc];
+
+  for (const recipient of allRecipients) {
+    if (threadLinkedByThisEmail) break; // One thread link per email
+
     const recipientEmail = extractSenderEmail(recipient);
     const recipientDomain = recipientEmail.split("@")[1]?.toLowerCase();
 
@@ -609,6 +691,7 @@ async function processSentEmail(
         await applyLabel(email.threadId, connection, result);
         result.newLeads++;
         result.activitiesCreated++;
+        threadLinkedByThisEmail = true;
       } else if (matchResult.clientId) {
         const oppId = await getOrCreateOpportunity(
           matchResult.clientId,
@@ -620,6 +703,7 @@ async function processSentEmail(
         await updateCorrespondenceCounts(oppId, "outbound", email.date, result);
         result.matched++;
         result.activitiesCreated++;
+        threadLinkedByThisEmail = true;
       }
     }
   }
@@ -757,37 +841,64 @@ export const SyncEngine = {
         }
 
         if (activeThreadIds.length > 0) {
-          const stageResults = await AISyncReviewer.evaluateStages(
+          // Combined stage evaluation + opportunity summary in a single AI call
+          const stageResults = await AISyncReviewer.evaluateStagesWithSummary(
             activeThreadIds,
             connection,
             { name: companyName }
           );
 
           for (const sr of stageResults) {
+            // Resolve opportunity for this thread
+            const { data: threadOpp } = await supabase
+              .from("opportunity_email_threads")
+              .select("opportunity_id")
+              .eq("thread_id", sr.threadId)
+              .eq("connection_id", connection.id)
+              .limit(1);
+
+            if (!threadOpp || threadOpp.length === 0) continue;
+
+            const oppId = threadOpp[0].opportunity_id;
+
+            // Check current stage + manual override flag
+            const { data: oppData } = await supabase
+              .from("opportunities")
+              .select("stage, stage_manually_set")
+              .eq("id", oppId)
+              .single();
+
             if (sr.terminalFlag) {
+              // Always send terminal notifications (likely_won/likely_lost),
+              // even for manually-set stages — user should know about signals
               await createTerminalFlagNotification(sr, connection);
             }
-            if (sr.newStage) {
-              // Write the AI-evaluated stage to the opportunity
-              const { data: threadOpp } = await supabase
-                .from("opportunity_email_threads")
-                .select("opportunity_id")
-                .eq("thread_id", sr.threadId)
-                .eq("connection_id", connection.id)
-                .limit(1);
 
-              if (threadOpp && threadOpp.length > 0) {
-                await supabase
-                  .from("opportunities")
-                  .update({
-                    stage: sr.newStage,
-                    stage_entered_at: new Date().toISOString(),
-                    ai_stage_confidence: 1.0,
-                    ai_stage_signals: sr.terminalFlag || "ai_evaluated",
-                  })
-                  .eq("id", threadOpp[0].opportunity_id);
-              }
+            // Build update payload — always write summary if present
+            const updates: Record<string, unknown> = {};
+
+            if (sr.summary) {
+              updates.ai_summary = sr.summary;
+            }
+
+            // Only write stage if it actually changed AND user hasn't manually set it
+            if (
+              sr.newStage &&
+              !oppData?.stage_manually_set &&
+              sr.newStage !== oppData?.stage
+            ) {
+              updates.stage = sr.newStage;
+              updates.stage_entered_at = new Date().toISOString();
+              updates.ai_stage_confidence = 1.0;
+              updates.ai_stage_signals = sr.terminalFlag || "ai_evaluated";
               result.stageChanges++;
+            }
+
+            if (Object.keys(updates).length > 0) {
+              await supabase
+                .from("opportunities")
+                .update(updates)
+                .eq("id", oppId);
             }
           }
         }
@@ -829,7 +940,7 @@ export const SyncEngine = {
     const { data: staleOpps } = await supabase
       .from("opportunities")
       .select(
-        "id, stage, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
+        "id, stage, stage_manually_set, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
       )
       .eq("last_message_direction", "out")
       .not("stage", "in", '("won","lost","follow_up")')
@@ -837,6 +948,9 @@ export const SyncEngine = {
       .not("last_outbound_at", "is", null);
 
     for (const opp of staleOpps ?? []) {
+      // Respect manual overrides — don't auto-move manually-set stages
+      if (opp.stage_manually_set) continue;
+
       const evaluation = StageEvaluator.evaluate({
         outboundCount: opp.outbound_count || 0,
         inboundCount: opp.inbound_count || 0,
@@ -855,7 +969,10 @@ export const SyncEngine = {
       if (evaluation.changed) {
         await supabase
           .from("opportunities")
-          .update({ stage: evaluation.stage })
+          .update({
+            stage: evaluation.stage,
+            stage_entered_at: new Date().toISOString(),
+          })
           .eq("id", opp.id);
         stageChanges++;
       }

@@ -96,6 +96,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     lastMessageDirection: (row.last_message_direction as "in" | "out") ?? null,
 
     // AI analysis
+    aiSummary: (row.ai_summary as string) ?? null,
     aiStageConfidence: row.ai_stage_confidence != null ? Number(row.ai_stage_confidence) : null,
     aiStageSignals: (row.ai_stage_signals as string) ?? null,
     detectedValue: row.detected_value != null ? Number(row.detected_value) : null,
@@ -507,6 +508,7 @@ export const OpportunityService = {
         stage: newStage,
         stage_entered_at: now.toISOString(),
         win_probability: winProbability,
+        stage_manually_set: true, // Prevent AI/deterministic override
       })
       .eq("id", id)
       .select()

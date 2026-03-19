@@ -402,6 +402,7 @@ export interface Opportunity {
   lastMessageDirection: "in" | "out" | null;
 
   // AI analysis
+  aiSummary: string | null;
   aiStageConfidence: number | null;
   aiStageSignals: string | null;
   detectedValue: number | null;
@@ -1033,6 +1034,7 @@ export type CreateOpportunity = Omit<
   | "stageEnteredAt"
   | "lastActivityAt"
   | "nextFollowUpAt"
+  | "aiSummary"
   | "aiStageConfidence"
   | "aiStageSignals"
   | "detectedValue"

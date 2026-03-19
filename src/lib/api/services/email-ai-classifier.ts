@@ -10,7 +10,7 @@
 // - Assigns pipeline stages based on thread context
 // - Validates stage values — never allows likely_won/likely_lost as stage
 
-import OpenAI from 'openai';
+import { getImportOpenAI } from './openai-clients';
 
 // ─── Quoted reply stripping ─────────────────────────────────────────────────
 // Strips quoted reply chains from email bodies to reduce token usage.
@@ -64,10 +64,10 @@ export function stripQuotedContent(body: string): string {
   return body;
 }
 
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
+// Uses OPENAI_API_KEY_IMPORT for initial inbox scan (Phase A triage + Phase B extraction).
+// Accepts an optional client override so the sync reviewer can pass its SYNC key client.
+function getOpenAI(override?: import('openai').default): import('openai').default {
+  return override ?? getImportOpenAI();
 }
 
 // Valid pipeline stages — used for validation
@@ -291,14 +291,15 @@ export const EmailAIClassifier = {
    */
   async classifyBatch(
     emails: ClassificationInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
+    openaiClient?: import('openai').default
   ): Promise<ClassificationResult[]> {
     if (emails.length === 0) return [];
 
     const results: ClassificationResult[] = [];
     for (let i = 0; i < emails.length; i += 50) {
       const batch = emails.slice(i, i + 50);
-      const batchResults = await EmailAIClassifier.classifySingleBatch(batch, context);
+      const batchResults = await EmailAIClassifier.classifySingleBatch(batch, context, openaiClient);
       results.push(...batchResults);
       if (i + 50 < emails.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -584,7 +585,8 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
 
   async classifySingleBatch(
     emails: ClassificationInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
+    openaiClient?: import('openai').default
   ): Promise<ClassificationResult[]> {
     const systemPrompt = `You are classifying emails for a trades business.
 
@@ -617,7 +619,7 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
     );
 
     try {
-      const response = await getOpenAI().chat.completions.create({
+      const response = await getOpenAI(openaiClient).chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },

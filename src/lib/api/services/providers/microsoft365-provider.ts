@@ -9,12 +9,14 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import type {
   EmailProviderInterface,
   NormalizedEmail,
+  SendEmailParams,
+  SendEmailResult,
   SyncResult,
   WebhookSubscription,
 } from "../email-provider";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-const SCOPES = ["Mail.Read", "Mail.ReadWrite"];
+const SCOPES = ["Mail.Read", "Mail.ReadWrite", "Mail.Send"];
 
 export class Microsoft365Provider implements EmailProviderInterface {
   readonly providerType = "microsoft365" as const;
@@ -190,6 +192,75 @@ export class Microsoft365Provider implements EmailProviderInterface {
     }));
   }
 
+  async sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+    const { to, cc, subject, body, contentType, inReplyTo } = params;
+
+    // Graph API uses capitalized "Text" / "HTML"
+    const graphContentType = contentType === "html" ? "HTML" : "Text";
+
+    const toRecipients = to.map((addr) => ({
+      emailAddress: { address: addr },
+    }));
+    const ccRecipients = (cc || []).map((addr) => ({
+      emailAddress: { address: addr },
+    }));
+
+    if (inReplyTo) {
+      // Reply flow: create reply draft (auto-threads) → update body/recipients → send
+      const draftData = await this.graphFetch(
+        `/me/messages/${inReplyTo}/createReply`,
+        { method: "POST", body: JSON.stringify({}) }
+      );
+
+      const draftId = draftData.id as string;
+
+      // Update draft with our content and recipients
+      const updatePayload: Record<string, unknown> = {
+        body: { contentType: graphContentType, content: body },
+        toRecipients,
+      };
+      if (ccRecipients.length > 0) {
+        updatePayload.ccRecipients = ccRecipients;
+      }
+
+      await this.graphFetch(`/me/messages/${draftId}`, {
+        method: "PATCH",
+        body: JSON.stringify(updatePayload),
+      });
+
+      // Send — returns 202 with no body, so fetch directly to avoid json parse
+      await this.graphSend(draftId);
+
+      return {
+        messageId: draftId,
+        threadId: (draftData.conversationId as string) || "",
+      };
+    }
+
+    // New email flow: create draft (to capture messageId for sync dedup) → send
+    const message: Record<string, unknown> = {
+      subject,
+      body: { contentType: graphContentType, content: body },
+      toRecipients,
+    };
+    if (ccRecipients.length > 0) {
+      message.ccRecipients = ccRecipients;
+    }
+
+    const draftData = await this.graphFetch("/me/messages", {
+      method: "POST",
+      body: JSON.stringify(message),
+    });
+
+    const draftId = draftData.id as string;
+    await this.graphSend(draftId);
+
+    return {
+      messageId: draftId,
+      threadId: (draftData.conversationId as string) || "",
+    };
+  }
+
   async createDraft(
     to: string,
     subject: string,
@@ -272,6 +343,25 @@ export class Microsoft365Provider implements EmailProviderInterface {
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Send a draft message. Graph API returns 202 with no body,
+   * so we bypass graphFetch to avoid json parse errors.
+   */
+  private async graphSend(messageId: string): Promise<void> {
+    const token = await this.getToken();
+    const res = await fetch(
+      `${GRAPH_BASE}/me/messages/${messageId}/send`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`M365 send failed: ${res.status} ${err}`);
+    }
+  }
 
   private normalizeM365Message(
     msg: Record<string, unknown>

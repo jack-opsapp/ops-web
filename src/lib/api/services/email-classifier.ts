@@ -63,11 +63,12 @@ const PROTECTED_DOMAINS = new Set([
 ]);
 
 // ─── Singleton OpenAI Client ────────────────────────────────────────────────
+// Uses OPENAI_API_KEY_IMPORT for initial scan context, falls back to OPENAI_API_KEY.
 
 let _openaiClient: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY_IMPORT || process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
   if (!_openaiClient) {
     _openaiClient = new OpenAI({ apiKey, timeout: 45_000 });
@@ -174,7 +175,7 @@ export async function classifyEmails(
 ): Promise<ClassificationResult> {
   const openai = getOpenAIClient();
   if (!openai) {
-    console.warn("[email-classifier] OPENAI_API_KEY not set, skipping AI classification");
+    console.warn("[email-classifier] OPENAI_API_KEY_IMPORT / OPENAI_API_KEY not set, skipping AI classification");
     return { filters: defaultFilters("AI classification unavailable — using default filters.") };
   }
 

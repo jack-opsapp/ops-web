@@ -2,12 +2,11 @@
 // Extracts and maintains per-user communication style from outbound emails.
 
 import { requireSupabase } from "@/lib/supabase/helpers";
-import OpenAI from "openai";
+import { getSyncOpenAI } from "./openai-clients";
 
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
+// Uses OPENAI_API_KEY_SYNC — writing profile analysis runs during ongoing sync.
+function getOpenAI() {
+  return getSyncOpenAI();
 }
 
 // ─── Module-level helpers ───────────────────────────────────────────────────

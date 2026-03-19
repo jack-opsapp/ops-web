@@ -235,7 +235,7 @@ export function PipelineCardActions({
           {/* Dropdown */}
           {showMore && (
             <div
-              className="absolute top-full right-0 mt-[4px] z-10 min-w-[180px] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border border-[rgba(255,255,255,0.08)] rounded-[4px] p-[4px]"
+              className="absolute top-full right-0 mt-[4px] z-50 min-w-[180px] bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border border-[rgba(255,255,255,0.10)] rounded-[4px] p-[4px] shadow-lg shadow-black/40"
             >
               <button
                 type="button"

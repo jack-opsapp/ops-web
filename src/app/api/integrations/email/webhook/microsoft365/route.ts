@@ -51,7 +51,10 @@ export async function POST(request: NextRequest) {
 
       fetch(`${BASE_URL}/api/integrations/email/manual-sync`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.CRON_SECRET}`,
+        },
         body: JSON.stringify({ connectionId: conn.id, source: "webhook" }),
       }).catch(() => {}); // fire and forget
     }

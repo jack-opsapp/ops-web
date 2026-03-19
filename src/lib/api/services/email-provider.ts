@@ -34,6 +34,21 @@ export interface WebhookSubscription {
   expiresAt: Date;
 }
 
+export interface SendEmailParams {
+  to: string[];
+  cc?: string[];
+  subject: string;
+  body: string;
+  contentType?: "text" | "html"; // Default "text". Set "html" for pre-converted HTML.
+  inReplyTo?: string;   // Provider message ID to reply to (for threading)
+  threadId?: string;     // Gmail threadId or M365 conversationId
+}
+
+export interface SendEmailResult {
+  messageId: string;     // Provider message ID of sent email (used for sync dedup)
+  threadId: string;      // Thread/conversation ID
+}
+
 // ─── Provider Interface ──────────────────────────────────────────────────────
 
 export interface EmailProviderInterface {
@@ -57,6 +72,9 @@ export interface EmailProviderInterface {
   applyLabel(threadId: string, labelId: string): Promise<void>;
   removeLabel(threadId: string, labelId: string): Promise<void>;
   listLabels(): Promise<Array<{ id: string; name: string; type: string }>>;
+
+  // Send
+  sendEmail(params: SendEmailParams): Promise<SendEmailResult>;
 
   // Drafts
   createDraft(

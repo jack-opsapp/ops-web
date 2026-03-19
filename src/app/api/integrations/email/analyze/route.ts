@@ -34,18 +34,16 @@ import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { matchPlatform, PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
-import OpenAI from 'openai';
+import { getImportOpenAI } from "@/lib/api/services/openai-clients";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { TriageInput } from "@/lib/api/services/email-ai-classifier";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// ─── Lazy OpenAI client ──────────────────────────────────────────────────────
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
+// Uses OPENAI_API_KEY_IMPORT — initial inbox scan.
+function getOpenAI() {
+  return getImportOpenAI();
 }
 
 export const maxDuration = 800; // Pro plan max
