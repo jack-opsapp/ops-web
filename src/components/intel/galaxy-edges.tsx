@@ -96,17 +96,17 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
 
     let lineIndex = 0;
 
-    // ── Synthetic edge: org center → focused client ────────────────────
-    // This line doesn't exist in the API edges, so we draw it manually.
+    // ── Synthetic edges (not in API data) ────────────────────────────
+    // These relationships exist structurally but aren't in the edge array.
+
+    // Org center (0,0,0) → focused client
     if (focusLevel >= 2 && focusedClientId && lineIndex < maxEdges) {
       const clientPos = liveNodePositions.get(focusedClientId) ?? positionMap.get(focusedClientId);
       if (clientPos) {
         const base = lineIndex * 6;
-        // Origin (org center)
         linePositions[base] = 0;
         linePositions[base + 1] = 0;
         linePositions[base + 2] = 0;
-        // Client position
         const cx = "x" in clientPos ? clientPos.x : (clientPos as THREE.Vector3).x;
         const cy = "y" in clientPos ? clientPos.y : (clientPos as THREE.Vector3).y;
         const cz = "z" in clientPos ? clientPos.z : (clientPos as THREE.Vector3).z;
@@ -114,6 +114,37 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
         linePositions[base + 4] = cy;
         linePositions[base + 5] = cz;
         lineIndex++;
+      }
+    }
+
+    // Focused project → each task/team/financial node orbiting it
+    if (focusLevel === 3 && focusedProjectId && lineIndex < maxEdges) {
+      const projPos = liveNodePositions.get(focusedProjectId) ?? positionMap.get(focusedProjectId);
+      if (projPos) {
+        const px = "x" in projPos ? projPos.x : (projPos as THREE.Vector3).x;
+        const py = "y" in projPos ? projPos.y : (projPos as THREE.Vector3).y;
+        const pz = "z" in projPos ? projPos.z : (projPos as THREE.Vector3).z;
+
+        for (const node of nodes) {
+          if (lineIndex >= maxEdges) break;
+          // Draw lines to tasks, team members, and financial entities
+          if (node.nodeType === "task" || node.nodeType === "team" || node.nodeType === "financial") {
+            if (!node.visible) continue;
+            const nPos = liveNodePositions.get(node.entityId);
+            const nx = nPos ? nPos.x : node.position[0];
+            const ny = nPos ? nPos.y : node.position[1];
+            const nz = nPos ? nPos.z : node.position[2];
+
+            const base = lineIndex * 6;
+            linePositions[base] = px;
+            linePositions[base + 1] = py;
+            linePositions[base + 2] = pz;
+            linePositions[base + 3] = nx;
+            linePositions[base + 4] = ny;
+            linePositions[base + 5] = nz;
+            lineIndex++;
+          }
+        }
       }
     }
 
