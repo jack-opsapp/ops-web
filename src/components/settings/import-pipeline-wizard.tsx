@@ -81,6 +81,7 @@ export function ImportPipelineWizard({
   const [estimatePattern, setEstimatePattern] = useState<string>("");
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [importStarting, setImportStarting] = useState(false);
   const [syncInterval, setSyncInterval] = useState(60);
   const [existingJobId, setExistingJobId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
@@ -429,8 +430,9 @@ export function ImportPipelineWizard({
   // ─── Import handlers ─────────────────────────────────────────────────────
 
   const handleImport = useCallback(async () => {
-    if (!connectionId || !analysisResult) return;
+    if (!connectionId || !analysisResult || importStarting) return;
 
+    setImportStarting(true);
     const enabledLeads = confirmedLeads.filter((l) => l.enabled);
     setImportLeadCount(enabledLeads.length);
 
@@ -487,10 +489,11 @@ export function ImportPipelineWizard({
       invalidateConnections();
     } catch (err) {
       console.error("Import failed:", err);
+      setImportStarting(false);
       const { toast } = await import("sonner");
       toast.error(err instanceof Error ? err.message : "Import failed. Please try again.");
     }
-  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, invalidateConnections]);
+  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, importStarting, invalidateConnections]);
 
   const handleImportComplete = useCallback((result: ImportResult) => {
     setImportResult(result);
@@ -636,6 +639,10 @@ export function ImportPipelineWizard({
         onOpenChange(false);
         return;
       }
+      if (!isOpen) {
+        // Always invalidate connections on close so the integrations tab reflects current state
+        invalidateConnections();
+      }
       onOpenChange(isOpen);
     }}>
       <DialogContent
@@ -759,7 +766,7 @@ export function ImportPipelineWizard({
                     companyId={companyId}
                     onBack={() => setConfirmed(false)}
                     onImport={handleImport}
-                    importing={false}
+                    importing={importStarting}
                   />
                 ) : (
                   // Review mode — user toggles leads, edits names

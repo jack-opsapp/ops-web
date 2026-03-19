@@ -41,6 +41,8 @@ export function ImportProgress({
 
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const interpolateRef = useRef<NodeJS.Timeout | null>(null);
+  const lastProgressChangeRef = useRef<number>(Date.now());
+  const STALE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes with no progress change = stale
 
   // Stable refs for callbacks to avoid re-triggering poll effect
   const onCompleteRef = useRef(onComplete);
@@ -85,6 +87,11 @@ export function ImportProgress({
       setStatus(data.status);
 
       if (data.progress) {
+        // Track progress changes for stale detection
+        if (data.progress.percent !== serverProgress) {
+          lastProgressChangeRef.current = Date.now();
+        }
+
         setServerProgress(data.progress.percent);
         setMessage(data.progress.message);
         onProgressUpdateRef.current?.(
@@ -104,6 +111,15 @@ export function ImportProgress({
             labelsApplied: data.progress.labelsApplied ?? 0,
           });
         }
+      }
+
+      // Stale job detection — if no progress change for 5 minutes, treat as failed
+      if (
+        data.status === "importing" &&
+        Date.now() - lastProgressChangeRef.current > STALE_TIMEOUT_MS
+      ) {
+        setError("Import appears to have stalled. The server may have timed out. Try re-running the import.");
+        return;
       }
 
       if (data.status === "import_complete" && data.result) {

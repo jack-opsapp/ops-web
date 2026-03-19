@@ -177,8 +177,16 @@ async function runImport(
   // Track merge groups: mergeWithLeadId → primary lead's clientId
   const mergeMap = new Map<string, string>();
 
-  for (let i = 0; i < leads.length; i++) {
-    const lead = leads[i];
+  // Sort leads so merge targets (primary leads) appear before dependents.
+  // Leads without mergeWithLeadId come first, followed by leads that merge into others.
+  const sortedLeads = [...leads].sort((a, b) => {
+    const aIsMerge = a.mergeWithLeadId ? 1 : 0;
+    const bIsMerge = b.mergeWithLeadId ? 1 : 0;
+    return aIsMerge - bIsMerge;
+  });
+
+  for (let i = 0; i < sortedLeads.length; i++) {
+    const lead = sortedLeads[i];
     await updateProgress(i, `Importing lead ${i + 1} of ${leads.length}...`);
 
     try {

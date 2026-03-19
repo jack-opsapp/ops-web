@@ -36,13 +36,17 @@ export function ActivateStep({
   const [activating, setActivating] = useState(false);
   const [activated, setActivated] = useState(false);
 
+  const [activationError, setActivationError] = useState<string | null>(null);
+
   const handleActivate = useCallback(async () => {
     setActivating(true);
+    setActivationError(null);
     try {
       await onActivate(selectedInterval);
       setActivated(true);
     } catch (err) {
       console.error("Activation failed:", err);
+      setActivationError(err instanceof Error ? err.message : "Activation failed. Try again.");
     } finally {
       setActivating(false);
     }
@@ -155,6 +159,17 @@ export function ActivateStep({
           <p className="font-mohave text-[11px] text-[#666] mt-2">
             Real-time sync via push notifications is always active. Scheduled sync runs as a safety net.
           </p>
+        </motion.div>
+      )}
+
+      {/* Activation error */}
+      {activationError && (
+        <motion.div
+          variants={staggerItem}
+          className="mb-4 p-3 border border-[#93321A]/30 bg-[#93321A]/10"
+          style={{ borderRadius: 3 }}
+        >
+          <p className="font-mohave text-[13px] text-[#FF6B4A]">{activationError}</p>
         </motion.div>
       )}
 
