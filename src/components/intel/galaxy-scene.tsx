@@ -3,12 +3,13 @@
 // ---------------------------------------------------------------------------
 // GalaxyScene — the main Intel galaxy visualization.
 //
-// Full-bleed React Three Fiber Canvas that assembles all galaxy sub-components:
-// starfield, nodes, center, edges, and post-processing. DOM overlay HUD
-// elements (search, stats, zoom, legend, gate prompt, node info) float on top.
+// Full-bleed React Three Fiber Canvas with hierarchical zoom:
+//   Level 1: Clients orbit organization center
+//   Level 2: Click client → projects orbit it
+//   Level 3: Click project → tasks/team/financial orbit it
 //
-// This component is lazy-loaded via next/dynamic in the Intel page.
-// Three.js (~150KB gzip) is not in the critical render path.
+// DOM overlay HUD elements float on top of the Canvas.
+// Lazy-loaded via next/dynamic — Three.js not in the critical path.
 // ---------------------------------------------------------------------------
 
 import { Suspense, useMemo, useEffect, useRef, useCallback, useState } from "react";
@@ -22,11 +23,13 @@ import { GalaxyStarfield } from "./galaxy-starfield";
 import { GalaxyNodes } from "./galaxy-nodes";
 import { GalaxyCenterNode } from "./galaxy-center";
 import { GalaxyEdges } from "./galaxy-edges";
-import { computeGalaxyLayout, type PositionedEntity } from "./galaxy-layout";
+import { GalaxyCamera } from "./galaxy-camera";
+import { computeHierarchicalLayout, type PositionedNode } from "./galaxy-layout";
 import { SearchPill } from "./hud/search-pill";
 import { StatsRibbon } from "./hud/stats-ribbon";
 import { ZoomControls } from "./hud/zoom-controls";
 import { ClusterLegend } from "./hud/cluster-legend";
+import { BackButton } from "./hud/back-button";
 import { PhaseCGatePrompt } from "./hud/phase-c-gate-prompt";
 import { NodeInfo } from "./node-info";
 import { RedactedText } from "./redacted-text";
@@ -49,9 +52,6 @@ const isLowEnd =
   (navigator.hardwareConcurrency <= 4 ||
     ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? Infinity) <= 4);
 
-const isTouchDevice =
-  typeof window !== "undefined" && "ontouchstart" in window;
-
 // ---------------------------------------------------------------------------
 // GalaxyScene
 // ---------------------------------------------------------------------------
@@ -64,9 +64,7 @@ export function GalaxyScene() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(true);
 
-  // IntersectionObserver: pause the animation loop when the canvas is off-screen.
-  // This prevents GPU work when the user navigated away but the component is
-  // still mounted (e.g., tab switching within the dashboard).
+  // IntersectionObserver: pause animation loop when off-screen
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new IntersectionObserver(
@@ -77,17 +75,19 @@ export function GalaxyScene() {
     return () => observer.disconnect();
   }, []);
 
+  // Store selectors
   const is3DUnlocked = useIntelStore((s) => s.is3DUnlocked);
   const set3DUnlocked = useIntelStore((s) => s.set3DUnlocked);
   const setShowGatePrompt = useIntelStore((s) => s.setShowGatePrompt);
   const dismissSelection = useIntelStore((s) => s.dismissSelection);
   const setNewEntityIds = useIntelStore((s) => s.setNewEntityIds);
+  const focusLevel = useIntelStore((s) => s.focusLevel);
+  const focusedClientId = useIntelStore((s) => s.focusedClientId);
+  const focusedProjectId = useIntelStore((s) => s.focusedProjectId);
 
-  // Determine Phase C gate status from API response
+  // Phase C gate
   useEffect(() => {
-    if (data?.phaseCEnabled) {
-      set3DUnlocked(true);
-    }
+    if (data?.phaseCEnabled) set3DUnlocked(true);
   }, [data?.phaseCEnabled, set3DUnlocked]);
 
   // Detect new entities for activation animation
@@ -95,7 +95,6 @@ export function GalaxyScene() {
     if (!data?.entities) return;
     const lastViewed = localStorage.getItem("intel_last_viewed_at");
     if (!lastViewed) {
-      // First visit — all entities are "new"
       setNewEntityIds(data.entities.map(e => e.id));
     } else {
       const lastViewedDate = new Date(lastViewed);
@@ -104,39 +103,61 @@ export function GalaxyScene() {
         .map(e => e.id);
       if (newIds.length > 0) setNewEntityIds(newIds);
     }
-    // NOTE: localStorage timestamp is NOT updated here. It's updated by
-    // ActivationSequence after the animation completes. If we update it
-    // immediately, a user who navigates away before the animation finishes
-    // would lose the "new" state on their next visit.
   }, [data?.entities, setNewEntityIds]);
 
-  // Compute galaxy layout from entities
-  const layout = useMemo<PositionedEntity[]>(() => {
-    if (!data?.entities || data.entities.length === 0) return [];
-    return computeGalaxyLayout({
-      entities: data.entities.map(e => ({
-        id: e.id,
-        cluster: e.cluster,
-        type: e.type,
-        confidence: e.confidence,
-        properties: e.properties,
-      })),
+  // ── Compute hierarchical layout ──────────────────────────────────────
+  const layout = useMemo<PositionedNode[]>(() => {
+    if (!data?.clientsWithStatus) return [];
+    return computeHierarchicalLayout({
+      clients: data.clientsWithStatus,
+      projects: data.entities
+        .filter(e => e.type === "project")
+        .map(e => ({
+          id: e.id,
+          clientId: (e.properties.clientId as string) ?? "",
+          title: e.name,
+          status: (e.properties.status as string) ?? "RFQ",
+          address: (e.properties.address as string) ?? null,
+        })),
+      tasks: data.tasks ?? [],
+      teamMembers: data.teamMembers ?? [],
+      financialEntities: data.entities
+        .filter(e => e.type === "invoice" || e.type === "estimate")
+        .map(e => ({
+          id: e.id,
+          projectId: (e.properties.projectId as string) ?? null,
+          name: e.name,
+          type: e.type as "invoice" | "estimate",
+          total: (e.properties.total as number) ?? null,
+          status: (e.properties.status as string) ?? null,
+        })),
+      focusLevel,
+      focusedClientId,
+      focusedProjectId,
     });
-  }, [data?.entities]);
+  }, [data, focusLevel, focusedClientId, focusedProjectId]);
 
-  // Detect rotation attempts when 3D is locked.
-  // OrbitControls' onStart fires on ALL interactions (pan, zoom, rotate),
-  // so we can't use it. Instead, detect right-click drag or middle-click drag
-  // (the gestures that map to rotation in OrbitControls' default config).
-  // On desktop: left-click drag without modifier = rotate. But since we set
-  // enableRotate=false, OrbitControls remaps left-drag to pan. So the user
-  // can't actually "attempt" rotation via OrbitControls. Instead, we show
-  // the gate prompt once on first visit (if not already shown this session).
+  // ── Unified Escape handler ───────────────────────────────────────────
+  // Priority: dismiss selection first, then navigate back
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const state = useIntelStore.getState();
+        if (state.selectedNodeId || state.expandedNodeId) {
+          state.dismissSelection();
+        } else if (state.focusLevel > 1) {
+          state.focusBack();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Phase C gate prompt — show once after data loads if not unlocked
   const gatePromptShownRef = useRef(false);
   useEffect(() => {
     if (!is3DUnlocked && !gatePromptShownRef.current && data?.entities && data.entities.length > 0) {
-      // Show gate prompt once after data loads, with a delay so the galaxy
-      // renders first and the user sees what they're missing
       const timer = setTimeout(() => {
         if (!gatePromptShownRef.current) {
           gatePromptShownRef.current = true;
@@ -147,10 +168,7 @@ export function GalaxyScene() {
     }
   }, [is3DUnlocked, data?.entities, setShowGatePrompt]);
 
-  // Click on empty space dismisses selection.
-  // Node clicks are handled by Three.js raycasting inside the Canvas (not DOM
-  // events), so they don't propagate to this handler. We only need to check
-  // that the click target is the <canvas> element itself (not a HUD overlay).
+  // Click on empty space (canvas) dismisses selection
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).tagName === "CANVAS") {
@@ -161,6 +179,62 @@ export function GalaxyScene() {
   );
 
   const companyName = company?.name || "Your Company";
+
+  // Projects need client_id linkage — build from entities that have it
+  const projectClientMap = useMemo(() => {
+    if (!data?.entities) return new Map<string, string>();
+    const map = new Map<string, string>();
+    for (const e of data.entities) {
+      if (e.type === "project" && e.properties.clientId) {
+        // The entities array stores clients with the "person" type but in "client" cluster.
+        // Projects reference clients via edges. We need to find client_id.
+        // It's stored in the edge (owns_project) sourceId.
+      }
+    }
+    // Use edges to map project → client
+    for (const edge of data.edges ?? []) {
+      if (edge.predicate === "owns_project") {
+        map.set(edge.targetId, edge.sourceId); // project → client
+      }
+    }
+    return map;
+  }, [data?.entities, data?.edges]);
+
+  // Enrich projects with clientId for the layout
+  const enrichedLayout = useMemo<PositionedNode[]>(() => {
+    if (!data?.clientsWithStatus) return [];
+
+    // Build projects array with proper clientId from edges
+    const projects = data.entities
+      .filter(e => e.type === "project")
+      .map(e => ({
+        id: e.id,
+        clientId: projectClientMap.get(e.id) ?? "",
+        title: e.name,
+        status: (e.properties.status as string) ?? "RFQ",
+        address: (e.properties.address as string) ?? null,
+      }));
+
+    return computeHierarchicalLayout({
+      clients: data.clientsWithStatus,
+      projects,
+      tasks: data.tasks ?? [],
+      teamMembers: data.teamMembers ?? [],
+      financialEntities: data.entities
+        .filter(e => e.type === "invoice" || e.type === "estimate")
+        .map(e => ({
+          id: e.id,
+          projectId: (e.properties.projectId as string) ?? null,
+          name: e.name,
+          type: e.type as "invoice" | "estimate",
+          total: (e.properties.total as number) ?? null,
+          status: (e.properties.status as string) ?? null,
+        })),
+      focusLevel,
+      focusedClientId,
+      focusedProjectId,
+    });
+  }, [data, focusLevel, focusedClientId, focusedProjectId, projectClientMap]);
 
   return (
     <div ref={containerRef} className="w-full h-full relative" onClick={handleCanvasClick}>
@@ -174,87 +248,61 @@ export function GalaxyScene() {
         dpr={isLowEnd ? [1, 1] : [1, 2]}
         gl={{ antialias: !isLowEnd, alpha: false }}
         style={{ background: "#0A0A0A" }}
-        // Frame loop: "demand" for reduced motion or when not visible.
-        // "always" for continuous animation (ambient drift, breathing).
         frameloop={prefersReducedMotion || !isVisible ? "demand" : "always"}
       >
         <Suspense fallback={null}>
-          {/* Ambient light — very subtle, just enough so nodes aren't pure black */}
           <ambientLight intensity={0.2} />
 
-          {/* OrbitControls: pan + zoom always, rotation only when Phase C unlocked */}
           <OrbitControls
             ref={controlsRef}
-            // Rotation always enabled — middle mouse orbits regardless of Phase C.
-            // Phase C controls DATA arrangement (2D vs 3D), not camera freedom.
             enableRotate={true}
             enableZoom={true}
             enablePan={true}
-            // Zoom limits
             minDistance={3}
             maxDistance={50}
-            // Smooth damping
             enableDamping={!prefersReducedMotion}
             dampingFactor={0.05}
-            // Mouse buttons:
-            //   Left drag = pan (always)
-            //   Middle drag (scroll button) = orbit/rotate (always)
-            //   Right drag = pan
             mouseButtons={{
               LEFT: THREE.MOUSE.PAN,
               MIDDLE: THREE.MOUSE.ROTATE,
               RIGHT: THREE.MOUSE.PAN,
             }}
-            // Touch: one-finger pan, pinch to zoom + pan
             touches={{
               ONE: THREE.TOUCH.PAN,
               TWO: THREE.TOUCH.DOLLY_PAN,
             }}
-            // Scroll wheel zooms toward cursor position, not scene center
             zoomToCursor={true}
             zoomSpeed={1.2}
           />
 
-          {/* Background: ambient star field */}
+          {/* Camera fly-to animation controller */}
+          <GalaxyCamera controlsRef={controlsRef as React.RefObject<{ target: THREE.Vector3; update: () => void } | null>} />
+
+          {/* Background star field */}
           <GalaxyStarfield />
 
-          {/* Center: self/company node */}
+          {/* Center: organization node */}
           <GalaxyCenterNode companyName={companyName} />
 
-          {/* Entity nodes */}
-          {layout.length > 0 && data?.entities && (
-            <GalaxyNodes
-              positionedEntities={layout}
-              entities={data.entities.map(e => ({
-                id: e.id,
-                name: e.name,
-                type: e.type,
-                cluster: e.cluster,
-              }))}
-            />
+          {/* Entity nodes (hierarchical) */}
+          {enrichedLayout.length > 0 && (
+            <GalaxyNodes nodes={enrichedLayout} />
           )}
 
-          {/* Proximity-revealed edges */}
-          {layout.length > 0 && data?.edges && (
+          {/* Edges (hover/click only, L2+) */}
+          {enrichedLayout.length > 0 && data?.edges && (
             <GalaxyEdges
               edges={data.edges}
-              positionedEntities={layout}
+              nodes={enrichedLayout}
             />
           )}
 
-          {/* Post-processing: subtle bloom for node glow */}
+          {/* Post-processing: subtle bloom */}
           {!isLowEnd && !prefersReducedMotion && (
             <EffectComposer>
               <Bloom
-                // luminanceThreshold: only bloom pixels brighter than 60%.
-                // This catches the emissive node glow without blooming
-                // the starfield or edge lines.
                 luminanceThreshold={0.6}
-                // intensity: subtle, not sci-fi movie. The bloom should feel
-                // like light diffraction, not a filter.
                 intensity={0.4}
-                // mipmapBlur: higher quality bloom via mipmap chain.
-                // Cheaper than the default multi-pass approach.
                 mipmapBlur
                 luminanceSmoothing={0.2}
               />
@@ -272,10 +320,10 @@ export function GalaxyScene() {
         </div>
       )}
 
-      {/* Activation animation controller — no visual output */}
+      {/* Activation animation controller */}
       <ActivationSequence />
 
-      {/* ── HUD Overlays ─────────────────────────────────────────────── */}
+      {/* ── HUD Overlays ──────────────────────────────────────────────── */}
 
       {/* Top-left: Search */}
       {!isLoading && data?.entities && (
@@ -283,6 +331,11 @@ export function GalaxyScene() {
           <SearchPill entities={data.entities} />
         </div>
       )}
+
+      {/* Top-left: Back button (below search, only at L2+) */}
+      <div className="absolute top-14 left-4 z-10">
+        <BackButton />
+      </div>
 
       {/* Top-right: Stats */}
       {!isLoading && data?.stats && (
@@ -309,9 +362,8 @@ export function GalaxyScene() {
           <ZoomControls
             onZoomIn={() => {
               if (controlsRef.current) {
-                // Dolly in by reducing distance. The camera moves 20% closer.
-                const controls = controlsRef.current as unknown as { dollyIn: (scale: number) => void; update: () => void };
-                if (typeof controls.dollyIn === 'function') {
+                const controls = controlsRef.current as unknown as { dollyIn: (s: number) => void; update: () => void };
+                if (typeof controls.dollyIn === "function") {
                   controls.dollyIn(1.2);
                   controls.update();
                 }
@@ -319,8 +371,8 @@ export function GalaxyScene() {
             }}
             onZoomOut={() => {
               if (controlsRef.current) {
-                const controls = controlsRef.current as unknown as { dollyOut: (scale: number) => void; update: () => void };
-                if (typeof controls.dollyOut === 'function') {
+                const controls = controlsRef.current as unknown as { dollyOut: (s: number) => void; update: () => void };
+                if (typeof controls.dollyOut === "function") {
                   controls.dollyOut(1.2);
                   controls.update();
                 }
@@ -336,9 +388,6 @@ export function GalaxyScene() {
       {/* Center: Phase C gate prompt */}
       <PhaseCGatePrompt
         onRequestAccess={() => {
-          // Open the FeatureAccessModal — dispatch via a custom event
-          // that the Intel page listens for, or directly set state.
-          // For now, navigate to settings where the request flow exists.
           window.location.href = "/settings";
         }}
       />
@@ -349,7 +398,7 @@ export function GalaxyScene() {
       )}
 
       {/* Empty state: no data at all */}
-      {!isLoading && data?.entities && data.entities.length === 0 && (
+      {!isLoading && data?.entities && data.entities.length === 0 && !data.clientsWithStatus?.length && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div
             className="pointer-events-auto text-left max-w-[260px] px-6 py-5 space-y-3"

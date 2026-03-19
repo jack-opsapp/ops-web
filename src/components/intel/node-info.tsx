@@ -13,7 +13,7 @@
 // or Escape. Camera stays still during drill-down.
 // ---------------------------------------------------------------------------
 
-import { useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { useIntelStore } from "@/stores/intel-store";
 import { useIntelEntity } from "@/lib/hooks/use-intel-entity";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -52,14 +52,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
     company?.id || undefined
   );
 
-  // Escape key dismisses
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismissSelection();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [dismissSelection]);
+  // Escape key handling is unified in GalaxyScene (dismiss → back priority)
 
   if (!selectedEntity) return null;
 

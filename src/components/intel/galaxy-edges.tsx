@@ -1,45 +1,32 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// GalaxyEdges — proximity-revealed connection lines between entity nodes.
+// GalaxyEdges — connection lines between entity nodes in the Intel galaxy.
+// Runs INSIDE a <Canvas> context (React Three Fiber component).
 //
-// Edges are invisible by default. As the camera moves close to a region or a
-// node is hovered/selected, edges connected to nearby nodes fade in. This is
-// the radar-sweep metaphor — connections reveal on inspection, keeping the
-// overview clean.
+// Edges are NEVER visible by default. They only appear when a node is
+// hovered or selected — and only at focus levels 2+ (not the overview).
+// This keeps the overview clean and makes connections a discovery mechanic.
 //
-// Performance: only edges near the camera or the selected node are evaluated
-// per frame. Distant edges are skipped entirely (no position buffer writes).
-// The line geometry is pre-allocated at max capacity and draw range is adjusted
-// each frame.
+// Uses live node positions (updated per-frame by GalaxyNodes) so edge
+// endpoints track the ambient drift animation.
 // ---------------------------------------------------------------------------
 
 import { useRef, useMemo } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import type { PositionedEntity } from "./galaxy-layout";
 import { useIntelStore, liveNodePositions } from "@/stores/intel-store";
+import type { PositionedNode } from "./galaxy-layout";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-// Edge visual: ultra-thin, low opacity. Edges are ONLY visible when a node
-// is hovered or clicked — not by camera proximity. This keeps the overview
-// clean and makes connections a discovery mechanic.
-const EDGE_OPACITY_MAX = 0.12;
-
-// Line color: white with low opacity, not cluster-colored. This prevents
-// visual confusion when edges cross cluster boundaries.
+const EDGE_OPACITY = 0.12;
 const EDGE_COLOR = "#ffffff";
-
-// Max edges to process per frame on low-end devices
 const MAX_EDGES_LOW_END = 50;
 const MAX_EDGES_STANDARD = 200;
 
-// ---------------------------------------------------------------------------
-// Device detection
-// ---------------------------------------------------------------------------
 const isLowEnd =
   typeof navigator !== "undefined" &&
   navigator.hardwareConcurrency <= 4;
@@ -50,90 +37,95 @@ const isLowEnd =
 
 interface GalaxyEdgesProps {
   edges: Array<{ sourceId: string; targetId: string; predicate: string }>;
-  positionedEntities: PositionedEntity[];
+  nodes: PositionedNode[];
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
+export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
   const lineRef = useRef<THREE.BufferGeometry>(null);
-  const { camera } = useThree();
 
   const selectedNodeId = useIntelStore((s) => s.selectedNodeId);
   const hoveredNodeId = useIntelStore((s) => s.hoveredNodeId);
+  const focusLevel = useIntelStore((s) => s.focusLevel);
 
   const maxEdges = isLowEnd ? MAX_EDGES_LOW_END : MAX_EDGES_STANDARD;
 
-  // Build a position lookup from entity ID → world position
+  // Build position lookup from nodes
   const positionMap = useMemo(() => {
     const map = new Map<string, THREE.Vector3>();
-    for (const pe of positionedEntities) {
-      map.set(pe.entityId, new THREE.Vector3(...pe.position));
+    for (const node of nodes) {
+      if (node.visible) {
+        map.set(node.entityId, new THREE.Vector3(...node.position));
+      }
     }
     return map;
-  }, [positionedEntities]);
+  }, [nodes]);
 
-  // Pre-allocate line buffer at max capacity.
-  // Each edge needs 2 vertices × 3 floats = 6 floats.
+  // Pre-allocate line buffer
   const linePositions = useMemo(
     () => new Float32Array(maxEdges * 6),
     [maxEdges]
   );
 
-
   useFrame(() => {
     if (!lineRef.current) return;
 
-    const cameraPos = camera.position;
+    // Level 1: no edges (clean overview)
+    if (focusLevel === 1) {
+      lineRef.current.setDrawRange(0, 0);
+      return;
+    }
+
     const activeNodeId = selectedNodeId || hoveredNodeId;
+
+    // No active node: no edges
+    if (!activeNodeId) {
+      lineRef.current.setDrawRange(0, 0);
+      return;
+    }
+
     let lineIndex = 0;
 
     for (let i = 0; i < edges.length && lineIndex < maxEdges; i++) {
       const edge = edges[i];
-      // Prefer live (drifted) positions from the nodes' per-frame update.
-      // Fall back to static layout positions if live aren't available yet.
+
+      // Only show edges connected to the active (hovered/selected) node
+      if (activeNodeId !== edge.sourceId && activeNodeId !== edge.targetId) continue;
+
+      // Use live positions (includes drift), fall back to static layout
       const liveSrc = liveNodePositions.get(edge.sourceId);
       const liveTgt = liveNodePositions.get(edge.targetId);
-      const sourcePos = liveSrc
-        ? { x: liveSrc.x, y: liveSrc.y, z: liveSrc.z, distanceTo: (v: THREE.Vector3) => Math.sqrt((liveSrc.x - v.x) ** 2 + (liveSrc.y - v.y) ** 2 + (liveSrc.z - v.z) ** 2) }
-        : positionMap.get(edge.sourceId);
-      const targetPos = liveTgt
-        ? { x: liveTgt.x, y: liveTgt.y, z: liveTgt.z, distanceTo: (v: THREE.Vector3) => Math.sqrt((liveTgt.x - v.x) ** 2 + (liveTgt.y - v.y) ** 2 + (liveTgt.z - v.z) ** 2) }
-        : positionMap.get(edge.targetId);
+      const sourcePos = liveSrc ?? positionMap.get(edge.sourceId);
+      const targetPos = liveTgt ?? positionMap.get(edge.targetId);
 
       if (!sourcePos || !targetPos) continue;
 
-      // Determine if this edge should be visible:
-      // 1. Selected/hovered node: show all its edges
-      // 2. Camera proximity: show edges where either endpoint is near camera
-      const isActiveEdge =
-        activeNodeId === edge.sourceId || activeNodeId === edge.targetId;
-
-      // Edges are ONLY visible when connected to the hovered/selected node.
-      // No proximity-based reveal — keeps the overview clean.
-      if (!isActiveEdge) continue;
-
-      // Write positions to buffer
       const base = lineIndex * 6;
-      linePositions[base] = sourcePos.x;
-      linePositions[base + 1] = sourcePos.y;
-      linePositions[base + 2] = sourcePos.z;
-      linePositions[base + 3] = targetPos.x;
-      linePositions[base + 4] = targetPos.y;
-      linePositions[base + 5] = targetPos.z;
+      const sx = "x" in sourcePos ? sourcePos.x : (sourcePos as THREE.Vector3).x;
+      const sy = "y" in sourcePos ? sourcePos.y : (sourcePos as THREE.Vector3).y;
+      const sz = "z" in sourcePos ? sourcePos.z : (sourcePos as THREE.Vector3).z;
+      const tx = "x" in targetPos ? targetPos.x : (targetPos as THREE.Vector3).x;
+      const ty = "y" in targetPos ? targetPos.y : (targetPos as THREE.Vector3).y;
+      const tz = "z" in targetPos ? targetPos.z : (targetPos as THREE.Vector3).z;
+
+      linePositions[base] = sx;
+      linePositions[base + 1] = sy;
+      linePositions[base + 2] = sz;
+      linePositions[base + 3] = tx;
+      linePositions[base + 4] = ty;
+      linePositions[base + 5] = tz;
 
       lineIndex++;
     }
 
-    // Update the geometry buffer and draw range
     const posAttr = lineRef.current.getAttribute("position") as THREE.BufferAttribute;
     if (posAttr) {
       posAttr.set(linePositions);
       posAttr.needsUpdate = true;
     }
-    // Draw range: only render the edges we wrote this frame
     lineRef.current.setDrawRange(0, lineIndex * 2);
   });
 
@@ -151,9 +143,7 @@ export function GalaxyEdges({ edges, positionedEntities }: GalaxyEdgesProps) {
       <lineBasicMaterial
         color={EDGE_COLOR}
         transparent
-        opacity={EDGE_OPACITY_MAX}
-        // Additive blending: edges where multiple connections overlap
-        // brighten subtly — denser regions appear as soft webs of light.
+        opacity={EDGE_OPACITY}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
       />
