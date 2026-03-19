@@ -20,6 +20,8 @@ export interface PositionedNode {
   entityId: string;
   nodeType: "organization" | "client" | "project" | "task" | "team" | "financial";
   position: [number, number, number];
+  orbitCenter: [number, number, number]; // Parent position this node orbits around
+  orbitRadius: number;                    // Distance from orbit center (for orbital motion)
   color: string;
   label: string;
   sublabel?: string;
@@ -130,6 +132,8 @@ function layoutLevel1(config: HierarchicalLayoutConfig): PositionedNode[] {
       entityId: client.id,
       nodeType: "client",
       position: [x, y, z],
+      orbitCenter: [0, 0, 0],
+      orbitRadius: r,
       color: projectStatusColor(client.mostActiveProjectStatus),
       label: client.name,
       dimmed: false,
@@ -177,10 +181,13 @@ function layoutLevel2(
       }
     }
 
+    const clientR = Math.sqrt(finalPos[0] * finalPos[0] + finalPos[1] * finalPos[1]);
     result.push({
       entityId: client.id,
       nodeType: "client",
       position: finalPos,
+      orbitCenter: [0, 0, 0],
+      orbitRadius: clientR,
       color: projectStatusColor(client.mostActiveProjectStatus),
       label: client.name,
       dimmed: !isFocused,
@@ -205,6 +212,8 @@ function layoutLevel2(
       entityId: project.id,
       nodeType: "project",
       position: [x, y, z],
+      orbitCenter: focusPos,
+      orbitRadius: pRadius,
       color: projectStatusColor(project.status),
       label: project.title,
       sublabel: project.address || undefined,
@@ -245,15 +254,13 @@ function layoutLevel3(
     const finalPos: [number, number, number] = len > 0.01
       ? [focusPos[0] + (dx / len) * len * 1.8, focusPos[1] + (dy / len) * len * 1.8, pos[2]]
       : pos;
+    const clientR = Math.sqrt(finalPos[0] * finalPos[0] + finalPos[1] * finalPos[1]);
 
     result.push({
-      entityId: client.id,
-      nodeType: "client",
-      position: finalPos,
+      entityId: client.id, nodeType: "client", position: finalPos,
+      orbitCenter: [0, 0, 0], orbitRadius: clientR,
       color: projectStatusColor(client.mostActiveProjectStatus),
-      label: client.name,
-      dimmed: true,
-      visible: true,
+      label: client.name, dimmed: true, visible: true,
     });
   }
 
@@ -270,25 +277,17 @@ function layoutLevel3(
     const z = clientPos[2] + ((hashString(project.id) % 40) - 20) / 100;
 
     if (!isFocused) {
-      // Repulse from focused project
-      const dx = x - focusPos[0];
-      const dy = y - focusPos[1];
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len > 0.01) {
-        x = focusPos[0] + (dx / len) * len * 1.5;
-        y = focusPos[1] + (dy / len) * len * 1.5;
-      }
+      const ddx = x - focusPos[0]; const ddy = y - focusPos[1];
+      const dlen = Math.sqrt(ddx * ddx + ddy * ddy);
+      if (dlen > 0.01) { x = focusPos[0] + (ddx / dlen) * dlen * 1.5; y = focusPos[1] + (ddy / dlen) * dlen * 1.5; }
     }
 
     result.push({
-      entityId: project.id,
-      nodeType: "project",
-      position: [x, y, z],
+      entityId: project.id, nodeType: "project", position: [x, y, z],
+      orbitCenter: clientPos, orbitRadius: pRadius,
       color: projectStatusColor(project.status),
-      label: project.title,
-      sublabel: project.address || undefined,
-      dimmed: !isFocused,
-      visible: true,
+      label: project.title, sublabel: project.address || undefined,
+      dimmed: !isFocused, visible: true,
     });
   }
 
@@ -303,7 +302,6 @@ function layoutLevel3(
     const y = focusPos[1] + taskRadius * Math.sin(angle);
     const z = focusPos[2] + ((hashString(task.id) % 30) - 15) / 100;
 
-    // Sublabel: date + status
     let sublabel: string = task.status;
     if (task.startDate) {
       const d = new Date(task.startDate);
@@ -312,19 +310,14 @@ function layoutLevel3(
     }
 
     result.push({
-      entityId: task.id,
-      nodeType: "task",
-      position: [x, y, z],
-      color: task.taskColor,
-      label: task.title,
-      sublabel,
-      dimmed: false,
-      visible: true,
+      entityId: task.id, nodeType: "task", position: [x, y, z],
+      orbitCenter: focusPos, orbitRadius: taskRadius,
+      color: task.taskColor, label: task.title, sublabel,
+      dimmed: false, visible: true,
     });
   }
 
   // ── Team members orbit focused project (outer ring) ───────────────────
-  // Collect unique team member IDs from this project's tasks
   const projectTeamIds = new Set<string>();
   for (const task of projectTasks) {
     for (const id of task.teamMemberIds) projectTeamIds.add(id);
@@ -334,21 +327,17 @@ function layoutLevel3(
 
   for (let i = 0; i < teamForProject.length; i++) {
     const member = teamForProject[i];
-    // Offset angle from tasks so they don't overlap
     const angle = (i / Math.max(teamForProject.length, 1)) * Math.PI * 2 + Math.PI / 6;
     const x = focusPos[0] + teamRadius * Math.cos(angle);
     const y = focusPos[1] + teamRadius * Math.sin(angle);
     const z = focusPos[2] + 0.1;
 
     result.push({
-      entityId: member.id,
-      nodeType: "team",
-      position: [x, y, z],
+      entityId: member.id, nodeType: "team", position: [x, y, z],
+      orbitCenter: focusPos, orbitRadius: teamRadius,
       color: member.userColor || "#8E8E93",
       label: `${member.firstName} ${member.lastName}`.trim() || "Team Member",
-      sublabel: member.role,
-      dimmed: false,
-      visible: true,
+      sublabel: member.role, dimmed: false, visible: true,
     });
   }
 
@@ -360,21 +349,17 @@ function layoutLevel3(
 
   for (let i = 0; i < projectFinancials.length; i++) {
     const fin = projectFinancials[i];
-    // Offset angle from tasks + team
     const angle = (i / Math.max(projectFinancials.length, 1)) * Math.PI * 2 + Math.PI / 3;
     const x = focusPos[0] + finRadius * Math.cos(angle);
     const y = focusPos[1] + finRadius * Math.sin(angle);
     const z = focusPos[2] - 0.1;
 
     result.push({
-      entityId: fin.id,
-      nodeType: "financial",
-      position: [x, y, z],
-      color: "#BCBCBC",
-      label: fin.name,
+      entityId: fin.id, nodeType: "financial", position: [x, y, z],
+      orbitCenter: focusPos, orbitRadius: finRadius,
+      color: "#BCBCBC", label: fin.name,
       sublabel: fin.total != null ? `$${fin.total.toLocaleString()}` : undefined,
-      dimmed: false,
-      visible: true,
+      dimmed: false, visible: true,
     });
   }
 

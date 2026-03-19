@@ -69,8 +69,11 @@ const prefersReducedMotion =
 // Sprite plane: 0.35 gives a small glow halo. The visible "point" is
 // only the inner 2% (~7px on screen at default zoom). The rest is halo.
 const NODE_SIZE = 0.35;
-const HIT_RADIUS = 0.3; // Click target slightly larger than visual
-const DRIFT_AMPLITUDE = 0.08;
+const HIT_RADIUS = 0.3;
+
+// Orbital speed: radians per second. Slow enough to feel ambient,
+// fast enough to be clearly visible as orbital motion.
+const ORBIT_SPEED_BASE = 0.08; // ~4.6° per second — one revolution in ~78s
 const HOVER_EMISSIVE_BOOST = 0.3;
 const DIM_FACTOR = 0.2;
 
@@ -131,13 +134,25 @@ function GlowInstanceGroup({ color, nodes }: { color: string; nodes: PositionedN
   const searchResults = useIntelStore((s) => s.searchResults);
 
   const instanceData = useMemo(() => {
-    return nodes.map((node, idx) => ({
-      entityId: node.entityId,
-      dimmed: node.dimmed,
-      basePosition: new THREE.Vector3(...node.position),
-      driftPhase: idx * 2.399,
-      driftSpeed: 0.15 + (idx % 7) * 0.03,
-    }));
+    return nodes.map((node, idx) => {
+      // Compute the initial angle from orbit center to the node's base position.
+      // This is the starting phase of the orbital rotation.
+      const dx = node.position[0] - node.orbitCenter[0];
+      const dy = node.position[1] - node.orbitCenter[1];
+      const initialAngle = Math.atan2(dy, dx);
+
+      return {
+        entityId: node.entityId,
+        dimmed: node.dimmed,
+        orbitCenter: new THREE.Vector3(...node.orbitCenter),
+        orbitRadius: node.orbitRadius,
+        baseZ: node.position[2],
+        initialAngle,
+        // Speed variation: each node orbits at a slightly different rate
+        // so they don't move in lockstep. Range: 0.7x to 1.3x base speed.
+        orbitSpeed: ORBIT_SPEED_BASE * (0.7 + (idx % 7) * 0.1),
+      };
+    });
   }, [nodes]);
 
   useFrame((state) => {
@@ -151,10 +166,13 @@ function GlowInstanceGroup({ color, nodes }: { color: string; nodes: PositionedN
       const isSelected = d.entityId === selectedNodeId;
       const isSearchHit = searchQuery && searchResults.includes(d.entityId);
 
-      const driftY = prefersReducedMotion ? 0 : Math.sin(t * d.driftSpeed + d.driftPhase) * DRIFT_AMPLITUDE;
-      const px = d.basePosition.x;
-      const py = d.basePosition.y + driftY;
-      const pz = d.basePosition.z;
+      // Orbital motion: rotate the node around its orbit center.
+      // The angle advances by orbitSpeed * t from the initial layout angle.
+      // This creates a slow, continuous revolution — not a bounce.
+      const angle = prefersReducedMotion ? d.initialAngle : d.initialAngle + t * d.orbitSpeed;
+      const px = d.orbitCenter.x + d.orbitRadius * Math.cos(angle);
+      const py = d.orbitCenter.y + d.orbitRadius * Math.sin(angle);
+      const pz = d.baseZ;
 
       dummy.position.set(px, py, pz);
       liveNodePositions.set(d.entityId, { x: px, y: py, z: pz });
@@ -216,8 +234,19 @@ function ClickTargets({ nodes, onNodeClick }: { nodes: PositionedNode[]; onNodeC
   const focusProject = useIntelStore((s) => s.focusProject);
   const selectNode = useIntelStore((s) => s.selectNode);
   const setHoveredNode = useIntelStore((s) => s.setHoveredNode);
+  const meshRefs = useRef<Map<string, THREE.Mesh>>(new Map());
 
   const isTouchDevice = useRef(typeof window !== "undefined" && "ontouchstart" in window);
+
+  // Sync click target positions with live orbital positions every frame
+  useFrame(() => {
+    for (const [entityId, mesh] of meshRefs.current) {
+      const live = liveNodePositions.get(entityId);
+      if (live) {
+        mesh.position.set(live.x, live.y, live.z);
+      }
+    }
+  });
 
   if (!hitGeometry || !hitMaterial) return null;
 
@@ -226,6 +255,10 @@ function ClickTargets({ nodes, onNodeClick }: { nodes: PositionedNode[]; onNodeC
       {nodes.map((node) => (
         <mesh
           key={node.entityId}
+          ref={(ref) => {
+            if (ref) meshRefs.current.set(node.entityId, ref);
+            else meshRefs.current.delete(node.entityId);
+          }}
           position={node.position}
           geometry={hitGeometry}
           material={hitMaterial}
@@ -234,7 +267,11 @@ function ClickTargets({ nodes, onNodeClick }: { nodes: PositionedNode[]; onNodeC
             onNodeClick?.();
 
             const state = useIntelStore.getState();
-            const pos = { x: node.position[0], y: node.position[1], z: node.position[2] };
+            // Use live orbital position (not static layout position)
+            const live = liveNodePositions.get(node.entityId);
+            const pos = live
+              ? { x: live.x, y: live.y, z: live.z }
+              : { x: node.position[0], y: node.position[1], z: node.position[2] };
 
             if (node.nodeType === "client") {
               if (focusLevel === 1) {
