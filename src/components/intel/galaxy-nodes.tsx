@@ -286,6 +286,12 @@ function ColorInstanceGroup({ color, nodes, onNodeClick }: ColorInstanceGroupPro
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true;
     }
+    // Recompute the bounding sphere so the raycaster's pre-test passes.
+    // Without this, the bounding sphere is computed once on creation (before
+    // useFrame sets any matrices), resulting in a zero-radius sphere at the
+    // origin. The raycaster then skips the ENTIRE mesh for any mouse position
+    // not exactly at center — making all nodes unclickable.
+    meshRef.current.computeBoundingSphere();
   });
 
   if (nodes.length === 0) return null;
