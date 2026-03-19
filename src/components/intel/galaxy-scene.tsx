@@ -24,6 +24,7 @@ import { GalaxyNodes } from "./galaxy-nodes";
 import { GalaxyCenterNode } from "./galaxy-center";
 import { GalaxyEdges } from "./galaxy-edges";
 import { GalaxyCamera } from "./galaxy-camera";
+import { FocusedNodeLabel } from "./focused-node-label";
 import { computeHierarchicalLayout, type PositionedNode } from "./galaxy-layout";
 import { SearchPill } from "./hud/search-pill";
 import { StatsRibbon } from "./hud/stats-ribbon";
@@ -265,6 +266,14 @@ export function GalaxyScene() {
             <GalaxyEdges
               edges={data.edges}
               nodes={enrichedLayout}
+            />
+          )}
+
+          {/* 3D-anchored label for focused client/project */}
+          {data?.clientsWithStatus && (
+            <FocusedNodeLabel
+              clients={data.clientsWithStatus}
+              entities={data.entities}
             />
           )}
 

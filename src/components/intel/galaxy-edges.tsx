@@ -81,8 +81,8 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
       return;
     }
 
-    // At L2: always show focused client's edges (client→project connections).
-    // At L3: always show focused project's edges (project→task/financial).
+    // At L2: always show focused client's edges + org→client line.
+    // At L3: always show focused project's edges.
     // Hover/selection adds additional edges on top.
     const focusEntityId = focusLevel === 2 ? focusedClientId
       : focusLevel === 3 ? focusedProjectId
@@ -95,6 +95,27 @@ export function GalaxyEdges({ edges, nodes }: GalaxyEdgesProps) {
     }
 
     let lineIndex = 0;
+
+    // ── Synthetic edge: org center → focused client ────────────────────
+    // This line doesn't exist in the API edges, so we draw it manually.
+    if (focusLevel >= 2 && focusedClientId && lineIndex < maxEdges) {
+      const clientPos = liveNodePositions.get(focusedClientId) ?? positionMap.get(focusedClientId);
+      if (clientPos) {
+        const base = lineIndex * 6;
+        // Origin (org center)
+        linePositions[base] = 0;
+        linePositions[base + 1] = 0;
+        linePositions[base + 2] = 0;
+        // Client position
+        const cx = "x" in clientPos ? clientPos.x : (clientPos as THREE.Vector3).x;
+        const cy = "y" in clientPos ? clientPos.y : (clientPos as THREE.Vector3).y;
+        const cz = "z" in clientPos ? clientPos.z : (clientPos as THREE.Vector3).z;
+        linePositions[base + 3] = cx;
+        linePositions[base + 4] = cy;
+        linePositions[base + 5] = cz;
+        lineIndex++;
+      }
+    }
 
     for (let i = 0; i < edges.length && lineIndex < maxEdges; i++) {
       const edge = edges[i];
