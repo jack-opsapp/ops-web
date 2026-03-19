@@ -1036,6 +1036,12 @@ export type CreateOpportunity = Omit<
   | "aiStageConfidence"
   | "aiStageSignals"
   | "detectedValue"
+  | "correspondenceCount"
+  | "outboundCount"
+  | "inboundCount"
+  | "lastInboundAt"
+  | "lastOutboundAt"
+  | "lastMessageDirection"
   | "createdAt"
   | "updatedAt"
   | "deletedAt"
@@ -1049,6 +1055,12 @@ export type CreateOpportunity = Omit<
   | "sourceEmailId"
 > & {
   sourceEmailId?: string | null;
+  correspondenceCount?: number;
+  outboundCount?: number;
+  inboundCount?: number;
+  lastInboundAt?: Date | null;
+  lastOutboundAt?: Date | null;
+  lastMessageDirection?: "in" | "out" | null;
 };
 
 export type CreateEstimate = Omit<
