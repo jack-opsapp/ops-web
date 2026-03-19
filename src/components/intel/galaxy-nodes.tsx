@@ -226,12 +226,28 @@ function ClickTargets({ nodes, onNodeClick }: { nodes: PositionedNode[]; onNodeC
             e.stopPropagation();
             onNodeClick?.();
 
+            const state = useIntelStore.getState();
             const pos = { x: node.position[0], y: node.position[1], z: node.position[2] };
-            if (node.nodeType === "client" && focusLevel === 1) {
-              focusClient(node.entityId, pos);
-            } else if (node.nodeType === "project" && focusLevel === 2) {
-              focusProject(node.entityId, pos);
+
+            if (node.nodeType === "client") {
+              if (focusLevel === 1) {
+                // L1: zoom into this client
+                focusClient(node.entityId, pos);
+              } else if (focusLevel === 2 && node.entityId !== state.focusedClientId) {
+                // L2: switch to a different client
+                focusClient(node.entityId, pos);
+              }
+              // L2 + same client = do nothing (already focused)
+              // L3 = do nothing (client is background)
+            } else if (node.nodeType === "project") {
+              if (focusLevel === 2) {
+                // L2: zoom into this project
+                focusProject(node.entityId, pos);
+              }
+              // L3 + same project = do nothing
+              // L3 + different project = do nothing (they're dimmed background)
             } else {
+              // Tasks, team, financial at L3 → show info panel
               selectNode(node.entityId);
             }
           }}
