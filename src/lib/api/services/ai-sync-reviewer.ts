@@ -11,8 +11,19 @@ import type {
   SyncProfile,
 } from "@/lib/types/email-connection";
 
+export interface AIClassifiedLead {
+  email: NormalizedEmail;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string | null;
+  description: string;
+  stage: string;
+  estimatedValue: number | null;
+}
+
 export interface AIReviewResult {
   newLeadsClassified: number;
+  classifiedLeads: AIClassifiedLead[];
   stageChanges: number;
   terminalFlags: Array<{
     opportunityId: string;
@@ -27,6 +38,7 @@ export interface AIReviewResult {
 function emptyReviewResult(): AIReviewResult {
   return {
     newLeadsClassified: 0,
+    classifiedLeads: [],
     stageChanges: 0,
     terminalFlags: [],
     duplicatesDetected: 0,
@@ -79,8 +91,26 @@ export const AISyncReviewer = {
       (c) => c.verdict === "lead" && c.confidence >= threshold
     );
 
+    // Build classified leads with their source emails for persistence
+    const classifiedLeads: AIClassifiedLead[] = leads
+      .map((c) => {
+        const sourceEmail = unmatchedEmails.find((e) => e.id === c.id);
+        if (!sourceEmail || !c.client) return null;
+        return {
+          email: sourceEmail,
+          clientName: c.client.name,
+          clientEmail: c.client.email,
+          clientPhone: c.client.phone,
+          description: c.client.description,
+          stage: c.stage || "new_lead",
+          estimatedValue: c.estimatedValue,
+        };
+      })
+      .filter((l): l is AIClassifiedLead => l !== null);
+
     return {
       newLeadsClassified: leads.length,
+      classifiedLeads,
       stageChanges: 0,
       terminalFlags: [],
       duplicatesDetected: classifications.filter(

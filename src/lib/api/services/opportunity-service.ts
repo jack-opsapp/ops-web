@@ -87,6 +87,19 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     lostNotes: (row.lost_notes as string) ?? null,
     sourceEmailId: (row.source_email_id as string) ?? null,
 
+    // Email correspondence tracking
+    correspondenceCount: Number(row.correspondence_count ?? 0),
+    outboundCount: Number(row.outbound_count ?? 0),
+    inboundCount: Number(row.inbound_count ?? 0),
+    lastInboundAt: parseDate(row.last_inbound_at),
+    lastOutboundAt: parseDate(row.last_outbound_at),
+    lastMessageDirection: (row.last_message_direction as "in" | "out") ?? null,
+
+    // AI analysis
+    aiStageConfidence: row.ai_stage_confidence != null ? Number(row.ai_stage_confidence) : null,
+    aiStageSignals: (row.ai_stage_signals as string) ?? null,
+    detectedValue: row.detected_value != null ? Number(row.detected_value) : null,
+
     // Quote delivery
     quoteDeliveryMethod: (row.quote_delivery_method as Opportunity["quoteDeliveryMethod"]) ?? null,
 
@@ -157,6 +170,26 @@ function mapOpportunityToDb(
   if (data.lostReason !== undefined) row.lost_reason = data.lostReason;
   if (data.lostNotes !== undefined) row.lost_notes = data.lostNotes;
   if (data.sourceEmailId !== undefined) row.source_email_id = data.sourceEmailId;
+
+  // Email correspondence tracking
+  if (data.correspondenceCount !== undefined) row.correspondence_count = data.correspondenceCount;
+  if (data.outboundCount !== undefined) row.outbound_count = data.outboundCount;
+  if (data.inboundCount !== undefined) row.inbound_count = data.inboundCount;
+  if (data.lastInboundAt !== undefined) {
+    row.last_inbound_at = data.lastInboundAt
+      ? data.lastInboundAt instanceof Date
+        ? data.lastInboundAt.toISOString()
+        : data.lastInboundAt
+      : null;
+  }
+  if (data.lastOutboundAt !== undefined) {
+    row.last_outbound_at = data.lastOutboundAt
+      ? data.lastOutboundAt instanceof Date
+        ? data.lastOutboundAt.toISOString()
+        : data.lastOutboundAt
+      : null;
+  }
+  if (data.lastMessageDirection !== undefined) row.last_message_direction = data.lastMessageDirection;
 
   // Quote delivery
   if (data.quoteDeliveryMethod !== undefined) row.quote_delivery_method = data.quoteDeliveryMethod;

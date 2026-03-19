@@ -282,6 +282,10 @@ async function runImport(
       if (existingOpps && existingOpps.length > 0) {
         opportunityId = existingOpps[0].id;
       } else {
+        const inboundCount = Math.max(0, (lead.correspondenceCount || 0) - (lead.outboundCount || 0));
+        const lastMessageDate = lead.lastMessageDate ? new Date(lead.lastMessageDate) : null;
+        const isOutbound = (lead.outboundCount || 0) > 0 && inboundCount === 0;
+
         const opp = await OpportunityService.createOpportunity({
           companyId,
           clientId,
@@ -306,6 +310,12 @@ async function runImport(
           lostNotes: null,
           quoteDeliveryMethod: null,
           address: null,
+          correspondenceCount: lead.correspondenceCount || 0,
+          outboundCount: lead.outboundCount || 0,
+          inboundCount,
+          lastInboundAt: !isOutbound && lastMessageDate ? lastMessageDate : null,
+          lastOutboundAt: isOutbound && lastMessageDate ? lastMessageDate : null,
+          lastMessageDirection: isOutbound ? "out" : "in",
           tags: ["email-import", "pipeline-wizard"],
         });
         opportunityId = opp.id;

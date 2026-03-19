@@ -89,6 +89,9 @@ export interface ImportPayload {
     description: string;
     stage: string;
     estimatedValue: number | null;
+    correspondenceCount: number;
+    outboundCount: number;
+    lastMessageDate: string | null;
     existingClientId: string | null;
     action: 'create_new' | 'link' | 'create_subclient';
     mergeWithLeadId: string | null;

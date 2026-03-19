@@ -393,6 +393,19 @@ export interface Opportunity {
   // Email source
   sourceEmailId: string | null;
 
+  // Email correspondence tracking (populated by import + ongoing sync)
+  correspondenceCount: number;
+  outboundCount: number;
+  inboundCount: number;
+  lastInboundAt: Date | null;
+  lastOutboundAt: Date | null;
+  lastMessageDirection: "in" | "out" | null;
+
+  // AI analysis
+  aiStageConfidence: number | null;
+  aiStageSignals: string | null;
+  detectedValue: number | null;
+
   // Denormalized for performance
   lastActivityAt: Date | null;
   nextFollowUpAt: Date | null;
@@ -1020,6 +1033,9 @@ export type CreateOpportunity = Omit<
   | "stageEnteredAt"
   | "lastActivityAt"
   | "nextFollowUpAt"
+  | "aiStageConfidence"
+  | "aiStageSignals"
+  | "detectedValue"
   | "createdAt"
   | "updatedAt"
   | "deletedAt"

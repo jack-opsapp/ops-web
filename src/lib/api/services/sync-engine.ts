@@ -231,6 +231,7 @@ async function updateCorrespondenceCounts(
   const updates: Record<string, unknown> = {
     correspondence_count: (opp.correspondence_count || 0) + 1,
     last_message_direction: direction === "inbound" ? "in" : "out",
+    last_activity_at: new Date().toISOString(),
   };
 
   if (direction === "inbound") {
@@ -701,6 +702,43 @@ export const SyncEngine = {
               domains: profile.companyDomains || [],
             }
           );
+
+          // Persist AI-classified leads as opportunities
+          for (const classified of aiResult.classifiedLeads) {
+            try {
+              const matchResult = await EmailMatchingServiceV2.match(
+                connection.companyId,
+                classified.clientEmail,
+                {
+                  threadId: classified.email.threadId,
+                  name: classified.clientName,
+                  connectionId: connection.id,
+                }
+              );
+
+              let clientId: string;
+              if (matchResult.action === "link" || matchResult.action === "create_subclient") {
+                clientId = matchResult.clientId!;
+              } else {
+                clientId = await createClient(classified.email, connection.companyId);
+              }
+
+              const oppId = await createOpportunity(
+                classified.email,
+                clientId,
+                connection.companyId,
+                classified.stage
+              );
+              await linkThread(oppId, classified.email.threadId, connection.id);
+              await createActivity(classified.email, connection, oppId, "inbound", {
+                matchConfidence: "ai",
+              });
+              await applyLabel(classified.email.threadId, connection, result);
+              result.activitiesCreated++;
+            } catch (err) {
+              console.error(`[sync-engine] Failed to persist AI lead ${classified.clientEmail}:`, err);
+            }
+          }
           result.newLeads += aiResult.newLeadsClassified;
         }
 
@@ -730,6 +768,25 @@ export const SyncEngine = {
               await createTerminalFlagNotification(sr, connection);
             }
             if (sr.newStage) {
+              // Write the AI-evaluated stage to the opportunity
+              const { data: threadOpp } = await supabase
+                .from("opportunity_email_threads")
+                .select("opportunity_id")
+                .eq("thread_id", sr.threadId)
+                .eq("connection_id", connection.id)
+                .limit(1);
+
+              if (threadOpp && threadOpp.length > 0) {
+                await supabase
+                  .from("opportunities")
+                  .update({
+                    stage: sr.newStage,
+                    stage_entered_at: new Date().toISOString(),
+                    ai_stage_confidence: 1.0,
+                    ai_stage_signals: sr.terminalFlag || "ai_evaluated",
+                  })
+                  .eq("id", threadOpp[0].opportunity_id);
+              }
               result.stageChanges++;
             }
           }
