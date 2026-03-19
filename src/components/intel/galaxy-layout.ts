@@ -176,11 +176,11 @@ function layoutLevel2(
     });
   }
 
-  // Projects orbit the focused client
+  // Projects orbit the focused client — tight orbit so they feel connected
   const clientProjects = config.projects.filter(p => p.clientId === config.focusedClientId);
   if (clientProjects.length === 0) return result;
 
-  const pRadius = clientProjects.length < 6 ? 3 : clientProjects.length < 15 ? 2.5 : 2;
+  const pRadius = clientProjects.length < 6 ? 1.8 : clientProjects.length < 15 ? 1.5 : 1.2;
 
   for (let i = 0; i < clientProjects.length; i++) {
     const project = clientProjects[i];
@@ -247,7 +247,7 @@ function layoutLevel3(
 
   // ── Projects of focused client: dimmed except focused ─────────────────
   const siblingProjects = config.projects.filter(p => p.clientId === config.focusedClientId);
-  const pRadius = siblingProjects.length < 6 ? 3 : siblingProjects.length < 15 ? 2.5 : 2;
+  const pRadius = siblingProjects.length < 6 ? 1.8 : siblingProjects.length < 15 ? 1.5 : 1.2;
 
   for (let i = 0; i < siblingProjects.length; i++) {
     const project = siblingProjects[i];

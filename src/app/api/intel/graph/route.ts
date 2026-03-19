@@ -330,6 +330,7 @@ export async function GET(req: NextRequest) {
       name: (p.title as string) ?? "Untitled Project",
       cluster: "project",
       properties: {
+        clientId: p.client_id,
         status: p.status,
         address: p.address,
         startDate: p.start_date,

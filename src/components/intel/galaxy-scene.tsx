@@ -105,37 +105,7 @@ export function GalaxyScene() {
     }
   }, [data?.entities, setNewEntityIds]);
 
-  // ── Compute hierarchical layout ──────────────────────────────────────
-  const layout = useMemo<PositionedNode[]>(() => {
-    if (!data?.clientsWithStatus) return [];
-    return computeHierarchicalLayout({
-      clients: data.clientsWithStatus,
-      projects: data.entities
-        .filter(e => e.type === "project")
-        .map(e => ({
-          id: e.id,
-          clientId: (e.properties.clientId as string) ?? "",
-          title: e.name,
-          status: (e.properties.status as string) ?? "RFQ",
-          address: (e.properties.address as string) ?? null,
-        })),
-      tasks: data.tasks ?? [],
-      teamMembers: data.teamMembers ?? [],
-      financialEntities: data.entities
-        .filter(e => e.type === "invoice" || e.type === "estimate")
-        .map(e => ({
-          id: e.id,
-          projectId: (e.properties.projectId as string) ?? null,
-          name: e.name,
-          type: e.type as "invoice" | "estimate",
-          total: (e.properties.total as number) ?? null,
-          status: (e.properties.status as string) ?? null,
-        })),
-      focusLevel,
-      focusedClientId,
-      focusedProjectId,
-    });
-  }, [data, focusLevel, focusedClientId, focusedProjectId]);
+  // (layout is computed in enrichedLayout below)
 
   // ── Unified Escape handler ───────────────────────────────────────────
   // Priority: dismiss selection first, then navigate back
@@ -175,15 +145,24 @@ export function GalaxyScene() {
   // it via DOM bubbling — making all clicks appear broken.
   const r3fHandledClickRef = useRef(false);
 
+  const focusBack = useIntelStore((s) => s.focusBack);
+
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).tagName === "CANVAS") {
-        // If R3F already handled this click (on a node), skip dismissal
+        // If R3F already handled this click (on a node), skip
         if (r3fHandledClickRef.current) {
           r3fHandledClickRef.current = false;
           return;
         }
-        dismissSelection();
+        // If a node is selected, deselect it first
+        const state = useIntelStore.getState();
+        if (state.selectedNodeId || state.expandedNodeId) {
+          dismissSelection();
+        } else if (state.focusLevel > 1) {
+          // No selection — go back a level
+          state.focusBack();
+        }
       }
     },
     [dismissSelection]
@@ -191,44 +170,21 @@ export function GalaxyScene() {
 
   const companyName = company?.name || "Your Company";
 
-  // Projects need client_id linkage — build from entities that have it
-  const projectClientMap = useMemo(() => {
-    if (!data?.entities) return new Map<string, string>();
-    const map = new Map<string, string>();
-    for (const e of data.entities) {
-      if (e.type === "project" && e.properties.clientId) {
-        // The entities array stores clients with the "person" type but in "client" cluster.
-        // Projects reference clients via edges. We need to find client_id.
-        // It's stored in the edge (owns_project) sourceId.
-      }
-    }
-    // Use edges to map project → client
-    for (const edge of data.edges ?? []) {
-      if (edge.predicate === "owns_project") {
-        map.set(edge.targetId, edge.sourceId); // project → client
-      }
-    }
-    return map;
-  }, [data?.entities, data?.edges]);
-
-  // Enrich projects with clientId for the layout
+  // Compute hierarchical layout from API data + focus state
   const enrichedLayout = useMemo<PositionedNode[]>(() => {
     if (!data?.clientsWithStatus) return [];
 
-    // Build projects array with proper clientId from edges
-    const projects = data.entities
-      .filter(e => e.type === "project")
-      .map(e => ({
-        id: e.id,
-        clientId: projectClientMap.get(e.id) ?? "",
-        title: e.name,
-        status: (e.properties.status as string) ?? "RFQ",
-        address: (e.properties.address as string) ?? null,
-      }));
-
     return computeHierarchicalLayout({
       clients: data.clientsWithStatus,
-      projects,
+      projects: data.entities
+        .filter(e => e.type === "project")
+        .map(e => ({
+          id: e.id,
+          clientId: (e.properties.clientId as string) ?? "",
+          title: e.name,
+          status: (e.properties.status as string) ?? "RFQ",
+          address: (e.properties.address as string) ?? null,
+        })),
       tasks: data.tasks ?? [],
       teamMembers: data.teamMembers ?? [],
       financialEntities: data.entities
@@ -245,7 +201,7 @@ export function GalaxyScene() {
       focusedClientId,
       focusedProjectId,
     });
-  }, [data, focusLevel, focusedClientId, focusedProjectId, projectClientMap]);
+  }, [data, focusLevel, focusedClientId, focusedProjectId]);
 
   return (
     <div ref={containerRef} className="w-full h-full relative" onClick={handleCanvasClick}>

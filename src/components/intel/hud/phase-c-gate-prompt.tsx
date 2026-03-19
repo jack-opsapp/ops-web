@@ -1,9 +1,8 @@
 "use client";
 
 // ---------------------------------------------------------------------------
-// PhaseCGatePrompt — centered frosted-glass modal that appears when the user
-// attempts to rotate the galaxy without Phase C enabled. Contains redacted
-// copy to build intrigue.
+// PhaseCGatePrompt — centered frosted-glass modal for Phase C registration.
+// Blocks ALL interaction when visible (full-screen backdrop).
 // ---------------------------------------------------------------------------
 
 import { useCallback } from "react";
@@ -33,41 +32,51 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
   if (!showGatePrompt) return null;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+    // Full-screen backdrop blocks ALL canvas interaction (scroll, pan, click)
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center"
+      style={{ background: "rgba(10, 10, 10, 0.5)" }}
+      onClick={handleDismiss}
+    >
       <div
-        className="pointer-events-auto relative max-w-[280px] px-6 py-5"
+        className="relative max-w-[380px] w-full mx-6 px-8 py-7"
         style={{
-          background: "rgba(10, 10, 10, 0.85)",
-          backdropFilter: "blur(20px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          background: "rgba(10, 10, 10, 0.90)",
+          backdropFilter: "blur(24px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.2)",
           border: "1px solid rgba(255, 255, 255, 0.08)",
           borderRadius: "3px",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Dismiss X */}
         <button
           onClick={handleDismiss}
-          className="absolute top-2 right-2 text-[#666] hover:text-white transition-colors"
+          className="absolute top-3 right-3 text-[#666] hover:text-white transition-colors"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
 
         {/* Content */}
-        <div className="text-left space-y-3">
-          <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794]">
+        <div className="text-left space-y-4">
+          <div className="font-kosugi text-[11px] uppercase tracking-wider text-[#597794]">
             {t("gate.title")}
           </div>
 
-          <div className="font-mohave text-sm text-white leading-relaxed">
+          <div className="font-mohave text-base text-white leading-relaxed">
             <RedactedText>{t("gate.prompt")}</RedactedText>
           </div>
 
+          <p className="font-mohave text-sm text-[#999] leading-relaxed">
+            Phase C transforms your operations data into an intelligent network — mapping relationships, patterns, and insights across your entire business.
+          </p>
+
           <button
             onClick={handleRequest}
-            className="font-kosugi text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
+            className="font-kosugi text-[10px] uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors"
             style={{
-              background: "rgba(89, 119, 148, 0.15)",
-              border: "1px solid rgba(89, 119, 148, 0.3)",
+              background: "rgba(89, 119, 148, 0.2)",
+              border: "1px solid rgba(89, 119, 148, 0.4)",
               color: "#597794",
             }}
           >
