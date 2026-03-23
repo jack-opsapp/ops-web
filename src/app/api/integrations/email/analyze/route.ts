@@ -670,7 +670,18 @@ async function runPhaseA(
         estimatePattern: detection.estimatePattern,
         estimatePatternConfidence: detection.estimatePatternConfidence,
         estimateThreadCount: detection.estimateThreadCount,
-        detectedSources: detection.detectedSources,
+        detectedSources: [
+          ...detection.detectedSources,
+          // Add AI-detected source so Step 3 shows it as a toggleable source
+          ...(leads.filter((l) => l.source === 'ai').length > 0 ? [{
+            type: 'ai_detected' as const,
+            label: 'AI-detected customer conversations',
+            pattern: 'ai',
+            count: leads.filter((l) => l.source === 'ai').length,
+            enabled: true,
+            sampleEmails: [],
+          }] : []),
+        ],
         companyDomains: [...companyDomainSet],
         teamForwarders: detection.teamForwarders,
         totalEmailsScanned: detection.totalEmailsScanned,

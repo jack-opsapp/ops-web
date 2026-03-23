@@ -45,7 +45,7 @@ import { PipelineMetricsBar } from "./_components/pipeline-metrics-bar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
-import { QuickAddForm } from "./_components/quick-add-form";
+import { useWindowStore } from "@/stores/window-store";
 import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
 import { EmailReviewPanel } from "@/components/ops/email-review-panel";
 import { useSetupGate } from "@/hooks/useSetupGate";
@@ -173,8 +173,8 @@ export default function PipelinePage() {
   // ── Card expand state (single card accordion) ─────────────────────────
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
-  // ── Quick add ─────────────────────────────────────────────────────────
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  // ── Lead creation via floating window ────────────────────────────────
+  const openWindow = useWindowStore((s) => s.openWindow);
 
   // ── Inbox leads / email review ────────────────────────────────────────
   const [showInboxLeads, setShowInboxLeads] = useState(false);
@@ -213,9 +213,9 @@ export default function PipelinePage() {
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams.get("action") === "new") {
-      setShowQuickAdd(true);
+      openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
     }
-  }, [searchParams]);
+  }, [searchParams, openWindow]);
 
   // ── Auth ──────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();
@@ -230,8 +230,8 @@ export default function PipelinePage() {
       setShowSetupModal(true);
       return;
     }
-    setShowQuickAdd(true);
-  }, [setupComplete]);
+    openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
+  }, [setupComplete, openWindow]);
 
   // ── Data fetching ─────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
@@ -559,62 +559,6 @@ export default function PipelinePage() {
     setPendingStageMove(null);
   }, []);
 
-  /** Handle quick add form submission */
-  const handleQuickAdd = useCallback(
-    (data: {
-      title: string;
-      contactName: string;
-      estimatedValue?: number;
-    }) => {
-      if (!can("pipeline.manage")) return;
-      if (!company) return;
-
-      createOpportunity.mutate(
-        {
-          companyId: company.id,
-          clientId: null,
-          title: data.title,
-          description: null,
-          contactName: data.contactName,
-          contactEmail: null,
-          contactPhone: null,
-          stage: OpportunityStage.NewLead,
-          source: null,
-          assignedTo: currentUser?.id ?? null,
-          priority: null,
-          estimatedValue: data.estimatedValue ?? null,
-          actualValue: null,
-          winProbability: 10,
-          expectedCloseDate: null,
-          actualCloseDate: null,
-          projectId: null,
-          lostReason: null,
-          lostNotes: null,
-          quoteDeliveryMethod: null,
-          address: null,
-          tags: [],
-        },
-        {
-          onSuccess: () => {
-            toast.success(t("toast.newLeadCreated"), {
-              description: data.title,
-            });
-            setShowQuickAdd(false);
-          },
-          onError: (error) => {
-            toast.error(t("toast.failedCreateLead"), {
-              description:
-                error instanceof Error
-                  ? error.message
-                  : t("toast.errorOccurred"),
-            });
-          },
-        }
-      );
-    },
-    [company, currentUser, createOpportunity, can, t]
-  );
-
   /** Open detail sheet for an opportunity */
   const handleSelectOpportunity = useCallback((opp: Opportunity) => {
     setSelectedOpportunity(opp);
@@ -818,18 +762,6 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* Quick Add Form (inline overlay at top) */}
-      {showQuickAdd && (
-        <div className="shrink-0">
-          <div className="max-w-[280px]">
-            <QuickAddForm
-              onSubmit={handleQuickAdd}
-              onCancel={() => setShowQuickAdd(false)}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Pipeline Board / Mobile */}
       <div className="flex-1 min-h-0 min-w-0">
         {isMobile ? (
@@ -907,7 +839,7 @@ export default function PipelinePage() {
         isOpen={showSetupModal}
         onComplete={() => {
           setShowSetupModal(false);
-          setShowQuickAdd(true);
+          openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
         }}
         onDismiss={() => {
           setShowSetupModal(false);

@@ -182,6 +182,20 @@ export const ClientService = {
   },
 
   /**
+   * Soft-delete a client by setting deleted_at timestamp.
+   */
+  async softDeleteClient(id: string): Promise<void> {
+    const supabase = requireSupabase();
+
+    const { error } = await supabase
+      .from("clients")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) throw new Error(`Failed to soft-delete client: ${error.message}`);
+  },
+
+  /**
    * Soft delete a client by setting deleted_at.
    */
   async deleteClient(id: string): Promise<void> {

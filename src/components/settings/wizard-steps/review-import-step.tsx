@@ -170,21 +170,26 @@ function LeadCard({ lead, onToggle, onStageChange, onNameChange, variant = "acti
 
   // Border tint for review/terminal cards
   const borderColor = isReview
-    ? "rgba(196, 168, 104, 0.15)"
+    ? "rgba(196, 168, 104, 0.35)"
     : isTerminal
       ? lead.stage === "won"
         ? "rgba(157, 181, 130, 0.15)"
         : "rgba(107, 114, 128, 0.15)"
       : "rgba(255, 255, 255, 0.08)";
 
+  const bgColor = isReview
+    ? "rgba(196, 168, 104, 0.04)"
+    : "#111";
+
   return (
     <motion.div
       variants={staggerItem}
-      className="p-2.5 bg-[#111] transition-all"
+      className="p-2.5 transition-all"
       style={{
         borderRadius: 2,
         opacity: lead.enabled ? 1 : 0.35,
-        border: `1px solid ${borderColor}`,
+        border: isReview ? `1.5px solid ${borderColor}` : `1px solid ${borderColor}`,
+        background: bgColor,
       }}
     >
       <div className="flex items-center gap-3">
@@ -510,8 +515,8 @@ export function ReviewImportStep({
         </p>
       </div>
 
-      <div className="relative flex-1 min-h-0">
-        <div className="space-y-3 max-h-full overflow-y-auto scrollbar-hide pb-8">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide relative">
+        <div className="space-y-3 pb-20">
 
           {/* ─── Section 1: Review Items ──────────────────────────────────── */}
           {reviewLeads.length > 0 && (
@@ -654,30 +659,29 @@ export function ReviewImportStep({
             );
           })}
         </div>
-        {/* Gradient fade at bottom */}
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0D0D0D] to-transparent" />
-      </div>
 
-      {/* Fixed confirm bar — always visible at bottom */}
-      <div
-        className="flex-shrink-0 mt-4 -mx-6 px-6 py-3 flex items-center justify-between border-t border-white/8"
-        style={{
-          background: 'rgba(13, 13, 13, 0.85)',
-          backdropFilter: 'blur(20px) saturate(1.2)',
-          WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
-        }}
-      >
-        <p className="font-mohave text-[13px] text-[#999]">
-          {enabledCount} lead{enabledCount !== 1 ? "s" : ""} selected
-        </p>
-        <Button
-          onClick={onConfirm}
-          disabled={enabledCount === 0}
-          className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2 disabled:opacity-40"
-          style={{ borderRadius: 3 }}
+        {/* Sticky confirm bar — always visible at bottom of scroll area */}
+        <div
+          className="sticky bottom-0 -mx-6 px-6 py-3 flex items-center justify-between border-t border-white/8"
+          style={{
+            background: 'rgba(13, 13, 13, 0.92)',
+            backdropFilter: 'blur(20px) saturate(1.2)',
+            WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
+            zIndex: 10,
+          }}
         >
-          Confirm {enabledCount} Lead{enabledCount !== 1 ? "s" : ""}
-        </Button>
+          <p className="font-mohave text-[13px] text-[#999]">
+            {enabledCount} lead{enabledCount !== 1 ? "s" : ""} selected
+          </p>
+          <Button
+            onClick={onConfirm}
+            disabled={enabledCount === 0}
+            className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2 disabled:opacity-40"
+            style={{ borderRadius: 3 }}
+          >
+            Confirm {enabledCount} Lead{enabledCount !== 1 ? "s" : ""}
+          </Button>
+        </div>
       </div>
     </div>
   );

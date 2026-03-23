@@ -20,6 +20,8 @@ import { useWindowStore } from "@/stores/window-store";
 import { CreateProjectForm } from "@/components/ops/create-project-modal";
 import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
+import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
+import { CreateLeadForm } from "@/components/ops/create-lead-modal";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
@@ -80,6 +82,18 @@ function FloatingWindows() {
           )}
           {win.type === "create-task" && (
             <CreateTaskForm
+              onSuccess={() => closeWindow(win.id)}
+              onCancel={() => closeWindow(win.id)}
+            />
+          )}
+          {win.type === "create-estimate" && (
+            <CreateEstimateForm
+              onSuccess={() => closeWindow(win.id)}
+              onCancel={() => closeWindow(win.id)}
+            />
+          )}
+          {win.type === "create-lead" && (
+            <CreateLeadForm
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
             />

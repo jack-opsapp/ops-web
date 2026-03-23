@@ -190,18 +190,79 @@ async function runImport(
     await updateProgress(i, `Importing lead ${i + 1} of ${leads.length}...`);
 
     try {
+      // ── Handle discard — skip this lead entirely ──────────────────────
+      if (lead.action === "discard") {
+        console.log(`[email-import] DISCARD: Skipping lead "${lead.clientName}" (${lead.clientEmail})`);
+        continue;
+      }
+
+      // Use local variables to avoid mutating the payload object
+      let effectiveAction = lead.action;
+      let effectiveExistingClientId = lead.existingClientId;
+
+      // ── Handle discard_existing — soft-delete existing, create new ────
+      if (effectiveAction === "discard_existing" && effectiveExistingClientId) {
+        console.log(`[email-import] DISCARD_EXISTING: Soft-deleting client ${effectiveExistingClientId}, creating new for "${lead.clientName}"`);
+        await ClientService.softDeleteClient(effectiveExistingClientId);
+        effectiveAction = "create_new";
+        effectiveExistingClientId = null;
+      }
+
       let clientId: string;
 
-      // Handle merge: if this lead merges with another, use that client
-      if (lead.mergeWithLeadId && mergeMap.has(lead.mergeWithLeadId)) {
+      // ── Handle merge — update existing client with imported data ───────
+      if (effectiveAction === "merge") {
+        if (!effectiveExistingClientId) {
+          const msg = `Merge failed for "${lead.clientName}": no existing client ID`;
+          console.error(`[email-import] ${msg}`);
+          result.errors.push(msg);
+          continue;
+        }
+        console.log(`[email-import] MERGE (${lead.mergeMode || "fill_blanks"}): "${lead.clientName}" → existing client ${effectiveExistingClientId}`);
+
+        const { data: existingClient } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("id", effectiveExistingClientId)
+          .single();
+
+        if (existingClient) {
+          const updates: Record<string, unknown> = {};
+
+          if (lead.mergeMode === "overwrite") {
+            if (lead.clientName) updates.name = lead.clientName;
+            if (lead.clientEmail) updates.email = lead.clientEmail;
+            if (lead.clientPhone) updates.phone_number = lead.clientPhone;
+          } else {
+            // fill_blanks (default)
+            if (!existingClient.name && lead.clientName) updates.name = lead.clientName;
+            if (!existingClient.email && lead.clientEmail) updates.email = lead.clientEmail;
+            if (!existingClient.phone_number && lead.clientPhone) updates.phone_number = lead.clientPhone;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            const { error: updateErr } = await supabase
+              .from("clients")
+              .update(updates)
+              .eq("id", effectiveExistingClientId);
+
+            if (updateErr) {
+              console.error(`[email-import] Failed to merge client: ${updateErr.message}`);
+            }
+          }
+        }
+
+        clientId = effectiveExistingClientId;
+      } else if (lead.mergeWithLeadId && mergeMap.has(lead.mergeWithLeadId)) {
+        // Handle dedup merge: if this lead merges with another, use that client
         clientId = mergeMap.get(lead.mergeWithLeadId)!;
-      } else if (lead.action === "link" && lead.existingClientId) {
-        clientId = lead.existingClientId;
+      } else if (effectiveAction === "link" && effectiveExistingClientId) {
+        clientId = effectiveExistingClientId;
       } else if (
-        lead.action === "create_subclient" &&
-        lead.existingClientId
+        effectiveAction === "create_subclient" &&
+        effectiveExistingClientId
       ) {
-        clientId = lead.existingClientId;
+        clientId = effectiveExistingClientId;
         try {
           const { data: existingSub } = await supabase
             .from("sub_clients")
@@ -456,7 +517,7 @@ async function runImport(
   // ─── Update connection state ──────────────────────────────────────────────
   const { data: currentConn } = await supabase
     .from("email_connections")
-    .select("sync_filters")
+    .select("sync_filters, user_id, company_id")
     .eq("id", connectionId)
     .single();
 
@@ -473,4 +534,21 @@ async function runImport(
       },
     })
     .eq("id", connectionId);
+
+  // ─── Create notification for background completion ────────────────────────
+  if (currentConn?.user_id) {
+    await supabase.from("notifications").insert({
+      user_id: currentConn.user_id,
+      company_id: currentConn.company_id || companyId,
+      type: "mention",
+      title: "Pipeline import complete",
+      body: `Created ${result.clientsCreated} client${result.clientsCreated !== 1 ? "s" : ""} and ${result.leadsCreated} lead${result.leadsCreated !== 1 ? "s" : ""}`,
+      is_read: false,
+      persistent: true,
+      action_url: "/settings?tab=company",
+      action_label: "Activate Sync",
+    }).then(({ error: notifErr }) => {
+      if (notifErr) console.error("[email-import] Failed to create notification:", notifErr.message);
+    });
+  }
 }

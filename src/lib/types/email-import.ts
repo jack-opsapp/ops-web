@@ -64,7 +64,7 @@ export interface AnalyzedLead {
   matchResult: {
     existingClientId: string | null;
     existingClientName: string | null;
-    action: 'link' | 'create_subclient' | 'review' | 'create_new';
+    action: 'link' | 'create_subclient' | 'review' | 'create_new' | 'merge' | 'discard' | 'discard_existing';
     confidence: string;
   };
   enabled: boolean;
@@ -74,6 +74,8 @@ export interface AnalyzedLead {
   needsReview?: boolean;
   /** Why this was flagged for review */
   reviewReason?: 'legal' | 'job_seeker' | 'collections' | 'platform_bid' | 'warranty' | 'ambiguous' | null;
+  /** Merge mode for duplicate resolution — fill blanks or overwrite existing data */
+  mergeMode?: 'fill_blanks' | 'overwrite';
 }
 
 // Step 4 → Step 5: import payload
@@ -93,7 +95,8 @@ export interface ImportPayload {
     outboundCount: number;
     lastMessageDate: string | null;
     existingClientId: string | null;
-    action: 'create_new' | 'link' | 'create_subclient';
+    action: 'create_new' | 'link' | 'create_subclient' | 'merge' | 'discard' | 'discard_existing';
+    mergeMode?: 'fill_blanks' | 'overwrite';
     mergeWithLeadId: string | null;
     subContacts?: Array<{ name: string; email: string; phone: string | null }>;
   }>;

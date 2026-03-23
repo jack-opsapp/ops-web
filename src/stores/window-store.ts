@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type FloatingWindowType = "create-project" | "create-client" | "create-task";
+export type FloatingWindowType = "create-project" | "create-client" | "create-task" | "create-estimate" | "create-lead";
 
 export interface FloatingWindowState {
   id: string;
@@ -31,11 +31,19 @@ interface WindowStoreState {
 
 const DEFAULT_SIZE = { width: 560, height: 600 };
 
-function getDefaultPosition(existingCount: number): { x: number; y: number } {
+const SIZE_BY_TYPE: Partial<Record<FloatingWindowType, { width: number; height: number }>> = {
+  "create-estimate": { width: 780, height: 700 },
+};
+
+function getSizeForType(type: FloatingWindowType) {
+  return SIZE_BY_TYPE[type] ?? DEFAULT_SIZE;
+}
+
+function getDefaultPosition(existingCount: number, size = DEFAULT_SIZE): { x: number; y: number } {
   const offset = existingCount * 30;
   return {
-    x: Math.min(200 + offset, window.innerWidth - DEFAULT_SIZE.width - 40),
-    y: Math.min(100 + offset, window.innerHeight - DEFAULT_SIZE.height - 40),
+    x: Math.min(200 + offset, window.innerWidth - size.width - 40),
+    y: Math.min(100 + offset, window.innerHeight - size.height - 40),
   };
 }
 
@@ -59,7 +67,8 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
       return;
     }
 
-    const position = getDefaultPosition(windows.filter((w) => !w.isMinimized).length);
+    const size = getSizeForType(type);
+    const position = getDefaultPosition(windows.filter((w) => !w.isMinimized).length, size);
     set({
       windows: [
         ...windows,
@@ -69,7 +78,7 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
           type,
           isMinimized: false,
           position,
-          size: DEFAULT_SIZE,
+          size,
           zIndex: nextZIndex,
         },
       ],

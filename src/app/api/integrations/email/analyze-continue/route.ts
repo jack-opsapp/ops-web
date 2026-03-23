@@ -751,7 +751,7 @@ async function runPhaseB(
   // ─── 10. Update connection wizard state on completion ─────────────────────
   const { data: currentConn } = await supabase
     .from("email_connections")
-    .select("sync_filters")
+    .select("sync_filters, user_id, company_id")
     .eq("id", connectionId)
     .single();
 
@@ -768,6 +768,23 @@ async function runPhaseB(
       },
     })
     .eq("id", connectionId);
+
+  // ─── 10b. Create notification for background completion ─────────────────
+  if (currentConn?.user_id) {
+    await supabase.from("notifications").insert({
+      user_id: currentConn.user_id,
+      company_id: currentConn.company_id || companyId,
+      type: "mention",
+      title: "Pipeline analysis complete",
+      body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
+      is_read: false,
+      persistent: true,
+      action_url: "/settings?tab=company",
+      action_label: "Review Results",
+    }).then(({ error: notifErr }) => {
+      if (notifErr) console.error("[email-analyze-continue] Failed to create notification:", notifErr.message);
+    });
+  }
 
   console.log(`[email-analyze-continue] Phase B complete. ${deduplicatedLeads.length} leads saved.`);
 

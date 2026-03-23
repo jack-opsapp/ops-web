@@ -106,3 +106,24 @@ All notification and widget animations are centralized in `src/lib/utils/motion.
 - Bottom-right, handles all primary actions (Add Project, New Task, etc.)
 - Customizable per user via long-press edit mode
 - Page-level action buttons were removed from the header — use FAB instead
+- Creation actions (project, client, task, estimate, lead) open floating windows via `handler: "window"` in `fab-actions.ts`
+- Navigation actions (expenses, inventory, settings) use `handler: "route"`
+
+## Z-Index Scale
+
+Full reference: `ops-software-bible/05_DESIGN_SYSTEM.md` § 15. Use this scale for all new z-index values.
+
+| Layer | z-index | Purpose |
+|-------|---------|---------|
+| **base** | 0 | Normal flow |
+| **content** | 1–10 | In-page elevation (vignettes, calendar states) |
+| **interactive** | 100–200 | Drag/resize/ghost overlays |
+| **nav** | 500 | Sidebar |
+| **dropdown** | 1000 | Menus, autocomplete |
+| **floating-ui** | 1500–1600 | FAB, bug report, action prompts, window dock |
+| **window** | 2000+ | Floating windows (dynamic, auto-increments) |
+| **modal** | 3000 | Portaled dialogs/sheets (Radix) |
+| **map-controls** | 5000 | Full-screen map page only |
+| **emergency** | 9000–9999 | Sign-out, lockout overlays |
+
+**Rules:** Decorative overlays must never exceed 10. Gaps between layers are intentional — use them for future additions. Existing components use the old tight scale (sidebar=45, FAB=95, etc.) — migrate to the new scale as you touch them.

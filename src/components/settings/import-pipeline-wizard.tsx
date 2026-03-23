@@ -13,7 +13,7 @@ import { ConnectStep } from "./wizard-steps/connect-step";
 import { AnalyzeStep } from "./wizard-steps/analyze-step";
 import { ConfirmSourcesStep } from "./wizard-steps/confirm-sources-step";
 import { ReviewImportStep } from "./wizard-steps/review-import-step";
-import { ConfirmImportStep } from "./wizard-steps/confirm-import-step";
+import { ResolveDuplicatesStep } from "./wizard-steps/resolve-duplicates-step";
 import { ImportProgress } from "./wizard-steps/import-progress";
 import { ActivateStep } from "./wizard-steps/activate-step";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
@@ -189,6 +189,11 @@ export function ImportPipelineWizard({
 
             if (jobData.status === "import_complete" && jobData.result) {
               // Import done — advance to step 5
+              import("sonner").then(({ toast }) =>
+                toast.success("Import completed while you were away", {
+                  description: `${jobData.result.clientsCreated} clients, ${jobData.result.leadsCreated} leads created`,
+                })
+              );
               setImportResult(jobData.result);
               // We also need analysis result for the activate step's sync profile
               if (filters.lastScanJobId) {
@@ -242,6 +247,11 @@ export function ImportPipelineWizard({
           const jobData = await jobRes.json();
 
           if (jobData.status === "complete" && jobData.result) {
+            import("sonner").then(({ toast }) =>
+              toast.success("Analysis completed while you were away", {
+                description: `Found ${jobData.result.leads?.length ?? 0} leads from ${jobData.result.totalScanned ?? 0} emails`,
+              })
+            );
             setAnalysisResult(jobData.result);
             setConfirmedSources(jobData.result.detectedSources);
             setConfirmedLeads(jobData.result.leads);
@@ -420,11 +430,12 @@ export function ImportPipelineWizard({
 
   // ─── Import handlers ─────────────────────────────────────────────────────
 
-  const handleImport = useCallback(async () => {
+  const handleImport = useCallback(async (resolvedLeads?: AnalyzedLead[]) => {
     if (!connectionId || !analysisResult || importStarting) return;
 
     setImportStarting(true);
-    const enabledLeads = confirmedLeads.filter((l) => l.enabled);
+    const source = resolvedLeads ?? confirmedLeads;
+    const enabledLeads = source.filter((l) => l.enabled);
     setImportLeadCount(enabledLeads.length);
 
     try {
@@ -444,7 +455,8 @@ export function ImportPipelineWizard({
           outboundCount: lead.outboundCount,
           lastMessageDate: lead.lastMessageDate || null,
           existingClientId: lead.matchResult.existingClientId,
-          action: lead.matchResult.action as "create_new" | "link" | "create_subclient",
+          action: lead.matchResult.action as ImportPayload["leads"][number]["action"],
+          mergeMode: lead.mergeMode,
           mergeWithLeadId: lead.duplicateGroupId,
           subContacts: lead.subContacts || [],
         })),
@@ -751,15 +763,21 @@ export function ImportPipelineWizard({
                       forwarder: "forwarder",
                       ai_detected: "ai",
                     };
+                    const allKnownSources = new Set(
+                      confirmedSources.map((s) => sourceTypeToLeadSource[s.type] || s.type)
+                    );
                     const enabledLeadSources = new Set(
                       confirmedSources
                         .filter((s) => s.enabled)
                         .map((s) => sourceTypeToLeadSource[s.type] || s.type)
                     );
-                    // Disable leads whose source was toggled off (preserve them for re-enable on back)
+                    // Disable leads whose source was explicitly toggled off.
+                    // Leads with unmapped sources (not shown in Step 3) keep their current state.
                     const filtered = (analysisResult.leads || []).map((lead) => ({
                       ...lead,
-                      enabled: enabledLeadSources.has(lead.source) ? lead.enabled : false,
+                      enabled: allKnownSources.has(lead.source)
+                        ? (enabledLeadSources.has(lead.source) ? lead.enabled : false)
+                        : lead.enabled,
                     }));
                     setConfirmedLeads(filtered);
                     goTo(4);
@@ -777,12 +795,13 @@ export function ImportPipelineWizard({
                     onProgressUpdate={handleProgressUpdate}
                   />
                 ) : confirmed ? (
-                  // Confirm mode — duplicate detection + summary before import
-                  <ConfirmImportStep
+                  // Resolve duplicates + confirm before import
+                  <ResolveDuplicatesStep
                     leads={confirmedLeads}
                     companyId={companyId}
                     onBack={() => setConfirmed(false)}
                     onImport={handleImport}
+                    onLeadsChanged={setConfirmedLeads}
                     importing={importStarting}
                   />
                 ) : (
