@@ -10,7 +10,7 @@ import {
   HelpCircle,
   type LucideIcon,
 } from "lucide-react";
-import { CardCarousel, type CarouselItem } from "./card-carousel";
+import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView } from "./email-thread-view";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 
@@ -96,11 +96,13 @@ export function FilterFlaggedStep({
     [flaggedLeads]
   );
 
-  const setLeadEnabled = useCallback(
-    (leadId: string, enabled: boolean) => {
+  const setLeadFilterDecision = useCallback(
+    (leadId: string, imported: boolean) => {
       onLeadsChanged(
         leads.map((l) =>
-          l.id === leadId ? { ...l, enabled } : l
+          l.id === leadId
+            ? { ...l, enabled: imported, needsReview: imported ? false : l.needsReview }
+            : l
         )
       );
     },
@@ -109,26 +111,20 @@ export function FilterFlaggedStep({
 
   const actions = useMemo(
     () => ({
-      "1": (item: CarouselItem<AnalyzedLead>) => {
-        // Import
-        item.decisionLabel = "IMPORT";
-        item.decisionColor = "#597794";
-        setLeadEnabled(item.id, true);
+      "1": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
+        setLeadFilterDecision(item.id, true);
+        return { label: "IMPORT", color: "#597794" };
       },
-      "2": (item: CarouselItem<AnalyzedLead>) => {
-        // Discard
-        item.decisionLabel = "DISCARD";
-        item.decisionColor = "#6B7280";
-        setLeadEnabled(item.id, false);
+      "2": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
+        setLeadFilterDecision(item.id, false);
+        return { label: "DISCARD", color: "#6B7280" };
       },
-      Backspace: (item: CarouselItem<AnalyzedLead>) => {
-        // Discard (same as 2)
-        item.decisionLabel = "DISCARD";
-        item.decisionColor = "#6B7280";
-        setLeadEnabled(item.id, false);
+      Backspace: (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
+        setLeadFilterDecision(item.id, false);
+        return { label: "DISCARD", color: "#6B7280" };
       },
     }),
-    [setLeadEnabled]
+    [setLeadFilterDecision]
   );
 
   return (

@@ -1,15 +1,18 @@
+import Link from "next/link";
 import {
   getEventCountTotal,
   getEventByDimension,
 } from "@/lib/analytics/ga4-client";
+import {
+  isGoogleAdsConfigured,
+  getCachedAccountSummary,
+  getCachedCostPerConversion,
+} from "@/lib/analytics/google-ads-client";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { StatCard } from "../_components/stat-card";
 import { AcquisitionCharts } from "./_components/acquisition-charts";
-
-/** Wrap a promise so it returns a fallback on error instead of rejecting. */
-async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
-  try { return await promise; } catch { return fallback; }
-}
+import { safe } from "@/lib/utils/safe";
+import type { ConversionBreakdown } from "@/lib/analytics/google-ads-types";
 
 async function fetchAcquisitionData() {
   const ga4Available = !!process.env.GA4_PROPERTY_ID;
@@ -28,6 +31,8 @@ async function fetchAcquisitionData() {
     };
   }
 
+  const adsConfigured = isGoogleAdsConfigured();
+
   const [
     landingPageViews,
     ctaClicks,
@@ -40,6 +45,8 @@ async function fetchAcquisitionData() {
     signupStepViews,
     signupComplete,
     megaSteps,
+    adsSummary,
+    adsConversions,
   ] = await Promise.all([
     safe(getEventCountTotal("landing_page_view", 30), 0),
     safe(getEventCountTotal("landing_cta_click", 30), 0),
@@ -61,6 +68,8 @@ async function fetchAcquisitionData() {
       safe(getEventCountTotal("complete_onboarding", 90), 0),
       safe(getEventCountTotal("create_first_project", 90), 0),
     ]), [0, 0, 0, 0, 0, 0, 0, 0]),
+    adsConfigured ? safe(getCachedAccountSummary(30), null) : Promise.resolve(null),
+    adsConfigured ? safe(getCachedCostPerConversion(30), [] as ConversionBreakdown[]) : Promise.resolve([] as ConversionBreakdown[]),
   ]);
 
   const ctr = landingPageViews > 0 ? Math.round((ctaClicks / landingPageViews) * 100) : 0;
@@ -110,6 +119,8 @@ async function fetchAcquisitionData() {
     tutorialFunnel,
     signupFunnel,
     megaFunnel,
+    adsSummary,
+    adsConversions,
   };
 }
 
@@ -155,6 +166,47 @@ export default async function AcquisitionPage() {
           signupFunnel={data.signupFunnel}
           megaFunnel={data.megaFunnel}
         />
+
+        {/* Paid Acquisition — Google Ads */}
+        {data.adsSummary && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B]">
+                Paid Acquisition
+              </p>
+              <Link
+                href="/admin/google-ads"
+                className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+              >
+                View details &rarr;
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <StatCard
+                label="Ad Spend (30d)"
+                value={`$${data.adsSummary.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+              />
+              <StatCard
+                label="Paid Signups"
+                value={(() => {
+                  const signup = data.adsConversions.find(
+                    (c) => c.actionName.toLowerCase().includes("signup") || c.actionName.toLowerCase().includes("trial")
+                  );
+                  return signup ? signup.conversions.toFixed(0) : "\u2014";
+                })()}
+              />
+              <StatCard
+                label="Paid CPA"
+                value={(() => {
+                  const signup = data.adsConversions.find(
+                    (c) => c.actionName.toLowerCase().includes("signup") || c.actionName.toLowerCase().includes("trial")
+                  );
+                  return signup ? `$${signup.cpa.toFixed(2)}` : "\u2014";
+                })()}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

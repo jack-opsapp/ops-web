@@ -11,14 +11,7 @@ import {
   getBlogViewsTimeline,
 } from "@/lib/analytics/ga4-client";
 import { BlogHubContent } from "./_components/blog-hub-content";
-
-async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
-  try {
-    return await promise;
-  } catch {
-    return fallback;
-  }
-}
+import { safe } from "@/lib/utils/safe";
 
 export default async function BlogPage() {
   const [counts, posts, categories, unusedTopics, ga4Views, ga4ByPost, ga4Timeline] =

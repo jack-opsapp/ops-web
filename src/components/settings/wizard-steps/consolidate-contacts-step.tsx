@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { X } from "lucide-react";
-import { CardCarousel, type CarouselItem } from "./card-carousel";
+import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView } from "./email-thread-view";
 import type { AnalyzedLead, ConsolidationGroup } from "@/lib/types/email-import";
 
@@ -71,16 +71,11 @@ export function ConsolidateContactsStep({
 
   const actions = useMemo(
     () => ({
-      "1": (item: CarouselItem<ConsolidationGroup>) => {
-        // Confirm — keep separate leads
-        item.decisionLabel = "CONFIRMED";
-        item.decisionColor = "#597794";
+      "1": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "confirm" });
+        return { label: "CONFIRMED", color: "#597794" };
       },
-      "2": (item: CarouselItem<ConsolidationGroup>) => {
-        // Merge into 1 lead
-        item.decisionLabel = "MERGED";
-        item.decisionColor = "#C4A868";
+      "2": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "merge" });
 
         // Disable all but the first lead in the group
@@ -99,11 +94,9 @@ export function ConsolidateContactsStep({
             })
           );
         }
+        return { label: "MERGED", color: "#C4A868" };
       },
-      Backspace: (item: CarouselItem<ConsolidationGroup>) => {
-        // Discard entire group
-        item.decisionLabel = "DISCARDED";
-        item.decisionColor = "#6B7280";
+      Backspace: (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
         onLeadsChanged(
           leads.map((l) => {
@@ -113,6 +106,7 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
+        return { label: "DISCARDED", color: "#6B7280" };
       },
     }),
     [leads, onLeadsChanged, updateGroup]

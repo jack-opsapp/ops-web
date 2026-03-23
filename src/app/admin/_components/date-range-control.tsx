@@ -12,6 +12,7 @@ import type { Granularity, DatePreset, DateRangeParams } from "@/lib/admin/types
 const PRESETS: { key: DatePreset; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "7d", label: "7D" },
+  { key: "14d", label: "14D" },
   { key: "30d", label: "30D" },
   { key: "90d", label: "90D" },
   { key: "12m", label: "12M" },
@@ -21,6 +22,7 @@ const PRESETS: { key: DatePreset; label: string }[] = [
 const AUTO_GRANULARITY: Record<DatePreset, Granularity> = {
   today: "hourly",
   "7d": "daily",
+  "14d": "daily",
   "30d": "daily",
   "90d": "weekly",
   "12m": "monthly",
@@ -35,6 +37,8 @@ function presetToRange(preset: DatePreset): { from: Date; to: Date } {
       return { from: startOfDay(now), to };
     case "7d":
       return { from: subDays(now, 7), to };
+    case "14d":
+      return { from: subDays(now, 14), to };
     case "30d":
       return { from: subDays(now, 30), to };
     case "90d":

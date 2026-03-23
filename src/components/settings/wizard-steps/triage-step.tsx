@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { CardCarousel, type CarouselItem } from "./card-carousel";
-import { EmailThreadView } from "./email-thread-view";
+import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
+import { EmailThreadView, formatRelativeDate } from "./email-thread-view";
 import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 
 // ─── Heuristics ───────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ function computeTriageDefault(lead: AnalyzedLead): TriageDecision {
     // Old thread with outbound quote → likely won (silence = acceptance in trades)
     if (lead.outboundCount > 0 && lead.estimatedValue) return "won";
     // Old thread, last message inbound with no reply → likely lost
-    const lastExcerpt = lead.emailExcerpts?.sort(
+    const lastExcerpt = [...(lead.emailExcerpts ?? [])].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     )[0];
     if (lastExcerpt?.direction === "inbound") return "lost";
@@ -120,24 +120,23 @@ export function TriageStep({
   );
 
   const applyDecision = useCallback(
-    (leadId: string, decision: TriageDecision, item: CarouselItem<AnalyzedLead>) => {
-      item.decisionLabel = DECISION_LABELS[decision];
-      item.decisionColor = DECISION_COLORS[decision];
+    (leadId: string, decision: TriageDecision): CarouselDecision => {
       onTriageDecision(leadId, decision);
+      return { label: DECISION_LABELS[decision], color: DECISION_COLORS[decision] };
     },
     [onTriageDecision]
   );
 
   const actions = useMemo(
     () => ({
-      "1": (item: CarouselItem<AnalyzedLead>) =>
-        applyDecision(item.id, "won", item),
-      "2": (item: CarouselItem<AnalyzedLead>) =>
-        applyDecision(item.id, "lost", item),
-      "3": (item: CarouselItem<AnalyzedLead>) =>
-        applyDecision(item.id, "active", item),
-      Backspace: (item: CarouselItem<AnalyzedLead>) =>
-        applyDecision(item.id, "discard", item),
+      "1": (item: CarouselItem<AnalyzedLead>): CarouselDecision =>
+        applyDecision(item.id, "won"),
+      "2": (item: CarouselItem<AnalyzedLead>): CarouselDecision =>
+        applyDecision(item.id, "lost"),
+      "3": (item: CarouselItem<AnalyzedLead>): CarouselDecision =>
+        applyDecision(item.id, "active"),
+      Backspace: (item: CarouselItem<AnalyzedLead>): CarouselDecision =>
+        applyDecision(item.id, "discard"),
     }),
     [applyDecision]
   );
@@ -222,7 +221,7 @@ export function TriageStep({
               <button
                 onClick={() => actions["2"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#6B7280] transition-colors"
-                style={{ borderRadius: 3 }}
+                style={{ borderRadius: 4 }}
               >
                 2: LOST
               </button>
@@ -256,16 +255,3 @@ export function TriageStep({
   );
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
-function formatRelativeDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return "today";
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 30) return `${diffDays}d ago`;
-  const months = Math.floor(diffDays / 30);
-  return months === 1 ? "1mo ago" : `${months}mo ago`;
-}

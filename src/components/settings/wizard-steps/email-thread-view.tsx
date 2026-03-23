@@ -10,7 +10,7 @@ const INITIAL_VISIBLE = 3;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatRelativeDate(iso: string): string {
+export function formatRelativeDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();

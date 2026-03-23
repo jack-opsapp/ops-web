@@ -37,8 +37,8 @@ This is an admin data dashboard — the person using it is Jack, checking ad per
 
 | Element | Animation | Duration | Easing | Rationale |
 |---------|-----------|----------|--------|-----------|
-| Page load (StatCards) | Staggered fade+translateY | 200ms per card, 50ms stagger | `[0.16, 1, 0.3, 1]` (decelerate) | Cards "arrive" crisply, military precision |
-| Page load (Tables) | Fade in after cards complete | 250ms | `[0.16, 1, 0.3, 1]` | Sequential information delivery |
+| Page load (StatCards) | Staggered fade+translateY | 200ms per card, 50ms stagger | `EASE_SMOOTH` from `motion.ts` | Cards "arrive" crisply, military precision |
+| Page load (Tables) | Fade in after cards complete | 250ms | `EASE_SMOOTH` from `motion.ts` | Sequential information delivery |
 | Table sort | No animation — instant re-render | 0ms | — | Sorting is a data operation, not a spectacle. Instant response = respect for the user's time |
 | Date range switch | Content area opacity crossfade | 150ms out, 200ms in | ease-out / ease-in | Acknowledges loading without drama |
 | Loading skeleton | Tactical bars shimmer (per design system) | 800ms loop | linear | Radar-sweep shimmer on placeholder bars |
@@ -148,7 +148,7 @@ import { safe } from "@/lib/utils/safe";
 
 - [ ] **Step 3: Update blog page to use shared safe**
 
-In `src/app/admin/blog/page.tsx`, remove the local `safe()` definition (lines 15-17) and add this import:
+In `src/app/admin/blog/page.tsx`, remove the local `safe()` definition (lines 15-21, the entire function including its multi-line body) and add this import:
 
 ```typescript
 import { safe } from "@/lib/utils/safe";
@@ -663,12 +663,11 @@ git commit -m "feat: add Google Ads to admin sidebar navigation"
 
 - [ ] **Step 1: Create the API route**
 
-Create `src/app/api/admin/google-ads/route.ts`:
+Create `src/app/api/admin/google-ads/route.ts`. Uses the `withAdmin` wrapper from `@/lib/admin/api-auth` (the newer centralized pattern with proper error handling):
 
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { isAdminEmail } from "@/lib/admin/admin-queries";
+import { withAdmin } from "@/lib/admin/api-auth";
 import { safe } from "@/lib/utils/safe";
 import {
   isGoogleAdsConfigured,
@@ -689,12 +688,7 @@ function parseDays(value: string | null): AdsDayRange {
   return 30;
 }
 
-export async function GET(req: NextRequest) {
-  const user = await verifyAdminAuth(req);
-  if (!user || !user.email || !(await isAdminEmail(user.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withAdmin(async (req: NextRequest) => {
   if (!isGoogleAdsConfigured()) {
     return NextResponse.json({
       adsAvailable: false,
@@ -728,7 +722,7 @@ export async function GET(req: NextRequest) {
     dailySpend,
     conversions,
   } satisfies GoogleAdsPageData);
-}
+});
 ```
 
 - [ ] **Step 2: Commit**
@@ -1108,12 +1102,11 @@ import { StatCard } from "../../_components/stat-card";
 import { CampaignTable } from "./campaign-table";
 import { KeywordTable } from "./keyword-table";
 import { SearchTermsTable } from "./search-terms-table";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { GoogleAdsPageData, AdsDayRange } from "@/lib/analytics/google-ads-types";
 import type { ChartDataPoint, DateRangeParams } from "@/lib/admin/types";
 
-// ─── Animation (per design system: decelerate, no spring/bounce) ──────────────
-
-const EASE_DECELERATE = [0.16, 1, 0.3, 1] as const;
+// ─── Animation (per design system: EASE_SMOOTH, no spring/bounce) ─────────────
 
 const staggerContainer = {
   hidden: {},
@@ -1127,7 +1120,7 @@ const fadeUp = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.2, ease: EASE_DECELERATE },
+    transition: { duration: 0.2, ease: EASE_SMOOTH },
   },
 };
 
@@ -1254,7 +1247,7 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
         className="space-y-8"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.25, delay: 0.25, ease: EASE_DECELERATE }}
+        transition={{ duration: 0.25, delay: 0.25, ease: EASE_SMOOTH }}
       >
         <CampaignTable campaigns={data.campaigns} />
         <KeywordTable keywords={data.keywords} />
@@ -1410,13 +1403,18 @@ import { safe } from "@/lib/utils/safe";
 
 - [ ] **Step 2: Add Google Ads queries to fetchAcquisitionData**
 
-Add two more items to the `Promise.all` in `fetchAcquisitionData()`:
+Add two more items to the existing `Promise.all` in `fetchAcquisitionData()` (parallel, not sequential):
 
 ```typescript
 const adsConfigured = isGoogleAdsConfigured();
-// Add to the end of the existing Promise.all array:
-const adsSummary = adsConfigured ? await safe(getCachedAccountSummary(30), null) : null;
-const adsConversions = adsConfigured ? await safe(getCachedCostPerConversion(30), []) : [];
+
+// Add to the END of the existing Promise.all array:
+// ..., (last existing query),
+adsConfigured ? safe(getCachedAccountSummary(30), null) : Promise.resolve(null),
+adsConfigured ? safe(getCachedCostPerConversion(30), []) : Promise.resolve([]),
+
+// Add to the destructured results:
+// ..., adsSummary, adsConversions
 ```
 
 Return them in the data object:
@@ -1510,12 +1508,16 @@ import { safe } from "@/lib/utils/safe";
 
 - [ ] **Step 2: Add to fetchOverviewData**
 
-Add after the existing `Promise.all`:
+Add Google Ads query to the existing `Promise.all` (parallel, not sequential):
 
 ```typescript
-const adsSummary = isGoogleAdsConfigured()
-  ? await safe(getCachedAccountSummary(30), null)
-  : null;
+const [
+  // ...existing destructured results
+  adsSummary,
+] = await Promise.all([
+  // ...existing queries
+  isGoogleAdsConfigured() ? safe(getCachedAccountSummary(30), null) : Promise.resolve(null),
+]);
 ```
 
 Return it in the data object:
@@ -1558,21 +1560,28 @@ git commit -m "feat: add Ad CPA to admin overview KPI bar"
 
 - [ ] **Step 1: Create the auth route**
 
-Create `src/app/api/admin/google-ads/auth/route.ts`:
+Create `src/app/api/admin/google-ads/auth/route.ts`.
+
+**Important:** The OAuth callback from Google is a raw browser redirect — it won't carry Firebase auth headers. So we only enforce admin auth on the initial request (no `?code=`), not on the callback. The callback is safe because the auth code is single-use and the response only displays the token (not stored):
 
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { isAdminEmail } from "@/lib/admin/admin-queries";
+import { requireAdmin } from "@/lib/admin/api-auth";
 
 const SCOPES = ["https://www.googleapis.com/auth/adwords"];
 const REDIRECT_URI_PATH = "/api/admin/google-ads/auth";
 
 export async function GET(req: NextRequest) {
-  // Admin-only access
-  const user = await verifyAdminAuth(req);
-  if (!user || !user.email || !(await isAdminEmail(user.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { searchParams } = new URL(req.url);
+  const code = searchParams.get("code");
+
+  // Only enforce admin auth on the initial request (not the OAuth callback)
+  if (!code) {
+    try {
+      await requireAdmin(req);
+    } catch {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   const clientId = process.env.GOOGLE_GMAIL_CLIENT_ID;
@@ -1581,9 +1590,6 @@ export async function GET(req: NextRequest) {
   if (!clientId || !clientSecret) {
     return NextResponse.json({ error: "Missing Google OAuth credentials" }, { status: 500 });
   }
-
-  const { searchParams } = new URL(req.url);
-  const code = searchParams.get("code");
 
   // Step 1: No code — redirect to Google consent
   if (!code) {
@@ -1678,10 +1684,11 @@ Navigate to `/admin/acquisition` — should render normally. The "Paid Acquisiti
 
 Navigate to `/admin` — KPI bar should show "Ad CPA" with value "—".
 
-- [ ] **Step 6: Final commit**
+- [ ] **Step 6: Final commit (if any unstaged changes remain)**
 
 ```bash
-git add -A
+git status
+# Only stage specific files that were missed in prior commits — do NOT use git add -A
 git commit -m "feat: complete Google Ads admin panel integration
 
 Adds dedicated /admin/google-ads tab with campaign, keyword, and search

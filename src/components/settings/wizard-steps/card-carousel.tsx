@@ -17,21 +17,22 @@ export interface CarouselItem<T> {
   data: T;
   /** AI-suggested default action key (e.g. "1", "2", "3") */
   defaultAction: string;
-  /** Badge shown on compressed previous card after decision */
-  decisionLabel?: string;
-  /** Badge color */
-  decisionColor?: string;
+}
+
+export interface CarouselDecision {
+  label: string;
+  color: string;
 }
 
 interface CardCarouselProps<T> {
   title: string;
   items: CarouselItem<T>[];
   /** Render focused card content */
-  renderCard: (item: CarouselItem<T>, isFocused: boolean) => ReactNode;
-  /** Render compressed preview (prev/next peek) */
-  renderPreview: (item: CarouselItem<T>) => ReactNode;
-  /** Action handlers keyed by shortcut: "1", "2", "3", "Backspace" */
-  actions: Record<string, (item: CarouselItem<T>) => void>;
+  renderCard: (item: CarouselItem<T>, isFocused: boolean, setDecision: (d: CarouselDecision) => void) => ReactNode;
+  /** Render compressed preview (prev/next peek, decision badge) */
+  renderPreview: (item: CarouselItem<T>, decision?: CarouselDecision) => ReactNode;
+  /** Action handlers keyed by shortcut: "1", "2", "3", "Backspace". Return a CarouselDecision to show on the prev card badge. */
+  actions: Record<string, (item: CarouselItem<T>) => CarouselDecision | void>;
   /** Called when all items processed or user clicks skip */
   onComplete: () => void;
   skipLabel?: string;
@@ -53,8 +54,13 @@ export function CardCarousel<T>({
 }: CardCarouselProps<T>) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
+  const [decisions, setDecisions] = useState<Map<string, CarouselDecision>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReduced = useReducedMotion();
+
+  const recordDecision = useCallback((itemId: string, decision: CarouselDecision) => {
+    setDecisions((prev) => new Map(prev).set(itemId, decision));
+  }, []);
 
   // Handle empty items via useEffect (not during render)
   useEffect(() => {
@@ -87,21 +93,23 @@ export function CardCarousel<T>({
       if (!current) return;
       const handler = actions[key];
       if (handler) {
-        handler(current);
+        const decision = handler(current);
+        if (decision) recordDecision(current.id, decision);
         advance();
       }
     },
-    [current, actions, advance]
+    [current, actions, advance, recordDecision]
   );
 
   const acceptDefault = useCallback(() => {
     if (!current) return;
     const handler = actions[current.defaultAction];
     if (handler) {
-      handler(current);
+      const decision = handler(current);
+      if (decision) recordDecision(current.id, decision);
       advance();
     }
-  }, [current, actions, advance]);
+  }, [current, actions, advance, recordDecision]);
 
   // Keyboard handler
   useEffect(() => {
@@ -196,13 +204,13 @@ export function CardCarousel<T>({
               backdropFilter: "blur(20px) saturate(1.2)",
             }}
           >
-            <div className="flex-1 min-w-0">{renderPreview(prev)}</div>
-            {prev.decisionLabel && (
+            <div className="flex-1 min-w-0">{renderPreview(prev, decisions.get(prev.id))}</div>
+            {decisions.get(prev.id) && (
               <span
                 className="font-kosugi text-[8px] tracking-[0.1em] uppercase flex-shrink-0 ml-2"
-                style={{ color: prev.decisionColor || "#597794" }}
+                style={{ color: decisions.get(prev.id)!.color }}
               >
-                {prev.decisionLabel}
+                {decisions.get(prev.id)!.label}
               </span>
             )}
           </motion.div>
@@ -228,7 +236,7 @@ export function CardCarousel<T>({
                 WebkitBackdropFilter: "blur(20px) saturate(1.2)",
               }}
             >
-              {renderCard(current, true)}
+              {renderCard(current, true, (d) => recordDecision(current.id, d))}
             </motion.div>
           )}
         </AnimatePresence>
@@ -248,7 +256,7 @@ export function CardCarousel<T>({
               backdropFilter: "blur(20px) saturate(1.2)",
             }}
           >
-            {renderPreview(next)}
+            {renderPreview(next, decisions.get(next.id))}
           </motion.div>
         )}
       </div>
