@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, Loader2, FileText } from "lucide-react";
 import {
@@ -12,15 +12,19 @@ import {
 import { ConnectStep } from "./wizard-steps/connect-step";
 import { AnalyzeStep } from "./wizard-steps/analyze-step";
 import { ConfirmSourcesStep } from "./wizard-steps/confirm-sources-step";
-import { ReviewImportStep } from "./wizard-steps/review-import-step";
-import { ResolveDuplicatesStep } from "./wizard-steps/resolve-duplicates-step";
+import { FilterFlaggedStep } from "./wizard-steps/filter-flagged-step";
+import { ConsolidateContactsStep } from "./wizard-steps/consolidate-contacts-step";
+import { TriageStep } from "./wizard-steps/triage-step";
+import { ConfirmPipelineStep } from "./wizard-steps/confirm-pipeline-step";
 import { ImportProgress } from "./wizard-steps/import-progress";
 import { ActivateStep } from "./wizard-steps/activate-step";
+import { StepperRail } from "./wizard-steps/stepper-rail";
+import { buildConsolidationGroups } from "./wizard-steps/consolidation-utils";
 import { useActionPromptStore } from "@/stores/action-prompt-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
-import type { AnalysisResult, AnalyzedLead, ImportPayload, ImportResult } from "@/lib/types/email-import";
+import type { AnalysisResult, AnalyzedLead, ImportPayload, ImportResult, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -42,13 +46,29 @@ const stepVariants = {
   }),
 };
 
-const STEPS = [
-  { num: 1, label: "CONNECT" },
-  { num: 2, label: "ANALYZE" },
-  { num: 3, label: "SOURCES" },
-  { num: 4, label: "IMPORT" },
-  { num: 5, label: "ACTIVATE" },
+const STEPPER_STEPS = [
+  { key: "connect", label: "CONNECT" },
+  { key: "scan", label: "SCAN" },
+  { key: "sources", label: "SOURCES" },
+  {
+    key: "review",
+    label: "REVIEW",
+    subSteps: [
+      { key: "filter", label: "filter" },
+      { key: "consolidate", label: "consolidate" },
+      { key: "triage", label: "triage" },
+      { key: "confirm", label: "confirm" },
+    ],
+  },
+  { key: "activate", label: "ACTIVATE" },
 ];
+
+const STEP_KEY_MAP: Record<number, string> = {
+  1: "connect", 2: "scan", 3: "sources", 4: "review", 5: "activate",
+};
+const SUB_STEP_KEY_MAP: Record<number, string> = {
+  1: "filter", 2: "consolidate", 3: "triage", 4: "confirm",
+};
 
 type JobType = "analysis" | "import";
 
@@ -80,8 +100,32 @@ export function ImportPipelineWizard({
   const [confirmedLeads, setConfirmedLeads] = useState<AnalyzedLead[]>([]);
   const [estimatePattern, setEstimatePattern] = useState<string>("");
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
   const [importStarting, setImportStarting] = useState(false);
+
+  // ─── Review sub-step state ────────────────────────────────────────────────
+  const [reviewSubStep, setReviewSubStep] = useState<1 | 2 | 3 | 4>(1);
+  const [consolidationGroups, setConsolidationGroups] = useState<ConsolidationGroup[]>([]);
+  const [triageDecisions, setTriageDecisions] = useState<Map<string, TriageDecision>>(new Map());
+
+  // Stepper rail computed state
+  const completedSteps = useMemo(() => {
+    const set = new Set<string>();
+    if (step > 1) set.add("connect");
+    if (step > 2) set.add("scan");
+    if (step > 3) set.add("sources");
+    if (step > 4) set.add("review");
+    return set;
+  }, [step]);
+
+  const completedSubSteps = useMemo(() => {
+    const set = new Set<string>();
+    if (step === 4) {
+      if (reviewSubStep > 1) set.add("filter");
+      if (reviewSubStep > 2) set.add("consolidate");
+      if (reviewSubStep > 3) set.add("triage");
+    }
+    return set;
+  }, [step, reviewSubStep]);
   const [syncInterval, setSyncInterval] = useState(60);
   const [existingJobId, setExistingJobId] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
@@ -430,36 +474,60 @@ export function ImportPipelineWizard({
 
   // ─── Import handlers ─────────────────────────────────────────────────────
 
-  const handleImport = useCallback(async (resolvedLeads?: AnalyzedLead[]) => {
+  const handleImport = useCallback(async () => {
     if (!connectionId || !analysisResult || importStarting) return;
 
     setImportStarting(true);
-    const source = resolvedLeads ?? confirmedLeads;
-    const enabledLeads = source.filter((l) => l.enabled);
-    setImportLeadCount(enabledLeads.length);
+
+    // Build title lookup from consolidation groups
+    const titleMap = new Map<string, string>();
+    for (const group of consolidationGroups) {
+      if (group.leads.length > 1) {
+        for (const gl of group.leads) {
+          if (gl.title) titleMap.set(gl.leadId, gl.title);
+        }
+      }
+    }
+
+    // Reconcile triage decisions: apply stage overrides and filter discards
+    const importLeads = confirmedLeads.filter((lead) => {
+      if (!lead.enabled) return false;
+      const decision = triageDecisions.get(lead.id);
+      return decision !== "discard";
+    });
+
+    setImportLeadCount(importLeads.length);
 
     try {
       const payload: ImportPayload = {
         connectionId,
         companyId,
-        leads: enabledLeads.map((lead) => ({
-          id: lead.id,
-          threadId: lead.threadId,
-          clientName: lead.client.name,
-          clientEmail: lead.client.email,
-          clientPhone: lead.client.phone,
-          description: lead.client.description,
-          stage: lead.stage,
-          estimatedValue: lead.estimatedValue,
-          correspondenceCount: lead.correspondenceCount,
-          outboundCount: lead.outboundCount,
-          lastMessageDate: lead.lastMessageDate || null,
-          existingClientId: lead.matchResult.existingClientId,
-          action: lead.matchResult.action as ImportPayload["leads"][number]["action"],
-          mergeMode: lead.mergeMode,
-          mergeWithLeadId: lead.duplicateGroupId,
-          subContacts: lead.subContacts || [],
-        })),
+        leads: importLeads.map((lead) => {
+          const decision = triageDecisions.get(lead.id);
+          const isTerminal = decision === "won" || decision === "lost";
+          const stage = isTerminal ? decision : lead.stage;
+
+          return {
+            id: lead.id,
+            threadId: lead.threadId,
+            clientName: lead.client.name,
+            clientEmail: lead.client.email,
+            clientPhone: lead.client.phone,
+            description: lead.client.description,
+            stage,
+            estimatedValue: lead.estimatedValue,
+            correspondenceCount: lead.correspondenceCount,
+            outboundCount: lead.outboundCount,
+            lastMessageDate: lead.lastMessageDate || null,
+            existingClientId: lead.matchResult.existingClientId,
+            action: lead.matchResult.action as ImportPayload["leads"][number]["action"],
+            mergeMode: lead.mergeMode,
+            mergeWithLeadId: lead.duplicateGroupId,
+            subContacts: lead.subContacts || [],
+            title: titleMap.get(lead.id) || null,
+            actualCloseDate: isTerminal ? (lead.lastMessageDate || null) : null,
+          };
+        }),
         syncProfile: {
           estimateSubjectPatterns: estimatePattern ? [estimatePattern] : [],
           companyDomains: analysisResult.companyDomains,
@@ -498,7 +566,7 @@ export function ImportPipelineWizard({
       const { toast } = await import("sonner");
       toast.error(err instanceof Error ? err.message : "Import failed. Please try again.");
     }
-  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, importStarting, invalidateConnections]);
+  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, importStarting, invalidateConnections, triageDecisions, consolidationGroups]);
 
   const handleImportComplete = useCallback((result: ImportResult) => {
     setImportResult(result);
@@ -669,7 +737,7 @@ export function ImportPipelineWizard({
               Import Your Pipeline
             </h2>
             <p className="font-kosugi text-[10px] tracking-[0.15em] uppercase text-[#999]">
-              Step {step} of 5
+              {STEP_KEY_MAP[step].toUpperCase()}{step === 4 ? ` · ${SUB_STEP_KEY_MAP[reviewSubStep]}` : ""}
             </p>
           </div>
           <button
@@ -688,32 +756,25 @@ export function ImportPipelineWizard({
           </button>
         </div>
 
-        {/* Progress bar */}
-        <div className="flex gap-1.5 px-6 pt-3">
-          {STEPS.map((s) => (
-            <div key={s.num} className="flex-1 flex flex-col gap-1">
-              <div
-                className="h-[2px] transition-all duration-500"
-                style={{
-                  background: s.num <= step ? "#597794" : "rgba(255,255,255,0.08)",
-                  transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
-              <span
-                className="font-kosugi text-[8px] tracking-[0.12em] uppercase transition-colors duration-300"
-                style={{ color: s.num <= step ? "#597794" : "#666" }}
-              >
-                {s.label}
-              </span>
-            </div>
-          ))}
-        </div>
+        {/* Main layout: stepper rail + content */}
+        <div className="flex min-h-[400px] max-h-[calc(85vh-140px)]">
+          {/* Stepper rail */}
+          <div className="pl-5 pt-4 pb-4 flex-shrink-0">
+            <StepperRail
+              steps={STEPPER_STEPS}
+              currentStep={STEP_KEY_MAP[step]}
+              currentSubStep={step === 4 ? SUB_STEP_KEY_MAP[reviewSubStep] : undefined}
+              completedSteps={completedSteps}
+              completedSubSteps={completedSubSteps}
+              showSubSteps={step === 4}
+            />
+          </div>
 
-        {/* Step content */}
-        <div className="px-6 pb-2 pt-4 min-h-[400px] max-h-[calc(85vh-140px)] overflow-y-auto">
+          {/* Step content */}
+          <div className="px-6 pb-2 pt-4 flex-1 min-w-0 overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
-              key={`${step}-${importJobId ? "importing" : confirmed ? "confirm" : "review"}`}
+              key={`${step}-${importJobId ? "importing" : `sub${reviewSubStep}`}`}
               custom={direction}
               variants={stepVariants}
               initial="enter"
@@ -780,6 +841,15 @@ export function ImportPipelineWizard({
                         : lead.enabled,
                     }));
                     setConfirmedLeads(filtered);
+                    // Determine starting sub-step: skip filter if no flagged leads
+                    const hasFlagged = filtered.some((l) => l.needsReview && l.enabled);
+                    if (!hasFlagged) {
+                      const groups = buildConsolidationGroups(filtered.filter((l) => l.enabled));
+                      setConsolidationGroups(groups);
+                      setReviewSubStep(groups.length > 0 ? 2 : 3);
+                    } else {
+                      setReviewSubStep(1);
+                    }
                     goTo(4);
                   }}
                 />
@@ -794,22 +864,48 @@ export function ImportPipelineWizard({
                     onMinimize={() => { setMinimized(true); onOpenChange(false); }}
                     onProgressUpdate={handleProgressUpdate}
                   />
-                ) : confirmed ? (
-                  // Resolve duplicates + confirm before import
-                  <ResolveDuplicatesStep
+                ) : reviewSubStep === 1 ? (
+                  <FilterFlaggedStep
                     leads={confirmedLeads}
-                    companyId={companyId}
-                    onBack={() => setConfirmed(false)}
-                    onImport={handleImport}
                     onLeadsChanged={setConfirmedLeads}
-                    importing={importStarting}
+                    onComplete={() => {
+                      const groups = buildConsolidationGroups(
+                        confirmedLeads.filter((l) => l.enabled)
+                      );
+                      setConsolidationGroups(groups);
+                      setReviewSubStep(groups.length > 0 ? 2 : 3);
+                    }}
+                  />
+                ) : reviewSubStep === 2 ? (
+                  <ConsolidateContactsStep
+                    leads={confirmedLeads}
+                    onLeadsChanged={setConfirmedLeads}
+                    consolidationGroups={consolidationGroups}
+                    onGroupsChanged={setConsolidationGroups}
+                    onComplete={() => setReviewSubStep(3)}
+                  />
+                ) : reviewSubStep === 3 ? (
+                  <TriageStep
+                    leads={confirmedLeads}
+                    triageDecisions={triageDecisions}
+                    onTriageDecision={(id, decision) => {
+                      setTriageDecisions((prev) => new Map(prev).set(id, decision));
+                    }}
+                    consolidationGroups={consolidationGroups}
+                    onComplete={() => setReviewSubStep(4)}
                   />
                 ) : (
-                  // Review mode — user toggles leads, edits names
-                  <ReviewImportStep
+                  <ConfirmPipelineStep
                     leads={confirmedLeads}
-                    onLeadsChanged={setConfirmedLeads}
-                    onConfirm={() => setConfirmed(true)}
+                    triageDecisions={triageDecisions}
+                    consolidationGroups={consolidationGroups}
+                    onStageChange={(id, stage) => {
+                      setConfirmedLeads((prev) =>
+                        prev.map((l) => (l.id === id ? { ...l, stage } : l))
+                      );
+                    }}
+                    onBack={() => setReviewSubStep(3)}
+                    onImport={handleImport}
                   />
                 )
               )}
@@ -839,8 +935,10 @@ export function ImportPipelineWizard({
           </AnimatePresence>
         </div>
 
-        {/* Back button footer — hide during background jobs, confirm step (has its own back), and on steps 2/3 */}
-        {step > 3 && !importJobId && !runningJobId && !confirmed && step !== 4 && (
+        </div>{/* end flex layout (stepper rail + content) */}
+
+        {/* Back button footer — hide during background jobs and on step 4 (sub-steps have their own nav) */}
+        {step > 3 && !importJobId && !runningJobId && step !== 4 && (
           <div className="flex items-center justify-between px-6 pb-4">
             <button
               onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}
