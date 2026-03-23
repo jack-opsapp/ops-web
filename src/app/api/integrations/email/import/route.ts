@@ -358,7 +358,7 @@ async function runImport(
         const opp = await OpportunityService.createOpportunity({
           companyId,
           clientId,
-          title: lead.description || `Email inquiry from ${lead.clientName}`,
+          title: lead.title || lead.description || `Email inquiry from ${lead.clientName}`,
           stage,
           source: OpportunitySource.Email,
           contactName: lead.clientName,
@@ -373,7 +373,7 @@ async function runImport(
             ? (stage === OpportunityStage.Won ? 100 : 0)
             : stage === OpportunityStage.Quoted ? 50 : stage === OpportunityStage.NewLead ? 20 : 30,
           expectedCloseDate: null,
-          actualCloseDate: isTerminal ? new Date() : null,
+          actualCloseDate: isTerminal ? (lead.actualCloseDate ? new Date(lead.actualCloseDate) : new Date()) : null,
           projectId: null,
           lostReason: null,
           lostNotes: null,
