@@ -1,0 +1,94 @@
+{
+  "steps": {
+    "connect": "CONECTAR",
+    "scan": "ESCANEAR",
+    "sources": "FUENTES",
+    "review": "REVISAR",
+    "activate": "ACTIVAR"
+  },
+  "subSteps": {
+    "filter": "filtrar",
+    "consolidate": "consolidar",
+    "triage": "clasificar",
+    "confirm": "confirmar"
+  },
+  "filter": {
+    "title": "FILTRAR ELEMENTOS MARCADOS",
+    "description": "Estos fueron marcados por el agente. Decide qué pertenece a tu pipeline.",
+    "import": "IMPORTAR",
+    "discard": "DESCARTAR",
+    "skipToNext": "SALTAR AL SIGUIENTE PASO",
+    "reasons": {
+      "legal": "Legal",
+      "legal_desc": "Acuerdo, disputa o correspondencia con abogados",
+      "job_seeker": "Buscador de Empleo",
+      "job_seeker_desc": "Alguien buscando trabajo o empleo",
+      "collections": "Cobranzas",
+      "collections_desc": "Disputa de factura o seguimiento de pago atrasado",
+      "platform_bid": "Oferta de Plataforma",
+      "platform_bid_desc": "Invitación de oferta de Procore, BuilderTrend, etc.",
+      "warranty": "Garantía",
+      "warranty_desc": "Cliente anterior reportando un problema después de completar",
+      "ambiguous": "Ambiguo",
+      "ambiguous_desc": "La dirección de la relación no está clara"
+    }
+  },
+  "consolidate": {
+    "title": "CONSOLIDAR CONTACTOS",
+    "description": "Estos contactos parecen ser de la misma empresa.",
+    "contactsFrom": "contactos de",
+    "confirm": "CONFIRMAR",
+    "mergeIntoOne": "FUSIONAR EN 1 LEAD",
+    "discardGroup": "DESCARTAR GRUPO",
+    "editTitle": "editar título",
+    "via": "vía",
+    "leads": "Leads",
+    "contacts": "Contactos"
+  },
+  "triage": {
+    "title": "CLASIFICAR TRABAJO COMPLETADO",
+    "description": "Marca proyectos pasados como ganados o perdidos. Todo lo demás permanece activo.",
+    "won": "GANADO",
+    "lost": "PERDIDO",
+    "active": "ACTIVO"
+  },
+  "confirmPipeline": {
+    "title": "CONFIRMAR PIPELINE",
+    "description": "Revisa tus leads activos y ajusta las etapas antes de importar.",
+    "import": "IMPORTAR {count} LEADS",
+    "back": "ATRÁS",
+    "noLeads": "No hay leads para importar",
+    "noLeadsDescription": "Todos los leads fueron descartados o marcados como ganados/perdidos en pasos anteriores."
+  },
+  "thread": {
+    "showThread": "Mostrar hilo",
+    "hideThread": "Ocultar hilo",
+    "showOlder": "Mostrar mensajes anteriores ({count} más)",
+    "viewInGmail": "Ver hilo completo en Gmail"
+  },
+  "keyboard": {
+    "navigate": "navegar",
+    "select": "seleccionar",
+    "accept": "aceptar",
+    "discard": "descartar",
+    "toggleThread": "hilo"
+  },
+  "stages": {
+    "new_lead": "Nuevo Lead",
+    "qualifying": "Calificando",
+    "quoting": "Cotizando",
+    "quoted": "Cotizado",
+    "follow_up": "Seguimiento",
+    "negotiation": "Negociación",
+    "won": "Ganado",
+    "lost": "Perdido"
+  },
+  "summary": {
+    "active": "{count} activos",
+    "won": "{count} ganados",
+    "lost": "{count} perdidos",
+    "discarded": "{count} descartados"
+  },
+  "emails": "correos",
+  "last": "Último"
+}

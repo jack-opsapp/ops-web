@@ -20,6 +20,7 @@ export type Namespace =
   | 'email-templates'
   | 'forms'
   | 'intel'
-  | 'ai-drafting';
+  | 'ai-drafting'
+  | 'import-wizard';
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

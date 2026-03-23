@@ -1,0 +1,94 @@
+{
+  "steps": {
+    "connect": "CONNECT",
+    "scan": "SCAN",
+    "sources": "SOURCES",
+    "review": "REVIEW",
+    "activate": "ACTIVATE"
+  },
+  "subSteps": {
+    "filter": "filter",
+    "consolidate": "consolidate",
+    "triage": "triage",
+    "confirm": "confirm"
+  },
+  "filter": {
+    "title": "FILTER FLAGGED ITEMS",
+    "description": "These were flagged by the agent. Decide what belongs in your pipeline.",
+    "import": "IMPORT",
+    "discard": "DISCARD",
+    "skipToNext": "SKIP TO NEXT STEP",
+    "reasons": {
+      "legal": "Legal",
+      "legal_desc": "Settlement, dispute, or lawyer correspondence",
+      "job_seeker": "Job Seeker",
+      "job_seeker_desc": "Someone looking for work or employment",
+      "collections": "Collections",
+      "collections_desc": "Invoice dispute or overdue payment follow-up",
+      "platform_bid": "Platform Bid",
+      "platform_bid_desc": "Bid invitation from Procore, BuilderTrend, etc.",
+      "warranty": "Warranty",
+      "warranty_desc": "Past client reporting an issue after completion",
+      "ambiguous": "Ambiguous",
+      "ambiguous_desc": "Relationship direction is unclear"
+    }
+  },
+  "consolidate": {
+    "title": "CONSOLIDATE CONTACTS",
+    "description": "These contacts appear to be from the same company.",
+    "contactsFrom": "contacts from",
+    "confirm": "CONFIRM",
+    "mergeIntoOne": "MERGE INTO 1 LEAD",
+    "discardGroup": "DISCARD GROUP",
+    "editTitle": "edit title",
+    "via": "via",
+    "leads": "Leads",
+    "contacts": "Contacts"
+  },
+  "triage": {
+    "title": "TRIAGE COMPLETED WORK",
+    "description": "Mark past projects as won or lost. Everything else stays active.",
+    "won": "WON",
+    "lost": "LOST",
+    "active": "ACTIVE"
+  },
+  "confirmPipeline": {
+    "title": "CONFIRM PIPELINE",
+    "description": "Review your active leads and adjust stages before import.",
+    "import": "IMPORT {count} LEADS",
+    "back": "BACK",
+    "noLeads": "No leads to import",
+    "noLeadsDescription": "All leads were discarded or marked as won/lost in previous steps."
+  },
+  "thread": {
+    "showThread": "Show thread",
+    "hideThread": "Hide thread",
+    "showOlder": "Show older messages ({count} more)",
+    "viewInGmail": "View full thread in Gmail"
+  },
+  "keyboard": {
+    "navigate": "navigate",
+    "select": "select",
+    "accept": "accept",
+    "discard": "discard",
+    "toggleThread": "thread"
+  },
+  "stages": {
+    "new_lead": "New Lead",
+    "qualifying": "Qualifying",
+    "quoting": "Quoting",
+    "quoted": "Quoted",
+    "follow_up": "Follow Up",
+    "negotiation": "Negotiation",
+    "won": "Won",
+    "lost": "Lost"
+  },
+  "summary": {
+    "active": "{count} active",
+    "won": "{count} won",
+    "lost": "{count} lost",
+    "discarded": "{count} discarded"
+  },
+  "emails": "emails",
+  "last": "Last"
+}
