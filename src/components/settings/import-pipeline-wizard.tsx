@@ -107,6 +107,33 @@ export function ImportPipelineWizard({
   const [consolidationGroups, setConsolidationGroups] = useState<ConsolidationGroup[]>([]);
   const [triageDecisions, setTriageDecisions] = useState<Map<string, TriageDecision>>(new Map());
 
+  // ─── Review state persistence ───────────────────────────────────────────
+  const saveReviewState = useCallback(async () => {
+    if (!connectionId || step !== 4) return;
+    try {
+      const reviewState = {
+        subStep: reviewSubStep,
+        filteredOutIds: confirmedLeads.filter((l) => !l.enabled && l.needsReview).map((l) => l.id),
+        consolidationDecisions: consolidationGroups
+          .filter((g) => g.decision)
+          .map((g) => ({ groupId: g.id, decision: g.decision })),
+        triageDecisions: Array.from(triageDecisions.entries())
+          .map(([leadId, decision]) => ({ leadId, decision })),
+        stageOverrides: confirmedLeads
+          .filter((l) => l.enabled)
+          .map((l) => ({ leadId: l.id, stage: l.stage })),
+        savedAt: new Date().toISOString(),
+      };
+      await fetch("/api/integrations/email/connection", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId, syncFilters: { reviewState } }),
+      });
+    } catch (err) {
+      console.error("[wizard] Failed to save review state:", err);
+    }
+  }, [connectionId, step, reviewSubStep, confirmedLeads, consolidationGroups, triageDecisions]);
+
   // Stepper rail computed state
   const completedSteps = useMemo(() => {
     const set = new Set<string>();
@@ -301,6 +328,47 @@ export function ImportPipelineWizard({
             setConfirmedLeads(jobData.result.leads);
             if (jobData.result.estimatePattern) setEstimatePattern(jobData.result.estimatePattern);
             setRunningJobId(null);
+
+            // ── Restore review state if available and fresh (<24h) ──────
+            const reviewState = filters.reviewState;
+            if (reviewState?.savedAt) {
+              const hoursSince = (Date.now() - new Date(reviewState.savedAt).getTime()) / (1000 * 60 * 60);
+              if (hoursSince < 24) {
+                // Restore filter decisions
+                const filteredSet = new Set(reviewState.filteredOutIds || []);
+                const restoredLeads = (jobData.result.leads || []).map((l: AnalyzedLead) => ({
+                  ...l,
+                  enabled: filteredSet.has(l.id) ? false : l.enabled,
+                }));
+                setConfirmedLeads(restoredLeads);
+
+                // Restore triage decisions
+                if (reviewState.triageDecisions?.length) {
+                  const map = new Map<string, TriageDecision>();
+                  for (const { leadId, decision } of reviewState.triageDecisions) {
+                    map.set(leadId, decision);
+                  }
+                  setTriageDecisions(map);
+                }
+
+                // Restore stage overrides
+                if (reviewState.stageOverrides?.length) {
+                  const stageMap = new Map(reviewState.stageOverrides.map((s: { leadId: string; stage: string }) => [s.leadId, s.stage]));
+                  setConfirmedLeads((prev) =>
+                    prev.map((l) => {
+                      const override = stageMap.get(l.id);
+                      return override ? { ...l, stage: override as string } : l;
+                    })
+                  );
+                }
+
+                setReviewSubStep(reviewState.subStep || 1);
+                setDirection(1);
+                setStep(4);
+                return;
+              }
+            }
+
             setDirection(1);
             setStep(3);
           } else if (jobData.status === "error") {
@@ -715,6 +783,8 @@ export function ImportPipelineWizard({
         return;
       }
       if (!isOpen) {
+        // Save review decisions before closing so they can be restored
+        if (step === 4) saveReviewState();
         // Always invalidate connections on close so the integrations tab reflects current state
         invalidateConnections();
       }
