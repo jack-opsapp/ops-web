@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   UserPlus,
   Mail,
@@ -38,6 +38,7 @@ export function InviteModal({
   const { data: rolesData } = useRoles();
   const { data: company } = useCompany();
   const roles = rolesData ?? [];
+  const unassignedRoleId = roles.find((r) => r.name.toLowerCase() === "unassigned")?.id ?? "";
 
   const [inviteMode, setInviteMode] = useState<"email" | "sms">("email");
   const [inputValue, setInputValue] = useState("");
@@ -48,13 +49,20 @@ export function InviteModal({
   const companyCode = company?.companyCode || "";
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
 
+  // Default to "unassigned" role when roles load
+  useEffect(() => {
+    if (unassignedRoleId && !selectedRoleId) {
+      setSelectedRoleId(unassignedRoleId);
+    }
+  }, [unassignedRoleId, selectedRoleId]);
+
   const resetForm = useCallback(() => {
     setInputValue("");
     setEntries([]);
-    setSelectedRoleId("");
+    setSelectedRoleId(unassignedRoleId);
     setInviteMode("email");
     setCodeCopied(false);
-  }, []);
+  }, [unassignedRoleId]);
 
   function addEntry() {
     const trimmed = inputValue.trim();

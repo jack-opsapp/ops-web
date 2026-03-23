@@ -318,6 +318,7 @@
   "integrations.toast.importStarted": "Importación histórica iniciada",
   "integrations.toast.importFailed": "Error al iniciar la importación",
 
+  "preferences.quickActionsDesc": "Elige qué acciones aparecen en el menú de acceso rápido.",
   "preferences.language": "Idioma",
   "preferences.idioma": "Language",
   "preferences.english": "English",

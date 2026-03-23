@@ -395,7 +395,7 @@ export function PipelineMetricsBar({
                   className="w-[5px] h-[5px] rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="font-mono text-[12px] text-text-disabled">
+                <span className="font-mono text-[12px] text-text-disabled min-w-[1ch] text-center">
                   {s.count}
                 </span>
               </div>

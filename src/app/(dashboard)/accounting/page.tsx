@@ -27,6 +27,7 @@ import {
   useTriggerSync,
   useSyncHistory,
   useInvoices,
+  useClients,
 } from "@/lib/hooks";
 import {
   AccountingProvider,
@@ -348,6 +349,14 @@ export default function AccountingPage() {
   const { data: connections = [], isLoading: connectionsLoading } = useAccountingConnections();
   const { data: syncHistory = [], isLoading: historyLoading } = useSyncHistory();
   const { data: invoices = [] } = useInvoices();
+  const { data: clientsData } = useClients();
+  const clientNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clientsData?.clients ?? []) {
+      map.set(c.id, c.name);
+    }
+    return map;
+  }, [clientsData]);
 
   // Mutations
   const initiateOAuth = useInitiateOAuth();
@@ -409,24 +418,24 @@ export default function AccountingPage() {
   // ─── Top Clients ────────────────────────────────────────────────────────────
 
   const topClients = useMemo(() => {
-    const clientMap = new Map<string, { name: string; total: number; paid: number }>();
+    const map = new Map<string, { name: string; total: number; paid: number }>();
 
     for (const inv of invoices) {
       if (inv.status === InvoiceStatus.Void || !inv.clientId) continue;
-      const existing = clientMap.get(inv.clientId) || {
-        name: inv.clientId, // Will be replaced if client data is available
+      const existing = map.get(inv.clientId) || {
+        name: clientNameMap.get(inv.clientId) ?? inv.clientId,
         total: 0,
         paid: 0,
       };
       existing.total += inv.total;
       existing.paid += inv.amountPaid;
-      clientMap.set(inv.clientId, existing);
+      map.set(inv.clientId, existing);
     }
 
-    return Array.from(clientMap.values())
+    return Array.from(map.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
-  }, [invoices]);
+  }, [invoices, clientNameMap]);
 
   // ─── Sync Handlers ──────────────────────────────────────────────────────────
 

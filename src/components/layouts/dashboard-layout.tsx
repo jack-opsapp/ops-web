@@ -152,16 +152,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main
         className={cn(
-          "flex flex-col h-screen min-w-0 transition-all duration-200 ease-out",
+          "h-screen min-w-0 overflow-y-auto overflow-x-auto transition-all duration-200 ease-out",
           isCollapsed
             ? "ml-[72px] w-[calc(100vw-72px)]"
             : "ml-[256px] w-[calc(100vw-256px)]"
         )}
       >
-        <TopBar />
+        <div className="sticky top-0 z-10">
+          <TopBar />
+        </div>
         <ContentHeader />
         <UnassignedRoleBanner />
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 relative z-[1]">
+        <div className="p-3 relative z-[1]">
           {children}
         </div>
       </main>
