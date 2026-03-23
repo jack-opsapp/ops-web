@@ -141,7 +141,7 @@ export function ImportPipelineWizard({
 
   // ─── Import job tracking ───────────────────────────────────────────────────
   // When the user clicks "Import" in step 4, this is set to the background job ID.
-  // Step 4 then renders ImportProgress instead of ReviewImportStep.
+  // Step 4 then renders ImportProgress instead of the review sub-steps.
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [importLeadCount, setImportLeadCount] = useState(0);
 
@@ -558,7 +558,7 @@ export function ImportPipelineWizard({
       setImportJobId(jobId);
       setRunningJobId(jobId);
       setRunningJobType("import");
-      setBgProgress({ percent: 0, message: `Starting import of ${enabledLeads.length} leads...` });
+      setBgProgress({ percent: 0, message: `Starting import of ${importLeads.length} leads...` });
       invalidateConnections();
     } catch (err) {
       console.error("Import failed:", err);
