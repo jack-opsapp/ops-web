@@ -148,7 +148,7 @@ export function ConsolidateContactsStep({
                 <div
                   key={contact.leadId}
                   className="flex items-center gap-2 py-1 px-2 border border-white/5"
-                  style={{ borderRadius: 2 }}
+                  style={{ borderRadius: 4 }}
                 >
                   <span className="font-mohave text-[11px] text-[#999] flex-1 truncate">
                     {contact.name}
@@ -182,7 +182,7 @@ export function ConsolidateContactsStep({
                   <div
                     key={gl.leadId}
                     className="py-1.5 px-2 border border-white/5 space-y-1"
-                    style={{ borderRadius: 2 }}
+                    style={{ borderRadius: 4 }}
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-mohave text-[11px] text-[#999]">
@@ -216,14 +216,14 @@ export function ConsolidateContactsStep({
               <button
                 onClick={() => actions["1"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794]/30 text-[#597794] hover:bg-[#597794]/10 transition-colors"
-                style={{ borderRadius: 3 }}
+                style={{ borderRadius: 4 }}
               >
                 1: CONFIRM
               </button>
               <button
                 onClick={() => actions["2"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#C4A868]/30 text-[#C4A868] hover:bg-[#C4A868]/10 transition-colors"
-                style={{ borderRadius: 3 }}
+                style={{ borderRadius: 4 }}
               >
                 2: MERGE INTO 1
               </button>

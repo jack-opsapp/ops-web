@@ -191,7 +191,7 @@ export function CardCarousel<T>({
             animate={{ opacity: 0.5 }}
             className="px-3 py-2 border border-white/5 overflow-hidden flex items-center justify-between"
             style={{
-              borderRadius: 2,
+              borderRadius: 4,
               background: "rgba(10, 10, 10, 0.70)",
               backdropFilter: "blur(20px) saturate(1.2)",
             }}
@@ -222,7 +222,7 @@ export function CardCarousel<T>({
               exit="exit"
               className="border border-white/8 p-4"
               style={{
-                borderRadius: 3,
+                borderRadius: 4,
                 background: "rgba(10, 10, 10, 0.70)",
                 backdropFilter: "blur(20px) saturate(1.2)",
                 WebkitBackdropFilter: "blur(20px) saturate(1.2)",
@@ -243,7 +243,7 @@ export function CardCarousel<T>({
             animate={{ opacity: 0.4 }}
             className="px-3 py-2 border border-white/5 overflow-hidden"
             style={{
-              borderRadius: 2,
+              borderRadius: 4,
               background: "rgba(10, 10, 10, 0.70)",
               backdropFilter: "blur(20px) saturate(1.2)",
             }}

@@ -237,7 +237,7 @@ export function ConfirmPipelineStep({
         <div
           className="sticky bottom-0 -mx-4 px-4 py-3 flex items-center justify-between border-t border-white/8 mt-4"
           style={{
-            background: "rgba(13, 13, 13, 0.92)",
+            background: "rgba(10, 10, 10, 0.90)",
             backdropFilter: "blur(20px) saturate(1.2)",
             WebkitBackdropFilter: "blur(20px) saturate(1.2)",
             zIndex: 10,
@@ -308,7 +308,7 @@ function LeadRow({
           onChange={(e) => onStageChange(e.target.value)}
           className="font-mohave text-[11px] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0"
           style={{
-            borderRadius: 2,
+            borderRadius: 4,
             color: STAGE_CONFIG[lead.stage]?.color || "#999",
           }}
         >

@@ -192,7 +192,7 @@ export function TriageStep({
               <div
                 className="inline-flex items-center gap-1.5 px-2 py-0.5 border"
                 style={{
-                  borderRadius: 2,
+                  borderRadius: 4,
                   borderColor: `${DECISION_COLORS[defaultDecision]}30`,
                   color: DECISION_COLORS[defaultDecision],
                 }}
@@ -212,7 +212,7 @@ export function TriageStep({
                 onClick={() => actions["1"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
                 style={{
-                  borderRadius: 3,
+                  borderRadius: 4,
                   borderColor: "rgba(157, 181, 130, 0.3)",
                   color: "#9DB582",
                 }}
@@ -230,7 +230,7 @@ export function TriageStep({
                 onClick={() => actions["3"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
                 style={{
-                  borderRadius: 3,
+                  borderRadius: 4,
                   borderColor: "rgba(89, 119, 148, 0.3)",
                   color: "#597794",
                 }}

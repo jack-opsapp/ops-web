@@ -185,14 +185,14 @@ export function FilterFlaggedStep({
               <button
                 onClick={() => actions["1"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794]/30 text-[#597794] hover:bg-[#597794]/10 transition-colors"
-                style={{ borderRadius: 3 }}
+                style={{ borderRadius: 4 }}
               >
                 1: IMPORT
               </button>
               <button
                 onClick={() => actions["2"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#666] hover:bg-white/5 transition-colors"
-                style={{ borderRadius: 3 }}
+                style={{ borderRadius: 4 }}
               >
                 2: DISCARD
               </button>
