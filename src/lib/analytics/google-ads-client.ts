@@ -1,13 +1,15 @@
 /**
- * OPS Admin — Google Ads API Client
+ * OPS Admin — Google Ads API Client (Service Account Auth)
  *
  * SERVER ONLY. Never import from client components.
  * Data latency: near real-time (2-3 hour reporting delay for some metrics).
  *
- * Pattern: matches src/lib/analytics/ga4-client.ts (singleton, GAQL queries).
+ * Auth: Firebase service account with Google Ads account access.
+ * Pattern: matches src/lib/analytics/ga4-client.ts (singleton, reuses Firebase credentials).
  */
-import { GoogleAdsApi } from "google-ads-api";
+import { GoogleAuth } from "google-auth-library";
 import { unstable_cache } from "next/cache";
+import { parsePrivateKey } from "@/lib/firebase/parse-private-key";
 import type {
   AdsDayRange,
   GoogleAdsAccountSummary,
@@ -18,36 +20,118 @@ import type {
   DailySpend,
 } from "./google-ads-types";
 
-// ─── Singleton client ─────────────────────────────────────────────────────────
+// ─── Singleton auth client ────────────────────────────────────────────────────
 
-let _client: GoogleAdsApi | null = null;
+const ADS_API_VERSION = "v18";
+const ADS_BASE_URL = `https://googleads.googleapis.com/${ADS_API_VERSION}`;
 
-function getGoogleAdsClient(): GoogleAdsApi {
-  if (_client) return _client;
+let _auth: GoogleAuth | null = null;
 
-  const clientId = process.env.GOOGLE_GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
-  const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+function getAuth(): GoogleAuth {
+  if (_auth) return _auth;
 
-  if (!clientId || !clientSecret || !developerToken) {
-    throw new Error(
-      "Missing Google Ads env vars: GOOGLE_GMAIL_CLIENT_ID, GOOGLE_GMAIL_CLIENT_SECRET, GOOGLE_ADS_DEVELOPER_TOKEN"
-    );
+  // Support full JSON (same as GA4 client)
+  const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
+  if (serviceAccountJson) {
+    const credentials = JSON.parse(serviceAccountJson);
+    _auth = new GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/adwords"],
+    });
+    return _auth;
   }
 
-  _client = new GoogleAdsApi({ client_id: clientId, client_secret: clientSecret, developer_token: developerToken });
-  return _client;
+  // Construct from individual env vars (same as GA4 client)
+  const privateKey = parsePrivateKey(process.env.FIREBASE_ADMIN_PRIVATE_KEY);
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
+    ?? `firebase-adminsdk-fbsvc@${projectId}.iam.gserviceaccount.com`;
+
+  if (!privateKey || !projectId) {
+    throw new Error("Missing FIREBASE_ADMIN_PRIVATE_KEY or NEXT_PUBLIC_FIREBASE_PROJECT_ID env var");
+  }
+
+  _auth = new GoogleAuth({
+    credentials: { client_email: clientEmail, private_key: privateKey },
+    scopes: ["https://www.googleapis.com/auth/adwords"],
+  });
+
+  return _auth;
 }
 
-function getCustomer() {
-  const customerId = process.env.GOOGLE_ADS_CUSTOMER_ID;
-  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
+function getCustomerId(): string {
+  const id = process.env.GOOGLE_ADS_CUSTOMER_ID;
+  if (!id) throw new Error("Missing GOOGLE_ADS_CUSTOMER_ID env var");
+  return id;
+}
 
-  if (!customerId || !refreshToken) {
-    throw new Error("Missing Google Ads env vars: GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_REFRESH_TOKEN");
+function getDeveloperToken(): string {
+  const token = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  if (!token) throw new Error("Missing GOOGLE_ADS_DEVELOPER_TOKEN env var");
+  return token;
+}
+
+// ─── REST API query helper ────────────────────────────────────────────────────
+
+interface GoogleAdsRow {
+  customer?: { id?: string };
+  campaign?: { name?: string; status?: string };
+  adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
+  searchTermView?: { searchTerm?: string };
+  segments?: { date?: string; conversionActionName?: string };
+  metrics?: {
+    costMicros?: string;
+    clicks?: string;
+    impressions?: string;
+    conversions?: number;
+    costPerConversion?: number;
+    ctr?: number;
+    historicalQualityScore?: number;
+  };
+}
+
+async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
+  const auth = getAuth();
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  const accessToken = typeof tokenResponse === "string" ? tokenResponse : tokenResponse?.token;
+
+  if (!accessToken) throw new Error("Failed to obtain access token for Google Ads API");
+
+  const customerId = getCustomerId();
+  const developerToken = getDeveloperToken();
+
+  const response = await fetch(
+    `${ADS_BASE_URL}/customers/${customerId}/googleAds:searchStream`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": developerToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query: gaql }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Google Ads API error (${response.status}): ${errorBody}`);
   }
 
-  return getGoogleAdsClient().Customer({ customer_id: customerId, refresh_token: refreshToken });
+  const data = await response.json();
+
+  // searchStream returns an array of batches, each with a results array
+  const rows: GoogleAdsRow[] = [];
+  if (Array.isArray(data)) {
+    for (const batch of data) {
+      if (batch.results) {
+        rows.push(...batch.results);
+      }
+    }
+  }
+
+  return rows;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -58,7 +142,7 @@ const DURING_MAP: Record<AdsDayRange, string> = {
   30: "LAST_30_DAYS",
 };
 
-function microsToDollars(micros: number | string | null | undefined): number {
+function microsToDollars(micros: string | number | null | undefined): number {
   if (micros == null) return 0;
   const val = typeof micros === "string" ? parseInt(micros, 10) : micros;
   return val / 1_000_000;
@@ -68,15 +152,14 @@ export function isGoogleAdsConfigured(): boolean {
   return !!(
     process.env.GOOGLE_ADS_DEVELOPER_TOKEN &&
     process.env.GOOGLE_ADS_CUSTOMER_ID &&
-    process.env.GOOGLE_ADS_REFRESH_TOKEN
+    (process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT || process.env.FIREBASE_ADMIN_PRIVATE_KEY)
   );
 }
 
 // ─── Query Functions ──────────────────────────────────────────────────────────
 
 async function getAccountSummary(days: AdsDayRange): Promise<GoogleAdsAccountSummary> {
-  const customer = getCustomer();
-  const rows = await customer.query(`
+  const rows = await queryGoogleAds(`
     SELECT
       metrics.cost_micros,
       metrics.clicks,
@@ -94,18 +177,17 @@ async function getAccountSummary(days: AdsDayRange): Promise<GoogleAdsAccountSum
 
   const row = rows[0];
   return {
-    totalSpend: microsToDollars(row.metrics?.cost_micros),
+    totalSpend: microsToDollars(row.metrics?.costMicros),
     totalClicks: Number(row.metrics?.clicks ?? 0),
     totalImpressions: Number(row.metrics?.impressions ?? 0),
     totalConversions: Number(row.metrics?.conversions ?? 0),
-    avgCpa: microsToDollars(row.metrics?.cost_per_conversion),
+    avgCpa: microsToDollars(row.metrics?.costPerConversion),
     avgCtr: Number(row.metrics?.ctr ?? 0),
   };
 }
 
 async function getCampaignPerformance(days: AdsDayRange): Promise<CampaignPerformance[]> {
-  const customer = getCustomer();
-  const rows = await customer.query(`
+  const rows = await queryGoogleAds(`
     SELECT
       campaign.name,
       campaign.status,
@@ -127,15 +209,14 @@ async function getCampaignPerformance(days: AdsDayRange): Promise<CampaignPerfor
     impressions: Number(row.metrics?.impressions ?? 0),
     clicks: Number(row.metrics?.clicks ?? 0),
     ctr: Number(row.metrics?.ctr ?? 0),
-    cost: microsToDollars(row.metrics?.cost_micros),
+    cost: microsToDollars(row.metrics?.costMicros),
     conversions: Number(row.metrics?.conversions ?? 0),
-    cpa: microsToDollars(row.metrics?.cost_per_conversion),
+    cpa: microsToDollars(row.metrics?.costPerConversion),
   }));
 }
 
 async function getKeywordPerformance(days: AdsDayRange, limit: number = 50): Promise<KeywordPerformance[]> {
-  const customer = getCustomer();
-  const rows = await customer.query(`
+  const rows = await queryGoogleAds(`
     SELECT
       ad_group_criterion.keyword.text,
       ad_group_criterion.keyword.match_type,
@@ -151,21 +232,20 @@ async function getKeywordPerformance(days: AdsDayRange, limit: number = 50): Pro
   `);
 
   return rows.map((row) => ({
-    keyword: String(row.ad_group_criterion?.keyword?.text ?? ""),
-    matchType: (row.ad_group_criterion?.keyword?.match_type ?? "BROAD") as KeywordPerformance["matchType"],
+    keyword: String(row.adGroupCriterion?.keyword?.text ?? ""),
+    matchType: (row.adGroupCriterion?.keyword?.matchType ?? "BROAD") as KeywordPerformance["matchType"],
     impressions: Number(row.metrics?.impressions ?? 0),
     clicks: Number(row.metrics?.clicks ?? 0),
-    cost: microsToDollars(row.metrics?.cost_micros),
+    cost: microsToDollars(row.metrics?.costMicros),
     conversions: Number(row.metrics?.conversions ?? 0),
-    qualityScore: row.metrics?.historical_quality_score != null
-      ? Number(row.metrics.historical_quality_score)
+    qualityScore: row.metrics?.historicalQualityScore != null
+      ? Number(row.metrics.historicalQualityScore)
       : null,
   }));
 }
 
 async function getSearchTerms(days: AdsDayRange, limit: number = 50): Promise<SearchTermData[]> {
-  const customer = getCustomer();
-  const rows = await customer.query(`
+  const rows = await queryGoogleAds(`
     SELECT
       search_term_view.search_term,
       metrics.impressions,
@@ -179,17 +259,16 @@ async function getSearchTerms(days: AdsDayRange, limit: number = 50): Promise<Se
   `);
 
   return rows.map((row) => ({
-    searchTerm: String(row.search_term_view?.search_term ?? ""),
+    searchTerm: String(row.searchTermView?.searchTerm ?? ""),
     impressions: Number(row.metrics?.impressions ?? 0),
     clicks: Number(row.metrics?.clicks ?? 0),
-    cost: microsToDollars(row.metrics?.cost_micros),
+    cost: microsToDollars(row.metrics?.costMicros),
     conversions: Number(row.metrics?.conversions ?? 0),
   }));
 }
 
 async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakdown[]> {
-  const customer = getCustomer();
-  const rows = await customer.query(`
+  const rows = await queryGoogleAds(`
     SELECT
       segments.conversion_action_name,
       metrics.conversions,
@@ -203,15 +282,15 @@ async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakd
   // Aggregate by conversion action name (multiple campaigns may contribute)
   const byAction = new Map<string, ConversionBreakdown>();
   for (const row of rows) {
-    const name = String(row.segments?.conversion_action_name ?? "Unknown");
+    const name = String(row.segments?.conversionActionName ?? "Unknown");
     const existing = byAction.get(name);
     if (existing) {
       existing.conversions += Number(row.metrics?.conversions ?? 0);
-      existing.cost += microsToDollars(row.metrics?.cost_micros);
+      existing.cost += microsToDollars(row.metrics?.costMicros);
       existing.cpa = existing.conversions > 0 ? existing.cost / existing.conversions : 0;
     } else {
       const conversions = Number(row.metrics?.conversions ?? 0);
-      const cost = microsToDollars(row.metrics?.cost_micros);
+      const cost = microsToDollars(row.metrics?.costMicros);
       byAction.set(name, {
         actionName: name,
         conversions,
@@ -225,8 +304,7 @@ async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakd
 }
 
 async function getDailySpend(days: AdsDayRange): Promise<DailySpend[]> {
-  const customer = getCustomer();
-  const rows = await customer.query(`
+  const rows = await queryGoogleAds(`
     SELECT
       segments.date,
       metrics.cost_micros,
@@ -239,7 +317,7 @@ async function getDailySpend(days: AdsDayRange): Promise<DailySpend[]> {
 
   return rows.map((row) => ({
     date: String(row.segments?.date ?? ""),
-    spend: microsToDollars(row.metrics?.cost_micros),
+    spend: microsToDollars(row.metrics?.costMicros),
     clicks: Number(row.metrics?.clicks ?? 0),
     conversions: Number(row.metrics?.conversions ?? 0),
   }));
