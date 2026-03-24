@@ -22,7 +22,7 @@ import type {
 
 // ─── Singleton auth client ────────────────────────────────────────────────────
 
-const ADS_API_VERSION = "v19";
+const ADS_API_VERSION = "v23";
 const ADS_BASE_URL = `https://googleads.googleapis.com/${ADS_API_VERSION}`;
 
 let _auth: GoogleAuth | null = null;
