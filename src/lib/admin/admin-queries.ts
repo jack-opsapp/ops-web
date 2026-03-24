@@ -50,6 +50,14 @@ export async function isAdminEmail(email: string): Promise<boolean> {
   return _isAdminEmail(email);
 }
 
+/** Get all admin email addresses (for briefing email delivery). */
+export async function getAdminEmails(): Promise<string[]> {
+  const { data } = await db()
+    .from("admins")
+    .select("email");
+  return (data ?? []).map((row) => row.email).filter(Boolean);
+}
+
 // ─── Overview Queries ─────────────────────────────────────────────────────────
 
 export async function getTotalCompanies(): Promise<number> {
