@@ -4,8 +4,11 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
+  EmailAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  reauthenticateWithCredential,
+  updatePassword as firebaseUpdatePassword,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   type User,
@@ -174,4 +177,46 @@ export async function getIdToken(forceRefresh = false): Promise<string | null> {
   const user = auth.currentUser;
   if (!user) return null;
   return user.getIdToken(forceRefresh);
+}
+
+/**
+ * Get the primary auth provider for the current user.
+ * Returns "password" for email/password, "google.com" for Google,
+ * "apple.com" for Apple, or null if no user is signed in.
+ */
+export function getAuthProvider(): string | null {
+  const user = auth.currentUser;
+  if (!user) return null;
+  if (!user.providerData || user.providerData.length === 0) return null;
+  return user.providerData[0].providerId;
+}
+
+/**
+ * Check if the current user signed in with email/password.
+ * Returns false for Google, Apple, or other SSO providers.
+ */
+export function isEmailPasswordUser(): boolean {
+  return getAuthProvider() === "password";
+}
+
+/**
+ * Change the password for the current email/password user.
+ * Requires re-authentication with current password first.
+ * Throws if the current password is wrong or the user is not an email/password user.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    throw new Error("No authenticated user");
+  }
+
+  // Re-authenticate with current password to confirm identity
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+
+  // Update to new password
+  await firebaseUpdatePassword(user, newPassword);
 }
