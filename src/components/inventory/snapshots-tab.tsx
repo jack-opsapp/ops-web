@@ -201,8 +201,8 @@ export function SnapshotsTab() {
           }}
         />
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
+        <div className="border border-border rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
                 <th className="w-[32px] px-1 py-1.5" />

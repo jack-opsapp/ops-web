@@ -85,8 +85,8 @@ export function ContentHeader() {
 
   // Nested route — render breadcrumb trail
   return (
-    <div className="px-3 pt-2 pb-1 shrink-0">
-      <div className="flex items-center gap-[6px]">
+    <div className="px-3 pt-2 pb-1 shrink-0 min-w-0">
+      <div className="flex items-center gap-[6px] min-w-0 overflow-hidden">
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1;
           const displayLabel =

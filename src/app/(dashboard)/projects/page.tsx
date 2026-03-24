@@ -627,8 +627,8 @@ export default function ProjectsPage() {
           ))}
         </div>
       ) : (
-        <div className="bg-background-card border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
+        <div className="bg-background-card border border-border rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
                 {/* Checkbox column header */}

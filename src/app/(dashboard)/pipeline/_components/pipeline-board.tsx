@@ -231,7 +231,7 @@ export function PipelineBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div ref={containerRef} className="flex gap-[8px] h-full">
+      <div ref={containerRef} className="flex gap-[8px] h-full overflow-x-auto min-w-0">
         {/* Visible columns — fluid, share available space equally */}
         {visibleStages.map((stage) => (
           <PipelineColumn

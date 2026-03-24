@@ -1278,8 +1278,8 @@ export default function JobBoardPage() {
       </DndContext>
 
       {/* Bottom summary bar */}
-      <div className="shrink-0 flex items-center justify-between px-2 py-1 rounded bg-background-panel border border-border">
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 flex items-center justify-between px-2 py-1 rounded bg-background-panel border border-border overflow-x-auto min-w-0">
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
           {filteredColumns.map((col) => (
             <div key={col.id} className="flex items-center gap-[6px]">
               <span

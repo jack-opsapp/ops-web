@@ -134,8 +134,8 @@ export default function ProductsPage() {
           }
         />
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
+        <div className="border border-border rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
                 <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">

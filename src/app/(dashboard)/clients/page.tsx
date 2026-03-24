@@ -497,8 +497,8 @@ export default function ClientsPage() {
         </div>
       ) : (
         /* Table View */
-        <div className="bg-background-card border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
+        <div className="bg-background-card border border-border rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
