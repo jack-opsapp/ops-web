@@ -614,12 +614,26 @@ export function TeamTab() {
                           {t("team.seated")}
                         </span>
                       )}
-                      {member.isCompanyAdmin && (
-                        <Shield className="w-[14px] h-[14px] text-ops-amber" />
-                      )}
-                      <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
-                        {member.isCompanyAdmin ? "Admin" : member.role || "Crew"}
-                      </span>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link
+                              href="/settings?tab=roles"
+                              className="inline-flex items-center gap-[4px] cursor-pointer hover:opacity-80 transition-opacity"
+                            >
+                              {member.isCompanyAdmin && (
+                                <Shield className="w-[14px] h-[14px] text-ops-amber" />
+                              )}
+                              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                                {member.isCompanyAdmin ? "Admin" : member.role || "Crew"}
+                              </span>
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="font-kosugi text-[11px]">{t("team.roleBadgeTooltip")}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <MemberActions
                         member={member}
                         isCurrentUser={isCurrentUser}

@@ -166,6 +166,7 @@
   "team.reactivate": "Reactivate",
   "team.seated": "Seated",
   "team.you": "You",
+  "team.roleBadgeTooltip": "View role permissions",
   "team.deactivateConfirmTitle": "Deactivate",
   "team.deactivateConfirmDesc": "This will revoke their access to OPS. They will no longer be able to log in or access company data. You can reactivate them later.",
   "team.toast.enterEmail": "Please enter an email address",
