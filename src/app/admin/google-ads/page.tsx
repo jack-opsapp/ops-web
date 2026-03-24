@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { GoogleAdsContent } from "./_components/google-ads-content";
+import { SyncStatusBar } from "./_components/sync-status";
 import { BriefingHero } from "./briefings/_components/briefing-hero";
 import { safe } from "@/lib/utils/safe";
 import {
@@ -79,6 +80,9 @@ export default async function GoogleAdsPage() {
   return (
     <div>
       <AdminPageHeader title="Google Ads" caption="near real-time · 5 min cache" />
+      <div className="px-8 pt-4">
+        <SyncStatusBar />
+      </div>
       <div className="p-8 pb-0">
         <Suspense fallback={<div className="border border-white/[0.08] rounded-lg bg-white/[0.02] p-6 animate-pulse h-48" />}>
           <BriefingHero />
