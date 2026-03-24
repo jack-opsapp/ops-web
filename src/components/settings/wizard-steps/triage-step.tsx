@@ -3,6 +3,7 @@
 import { useMemo, useCallback } from "react";
 import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView, formatRelativeDate } from "./email-thread-view";
+import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 
 // ─── Heuristics ───────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ interface TriageStepProps {
   onTriageDecision: (leadId: string, decision: TriageDecision) => void;
   consolidationGroups: ConsolidationGroup[];
   onComplete: () => void;
+  onBack?: () => void;
 }
 
 export function TriageStep({
@@ -74,7 +76,10 @@ export function TriageStep({
   onTriageDecision,
   consolidationGroups,
   onComplete,
+  onBack,
 }: TriageStepProps) {
+  const { t } = useDictionary("import-wizard");
+
   // Only enabled, non-flagged leads (those that passed sub-step 1)
   const triageLeads = useMemo(
     () => leads.filter((l) => l.enabled && !l.needsReview),
@@ -143,11 +148,12 @@ export function TriageStep({
 
   return (
     <CardCarousel
-      title="TRIAGE COMPLETED WORK"
+      title={t("triage.title")}
       items={items}
       actions={actions}
       onComplete={onComplete}
-      keyboardHint="↑↓ navigate · 1 won · 2 lost · 3 active · ⌫ discard · E thread"
+      onBack={onBack}
+      keyboardHint={t("triage.hint")}
       renderCard={(item) => {
         const lead = item.data;
         const consolidated = consolidationLookup.get(lead.id);
@@ -197,7 +203,7 @@ export function TriageStep({
                 }}
               >
                 <span className="font-kosugi text-[8px] tracking-[0.1em] uppercase">
-                  Agent suggests: {DECISION_LABELS[defaultDecision]}
+                  {t("triage.agentSuggests")}: {DECISION_LABELS[defaultDecision]}
                 </span>
               </div>
             )}
@@ -216,14 +222,14 @@ export function TriageStep({
                   color: "#9DB582",
                 }}
               >
-                1: WON
+                1: {t("triage.won")}
               </button>
               <button
                 onClick={() => actions["2"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#6B7280] transition-colors"
                 style={{ borderRadius: 4 }}
               >
-                2: LOST
+                2: {t("triage.lost")}
               </button>
               <button
                 onClick={() => actions["3"](item)}
@@ -234,7 +240,7 @@ export function TriageStep({
                   color: "#597794",
                 }}
               >
-                3: ACTIVE
+                3: {t("triage.active")}
               </button>
             </div>
           </div>

@@ -106,6 +106,7 @@ export function ImportPipelineWizard({
   const [reviewSubStep, setReviewSubStep] = useState<1 | 2 | 3 | 4>(1);
   const [consolidationGroups, setConsolidationGroups] = useState<ConsolidationGroup[]>([]);
   const [triageDecisions, setTriageDecisions] = useState<Map<string, TriageDecision>>(new Map());
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // ─── Review state persistence ───────────────────────────────────────────
   const saveReviewState = useCallback(async () => {
@@ -782,6 +783,11 @@ export function ImportPipelineWizard({
         onOpenChange(false);
         return;
       }
+      if (!isOpen && step === 4 && !importJobId) {
+        // Mid-review — show confirmation instead of closing immediately
+        setShowCloseConfirm(true);
+        return;
+      }
       if (!isOpen) {
         // Save review decisions before closing so they can be restored
         if (step === 4) saveReviewState();
@@ -938,6 +944,7 @@ export function ImportPipelineWizard({
                   <FilterFlaggedStep
                     leads={confirmedLeads}
                     onLeadsChanged={setConfirmedLeads}
+                    onBack={() => goTo(3)}
                     onComplete={() => {
                       const groups = buildConsolidationGroups(
                         confirmedLeads.filter((l) => l.enabled)
@@ -952,6 +959,31 @@ export function ImportPipelineWizard({
                     onLeadsChanged={setConfirmedLeads}
                     consolidationGroups={consolidationGroups}
                     onGroupsChanged={setConsolidationGroups}
+                    onBack={() => {
+                      // Re-enable any leads that were disabled by merge decisions
+                      const mergedLeadIds = new Set<string>();
+                      for (const g of consolidationGroups) {
+                        if (g.decision === "merge" && g.leads.length > 1) {
+                          g.leads.slice(1).forEach((gl) => mergedLeadIds.add(gl.leadId));
+                        }
+                      }
+                      if (mergedLeadIds.size > 0) {
+                        setConfirmedLeads((prev) =>
+                          prev.map((l) => mergedLeadIds.has(l.id) ? { ...l, enabled: true } : l)
+                        );
+                      }
+                      // Reset consolidation decisions
+                      setConsolidationGroups((prev) =>
+                        prev.map((g) => ({ ...g, decision: null }))
+                      );
+                      // Go back to filter if flagged leads exist, otherwise to sources
+                      const hasFlagged = confirmedLeads.some((l) => l.needsReview);
+                      if (hasFlagged) {
+                        setReviewSubStep(1);
+                      } else {
+                        goTo(3);
+                      }
+                    }}
                     onComplete={() => setReviewSubStep(3)}
                   />
                 ) : reviewSubStep === 3 ? (
@@ -962,6 +994,18 @@ export function ImportPipelineWizard({
                       setTriageDecisions((prev) => new Map(prev).set(id, decision));
                     }}
                     consolidationGroups={consolidationGroups}
+                    onBack={() => {
+                      // Clear triage decisions — user is revisiting
+                      setTriageDecisions(new Map());
+                      // Go back to consolidate if groups exist, otherwise to filter/sources
+                      if (consolidationGroups.length > 0) {
+                        setReviewSubStep(2);
+                      } else {
+                        const hasFlagged = confirmedLeads.some((l) => l.needsReview);
+                        setReviewSubStep(hasFlagged ? 1 : 1);
+                        if (!hasFlagged) goTo(3);
+                      }
+                    }}
                     onComplete={() => setReviewSubStep(4)}
                   />
                 ) : (
@@ -1005,6 +1049,52 @@ export function ImportPipelineWizard({
           </AnimatePresence>
         </div>
 
+        {/* Close confirmation overlay — shown when user tries to close mid-review */}
+        {showCloseConfirm && (
+          <div
+            className="absolute inset-0 z-50 flex items-center justify-center"
+            style={{
+              background: "rgba(0, 0, 0, 0.7)",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <div
+              className="p-6 border border-white/10 max-w-[320px]"
+              style={{
+                background: "#0D0D0D",
+                borderRadius: 4,
+              }}
+            >
+              <p className="font-mohave text-[15px] text-white mb-2">
+                Close wizard?
+              </p>
+              <p className="font-mohave text-[12px] text-[#999] mb-5">
+                Your progress will be saved and can be resumed later.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCloseConfirm(false)}
+                  className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#999] hover:text-white transition-colors"
+                  style={{ borderRadius: 4 }}
+                >
+                  CONTINUE
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCloseConfirm(false);
+                    saveReviewState();
+                    invalidateConnections();
+                    onOpenChange(false);
+                  }}
+                  className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white transition-colors"
+                  style={{ borderRadius: 4 }}
+                >
+                  CLOSE & SAVE
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         </div>{/* end flex layout (stepper rail + content) */}
 
         {/* Back button footer — hide during background jobs and on step 4 (sub-steps have their own nav) */}

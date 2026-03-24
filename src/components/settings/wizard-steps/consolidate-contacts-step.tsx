@@ -4,6 +4,7 @@ import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { X } from "lucide-react";
 import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView } from "./email-thread-view";
+import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead, ConsolidationGroup } from "@/lib/types/email-import";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -14,6 +15,7 @@ interface ConsolidateContactsStepProps {
   consolidationGroups: ConsolidationGroup[];
   onGroupsChanged: (groups: ConsolidationGroup[]) => void;
   onComplete: () => void;
+  onBack?: () => void;
 }
 
 export function ConsolidateContactsStep({
@@ -22,7 +24,10 @@ export function ConsolidateContactsStep({
   consolidationGroups,
   onGroupsChanged,
   onComplete,
+  onBack,
 }: ConsolidateContactsStepProps) {
+  const { t } = useDictionary("import-wizard");
+
   // Build carousel items from groups
   const items: CarouselItem<ConsolidationGroup>[] = useMemo(
     () =>
@@ -114,11 +119,12 @@ export function ConsolidateContactsStep({
 
   return (
     <CardCarousel
-      title="CONSOLIDATE CONTACTS"
+      title={t("consolidate.title")}
       items={items}
       actions={actions}
       onComplete={onComplete}
-      keyboardHint="↑↓ navigate · 1 confirm · 2 merge · ⏎ accept · ⌫ discard"
+      onBack={onBack}
+      keyboardHint={t("consolidate.hint")}
       renderCard={(item) => {
         const group = item.data;
 
@@ -130,13 +136,13 @@ export function ConsolidateContactsStep({
               onChange={(name) => updateGroup(group.id, { companyName: name })}
             />
             <p className="font-mohave text-[11px] text-[#666] -mt-1">
-              {group.contacts.length} {group.domain ? `contacts from ${group.domain}` : "contacts with same name"}
+              {group.contacts.length} {group.domain ? `${t("consolidate.contactsFrom")} ${group.domain}` : t("consolidate.contacts")}
             </p>
 
             {/* Contacts list */}
             <div className="space-y-1">
               <span className="font-kosugi text-[8px] tracking-[0.12em] uppercase text-[#555]">
-                Contacts
+                {t("consolidate.contacts")}
               </span>
               {group.contacts.map((contact) => (
                 <div
@@ -168,7 +174,7 @@ export function ConsolidateContactsStep({
             {/* Leads list with editable titles */}
             <div className="space-y-1">
               <span className="font-kosugi text-[8px] tracking-[0.12em] uppercase text-[#555]">
-                Leads ({group.leads.length})
+                {t("consolidate.leads")} ({group.leads.length})
               </span>
               {group.leads.map((gl, i) => {
                 const fullLead = leads.find((l) => l.id === gl.leadId);
@@ -184,7 +190,7 @@ export function ConsolidateContactsStep({
                       </span>
                       <EditableTitle
                         value={gl.title}
-                        placeholder="add title to distinguish..."
+                        placeholder={t("consolidate.editTitle")}
                         onChange={(title) => {
                           const updated = [...group.leads];
                           updated[i] = { ...updated[i], title };
@@ -193,7 +199,7 @@ export function ConsolidateContactsStep({
                       />
                     </div>
                     <p className="font-mohave text-[10px] text-[#555] ml-4">
-                      via {group.contacts.find((c) => c.email === gl.primaryContactEmail)?.name || gl.primaryContactEmail} · {gl.correspondenceCount} emails
+                      {t("consolidate.via")} {group.contacts.find((c) => c.email === gl.primaryContactEmail)?.name || gl.primaryContactEmail} · {gl.correspondenceCount} {t("emails")}
                     </p>
                     {fullLead && (
                       <div className="ml-4">
@@ -212,14 +218,14 @@ export function ConsolidateContactsStep({
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794]/30 text-[#597794] hover:bg-[#597794]/10 transition-colors"
                 style={{ borderRadius: 4 }}
               >
-                1: CONFIRM
+                1: {t("consolidate.confirm")}
               </button>
               <button
                 onClick={() => actions["2"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#C4A868]/30 text-[#C4A868] hover:bg-[#C4A868]/10 transition-colors"
                 style={{ borderRadius: 4 }}
               >
-                2: MERGE INTO 1
+                2: {t("consolidate.mergeIntoOne")}
               </button>
             </div>
           </div>

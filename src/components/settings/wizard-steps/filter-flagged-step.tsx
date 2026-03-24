@@ -12,55 +12,28 @@ import {
 } from "lucide-react";
 import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView } from "./email-thread-view";
+import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 
 // ─── Flag configuration ──────────────────────────────────────────────────────
 
-interface FlagConfig {
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  /** AI default: "1" = import, "2" = discard */
-  defaultAction: "1" | "2";
-}
+const FLAG_ICONS: Record<string, LucideIcon> = {
+  legal: Scale,
+  job_seeker: Briefcase,
+  collections: Receipt,
+  platform_bid: Globe,
+  warranty: Wrench,
+  ambiguous: HelpCircle,
+};
 
-const FLAG_CONFIG: Record<string, FlagConfig> = {
-  legal: {
-    label: "Legal",
-    description: "Settlement, dispute, or lawyer correspondence",
-    icon: Scale,
-    defaultAction: "2", // discard
-  },
-  job_seeker: {
-    label: "Job Seeker",
-    description: "Someone looking for work or employment",
-    icon: Briefcase,
-    defaultAction: "2", // discard
-  },
-  collections: {
-    label: "Collections",
-    description: "Invoice dispute or overdue payment follow-up",
-    icon: Receipt,
-    defaultAction: "1", // import
-  },
-  platform_bid: {
-    label: "Platform Bid",
-    description: "Bid invitation from Procore, BuilderTrend, etc.",
-    icon: Globe,
-    defaultAction: "1", // import
-  },
-  warranty: {
-    label: "Warranty",
-    description: "Past client reporting an issue after completion",
-    icon: Wrench,
-    defaultAction: "1", // import
-  },
-  ambiguous: {
-    label: "Ambiguous",
-    description: "Relationship direction is unclear",
-    icon: HelpCircle,
-    defaultAction: "1", // import
-  },
+/** AI default: "2" = discard, "1" = import */
+const FLAG_DEFAULTS: Record<string, "1" | "2"> = {
+  legal: "2",
+  job_seeker: "2",
+  collections: "1",
+  platform_bid: "1",
+  warranty: "1",
+  ambiguous: "1",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -69,13 +42,17 @@ interface FilterFlaggedStepProps {
   leads: AnalyzedLead[];
   onLeadsChanged: (leads: AnalyzedLead[]) => void;
   onComplete: () => void;
+  onBack?: () => void;
 }
 
 export function FilterFlaggedStep({
   leads,
   onLeadsChanged,
   onComplete,
+  onBack,
 }: FilterFlaggedStepProps) {
+  const { t } = useDictionary("import-wizard");
+
   // Only flagged leads
   const flaggedLeads = useMemo(
     () => leads.filter((l) => l.needsReview),
@@ -85,14 +62,11 @@ export function FilterFlaggedStep({
   // Build carousel items
   const items: CarouselItem<AnalyzedLead>[] = useMemo(
     () =>
-      flaggedLeads.map((lead) => {
-        const config = FLAG_CONFIG[lead.reviewReason || "ambiguous"];
-        return {
-          id: lead.id,
-          data: lead,
-          defaultAction: config?.defaultAction || "1",
-        };
-      }),
+      flaggedLeads.map((lead) => ({
+        id: lead.id,
+        data: lead,
+        defaultAction: FLAG_DEFAULTS[lead.reviewReason || "ambiguous"] || "1",
+      })),
     [flaggedLeads]
   );
 
@@ -129,16 +103,16 @@ export function FilterFlaggedStep({
 
   return (
     <CardCarousel
-      title="FILTER FLAGGED ITEMS"
+      title={t("filter.title")}
       items={items}
       actions={actions}
       onComplete={onComplete}
-      keyboardHint="↑↓ navigate · 1 import · 2 discard · ⏎ accept · E thread"
+      onBack={onBack}
+      keyboardHint={t("filter.hint")}
       renderCard={(item) => {
         const lead = item.data;
         const reason = lead.reviewReason || "ambiguous";
-        const config = FLAG_CONFIG[reason];
-        const Icon = config?.icon || HelpCircle;
+        const Icon = FLAG_ICONS[reason] || HelpCircle;
 
         return (
           <div className="space-y-3">
@@ -146,11 +120,11 @@ export function FilterFlaggedStep({
             <div className="flex items-center gap-2">
               <Icon size={13} className="text-[#C4A868] flex-shrink-0" />
               <span className="font-kosugi text-[9px] tracking-[0.12em] uppercase text-[#C4A868]">
-                {config?.label || reason}
+                {t(`filter.reason.${reason}`)}
               </span>
             </div>
             <p className="font-mohave text-[10px] text-[#666] -mt-1">
-              {config?.description}
+              {t(`filter.reason.${reason}_desc`)}
             </p>
 
             {/* Client info */}
@@ -183,14 +157,14 @@ export function FilterFlaggedStep({
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794]/30 text-[#597794] hover:bg-[#597794]/10 transition-colors"
                 style={{ borderRadius: 4 }}
               >
-                1: IMPORT
+                1: {t("filter.import")}
               </button>
               <button
                 onClick={() => actions["2"](item)}
                 className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#666] hover:bg-white/5 transition-colors"
                 style={{ borderRadius: 4 }}
               >
-                2: DISCARD
+                2: {t("filter.discard")}
               </button>
             </div>
           </div>

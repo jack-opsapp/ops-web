@@ -9,6 +9,7 @@ import {
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ interface CardCarouselProps<T> {
   actions: Record<string, (item: CarouselItem<T>) => CarouselDecision | void>;
   /** Called when all items processed or user clicks skip */
   onComplete: () => void;
+  /** Called when user wants to go back to previous sub-step */
+  onBack?: () => void;
   skipLabel?: string;
   /** Keyboard hint text shown at bottom left */
   keyboardHint?: string;
@@ -49,6 +52,7 @@ export function CardCarousel<T>({
   renderPreview,
   actions,
   onComplete,
+  onBack,
   skipLabel = "SKIP TO NEXT STEP",
   keyboardHint = "↑↓ navigate · 1/2/3 select · ⏎ accept · ⌫ discard · E thread",
 }: CardCarouselProps<T>) {
@@ -57,6 +61,7 @@ export function CardCarousel<T>({
   const [decisions, setDecisions] = useState<Map<string, CarouselDecision>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReduced = useReducedMotion();
+  const { t } = useDictionary("import-wizard");
 
   const recordDecision = useCallback((itemId: string, decision: CarouselDecision) => {
     setDecisions((prev) => new Map(prev).set(itemId, decision));
@@ -186,7 +191,7 @@ export function CardCarousel<T>({
           {title}
         </h3>
         <span className="font-mohave text-[12px] text-[#555]">
-          {currentIndex + 1} of {items.length}
+          {currentIndex + 1} {t("of")} {items.length}
         </span>
       </div>
 
@@ -261,16 +266,26 @@ export function CardCarousel<T>({
         )}
       </div>
 
-      {/* Footer: keyboard hints + skip */}
+      {/* Footer: back + keyboard hints + skip */}
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
-        <span className="font-mohave text-[10px] text-[#444]">
-          {keyboardHint}
-        </span>
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="font-kosugi text-[9px] tracking-[0.1em] uppercase text-[#555] hover:text-[#999] transition-colors"
+            >
+              ← {t("confirm.back")}
+            </button>
+          )}
+          <span className="font-mohave text-[10px] text-[#444]">
+            {keyboardHint}
+          </span>
+        </div>
         <button
           onClick={onComplete}
           className="font-kosugi text-[9px] tracking-[0.1em] uppercase text-[#555] hover:text-[#999] transition-colors"
         >
-          {skipLabel} →
+          {skipLabel || t("skipToNext")} →
         </button>
       </div>
     </div>

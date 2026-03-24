@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { Button } from "@/components/ui/button";
 import { EmailThreadView } from "./email-thread-view";
+import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ export function ConfirmPipelineStep({
   onImport,
 }: ConfirmPipelineStepProps) {
   const prefersReduced = useReducedMotion();
+  const { t } = useDictionary("import-wizard");
 
   // Collapsible stage sections
   const [expandedStages, setExpandedStages] = useState<Set<string>>(
@@ -139,17 +141,17 @@ export function ConfirmPipelineStep({
     return (
       <div className="flex flex-col items-start gap-4 py-8">
         <p className="font-mohave text-[15px] text-[#999]">
-          No leads to import
+          {t("confirm.noLeads")}
         </p>
         <p className="font-mohave text-[12px] text-[#666]">
-          All leads were discarded or marked as won/lost in previous steps.
+          {t("confirm.noLeadsDesc")}
         </p>
         <Button
           onClick={onBack}
           variant="ghost"
           className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666]"
         >
-          ← Back to triage
+          ← {t("confirm.backToTriage")}
         </Button>
       </div>
     );
@@ -162,10 +164,10 @@ export function ConfirmPipelineStep({
       {/* Header */}
       <div className="flex-shrink-0 mb-4">
         <h3 className="font-kosugi text-[10px] tracking-[0.15em] uppercase text-[#999]">
-          CONFIRM PIPELINE
+          {t("confirm.title")}
         </h3>
         <p className="font-mohave text-[12px] text-[#666] mt-1">
-          Review your active leads and adjust stages before import.
+          {t("confirm.description")}
         </p>
       </div>
 
@@ -245,16 +247,16 @@ export function ConfirmPipelineStep({
         >
           <div className="flex items-center gap-3">
             <span className="font-mohave text-[12px] text-[#999]">
-              {counts.active} active
+              {counts.active} {t("summary.active")}
             </span>
             <span className="font-mohave text-[12px] text-[#9DB582]">
-              {counts.won} won
+              {counts.won} {t("summary.won")}
             </span>
             <span className="font-mohave text-[12px] text-[#6B7280]">
-              {counts.lost} lost
+              {counts.lost} {t("summary.lost")}
             </span>
             <span className="font-mohave text-[12px] text-[#444]">
-              {counts.discarded} discarded
+              {counts.discarded} {t("summary.discarded")}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -263,7 +265,7 @@ export function ConfirmPipelineStep({
               variant="ghost"
               className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666] px-3 py-1.5"
             >
-              ← BACK
+              ← {t("confirm.back")}
             </Button>
             <Button
               onClick={onImport}
@@ -271,7 +273,7 @@ export function ConfirmPipelineStep({
               className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2 disabled:opacity-40"
               style={{ borderRadius: 3 }}
             >
-              IMPORT {counts.importTotal} LEAD{counts.importTotal !== 1 ? "S" : ""}
+              {t("confirm.import")} {counts.importTotal} LEAD{counts.importTotal !== 1 ? "S" : ""}
             </Button>
           </div>
         </div>

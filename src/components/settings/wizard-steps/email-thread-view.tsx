@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 
 const INITIAL_VISIBLE = 3;
@@ -39,6 +40,7 @@ export function EmailThreadView({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [showAll, setShowAll] = useState(false);
   const prefersReduced = useReducedMotion();
+  const { t } = useDictionary("import-wizard");
 
   // E key toggles thread when inside focused card
   useEffect(() => {
@@ -87,7 +89,7 @@ export function EmailThreadView({
           className="transition-transform duration-200"
           style={{ transform: isExpanded ? "rotate(0)" : "rotate(-90deg)" }}
         />
-        {isExpanded ? "Hide thread" : "Show thread"}
+        {isExpanded ? t("thread.hide") : t("thread.show")}
         <span className="text-[#444]">({sorted.length})</span>
         {keyboardEnabled && (
           <span className="text-[#333] ml-1">[E]</span>
@@ -140,7 +142,7 @@ export function EmailThreadView({
                 onClick={() => setShowAll(true)}
                 className="font-mohave text-[10px] text-[#597794] hover:text-[#6A88A5] transition-colors ml-4"
               >
-                Show older messages ({hiddenCount} more)
+                {t("thread.showOlder")} ({hiddenCount} {t("thread.more")})
               </button>
             )}
 
@@ -150,7 +152,7 @@ export function EmailThreadView({
               rel="noopener noreferrer"
               className="flex items-center gap-1 font-mohave text-[10px] text-[#597794] hover:text-[#6A88A5] transition-colors ml-4"
             >
-              View full thread in Gmail
+              {t("thread.viewInGmail")}
               <ExternalLink size={9} />
             </a>
           </motion.div>
