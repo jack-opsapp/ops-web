@@ -44,6 +44,13 @@ export interface PerformanceSnapshot {
   topCampaign: { name: string; conversions: number; cpa: number };
   worstCampaign: { name: string; spend: number; conversions: number; cpa: number };
   dailySpend: { date: string; spend: number }[];
+  /** 90-day weekly aggregates for trend context (null if no history synced) */
+  trendContext: {
+    weeklySpend: { week: string; spend: number }[];
+    avgCpa90d: number;
+    avgCtr90d: number;
+    totalConversions90d: number;
+  } | null;
 }
 
 // --- AI Output Types ---

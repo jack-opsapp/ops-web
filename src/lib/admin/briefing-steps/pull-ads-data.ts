@@ -8,6 +8,11 @@ import {
   getDailySpendForRange,
 } from "@/lib/analytics/google-ads-client";
 import type { PerformanceSnapshot } from "../briefing-types";
+import {
+  getDailySpendFromHistory,
+  getAccountSummaryFromHistory,
+  hasHistoryData,
+} from "../ads-history-queries";
 
 export async function pullAdsData(): Promise<PerformanceSnapshot> {
   const now = new Date();
@@ -46,6 +51,45 @@ export async function pullAdsData(): Promise<PerformanceSnapshot> {
   const topCampaign = [...withSpend].sort((a, b) => b.conversions - a.conversions)[0];
   const worstCampaign = [...withSpend].sort((a, b) => b.cpa - a.cpa)[0];
 
+  // Fetch 90-day trend context from Supabase (if history is synced)
+  let trendContext: PerformanceSnapshot["trendContext"] = null;
+  const ninetyDaysAgo = new Date(currentStart);
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const has90d = await hasHistoryData(
+    ninetyDaysAgo.toISOString().split("T")[0],
+    currentEnd.toISOString().split("T")[0]
+  );
+
+  if (has90d) {
+    const dailyData = await getDailySpendFromHistory(
+      ninetyDaysAgo.toISOString().split("T")[0],
+      currentEnd.toISOString().split("T")[0]
+    );
+    const summary90d = await getAccountSummaryFromHistory(
+      ninetyDaysAgo.toISOString().split("T")[0],
+      currentEnd.toISOString().split("T")[0]
+    );
+
+    // Aggregate into weekly buckets
+    const weeklyMap = new Map<string, number>();
+    for (const d of dailyData) {
+      const weekStart = new Date(d.date);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+      const weekKey = weekStart.toISOString().split("T")[0];
+      weeklyMap.set(weekKey, (weeklyMap.get(weekKey) ?? 0) + d.spend);
+    }
+    const weeklySpend = Array.from(weeklyMap.entries())
+      .map(([week, spend]) => ({ week, spend }))
+      .sort((a, b) => a.week.localeCompare(b.week));
+
+    trendContext = {
+      weeklySpend,
+      avgCpa90d: summary90d?.avgCpa ?? 0,
+      avgCtr90d: summary90d?.avgCtr ?? 0,
+      totalConversions90d: summary90d?.totalConversions ?? 0,
+    };
+  }
+
   return {
     current: {
       spend: current.totalSpend,
@@ -71,5 +115,6 @@ export async function pullAdsData(): Promise<PerformanceSnapshot> {
       ? { name: worstCampaign.name, spend: worstCampaign.cost, conversions: worstCampaign.conversions, cpa: worstCampaign.cpa }
       : { name: "N/A", spend: 0, conversions: 0, cpa: 0 },
     dailySpend: dailySpend.map((d) => ({ date: d.date, spend: d.spend })),
+    trendContext,
   };
 }

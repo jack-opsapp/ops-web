@@ -44,6 +44,13 @@ Clicks: ${performanceData.current.clicks} | Impressions: ${performanceData.curre
 Top Campaign: ${performanceData.topCampaign.name} (${performanceData.topCampaign.conversions} conv, $${performanceData.topCampaign.cpa.toFixed(2)} CPA)
 Worst Campaign: ${performanceData.worstCampaign.name} ($${performanceData.worstCampaign.spend.toFixed(2)} spend, ${performanceData.worstCampaign.conversions} conv, $${performanceData.worstCampaign.cpa.toFixed(2)} CPA)
 
+${performanceData.trendContext ? `
+## 90-DAY TREND CONTEXT
+Weekly Spend Trend: ${performanceData.trendContext.weeklySpend.map(w => `${w.week}: $${w.spend.toFixed(0)}`).join(" → ")}
+90-Day Avg CPA: $${performanceData.trendContext.avgCpa90d.toFixed(2)}
+90-Day Avg CTR: ${(performanceData.trendContext.avgCtr90d * 100).toFixed(2)}%
+90-Day Total Conversions: ${performanceData.trendContext.totalConversions90d}
+` : ""}
 ## COMPETITOR INTELLIGENCE
 ${competitorContent || "No competitor data available this week."}
 
