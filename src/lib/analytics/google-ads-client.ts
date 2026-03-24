@@ -330,6 +330,89 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
+// ─── Bulk Daily-Segmented Queries (for history sync) ──────────────────────────
+
+/**
+ * Query daily account-level metrics for a date range.
+ * Returns one row per day with segments.date. Used by backfill sync.
+ */
+export async function queryDailyAccountData(
+  startDate: Date,
+  endDate: Date
+): Promise<{ date: string; spend: number; clicks: number; impressions: number; conversions: number; cpa: number; ctr: number }[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.cost_per_conversion,
+      metrics.ctr
+    FROM customer
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY segments.date ASC
+  `);
+
+  return rows.map((row) => {
+    const spend = microsToDollars(row.metrics?.costMicros);
+    const clicks = Number(row.metrics?.clicks ?? 0);
+    const impressions = Number(row.metrics?.impressions ?? 0);
+    const conversions = Number(row.metrics?.conversions ?? 0);
+    return {
+      date: String(row.segments?.date ?? ""),
+      spend,
+      clicks,
+      impressions,
+      conversions,
+      cpa: conversions > 0 ? spend / conversions : 0,
+      ctr: Number(row.metrics?.ctr ?? 0),
+    };
+  });
+}
+
+/**
+ * Query daily campaign-level metrics for a date range.
+ * Returns one row per campaign per day. Used by backfill sync.
+ */
+export async function queryDailyCampaignData(
+  startDate: Date,
+  endDate: Date
+): Promise<{ date: string; campaign_name: string; campaign_status: string; spend: number; clicks: number; impressions: number; conversions: number; cpa: number; ctr: number }[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      campaign.name,
+      campaign.status,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.ctr,
+      metrics.cost_micros,
+      metrics.conversions,
+      metrics.cost_per_conversion
+    FROM campaign
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+      AND campaign.status != 'REMOVED'
+    ORDER BY segments.date ASC, metrics.cost_micros DESC
+  `);
+
+  return rows.map((row) => ({
+    date: String(row.segments?.date ?? ""),
+    campaign_name: String(row.campaign?.name ?? "Unknown"),
+    campaign_status: String(row.campaign?.status ?? "ENABLED"),
+    spend: microsToDollars(row.metrics?.costMicros),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    impressions: Number(row.metrics?.impressions ?? 0),
+    conversions: Number(row.metrics?.conversions ?? 0),
+    cpa: microsToDollars(row.metrics?.costPerConversion),
+    ctr: Number(row.metrics?.ctr ?? 0),
+  }));
+}
+
 /**
  * Get account summary for an explicit date range (not DURING literal).
  * Used for prior-period comparison in briefings.
