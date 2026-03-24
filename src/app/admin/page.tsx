@@ -8,6 +8,11 @@ import {
 } from "@/lib/admin/admin-queries";
 import { AdminPageHeader } from "./_components/admin-page-header";
 import { FlowGalaxyDashboard } from "./_components/flow-galaxy/flow-galaxy-dashboard";
+import {
+  isGoogleAdsConfigured,
+  getCachedAccountSummary,
+} from "@/lib/analytics/google-ads-client";
+import { safe } from "@/lib/utils/safe";
 
 async function fetchOverviewData() {
   const [
@@ -26,6 +31,10 @@ async function fetchOverviewData() {
 
   const { mau, wau } = calcActiveUsers(authUsers);
 
+  const adsSummary = isGoogleAdsConfigured()
+    ? await safe(getCachedAccountSummary(30), null)
+    : null;
+
   return {
     totalCompanies,
     mau,
@@ -33,6 +42,7 @@ async function fetchOverviewData() {
     mrr,
     trialConversion,
     trialsExpiring,
+    adCpa: adsSummary?.avgCpa ?? null,
   };
 }
 
@@ -80,6 +90,7 @@ export default async function OverviewPage() {
         <KpiItem label="WAU" value={data.wau} href="/admin/engagement" />
         <span className="w-px h-3 bg-white/[0.06]" />
         <KpiItem label="MRR" value={`$${data.mrr.toLocaleString()}`} href="/admin/revenue" />
+        <KpiItem label="Ad CPA" value={data.adCpa ? `$${data.adCpa.toFixed(2)}` : "\u2014"} href="/admin/google-ads" />
         <KpiItem label="Trial Conv" value={`${data.trialConversion}%`} />
         <span className="w-px h-3 bg-white/[0.06]" />
         <KpiItem label="Trials Expiring" value={data.trialsExpiring} accent={data.trialsExpiring > 0} />

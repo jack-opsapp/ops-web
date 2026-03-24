@@ -3,6 +3,7 @@ import { SidebarNavItem } from "./sidebar-nav-item";
 const NAV_ITEMS = [
   { href: "/admin", label: "OVERVIEW" },
   { href: "/admin/acquisition", label: "ACQUISITION" },
+  { href: "/admin/google-ads", label: "GOOGLE ADS" },
   { href: "/admin/ab-testing", label: "A/B TESTING" },
   { href: "/admin/onboarding", label: "ONBOARDING" },
   { href: "/admin/companies", label: "COMPANIES" },

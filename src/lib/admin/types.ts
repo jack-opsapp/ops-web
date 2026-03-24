@@ -233,7 +233,7 @@ export function deriveSubscriptionPlan(company: {
 
 export type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 
-export type DatePreset = "today" | "7d" | "30d" | "90d" | "12m" | "all";
+export type DatePreset = "today" | "7d" | "14d" | "30d" | "90d" | "12m" | "all";
 
 export interface DateRangeParams {
   from: string;

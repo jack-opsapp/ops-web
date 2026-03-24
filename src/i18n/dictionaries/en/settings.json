@@ -318,6 +318,7 @@
   "integrations.toast.importStarted": "Historical import started",
   "integrations.toast.importFailed": "Failed to start import",
 
+  "preferences.quickActionsDesc": "Choose which actions appear in the quick-add menu.",
   "preferences.language": "Language",
   "preferences.idioma": "Idioma",
   "preferences.english": "English",

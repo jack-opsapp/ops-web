@@ -193,7 +193,7 @@ function QuickActionsCard() {
           <CardTitle>{t("sections.quickActions")}</CardTitle>
         </div>
         <p className="font-kosugi text-[11px] text-text-disabled mt-0.5">
-          {t("preferences.quickActionsDesc") ?? "Choose which actions appear in the quick-add menu."}
+          {t("preferences.quickActionsDesc")}
         </p>
       </CardHeader>
       <CardContent className="p-0">

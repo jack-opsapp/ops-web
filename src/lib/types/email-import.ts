@@ -78,6 +78,31 @@ export interface AnalyzedLead {
   mergeMode?: 'fill_blanks' | 'overwrite';
 }
 
+// ─── Consolidation types (import review sub-step 2) ──────────────────────────
+
+/** A group of leads from the same company that need consolidation */
+export interface ConsolidationGroup {
+  id: string;
+  companyName: string;
+  domain: string | null;
+  contacts: Array<{
+    leadId: string;
+    name: string;
+    email: string;
+    phone: string | null;
+  }>;
+  leads: Array<{
+    leadId: string;
+    title: string;
+    primaryContactEmail: string;
+    correspondenceCount: number;
+    lastMessageDate: string;
+  }>;
+  decision: 'confirm' | 'merge' | null;
+}
+
+export type TriageDecision = 'won' | 'lost' | 'active' | 'discard';
+
 // Step 4 → Step 5: import payload
 export interface ImportPayload {
   connectionId: string;
@@ -99,6 +124,10 @@ export interface ImportPayload {
     mergeMode?: 'fill_blanks' | 'overwrite';
     mergeWithLeadId: string | null;
     subContacts?: Array<{ name: string; email: string; phone: string | null }>;
+    /** Opportunity title — only set when client has multiple leads (distinguishing label) */
+    title: string | null;
+    /** For won/lost leads: close date derived from last email activity */
+    actualCloseDate: string | null;
   }>;
   syncProfile: {
     estimateSubjectPatterns: string[];

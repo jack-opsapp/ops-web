@@ -503,6 +503,11 @@ For each thread, determine:
 - additionalContacts: array of other people mentioned in the thread who are NOT the primary client and NOT the owner. Each has { name, email, phone }. These might be project managers, office staff, spouses, or other stakeholders cc'd or mentioned. Only include if you can identify a real name or email. null if none.
 - dupes: array of other threadIds in this batch that appear to be the same client/project (for dedup)
 - flag: "likely_won" if client confirmed/accepted, "likely_lost" if client declined/went elsewhere, null otherwise. This is the ONLY place for terminal flags.
+  TERMINAL HEURISTICS (apply in addition to content signals):
+  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
+  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
+  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
+  - Trade industry context: silence after a quote is more often acceptance than rejection.
 
 RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
 
@@ -603,6 +608,11 @@ For each email, determine:
 - client: { name, email, phone, desc } if lead. Extract from email content. null otherwise.
 - dupes: array of other email IDs in this batch that appear to be from the same client/project
 - flag: "likely_won" if client confirmed, "likely_lost" if client declined, null otherwise. This is the ONLY place for terminal flags.
+  TERMINAL HEURISTICS (apply in addition to content signals):
+  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
+  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
+  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
+  - Trade industry context: silence after a quote is more often acceptance than rejection.
 
 RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize output tokens.`;
 
@@ -690,6 +700,11 @@ For each thread, determine:
 - val: dollar value if pricing detected
 - signals: array of short codes for what you detected (e.g., "pricing_sent", "photos_requested", "promo_mentioned")
 - flag: "likely_won" or "likely_lost" if terminal language detected, null otherwise
+  TERMINAL HEURISTICS (apply in addition to content signals):
+  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
+  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
+  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
+  - Trade industry context: silence after a quote is more often acceptance than rejection.
 
 RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
@@ -904,6 +919,11 @@ PIPELINE:
 - stageC: Confidence 0.0-1.0
 - val: Dollar value if pricing is mentioned (omit if none)
 - flag: "likely_won"|"likely_lost" (omit if neither)
+  TERMINAL HEURISTICS (apply in addition to content signals):
+  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
+  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
+  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
+  - Trade industry context: silence after a quote is more often acceptance than rejection.
 
 STEP 3 — FOR REVIEW items, extract minimal info:
 - tid, client.name, client.email, client.desc (what the thread is about — "Settlement agreement for Mike Geric project", "Job application from Grade 12 student", "Procore bid invitation for Royal Bay Apartments")
