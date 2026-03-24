@@ -625,7 +625,7 @@ export function TeamTab() {
                                 <Shield className="w-[14px] h-[14px] text-ops-amber" />
                               )}
                               <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
-                                {member.isCompanyAdmin ? "Admin" : member.role || "Crew"}
+                                {member.isCompanyAdmin ? t("team.roleAdmin") : member.role || t("team.roleCrew")}
                               </span>
                             </Link>
                           </TooltipTrigger>
