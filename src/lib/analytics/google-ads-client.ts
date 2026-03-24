@@ -323,6 +323,115 @@ async function getDailySpend(days: AdsDayRange): Promise<DailySpend[]> {
   }));
 }
 
+// ─── Date-Range Query Functions (for briefing prior-period comparison) ────────
+
+/** Format a Date to YYYY-MM-DD for GAQL queries */
+function formatDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+/**
+ * Get account summary for an explicit date range (not DURING literal).
+ * Used for prior-period comparison in briefings.
+ */
+export async function getAccountSummaryForRange(
+  startDate: Date,
+  endDate: Date
+): Promise<GoogleAdsAccountSummary> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.cost_per_conversion,
+      metrics.ctr
+    FROM customer
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+  `);
+
+  if (!rows.length) {
+    return { totalSpend: 0, totalClicks: 0, totalImpressions: 0, totalConversions: 0, avgCpa: 0, avgCtr: 0 };
+  }
+
+  const row = rows[0];
+  return {
+    totalSpend: microsToDollars(row.metrics?.costMicros),
+    totalClicks: Number(row.metrics?.clicks ?? 0),
+    totalImpressions: Number(row.metrics?.impressions ?? 0),
+    totalConversions: Number(row.metrics?.conversions ?? 0),
+    avgCpa: microsToDollars(row.metrics?.costPerConversion),
+    avgCtr: Number(row.metrics?.ctr ?? 0),
+  };
+}
+
+/**
+ * Get campaign performance for an explicit date range.
+ */
+export async function getCampaignPerformanceForRange(
+  startDate: Date,
+  endDate: Date
+): Promise<CampaignPerformance[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      campaign.name,
+      campaign.status,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.ctr,
+      metrics.cost_micros,
+      metrics.conversions,
+      metrics.cost_per_conversion
+    FROM campaign
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+      AND campaign.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+  `);
+
+  return rows.map((row) => ({
+    name: String(row.campaign?.name ?? "Unknown"),
+    status: (row.campaign?.status ?? "ENABLED") as CampaignPerformance["status"],
+    impressions: Number(row.metrics?.impressions ?? 0),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    ctr: Number(row.metrics?.ctr ?? 0),
+    cost: microsToDollars(row.metrics?.costMicros),
+    conversions: Number(row.metrics?.conversions ?? 0),
+    cpa: microsToDollars(row.metrics?.costPerConversion),
+  }));
+}
+
+/**
+ * Get daily spend for an explicit date range.
+ */
+export async function getDailySpendForRange(
+  startDate: Date,
+  endDate: Date
+): Promise<DailySpend[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.conversions
+    FROM customer
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY segments.date ASC
+  `);
+
+  return rows.map((row) => ({
+    date: String(row.segments?.date ?? ""),
+    spend: microsToDollars(row.metrics?.costMicros),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    conversions: Number(row.metrics?.conversions ?? 0),
+  }));
+}
+
 // ─── Cached Exports (5-min TTL, matching existing admin query pattern) ────────
 
 export const getCachedAccountSummary = unstable_cache(
