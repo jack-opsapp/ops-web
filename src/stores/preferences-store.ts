@@ -22,11 +22,20 @@ export { ACCENT_COLOR_VALUES };
 export type FontSizeId = "small" | "default" | "large";
 export type DashboardLayoutId = "default" | "compact" | "data-dense";
 export type SchedulingTypeId = "all-day" | "time-slots" | "both";
+export type WidgetGapId = "none" | "tight" | "normal" | "relaxed";
 
 export const FONT_SIZE_SCALES: Record<FontSizeId, number> = {
   small: 0.9,
   default: 1,
   large: 1.1,
+};
+
+/** Pixel values for each widget gap level */
+export const WIDGET_GAP_VALUES: Record<WidgetGapId, number> = {
+  none: 0,
+  tight: 4,
+  normal: 8,
+  relaxed: 16,
 };
 
 // ---------------------------------------------------------------------------
@@ -70,6 +79,8 @@ interface PreferencesState {
   // Dashboard
   dashboardLayout: DashboardLayoutId;
   setDashboardLayout: (layout: DashboardLayoutId) => void;
+  widgetGap: WidgetGapId;
+  setWidgetGap: (gap: WidgetGapId) => void;
 
   // Widget instances (v5 — multi-instance system)
   widgetInstances: WidgetInstance[];
@@ -113,6 +124,8 @@ export const usePreferencesStore = create<PreferencesState>()(
 
       dashboardLayout: "default",
       setDashboardLayout: (layout) => set({ dashboardLayout: layout }),
+      widgetGap: "normal",
+      setWidgetGap: (gap) => set({ widgetGap: gap }),
 
       // Widget instances
       widgetInstances: DEFAULT_WIDGET_INSTANCES.map((inst) => ({ ...inst })),
@@ -215,10 +228,12 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
+
+        // ── v10 → v11: Add widgetGap preference — no migration needed, default applies ──
 
         // ── v9 → v10: Centralized color palette — rename accent IDs ──
         if (version < 10) {

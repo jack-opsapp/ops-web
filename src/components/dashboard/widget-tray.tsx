@@ -6,7 +6,11 @@ import { X, Search, RotateCcw, Maximize2, Plus, Check } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
-import { usePreferencesStore } from "@/stores/preferences-store";
+import {
+  usePreferencesStore,
+  WIDGET_GAP_VALUES,
+  type WidgetGapId,
+} from "@/stores/preferences-store";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
@@ -128,6 +132,8 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
   const widgetInstances = usePreferencesStore((s) => s.widgetInstances);
   const addWidgetInstance = usePreferencesStore((s) => s.addWidgetInstance);
   const resetWidgetInstances = usePreferencesStore((s) => s.resetWidgetInstances);
+  const widgetGap = usePreferencesStore((s) => s.widgetGap);
+  const setWidgetGap = usePreferencesStore((s) => s.setWidgetGap);
 
   // Count instances per type
   const instanceCountByType = useMemo(() => {
@@ -274,6 +280,36 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
           >
             {/* Spacer — draggable + click-to-add */}
             <DraggableSpacerButton onAdd={() => addWidgetInstance("spacer" as WidgetTypeId)} />
+
+            {/* Widget gap selector */}
+            <div
+              className="flex items-center gap-[6px] ml-auto mr-3"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider select-none">
+                {t("tray.gap")}
+              </span>
+              <div className="flex items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
+                {(["none", "tight", "normal", "relaxed"] as WidgetGapId[]).map((gapId) => {
+                  const isActive = widgetGap === gapId;
+                  return (
+                    <button
+                      key={gapId}
+                      onClick={() => setWidgetGap(gapId)}
+                      className={cn(
+                        "px-[8px] py-[4px] font-mono text-[10px] transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
+                        isActive
+                          ? "bg-ops-accent-muted text-ops-accent"
+                          : "text-text-disabled hover:text-text-secondary"
+                      )}
+                      title={`${WIDGET_GAP_VALUES[gapId]}px`}
+                    >
+                      {t(`tray.gap.${gapId}`)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Done / Cancel */}
             <div className="flex items-center gap-2">

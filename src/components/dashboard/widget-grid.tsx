@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { WidgetInstance } from "@/lib/types/dashboard-widgets";
 import { WIDGET_TYPE_REGISTRY } from "@/lib/types/dashboard-widgets";
-import { gridVariants, EDIT_MODE_GAP, NORMAL_GAP, SPRING_REORDER } from "@/lib/utils/motion";
+import { gridVariants, EDIT_MODE_GAP, SPRING_REORDER } from "@/lib/utils/motion";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { usePreferencesStore, WIDGET_GAP_VALUES } from "@/stores/preferences-store";
 import { WidgetShell, COL_SPAN_CLASSES } from "./widget-shell";
 import { GridPlaceholderCell } from "./grid-placeholder-cell";
 
@@ -32,10 +33,13 @@ export function WidgetGrid({
   ghostId = null,
 }: WidgetGridProps) {
   const { t } = useDictionary("dashboard");
+  const widgetGap = usePreferencesStore((s) => s.widgetGap);
   const visibleInstances = orderedInstances.filter((i: WidgetInstance) => i.visible);
   const visibleIds = visibleInstances.map((i: WidgetInstance) => i.id);
 
-  const gap = isCustomizing ? EDIT_MODE_GAP : NORMAL_GAP;
+  // During customize mode, use the wider edit gap for comfortable dragging.
+  // In normal mode, use the user's preference.
+  const gap = isCustomizing ? EDIT_MODE_GAP : WIDGET_GAP_VALUES[widgetGap];
 
   const gridContent = (
     <motion.div
