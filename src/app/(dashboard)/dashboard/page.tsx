@@ -271,8 +271,9 @@ export default function DashboardPage() {
     // Reset customize state in the store on unmount (e.g. navigating away mid-customize)
     return () => {
       setStoreIsCustomizing(false);
+      setTrayOpen(false);
     };
-  }, [setStoreIsCustomizing]);
+  }, [setStoreIsCustomizing, setTrayOpen]);
 
   // Delay typewriter until data has loaded at least once
   useEffect(() => {

@@ -51,7 +51,6 @@ export function FloatingActionButton() {
 
   // ── Hide when dashboard is in customize mode ─────────────────────────
   const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
-  const dashboardTrayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
 
   // ── Active actions from user prefs ──────────────────────────────────────
   const userActionIds = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
