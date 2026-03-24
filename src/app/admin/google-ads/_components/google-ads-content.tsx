@@ -9,7 +9,7 @@ import { CampaignTable } from "./campaign-table";
 import { KeywordTable } from "./keyword-table";
 import { SearchTermsTable } from "./search-terms-table";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
-import type { GoogleAdsPageData, AdsDayRange } from "@/lib/analytics/google-ads-types";
+import type { GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
 import type { ChartDataPoint, DateRangeParams } from "@/lib/admin/types";
 
 // ─── Animation (per design system: EASE_SMOOTH, no spring/bounce) ─────────────
@@ -62,7 +62,7 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
     // Map DateRangeParams to AdsDayRange
     const diffMs = new Date(params.to).getTime() - new Date(params.from).getTime();
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    const days: AdsDayRange = diffDays <= 7 ? 7 : diffDays <= 14 ? 14 : 30;
+    const days: number = diffDays <= 7 ? 7 : diffDays <= 14 ? 14 : diffDays <= 30 ? 30 : 90;
 
     setLoading(true);
     try {
@@ -99,7 +99,7 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
       <div className="flex items-center justify-between">
         <DateRangeControl
           defaultPreset="30d"
-          presets={["7d", "14d", "30d"]}
+          presets={["7d", "14d", "30d", "90d"]}
           onChange={handleRangeChange}
         />
         <button
