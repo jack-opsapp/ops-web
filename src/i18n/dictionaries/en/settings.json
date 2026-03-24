@@ -94,6 +94,7 @@
   "company.description": "Company Description",
   "company.businessHours": "Business Hours",
   "company.upload": "Upload",
+  "company.uploading": "Uploading...",
   "company.phonePlaceholder": "(555) 123-4567",
   "company.emailPlaceholder": "info@company.com",
   "company.websitePlaceholder": "https://company.com",

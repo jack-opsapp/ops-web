@@ -220,8 +220,30 @@ export function CompanyTab() {
               {t("company.logo")}
             </label>
             <div className="flex items-center gap-1.5">
-              <div className="w-[56px] h-[56px] rounded-lg bg-background-elevated border border-border flex items-center justify-center overflow-hidden">
-                {company?.logoURL ? (
+              <div className="relative w-[56px] h-[56px] rounded-lg bg-background-elevated border border-border flex items-center justify-center overflow-hidden">
+                {logoUpload.isUploading ? (
+                  <>
+                    {/* Show preview as background while uploading */}
+                    {logoUpload.preview ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={logoUpload.preview}
+                        alt=""
+                        className="w-full h-full object-cover opacity-30"
+                      />
+                    ) : company?.logoURL ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={company.logoURL}
+                        alt=""
+                        className="w-full h-full object-cover opacity-30"
+                      />
+                    ) : null}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+                    </div>
+                  </>
+                ) : company?.logoURL ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={company.logoURL}
@@ -232,9 +254,24 @@ export function CompanyTab() {
                   <Building2 className="w-[24px] h-[24px] text-text-disabled" />
                 )}
               </div>
-              <Button variant="secondary" size="sm" className="gap-[6px]" disabled={!can("settings.company")} onClick={() => logoInputRef.current?.click()}>
-                <Upload className="w-[14px] h-[14px]" />
-                {t("company.upload")}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-[6px]"
+                disabled={!can("settings.company") || logoUpload.isUploading}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {logoUpload.isUploading ? (
+                  <>
+                    <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                    {t("company.uploading")}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-[14px] h-[14px]" />
+                    {t("company.upload")}
+                  </>
+                )}
               </Button>
               <input
                 ref={logoInputRef}

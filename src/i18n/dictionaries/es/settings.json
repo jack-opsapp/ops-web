@@ -94,6 +94,7 @@
   "company.description": "Descripción de la empresa",
   "company.businessHours": "Horario de atención",
   "company.upload": "Subir",
+  "company.uploading": "Subiendo...",
   "company.phonePlaceholder": "(555) 123-4567",
   "company.emailPlaceholder": "info@empresa.com",
   "company.websitePlaceholder": "https://empresa.com",
