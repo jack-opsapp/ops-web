@@ -32,6 +32,7 @@ export enum TaskStatus {
 export enum UserRole {
   Admin = "admin",
   Owner = "owner",
+  Office = "office",
   Operator = "operator",
   Crew = "crew",
   Unassigned = "unassigned",
@@ -678,6 +679,8 @@ export function getUserRoleDisplay(role: UserRole): string {
       return "Admin";
     case UserRole.Owner:
       return "Owner";
+    case UserRole.Office:
+      return "Office";
     case UserRole.Operator:
       return "Operator";
     case UserRole.Crew:

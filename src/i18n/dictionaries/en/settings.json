@@ -142,6 +142,7 @@
   "team.smsToggle": "SMS",
   "team.roleAdmin": "Admin",
   "team.roleOwner": "Owner",
+  "team.roleOffice": "Office",
   "team.roleOperator": "Operator",
   "team.roleCrew": "Crew",
   "team.roleUnassigned": "Unassigned",

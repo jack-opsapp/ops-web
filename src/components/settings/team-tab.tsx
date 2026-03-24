@@ -55,6 +55,7 @@ import Link from "next/link";
 const ROLES: { id: UserRole; labelKey: string }[] = [
   { id: UserRole.Admin, labelKey: "team.roleAdmin" },
   { id: UserRole.Owner, labelKey: "team.roleOwner" },
+  { id: UserRole.Office, labelKey: "team.roleOffice" },
   { id: UserRole.Operator, labelKey: "team.roleOperator" },
   { id: UserRole.Crew, labelKey: "team.roleCrew" },
 ];

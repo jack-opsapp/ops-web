@@ -40,7 +40,7 @@ import { getDateLocale } from "@/i18n/date-utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Role = "admin" | "owner" | "operator" | "crew" | "unassigned";
+type Role = "admin" | "owner" | "office" | "operator" | "crew" | "unassigned";
 type MemberStatus = "active" | "inactive";
 
 interface TeamMember {
@@ -64,6 +64,8 @@ function userRoleToDisplayRole(role: UserRole): Role {
       return "admin";
     case UserRole.Owner:
       return "owner";
+    case UserRole.Office:
+      return "office";
     case UserRole.Operator:
       return "operator";
     case UserRole.Crew:
@@ -81,6 +83,8 @@ function displayRoleToUserRole(role: Role): UserRole {
       return UserRole.Admin;
     case "owner":
       return UserRole.Owner;
+    case "office":
+      return UserRole.Office;
     case "operator":
       return UserRole.Operator;
     case "crew":
@@ -140,6 +144,12 @@ const roleStyleConfig: Record<
     bg: "bg-ops-amber-muted",
     borderColor: "border-l-[#C4A868]",
   },
+  office: {
+    icon: Shield,
+    color: "text-ops-accent",
+    bg: "bg-ops-accent-muted",
+    borderColor: "border-l-[#597794]",
+  },
   operator: {
     icon: Shield,
     color: "text-ops-accent",
@@ -163,12 +173,13 @@ const roleStyleConfig: Record<
 const ROLE_LABEL_KEYS: Record<Role, string> = {
   admin: "team.role.admin",
   owner: "team.role.owner",
+  office: "team.role.office",
   operator: "team.role.operator",
   crew: "team.role.crew",
   unassigned: "team.role.unassigned",
 };
 
-const roleOptions: Role[] = ["admin", "owner", "operator", "crew"];
+const roleOptions: Role[] = ["admin", "owner", "office", "operator", "crew"];
 
 // ─── Role Badge ──────────────────────────────────────────────────────────────
 
@@ -496,6 +507,7 @@ export default function TeamPage() {
 
   const activeCount = team.filter((m) => m.status === "active").length;
   const adminCount = team.filter((m) => m.role === "admin" || m.role === "owner").length;
+  const officeCount = team.filter((m) => m.role === "office").length;
   const operatorCount = team.filter((m) => m.role === "operator").length;
   const crewCount = team.filter((m) => m.role === "crew").length;
   const unassignedCount = team.filter((m) => m.role === "unassigned").length;
@@ -514,6 +526,7 @@ export default function TeamPage() {
 
   // Group by role for display
   const admins = filteredTeam.filter((m) => m.role === "admin" || m.role === "owner");
+  const office = filteredTeam.filter((m) => m.role === "office");
   const operators = filteredTeam.filter((m) => m.role === "operator");
   const crew = filteredTeam.filter((m) => m.role === "crew");
   const unassigned = filteredTeam.filter((m) => m.role === "unassigned");
@@ -595,6 +608,11 @@ export default function TeamPage() {
               <span className="font-mono text-[10px] text-ops-amber">
                 {adminCount} {t("team.admin")}
               </span>
+              {officeCount > 0 && (
+                <span className="font-mono text-[10px] text-ops-accent">
+                  {officeCount} {t("team.office")}
+                </span>
+              )}
               <span className="font-mono text-[10px] text-ops-accent">
                 {operatorCount} {t("team.operators")}
               </span>
@@ -670,6 +688,33 @@ export default function TeamPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                 {admins.map((member) => (
+                  <TeamMemberCard
+                    key={member.id}
+                    member={member}
+                    isAdmin={canManageTeam || canAssignRoles}
+                    onChangeRole={handleChangeRole}
+                    onRemove={(id) => setRemoveTarget(id)}
+                    t={t}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Office Section */}
+          {office.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1 mb-1">
+                <Shield className="w-[14px] h-[14px] text-ops-accent" />
+                <h2 className="font-kosugi text-caption-bold text-ops-accent uppercase tracking-widest">
+                  {t("team.sections.office")}
+                </h2>
+                <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+                  {office.length}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                {office.map((member) => (
                   <TeamMemberCard
                     key={member.id}
                     member={member}
