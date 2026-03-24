@@ -72,7 +72,7 @@ export async function syncDateRange(
   startDate: Date,
   endDate: Date,
   options?: { trackProgress?: boolean; rateLimitMs?: number }
-): Promise<{ synced: number; failed: number }> {
+): Promise<{ synced: number; failed: number; firstError: string | null }> {
   const trackProgress = options?.trackProgress ?? false;
   const rateLimitMs = options?.rateLimitMs ?? 100;
 
