@@ -26,12 +26,14 @@ import {
   createProjectPinWithLabel,
   createStackedProjectPin,
   createTaskPinIcon,
+  createGroupedTaskPinIcon,
   createCrewPinIcon,
 } from "./pin-icons";
 import {
   projectPopupHtml,
   groupedProjectPopupHtml,
   taskPopupHtml,
+  groupedTaskPopupHtml,
   crewPopupHtml,
   POPUP_OPTIONS,
 } from "./pin-popups";
@@ -252,31 +254,62 @@ export function DashboardMapBackground() {
     const showTodayTasks = view === "today" && todayTasksByProject.size > 0;
 
     if (showTodayTasks) {
-      // ── TODAY: Task-based pins grouped by project ──
-      let idx = 0;
+      // ── TODAY: Task-based pins grouped by LOCATION (not just project) ──
+      // Multiple projects at the same address would overlap without this grouping.
+      const todayLocationGroups = new Map<
+        string,
+        { project: Project; tasks: ProjectTask[] }[]
+      >();
       for (const [projectId, projectTasks] of todayTasksByProject) {
         const project = projectMap.get(projectId)!;
-        const lat = project.latitude!;
-        const lng = project.longitude!;
+        const key = `${project.latitude!.toFixed(6)},${project.longitude!.toFixed(6)}`;
+        const group = todayLocationGroups.get(key) ?? [];
+        group.push({ project, tasks: projectTasks });
+        todayLocationGroups.set(key, group);
+      }
+
+      let idx = 0;
+      for (const [_key, locationGroup] of todayLocationGroups) {
+        const lat = locationGroup[0].project.latitude!;
+        const lng = locationGroup[0].project.longitude!;
         bounds.push([lat, lng]);
 
-        const firstTask = projectTasks[0];
-        const taskLabel =
-          firstTask.customTitle || firstTask.taskType?.display || "Task";
-        const extraCount = projectTasks.length - 1;
+        if (locationGroup.length === 1) {
+          // Single project at this location — standard task pin
+          const { project, tasks: projectTasks } = locationGroup[0];
+          const firstTask = projectTasks[0];
+          const taskLabel =
+            firstTask.customTitle || firstTask.taskType?.display || "Task";
+          const extraCount = projectTasks.length - 1;
 
-        const icon = createTaskPinIcon(
-          taskLabel,
-          project.title,
-          firstTask.taskColor,
-          extraCount
-        );
-        const marker = L.marker([lat, lng], { icon }).addTo(layer);
-        marker.bindPopup(
-          taskPopupHtml(projectTasks, project),
-          POPUP_OPTIONS
-        );
-        animateMarker(marker.getElement(), idx++);
+          const icon = createTaskPinIcon(
+            taskLabel,
+            project.title,
+            firstTask.taskColor,
+            extraCount
+          );
+          const marker = L.marker([lat, lng], { icon }).addTo(layer);
+          marker.bindPopup(
+            taskPopupHtml(projectTasks, project),
+            POPUP_OPTIONS
+          );
+          animateMarker(marker.getElement(), idx++);
+        } else {
+          // Multiple projects at this location — grouped task pin with count badge
+          const icon = createGroupedTaskPinIcon(
+            locationGroup.map((g) => ({
+              projectName: g.project.title,
+              taskCount: g.tasks.length,
+              taskColor: g.tasks[0]?.taskColor,
+            }))
+          );
+          const marker = L.marker([lat, lng], { icon }).addTo(layer);
+          marker.bindPopup(
+            groupedTaskPopupHtml(locationGroup),
+            POPUP_OPTIONS
+          );
+          animateMarker(marker.getElement(), idx++);
+        }
       }
     } else {
       // ── ACTIVE / ALL / TODAY-fallback: Project pins (grouped by location) ──

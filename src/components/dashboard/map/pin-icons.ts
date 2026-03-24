@@ -246,6 +246,97 @@ export function createTaskPinIcon(
   });
 }
 
+// ── Grouped Task Pin (TODAY mode): multiple projects at same location ──
+// Shows a task circle with count badge + stacked project name labels
+export function createGroupedTaskPinIcon(
+  projectGroups: { projectName: string; taskCount: number; taskColor?: string }[]
+): L.DivIcon {
+  const totalTasks = projectGroups.reduce((sum, g) => sum + g.taskCount, 0);
+  const primaryColor = projectGroups[0].taskColor || "#8195B5";
+
+  // Build stacked project lines — show up to 3 projects
+  const maxProjects = 3;
+  const projectLines = projectGroups
+    .slice(0, maxProjects)
+    .map((g) => {
+      const name = truncate(g.projectName, 16);
+      const countLabel = g.taskCount > 1 ? ` (${g.taskCount})` : "";
+      return `<span style="
+        display: flex; align-items: center; gap: 3px;
+        font-family: 'Kosugi', sans-serif;
+        font-size: 8px;
+        color: rgba(167,167,167,0.6);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        line-height: 1.3;
+      ">${name}${countLabel}</span>`;
+    })
+    .join("");
+
+  const moreLine = projectGroups.length > maxProjects
+    ? `<span style="
+        font-family: 'Kosugi', sans-serif;
+        font-size: 7px; color: rgba(167,167,167,0.4);
+        text-transform: uppercase; letter-spacing: 0.3px;
+        white-space: nowrap;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        line-height: 1.3;
+      ">+${projectGroups.length - maxProjects} more</span>`
+    : "";
+
+  const labelCount = Math.min(projectGroups.length, maxProjects) + (projectGroups.length > maxProjects ? 1 : 0);
+  const iconHeight = 28 + labelCount * 12;
+
+  return L.divIcon({
+    html: `
+      <div class="ops-pin ops-pin--task" style="
+        display: flex; flex-direction: column; align-items: center;
+      ">
+        <div style="position: relative;">
+          <div style="
+            width: 20px; height: 20px;
+            border: 2.5px solid ${primaryColor};
+            border-radius: 50%;
+            background: rgba(10,10,10,0.8);
+            box-shadow: 0 0 8px ${primaryColor}33;
+            transition: transform 0.15s ease;
+          ">
+            <div style="
+              width: 7px; height: 7px;
+              background: ${primaryColor};
+              border-radius: 50%;
+              margin: 4px auto 0;
+            "></div>
+          </div>
+          <span style="
+            position: absolute; top: -4px; right: -8px;
+            background: rgba(10,10,10,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 14px; height: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Kosugi', sans-serif;
+            font-size: 7px; color: #E5E5E5;
+          ">${totalTasks}</span>
+        </div>
+        <div style="
+          display: flex; flex-direction: column; align-items: center;
+          margin-top: 3px; gap: 0px;
+        ">
+          ${projectLines}
+          ${moreLine}
+        </div>
+      </div>
+    `,
+    className: "ops-map-marker",
+    iconSize: [100, iconHeight],
+    iconAnchor: [50, 10],
+    popupAnchor: [0, -12],
+  });
+}
+
 // ── Crew Pin: circle with status ring + initials + name label ──
 const CREW_STATUS_COLORS: Record<CrewStatus, string> = {
   "on-site": "#A5B368",

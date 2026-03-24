@@ -104,6 +104,64 @@ export function taskPopupHtml(
   </div>`;
 }
 
+// ── Grouped Task Popup (TODAY mode — multiple projects at same location) ──
+export function groupedTaskPopupHtml(
+  projectTaskGroups: { project: Project; tasks: ProjectTask[] }[]
+): string {
+  const totalTasks = projectTaskGroups.reduce((sum, g) => sum + g.tasks.length, 0);
+  const address = projectTaskGroups[0]?.project.address || "";
+
+  // Show up to 3 projects, each with up to 2 tasks
+  const maxProjects = 3;
+  const projectSections = projectTaskGroups
+    .slice(0, maxProjects)
+    .map((group) => {
+      const taskLines = group.tasks
+        .slice(0, 2)
+        .map((t) => {
+          const color = t.taskColor || "#8195B5";
+          const name = t.customTitle || t.taskType?.display || "Task";
+          return `<div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px; padding-left: 12px;">
+            <span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
+            <span style="font-size: 10px; font-family: 'Kosugi', sans-serif; color: #CCC;">${name}</span>
+          </div>`;
+        })
+        .join("");
+
+      const taskMore =
+        group.tasks.length > 2
+          ? `<div style="font-size: 9px; color: #555; font-family: 'Kosugi', sans-serif; padding-left: 12px;">+${group.tasks.length - 2} more</div>`
+          : "";
+
+      return `<div style="margin-bottom: 6px;">
+        <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">${group.project.title}</div>
+        ${taskLines}
+        ${taskMore}
+      </div>`;
+    })
+    .join("");
+
+  const projectMore =
+    projectTaskGroups.length > maxProjects
+      ? `<div style="font-size: 9px; color: #555; font-family: 'Kosugi', sans-serif; margin-top: 2px;">+${projectTaskGroups.length - maxProjects} more projects</div>`
+      : "";
+
+  return `<div style="
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    color: #E5E5E5; padding: 10px 12px;
+    border-radius: 4px; font-family: 'Mohave', sans-serif;
+    min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
+  ">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+      <div style="font-size: 10px; color: #666; font-family: 'Kosugi', sans-serif; text-transform: uppercase;">${address}</div>
+      <div style="font-size: 9px; color: #555; font-family: 'Kosugi', sans-serif;">${totalTasks} TASKS</div>
+    </div>
+    ${projectSections}
+    ${projectMore}
+  </div>`;
+}
+
 // ── Crew Popup (real-time location data from crew_locations table) ──
 const CREW_STATUS_LABELS: Record<CrewStatus, string> = {
   "on-site": "ON SITE",
