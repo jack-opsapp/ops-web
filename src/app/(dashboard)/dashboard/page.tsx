@@ -148,9 +148,16 @@ export default function DashboardPage() {
   usePageTitle("Dashboard");
   const { t } = useDictionary("dashboard");
   const [mounted, setMounted] = useState(false);
-  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [isCustomizing, setIsCustomizingLocal] = useState(false);
   const trayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
   const setTrayOpen = useDashboardCustomizeStore((s) => s.setTrayOpen);
+  const setStoreIsCustomizing = useDashboardCustomizeStore((s) => s.setIsCustomizing);
+
+  // Wrap setter to keep local + store in sync
+  const setIsCustomizing = useCallback((v: boolean) => {
+    setIsCustomizingLocal(v);
+    setStoreIsCustomizing(v);
+  }, [setStoreIsCustomizing]);
   const [activeId, setActiveId] = useState<string | null>(null);
   // overId removed — was dead state causing unnecessary re-renders during drag
   const router = useRouter();
@@ -261,7 +268,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Reset customize state in the store on unmount (e.g. navigating away mid-customize)
+    return () => {
+      setStoreIsCustomizing(false);
+    };
+  }, [setStoreIsCustomizing]);
 
   // Delay typewriter until data has loaded at least once
   useEffect(() => {

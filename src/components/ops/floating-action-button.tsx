@@ -49,7 +49,8 @@ export function FloatingActionButton() {
   // ── Hide on intel page (full-bleed canvas, overlaps zoom controls) ───
   const pathname = usePathname();
 
-  // ── Hide when dashboard widget tray is open ───────────────────────────
+  // ── Hide when dashboard is in customize mode ─────────────────────────
+  const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
   const dashboardTrayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
 
   // ── Active actions from user prefs ──────────────────────────────────────
@@ -69,14 +70,14 @@ export function FloatingActionButton() {
       return canAccessFeature(slug);
     });
 
-  // ── Close FAB when dashboard tray opens ─────────────────────────────────
+  // ── Close FAB when dashboard customization starts ──────────────────────
   useEffect(() => {
-    if (dashboardTrayOpen) {
+    if (dashboardCustomizing) {
       setOpen(false);
       setEditMode(false);
       setShowAddDropdown(false);
     }
-  }, [dashboardTrayOpen]);
+  }, [dashboardCustomizing]);
 
   // ── Close on outside click ──────────────────────────────────────────────
   useEffect(() => {
@@ -206,7 +207,7 @@ export function FloatingActionButton() {
         ref={containerRef}
         className={cn(
           "fixed bottom-4 right-6 z-[95] transition-all duration-200",
-          dashboardTrayOpen && "opacity-0 pointer-events-none translate-y-2"
+          dashboardCustomizing && "opacity-0 pointer-events-none translate-y-2"
         )}
       >
         {/* ── Menu items — frosted glass pills, staggered from right ── */}

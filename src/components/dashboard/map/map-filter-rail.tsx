@@ -46,7 +46,7 @@ export function MapFilterRail() {
   const can = usePermissionStore((s) => s.can);
   const isCollapsed = useSidebarStore((s) => s.isCollapsed);
   const sidebarWidth = isCollapsed ? 72 : 256;
-  const dashboardTrayOpen = useDashboardCustomizeStore((s) => s.trayOpen);
+  const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
 
   if (pathname !== "/dashboard") return null;
 
@@ -69,12 +69,12 @@ export function MapFilterRail() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: dashboardTrayOpen ? 0 : 1, y: dashboardTrayOpen ? 8 : 0 }}
+      animate={{ opacity: dashboardCustomizing ? 0 : 1, y: dashboardCustomizing ? 8 : 0 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "fixed bottom-3 z-[5]",
         "flex flex-col items-start",
-        dashboardTrayOpen ? "pointer-events-none" : "pointer-events-auto"
+        dashboardCustomizing ? "pointer-events-none" : "pointer-events-auto"
       )}
       style={{ left: sidebarWidth + 12 }}
     >
