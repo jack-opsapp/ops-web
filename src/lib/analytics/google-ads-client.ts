@@ -101,37 +101,41 @@ async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
   const customerId = getCustomerId();
   const developerToken = getDeveloperToken();
 
-  const response = await fetch(
-    `${ADS_BASE_URL}/customers/${customerId}/googleAds:searchStream`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "developer-token": developerToken,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: gaql }),
-    }
-  );
+  const allRows: GoogleAdsRow[] = [];
+  let pageToken: string | undefined;
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Google Ads API error (${response.status}): ${errorBody}`);
-  }
-
-  const data = await response.json();
-
-  // searchStream returns an array of batches, each with a results array
-  const rows: GoogleAdsRow[] = [];
-  if (Array.isArray(data)) {
-    for (const batch of data) {
-      if (batch.results) {
-        rows.push(...batch.results);
+  // Use `search` (paginated) instead of `searchStream` (deprecated in v19)
+  do {
+    const response = await fetch(
+      `${ADS_BASE_URL}/customers/${customerId}/googleAds:search`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "developer-token": developerToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: gaql,
+          pageSize: 10000,
+          ...(pageToken ? { pageToken } : {}),
+        }),
       }
-    }
-  }
+    );
 
-  return rows;
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Google Ads API error (${response.status}): ${errorBody}`);
+    }
+
+    const data = await response.json();
+    if (data.results) {
+      allRows.push(...data.results);
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  return allRows;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
