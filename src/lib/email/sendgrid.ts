@@ -17,6 +17,8 @@ import { teamInviteTemplate } from "./templates/team-invite";
 import { roleNeededTemplate } from "./templates/role-needed";
 import { betaAccessRequestTemplate } from "./templates/beta-access-request";
 import { betaAccessDecisionTemplate } from "./templates/beta-access-decision";
+import { adsBriefingTemplate } from "./templates/ads-briefing";
+import type { AdBriefing } from "@/lib/admin/briefing-types";
 
 let initialized = false;
 
@@ -243,4 +245,24 @@ export async function sendBetaAccessDecision(params: {
       : `Your OPS Beta Access Request — ${params.featureTitle}`,
     html,
   });
+}
+
+export async function sendAdsBriefing(params: {
+  recipientEmails: string[];
+  briefing: AdBriefing;
+}): Promise<void> {
+  ensureInitialized();
+  const html = adsBriefingTemplate(params.briefing);
+  const subject = `[OPS Intel] Google Ads Weekly — ${params.briefing.period_start} to ${params.briefing.period_end}`;
+
+  await Promise.all(
+    params.recipientEmails.map((email) =>
+      sgMail.send({
+        to: email,
+        from: getFromEmail(),
+        subject,
+        html,
+      })
+    )
+  );
 }
