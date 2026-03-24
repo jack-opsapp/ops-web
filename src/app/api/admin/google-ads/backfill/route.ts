@@ -13,10 +13,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Check if already running
+  // Check if already running (with 10-minute stale timeout)
   const current = await getSyncStatus("backfill");
   if (current?.status === "running") {
-    return NextResponse.json({ error: "Backfill already in progress" }, { status: 409 });
+    const updatedAt = new Date(current.updated_at).getTime();
+    const staleAfterMs = 10 * 60 * 1000; // 10 minutes
+    const isStale = Date.now() - updatedAt > staleAfterMs;
+
+    if (!isStale) {
+      return NextResponse.json({ error: "Backfill already in progress" }, { status: 409 });
+    }
+    // Stale run — reset and allow restart
+    await updateSyncStatus("backfill", { status: "failed", error: "Previous run timed out" });
   }
 
   // Default: 2 years ago → yesterday
