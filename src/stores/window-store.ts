@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type FloatingWindowType = "create-project" | "create-client" | "create-task" | "create-estimate" | "create-lead";
+export type FloatingWindowType = "create-project" | "create-client" | "create-task" | "create-estimate" | "create-lead" | "compose-email";
 
 export interface FloatingWindowState {
   id: string;
@@ -12,6 +12,8 @@ export interface FloatingWindowState {
   position: { x: number; y: number };
   size: { width: number; height: number };
   zIndex: number;
+  /** Arbitrary data passed to the window content (e.g. composeData for email) */
+  metadata?: Record<string, unknown>;
 }
 
 interface WindowStoreState {
@@ -21,6 +23,7 @@ interface WindowStoreState {
     id: string;
     title: string;
     type: FloatingWindowType;
+    metadata?: Record<string, unknown>;
   }) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
@@ -33,6 +36,7 @@ const DEFAULT_SIZE = { width: 560, height: 600 };
 
 const SIZE_BY_TYPE: Partial<Record<FloatingWindowType, { width: number; height: number }>> = {
   "create-estimate": { width: 780, height: 700 },
+  "compose-email": { width: 620, height: 680 },
 };
 
 function getSizeForType(type: FloatingWindowType) {
@@ -51,7 +55,7 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
   windows: [],
   nextZIndex: 100,
 
-  openWindow: ({ id, title, type }) => {
+  openWindow: ({ id, title, type, metadata }) => {
     const { windows, nextZIndex } = get();
     const existing = windows.find((w) => w.id === id);
     if (existing) {
@@ -59,7 +63,7 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
       set({
         windows: windows.map((w) =>
           w.id === id
-            ? { ...w, isMinimized: false, zIndex: nextZIndex }
+            ? { ...w, isMinimized: false, zIndex: nextZIndex, ...(metadata ? { metadata } : {}) }
             : w
         ),
         nextZIndex: nextZIndex + 1,
@@ -80,6 +84,7 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
           position,
           size,
           zIndex: nextZIndex,
+          metadata,
         },
       ],
       nextZIndex: nextZIndex + 1,

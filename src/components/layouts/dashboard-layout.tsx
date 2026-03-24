@@ -22,6 +22,8 @@ import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
 import { CreateLeadForm } from "@/components/ops/create-lead-modal";
+import { ComposeEmailForm } from "@/components/ops/compose-email-form";
+import type { ComposeEmailData } from "@/lib/types/email-template";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
@@ -96,6 +98,12 @@ function FloatingWindows() {
             <CreateLeadForm
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
+            />
+          )}
+          {win.type === "compose-email" && (
+            <ComposeEmailForm
+              composeData={win.metadata as ComposeEmailData | undefined}
+              onClose={() => closeWindow(win.id)}
             />
           )}
         </FloatingWindow>
