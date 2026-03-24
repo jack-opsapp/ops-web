@@ -118,6 +118,8 @@ function ChangePasswordSection() {
       const code = (err as { code?: string })?.code;
       if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
         toast.error(t("password.toast.wrongCurrent"));
+      } else if (code === "auth/too-many-requests") {
+        toast.error(t("password.toast.tooManyAttempts"));
       } else {
         toast.error(t("password.toast.updateFailed"), {
           description: err instanceof Error ? err.message : undefined,
@@ -168,7 +170,7 @@ function ChangePasswordSection() {
             disabled={!currentPassword || !newPassword || !confirmPassword}
             className="gap-[6px]"
           >
-            <Lock className="w-[16px] h-[16px]" />
+            {!isUpdating && <Lock className="w-[16px] h-[16px]" />}
             {t("password.update")}
           </Button>
         </div>

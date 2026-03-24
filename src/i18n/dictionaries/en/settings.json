@@ -60,6 +60,7 @@
   "password.toast.mismatch": "Passwords don't match",
   "password.toast.tooShort": "Password must be at least 6 characters",
   "password.toast.wrongCurrent": "Current password is incorrect",
+  "password.toast.tooManyAttempts": "Too many attempts. Please try again later.",
   "password.ssoNotice": "Your account uses {provider} sign-in. Password is managed by your provider.",
 
   "appearance.theme": "Theme",

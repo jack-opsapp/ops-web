@@ -60,6 +60,7 @@
   "password.toast.mismatch": "Las contraseñas no coinciden",
   "password.toast.tooShort": "La contraseña debe tener al menos 6 caracteres",
   "password.toast.wrongCurrent": "La contraseña actual es incorrecta",
+  "password.toast.tooManyAttempts": "Demasiados intentos. Por favor intenta de nuevo más tarde.",
   "password.ssoNotice": "Tu cuenta usa inicio de sesión con {provider}. La contraseña es administrada por tu proveedor.",
 
   "appearance.theme": "Tema",
