@@ -82,6 +82,7 @@ export async function syncDateRange(
 
   let synced = 0;
   let failed = 0;
+  let firstError: string | null = null;
   const current = new Date(start);
 
   while (current <= end) {
@@ -105,6 +106,14 @@ export async function syncDateRange(
     } catch (err) {
       console.error(`[ads-sync] Failed to sync ${fmt(current)}:`, err);
       failed++;
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      // If all attempts so far have failed, bail early (likely a config/auth issue)
+      if (synced === 0 && failed >= 3) {
+        console.error("[ads-sync] 3 consecutive failures with 0 successes — aborting");
+        break;
+      }
     }
 
     current.setDate(current.getDate() + 1);
@@ -113,5 +122,5 @@ export async function syncDateRange(
     if (current <= end) await sleep(rateLimitMs);
   }
 
-  return { synced, failed };
+  return { synced, failed, firstError };
 }

@@ -55,10 +55,21 @@ export async function POST(req: NextRequest) {
       rateLimitMs: 150,
     });
 
+    if (result.synced === 0) {
+      const errorMsg = result.firstError
+        ? `All ${result.failed} days failed. First error: ${result.firstError}`
+        : `All ${result.failed} days failed to sync. Check Google Ads API credentials.`;
+      await updateSyncStatus("backfill", { status: "failed", error: errorMsg });
+      return NextResponse.json(
+        { status: "failed", error: errorMsg, ...result },
+        { status: 500 }
+      );
+    }
+
     await updateSyncStatus("backfill", {
       status: "complete",
       last_synced_date: endDate.toISOString().split("T")[0],
-      error: null,
+      error: result.failed > 0 ? `${result.failed} days failed` : null,
     });
 
     return NextResponse.json({ status: "complete", ...result });
