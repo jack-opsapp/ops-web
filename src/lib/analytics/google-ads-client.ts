@@ -58,8 +58,9 @@ const DURING_MAP: Record<AdsDayRange, string> = {
   30: "LAST_30_DAYS",
 };
 
-function microsToDollars(micros: number | string | undefined): number {
-  const val = typeof micros === "string" ? parseInt(micros, 10) : (micros ?? 0);
+function microsToDollars(micros: number | string | null | undefined): number {
+  if (micros == null) return 0;
+  const val = typeof micros === "string" ? parseInt(micros, 10) : micros;
   return val / 1_000_000;
 }
 
