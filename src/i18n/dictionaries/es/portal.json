@@ -164,8 +164,25 @@
   "gallery.sourceInProgress": "En progreso",
   "gallery.sourceCompletion": "Finalización",
 
-  "verify.title": "Sesión requerida",
-  "verify.message": "Tu sesión del portal ha expirado o no está activa. Por favor revisa tu correo para un enlace del portal de tu proveedor de servicios.",
+  "landing.validating": "Validando tu enlace...",
+  "landing.loadingPreview": "Cargando vista previa...",
+  "landing.verifyTitle": "Verifica tu correo",
+  "landing.verifyDesc": "Ingresa el correo electrónico asociado a tu cuenta para acceder a tu portal.",
+  "landing.emailPlaceholder": "tu@ejemplo.com",
+  "landing.accessPortal": "Acceder al portal",
+  "landing.expiredTitle": "Enlace expirado",
+  "landing.expiredDesc": "Este enlace del portal ha expirado. Contacta a la empresa para un nuevo enlace.",
+  "landing.invalidTitle": "Enlace inválido",
+  "landing.invalidDesc": "Este enlace no es válido. Revisa tu correo para el enlace correcto o contacta a la empresa.",
+  "landing.previewError": "No se pudo crear la sesión de vista previa",
+  "landing.verifyFailed": "Error de verificación",
+  "landing.genericError": "Algo salió mal. Intenta de nuevo.",
+  "landing.poweredBy": "impulsado por OPS",
+
+  "verify.title": "Sesión expirada",
+  "verify.message": "Tu sesión del portal ha expirado. Por favor revisa tu correo para un enlace del portal de tu proveedor de servicios.",
+  "verify.subtitle": "¿Necesitas un nuevo enlace?",
+  "verify.contactProvider": "Contacta a tu proveedor de servicios para solicitar un nuevo enlace del portal.",
 
   "toggle.en": "EN",
   "toggle.es": "ES"

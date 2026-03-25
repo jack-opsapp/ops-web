@@ -164,8 +164,25 @@
   "gallery.sourceInProgress": "In Progress",
   "gallery.sourceCompletion": "Completion",
 
-  "verify.title": "Session required",
-  "verify.message": "Your portal session has expired or is not active. Please check your email for a portal link from your service provider.",
+  "landing.validating": "Validating your link...",
+  "landing.loadingPreview": "Loading preview...",
+  "landing.verifyTitle": "Verify your email",
+  "landing.verifyDesc": "Enter the email address associated with your account to access your portal.",
+  "landing.emailPlaceholder": "you@example.com",
+  "landing.accessPortal": "Access Portal",
+  "landing.expiredTitle": "Link expired",
+  "landing.expiredDesc": "This portal link has expired. Please contact the company for a new link.",
+  "landing.invalidTitle": "Invalid link",
+  "landing.invalidDesc": "This link is not valid. Please check your email for the correct link or contact the company.",
+  "landing.previewError": "Preview session could not be created",
+  "landing.verifyFailed": "Verification failed",
+  "landing.genericError": "Something went wrong. Please try again.",
+  "landing.poweredBy": "powered by OPS",
+
+  "verify.title": "Session expired",
+  "verify.message": "Your portal session has expired. Please check your email for a portal link from your service provider.",
+  "verify.subtitle": "Need a new link?",
+  "verify.contactProvider": "Contact your service provider to request a new portal link.",
 
   "toggle.en": "EN",
   "toggle.es": "ES"
