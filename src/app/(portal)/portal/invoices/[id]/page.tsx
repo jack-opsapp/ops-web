@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useDictionary } from "@/i18n/client";
 import { PortalInvoiceView } from "@/components/portal/portal-invoice-view";
-import { PortalPaymentForm } from "@/components/portal/portal-payment-form";
 import { usePortalData } from "@/lib/hooks/use-portal-data";
-import { getFieldVisibility } from "@/lib/portal/resolve-template-branding";
+import { resolvePortalVisibility } from "@/lib/portal/resolve-visibility";
 import type { DocumentTemplate } from "@/lib/types/document-template";
 import type { DocumentPartyInfo } from "@/components/portal/portal-invoice-view";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface InvoiceLineItem {
   id: string;
@@ -51,12 +51,12 @@ interface InvoiceDetail {
   template: DocumentTemplate | null;
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function InvoiceDetailPage() {
   const { t } = useDictionary("portal");
   const params = useParams();
   const id = params.id as string;
-  const queryClient = useQueryClient();
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   const { data: portalData } = usePortalData();
 
@@ -101,12 +101,6 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  function handlePaymentSuccess() {
-    setShowPaymentForm(false);
-    queryClient.invalidateQueries({ queryKey: ["portal", "invoice", id] });
-    queryClient.invalidateQueries({ queryKey: ["portal", "data"] });
-  }
-
   // Build company/client info for From/To sections
   const companyInfo: DocumentPartyInfo | null = portalData?.company
     ? {
@@ -125,7 +119,27 @@ export default function InvoiceDetailPage() {
       }
     : null;
 
-  const fieldVisibility = getFieldVisibility(invoice.template);
+  // Use portal branding visibility overrides, falling back to template settings
+  const branding = portalData?.branding;
+  const portalVisibility = branding
+    ? resolvePortalVisibility(branding, invoice.template)
+    : undefined;
+
+  const fieldVisibility = portalVisibility
+    ? {
+        showQuantities: portalVisibility.showQuantities,
+        showUnitPrices: portalVisibility.showUnitPrices,
+        showLineTotals: portalVisibility.showLineTotals,
+        showDescriptions: portalVisibility.showDescriptions,
+        showTax: portalVisibility.showTax,
+        showDiscount: portalVisibility.showDiscount,
+        showTerms: true,
+        showFooter: true,
+        showPaymentInfo: true,
+        showFromSection: true,
+        showToSection: true,
+      }
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -147,32 +161,7 @@ export default function InvoiceDetailPage() {
         clientInfo={clientInfo}
       />
 
-      {/* Pay Now button */}
-      {invoice.balanceDue > 0 && !showPaymentForm && (
-        <div className="flex justify-center pt-2">
-          <button
-            onClick={() => setShowPaymentForm(true)}
-            className="px-8 py-3 rounded-lg text-sm font-semibold transition-colors"
-            style={{
-              backgroundColor: "var(--portal-accent)",
-              color: "var(--portal-accent-text)",
-              borderRadius: "var(--portal-radius)",
-            }}
-          >
-            {t("invoice.payNow")}
-          </button>
-        </div>
-      )}
-
-      {/* Payment form */}
-      {showPaymentForm && (
-        <PortalPaymentForm
-          invoiceId={invoice.id}
-          balanceDue={invoice.balanceDue}
-          onSuccess={handlePaymentSuccess}
-          onCancel={() => setShowPaymentForm(false)}
-        />
-      )}
+      {/* Pay Now — hidden until Stripe Elements integration is complete */}
     </div>
   );
 }

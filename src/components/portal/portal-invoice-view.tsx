@@ -357,6 +357,91 @@ export function PortalInvoiceView({
         )}
       </div>
 
+      {/* ── Balance Due Callout ──────────────────────────────────────────── */}
+      {(() => {
+        const isOverdue =
+          invoice.balanceDue > 0 &&
+          invoice.dueDate &&
+          new Date(invoice.dueDate) < new Date();
+        const isPaidInFull = invoice.balanceDue <= 0;
+
+        return isPaidInFull ? (
+          /* Paid in Full — green confirmation block */
+          <div
+            className="rounded-xl p-6 text-center"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--portal-success) 8%, var(--portal-card))",
+              border: "1px solid color-mix(in srgb, var(--portal-success) 30%, transparent)",
+              borderRadius: "var(--portal-radius-lg)",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+              style={{ backgroundColor: "color-mix(in srgb, var(--portal-success) 15%, transparent)" }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M5 12l5 5L19 7"
+                  stroke="var(--portal-success)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p
+              className="text-lg font-semibold"
+              style={{
+                fontFamily: "var(--portal-heading-font)",
+                fontWeight: "var(--portal-heading-weight)",
+                color: "var(--portal-success)",
+              }}
+            >
+              {t("invoice.paidInFull")}
+            </p>
+          </div>
+        ) : (
+          /* Balance > 0 — prominent balance callout */
+          <div
+            className="rounded-xl p-6"
+            style={{
+              backgroundColor: "var(--portal-card)",
+              border: isOverdue
+                ? "1px solid color-mix(in srgb, var(--portal-warning) 40%, transparent)"
+                : "1px solid var(--portal-border)",
+              borderRadius: "var(--portal-radius-lg)",
+            }}
+          >
+            <div className="flex flex-col items-center text-center">
+              <p
+                className="text-sm font-medium uppercase tracking-wider mb-1"
+                style={{ color: "var(--portal-text-tertiary)" }}
+              >
+                {t("invoice.balanceDue")}
+              </p>
+              <p
+                className="text-3xl font-bold"
+                style={{
+                  fontFamily: "var(--portal-heading-font)",
+                  fontWeight: "var(--portal-heading-weight)",
+                  color: isOverdue ? "var(--portal-warning)" : "var(--portal-text)",
+                }}
+              >
+                {formatCurrency(invoice.balanceDue)}
+              </p>
+              {isOverdue && (
+                <p
+                  className="text-xs mt-1.5 font-medium"
+                  style={{ color: "var(--portal-warning)" }}
+                >
+                  {t("invoice.due")} {formatDate(invoice.dueDate, locale)}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Totals */}
       <div
         className="rounded-xl p-6"
@@ -404,34 +489,6 @@ export function PortalInvoiceView({
               </span>
             </div>
           )}
-
-          {/* Balance Due */}
-          <div
-            className="flex justify-between items-center pt-3 mt-2"
-            style={{ borderTop: "2px solid var(--portal-border-strong)" }}
-          >
-            <span
-              className="text-base font-bold"
-              style={{
-                fontFamily: "var(--portal-heading-font)",
-                fontWeight: "var(--portal-heading-weight)",
-              }}
-            >
-              {t("invoice.balanceDue")}
-            </span>
-            <span
-              className="text-2xl font-bold"
-              style={{
-                color: invoice.balanceDue > 0
-                  ? "var(--portal-warning)"
-                  : "var(--portal-success)",
-                fontFamily: "var(--portal-heading-font)",
-                fontWeight: "var(--portal-heading-weight)",
-              }}
-            >
-              {formatCurrency(invoice.balanceDue)}
-            </span>
-          </div>
         </div>
       </div>
 

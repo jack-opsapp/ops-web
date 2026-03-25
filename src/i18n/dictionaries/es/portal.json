@@ -118,6 +118,7 @@
   "invoice.backHome": "Volver al inicio",
   "invoice.back": "Atrás",
   "invoice.payNow": "Pagar ahora",
+  "invoice.paidInFull": "Pagado en su totalidad — Gracias",
 
   "payment.success": "Pago exitoso",
   "payment.successDesc": "Tu pago ha sido procesado.",

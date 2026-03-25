@@ -118,6 +118,7 @@
   "invoice.backHome": "Back to Home",
   "invoice.back": "Back",
   "invoice.payNow": "Pay Now",
+  "invoice.paidInFull": "Paid in Full — Thank You",
 
   "payment.success": "Payment Successful",
   "payment.successDesc": "Your payment has been processed.",
