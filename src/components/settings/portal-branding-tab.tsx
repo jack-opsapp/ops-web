@@ -51,6 +51,12 @@ function mapBrandingFromDb(row: Record<string, unknown>): PortalBranding {
     themeMode: (row.theme_mode as PortalThemeMode) ?? "dark",
     fontCombo: (row.font_combo as PortalTemplate) ?? "modern",
     welcomeMessage: (row.welcome_message as string) ?? null,
+    showQuantities: row.show_quantities as boolean | null ?? null,
+    showUnitPrices: row.show_unit_prices as boolean | null ?? null,
+    showLineTotals: row.show_line_totals as boolean | null ?? null,
+    showDescriptions: row.show_descriptions as boolean | null ?? null,
+    showTax: row.show_tax as boolean | null ?? null,
+    showDiscount: row.show_discount as boolean | null ?? null,
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
   };
@@ -88,6 +94,12 @@ async function updateBranding(
     template: PortalTemplate;
     themeMode: PortalThemeMode;
     welcomeMessage: string | null;
+    showQuantities: boolean | null;
+    showUnitPrices: boolean | null;
+    showLineTotals: boolean | null;
+    showDescriptions: boolean | null;
+    showTax: boolean | null;
+    showDiscount: boolean | null;
   }>
 ): Promise<PortalBranding> {
   const supabase = requireSupabase();
@@ -102,6 +114,12 @@ async function updateBranding(
   if (updates.template !== undefined) row.template = updates.template;
   if (updates.themeMode !== undefined) row.theme_mode = updates.themeMode;
   if (updates.welcomeMessage !== undefined) row.welcome_message = updates.welcomeMessage;
+  if (updates.showQuantities !== undefined) row.show_quantities = updates.showQuantities;
+  if (updates.showUnitPrices !== undefined) row.show_unit_prices = updates.showUnitPrices;
+  if (updates.showLineTotals !== undefined) row.show_line_totals = updates.showLineTotals;
+  if (updates.showDescriptions !== undefined) row.show_descriptions = updates.showDescriptions;
+  if (updates.showTax !== undefined) row.show_tax = updates.showTax;
+  if (updates.showDiscount !== undefined) row.show_discount = updates.showDiscount;
 
   const { data, error } = await supabase
     .from("portal_branding")
@@ -154,6 +172,13 @@ export function PortalBrandingTab() {
   const [template, setTemplate] = useState<PortalTemplate>("modern");
   const [themeMode, setThemeMode] = useState<PortalThemeMode>("dark");
   const [welcomeMessage, setWelcomeMessage] = useState("");
+  // Document visibility overrides (null = use template, true = always show, false = always hide)
+  const [showQuantities, setShowQuantities] = useState<boolean | null>(null);
+  const [showUnitPrices, setShowUnitPrices] = useState<boolean | null>(null);
+  const [showLineTotals, setShowLineTotals] = useState<boolean | null>(null);
+  const [showDescriptions, setShowDescriptions] = useState<boolean | null>(null);
+  const [showTax, setShowTax] = useState<boolean | null>(null);
+  const [showDiscount, setShowDiscount] = useState<boolean | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -188,6 +213,12 @@ export function PortalBrandingTab() {
       setTemplate(branding.template);
       setThemeMode(branding.themeMode);
       setWelcomeMessage(branding.welcomeMessage ?? "");
+      setShowQuantities(branding.showQuantities ?? null);
+      setShowUnitPrices(branding.showUnitPrices ?? null);
+      setShowLineTotals(branding.showLineTotals ?? null);
+      setShowDescriptions(branding.showDescriptions ?? null);
+      setShowTax(branding.showTax ?? null);
+      setShowDiscount(branding.showDiscount ?? null);
       setIsDirty(false);
     }
   }, [branding, company?.logoURL]);
@@ -201,6 +232,12 @@ export function PortalBrandingTab() {
         template,
         themeMode,
         welcomeMessage: welcomeMessage.trim() || null,
+        showQuantities,
+        showUnitPrices,
+        showLineTotals,
+        showDescriptions,
+        showTax,
+        showDiscount,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -742,6 +779,58 @@ export function PortalBrandingTab() {
             disabled={!canManage}
             className="min-h-[100px]"
           />
+        </CardContent>
+      </Card>
+
+      {/* ── Document Display — Visibility Overrides ──────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("portalBranding.visibilityTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          <p className="font-kosugi text-[11px] text-text-disabled mb-2">
+            {t("portalBranding.visibilityDesc")}
+          </p>
+
+          {([
+            { key: "showQuantities" as const, labelKey: "portalBranding.quantities", state: showQuantities, setter: setShowQuantities },
+            { key: "showUnitPrices" as const, labelKey: "portalBranding.unitPrices", state: showUnitPrices, setter: setShowUnitPrices },
+            { key: "showLineTotals" as const, labelKey: "portalBranding.lineTotals", state: showLineTotals, setter: setShowLineTotals },
+            { key: "showDescriptions" as const, labelKey: "portalBranding.descriptions", state: showDescriptions, setter: setShowDescriptions },
+            { key: "showTax" as const, labelKey: "portalBranding.tax", state: showTax, setter: setShowTax },
+            { key: "showDiscount" as const, labelKey: "portalBranding.discount", state: showDiscount, setter: setShowDiscount },
+          ]).map(({ key, labelKey, state, setter }) => (
+            <div key={key} className="flex items-center justify-between py-1.5">
+              <span className="font-mohave text-body-sm text-text-secondary">
+                {t(labelKey)}
+              </span>
+              <div className="flex rounded border border-border overflow-hidden">
+                {([
+                  { value: null, label: t("portalBranding.useTemplate") },
+                  { value: true, label: t("portalBranding.alwaysShow") },
+                  { value: false, label: t("portalBranding.alwaysHide") },
+                ] as { value: boolean | null; label: string }[]).map((opt) => (
+                  <button
+                    key={String(opt.value)}
+                    disabled={!canManage}
+                    onClick={() => {
+                      if (!canManage) return;
+                      setter(opt.value);
+                      markDirty();
+                    }}
+                    className={cn(
+                      "px-2 py-1 text-[11px] font-kosugi transition-all border-r last:border-r-0 border-border disabled:opacity-40 disabled:cursor-not-allowed",
+                      state === opt.value
+                        ? "bg-ops-accent-muted text-ops-accent"
+                        : "bg-background-input text-text-tertiary hover:text-text-secondary"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
