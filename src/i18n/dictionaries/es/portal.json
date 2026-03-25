@@ -147,6 +147,9 @@
   "taskTimeline.completed": "Completado",
   "taskTimeline.cancelled": "Cancelado",
 
+  "phaseTimeline.other": "Otro",
+  "phaseTimeline.current": "Actual",
+
   "gallery.close": "Cerrar visor",
   "gallery.previous": "Foto anterior",
   "gallery.next": "Foto siguiente",

@@ -147,6 +147,9 @@
   "taskTimeline.completed": "Completed",
   "taskTimeline.cancelled": "Cancelled",
 
+  "phaseTimeline.other": "Other",
+  "phaseTimeline.current": "Current",
+
   "gallery.close": "Close lightbox",
   "gallery.previous": "Previous photo",
   "gallery.next": "Next photo",
