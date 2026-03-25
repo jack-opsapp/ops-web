@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Check,
   Loader2,
@@ -8,9 +8,13 @@ import {
   Moon,
   Sun,
   Eye,
-  Upload,
+  RotateCcw,
+  FileText,
+  Receipt,
+  FolderOpen,
+  Home,
+  MessageSquare,
   Building2,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
@@ -20,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
-import { useImageUpload } from "@/lib/hooks/use-image-upload";
+import { extractLogoColors } from "@/lib/utils/extract-logo-colors";
 import type {
   PortalBranding,
   PortalTemplate,
@@ -166,8 +170,6 @@ export function PortalBrandingTab() {
   const queryClient = useQueryClient();
 
   // ── Local form state ─────────────────────────────────────────────────────
-  const [logoUrl, setLogoUrl] = useState("");
-  const [useCompanyLogo, setUseCompanyLogo] = useState(true);
   const [accentColor, setAccentColor] = useState("#417394");
   const [template, setTemplate] = useState<PortalTemplate>("modern");
   const [themeMode, setThemeMode] = useState<PortalThemeMode>("dark");
@@ -181,14 +183,8 @@ export function PortalBrandingTab() {
   const [showDiscount, setShowDiscount] = useState<boolean | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const logoUpload = useImageUpload({
-    onSuccess: (url) => {
-      setLogoUrl(url);
-      markDirty();
-    },
-    onError: () => toast.error("Failed to upload logo"),
-  });
+  // Logo-extracted suggested colors
+  const [suggestedColors, setSuggestedColors] = useState<string[]>([]);
 
   // ── Fetch branding ───────────────────────────────────────────────────────
   const {
@@ -204,30 +200,41 @@ export function PortalBrandingTab() {
   });
 
   // ── Seed form from fetched data ──────────────────────────────────────────
+  const seedFromBranding = useCallback((b: PortalBranding) => {
+    setAccentColor(b.accentColor);
+    setTemplate(b.template);
+    setThemeMode(b.themeMode);
+    setWelcomeMessage(b.welcomeMessage ?? "");
+    setShowQuantities(b.showQuantities ?? null);
+    setShowUnitPrices(b.showUnitPrices ?? null);
+    setShowLineTotals(b.showLineTotals ?? null);
+    setShowDescriptions(b.showDescriptions ?? null);
+    setShowTax(b.showTax ?? null);
+    setShowDiscount(b.showDiscount ?? null);
+    setIsDirty(false);
+  }, []);
+
   useEffect(() => {
-    if (branding) {
-      const hasCustomLogo = !!branding.logoUrl && branding.logoUrl !== company?.logoURL;
-      setUseCompanyLogo(!hasCustomLogo);
-      setLogoUrl(hasCustomLogo ? branding.logoUrl! : (company?.logoURL ?? ""));
-      setAccentColor(branding.accentColor);
-      setTemplate(branding.template);
-      setThemeMode(branding.themeMode);
-      setWelcomeMessage(branding.welcomeMessage ?? "");
-      setShowQuantities(branding.showQuantities ?? null);
-      setShowUnitPrices(branding.showUnitPrices ?? null);
-      setShowLineTotals(branding.showLineTotals ?? null);
-      setShowDescriptions(branding.showDescriptions ?? null);
-      setShowTax(branding.showTax ?? null);
-      setShowDiscount(branding.showDiscount ?? null);
-      setIsDirty(false);
+    if (branding) seedFromBranding(branding);
+  }, [branding, seedFromBranding]);
+
+  // ── Extract suggested colors from company logo ─────────────────────────
+  useEffect(() => {
+    if (company?.logoURL) {
+      extractLogoColors(company.logoURL, 5).then(setSuggestedColors);
     }
-  }, [branding, company?.logoURL]);
+  }, [company?.logoURL]);
+
+  // ── Discard handler ────────────────────────────────────────────────────
+  function handleDiscard() {
+    if (branding) seedFromBranding(branding);
+  }
 
   // ── Save mutation ────────────────────────────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: () =>
       updateBranding(companyId, {
-        logoUrl: useCompanyLogo ? null : (logoUrl.trim() || null),
+        logoUrl: null,
         accentColor,
         template,
         themeMode,
@@ -323,6 +330,13 @@ export function PortalBrandingTab() {
   const templateConfig = PORTAL_TEMPLATES[template] ?? PORTAL_TEMPLATES.modern;
   const accent = isValidHex ? accentColor : "#417394";
   const isDark = themeMode === "dark";
+  const portalBg = isDark ? "#0A0A0A" : "#FAFAFA";
+  const portalCard = isDark ? "#191919" : "#FFFFFF";
+  const portalText = isDark ? "#E5E5E5" : "#1A1A1A";
+  const portalTextSec = isDark ? "#A7A7A7" : "#6B7280";
+  const portalTextTer = isDark ? "#6B7280" : "#9CA3AF";
+  const portalBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const currentLogoUrl = company?.logoURL ?? null;
 
   const previewBlock = (
     <Card>
@@ -330,7 +344,7 @@ export function PortalBrandingTab() {
         <CardTitle>Preview</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Load template fonts for the preview */}
+        {/* Load template fonts */}
         {[templateConfig.headingFontImport, templateConfig.bodyFontImport]
           .filter(Boolean)
           .map((url) => (
@@ -339,122 +353,166 @@ export function PortalBrandingTab() {
           ))}
         <div
           className="overflow-hidden border border-border"
-          style={{
-            borderRadius: templateConfig.borderRadiusLg,
-            background: isDark
-              ? "linear-gradient(135deg, #1a1a1a 0%, #111 100%)"
-              : "linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)",
-          }}
+          style={{ borderRadius: templateConfig.borderRadiusLg, background: portalBg }}
         >
-          {/* Mini header bar */}
+          {/* ── Header ── */}
           <div
             className="px-3 py-2 flex items-center gap-2"
-            style={{ borderBottom: `2px solid ${accent}` }}
+            style={{
+              backgroundColor: templateConfig.headerStyle === "accent" ? accent : portalCard,
+              borderBottom: templateConfig.headerStyle === "accent" ? "none" : templateConfig.headerBorder.replace("var(--portal-border)", portalBorder).replace("var(--portal-accent)", accent),
+            }}
           >
-            {(useCompanyLogo ? company?.logoURL : logoUrl) ? (
+            {currentLogoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={(useCompanyLogo ? company?.logoURL : logoUrl) || ""}
-                alt=""
-                className="h-[20px] max-w-[80px] object-contain"
-              />
+              <img src={currentLogoUrl} alt="" className="h-[16px] max-w-[70px] object-contain" />
             ) : (
-              <div
-                style={{
-                  height: 20,
-                  width: 60,
-                  borderRadius: templateConfig.borderRadiusSm,
-                  backgroundColor: accent,
-                  opacity: 0.3,
-                }}
-              />
+              <Building2 style={{ width: 14, height: 14, color: templateConfig.headerStyle === "accent" ? "#fff" : portalTextTer }} />
             )}
             <div className="flex-1" />
-            <div className="flex gap-1.5">
-              {["Home", "Projects", "Invoices"].map((tab) => (
+            <div className="flex gap-2 items-center">
+              {[
+                { icon: Home, label: "Home", active: true },
+                { icon: FolderOpen, label: "Project", active: false },
+                { icon: MessageSquare, label: "Messages", active: false },
+              ].map((tab) => (
                 <span
-                  key={tab}
+                  key={tab.label}
+                  className="relative flex items-center gap-0.5"
                   style={{
                     fontFamily: templateConfig.bodyFont,
-                    fontSize: "9px",
+                    fontSize: "8px",
                     letterSpacing: templateConfig.letterSpacing,
-                    color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+                    color: tab.active
+                      ? (templateConfig.headerStyle === "accent" ? "#fff" : accent)
+                      : (templateConfig.headerStyle === "accent" ? "rgba(255,255,255,0.6)" : portalTextTer),
                   }}
                 >
-                  {tab}
+                  <tab.icon style={{ width: 8, height: 8 }} />
+                  {tab.label}
+                  {tab.active && (
+                    <span className="absolute -bottom-[5px] left-0 right-0 h-[1.5px]" style={{ backgroundColor: templateConfig.headerStyle === "accent" ? "#fff" : accent }} />
+                  )}
                 </span>
               ))}
             </div>
           </div>
-          {/* Mini content area */}
-          <div className="px-3 py-2.5 space-y-1.5">
-            <div
-              style={{
-                fontFamily: templateConfig.headingFont,
-                fontSize: "11px",
-                fontWeight: templateConfig.headingWeight,
-                textTransform: templateConfig.headingTransform as React.CSSProperties["textTransform"],
-                letterSpacing: templateConfig.letterSpacing,
-                color: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)",
-              }}
-            >
-              Welcome, Jane
-            </div>
-            <div className="flex gap-1.5">
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="flex-1 p-1.5"
-                  style={{
-                    borderRadius: templateConfig.borderRadiusSm,
-                    backgroundColor: isDark
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(0,0,0,0.04)",
-                    border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-                  }}
-                >
-                  <div
-                    className="h-[6px] w-[50%] mb-1"
-                    style={{
-                      borderRadius: templateConfig.borderRadiusSm,
-                      backgroundColor: accent,
-                      opacity: 0.6,
-                    }}
-                  />
-                  <div
-                    className="h-[4px] w-[70%]"
-                    style={{
-                      borderRadius: templateConfig.borderRadiusSm,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <div
-              className="h-[24px] flex items-center justify-center"
-              style={{
-                borderRadius: templateConfig.borderRadius,
-                backgroundColor: accent,
-              }}
-            >
-              <span
+
+          {/* ── Content ── */}
+          <div className="px-3 py-2.5 space-y-2">
+            {/* Greeting */}
+            <div>
+              <div
                 style={{
-                  fontFamily: templateConfig.bodyFont,
-                  fontSize: "8px",
+                  fontFamily: templateConfig.headingFont,
+                  fontSize: "11px",
                   fontWeight: templateConfig.headingWeight,
                   textTransform: templateConfig.headingTransform as React.CSSProperties["textTransform"],
                   letterSpacing: templateConfig.letterSpacing,
-                  color: "#fff",
+                  color: portalText,
                 }}
               >
-                View Details
-              </span>
+                Hi, Jane
+              </div>
+              {welcomeMessage && (
+                <div style={{ fontFamily: templateConfig.bodyFont, fontSize: "8px", color: portalTextSec, marginTop: 1 }}>
+                  {welcomeMessage.length > 60 ? welcomeMessage.slice(0, 60) + "..." : welcomeMessage}
+                </div>
+              )}
             </div>
+
+            {/* Action item */}
+            <div
+              className="flex items-center gap-1.5 px-2 py-1.5"
+              style={{
+                backgroundColor: portalCard,
+                boxShadow: templateConfig.cardShadow === "none" ? undefined : templateConfig.cardShadow,
+                border: templateConfig.cardBorder === "none" ? `1px solid ${portalBorder}` : templateConfig.cardBorder.replace("var(--portal-border)", portalBorder),
+                borderRadius: templateConfig.borderRadiusSm,
+                borderLeft: templateConfig.cardAccentEdge === "left" ? `${templateConfig.cardAccentEdgeWidth} solid ${accent}` : undefined,
+              }}
+            >
+              <FileText style={{ width: 10, height: 10, color: accent, flexShrink: 0 }} />
+              <div className="flex-1 min-w-0">
+                <div style={{ fontFamily: templateConfig.bodyFont, fontSize: "8px", fontWeight: 500, color: portalText }}>
+                  Estimate #EST-1001
+                </div>
+                <div style={{ fontFamily: templateConfig.bodyFont, fontSize: "7px", color: portalTextSec }}>
+                  $8,750 · Aug 20
+                </div>
+              </div>
+              {/* Status badge */}
+              {templateConfig.statusStyle === "text-bold" ? (
+                <span style={{ fontSize: "7px", fontWeight: 700, color: accent }}>Sent</span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: "7px",
+                    fontWeight: 500,
+                    padding: "1px 4px",
+                    borderRadius: templateConfig.statusStyle === "pill-rounded" ? "9999px" : "9999px",
+                    backgroundColor: templateConfig.statusStyle === "pill-rounded" ? `${accent}22` : "transparent",
+                    border: templateConfig.statusStyle === "pill-bordered" ? `1px solid ${accent}` : "none",
+                    color: accent,
+                  }}
+                >
+                  Sent
+                </span>
+              )}
+            </div>
+
+            {/* Project card */}
+            <div
+              style={{
+                backgroundColor: portalCard,
+                boxShadow: templateConfig.cardShadow === "none" ? undefined : templateConfig.cardShadow,
+                border: templateConfig.cardBorder === "none" ? `1px solid ${portalBorder}` : templateConfig.cardBorder.replace("var(--portal-border)", portalBorder),
+                borderRadius: templateConfig.borderRadius,
+                borderLeft: templateConfig.cardAccentEdge === "left" ? `${templateConfig.cardAccentEdgeWidth} solid ${accent}` : undefined,
+                overflow: "hidden",
+              }}
+            >
+              {/* Hero gradient */}
+              <div style={{ height: 28, background: `linear-gradient(135deg, ${accent}44 0%, ${portalBg} 100%)` }} />
+              <div className="px-2 py-1.5">
+                <div style={{ fontFamily: templateConfig.headingFont, fontSize: "9px", fontWeight: templateConfig.headingWeight, textTransform: templateConfig.headingTransform as React.CSSProperties["textTransform"], letterSpacing: templateConfig.letterSpacing, color: portalText }}>
+                  Kitchen Renovation
+                </div>
+                <div style={{ fontFamily: templateConfig.bodyFont, fontSize: "7px", color: portalTextSec, marginTop: 1 }}>
+                  123 Oak Street
+                </div>
+                {/* Progress bar */}
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ height: templateConfig.progressBarHeight, borderRadius: templateConfig.progressBarRadius, backgroundColor: portalBorder, overflow: "hidden" }}>
+                    <div style={{ width: "33%", height: "100%", backgroundColor: accent, borderRadius: templateConfig.progressBarRadius }} />
+                  </div>
+                  <div style={{ fontFamily: templateConfig.bodyFont, fontSize: "6px", color: portalTextTer, marginTop: 1 }}>
+                    33% complete
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Bottom nav (mobile indicator) ── */}
+          <div
+            className="flex justify-around px-3 py-1.5"
+            style={{ borderTop: `1px solid ${portalBorder}` }}
+          >
+            {[
+              { icon: Home, active: true },
+              { icon: FolderOpen, active: false },
+              { icon: MessageSquare, active: false },
+            ].map((tab, i) => (
+              <tab.icon
+                key={i}
+                style={{ width: 10, height: 10, color: tab.active ? accent : portalTextTer }}
+              />
+            ))}
           </div>
         </div>
         <p className="font-kosugi text-[11px] text-text-disabled mt-1.5">
-          A live mockup of your client portal. Click Preview Portal below to see the full experience.
+          Live preview of your client portal. Changes update instantly.
         </p>
       </CardContent>
     </Card>
@@ -469,143 +527,29 @@ export function PortalBrandingTab() {
         <CardHeader>
           <CardTitle>{t("portalBranding.logoTitle")}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {/* Toggle: use company logo vs custom */}
-          <div className="grid grid-cols-2 gap-1">
-            <button
-              disabled={!canManage}
-              onClick={() => {
-                if (!canManage) return;
-                setUseCompanyLogo(true);
-                setLogoUrl(company?.logoURL ?? "");
-                markDirty();
-              }}
-              className={cn(
-                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
-                useCompanyLogo
-                  ? "bg-ops-accent-muted border-ops-accent"
-                  : "bg-background-input border-border hover:border-border-medium"
-              )}
-            >
-              <Building2 className={cn("w-[16px] h-[16px] shrink-0", useCompanyLogo ? "text-ops-accent" : "text-text-tertiary")} />
-              <span className={cn("font-mohave text-body-sm", useCompanyLogo ? "text-ops-accent" : "text-text-secondary")}>
-                Company Logo
-              </span>
-            </button>
-            <button
-              disabled={!canManage}
-              onClick={() => {
-                if (!canManage) return;
-                setUseCompanyLogo(false);
-                if (logoUrl === company?.logoURL) setLogoUrl("");
-                markDirty();
-              }}
-              className={cn(
-                "flex items-center gap-[6px] px-1.5 py-[10px] rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
-                !useCompanyLogo
-                  ? "bg-ops-accent-muted border-ops-accent"
-                  : "bg-background-input border-border hover:border-border-medium"
-              )}
-            >
-              <Upload className={cn("w-[16px] h-[16px] shrink-0", !useCompanyLogo ? "text-ops-accent" : "text-text-tertiary")} />
-              <span className={cn("font-mohave text-body-sm", !useCompanyLogo ? "text-ops-accent" : "text-text-secondary")}>
-                Custom Logo
-              </span>
-            </button>
-          </div>
-
-          {/* Logo preview / upload area */}
-          {useCompanyLogo ? (
-            <div className="p-2 rounded border border-border bg-background-input flex items-center gap-2 min-h-[64px]">
-              {company?.logoURL ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={company.logoURL}
-                    alt="Company logo"
-                    className="max-h-[48px] max-w-[120px] object-contain"
-                  />
-                  <span className="font-kosugi text-[11px] text-text-disabled">
-                    Using your company logo
-                  </span>
-                </>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <Building2 className="w-[20px] h-[20px] text-text-disabled" />
-                  <span className="font-kosugi text-[11px] text-text-disabled">
-                    No company logo set — upload one in Company Details
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <div
-                className={cn(
-                  "relative rounded-lg border-2 border-dashed border-border p-3 flex items-center gap-2 transition-colors group",
-                  canManage ? "cursor-pointer hover:border-ops-accent" : "cursor-not-allowed opacity-40",
-                  logoUpload.isUploading && "pointer-events-none"
-                )}
-                onClick={() => { if (canManage) logoInputRef.current?.click(); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (!canManage) return;
-                  const file = e.dataTransfer.files[0];
-                  if (file) logoUpload.selectFile(file);
-                }}
-                onDragOver={(e) => e.preventDefault()}
-              >
-                {logoUrl ? (
-                  <div className="flex items-center gap-2 w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={logoUpload.preview || logoUrl}
-                      alt="Portal logo"
-                      className="max-h-[48px] max-w-[120px] object-contain"
-                    />
-                    {logoUpload.isUploading ? (
-                      <Loader2 className="w-[16px] h-[16px] text-ops-accent animate-spin" />
-                    ) : (
-                      <span className="font-kosugi text-[11px] text-text-disabled flex-1">
-                        Click or drag to replace
-                      </span>
-                    )}
-                    <button
-                      disabled={!canManage}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!canManage) return;
-                        setLogoUrl("");
-                        logoUpload.clearPreview();
-                        markDirty();
-                      }}
-                      className="w-[20px] h-[20px] rounded-full bg-[rgba(255,255,255,0.1)] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
-                    >
-                      <X className="w-[12px] h-[12px] text-text-tertiary" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-[4px] w-full py-2 text-text-disabled group-hover:text-text-tertiary transition-colors">
-                    <Upload className="w-[20px] h-[20px]" />
-                    <span className="font-kosugi text-[11px]">
-                      Click or drag to upload logo
-                    </span>
-                  </div>
-                )}
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/heic"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (!canManage) return;
-                    const file = e.target.files?.[0];
-                    if (file) logoUpload.selectFile(file);
-                  }}
+        <CardContent>
+          <div className="p-2 rounded border border-border bg-background-input flex items-center gap-2 min-h-[56px]">
+            {company?.logoURL ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={company.logoURL}
+                  alt="Company logo"
+                  className="max-h-[40px] max-w-[120px] object-contain"
                 />
+                <span className="font-kosugi text-[11px] text-text-disabled">
+                  Using your company logo
+                </span>
+              </>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Building2 className="w-[20px] h-[20px] text-text-disabled" />
+                <span className="font-kosugi text-[11px] text-text-disabled">
+                  No company logo set — upload one in Company Details
+                </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -615,6 +559,41 @@ export function PortalBrandingTab() {
           <CardTitle>{t("portalBranding.accentTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
+          {/* Suggested colors from logo */}
+          {suggestedColors.length > 0 && (
+            <div className="space-y-1">
+              <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                Suggested from your logo
+              </p>
+              <div className="flex gap-1.5">
+                {suggestedColors.map((hex) => (
+                  <button
+                    key={hex}
+                    disabled={!canManage}
+                    onClick={() => {
+                      if (!canManage) return;
+                      setAccentColor(hex);
+                      markDirty();
+                    }}
+                    className={cn(
+                      "relative w-[36px] h-[36px] rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                      accentColor === hex
+                        ? "border-[rgba(255,255,255,0.4)] ring-1 ring-[rgba(255,255,255,0.2)]"
+                        : "border-[rgba(255,255,255,0.15)] hover:border-[rgba(255,255,255,0.3)]"
+                    )}
+                    style={{ backgroundColor: hex }}
+                    title={hex}
+                  >
+                    {accentColor === hex && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Check className="w-[14px] h-[14px] text-white drop-shadow-sm" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Preset swatches — grid of larger color chips */}
           <div className="grid grid-cols-4 gap-1.5">
             {ACCENT_COLORS.map((color) => (
@@ -856,6 +835,15 @@ export function PortalBrandingTab() {
             <Eye className="w-[16px] h-[16px]" />
             Preview Portal
           </Button>
+          {isDirty && (
+            <Button
+              variant="ghost"
+              onClick={handleDiscard}
+            >
+              <RotateCcw className="w-[16px] h-[16px]" />
+              Discard
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={() => { if (!can("portal.manage_branding")) return; saveMutation.mutate(); }}
