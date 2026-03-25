@@ -1331,6 +1331,7 @@ export interface ProjectPhoto {
   caption: string | null;
   deletedAt: Date | null;
   createdAt: Date;
+  isClientVisible: boolean;
 }
 
 export interface CreateProjectPhoto {

@@ -29,6 +29,7 @@ function mapFromDb(row: Record<string, unknown>): ProjectPhoto {
     caption: (row.caption as string) ?? null,
     deletedAt: parseDate(row.deleted_at),
     createdAt: parseDateRequired(row.created_at),
+    isClientVisible: !!(row.is_client_visible),
   };
 }
 
