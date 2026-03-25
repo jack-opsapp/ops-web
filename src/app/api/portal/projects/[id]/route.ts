@@ -71,7 +71,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("projects")
       .select(
-        "id, title, address, status, start_date, end_date, project_images, description"
+        "id, title, address, status, start_date, end_date, description"
       )
       .eq("id", id)
       .eq("company_id", session.companyId)
@@ -88,6 +88,43 @@ export async function GET(
       );
     }
 
+    // Fetch linked estimates, invoices, tasks, and client-visible photos in parallel
+    const [estimatesResult, invoicesResult, tasksResult, photosResult] = await Promise.all([
+      supabase
+        .from("estimates")
+        .select("id, estimate_number, title, status, total, issue_date")
+        .eq("client_id", session.clientId)
+        .eq("company_id", session.companyId)
+        .eq("project_id", id)
+        .is("deleted_at", null)
+        .neq("status", "draft")
+        .order("issue_date", { ascending: false }),
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, subject, status, total, balance_due, due_date")
+        .eq("client_id", session.clientId)
+        .eq("company_id", session.companyId)
+        .eq("project_id", id)
+        .is("deleted_at", null)
+        .neq("status", "draft")
+        .order("issue_date", { ascending: false }),
+      supabase
+        .from("project_tasks")
+        .select("id, title, status, scheduled_date, task_type_id, display_order, task_type:task_types(id, name, color)")
+        .eq("project_id", id)
+        .eq("company_id", session.companyId)
+        .is("deleted_at", null)
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("project_photos")
+        .select("id, url, thumbnail_url, source, caption, created_at")
+        .eq("project_id", id)
+        .eq("company_id", session.companyId)
+        .eq("is_client_visible", true)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false }),
+    ]);
+
     const project = {
       id: data.id as string,
       title: (data.title as string) ?? "Untitled Project",
@@ -96,7 +133,42 @@ export async function GET(
       description: (data.description as string) ?? null,
       startDate: parseDate(data.start_date),
       endDate: parseDate(data.end_date),
-      projectImages: (data.project_images as string[]) ?? [],
+      estimates: (estimatesResult.data ?? []).map((row) => ({
+        id: row.id as string,
+        estimateNumber: row.estimate_number as string,
+        title: (row.title as string) ?? null,
+        status: row.status as string,
+        total: Number(row.total ?? 0),
+        issueDate: row.issue_date as string,
+      })),
+      invoices: (invoicesResult.data ?? []).map((row) => ({
+        id: row.id as string,
+        invoiceNumber: row.invoice_number as string,
+        subject: (row.subject as string) ?? null,
+        status: row.status as string,
+        total: Number(row.total ?? 0),
+        balanceDue: Number(row.balance_due ?? 0),
+        dueDate: row.due_date as string,
+      })),
+      tasks: (tasksResult.data ?? []).map((row) => ({
+        id: row.id as string,
+        title: row.title as string,
+        status: row.status as string,
+        scheduledDate: (row.scheduled_date as string) ?? undefined,
+        displayOrder: (row.display_order as number) ?? 0,
+        taskType: row.task_type ? {
+          id: (row.task_type as Record<string, unknown>).id as string,
+          name: (row.task_type as Record<string, unknown>).name as string,
+          color: (row.task_type as Record<string, unknown>).color as string,
+        } : null,
+      })),
+      photos: (photosResult.data ?? []).map((row) => ({
+        id: row.id as string,
+        url: row.url as string,
+        thumbnailUrl: (row.thumbnail_url as string) ?? null,
+        source: row.source as string,
+        caption: (row.caption as string) ?? null,
+      })),
     };
 
     return NextResponse.json(project);

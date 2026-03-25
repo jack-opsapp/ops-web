@@ -711,9 +711,68 @@ export function getDemoInvoiceDetail(
  */
 export function getDemoProjectDetail(
   projectId: string
-): PortalProject | null {
+): (PortalProject & {
+  description: string | null;
+  estimates: { id: string; estimateNumber: string; title: string | null; status: string; total: number; issueDate: string }[];
+  invoices: { id: string; invoiceNumber: string; subject: string | null; status: string; total: number; balanceDue: number; dueDate: string }[];
+  tasks: { id: string; title: string; status: string; scheduledDate?: string; displayOrder: number; taskType: { id: string; name: string; color: string } | null }[];
+  photos: { id: string; url: string; thumbnailUrl: string | null; source: string; caption: string | null }[];
+}) | null {
   const projects = getDemoProjects();
-  return projects.find((p) => p.id === projectId) ?? null;
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) return null;
+
+  const estimates = getDemoEstimates()
+    .filter((e) => e.projectId === projectId)
+    .map((e) => ({
+      id: e.id,
+      estimateNumber: e.estimateNumber,
+      title: e.title,
+      status: e.status,
+      total: e.total,
+      issueDate: e.issueDate.toISOString(),
+    }));
+
+  const invoices = getDemoInvoices()
+    .filter((i) => i.projectId === projectId)
+    .map((i) => ({
+      id: i.id,
+      invoiceNumber: i.invoiceNumber,
+      subject: i.subject,
+      status: i.status,
+      total: i.total,
+      balanceDue: i.balanceDue,
+      dueDate: i.dueDate.toISOString(),
+    }));
+
+  const tasks = projectId === DEMO_PROJECT_IDS.kitchenRenovation
+    ? [
+        { id: "preview-task-001", title: "Demo existing countertops", status: "completed", scheduledDate: "2025-09-08", displayOrder: 0, taskType: { id: "tt-demo", name: "Demo", color: "#B58289" } },
+        { id: "preview-task-002", title: "Install new countertops", status: "in_progress", scheduledDate: "2025-09-15", displayOrder: 1, taskType: { id: "tt-install", name: "Install", color: "#417394" } },
+        { id: "preview-task-003", title: "Tile backsplash", status: "pending", scheduledDate: "2025-09-22", displayOrder: 2, taskType: { id: "tt-install", name: "Install", color: "#417394" } },
+      ]
+    : [
+        { id: "preview-task-004", title: "Pour footings", status: "pending", scheduledDate: "2025-11-03", displayOrder: 0, taskType: { id: "tt-foundation", name: "Foundation", color: "#6B7F3B" } },
+        { id: "preview-task-005", title: "Frame deck structure", status: "pending", scheduledDate: "2025-11-10", displayOrder: 1, taskType: { id: "tt-framing", name: "Framing", color: "#8B6F47" } },
+      ];
+
+  const photos = projectId === DEMO_PROJECT_IDS.kitchenRenovation
+    ? [
+        { id: "preview-photo-001", url: "/images/demo/kitchen-before.jpg", thumbnailUrl: null, source: "in_progress", caption: "Kitchen before demo" },
+        { id: "preview-photo-002", url: "/images/demo/kitchen-demo.jpg", thumbnailUrl: null, source: "in_progress", caption: "Demo day progress" },
+      ]
+    : [];
+
+  return {
+    ...project,
+    description: projectId === DEMO_PROJECT_IDS.kitchenRenovation
+      ? "Full kitchen renovation including countertop replacement, cabinet refacing, and backsplash installation."
+      : "New composite deck build with aluminum railing and integrated lighting.",
+    estimates,
+    invoices,
+    tasks,
+    photos,
+  };
 }
 
 /**
