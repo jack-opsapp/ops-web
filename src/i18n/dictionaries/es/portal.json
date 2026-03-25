@@ -153,6 +153,11 @@
   "gallery.close": "Cerrar visor",
   "gallery.previous": "Foto anterior",
   "gallery.next": "Foto siguiente",
+  "gallery.seeAll": "Ver todas las fotos",
+  "gallery.showLess": "Ver menos",
+  "gallery.sourceSiteVisit": "Visita al sitio",
+  "gallery.sourceInProgress": "En progreso",
+  "gallery.sourceCompletion": "Finalización",
 
   "verify.title": "Sesión requerida",
   "verify.message": "Tu sesión del portal ha expirado o no está activa. Por favor revisa tu correo para un enlace del portal de tu proveedor de servicios.",

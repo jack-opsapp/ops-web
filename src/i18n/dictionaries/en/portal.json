@@ -153,6 +153,11 @@
   "gallery.close": "Close lightbox",
   "gallery.previous": "Previous photo",
   "gallery.next": "Next photo",
+  "gallery.seeAll": "See all photos",
+  "gallery.showLess": "Show fewer",
+  "gallery.sourceSiteVisit": "Site Visit",
+  "gallery.sourceInProgress": "In Progress",
+  "gallery.sourceCompletion": "Completion",
 
   "verify.title": "Session required",
   "verify.message": "Your portal session has expired or is not active. Please check your email for a portal link from your service provider.",
