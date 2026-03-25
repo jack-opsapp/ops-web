@@ -11,6 +11,7 @@ interface PortalShellProps {
 
 /**
  * Wraps portal content with theme CSS custom properties and font imports.
+ * Applies all expanded skin vars from the new theme generator.
  */
 export function PortalShell({ branding, children }: PortalShellProps) {
   const [fontLinks, setFontLinks] = useState<string[]>([]);
@@ -24,6 +25,12 @@ export function PortalShell({ branding, children }: PortalShellProps) {
     themeMode: "dark",
     fontCombo: "modern",
     welcomeMessage: null,
+    showQuantities: null,
+    showUnitPrices: null,
+    showLineTotals: null,
+    showDescriptions: null,
+    showTax: null,
+    showDiscount: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -38,10 +45,18 @@ export function PortalShell({ branding, children }: PortalShellProps) {
 
   return (
     <>
-      {/* Font imports */}
+      {/* Font preloading for faster rendering */}
       {fontLinks.map((url) => (
-        <link key={url} rel="stylesheet" href={url} />
+        <link key={url} rel="preload" href={url} as="style" onLoad={(e) => {
+          (e.target as HTMLLinkElement).rel = "stylesheet";
+        }} />
       ))}
+      {/* Fallback noscript stylesheet links */}
+      <noscript>
+        {fontLinks.map((url) => (
+          <link key={url} rel="stylesheet" href={url} />
+        ))}
+      </noscript>
       <div
         style={styleVars}
         className="min-h-screen"
