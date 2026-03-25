@@ -16,7 +16,7 @@ import { usePortalEstimate, useApproveEstimate, useDeclineEstimate } from "@/lib
 import { usePortalQuestions } from "@/lib/hooks/use-portal-questions";
 import { usePortalData } from "@/lib/hooks/use-portal-data";
 import { PortalEstimateView } from "@/components/portal/portal-estimate-view";
-import { getFieldVisibility } from "@/lib/portal/resolve-template-branding";
+import { resolvePortalVisibility } from "@/lib/portal/resolve-visibility";
 import type { DocumentPartyInfo } from "@/components/portal/portal-invoice-view";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -55,10 +55,9 @@ export default function EstimateDetailPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ── Derived ─────────────────────────────────────────────────────────────
-  // The API now returns { ...estimate, template } — extract the template
   const estimate = estimateData ?? null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const template = (estimateData as any)?.template ?? null;
+  const templateVisibility = (estimateData as any)?.template ?? null;
 
   const questions = questionsData?.questions ?? [];
   const hasQuestions = questions.length > 0;
@@ -93,7 +92,28 @@ export default function EstimateDetailPage() {
       }
     : null;
 
-  const fieldVisibility = getFieldVisibility(template);
+  // Use portal branding visibility overrides, falling back to template settings
+  const branding = portalData?.branding;
+  const portalVisibility = branding
+    ? resolvePortalVisibility(branding, templateVisibility)
+    : undefined;
+
+  // Map PortalFieldVisibility to FieldVisibility shape used by PortalEstimateView
+  const fieldVisibility = portalVisibility
+    ? {
+        showQuantities: portalVisibility.showQuantities,
+        showUnitPrices: portalVisibility.showUnitPrices,
+        showLineTotals: portalVisibility.showLineTotals,
+        showDescriptions: portalVisibility.showDescriptions,
+        showTax: portalVisibility.showTax,
+        showDiscount: portalVisibility.showDiscount,
+        showTerms: true,
+        showFooter: true,
+        showPaymentInfo: true,
+        showFromSection: true,
+        showToSection: true,
+      }
+    : undefined;
 
   // ── Handlers ────────────────────────────────────────────────────────────
   function handleApprove() {
@@ -103,9 +123,7 @@ export default function EstimateDetailPage() {
         if (hasQuestions) {
           router.push(`/portal/estimates/${id}/questions`);
         } else {
-          setSuccessMessage(
-            t("estimate.approved")
-          );
+          setSuccessMessage(t("estimate.approved"));
         }
       },
     });
@@ -236,15 +254,16 @@ export default function EstimateDetailPage() {
         clientInfo={clientInfo}
       />
 
-      {/* Questions link */}
+      {/* ── Question Callout (above actions) ────────────────────────────── */}
       {hasQuestions && (
         <Link href={`/portal/estimates/${id}/questions`}>
           <div
             className="flex items-center justify-between rounded-xl cursor-pointer transition-colors"
             style={{
               padding: "16px var(--portal-card-padding, 24px)",
-              backgroundColor: "rgba(65,115,148,0.08)",
+              backgroundColor: "color-mix(in srgb, var(--portal-accent) 8%, transparent)",
               border: "1px solid var(--portal-accent)",
+              borderRadius: "var(--portal-radius)",
             }}
           >
             <div className="flex items-center gap-3">
@@ -273,70 +292,71 @@ export default function EstimateDetailPage() {
         </Link>
       )}
 
-      {/* ── Action Buttons ───────────────────────────────────────────────── */}
+      {/* ── Action Buttons (hierarchy: Approve full-width, Changes + Decline half-width) ── */}
       {canTakeAction && (
-        <div
-          className="flex flex-col sm:flex-row gap-3"
-          style={{ paddingBottom: "16px" }}
-        >
-          {/* Approve */}
+        <div style={{ paddingBottom: "16px" }}>
+          {/* Approve — full-width accent CTA */}
           <button
             type="button"
             onClick={() => setShowApproveDialog(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
             style={{
-              backgroundColor: "var(--portal-success, #9DB582)",
-              color: "#fff",
+              backgroundColor: "var(--portal-accent)",
+              color: "var(--portal-accent-text, #fff)",
+              borderRadius: "var(--portal-radius)",
             }}
           >
             <Check className="w-4 h-4" />
             {t("estimate.approve")}
           </button>
 
-          {/* Request Changes */}
-          <button
-            type="button"
-            onClick={() => {
-              setDeclineMode("changes");
-              setDeclineReason("");
-              setShowDeclineDialog(true);
-            }}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
-            style={{
-              backgroundColor: "rgba(196,168,104,0.15)",
-              color: "#C4A868",
-              border: "1px solid rgba(196,168,104,0.3)",
-            }}
-          >
-            <Edit3 className="w-4 h-4" />
-            {t("estimate.requestChanges")}
-          </button>
+          {/* Request Changes + Decline — half-width row */}
+          <div className="flex gap-3 mt-3">
+            <button
+              type="button"
+              onClick={() => {
+                setDeclineMode("changes");
+                setDeclineReason("");
+                setShowDeclineDialog(true);
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: "transparent",
+                color: "var(--portal-text-secondary)",
+                border: "1px solid var(--portal-border)",
+                borderRadius: "var(--portal-radius)",
+              }}
+            >
+              <Edit3 className="w-4 h-4" />
+              {t("estimate.requestChanges")}
+            </button>
 
-          {/* Decline */}
-          <button
-            type="button"
-            onClick={() => {
-              setDeclineMode("decline");
-              setDeclineReason("");
-              setShowDeclineDialog(true);
-            }}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
-            style={{
-              backgroundColor: "rgba(181,130,137,0.15)",
-              color: "#B58289",
-              border: "1px solid rgba(181,130,137,0.3)",
-            }}
-          >
-            <X className="w-4 h-4" />
-            {t("estimate.decline")}
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeclineMode("decline");
+                setDeclineReason("");
+                setShowDeclineDialog(true);
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: "transparent",
+                color: "var(--portal-text-secondary)",
+                border: "1px solid var(--portal-border)",
+                borderRadius: "var(--portal-radius)",
+              }}
+            >
+              <X className="w-4 h-4" />
+              {t("estimate.decline")}
+            </button>
+          </div>
         </div>
       )}
 
       {/* ── Approve Confirmation Dialog ──────────────────────────────────── */}
       {showApproveDialog && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[3000] flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
         >
           <div
@@ -345,6 +365,7 @@ export default function EstimateDetailPage() {
               padding: "var(--portal-card-padding, 24px)",
               backgroundColor: "var(--portal-card)",
               border: "1px solid var(--portal-border)",
+              borderRadius: "var(--portal-radius-lg)",
             }}
           >
             <h3
@@ -363,10 +384,7 @@ export default function EstimateDetailPage() {
             >
               {t("estimate.approveConfirmDesc")}
               {estimate.depositAmount != null && estimate.depositAmount > 0 && (
-                <span>
-                  {" "}
-                  {t("estimate.depositNote")}
-                </span>
+                <span> {t("estimate.depositNote")}</span>
               )}
             </p>
 
@@ -417,10 +435,10 @@ export default function EstimateDetailPage() {
         </div>
       )}
 
-      {/* ── Decline Dialog ───────────────────────────────────────────────── */}
+      {/* ── Decline / Request Changes Dialog ───────────────────────────── */}
       {showDeclineDialog && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[3000] flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
         >
           <div
@@ -429,6 +447,7 @@ export default function EstimateDetailPage() {
               padding: "var(--portal-card-padding, 24px)",
               backgroundColor: "var(--portal-card)",
               border: "1px solid var(--portal-border)",
+              borderRadius: "var(--portal-radius-lg)",
             }}
           >
             <h3
