@@ -262,6 +262,9 @@ export const EstimateService = {
     if (options.opportunityId) {
       query = query.eq("opportunity_id", options.opportunityId);
     }
+    if (options.projectId) {
+      query = query.eq("project_id", options.projectId);
+    }
 
     query = query.order("issue_date", { ascending: false });
 
@@ -274,9 +277,7 @@ export const EstimateService = {
     projectId: string,
     companyId: string
   ): Promise<Estimate[]> {
-    // Estimates don't have a direct project_id — they link through opportunities.
-    // For now, fetch all for the company. The UI can filter by opportunity→project.
-    return EstimateService.fetchEstimates(companyId);
+    return EstimateService.fetchEstimates(companyId, { projectId });
   },
 
   async fetchEstimate(id: string): Promise<Estimate> {
@@ -310,7 +311,7 @@ export const EstimateService = {
     // Get next document number via RPC
     const { data: docNumber, error: rpcError } = await supabase.rpc(
       "get_next_document_number",
-      { p_company_id: data.companyId, p_document_type: "estimate" }
+      { p_company_id: data.companyId, p_type: "estimate" }
     );
     if (rpcError)
       throw new Error(`Failed to get estimate number: ${rpcError.message}`);

@@ -114,15 +114,32 @@ export async function verifyFirebaseToken(
 export async function verifyAuthToken(
   token: string
 ): Promise<VerifiedUser> {
+  let supabaseError: unknown;
+  let firebaseError: unknown;
+
   // Try Supabase JWT first (primary auth for iOS app)
   try {
     return await verifySupabaseToken(token);
-  } catch {
-    // Fall through to Firebase
+  } catch (err) {
+    supabaseError = err;
   }
 
   // Try Firebase JWT (web dashboard auth)
-  return await verifyFirebaseToken(token);
+  try {
+    return await verifyFirebaseToken(token);
+  } catch (err) {
+    firebaseError = err;
+  }
+
+  // Both failed — log details for debugging
+  console.error("[verifyAuthToken] Both verification methods failed:", {
+    supabase: supabaseError instanceof Error ? supabaseError.message : String(supabaseError),
+    firebase: firebaseError instanceof Error ? firebaseError.message : String(firebaseError),
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    tokenPrefix: token.substring(0, 20) + "...",
+  });
+
+  throw firebaseError;
 }
 
 /**

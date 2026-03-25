@@ -444,7 +444,7 @@ export const TaskService = {
       project_id: projectId,
       company_id: companyId,
       task_type_id: proposal.taskTypeId,
-      status: "Booked",
+      status: "active",
       display_order: idx,
       team_member_ids: proposal.defaultTeamMemberIds,
       custom_title: proposal.title,

@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { useProjects } from "@/lib/hooks/use-projects";
+import { useScopedProjects } from "@/lib/hooks/use-projects";
 import {
   ProjectStatus,
   PROJECT_STATUS_COLORS,
@@ -132,7 +132,7 @@ export default function MapPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const { data, isLoading } = useProjects();
+  const { data, isLoading } = useScopedProjects();
   const projects = useMemo(() => data?.projects ?? [], [data]);
 
   const STATUS_FILTERS: { value: "all" | "active" | ProjectStatus; label: string }[] = useMemo(() => [

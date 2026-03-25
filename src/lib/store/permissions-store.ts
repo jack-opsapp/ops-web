@@ -136,4 +136,9 @@ export const selectCan = (state: PermissionState) => state.can;
 export const selectPermissionsReady = (state: PermissionState) =>
   state.initialized && !state.loading;
 
+/** Get the effective scope for a permission (null if denied) */
+export const selectScope = (state: PermissionState) =>
+  (permission: string): PermissionScope | null =>
+    state.permissions.get(permission) ?? null;
+
 export default usePermissionStore;

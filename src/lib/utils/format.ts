@@ -3,6 +3,15 @@
  */
 
 /**
+ * Format a database enum value for display.
+ * Replaces underscores with spaces (CSS handles casing via `uppercase`/`capitalize`).
+ * "awaiting_payment" → "awaiting payment", "linear_ft" → "linear ft"
+ */
+export function formatEnumLabel(value: string): string {
+  return value.replace(/_/g, " ");
+}
+
+/**
  * Format currency value.
  */
 export function formatCurrency(
@@ -12,7 +21,7 @@ export function formatCurrency(
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
 }

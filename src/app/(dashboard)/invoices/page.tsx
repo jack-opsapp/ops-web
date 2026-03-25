@@ -42,6 +42,7 @@ import {
   useSendInvoice,
   useVoidInvoice,
   useRecordPayment,
+  useInvoice,
   useClients,
   useProjects,
   useProducts,
@@ -60,6 +61,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
+import { formatEnumLabel } from "@/lib/utils/format";
 import { toast } from "sonner";
 
 /** Local helper — replaces the old models.calculateDueDate import */
@@ -81,7 +83,7 @@ function StatusBadgeInvoice({ status }: { status: InvoiceStatus }) {
       style={{ backgroundColor: `${color}20`, color }}
     >
       <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: color }} />
-      {status}
+      {formatEnumLabel(status)}
     </span>
   );
 }
@@ -125,6 +127,7 @@ export default function InvoicesPage() {
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
 
   const { data: invoices = [], isLoading } = useInvoices();
+  const { data: invoiceDetail } = useInvoice(editingInvoice?.id);
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();
@@ -416,7 +419,7 @@ export default function InvoicesPage() {
       <InvoiceFormModal
         open={showCreateModal || !!editingInvoice}
         onClose={() => { setShowCreateModal(false); setEditingInvoice(null); }}
-        invoice={editingInvoice}
+        invoice={invoiceDetail ?? editingInvoice}
         clients={clients}
         projects={projects}
         products={products}

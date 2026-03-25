@@ -65,10 +65,21 @@ export function deriveTaskType(title: string, color: string): string {
  * Map a ProjectTask to the calendar's internal event representation.
  * Tasks without a startDate are excluded (returns null).
  */
+/**
+ * Normalize a date that may be stored as UTC midnight to local midnight.
+ * Prevents UTC dates like "2026-03-25T00:00:00Z" from rendering as March 24 in Pacific time.
+ */
+function normalizeToLocalDate(d: Date): Date {
+  // Extract the UTC date components and create a local date
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent | null {
   if (!task.startDate) return null;
 
-  const startDate = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
+  const rawStart = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
+  // Normalize date-only values (UTC midnight) to local midnight
+  const startDate = !task.startTime ? normalizeToLocalDate(rawStart) : rawStart;
 
   // Combine start date with startTime for precise positioning
   if (task.startTime) {
@@ -78,7 +89,8 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
 
   let endDate: Date;
   if (task.endDate) {
-    endDate = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
+    const rawEnd = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
+    endDate = !task.endTime ? normalizeToLocalDate(rawEnd) : rawEnd;
     // Combine end date with endTime
     if (task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);

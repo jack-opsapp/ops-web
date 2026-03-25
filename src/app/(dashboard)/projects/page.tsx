@@ -36,7 +36,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
-import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
+import { useScopedProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { UserAvatar } from "@/components/ops/user-avatar";
@@ -285,7 +285,7 @@ export default function ProjectsPage() {
     isError,
     error,
     refetch,
-  } = useProjects();
+  } = useScopedProjects();
 
   const { data: clientsData } = useClients();
   const { data: teamData } = useTeamMembers();

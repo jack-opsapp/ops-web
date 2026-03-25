@@ -34,11 +34,14 @@ export function useDashboardPreferencesSync() {
   const savingRef = useRef(false);
 
   // ── Fetch server preferences ──────────────────────────────────────────
+  // Gate behind auth token to avoid 401 race on page load
+  const hasAuthToken = typeof document !== "undefined" && document.cookie.includes("ops-auth-token=");
   const { data: serverPrefs } = useQuery({
     queryKey: queryKeys.dashboardPreferences.detail(userId, companyId),
     queryFn: () => DashboardPreferencesService.getPreferences(userId, companyId),
-    enabled: !!userId && !!companyId,
+    enabled: !!userId && !!companyId && hasAuthToken,
     staleTime: 10 * 60 * 1000, // 10 min — rarely changes from another device
+    retry: 1,
   });
 
   // ── Hydrate Zustand from server (once per session) ────────────────────

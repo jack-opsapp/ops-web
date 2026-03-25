@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { useProject } from "@/lib/hooks/use-projects";
 import { useProjectTasks } from "@/lib/hooks/use-tasks";
+import { useClients } from "@/lib/hooks/use-clients";
 import { PROJECT_STATUS_COLORS } from "@/lib/types/models";
 
 interface ProjectDetailSheetProps {
@@ -35,7 +36,11 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
   const { locale } = useLocale();
   const { data: project, isLoading } = useProject(projectId ?? undefined);
   const { data: tasks } = useProjectTasks(projectId ?? undefined);
+  const { data: clientsData } = useClients();
 
+  const clientName = project?.clientId
+    ? (clientsData?.clients?.find((c) => c.id === project.clientId)?.name ?? "No Client")
+    : "No Client";
   const statusColor = project ? PROJECT_STATUS_COLORS[project.status] : "#999";
   const completedTasks = tasks?.filter((t) => t.status === "Completed").length ?? 0;
   const totalTasks = tasks?.length ?? 0;
@@ -57,10 +62,10 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                   className="shrink-0 px-[8px] py-[2px] rounded-full font-kosugi text-[10px] uppercase tracking-wider"
                   style={{ backgroundColor: `${statusColor}20`, color: statusColor }}
                 >
-                  {project.status}
+                  {project.status.replace(/_/g, " ")}
                 </span>
               </div>
-              <SheetDescription>{project.client?.name ?? "No Client"}</SheetDescription>
+              <SheetDescription>{clientName}</SheetDescription>
             </>
           ) : (
             <SheetTitle>Project not found</SheetTitle>

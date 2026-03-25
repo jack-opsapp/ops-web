@@ -46,8 +46,8 @@ function getSizeForType(type: FloatingWindowType) {
 function getDefaultPosition(existingCount: number, size = DEFAULT_SIZE): { x: number; y: number } {
   const offset = existingCount * 30;
   return {
-    x: Math.min(200 + offset, window.innerWidth - size.width - 40),
-    y: Math.min(100 + offset, window.innerHeight - size.height - 40),
+    x: Math.max(20, Math.min(200 + offset, window.innerWidth - size.width - 40)),
+    y: Math.max(20, Math.min(100 + offset, window.innerHeight - size.height - 40)),
   };
 }
 

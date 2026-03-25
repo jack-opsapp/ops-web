@@ -269,8 +269,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (error) {
     console.error("[api/auth/sync-user] Error:", error);
 
-    if (error instanceof Error && error.message.includes("Token")) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    // Catch JWT verification failures (jose library errors)
+    const msg = error instanceof Error ? error.message : "";
+    if (
+      msg.includes("Token") ||
+      msg.includes("iss") ||
+      msg.includes("exp") ||
+      msg.includes("aud") ||
+      msg.includes("JWK") ||
+      msg.includes("signature") ||
+      msg.includes("verification")
+    ) {
+      return NextResponse.json(
+        { error: "Authentication failed. Please try signing in again." },
+        { status: 401 }
+      );
     }
 
     return NextResponse.json(

@@ -63,7 +63,7 @@ export function PipelineCardActions({
     }
   }, [showNoteInput]);
 
-  // Close dropdown on outside click — uses the entire More container as boundary
+  // Close dropdown on outside click or Escape — uses the entire More container as boundary
   useEffect(() => {
     if (!showMore) return;
 
@@ -76,14 +76,22 @@ export function PipelineCardActions({
       }
     }
 
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowMore(false);
+      }
+    }
+
     // Delay registration by one frame to avoid catching the click that opened it
     const frame = requestAnimationFrame(() => {
       document.addEventListener("mousedown", handleOutsideClick);
+      document.addEventListener("keydown", handleEscape);
     });
 
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [showMore]);
 
@@ -301,16 +309,32 @@ export function PipelineCardActions({
 
       {/* Inline note input */}
       {showNoteInput && (
-        <input
-          ref={noteInputRef}
-          type="text"
-          value={noteValue}
-          onChange={(e) => setNoteValue(e.target.value)}
-          onClick={stop}
-          onKeyDown={handleNoteKeyDown}
-          placeholder={t("detail.addNotePlaceholder")}
-          className="w-full mt-[6px] px-[8px] py-[6px] rounded-[4px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-body-sm text-text-primary placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
-        />
+        <div className="mt-[6px] flex gap-[4px]">
+          <input
+            ref={noteInputRef}
+            type="text"
+            value={noteValue}
+            onChange={(e) => setNoteValue(e.target.value)}
+            onClick={stop}
+            onKeyDown={handleNoteKeyDown}
+            placeholder={t("detail.addNotePlaceholder")}
+            className="flex-1 px-[8px] py-[6px] rounded-[4px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-body-sm text-text-primary placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+          />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (noteValue.trim()) {
+                onAddNote(noteValue.trim());
+              }
+              setNoteValue("");
+              setShowNoteInput(false);
+            }}
+            disabled={!noteValue.trim()}
+            className="px-[8px] py-[6px] rounded-[4px] bg-ops-accent/20 text-ops-accent font-kosugi text-[10px] uppercase tracking-wider hover:bg-ops-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+          >
+            Save
+          </button>
+        </div>
       )}
     </div>
   );

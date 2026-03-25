@@ -49,10 +49,11 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 
 import {
-  useProjects,
+  useScopedProjects,
   useUpdateProjectStatus,
   useTeamMembers,
   useClients,
+  useInvoices,
 } from "@/lib/hooks";
 import {
   type Project,
@@ -888,9 +889,10 @@ export default function JobBoardPage() {
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
 
   // ─── Data Hooks ──────────────────────────────────────────────────────────
-  const { data: projectsData, isLoading: projectsLoading, dataUpdatedAt } = useProjects();
+  const { data: projectsData, isLoading: projectsLoading, dataUpdatedAt } = useScopedProjects();
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const { data: invoicesData } = useInvoices();
   const updateStatusMutation = useUpdateProjectStatus();
 
   const isLoading = projectsLoading || teamLoading || clientsLoading;
@@ -918,6 +920,19 @@ export default function JobBoardPage() {
     }
     return map;
   }, [clientsData]);
+
+  // Build project value map from invoice totals
+  const projectValueMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (invoicesData) {
+      for (const invoice of invoicesData) {
+        if (invoice.projectId) {
+          map.set(invoice.projectId, (map.get(invoice.projectId) ?? 0) + (invoice.total ?? 0));
+        }
+      }
+    }
+    return map;
+  }, [invoicesData]);
 
   // Clear DnD overrides when server data refetches
   const prevDataUpdatedAt = useRef(dataUpdatedAt);
@@ -947,11 +962,11 @@ export default function JobBoardPage() {
         endDate: formatDate(project.endDate),
         taskCount: 0,
         completedTasks: 0,
-        value: 0,
+        value: projectValueMap.get(project.id) ?? 0,
         daysInStage: calculateDaysInStage(project),
       };
     },
-    [teamMemberMap, clientMap]
+    [teamMemberMap, clientMap, projectValueMap]
   );
 
   const { columns, closedColumn, archivedCards } = useMemo(() => {

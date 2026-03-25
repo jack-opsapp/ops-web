@@ -42,6 +42,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { ProjectNoteService } from "@/lib/api/services/project-note-service";
 import { NotificationService } from "@/lib/api/services/notification-service";
+import { dispatchMentionPush } from "@/lib/api/services/notification-dispatch";
 import { useCreateProjectPhoto } from "@/lib/hooks/use-project-photos";
 import type { NoteAttachment, ProjectNote } from "@/lib/types/pipeline";
 import {
@@ -79,6 +80,8 @@ import {
   formatCurrency,
 } from "@/lib/types/pipeline";
 import { cn } from "@/lib/utils/cn";
+import { formatEnumLabel } from "@/lib/utils/format";
+import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -681,7 +684,8 @@ function NotesTab({ project }: { project: Project }) {
   const deleteNote = useDeleteProjectNote();
   const createPhoto = useCreateProjectPhoto();
   const queryClient = useQueryClient();
-  const users = project.teamMembers ?? [];
+  const { data: teamData } = useTeamMembers();
+  const users = teamData?.users ?? [];
   const migrated = useRef(false);
 
   const [editingNote, setEditingNote] = useState<ProjectNote | null>(null);
@@ -746,11 +750,23 @@ function NotesTab({ project }: { project: Project }) {
               caption: att.caption,
             });
           }
-          // Send mention notifications
+          // Send mention notifications (in-app + push)
           if (mentionedUserIds.length > 0 && currentUser) {
+            const authorName = `${currentUser.firstName} ${currentUser.lastName}`;
+            // In-app notification (notification rail)
             NotificationService.createMentionNotifications({
               mentionedUserIds,
-              authorName: `${currentUser.firstName} ${currentUser.lastName}`,
+              authorName,
+              projectId: project.id,
+              projectTitle: project.title,
+              noteId: result.id,
+              companyId: company.id,
+            });
+            // Push notification (phone)
+            dispatchMentionPush({
+              mentionedUserIds,
+              authorName,
+              notePreview: content,
               projectId: project.id,
               projectTitle: project.title,
               noteId: result.id,
@@ -983,7 +999,7 @@ function FinancialTab({ project }: { project: Project }) {
                       color: ESTIMATE_STATUS_COLORS[est.status],
                     }}
                   >
-                    {est.status}
+                    {formatEnumLabel(est.status)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -1044,7 +1060,7 @@ function FinancialTab({ project }: { project: Project }) {
                       color: INVOICE_STATUS_COLORS[inv.status],
                     }}
                   >
-                    {inv.status}
+                    {formatEnumLabel(inv.status)}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -1113,6 +1129,14 @@ export default function ProjectDetailPage() {
   const deleteProjectMutation = useDeleteProject();
 
   usePageTitle(project?.title ?? "Project");
+
+  // Set breadcrumb entity name so the header shows the project name, not UUID
+  const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
+  const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
+  useEffect(() => {
+    if (project?.title) setEntityName(project.title);
+    return () => clearEntityName();
+  }, [project?.title, setEntityName, clearEntityName]);
 
   // Redirect old overview URLs
   useEffect(() => {

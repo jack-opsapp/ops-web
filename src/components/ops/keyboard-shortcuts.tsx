@@ -23,9 +23,10 @@ export function KeyboardShortcuts() {
       // Don't capture if user is typing in an input
       const target = e.target as HTMLElement;
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable ||
+        target.closest("[contenteditable]")
       ) {
         return;
       }

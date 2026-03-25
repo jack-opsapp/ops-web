@@ -291,7 +291,7 @@ export const InvoiceService = {
     // Get next document number via RPC
     const { data: docNumber, error: rpcError } = await supabase.rpc(
       "get_next_document_number",
-      { p_company_id: data.companyId, p_document_type: "invoice" }
+      { p_company_id: data.companyId, p_type: "invoice" }
     );
     if (rpcError)
       throw new Error(`Failed to get invoice number: ${rpcError.message}`);

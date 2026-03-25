@@ -39,6 +39,7 @@ import {
 } from "@/components/ops/line-item-editor";
 import {
   useEstimates,
+  useEstimate,
   useCreateEstimate,
   useUpdateEstimate,
   useDeleteEstimate,
@@ -59,6 +60,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
+import { formatEnumLabel } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { ReviewTasksModal } from "@/components/ops/review-tasks-modal";
@@ -76,7 +78,7 @@ function StatusBadgeEstimate({ status }: { status: EstimateStatus }) {
         className="w-[6px] h-[6px] rounded-full"
         style={{ backgroundColor: color }}
       />
-      {status}
+      {formatEnumLabel(status)}
     </span>
   );
 }
@@ -114,6 +116,7 @@ export default function EstimatesPage() {
 
   // Data
   const { data: estimates = [], isLoading } = useEstimates();
+  const { data: estimateDetail } = useEstimate(editingEstimate?.id);
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();
@@ -317,7 +320,7 @@ export default function EstimatesPage() {
                   </td>
                   <td className="px-1.5 py-1 hidden md:table-cell">
                     <span className="font-mohave text-body-sm text-text-tertiary truncate block max-w-[160px]">
-                      {estimate.opportunityId ? projectMap.get(estimate.opportunityId) ?? "--" : "--"}
+                      {estimate.projectId ? projectMap.get(estimate.projectId) ?? "--" : "--"}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
@@ -419,7 +422,7 @@ export default function EstimatesPage() {
           setShowCreateModal(false);
           setEditingEstimate(null);
         }}
-        estimate={editingEstimate}
+        estimate={estimateDetail ?? editingEstimate}
         clients={clients}
         projects={projects}
         products={products}

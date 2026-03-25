@@ -182,6 +182,8 @@ export function useInboxUnreadCount() {
     queryKey: queryKeys.inbox.unreadCount(companyId ?? ""),
     queryFn: () => InboxService.getUnreadCount(companyId!),
     enabled: !!companyId,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
+    retry: 1,
+    staleTime: 30_000,
   });
 }

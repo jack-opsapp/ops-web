@@ -131,7 +131,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
             <div className="flex items-center gap-[4px] text-text-tertiary">
               <FolderKanban className="w-[13px] h-[13px]" />
               <span className="font-mono text-[11px]">
-                {client.projectCount} {t("card.projects")}
+                {client.projectCount} {String(client.projectCount) === "1" ? t("card.project") : t("card.projects")}
               </span>
             </div>
           </div>

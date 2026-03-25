@@ -46,6 +46,7 @@
   "team.seats": "seats",
   "team.admin": "Admin",
   "team.office": "Office",
+  "team.operator": "Operator",
   "team.operators": "Operators",
   "team.crew": "Crew",
   "team.unassigned": "Unassigned",

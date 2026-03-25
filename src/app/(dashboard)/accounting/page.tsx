@@ -384,6 +384,7 @@ export default function AccountingPage() {
 
       if (
         inv.status === InvoiceStatus.Sent ||
+        inv.status === InvoiceStatus.AwaitingPayment ||
         inv.status === InvoiceStatus.PartiallyPaid ||
         inv.status === InvoiceStatus.PastDue
       ) {

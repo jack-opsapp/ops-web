@@ -68,11 +68,24 @@ export function InviteModal({
     const trimmed = inputValue.trim();
     if (!trimmed) return;
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const parts = trimmed.split(/[,;\s]+/).filter(Boolean);
-    const newEntries = parts.filter((p) => !entries.includes(p));
+    const valid: string[] = [];
+    const invalid: string[] = [];
 
-    if (newEntries.length > 0) {
-      setEntries((prev) => [...prev, ...newEntries]);
+    for (const p of parts) {
+      if (emailRegex.test(p)) {
+        if (!entries.includes(p)) valid.push(p);
+      } else {
+        invalid.push(p);
+      }
+    }
+
+    if (invalid.length > 0) {
+      toast.error(`Invalid email${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`);
+    }
+    if (valid.length > 0) {
+      setEntries((prev) => [...prev, ...valid]);
     }
     setInputValue("");
   }

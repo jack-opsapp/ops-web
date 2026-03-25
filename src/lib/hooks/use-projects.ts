@@ -12,8 +12,10 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { ProjectService, type FetchProjectsOptions } from "../api/services";
+import { dispatchProjectAssignment } from "../api/services/notification-dispatch";
 import type { Project, ProjectStatus } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,34 @@ export function useUserProjects(
 }
 
 /**
+ * Scope-aware project fetching.
+ * Returns all projects if user has `projects.view` with scope `all`,
+ * otherwise returns only assigned projects.
+ */
+export function useScopedProjects(
+  options?: FetchProjectsOptions,
+  queryOptions?: Partial<UseQueryOptions<{ projects: Project[]; remaining: number; count: number }>>
+) {
+  const scope = usePermissionStore((s) => s.permissions.get("projects.view"));
+  const hasAllScope = scope === "all";
+
+  // Strip clientId for useUserProjects (it doesn't support it)
+  const { clientId: _clientId, ...userOptions } = options ?? {};
+
+  // Always call both hooks, but only enable the one that matches the scope
+  const allProjects = useProjects(options, {
+    ...queryOptions,
+    enabled: hasAllScope && (queryOptions?.enabled !== false),
+  });
+  const userProjects = useUserProjects(userOptions, {
+    ...queryOptions,
+    enabled: !hasAllScope && (queryOptions?.enabled !== false),
+  });
+
+  return hasAllScope ? allProjects : userProjects;
+}
+
+/**
  * Fetch a single project by ID.
  */
 export function useProject(
@@ -100,11 +130,22 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (data: Partial<Project> & { title: string; companyId: string }) =>
       ProjectService.createProject(data),
-    onSuccess: () => {
+    onSuccess: (projectId, variables) => {
       // Invalidate project lists to refetch
       queryClient.invalidateQueries({
         queryKey: queryKeys.projects.lists(),
       });
+
+      // Notify newly assigned team members
+      const memberIds = variables.teamMemberIds ?? [];
+      if (memberIds.length > 0) {
+        dispatchProjectAssignment({
+          projectId,
+          projectTitle: variables.title,
+          newMemberIds: memberIds,
+          companyId: variables.companyId,
+        });
+      }
     },
   });
 }
@@ -153,6 +194,26 @@ export function useUpdateProject() {
           queryKeys.projects.detail(id),
           context.previousProject
         );
+      }
+    },
+
+    onSuccess: (_data, { id, data }, context) => {
+      // Notify newly added team members (only when teamMemberIds changed)
+      if (data.teamMemberIds !== undefined && context?.previousProject) {
+        const previousIds = new Set(context.previousProject.teamMemberIds ?? []);
+        const newMembers = (data.teamMemberIds ?? []).filter(
+          (memberId) => !previousIds.has(memberId)
+        );
+
+        if (newMembers.length > 0) {
+          const title = data.title ?? context.previousProject.title;
+          dispatchProjectAssignment({
+            projectId: id,
+            projectTitle: title,
+            newMemberIds: newMembers,
+            companyId: context.previousProject.companyId,
+          });
+        }
       }
     },
 

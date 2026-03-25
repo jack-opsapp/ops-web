@@ -6,6 +6,7 @@
 export {
   useProjects,
   useUserProjects,
+  useScopedProjects,
   useProject,
   useCreateProject,
   useUpdateProject,

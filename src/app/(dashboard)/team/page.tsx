@@ -614,7 +614,7 @@ export default function TeamPage() {
                 </span>
               )}
               <span className="font-mono text-[10px] text-ops-accent">
-                {operatorCount} {t("team.operators")}
+                {operatorCount} {operatorCount === 1 ? t("team.operator") : t("team.operators")}
               </span>
               <span className="font-mono text-[10px] text-text-tertiary">
                 {crewCount} {t("team.crew")}

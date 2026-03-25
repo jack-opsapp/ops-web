@@ -30,7 +30,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import {
-  useProjects,
+  useScopedProjects,
   useTasks,
   useClients,
   useTeamMembers,
@@ -215,7 +215,7 @@ export default function DashboardPage() {
   const weekStartDate = useMemo(() => startOfWeek(today, { weekStartsOn: 0 }), [today]);
   const weekEndDate = useMemo(() => endOfWeek(today, { weekStartsOn: 0 }), [today]);
 
-  const { data: projectsData, isLoading: projectsLoading } = useProjects();
+  const { data: projectsData, isLoading: projectsLoading } = useScopedProjects();
   const { data: tasksData, isLoading: tasksLoading } = useTasks();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
@@ -500,6 +500,27 @@ export default function DashboardPage() {
   // ---------------------------------------------------------------------------
   function renderWidgetContent(instance: WidgetInstance): ReactNode {
     const { typeId, size, config } = instance;
+
+    // ── Permission gating: hide widgets the user's role cannot access ──
+    const FINANCIAL_WIDGETS: string[] = [
+      "stat-revenue", "stat-invoices", "stat-estimates", "stat-receivables",
+      "stat-collect", "stat-profit-mtd", "stat-projected-profit",
+      "revenue-chart", "invoice-list", "invoice-aging", "payments-recent",
+      "expense-summary", "estimates-overview", "estimates-funnel",
+      "past-due-invoices",
+    ];
+    const PIPELINE_WIDGETS: string[] = [
+      "stat-opportunities", "pipeline-funnel", "pipeline-list",
+      "pipeline-value", "pipeline-velocity", "pipeline-sources",
+    ];
+    const CLIENT_WIDGETS: string[] = [
+      "stat-clients", "stat-clients-active", "stat-client-ranking",
+      "client-list", "client-revenue", "client-activity", "client-attention",
+    ];
+
+    if (FINANCIAL_WIDGETS.includes(typeId) && !can("invoices.view")) return null;
+    if (PIPELINE_WIDGETS.includes(typeId) && !can("pipeline.view")) return null;
+    if (CLIENT_WIDGETS.includes(typeId) && !can("clients.view")) return null;
 
     switch (typeId as WidgetTypeId) {
       // ── LAYOUT ──
