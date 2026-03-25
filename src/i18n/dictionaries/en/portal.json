@@ -139,6 +139,10 @@
   "project.tasks": "Tasks",
   "project.estimates": "Estimates",
   "project.invoices": "Invoices",
+  "project.progress": "Project Progress",
+  "project.documents": "Documents",
+  "project.contact": "Contact",
+  "project.switchProject": "Switch project",
   "project.sendMessage": "Send a Message",
   "project.paid": "Paid",
 

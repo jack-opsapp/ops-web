@@ -139,6 +139,10 @@
   "project.tasks": "Tareas",
   "project.estimates": "Cotizaciones",
   "project.invoices": "Facturas",
+  "project.progress": "Progreso del proyecto",
+  "project.documents": "Documentos",
+  "project.contact": "Contacto",
+  "project.switchProject": "Cambiar proyecto",
   "project.sendMessage": "Enviar un mensaje",
   "project.paid": "Pagado",
 
