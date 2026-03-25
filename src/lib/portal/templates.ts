@@ -22,6 +22,35 @@ export interface TemplateConfig {
   headingWeight: string;
   headingTransform: string;
   letterSpacing: string;
+
+  // Card style
+  cardShadow: string;
+  cardBorder: string;
+  cardAccentEdge: "none" | "left" | "top";
+  cardAccentEdgeWidth: string;
+
+  // Section dividers
+  sectionDivider: "spacing" | "line" | "accent-bar";
+  sectionDividerColor: string;
+  sectionDividerHeight: string;
+
+  // Header style
+  headerStyle: "transparent" | "solid" | "accent";
+  headerBorder: string;
+
+  // Status indicators
+  statusStyle: "pill-rounded" | "pill-bordered" | "text-bold";
+
+  // Progress bar
+  progressBarHeight: string;
+  progressBarRadius: string;
+
+  // Photo gallery
+  galleryGap: string;
+  galleryItemRadius: string;
+
+  // Message bubbles
+  bubbleRadius: string;
 }
 
 export const PORTAL_TEMPLATES: Record<PortalTemplate, TemplateConfig> = {
@@ -40,6 +69,21 @@ export const PORTAL_TEMPLATES: Record<PortalTemplate, TemplateConfig> = {
     headingWeight: "600",
     headingTransform: "none",
     letterSpacing: "normal",
+    cardShadow: "0 1px 3px rgba(0,0,0,0.08)",
+    cardBorder: "none",
+    cardAccentEdge: "none",
+    cardAccentEdgeWidth: "0",
+    sectionDivider: "spacing",
+    sectionDividerColor: "transparent",
+    sectionDividerHeight: "0",
+    headerStyle: "transparent",
+    headerBorder: "1px solid var(--portal-border)",
+    statusStyle: "pill-rounded",
+    progressBarHeight: "4px",
+    progressBarRadius: "9999px",
+    galleryGap: "8px",
+    galleryItemRadius: "8px",
+    bubbleRadius: "16px",
   },
   classic: {
     id: "classic",
@@ -56,6 +100,21 @@ export const PORTAL_TEMPLATES: Record<PortalTemplate, TemplateConfig> = {
     headingWeight: "700",
     headingTransform: "none",
     letterSpacing: "normal",
+    cardShadow: "none",
+    cardBorder: "1px solid var(--portal-border)",
+    cardAccentEdge: "none",
+    cardAccentEdgeWidth: "0",
+    sectionDivider: "line",
+    sectionDividerColor: "var(--portal-border)",
+    sectionDividerHeight: "1px",
+    headerStyle: "solid",
+    headerBorder: "2px solid var(--portal-accent)",
+    statusStyle: "pill-bordered",
+    progressBarHeight: "6px",
+    progressBarRadius: "3px",
+    galleryGap: "4px",
+    galleryItemRadius: "0",
+    bubbleRadius: "8px",
   },
   bold: {
     id: "bold",
@@ -72,5 +131,20 @@ export const PORTAL_TEMPLATES: Record<PortalTemplate, TemplateConfig> = {
     headingWeight: "700",
     headingTransform: "uppercase",
     letterSpacing: "0.02em",
+    cardShadow: "none",
+    cardBorder: "1px solid var(--portal-border)",
+    cardAccentEdge: "left",
+    cardAccentEdgeWidth: "3px",
+    sectionDivider: "accent-bar",
+    sectionDividerColor: "var(--portal-accent)",
+    sectionDividerHeight: "3px",
+    headerStyle: "accent",
+    headerBorder: "none",
+    statusStyle: "text-bold",
+    progressBarHeight: "8px",
+    progressBarRadius: "2px",
+    galleryGap: "2px",
+    galleryItemRadius: "0",
+    bubbleRadius: "4px",
   },
 };
