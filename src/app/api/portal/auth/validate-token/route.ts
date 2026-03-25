@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { PortalAuthService } from "@/lib/api/services/portal-auth-service";
+import { PortalBrandingService } from "@/lib/api/services/portal-branding-service";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,10 +32,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ valid: false, reason: "expired" });
     }
 
+    // Fetch branding and company name for pre-auth rendering
+    const [branding, companyResult] = await Promise.all([
+      PortalBrandingService.getBranding(portalToken.companyId),
+      getServiceRoleClient()
+        .from("companies")
+        .select("name")
+        .eq("id", portalToken.companyId)
+        .maybeSingle(),
+    ]);
+
     return NextResponse.json({
       valid: true,
       companyId: portalToken.companyId,
       isPreview: portalToken.isPreview,
+      branding: {
+        logoUrl: branding.logoUrl,
+        accentColor: branding.accentColor,
+        template: branding.template,
+        themeMode: branding.themeMode,
+        companyName: (companyResult.data?.name as string) ?? "Company",
+      },
     });
   } catch (error) {
     console.error("[portal/auth/validate-token] Error:", error);
