@@ -418,8 +418,35 @@ export const PortalService = {
             projectImages: (row.project_images as string[]) ?? [],
             estimateCount: counts.estimateCount,
             invoiceCount: counts.invoiceCount,
+            taskTotal: 0,
+            taskCompleted: 0,
           };
         });
+      }
+
+      // Fetch task counts for progress bars
+      const { data: taskRows } = await supabase
+        .from("project_tasks")
+        .select("project_id, status")
+        .in("project_id", projectIds)
+        .eq("company_id", companyId)
+        .is("deleted_at", null);
+
+      if (taskRows) {
+        const taskCounts = new Map<string, { total: number; completed: number }>();
+        for (const row of taskRows) {
+          const pid = row.project_id as string;
+          const entry = taskCounts.get(pid) ?? { total: 0, completed: 0 };
+          entry.total++;
+          if ((row.status as string) === "completed") entry.completed++;
+          taskCounts.set(pid, entry);
+        }
+
+        for (const project of portalProjects) {
+          const counts = taskCounts.get(project.id);
+          project.taskTotal = counts?.total ?? 0;
+          project.taskCompleted = counts?.completed ?? 0;
+        }
       }
     }
 

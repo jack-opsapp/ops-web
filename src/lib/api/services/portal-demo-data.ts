@@ -93,6 +93,8 @@ function getDemoProjects(): PortalProject[] {
       projectImages: [],
       estimateCount: 2,
       invoiceCount: 2,
+      taskTotal: 3,
+      taskCompleted: 1,
     },
     {
       id: DEMO_PROJECT_IDS.deckInstallation,
@@ -104,6 +106,8 @@ function getDemoProjects(): PortalProject[] {
       projectImages: [],
       estimateCount: 1,
       invoiceCount: 1,
+      taskTotal: 2,
+      taskCompleted: 0,
     },
   ];
 }

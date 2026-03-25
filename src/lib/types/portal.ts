@@ -166,6 +166,8 @@ export interface PortalProject {
   projectImages: string[];
   estimateCount: number;
   invoiceCount: number;
+  taskTotal: number;
+  taskCompleted: number;
 }
 
 export interface PortalEstimate {
