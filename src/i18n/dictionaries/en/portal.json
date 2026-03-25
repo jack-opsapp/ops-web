@@ -11,6 +11,11 @@
   "home.questionsPending": "Questions pending",
   "home.invoicesDue": "Invoices due",
   "home.yourProjects": "Your projects",
+  "home.actionRequired": "Action required",
+  "home.allClear": "Everything is on track",
+  "home.allClearDesc": "We'll notify you when something needs your attention.",
+  "home.emptyTitle": "Welcome to your portal",
+  "home.emptyDesc": "Your contractor will share project updates, estimates, and invoices here.",
   "home.noProjects": "No projects yet. Your service provider will share project details with you here.",
   "home.loadError": "Unable to load your portal. Please try refreshing.",
 

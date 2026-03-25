@@ -6,7 +6,7 @@ import Link from "next/link";
 import { PortalProjectCard } from "@/components/portal/portal-project-card";
 import { PortalStatusBadge } from "@/components/portal/portal-status-badge";
 import { formatCurrency } from "@/lib/types/pipeline";
-import type { PortalClientData } from "@/lib/types/portal";
+import type { PortalClientData, PortalEstimate, PortalInvoice } from "@/lib/types/portal";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
@@ -17,6 +17,31 @@ function formatDate(date: Date | string | null, locale: Locale): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Sort action items by urgency: estimates needing approval first, then invoices approaching due date */
+function sortByUrgency(
+  estimates: PortalEstimate[],
+  invoices: PortalInvoice[]
+): Array<{ type: "estimate" | "invoice"; item: PortalEstimate | PortalInvoice }> {
+  const items: Array<{ type: "estimate" | "invoice"; item: PortalEstimate | PortalInvoice; urgency: number }> = [];
+
+  for (const est of estimates) {
+    // Estimates needing approval are most urgent
+    items.push({ type: "estimate", item: est, urgency: 0 });
+  }
+
+  for (const inv of invoices) {
+    // Sort invoices by how close their due date is
+    const dueMs = new Date(inv.dueDate).getTime();
+    const nowMs = Date.now();
+    const daysUntilDue = (dueMs - nowMs) / (1000 * 60 * 60 * 24);
+    items.push({ type: "invoice", item: inv, urgency: Math.max(1, daysUntilDue) });
+  }
+
+  items.sort((a, b) => a.urgency - b.urgency);
+
+  return items.map(({ type, item }) => ({ type, item }));
 }
 
 export default function PortalHomePage() {
@@ -57,9 +82,14 @@ export default function PortalHomePage() {
     (i) => i.balanceDue > 0 && i.status !== "void" && i.status !== "written_off"
   );
 
+  const hasActions = actionEstimates.length > 0 || unpaidInvoices.length > 0;
+  const hasProjects = data.projects.length > 0;
+  const isCompletelyEmpty = !hasProjects && !hasActions;
+  const sortedActions = hasActions ? sortByUrgency(actionEstimates, unpaidInvoices) : [];
+
   return (
     <div className="space-y-8">
-      {/* Welcome */}
+      {/* 1. Greeting */}
       <div>
         <h1
           className="text-2xl mb-1"
@@ -67,6 +97,7 @@ export default function PortalHomePage() {
             fontFamily: "var(--portal-heading-font)",
             fontWeight: "var(--portal-heading-weight)",
             textTransform: "var(--portal-heading-transform)" as React.CSSProperties["textTransform"],
+            letterSpacing: "var(--portal-letter-spacing)",
           }}
         >
           {t("home.greeting")}{data.client.name ? `, ${data.client.name.split(" ")[0]}` : ""}
@@ -78,121 +109,148 @@ export default function PortalHomePage() {
         )}
       </div>
 
-      {/* Estimates needing action */}
-      {actionEstimates.length > 0 && (
+      {/* 2. Action Required (conditional) */}
+      {hasActions && (
         <section>
           <h2
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            {t("home.estimates")}
+            {t("home.actionRequired")}
           </h2>
           <div className="space-y-2">
-            {actionEstimates.map((est) => (
-              <Link key={est.id} href={`/portal/estimates/${est.id}`}>
-                <div
-                  className="flex items-center justify-between p-4 rounded-lg transition-colors cursor-pointer"
-                  style={{
-                    backgroundColor: "var(--portal-card)",
-                    border: "1px solid var(--portal-border)",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 shrink-0" style={{ color: "var(--portal-accent)" }} />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {t("estimate.heading")} #{est.estimateNumber}
-                        {est.title && ` — ${est.title}`}
-                      </p>
-                      <p className="text-xs" style={{ color: "var(--portal-text-secondary)" }}>
-                        {formatCurrency(est.total)} · {formatDate(est.issueDate, locale)}
-                        {est.hasUnansweredQuestions && (
-                          <span style={{ color: "var(--portal-warning)" }}> · {t("home.questionsPending")}</span>
-                        )}
-                      </p>
+            {sortedActions.map(({ type, item }) => {
+              if (type === "estimate") {
+                const est = item as PortalEstimate;
+                return (
+                  <Link key={est.id} href={`/portal/estimates/${est.id}`}>
+                    <div
+                      className="flex items-center justify-between p-4 transition-colors cursor-pointer"
+                      style={{
+                        backgroundColor: "var(--portal-card)",
+                        boxShadow: "var(--portal-card-shadow)",
+                        border: "var(--portal-card-border, 1px solid var(--portal-border))",
+                        borderRadius: "var(--portal-radius-sm)",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 shrink-0" style={{ color: "var(--portal-accent)" }} />
+                        <div>
+                          <p className="text-sm font-medium">
+                            {t("estimate.heading")} #{est.estimateNumber}
+                            {est.title && ` — ${est.title}`}
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--portal-text-secondary)" }}>
+                            {formatCurrency(est.total)} · {formatDate(est.issueDate, locale)}
+                            {est.hasUnansweredQuestions && (
+                              <span style={{ color: "var(--portal-warning)" }}> · {t("home.questionsPending")}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <PortalStatusBadge status={est.status} />
+                        <ChevronRight className="w-4 h-4" style={{ color: "var(--portal-text-tertiary)" }} />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <PortalStatusBadge status={est.status} />
-                    <ChevronRight className="w-4 h-4" style={{ color: "var(--portal-text-tertiary)" }} />
-                  </div>
-                </div>
-              </Link>
-            ))}
+                  </Link>
+                );
+              } else {
+                const inv = item as PortalInvoice;
+                return (
+                  <Link key={inv.id} href={`/portal/invoices/${inv.id}`}>
+                    <div
+                      className="flex items-center justify-between p-4 transition-colors cursor-pointer"
+                      style={{
+                        backgroundColor: "var(--portal-card)",
+                        boxShadow: "var(--portal-card-shadow)",
+                        border: "var(--portal-card-border, 1px solid var(--portal-border))",
+                        borderRadius: "var(--portal-radius-sm)",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Receipt className="w-5 h-5 shrink-0" style={{ color: "var(--portal-warning)" }} />
+                        <div>
+                          <p className="text-sm font-medium">
+                            {t("invoice.heading")} #{inv.invoiceNumber}
+                            {inv.subject && ` — ${inv.subject}`}
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--portal-text-secondary)" }}>
+                            {formatCurrency(inv.balanceDue)} · {t("invoice.due")} {formatDate(inv.dueDate, locale)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <PortalStatusBadge status={inv.status} />
+                        <ChevronRight className="w-4 h-4" style={{ color: "var(--portal-text-tertiary)" }} />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              }
+            })}
           </div>
         </section>
       )}
 
-      {/* Unpaid invoices */}
-      {unpaidInvoices.length > 0 && (
+      {/* 3. Your Projects */}
+      {hasProjects && (
         <section>
           <h2
             className="text-sm font-medium uppercase tracking-wider mb-3"
             style={{ color: "var(--portal-text-tertiary)" }}
           >
-            {t("home.invoicesDue")}
+            {t("home.yourProjects")}
           </h2>
-          <div className="space-y-2">
-            {unpaidInvoices.map((inv) => (
-              <Link key={inv.id} href={`/portal/invoices/${inv.id}`}>
-                <div
-                  className="flex items-center justify-between p-4 rounded-lg transition-colors cursor-pointer"
-                  style={{
-                    backgroundColor: "var(--portal-card)",
-                    border: "1px solid var(--portal-border)",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Receipt className="w-5 h-5 shrink-0" style={{ color: "var(--portal-warning)" }} />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {t("invoice.heading")} #{inv.invoiceNumber}
-                        {inv.subject && ` — ${inv.subject}`}
-                      </p>
-                      <p className="text-xs" style={{ color: "var(--portal-text-secondary)" }}>
-                        Balance: {formatCurrency(inv.balanceDue)} · Due {formatDate(inv.dueDate, locale)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <PortalStatusBadge status={inv.status} />
-                    <ChevronRight className="w-4 h-4" style={{ color: "var(--portal-text-tertiary)" }} />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {data.projects.length === 1 ? (
+            <PortalProjectCard project={data.projects[0]} featured />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {data.projects.map((project) => (
+                <PortalProjectCard key={project.id} project={project} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
-      {/* Projects */}
-      <section>
-        <h2
-          className="text-sm font-medium uppercase tracking-wider mb-3"
-          style={{ color: "var(--portal-text-tertiary)" }}
+      {/* 4. All Clear state (has projects but no actions) */}
+      {hasProjects && !hasActions && (
+        <div
+          className="text-center py-8 rounded-lg"
+          style={{
+            backgroundColor: "var(--portal-card)",
+            border: "1px solid var(--portal-border)",
+            borderRadius: "var(--portal-radius)",
+          }}
         >
-          {t("home.yourProjects")}
-        </h2>
-        {data.projects.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {data.projects.map((project) => (
-              <PortalProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        ) : (
-          <div
-            className="text-center py-12 rounded-lg"
-            style={{
-              backgroundColor: "var(--portal-card)",
-              border: "1px solid var(--portal-border)",
-            }}
-          >
-            <p className="text-sm" style={{ color: "var(--portal-text-secondary)" }}>
-              {t("home.noProjects")}
-            </p>
-          </div>
-        )}
-      </section>
+          <p className="text-sm font-medium" style={{ color: "var(--portal-text)" }}>
+            {t("home.allClear")}
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--portal-text-secondary)" }}>
+            {t("home.allClearDesc")}
+          </p>
+        </div>
+      )}
+
+      {/* 5. Empty state (no projects AND no documents) */}
+      {isCompletelyEmpty && (
+        <div
+          className="text-center py-12"
+          style={{
+            backgroundColor: "var(--portal-card)",
+            border: "1px solid var(--portal-border)",
+            borderRadius: "var(--portal-radius)",
+          }}
+        >
+          <p className="text-sm font-medium" style={{ color: "var(--portal-text)" }}>
+            {t("home.emptyTitle")}
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--portal-text-secondary)" }}>
+            {t("home.emptyDesc")}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

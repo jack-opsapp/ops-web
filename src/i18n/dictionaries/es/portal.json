@@ -11,6 +11,11 @@
   "home.questionsPending": "Preguntas pendientes",
   "home.invoicesDue": "Facturas por pagar",
   "home.yourProjects": "Tus proyectos",
+  "home.actionRequired": "Acción requerida",
+  "home.allClear": "Todo va bien",
+  "home.allClearDesc": "Te notificaremos cuando algo necesite tu atención.",
+  "home.emptyTitle": "Bienvenido a tu portal",
+  "home.emptyDesc": "Tu contratista compartirá actualizaciones del proyecto, cotizaciones y facturas aquí.",
   "home.noProjects": "Aún no hay proyectos. Tu proveedor de servicios compartirá los detalles del proyecto aquí.",
   "home.loadError": "No se pudo cargar tu portal. Por favor intenta actualizar.",
 
