@@ -2,25 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MessageSquare } from "lucide-react";
+import { Home, FolderOpen, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 
 interface PortalNavProps {
-  unreadMessages: number;
+  hasUnread: boolean;
+  projectHref: string;
 }
 
 /**
- * Mobile bottom tab bar for the portal.
+ * Mobile bottom tab bar for the portal. 3 tabs: Home, Project, Messages.
+ * Only visible on mobile (hidden md:).
  */
-export function PortalNav({ unreadMessages }: PortalNavProps) {
+export function PortalNav({ hasUnread, projectHref }: PortalNavProps) {
   const pathname = usePathname();
   const { t } = useDictionary("portal");
 
+  const isProjectDisabled = projectHref === "/portal/home";
+
   const navItems = [
-    { href: "/portal/home", label: t("nav.home"), icon: Home },
-    { href: "/portal/messages", label: t("nav.messages"), icon: MessageSquare },
+    { key: "home" as const, href: "/portal/home", label: t("nav.home"), icon: Home, disabled: false },
+    { key: "project" as const, href: projectHref, label: t("nav.project"), icon: FolderOpen, disabled: isProjectDisabled },
+    { key: "messages" as const, href: "/portal/messages", label: t("nav.messages"), icon: MessageSquare, disabled: false },
   ];
+
+  const activeKey =
+    pathname.startsWith("/portal/projects") ? "project"
+    : pathname.startsWith("/portal/messages") ? "messages"
+    : "home";
 
   return (
     <nav
@@ -28,32 +38,37 @@ export function PortalNav({ unreadMessages }: PortalNavProps) {
         backgroundColor: "var(--portal-card)",
         borderTop: "1px solid var(--portal-border)",
       }}
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-40"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40"
     >
       <div className="flex items-center justify-around h-14">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = item.key === activeKey;
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.key}
+              href={item.disabled ? "#" : item.href}
+              aria-disabled={item.disabled}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-4 py-1 relative",
-                "transition-colors"
+                "transition-colors",
+                item.disabled && "pointer-events-none"
               )}
               style={{
-                color: isActive ? "var(--portal-accent)" : "var(--portal-text-tertiary)",
+                color: item.disabled
+                  ? "var(--portal-text-tertiary)"
+                  : isActive
+                    ? "var(--portal-accent)"
+                    : "var(--portal-text-tertiary)",
+                opacity: item.disabled ? 0.4 : 1,
               }}
             >
               <item.icon className="w-5 h-5" />
               <span className="text-[10px] font-medium">{item.label}</span>
-              {item.href === "/portal/messages" && unreadMessages > 0 && (
+              {item.key === "messages" && hasUnread && (
                 <span
-                  className="absolute -top-0.5 right-2 w-4 h-4 rounded-full text-[10px] font-medium text-white flex items-center justify-center"
-                  style={{ backgroundColor: "var(--portal-error)" }}
-                >
-                  {unreadMessages > 9 ? "9+" : unreadMessages}
-                </span>
+                  className="absolute top-0 right-2 w-2 h-2 rounded-full"
+                  style={{ backgroundColor: "var(--portal-accent)" }}
+                />
               )}
             </Link>
           );
