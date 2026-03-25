@@ -33,6 +33,35 @@ export interface PortalThemeVars {
   "--portal-heading-weight": string;
   "--portal-heading-transform": string;
   "--portal-letter-spacing": string;
+
+  // Card style
+  "--portal-card-shadow": string;
+  "--portal-card-border": string;
+  "--portal-card-accent-edge": string;
+  "--portal-card-accent-edge-width": string;
+
+  // Section dividers
+  "--portal-section-divider": string;
+  "--portal-section-divider-color": string;
+  "--portal-section-divider-height": string;
+
+  // Header
+  "--portal-header-style": string;
+  "--portal-header-border": string;
+
+  // Status
+  "--portal-status-style": string;
+
+  // Progress
+  "--portal-progress-height": string;
+  "--portal-progress-radius": string;
+
+  // Gallery
+  "--portal-gallery-gap": string;
+  "--portal-gallery-item-radius": string;
+
+  // Bubbles
+  "--portal-bubble-radius": string;
 }
 
 /**
@@ -93,6 +122,35 @@ export function generatePortalTheme(branding: PortalBranding): PortalThemeVars {
     "--portal-heading-weight": template.headingWeight,
     "--portal-heading-transform": template.headingTransform,
     "--portal-letter-spacing": template.letterSpacing,
+
+    // Card style
+    "--portal-card-shadow": template.cardShadow,
+    "--portal-card-border": template.cardBorder,
+    "--portal-card-accent-edge": template.cardAccentEdge,
+    "--portal-card-accent-edge-width": template.cardAccentEdgeWidth,
+
+    // Section dividers
+    "--portal-section-divider": template.sectionDivider,
+    "--portal-section-divider-color": template.sectionDividerColor,
+    "--portal-section-divider-height": template.sectionDividerHeight,
+
+    // Header
+    "--portal-header-style": template.headerStyle,
+    "--portal-header-border": template.headerBorder,
+
+    // Status
+    "--portal-status-style": template.statusStyle,
+
+    // Progress
+    "--portal-progress-height": template.progressBarHeight,
+    "--portal-progress-radius": template.progressBarRadius,
+
+    // Gallery
+    "--portal-gallery-gap": template.galleryGap,
+    "--portal-gallery-item-radius": template.galleryItemRadius,
+
+    // Bubbles
+    "--portal-bubble-radius": template.bubbleRadius,
   };
 }
 
