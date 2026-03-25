@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Send, MessageSquare } from "lucide-react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PortalMessage {
   id: string;
@@ -15,6 +18,8 @@ interface PortalMessage {
   readAt: string | null;
   createdAt: string;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatMessageTime(date: string, locale: Locale): string {
   return new Date(date).toLocaleTimeString(getDateLocale(locale), {
@@ -29,7 +34,6 @@ function formatDateGroupLabel(date: string, t: (key: string) => string, locale: 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
 
-  // Compare date-only (strip time)
   const msgDay = messageDate.toDateString();
   const todayStr = today.toDateString();
   const yesterdayStr = yesterday.toDateString();
@@ -59,13 +63,21 @@ function groupMessagesByDate(messages: PortalMessage[]): Map<string, PortalMessa
   return groups;
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function MessagesPage() {
   const { t } = useDictionary("portal");
   const { locale } = useLocale();
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("projectId");
+
   const [newMessage, setNewMessage] = useState("");
+  const [firstMessageSent, setFirstMessageSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
+
+  const markReadCalledRef = useRef(false);
 
   const { data: messages, isLoading, error } = useQuery<PortalMessage[]>({
     queryKey: ["portal", "messages"],
@@ -74,27 +86,49 @@ export default function MessagesPage() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to load messages");
-      return res.json();
+      const body = await res.json();
+      return body.messages ?? body;
     },
-    refetchInterval: 15000, // Poll for new messages every 15 seconds
+    refetchInterval: 15000,
   });
+
+  // Mark all company->client messages as read when the page loads
+  useEffect(() => {
+    if (markReadCalledRef.current) return;
+    markReadCalledRef.current = true;
+
+    fetch("/api/portal/messages/read", {
+      method: "POST",
+      credentials: "include",
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["portal", "data"] });
+    }).catch(() => {
+      // Non-critical
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMutation = useMutation<PortalMessage, Error, string>({
     mutationFn: async (content: string) => {
+      // Auto-attach projectId to the first message sent if present from URL param
+      const body: Record<string, string> = { content };
+      if (projectId && !firstMessageSent) {
+        body.projectId = projectId;
+      }
+
       const res = await fetch("/api/portal/messages", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed to send message");
       return res.json();
     },
     onSuccess: () => {
       setNewMessage("");
+      if (!firstMessageSent) setFirstMessageSent(true);
       queryClient.invalidateQueries({ queryKey: ["portal", "messages"] });
       queryClient.invalidateQueries({ queryKey: ["portal", "data"] });
-      // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -115,14 +149,12 @@ export default function MessagesPage() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // Send on Enter (without Shift)
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   }
 
-  // Auto-resize textarea
   function handleTextareaInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setNewMessage(e.target.value);
     const el = e.target;
@@ -158,7 +190,7 @@ export default function MessagesPage() {
     <div
       className="flex flex-col"
       style={{
-        height: "calc(100vh - 180px)", // Account for header, padding, and bottom nav
+        height: "calc(100vh - 180px)",
         minHeight: "400px",
       }}
     >
@@ -186,7 +218,6 @@ export default function MessagesPage() {
         }}
       >
         {messageList.length === 0 ? (
-          /* Empty state */
           <div className="flex flex-col items-center justify-center h-full py-16 px-4">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
@@ -238,9 +269,7 @@ export default function MessagesPage() {
                         key={msg.id}
                         className={`flex ${isClient ? "justify-end" : "justify-start"}`}
                       >
-                        <div
-                          className="max-w-[80%] sm:max-w-[70%]"
-                        >
+                        <div className="max-w-[80%] sm:max-w-[70%]">
                           {/* Sender name (for company messages) */}
                           {!isClient && (
                             <p
@@ -251,9 +280,9 @@ export default function MessagesPage() {
                             </p>
                           )}
 
-                          {/* Message bubble */}
+                          {/* Message bubble — skin-aware radius */}
                           <div
-                            className="px-4 py-2.5 rounded-2xl"
+                            className="px-4 py-2.5"
                             style={{
                               backgroundColor: isClient
                                 ? "var(--portal-accent)"
@@ -261,6 +290,7 @@ export default function MessagesPage() {
                               color: isClient
                                 ? "var(--portal-accent-text)"
                                 : "var(--portal-text)",
+                              borderRadius: "var(--portal-bubble-radius, 16px)",
                               borderBottomRightRadius: isClient ? "4px" : undefined,
                               borderBottomLeftRadius: !isClient ? "4px" : undefined,
                             }}
