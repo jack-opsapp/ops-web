@@ -53,6 +53,13 @@ export interface PortalBranding {
   themeMode: PortalThemeMode;
   fontCombo: PortalTemplate;
   welcomeMessage: string | null;
+  // Portal-level document visibility overrides (null = inherit from document template)
+  showQuantities: boolean | null;
+  showUnitPrices: boolean | null;
+  showLineTotals: boolean | null;
+  showDescriptions: boolean | null;
+  showTax: boolean | null;
+  showDiscount: boolean | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +72,12 @@ export interface CreatePortalBranding {
   themeMode?: PortalThemeMode;
   fontCombo?: PortalTemplate;
   welcomeMessage?: string | null;
+  showQuantities?: boolean | null;
+  showUnitPrices?: boolean | null;
+  showLineTotals?: boolean | null;
+  showDescriptions?: boolean | null;
+  showTax?: boolean | null;
+  showDiscount?: boolean | null;
 }
 
 // ─── Line Item Questions ─────────────────────────────────────────────────────
