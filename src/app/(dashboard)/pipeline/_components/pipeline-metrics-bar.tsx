@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, useSpring } from "framer-motion";
-import { Trophy, XCircle, ChevronDown } from "lucide-react";
+import { Trophy, XCircle, Ban, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -261,7 +261,7 @@ export function PipelineMetricsBar({
   const { t } = useDictionary("pipeline");
   const prefersReducedMotion = useReducedMotion();
 
-  const [expandedPanel, setExpandedPanel] = useState<"won" | "lost" | null>(
+  const [expandedPanel, setExpandedPanel] = useState<"won" | "lost" | "discarded" | null>(
     null
   );
 
@@ -276,6 +276,10 @@ export function PipelineMetricsBar({
     const lostDeals = opportunities.filter(
       (opp) => opp.stage === OpportunityStage.Lost
     );
+    const discardedDeals = opportunities.filter(
+      (opp) => opp.stage === OpportunityStage.Discarded
+    );
+    const discardedCount = discardedDeals.length;
 
     const pipelineValue = activeDeals.reduce(
       (sum, opp) => sum + getWeightedValue(opp),
@@ -310,6 +314,8 @@ export function PipelineMetricsBar({
       lostCount,
       lostValue,
       lostDeals,
+      discardedCount,
+      discardedDeals,
       conversionRate,
     };
   }, [opportunities]);
@@ -339,12 +345,16 @@ export function PipelineMetricsBar({
       ? metrics.wonDeals
       : expandedPanel === "lost"
         ? metrics.lostDeals
-        : [];
+        : expandedPanel === "discarded"
+          ? metrics.discardedDeals
+          : [];
 
   const expandedColor =
     expandedPanel === "won"
       ? OPPORTUNITY_STAGE_COLORS[OpportunityStage.Won]
-      : OPPORTUNITY_STAGE_COLORS[OpportunityStage.Lost];
+      : expandedPanel === "lost"
+        ? OPPORTUNITY_STAGE_COLORS[OpportunityStage.Lost]
+        : OPPORTUNITY_STAGE_COLORS[OpportunityStage.Discarded];
 
   function resolveName(opp: Opportunity): string {
     if (opp.clientId) {
@@ -524,6 +534,47 @@ export function PipelineMetricsBar({
             />
           </div>
         </button>
+
+        <MetricDivider />
+
+        {/* 6. Discarded — clickable */}
+        <button
+          onClick={() =>
+            setExpandedPanel((prev) => (prev === "discarded" ? null : "discarded"))
+          }
+          className={cn(
+            "flex flex-col items-center justify-center px-4 py-[8px] shrink-0 cursor-pointer transition-colors group/discarded",
+            expandedPanel === "discarded"
+              ? "bg-[rgba(68,68,68,0.08)]"
+              : "hover:bg-[rgba(255,255,255,0.02)]"
+          )}
+        >
+          <div className="flex items-center gap-[6px]">
+            <Ban
+              className="w-[14px] h-[14px] shrink-0"
+              style={{
+                color:
+                  expandedPanel === "discarded"
+                    ? OPPORTUNITY_STAGE_COLORS[OpportunityStage.Discarded]
+                    : "var(--text-tertiary, #777)",
+              }}
+            />
+            <span className="font-mohave text-body-lg text-text-primary">
+              {isLoading ? "--" : metrics.discardedCount}
+            </span>
+          </div>
+          <div className="flex items-center gap-[2px] mt-[2px]">
+            <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              {t("metrics.discarded")}
+            </span>
+            <ChevronDown
+              className={cn(
+                "w-[10px] h-[10px] text-text-disabled transition-transform duration-200",
+                expandedPanel === "discarded" && "rotate-180"
+              )}
+            />
+          </div>
+        </button>
       </div>
 
       {/* ── Expandable deals panel ─────────────────────────────────── */}
@@ -578,7 +629,9 @@ export function PipelineMetricsBar({
                 <span className="font-mohave text-body-sm text-text-disabled">
                   {expandedPanel === "won"
                     ? "No won deals yet"
-                    : "No lost deals"}
+                    : expandedPanel === "lost"
+                      ? "No lost deals"
+                      : "No discarded leads"}
                 </span>
               )}
             </div>
