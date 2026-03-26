@@ -156,11 +156,12 @@ export async function GET(
         status: row.status as string,
         scheduledDate: (row.scheduled_date as string) ?? undefined,
         displayOrder: (row.display_order as number) ?? 0,
-        taskType: row.task_type ? {
-          id: (row.task_type as Record<string, unknown>).id as string,
-          name: (row.task_type as Record<string, unknown>).name as string,
-          color: (row.task_type as Record<string, unknown>).color as string,
-        } : null,
+        taskType: row.task_type ? (() => {
+          const tt = Array.isArray(row.task_type) ? row.task_type[0] : row.task_type;
+          if (!tt) return null;
+          const r = tt as Record<string, unknown>;
+          return { id: r.id as string, name: r.name as string, color: r.color as string };
+        })() : null,
       })),
       photos: (photosResult.data ?? []).map((row) => ({
         id: row.id as string,

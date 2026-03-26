@@ -2,7 +2,7 @@
 // Types for the Import Your Pipeline wizard flow
 
 import type { DetectedSource, PatternDetectionResult } from '@/lib/api/services/pattern-detection-service';
-import type { ClassificationResult, ThreadAnalysisResult } from '@/lib/api/services/email-ai-classifier';
+import type { ClassificationResult } from '@/lib/api/services/email-ai-classifier';
 
 // Wizard Step 2 → Step 3: analysis results
 export interface AnalysisResult {
