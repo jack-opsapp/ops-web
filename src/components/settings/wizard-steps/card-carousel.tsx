@@ -190,7 +190,7 @@ export function CardCarousel<T>({
   const onWheel = useCallback(
     (e: React.WheelEvent<HTMLDivElement>) => {
       if (!wheelNavigation) return;
-      if (Math.abs(e.deltaY) < 5) return;
+      if (Math.abs(e.deltaY) < 2) return;
 
       if (e.deltaY > 0) {
         if (highlightedKey) handleAction(highlightedKey);
