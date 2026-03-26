@@ -223,13 +223,15 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 12,
+      version: 13,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
 
-        // ── v11 → v12: Dashboard widget consolidation ──────────────────
-        if (version < 12) {
+        // ── v11/v12 → v13: Dashboard widget consolidation ─────────────
+        // Runs for v11 (original migration) AND v12 (users who got v12
+        // version bump during hot-reload before migration code was added)
+        if (version < 13) {
           const instances = state.widgetInstances as WidgetInstance[] | undefined;
           if (instances && Array.isArray(instances)) {
             // 1. Map renamed widget type IDs
@@ -261,28 +263,49 @@ export const usePreferencesStore = create<PreferencesState>()(
 
             // 3. Replacement widgets to inject if removed widgets were present
             const REPLACEMENT_MAP: Record<string, string> = {
+              // Project stats → pipeline funnel
+              "stat-projects": "pipeline-funnel",
               "stat-projects-rfq": "pipeline-funnel",
               "stat-projects-estimated": "pipeline-funnel",
               "stat-projects-accepted": "pipeline-funnel",
               "stat-projects-in-progress": "pipeline-funnel",
               "project-status-chart": "pipeline-funnel",
+              // Task stats → task pulse
+              "stat-tasks": "task-pulse",
               "stat-tasks-booked": "task-pulse",
               "stat-tasks-in-progress": "task-pulse",
               "stat-tasks-completed": "task-pulse",
               "stat-tasks-overdue": "task-pulse",
               "task-status-chart": "task-pulse",
+              // Alert-type → action required
               "overdue-tasks": "action-required",
               "past-due-invoices": "action-required",
               "follow-ups-due": "action-required",
+              // Financial stats → their visual replacements
+              "stat-revenue": "revenue-pulse",
+              "stat-invoices": "receivables-aging",
               "stat-receivables": "receivables-aging",
               "stat-collect": "receivables-aging",
               "stat-profit-mtd": "profit-gauge",
               "stat-projected-profit": "profit-gauge",
+              // Client stats → top clients
+              "stat-clients": "top-clients",
+              "stat-clients-active": "top-clients",
               "stat-client-ranking": "top-clients",
               "stat-project-ranking": "top-clients",
               "client-revenue": "top-clients",
               "client-activity": "top-clients",
+              // Schedule stats → today's schedule
+              "stat-events": "todays-schedule",
+              // Team stats → crew board
+              "stat-team": "crew-board",
+              // Estimates → win rate
+              "stat-estimates": "win-rate",
+              "stat-opportunities": "win-rate",
               "estimates-funnel": "win-rate",
+              // Pipeline detail → pipeline funnel
+              "pipeline-value": "pipeline-funnel",
+              "pipeline-velocity": "pipeline-funnel",
             };
 
             // Process: rename, remove, inject replacements
