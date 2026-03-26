@@ -243,12 +243,12 @@ export function CardCarousel<T>({
           <AnimatePresence mode="wait">
             <motion.div
               key={`prev-${prev.id}`}
-              initial={prefersReduced ? false : { opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+              initial={prefersReduced ? false : { opacity: 0, y: -6, scale: 0.95 }}
+              animate={{ opacity: 0.35, y: 0, scale: 0.97 }}
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: dur, ease: EASE_SMOOTH }}
               className="flex-shrink-0 mb-2 pointer-events-none select-none"
-              style={{ opacity: 0.35, transform: "scale(0.97)", transformOrigin: "bottom center" }}
+              style={{ transformOrigin: "bottom center" }}
             >
               <div
                 className="border border-white/[0.06] p-4 relative"
@@ -291,12 +291,12 @@ export function CardCarousel<T>({
           <AnimatePresence mode="wait">
             <motion.div
               key={`next-${next.id}`}
-              initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+              initial={prefersReduced ? false : { opacity: 0, y: 6, scale: 0.95 }}
+              animate={{ opacity: 0.35, y: 0, scale: 0.97 }}
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: dur, ease: EASE_SMOOTH }}
               className="flex-shrink-0 mt-2 pointer-events-none select-none"
-              style={{ opacity: 0.35, transform: "scale(0.97)", transformOrigin: "top center" }}
+              style={{ transformOrigin: "top center" }}
             >
               <div
                 className="border border-white/[0.06] p-4"

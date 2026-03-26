@@ -53,9 +53,9 @@ export function FilterFlaggedStep({
 }: FilterFlaggedStepProps) {
   const { t } = useDictionary("import-wizard");
 
-  // Only flagged leads
+  // Only flagged + enabled leads (disabled leads were already excluded in step 3)
   const flaggedLeads = useMemo(
-    () => leads.filter((l) => l.needsReview),
+    () => leads.filter((l) => l.needsReview && l.enabled),
     [leads]
   );
 
@@ -109,30 +109,30 @@ export function FilterFlaggedStep({
       onComplete={onComplete}
       onBack={onBack}
       keyboardHint={t("filter.hint")}
-      renderCard={(item) => {
+      renderCard={(item, focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
         const lead = item.data;
         const reason = lead.reviewReason || "ambiguous";
         const Icon = FLAG_ICONS[reason] || HelpCircle;
 
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Flag badge */}
             <div className="flex items-center gap-2">
-              <Icon size={13} className="text-[#C4A868] flex-shrink-0" />
-              <span className="font-kosugi text-[9px] tracking-[0.12em] uppercase text-[#C4A868]">
+              <Icon size={14} className="text-[#C4A868] flex-shrink-0" />
+              <span className="font-kosugi text-[10px] tracking-[0.12em] uppercase text-[#C4A868]">
                 {t(`filter.reason.${reason}`)}
               </span>
             </div>
-            <p className="font-mohave text-[10px] text-[#666] -mt-1">
+            <p className="font-mohave text-[13px] text-[#888] -mt-2">
               {t(`filter.reason.${reason}_desc`)}
             </p>
 
             {/* Client info */}
             <div>
-              <p className="font-mohave text-[13px] text-white">
+              <p className="font-mohave text-[18px] text-white leading-tight">
                 {lead.client.name}
               </p>
-              <p className="font-mohave text-[11px] text-[#666]">
+              <p className="font-mohave text-[14px] text-[#888] mt-1">
                 {lead.client.email}
                 {lead.correspondenceCount > 1 && (
                   <span className="ml-2">
@@ -140,41 +140,51 @@ export function FilterFlaggedStep({
                   </span>
                 )}
               </p>
+              {lead.client.address && (
+                <p className="font-mohave text-[13px] text-[#999] mt-1">
+                  {lead.client.address}
+                </p>
+              )}
               {lead.emails[0] && (
-                <p className="font-mohave text-[11px] text-[#555] mt-0.5 truncate">
+                <p className="font-mohave text-[13px] text-[#777] mt-1 truncate">
                   &ldquo;{lead.emails[0].subject}&rdquo;
                 </p>
               )}
             </div>
 
             {/* Email thread */}
-            <EmailThreadView lead={lead} keyboardEnabled />
+            <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} />
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+            {/* Action buttons — only on focused card */}
+            {focused && <div className="flex items-center gap-2 pt-3 border-t border-white/5">
               <button
-                onClick={() => actions["1"](item)}
-                className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794]/30 text-[#597794] hover:bg-[#597794]/10 transition-colors"
-                style={{ borderRadius: 4 }}
+                onClick={() => triggerAction("1")}
+                className="flex-1 py-2.5 font-kosugi text-[11px] tracking-[0.1em] uppercase border transition-colors"
+                style={{
+                  borderRadius: 4,
+                  borderColor: highlightedKey === "1" ? "#597794" : "rgba(89, 119, 148, 0.3)",
+                  color: "#597794",
+                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "rgba(10, 10, 10, 0.90)",
+                }}
               >
                 1: {t("filter.import")}
               </button>
               <button
-                onClick={() => actions["2"](item)}
-                className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#666] hover:bg-white/5 transition-colors"
-                style={{ borderRadius: 4 }}
+                onClick={() => triggerAction("2")}
+                className="flex-1 py-2.5 font-kosugi text-[11px] tracking-[0.1em] uppercase border transition-colors"
+                style={{
+                  borderRadius: 4,
+                  borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
+                  color: "#888",
+                  background: highlightedKey === "2" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
+                }}
               >
                 2: {t("filter.discard")}
               </button>
-            </div>
+            </div>}
           </div>
         );
       }}
-      renderPreview={(item) => (
-        <span className="font-mohave text-[11px] text-[#777] truncate">
-          {item.data.client.name}
-        </span>
-      )}
     />
   );
 }

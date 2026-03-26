@@ -161,7 +161,7 @@ export function TriageStep({
       onComplete={onComplete}
       onBack={onBack}
       keyboardHint={t("triage.hint")}
-      renderCard={(item, _focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
+      renderCard={(item, focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
         const lead = item.data;
         const consolidated = consolidationLookup.get(lead.id);
         const displayName = consolidated
@@ -256,8 +256,8 @@ export function TriageStep({
             {/* Email thread */}
             <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} />
 
-            {/* Action buttons — sticky at bottom of scrollable card */}
-            <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
+            {/* Action buttons — only on focused card */}
+            {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
                 className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
@@ -306,7 +306,7 @@ export function TriageStep({
               >
                 4: {t("triage.discard")}
               </button>
-            </div>
+            </div>}
           </div>
         );
       }}
