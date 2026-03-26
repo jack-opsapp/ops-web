@@ -187,15 +187,10 @@ export function CardCarousel<T>({
   );
 
   // ── Mouse wheel navigation ─────────────────────────────────────────
-  const wheelCooldown = useRef(false);
   const onWheel = useCallback(
     (e: React.WheelEvent<HTMLDivElement>) => {
-      if (!wheelNavigation || wheelCooldown.current) return;
-      const threshold = 30;
-      if (Math.abs(e.deltaY) < threshold) return;
-
-      wheelCooldown.current = true;
-      setTimeout(() => { wheelCooldown.current = false; }, 300);
+      if (!wheelNavigation) return;
+      if (Math.abs(e.deltaY) < 5) return;
 
       if (e.deltaY > 0) {
         if (highlightedKey) handleAction(highlightedKey);
