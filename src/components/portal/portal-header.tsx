@@ -37,14 +37,6 @@ export function PortalHeader({
     : pathname.startsWith("/portal/messages") ? "messages"
     : activeTab;
 
-  // Determine header background based on --portal-header-style
-  const headerBg =
-    "var(--portal-header-style)" === "accent"
-      ? "var(--portal-accent)"
-      : "var(--portal-header-style)" === "solid"
-        ? "var(--portal-card)"
-        : "transparent";
-
   return (
     <header
       style={{

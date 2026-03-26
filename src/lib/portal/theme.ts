@@ -39,6 +39,8 @@ export interface PortalThemeVars {
   "--portal-card-border": string;
   "--portal-card-accent-edge": string;
   "--portal-card-accent-edge-width": string;
+  "--portal-card-border-left": string;
+  "--portal-card-border-top": string;
 
   // Section dividers
   "--portal-section-divider": string;
@@ -128,6 +130,12 @@ export function generatePortalTheme(branding: PortalBranding): PortalThemeVars {
     "--portal-card-border": template.cardBorder,
     "--portal-card-accent-edge": template.cardAccentEdge,
     "--portal-card-accent-edge-width": template.cardAccentEdgeWidth,
+    "--portal-card-border-left": template.cardAccentEdge === "left"
+      ? `${template.cardAccentEdgeWidth} solid var(--portal-accent)`
+      : "none",
+    "--portal-card-border-top": template.cardAccentEdge === "top"
+      ? `${template.cardAccentEdgeWidth} solid var(--portal-accent)`
+      : "none",
 
     // Section dividers
     "--portal-section-divider": template.sectionDivider,

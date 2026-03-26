@@ -1055,7 +1055,7 @@ No explanation.`;
       for (const tid of skipTids) {
         results.push({
           threadId: tid,
-          client: { name: '', email: '', phone: null, description: '' },
+          client: { name: '', email: '', phone: null, description: '', address: null },
           subContacts: [],
           companyName: null,
           stage: 'new_lead',
@@ -1076,7 +1076,7 @@ No explanation.`;
           console.warn(`[deep-extract] Thread ${t.threadId} not in leads/review/skip — keeping as lead (fail open)`);
           results.push({
             threadId: t.threadId,
-            client: { name: '', email: '', phone: null, description: '' },
+            client: { name: '', email: '', phone: null, description: '', address: null },
             subContacts: [],
             companyName: null,
             stage: 'new_lead',
@@ -1099,7 +1099,7 @@ No explanation.`;
       // Return empty results so leads aren't lost — Phase B will use fallback data
       return threads.map((t) => ({
         threadId: t.threadId,
-        client: { name: '', email: '', phone: null, description: '' },
+        client: { name: '', email: '', phone: null, description: '', address: null },
         subContacts: [],
         companyName: null,
         stage: 'new_lead',

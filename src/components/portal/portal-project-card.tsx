@@ -26,13 +26,9 @@ export function PortalProjectCard({ project, featured }: PortalProjectCardProps)
           boxShadow: "var(--portal-card-shadow)",
           border: "var(--portal-card-border)",
           borderRadius: "var(--portal-radius)",
-          // Accent edge
-          borderLeft: "var(--portal-card-accent-edge)" === "left"
-            ? `var(--portal-card-accent-edge-width) solid var(--portal-accent)`
-            : undefined,
-          borderTop: "var(--portal-card-accent-edge)" === "top"
-            ? `var(--portal-card-accent-edge-width) solid var(--portal-accent)`
-            : undefined,
+          // Accent edge — controlled by CSS custom properties set on the portal root
+          borderLeft: "var(--portal-card-border-left)",
+          borderTop: "var(--portal-card-border-top)",
         }}
       >
         {/* Hero image */}

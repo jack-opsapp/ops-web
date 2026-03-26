@@ -64,10 +64,10 @@ function cleanBody(raw: string): string {
 
   // Remove mobile signatures and quoted reply markers
   const signaturePatterns = [
-    /\nSent from my iPhone.*/is,
-    /\nSent from my iPad.*/is,
-    /\nGet Outlook for.*/is,
-    /\nOn .{10,80} wrote:\s*\n.*/is,
+    /\nSent from my iPhone[^\n]*/i,
+    /\nSent from my iPad[^\n]*/i,
+    /\nGet Outlook for[^\n]*/i,
+    /\nOn .{10,80} wrote:\s*\n[^\n]*/i,
   ];
   for (const pattern of signaturePatterns) {
     text = text.replace(pattern, "").trim();
