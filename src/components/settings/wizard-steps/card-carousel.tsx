@@ -230,10 +230,16 @@ export function CardCarousel<T>({
         </span>
       </div>
 
-      {/* ── Card stack: prev peek → focused → next peek ── */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      {/* ── Card stack ── */}
+      {/*
+        Layout: the stack always fills the space between header and footer.
+        Three slots: prev-peek (48px) | focused (flex-1) | next-peek (48px).
+        Slots only exist when the corresponding card exists — the focused
+        card expands to absorb the space of missing peeks.
+      */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
-        {/* Previous card peek */}
+        {/* Previous card peek — 48px, only when there's a card behind */}
         {prev && (
           <div className="flex-shrink-0 mb-1.5 relative" style={{ height: 48 }}>
             <AnimatePresence mode="wait">
@@ -257,12 +263,10 @@ export function CardCarousel<T>({
                   }}
                 >
                   {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
-                  {/* Bottom fade */}
                   <div
                     className="absolute inset-x-0 bottom-0 h-6"
                     style={{ background: "linear-gradient(to top, rgba(10,10,10,0.95), transparent)" }}
                   />
-                  {/* Decision badge */}
                   {decisions.get(prev.id) && (
                     <div
                       className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
@@ -277,25 +281,27 @@ export function CardCarousel<T>({
           </div>
         )}
 
-        {/* Focused card — content-driven height, scrolls when taller than available space */}
-        <AnimatePresence mode="wait" custom={direction}>
-          {current && (
-            <motion.div
-              key={current.id}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="flex-shrink border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
-              style={{ ...cardSurface, maxHeight: `calc(100% - ${(prev ? 50 : 0) + (next ? 50 : 0)}px)` }}
-            >
-              {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Focused card — flex-1 fills all remaining space, scrolls internally */}
+        <div className="flex-1 min-h-0 relative">
+          <AnimatePresence mode="wait" custom={direction}>
+            {current && (
+              <motion.div
+                key={current.id}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="absolute inset-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
+                style={cardSurface}
+              >
+                {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-        {/* Next card peek */}
+        {/* Next card peek — 48px, only when there's a card ahead */}
         {next && (
           <div className="flex-shrink-0 mt-1.5 relative" style={{ height: 48 }}>
             <AnimatePresence mode="wait">
@@ -319,7 +325,6 @@ export function CardCarousel<T>({
                   }}
                 >
                   {renderCard(next, false, noopSetDecision, noopTrigger, "", 0)}
-                  {/* Top fade */}
                   <div
                     className="absolute inset-x-0 top-0 h-6"
                     style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.95), transparent)" }}
@@ -329,9 +334,6 @@ export function CardCarousel<T>({
             </AnimatePresence>
           </div>
         )}
-
-        {/* Spacer — absorbs remaining space below cards */}
-        <div className="flex-1" />
       </div>
 
       {/* Footer */}
