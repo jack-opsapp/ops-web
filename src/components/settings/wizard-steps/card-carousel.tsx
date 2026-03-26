@@ -186,23 +186,7 @@ export function CardCarousel<T>({
 
   if (items.length === 0) return null;
 
-  const dur = prefersReduced ? 0 : 0.2;
-  const slideVariants = {
-    enter: (dir: number) => ({
-      y: prefersReduced ? 0 : dir > 0 ? 30 : -30,
-      opacity: 0,
-    }),
-    center: {
-      y: 0,
-      opacity: 1,
-      transition: { duration: dur, ease: EASE_SMOOTH },
-    },
-    exit: (dir: number) => ({
-      y: prefersReduced ? 0 : dir > 0 ? -30 : 30,
-      opacity: 0,
-      transition: { duration: prefersReduced ? 0 : 0.15, ease: EASE_SMOOTH },
-    }),
-  };
+  const dur = prefersReduced ? 0 : 0.3;
 
   // Shared card surface style
   const cardSurface = {
@@ -231,56 +215,73 @@ export function CardCarousel<T>({
       </div>
 
       {/* ── Card stack ── */}
-      {/*
-        The focused card sizes to its content. Peeks sit directly adjacent.
-        Remaining space falls to the bottom via a spacer.
-        When content is taller than available space, the card scrolls.
-      */}
       <div className="flex-1 min-h-0 flex flex-col">
 
         {/* Previous card — collapsed title bar, tucked behind focused card */}
-        {prev && (
-          <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {prev && (
             <motion.div
-              key={`prev-${prev.id}`}
-              initial={prefersReduced ? false : { opacity: 0, y: -4 }}
-              animate={{ opacity: 0.5, y: 0 }}
-              exit={{ opacity: 0 }}
+              key={prev.id}
+              initial={prefersReduced ? false : { opacity: 0, y: -8, scale: 0.94 }}
+              animate={{ opacity: 0.5, y: 0, scale: 0.96 }}
+              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.94 }}
               transition={{ duration: dur, ease: EASE_SMOOTH }}
               className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0"
-              style={{ transformOrigin: "bottom center", transform: "scale(0.96)" }}
+              style={{ transformOrigin: "bottom center" }}
             >
               <div
                 className="border border-white/[0.06] px-4 py-2.5 overflow-hidden relative"
                 style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", height: 40 }}
               >
                 {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
-                {/* Decision badge — top-right */}
                 {decisions.get(prev.id) && (
-                  <div
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.15, duration: 0.2 }}
                     className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
                     style={{ color: decisions.get(prev.id)!.color }}
                   >
                     {decisions.get(prev.id)!.label}
-                  </div>
+                  </motion.div>
                 )}
               </div>
             </motion.div>
-          </AnimatePresence>
-        )}
+          )}
+        </AnimatePresence>
 
-        {/* Focused card — sizes to content, shrinks + scrolls when exceeding space */}
-        <AnimatePresence mode="wait" custom={direction}>
+        {/* Focused card — sizes to content, smooth layout animation for thread expand */}
+        <AnimatePresence mode="popLayout" custom={direction} initial={false}>
           {current && (
             <motion.div
               key={current.id}
+              layout={!prefersReduced}
               custom={direction}
-              variants={slideVariants}
+              variants={{
+                enter: (dir: number) => prefersReduced ? { opacity: 1 } : {
+                  y: dir > 0 ? 30 : -20,
+                  opacity: dir > 0 ? 0.35 : 0.5,
+                  scale: dir > 0 ? 0.97 : 0.96,
+                },
+                center: {
+                  y: 0,
+                  opacity: 1,
+                  scale: 1,
+                  transition: { duration: dur, ease: EASE_SMOOTH },
+                },
+                exit: (dir: number) => prefersReduced ? { opacity: 0 } : {
+                  y: dir > 0 ? -15 : 30,
+                  opacity: dir > 0 ? 0.4 : 0.3,
+                  scale: dir > 0 ? 0.96 : 0.97,
+                  transition: { duration: dur * 0.8, ease: EASE_SMOOTH },
+                },
+              }}
               initial="enter"
               animate="center"
               exit="exit"
               className="shrink min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10"
               style={cardSurface}
+              transition={{ layout: { duration: 0.25, ease: EASE_SMOOTH } }}
             >
               {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
             </motion.div>
@@ -288,13 +289,13 @@ export function CardCarousel<T>({
         </AnimatePresence>
 
         {/* Next card — full card, faded + shrunken */}
-        {next && (
-          <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {next && (
             <motion.div
-              key={`next-${next.id}`}
-              initial={prefersReduced ? false : { opacity: 0, y: 6, scale: 0.95 }}
+              key={next.id}
+              initial={prefersReduced ? false : { opacity: 0, y: 20, scale: 0.94 }}
               animate={{ opacity: 0.35, y: 0, scale: 0.97 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.94 }}
               transition={{ duration: dur, ease: EASE_SMOOTH }}
               className="flex-shrink-0 mt-2 pointer-events-none select-none"
               style={{ transformOrigin: "top center" }}
@@ -306,8 +307,8 @@ export function CardCarousel<T>({
                 {renderCard(next, false, noopSetDecision, noopTrigger, "", 0)}
               </div>
             </motion.div>
-          </AnimatePresence>
-        )}
+          )}
+        </AnimatePresence>
 
         {/* Spacer — absorbs remaining vertical space below the stack */}
         <div className="flex-1 shrink-0" />
