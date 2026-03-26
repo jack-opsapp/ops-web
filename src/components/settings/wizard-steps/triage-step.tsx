@@ -257,7 +257,7 @@ export function TriageStep({
             <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} />
 
             {/* Action buttons — sticky at bottom of scrollable card */}
-            <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-1 px-1 -mb-4">
+            <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-3 px-3 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
                 className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
@@ -265,7 +265,7 @@ export function TriageStep({
                   borderRadius: 4,
                   borderColor: highlightedKey === "1" ? "#9DB582" : "rgba(157, 181, 130, 0.3)",
                   color: "#9DB582",
-                  background: highlightedKey === "1" ? "rgba(157, 181, 130, 0.12)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "1" ? "rgb(20, 26, 18)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
                 1: {t("triage.won")}
@@ -277,7 +277,7 @@ export function TriageStep({
                   borderRadius: 4,
                   borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
                   color: "#888",
-                  background: highlightedKey === "2" ? "rgba(255,255,255,0.06)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "2" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
                 2: {t("triage.lost")}
@@ -289,7 +289,7 @@ export function TriageStep({
                   borderRadius: 4,
                   borderColor: highlightedKey === "3" ? "#597794" : "rgba(89, 119, 148, 0.3)",
                   color: "#597794",
-                  background: highlightedKey === "3" ? "rgba(89, 119, 148, 0.12)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "3" ? "rgb(18, 24, 30)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
                 3: {t("triage.active")}
@@ -301,7 +301,7 @@ export function TriageStep({
                   borderRadius: 4,
                   borderColor: highlightedKey === "4" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
                   color: "#555",
-                  background: highlightedKey === "4" ? "rgba(255,255,255,0.04)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "4" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
                 4: {t("triage.discard")}
