@@ -39,6 +39,7 @@ interface PipelineCardProps {
   onLogText: () => void;
   onAddNote: (note: string) => void;
   onArchive: () => void;
+  onDiscard: () => void;
   onMarkWon: () => void;
   onMarkLost: () => void;
   onOpenDetail: () => void;
@@ -121,6 +122,7 @@ export function PipelineCard({
   onLogText,
   onAddNote,
   onArchive,
+  onDiscard,
   onMarkWon,
   onMarkLost,
   onOpenDetail,
@@ -429,6 +431,7 @@ export function PipelineCard({
                   onLogText={onLogText}
                   onAddNote={onAddNote}
                   onArchive={onArchive}
+                  onDiscard={onDiscard}
                   onMarkWon={onMarkWon}
                   onMarkLost={onMarkLost}
                   onAssign={onAssign}

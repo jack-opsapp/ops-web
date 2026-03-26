@@ -38,6 +38,7 @@ interface PipelineColumnProps {
   onLogText: (opportunityId: string) => void;
   onAddNote: (opportunityId: string, note: string) => void;
   onArchive: (opportunityId: string) => void;
+  onDiscard: (opportunityId: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
   onOpenDetail: (opportunity: Opportunity) => void;
@@ -63,6 +64,7 @@ function DraggableCard({
   onLogText,
   onAddNote,
   onArchive,
+  onDiscard,
   onMarkWon,
   onMarkLost,
   onOpenDetail,
@@ -81,6 +83,7 @@ function DraggableCard({
   onLogText: () => void;
   onAddNote: (note: string) => void;
   onArchive: () => void;
+  onDiscard: () => void;
   onMarkWon: () => void;
   onMarkLost: () => void;
   onOpenDetail: () => void;
@@ -107,6 +110,7 @@ function DraggableCard({
         onLogText={onLogText}
         onAddNote={onAddNote}
         onArchive={onArchive}
+        onDiscard={onDiscard}
         onMarkWon={onMarkWon}
         onMarkLost={onMarkLost}
         onOpenDetail={onOpenDetail}
@@ -135,6 +139,7 @@ export function PipelineColumn({
   onLogText,
   onAddNote,
   onArchive,
+  onDiscard,
   onMarkWon,
   onMarkLost,
   onOpenDetail,
@@ -255,6 +260,7 @@ export function PipelineColumn({
                 onLogText={() => onLogText(opp.id)}
                 onAddNote={(note) => onAddNote(opp.id, note)}
                 onArchive={() => onArchive(opp.id)}
+                onDiscard={() => onDiscard(opp.id)}
                 onMarkWon={() => onMarkWon(opp)}
                 onMarkLost={() => onMarkLost(opp)}
                 onOpenDetail={() => onOpenDetail(opp)}

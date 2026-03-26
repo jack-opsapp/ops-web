@@ -39,6 +39,7 @@ interface PipelineBoardProps {
   onLogText: (opportunityId: string) => void;
   onAddNote: (opportunityId: string, note: string) => void;
   onArchive: (opportunityId: string) => void;
+  onDiscard: (opportunityId: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
   onOpenDetail: (opportunity: Opportunity) => void;
@@ -73,6 +74,7 @@ export function PipelineBoard({
   onLogText,
   onAddNote,
   onArchive,
+  onDiscard,
   onMarkWon,
   onMarkLost,
   onOpenDetail,
@@ -247,6 +249,7 @@ export function PipelineBoard({
             onLogText={onLogText}
             onAddNote={onAddNote}
             onArchive={onArchive}
+            onDiscard={onDiscard}
             onMarkWon={onMarkWon}
             onMarkLost={onMarkLost}
             onOpenDetail={onOpenDetail}
@@ -301,6 +304,7 @@ export function PipelineBoard({
               onLogText={() => {}}
               onAddNote={() => {}}
               onArchive={() => {}}
+              onDiscard={() => {}}
               onMarkWon={() => {}}
               onMarkLost={() => {}}
               onOpenDetail={() => {}}
