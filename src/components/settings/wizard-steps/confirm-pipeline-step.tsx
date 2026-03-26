@@ -20,11 +20,12 @@ const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
   negotiation: { label: "Negotiation", color: "#B58289" },
   won: { label: "Won", color: "#9DB582" },
   lost: { label: "Lost", color: "#6B7280" },
+  discarded: { label: "Discarded", color: "#444444" },
 };
 
 const ALL_STAGES = [
   "new_lead", "qualifying", "quoting", "quoted",
-  "follow_up", "negotiation", "won", "lost",
+  "follow_up", "negotiation", "won", "lost", "discarded",
 ];
 
 const ACTIVE_STAGES = [
@@ -100,6 +101,8 @@ export function ConfirmPipelineStep({
         won++;
       } else if (decision === "lost" || lead.stage === "lost") {
         lost++;
+      } else if (lead.stage === "discarded") {
+        discarded++;
       } else if (!lead.needsReview) {
         active++;
       }
@@ -108,22 +111,34 @@ export function ConfirmPipelineStep({
     return { active, won, lost, discarded, importTotal: active + won + lost };
   }, [leads, triageDecisions]);
 
-  // Active leads grouped by stage (for the list view)
-  const activeLeads = useMemo(() => {
+  // All importable leads (enabled, not discarded) grouped by stage
+  const importableLeads = useMemo(() => {
     return leads.filter((l) => {
       if (!l.enabled) return false;
       const decision = triageDecisions.get(l.id);
-      return decision === "active" || (!decision && !l.needsReview && l.stage !== "won" && l.stage !== "lost");
+      if (decision === "discard") return false;
+      if (l.stage === "discarded") return false;
+      if (decision === "won" || decision === "lost" || decision === "active") return true;
+      // No explicit decision — include if not flagged for review
+      return !l.needsReview;
     });
   }, [leads, triageDecisions]);
 
-  const activeGrouped = useMemo(() => {
+  const stageGrouped = useMemo(() => {
     const groups: Record<string, AnalyzedLead[]> = {};
-    for (const stage of ACTIVE_STAGES) {
-      groups[stage] = activeLeads.filter((l) => l.stage === stage);
+    for (const stage of ALL_STAGES) {
+      groups[stage] = importableLeads.filter((l) => {
+        const decision = triageDecisions.get(l.id);
+        // Triage decision overrides the lead's original stage
+        if (decision === "won") return stage === "won";
+        if (decision === "lost") return stage === "lost";
+        if (decision === "active") return l.stage === stage && stage !== "won" && stage !== "lost";
+        // No decision — use lead's own stage
+        return l.stage === stage;
+      });
     }
     return groups;
-  }, [activeLeads]);
+  }, [importableLeads, triageDecisions]);
 
   const getDisplayName = (lead: AnalyzedLead) => {
     const consolidated = consolidationLookup.get(lead.id);
@@ -172,10 +187,16 @@ export function ConfirmPipelineStep({
       </div>
 
       {/* Scrollable stage groups */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide relative pb-20">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto scrollbar-hide overscroll-contain relative pb-20"
+        style={{
+          maskImage: "linear-gradient(to bottom, transparent 0%, black 8px, black calc(100% - 8px), transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 8px, black calc(100% - 8px), transparent 100%)",
+        }}
+      >
         <div className="space-y-2">
-          {ACTIVE_STAGES.map((stage) => {
-            const stageLeads = activeGrouped[stage];
+          {ALL_STAGES.map((stage) => {
+            const stageLeads = stageGrouped[stage];
             if (!stageLeads || stageLeads.length === 0) return null;
 
             const config = STAGE_CONFIG[stage];
@@ -237,7 +258,7 @@ export function ConfirmPipelineStep({
 
         {/* Sticky summary bar */}
         <div
-          className="sticky bottom-0 -mx-4 px-4 py-3 flex items-center justify-between border-t border-white/8 mt-4"
+          className="sticky bottom-0 -mx-4 px-4 py-3 flex items-center justify-between border-t border-white/10 mt-4"
           style={{
             background: "rgba(10, 10, 10, 0.90)",
             backdropFilter: "blur(20px) saturate(1.2)",
@@ -295,14 +316,23 @@ function LeadRow({
 }) {
   return (
     <div
-      className="py-2 px-2.5 border border-white/5"
+      className="py-2.5 px-3 border border-white/5"
       style={{ borderRadius: 2 }}
     >
       <div className="flex items-center gap-3">
-        {/* Name */}
-        <span className="font-mohave text-[12px] text-white flex-1 truncate">
-          {displayName}
-        </span>
+        {/* Name + metadata */}
+        <div className="flex-1 min-w-0">
+          <span className="font-mohave text-[13px] text-white truncate block">
+            {displayName}
+          </span>
+          {(lead.client.address || lead.client.description) && (
+            <span className="font-mohave text-[11px] text-[#777] truncate block mt-0.5">
+              {lead.client.address && <span>{lead.client.address}</span>}
+              {lead.client.address && lead.client.description && <span> · </span>}
+              {lead.client.description && <span>{lead.client.description}</span>}
+            </span>
+          )}
+        </div>
 
         {/* Stage dropdown — includes won/lost for reclassification */}
         <select
