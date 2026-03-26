@@ -238,46 +238,34 @@ export function CardCarousel<T>({
       */}
       <div className="flex-1 min-h-0 flex flex-col">
 
-        {/* Previous card peek — 48px, only when there's a card behind */}
+        {/* Previous card — full card, faded + shrunken */}
         {prev && (
-          <div className="flex-shrink-0 mb-1.5 relative" style={{ height: 48 }}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`prev-${prev.id}`}
-                initial={prefersReduced ? false : { opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: dur, ease: EASE_SMOOTH }}
-                className="absolute inset-0"
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`prev-${prev.id}`}
+              initial={prefersReduced ? false : { opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: dur, ease: EASE_SMOOTH }}
+              className="flex-shrink-0 mb-2 pointer-events-none select-none"
+              style={{ opacity: 0.35, transform: "scale(0.97)", transformOrigin: "bottom center" }}
+            >
+              <div
+                className="border border-white/[0.06] p-4 relative"
+                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)" }}
               >
-                <div
-                  className="px-4 py-3 overflow-hidden pointer-events-none select-none relative border border-white/[0.06]"
-                  style={{
-                    borderRadius: 4,
-                    background: "rgba(255, 255, 255, 0.02)",
-                    height: 48,
-                    opacity: 0.6,
-                    transform: "scale(0.98)",
-                    transformOrigin: "bottom center",
-                  }}
-                >
-                  {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
+                {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
+                {decisions.get(prev.id) && (
                   <div
-                    className="absolute inset-x-0 bottom-0 h-6"
-                    style={{ background: "linear-gradient(to top, rgba(10,10,10,0.95), transparent)" }}
-                  />
-                  {decisions.get(prev.id) && (
-                    <div
-                      className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
-                      style={{ color: decisions.get(prev.id)!.color }}
-                    >
-                      {decisions.get(prev.id)!.label}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
+                    className="absolute top-3 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
+                    style={{ color: decisions.get(prev.id)!.color }}
+                  >
+                    {decisions.get(prev.id)!.label}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </AnimatePresence>
         )}
 
         {/* Focused card — sizes to content, shrinks + scrolls when exceeding space */}
@@ -290,7 +278,7 @@ export function CardCarousel<T>({
               initial="enter"
               animate="center"
               exit="exit"
-              className="shrink min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
+              className="shrink min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10"
               style={cardSurface}
             >
               {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
@@ -298,38 +286,26 @@ export function CardCarousel<T>({
           )}
         </AnimatePresence>
 
-        {/* Next card peek — 48px, only when there's a card ahead */}
+        {/* Next card — full card, faded + shrunken */}
         {next && (
-          <div className="flex-shrink-0 mt-1.5 relative" style={{ height: 48 }}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`next-${next.id}`}
-                initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: dur, ease: EASE_SMOOTH }}
-                className="absolute inset-0"
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`next-${next.id}`}
+              initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: dur, ease: EASE_SMOOTH }}
+              className="flex-shrink-0 mt-2 pointer-events-none select-none"
+              style={{ opacity: 0.35, transform: "scale(0.97)", transformOrigin: "top center" }}
+            >
+              <div
+                className="border border-white/[0.06] p-4"
+                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)" }}
               >
-                <div
-                  className="px-4 py-3 overflow-hidden pointer-events-none select-none relative border border-white/[0.06]"
-                  style={{
-                    borderRadius: 4,
-                    background: "rgba(255, 255, 255, 0.02)",
-                    height: 48,
-                    opacity: 0.5,
-                    transform: "scale(0.98)",
-                    transformOrigin: "top center",
-                  }}
-                >
-                  {renderCard(next, false, noopSetDecision, noopTrigger, "", 0)}
-                  <div
-                    className="absolute inset-x-0 top-0 h-6"
-                    style={{ background: "linear-gradient(to bottom, rgba(10,10,10,0.95), transparent)" }}
-                  />
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
+                {renderCard(next, false, noopSetDecision, noopTrigger, "", 0)}
+              </div>
+            </motion.div>
+          </AnimatePresence>
         )}
 
         {/* Spacer — absorbs remaining vertical space below the stack */}
