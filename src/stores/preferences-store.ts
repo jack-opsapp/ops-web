@@ -42,21 +42,16 @@ export const WIDGET_GAP_VALUES: Record<WidgetGapId, number> = {
 // Default widget instances — shown for new users / reset
 // ---------------------------------------------------------------------------
 const DEFAULT_WIDGET_INSTANCES: WidgetInstance[] = [
-  createWidgetInstance("stat-projects-rfq"),
-  createWidgetInstance("stat-projects-estimated"),
-  createWidgetInstance("stat-projects-accepted"),
-  createWidgetInstance("stat-projects-in-progress"),
-  createWidgetInstance("stat-tasks", { filter: "due-today" }),
-  createWidgetInstance("stat-tasks-overdue"),
-  createWidgetInstance("stat-events", { range: "this-week" }),
-  createWidgetInstance("stat-receivables"),
-  createWidgetInstance("stat-profit-mtd"),
-  createWidgetInstance("calendar"),
-  createWidgetInstance("task-list", { filter: "upcoming" }),
-  createWidgetInstance("crew-status"),
-  createWidgetInstance("pipeline-funnel"),
-  createWidgetInstance("revenue-chart", { period: "6mo" }),
-  createWidgetInstance("activity-feed", { entityFilter: "all" }),
+  createWidgetInstance("revenue-pulse", { period: "ytd" }, "sm"),
+  createWidgetInstance("profit-gauge", { period: "mtd" }, "xs"),
+  createWidgetInstance("win-rate", { period: "90d" }, "xs"),
+  createWidgetInstance("backlog-depth", {}, "xs"),
+  createWidgetInstance("pipeline-funnel", {}, "md"),
+  createWidgetInstance("receivables-aging", {}, "md"),
+  createWidgetInstance("task-pulse", {}, "sm"),
+  createWidgetInstance("crew-board", {}, "md"),
+  createWidgetInstance("action-required", {}, "md"),
+  createWidgetInstance("activity-feed", { entityFilter: "all" }, "sm"),
 ];
 
 // ---------------------------------------------------------------------------
@@ -228,10 +223,100 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 11,
+      version: 12,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
+
+        // ── v11 → v12: Dashboard widget consolidation ──────────────────
+        if (version < 12) {
+          const instances = state.widgetInstances as WidgetInstance[] | undefined;
+          if (instances && Array.isArray(instances)) {
+            // 1. Map renamed widget type IDs
+            const RENAME_MAP: Record<string, string> = {
+              "revenue-chart": "revenue-pulse",
+              "invoice-aging": "receivables-aging",
+              "expense-summary": "expense-tracker",
+              "calendar": "todays-schedule",
+              "crew-status": "crew-board",
+              "pipeline-sources": "lead-sources",
+            };
+
+            // 2. Widget IDs that are removed entirely
+            const REMOVED_IDS = new Set([
+              "stat-projects", "stat-tasks", "stat-events", "stat-clients",
+              "stat-team", "stat-revenue", "stat-invoices", "stat-estimates",
+              "stat-opportunities", "stat-projects-rfq", "stat-projects-estimated",
+              "stat-projects-accepted", "stat-projects-in-progress",
+              "stat-projects-completed", "stat-tasks-booked",
+              "stat-tasks-in-progress", "stat-tasks-completed",
+              "stat-tasks-overdue", "stat-clients-active", "stat-receivables",
+              "stat-collect", "stat-profit-mtd", "stat-projected-profit",
+              "stat-client-ranking", "stat-project-ranking",
+              "project-status-chart", "task-status-chart",
+              "pipeline-value", "pipeline-velocity", "estimates-funnel",
+              "client-revenue", "client-activity",
+              "follow-ups-due", "overdue-tasks", "past-due-invoices",
+            ]);
+
+            // 3. Replacement widgets to inject if removed widgets were present
+            const REPLACEMENT_MAP: Record<string, string> = {
+              "stat-projects-rfq": "pipeline-funnel",
+              "stat-projects-estimated": "pipeline-funnel",
+              "stat-projects-accepted": "pipeline-funnel",
+              "stat-projects-in-progress": "pipeline-funnel",
+              "project-status-chart": "pipeline-funnel",
+              "stat-tasks-booked": "task-pulse",
+              "stat-tasks-in-progress": "task-pulse",
+              "stat-tasks-completed": "task-pulse",
+              "stat-tasks-overdue": "task-pulse",
+              "task-status-chart": "task-pulse",
+              "overdue-tasks": "action-required",
+              "past-due-invoices": "action-required",
+              "follow-ups-due": "action-required",
+              "stat-receivables": "receivables-aging",
+              "stat-collect": "receivables-aging",
+              "stat-profit-mtd": "profit-gauge",
+              "stat-projected-profit": "profit-gauge",
+              "stat-client-ranking": "top-clients",
+              "stat-project-ranking": "top-clients",
+              "client-revenue": "top-clients",
+              "client-activity": "top-clients",
+              "estimates-funnel": "win-rate",
+            };
+
+            // Process: rename, remove, inject replacements
+            const replacementsToInject = new Set<string>();
+            const migrated: WidgetInstance[] = [];
+
+            for (const inst of instances) {
+              // Rename
+              if (inst.typeId in RENAME_MAP) {
+                migrated.push({ ...inst, typeId: RENAME_MAP[inst.typeId] as WidgetTypeId });
+                continue;
+              }
+              // Remove + track replacement
+              if (REMOVED_IDS.has(inst.typeId)) {
+                const replacement = REPLACEMENT_MAP[inst.typeId];
+                if (replacement) replacementsToInject.add(replacement);
+                continue;
+              }
+              // Keep
+              migrated.push(inst);
+            }
+
+            // Inject replacement widgets (only if not already present)
+            const presentTypeIds = new Set<string>(migrated.map(i => i.typeId));
+            for (const typeId of replacementsToInject) {
+              if (!presentTypeIds.has(typeId)) {
+                migrated.push(createWidgetInstance(typeId as WidgetTypeId));
+                presentTypeIds.add(typeId);
+              }
+            }
+
+            state.widgetInstances = migrated;
+          }
+        }
 
         // ── v10 → v11: Add widgetGap preference — no migration needed, default applies ──
 
@@ -270,8 +355,8 @@ export const usePreferencesStore = create<PreferencesState>()(
           const oldOrder = state.widgetOrder as string[] | undefined;
 
           if (oldConfigs && oldOrder) {
-            // Map old fixed IDs to new type IDs
-            const OLD_TO_NEW: Record<string, { typeId: WidgetTypeId; config?: Record<string, unknown> }> = {
+            // Map old v4 fixed IDs → v5 type IDs (v12 migration will then transform these)
+            const OLD_TO_NEW: Record<string, { typeId: string; config?: Record<string, unknown> }> = {
               "stat-active-projects": { typeId: "stat-projects", config: { statusFilter: "all" } },
               "stat-weekly-events": { typeId: "stat-events", config: { range: "this-week" } },
               "stat-total-clients": { typeId: "stat-clients", config: { filter: "all" } },
@@ -293,7 +378,7 @@ export const usePreferencesStore = create<PreferencesState>()(
               if (!mapping || !oldCfg) continue;
 
               instances.push({
-                ...createWidgetInstance(mapping.typeId, mapping.config),
+                ...createWidgetInstance(mapping.typeId as WidgetTypeId, mapping.config),
                 size: oldCfg.size,
                 visible: oldCfg.visible,
               });
