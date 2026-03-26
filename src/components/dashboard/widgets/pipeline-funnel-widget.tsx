@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState, useRef } from "react";
+import { Filter } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
+import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import type { Project } from "@/lib/types/models";
 import {
   ProjectStatus,
@@ -12,254 +15,262 @@ import {
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 
-interface PipelineWidgetProps {
+// ---------------------------------------------------------------------------
+// Funnel stage definitions
+// ---------------------------------------------------------------------------
+const FUNNEL_STAGES = [
+  { status: ProjectStatus.RFQ, maxWidth: 100, label: "RFQ" },
+  { status: ProjectStatus.Estimated, maxWidth: 80, label: "Estimated" },
+  { status: ProjectStatus.Accepted, maxWidth: 60, label: "Accepted" },
+  { status: ProjectStatus.InProgress, maxWidth: 45, label: "In Progress" },
+] as const;
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+interface PipelineFunnelWidgetProps {
   size: WidgetSize;
   projects: Project[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
 }
 
-export function PipelineWidget({
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function formatCurrency(amount: number): string {
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+  return `$${amount.toFixed(0)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+export function PipelineFunnelWidget({
   size,
   projects,
   isLoading,
   onNavigate,
-}: PipelineWidgetProps) {
+}: PipelineFunnelWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const ref = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    stage: string;
+    count: number;
+    pct: number;
+  }>({ visible: false, x: 0, y: 0, stage: "", count: 0, pct: 0 });
+
   const stages = useMemo(() => {
     const activeProjects = projects.filter(
       (p) => !p.deletedAt && isActiveProjectStatus(p.status)
     );
     const total = activeProjects.length;
+    const maxCount = Math.max(
+      ...FUNNEL_STAGES.map((s) => activeProjects.filter((p) => p.status === s.status).length),
+      1
+    );
 
-    const pipelineStatuses = [
-      ProjectStatus.RFQ,
-      ProjectStatus.Estimated,
-      ProjectStatus.Accepted,
-      ProjectStatus.InProgress,
-    ];
-
-    return pipelineStatuses.map((status) => {
-      const count = activeProjects.filter((p) => p.status === status).length;
-      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+    return FUNNEL_STAGES.map((stage) => {
+      const stageProjects = activeProjects.filter((p) => p.status === stage.status);
+      const count = stageProjects.length;
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      // Proportional bar width within the max-width container
+      const fillPct = maxCount > 0 ? (count / maxCount) * 100 : 0;
       return {
-        label: status === ProjectStatus.InProgress ? t("pipelineFunnel.inProgress") : status,
+        ...stage,
         count,
-        color: PROJECT_STATUS_COLORS[status],
-        percentage,
+        pct,
+        fillPct,
+        color: PROJECT_STATUS_COLORS[stage.status],
+        projects: stageProjects,
       };
     });
   }, [projects]);
 
   const totalProjects = stages.reduce((sum, s) => sum + s.count, 0);
 
-  // Per-stage project lists (used by lg variant, cheap to compute regardless)
-  const stageProjects = useMemo(() => {
-    const pipelineStatuses = [
-      ProjectStatus.RFQ,
-      ProjectStatus.Estimated,
-      ProjectStatus.Accepted,
-      ProjectStatus.InProgress,
-    ];
-    return pipelineStatuses.map((status) => ({
-      status,
-      projects: projects.filter(
-        (p) => !p.deletedAt && p.status === status
-      ),
-    }));
-  }, [projects]);
+  const reducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
 
-  // sm: bar only
+  if (isLoading) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="pb-1 pt-2 px-3">
+          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+            {t("pipelineFunnel.title") ?? "Pipeline"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 pb-2">
+          <WidgetSkeleton variant="funnel" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Empty state
+  if (totalProjects === 0) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="pb-1 pt-2 px-3">
+          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+            {t("pipelineFunnel.title") ?? "Pipeline"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 pb-2">
+          <div className="flex flex-col items-center gap-[3px]">
+            {FUNNEL_STAGES.map((stage, i) => (
+              <div
+                key={i}
+                className="h-[16px] rounded-sm border border-dashed border-[rgba(255,255,255,0.12)]"
+                style={{ width: `${stage.maxWidth}%` }}
+              />
+            ))}
+          </div>
+          <p className="font-kosugi text-[9px] text-text-tertiary mt-2 text-center">
+            {t("pipelineFunnel.noProjects") ?? "No active projects"}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const handleBarHover = (e: React.MouseEvent, stage: typeof stages[number]) => {
+    const parentRect = ref.current?.getBoundingClientRect();
+    const barRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    if (!parentRect) return;
+    setTooltip({
+      visible: true,
+      x: barRect.left - parentRect.left + barRect.width / 2,
+      y: barRect.top - parentRect.top,
+      stage: stage.label,
+      count: stage.count,
+      pct: stage.pct,
+    });
+  };
+
+  const barHeight = size === "sm" ? 12 : 16;
+
+  // ── SM ──────────────────────────────────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">{t("pipelineFunnel.title")}</CardTitle>
-            <span className="font-mono text-[11px] text-text-tertiary">
-              {isLoading ? "..." : `${totalProjects}`}
-            </span>
-          </div>
+      <Card className="h-full">
+        <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+            {t("pipelineFunnel.title") ?? "Pipeline"}
+          </CardTitle>
+          <span className="font-mono text-[11px] text-text-tertiary">{totalProjects}</span>
         </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-2">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            </div>
-          ) : (
-            <div className="flex h-[8px] rounded-full overflow-hidden">
-              {stages.map((stage, i) => (
+        <CardContent className="px-3 pb-2 overflow-hidden">
+          <div ref={ref} className="flex flex-col items-center gap-[3px] relative cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+            {stages.map((stage, i) => (
+              <div key={i} className="w-full flex justify-center" style={{ maxWidth: `${stage.maxWidth}%` }}>
                 <div
-                  key={i}
-                  className="h-full transition-all duration-500"
+                  className="rounded-sm transition-all"
                   style={{
-                    width: totalProjects > 0 ? `${stage.percentage}%` : "25%",
+                    height: `${barHeight}px`,
+                    width: isVisible ? `${Math.max(stage.fillPct, stage.count > 0 ? 8 : 0)}%` : "0%",
                     backgroundColor: stage.color,
-                    marginRight: i < stages.length - 1 ? "1px" : "0",
-                    opacity: totalProjects > 0 ? 1 : 0.2,
+                    transitionDuration: reducedMotion ? "200ms" : "500ms",
+                    transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
+                    transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
                   }}
                 />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // lg: bar + list + stage detail with project names
-  if (size === "lg") {
-    return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1.5 shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">{t("pipelineFunnel.title")}</CardTitle>
-            <span className="font-mono text-[11px] text-text-tertiary">
-              {isLoading ? "..." : `${totalProjects} ${t("pipelineFunnel.active")}`}
-            </span>
+              </div>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">{t("pipelineFunnel.loading")}</span>
-            </div>
-          ) : (
-            <>
-              {/* Stacked bar */}
-              <div className="flex h-[8px] rounded-full overflow-hidden mb-2">
-                {stages.map((stage, i) => (
-                  <div
-                    key={i}
-                    className="h-full transition-all duration-500"
-                    style={{
-                      width: totalProjects > 0 ? `${stage.percentage}%` : "25%",
-                      backgroundColor: stage.color,
-                      marginRight: i < stages.length - 1 ? "1px" : "0",
-                      opacity: totalProjects > 0 ? 1 : 0.2,
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Stage breakdown with project names */}
-              <div className="space-y-1.5">
-                {stages.map((stage, i) => (
-                  <div key={i}>
-                    <div
-                      onClick={() => onNavigate("/pipeline")}
-                      className="flex items-center justify-between cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded px-1 py-[2px] transition-colors"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span
-                          className="w-[8px] h-[8px] rounded-sm shrink-0"
-                          style={{ backgroundColor: stage.color }}
-                        />
-                        <span className="font-mohave text-body-sm text-text-secondary">
-                          {stage.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono text-body-sm text-text-primary font-medium">
-                          {stage.count}
-                        </span>
-                        <span className="font-mono text-[10px] text-text-disabled">
-                          ({stage.percentage}%)
-                        </span>
-                      </div>
-                    </div>
-                    {/* Project names under each stage */}
-                    {stageProjects[i]?.projects.slice(0, 2).map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => onNavigate(`/projects/${p.id}`)}
-                        className="pl-[24px] py-[2px] cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded transition-colors"
-                      >
-                        <span className="font-mohave text-[12px] text-text-tertiary truncate block">
-                          {p.title || t("pipelineFunnel.untitled")}
-                        </span>
-                      </div>
-                    ))}
-                    {(stageProjects[i]?.projects.length ?? 0) > 2 && (
-                      <span className="font-mono text-[10px] text-text-disabled pl-[24px]">
-                        +{(stageProjects[i]?.projects.length ?? 0) - 2} {t("pipelineFunnel.more")}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
     );
   }
 
-  // md: bar + list (current default)
+  // ── MD / LG ─────────────────────────────────────────────────────────────
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">{t("pipelineFunnel.title")}</CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">
-            {isLoading ? "..." : `${totalProjects} ${t("pipelineFunnel.active")}`}
-          </span>
-        </div>
+    <Card className="h-full" ref={ref}>
+      <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
+        <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          {t("pipelineFunnel.title") ?? "Pipeline"}
+        </CardTitle>
+        <span className="font-mono text-[11px] text-text-tertiary">
+          {totalProjects}
+        </span>
       </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-y-auto min-h-0 scrollbar-hide">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("pipelineFunnel.loading")}</span>
-          </div>
-        ) : (
-          <>
-            {/* Stacked bar */}
-            <div className="flex h-[8px] rounded-full overflow-hidden mb-2">
-              {stages.map((stage, i) => (
-                <div
-                  key={i}
-                  className="h-full transition-all duration-500"
-                  style={{
-                    width: totalProjects > 0 ? `${stage.percentage}%` : "25%",
-                    backgroundColor: stage.color,
-                    marginRight: i < stages.length - 1 ? "1px" : "0",
-                    opacity: totalProjects > 0 ? 1 : 0.2,
-                  }}
-                />
-              ))}
-            </div>
+      <CardContent className="px-3 pb-2 overflow-hidden relative">
+        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchor="above">
+          <TooltipRow label={tooltip.stage} value={`${tooltip.count}`} />
+          <TooltipRow label="Of pipeline" value={`${tooltip.pct}%`} />
+        </WidgetTooltip>
 
-            {/* Stage breakdown */}
-            <div className="space-y-[6px]">
-              {stages.map((stage, i) => (
+        {/* Funnel bars */}
+        <div className="flex flex-col gap-[3px] cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+          {stages.map((stage, i) => (
+            <div key={i} className="flex items-center gap-2">
+              {/* Bar container */}
+              <div className="flex-1" style={{ maxWidth: `${stage.maxWidth}%` }}>
                 <div
-                  key={i}
-                  onClick={() => onNavigate("/pipeline")}
-                  className="flex items-center justify-between cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded px-1 py-[2px] transition-colors"
-                >
-                  <div className="flex items-center gap-1">
-                    <span
-                      className="w-[8px] h-[8px] rounded-sm shrink-0"
-                      style={{ backgroundColor: stage.color }}
-                    />
-                    <span className="font-mohave text-body-sm text-text-secondary">
-                      {stage.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono text-body-sm text-text-primary font-medium">
-                      {stage.count}
-                    </span>
-                    <span className="font-mono text-[10px] text-text-disabled">
-                      ({stage.percentage}%)
-                    </span>
-                  </div>
-                </div>
-              ))}
+                  className="rounded-sm transition-all"
+                  style={{
+                    height: `${barHeight}px`,
+                    width: isVisible ? `${Math.max(stage.fillPct, stage.count > 0 ? 8 : 0)}%` : "0%",
+                    backgroundColor: stage.color,
+                    transitionDuration: reducedMotion ? "200ms" : "500ms",
+                    transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
+                    transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                  onMouseEnter={(e) => handleBarHover(e, stage)}
+                  onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+                />
+              </div>
+              {/* Label + count */}
+              <div className="flex items-center gap-1 shrink-0 min-w-[80px]">
+                <span className="font-mohave text-[11px] text-text-secondary">{stage.label}</span>
+                <span className="font-mono text-[11px] text-text-primary font-medium">{stage.count}</span>
+              </div>
             </div>
-          </>
+          ))}
+        </div>
+
+        {/* LG: Per-stage project names */}
+        {size === "lg" && (
+          <div className="mt-2 pt-2 border-t border-border-primary">
+            {stages.map((stage, si) => {
+              if (stage.count === 0) return null;
+              return (
+                <div key={si} className="mb-1.5 last:mb-0">
+                  <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+                    {stage.label}
+                  </span>
+                  {stage.projects.slice(0, 2).map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between py-[2px] px-1 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                      onClick={(e) => { e.stopPropagation(); onNavigate(`/projects/${p.id}`); }}
+                    >
+                      <span className="font-mohave text-[12px] text-text-secondary truncate flex-1 min-w-0">
+                        {p.title || "Untitled"}
+                      </span>
+                      {p.client?.name && (
+                        <span className="font-kosugi text-[9px] text-text-tertiary truncate ml-2 shrink-0">
+                          {p.client.name}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {stage.count > 2 && (
+                    <span className="font-mono text-[10px] text-text-disabled pl-1">
+                      +{stage.count - 2} more
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
