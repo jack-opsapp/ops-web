@@ -187,10 +187,23 @@ export function CardCarousel<T>({
   );
 
   // ── Mouse wheel navigation ─────────────────────────────────────────
+  const cardRef = useRef<HTMLDivElement>(null);
   const onWheel = useCallback(
     (e: React.WheelEvent<HTMLDivElement>) => {
       if (!wheelNavigation) return;
       if (Math.abs(e.deltaY) < 2) return;
+
+      // If the card has scrollable content, let it scroll first
+      const card = cardRef.current;
+      if (card && card.scrollHeight > card.clientHeight) {
+        const atTop = card.scrollTop <= 0;
+        const atBottom = card.scrollTop + card.clientHeight >= card.scrollHeight - 1;
+
+        // Scrolling down but not at bottom — let card scroll
+        if (e.deltaY > 0 && !atBottom) return;
+        // Scrolling up but not at top — let card scroll
+        if (e.deltaY < 0 && !atTop) return;
+      }
 
       if (e.deltaY > 0) {
         if (highlightedKey) handleAction(highlightedKey);
@@ -273,6 +286,7 @@ export function CardCarousel<T>({
           {/* Current — focused, grows 50% when thread expanded */}
           {current && (
             <motion.div
+              ref={cardRef}
               key={current.id}
               layout={!prefersReduced}
               animate={{ opacity: 1, scale: 1 }}
