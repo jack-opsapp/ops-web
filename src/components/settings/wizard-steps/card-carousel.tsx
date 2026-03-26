@@ -231,7 +231,7 @@ export function CardCarousel<T>({
       </div>
 
       {/* ── Card stack: prev peek → focused → next peek ── */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col">
 
         {/* Previous card peek */}
         {prev && (
@@ -277,25 +277,23 @@ export function CardCarousel<T>({
           </div>
         )}
 
-        {/* Focused card — sizes to content, scrolls only when content exceeds available space */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          <AnimatePresence mode="wait" custom={direction}>
-            {current && (
-              <motion.div
-                key={current.id}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="border border-white/10 p-4 max-h-full overflow-y-auto scrollbar-hide overscroll-contain"
-                style={cardSurface}
-              >
-                {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Focused card — content-driven height, scrolls when taller than available space */}
+        <AnimatePresence mode="wait" custom={direction}>
+          {current && (
+            <motion.div
+              key={current.id}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="flex-shrink border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
+              style={{ ...cardSurface, maxHeight: `calc(100% - ${(prev ? 50 : 0) + (next ? 50 : 0)}px)` }}
+            >
+              {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Next card peek */}
         {next && (
@@ -331,6 +329,9 @@ export function CardCarousel<T>({
             </AnimatePresence>
           </div>
         )}
+
+        {/* Spacer — absorbs remaining space below cards */}
+        <div className="flex-1" />
       </div>
 
       {/* Footer */}
