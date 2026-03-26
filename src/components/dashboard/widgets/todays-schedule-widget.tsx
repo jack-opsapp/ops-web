@@ -5,9 +5,21 @@ import { Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
-import type { CalendarEvent } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+
+// ---------------------------------------------------------------------------
+// Minimal event shape compatible with both CalendarEvent and InternalCalendarEvent
+// ---------------------------------------------------------------------------
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  startDate: Date | null;
+  endDate?: Date | null;
+  color: string;
+  duration?: number;
+  deletedAt?: Date | null;
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -15,7 +27,7 @@ import { useDictionary } from "@/i18n/client";
 interface TodaysScheduleWidgetProps {
   size: WidgetSize;
   config: Record<string, unknown>;
-  events: CalendarEvent[];
+  events: ScheduleEvent[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
 }
@@ -205,9 +217,9 @@ export function TodaysScheduleWidget({
                   <p className={`font-mohave text-[12px] truncate ${isPast ? "text-text-tertiary" : "text-text-primary"}`}>
                     {event.title}
                   </p>
-                  {event.duration > 0 && (
+                  {(event.duration ?? 0) > 0 && (
                     <p className="font-mono text-[9px] text-text-quaternary">
-                      {event.duration < 60 ? `${event.duration}m` : `${Math.round(event.duration / 60)}h`}
+                      {(event.duration ?? 0) < 60 ? `${event.duration}m` : `${Math.round((event.duration ?? 0) / 60)}h`}
                     </p>
                   )}
                 </div>
