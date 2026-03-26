@@ -214,23 +214,23 @@ export function CardCarousel<T>({
         </span>
       </div>
 
-      {/* ── Card stack (z-stack) ── */}
+      {/* ── Card stack ── */}
       {/*
-        All cards are absolutely positioned in a single container.
-        Current card sits on top (z-20). Prev peeks above (z-10, collapsed).
-        Next peeks below (z-10, faded). Cards animate between positions
-        using the same key so they physically move, not fade in/out.
+        Flex column layout. Single AnimatePresence with stable keys so
+        items keep identity as they move between roles. Layout animation
+        handles position/size changes. No absolute positioning.
       */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 flex flex-col">
         <AnimatePresence initial={false}>
-          {/* Previous — collapsed bar, positioned at top */}
+          {/* Previous — collapsed bar */}
           {prev && (
             <motion.div
               key={prev.id}
-              animate={{ opacity: 0.5, scale: 0.96, y: 0 }}
-              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -20 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH }}
-              className="absolute top-0 left-0 right-0 pointer-events-none select-none z-10 border border-white/[0.06] px-4 py-2.5 overflow-hidden"
+              layout={!prefersReduced}
+              animate={{ opacity: 0.5, scale: 0.96 }}
+              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -12 }}
+              transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: dur } }}
+              className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0 border border-white/[0.06] px-4 py-2.5 overflow-hidden"
               style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", maxHeight: 40, transformOrigin: "bottom center" }}
             >
               {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
@@ -248,35 +248,39 @@ export function CardCarousel<T>({
             </motion.div>
           )}
 
-          {/* Current — focused, full card, below prev bar */}
+          {/* Current — focused, content-driven height */}
           {current && (
             <motion.div
               key={current.id}
               layout={!prefersReduced}
-              animate={{ opacity: 1, scale: 1, top: prev ? 44 : 0 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: 0.25, ease: EASE_SMOOTH } }}
-              className="absolute left-0 right-0 z-20 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
-              style={{ ...cardSurface, top: prev ? 44 : 0, bottom: next ? 56 : 0 }}
+              className="shrink min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10"
+              style={cardSurface}
             >
               {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
             </motion.div>
           )}
 
-          {/* Next — full card, faded, positioned at bottom */}
+          {/* Next — full card, faded */}
           {next && (
             <motion.div
               key={next.id}
+              layout={!prefersReduced}
               initial={prefersReduced ? false : { opacity: 0, y: 20 }}
-              animate={{ opacity: 0.35, scale: 0.97, y: 0 }}
+              animate={{ opacity: 0.35, scale: 0.97 }}
               exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH }}
-              className="absolute bottom-0 left-0 right-0 pointer-events-none select-none z-10 border border-white/[0.06] p-4"
+              transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: dur } }}
+              className="flex-shrink-0 mt-2 pointer-events-none select-none border border-white/[0.06] p-4"
               style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", transformOrigin: "top center" }}
             >
               {renderCard(next, false, noopSetDecision, noopTrigger, "", 0)}
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Spacer */}
+        <div className="flex-1 shrink-0" />
       </div>
 
       {/* Footer */}
