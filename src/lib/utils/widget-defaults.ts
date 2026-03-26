@@ -10,6 +10,74 @@ import {
   ALL_WIDGET_TYPE_IDS,
   createWidgetInstance,
 } from "@/lib/types/dashboard-widgets";
+import { UserRole } from "@/lib/types/models";
+
+// ---------------------------------------------------------------------------
+// Role-based default layouts
+// ---------------------------------------------------------------------------
+
+const OWNER_DEFAULT: WidgetInstance[] = [
+  createWidgetInstance("revenue-pulse", { period: "ytd" }, "sm"),
+  createWidgetInstance("profit-gauge", { period: "mtd" }, "xs"),
+  createWidgetInstance("win-rate", { period: "90d" }, "xs"),
+  createWidgetInstance("backlog-depth", {}, "xs"),
+  createWidgetInstance("pipeline-funnel", {}, "md"),
+  createWidgetInstance("receivables-aging", {}, "md"),
+  createWidgetInstance("task-pulse", {}, "sm"),
+  createWidgetInstance("crew-board", {}, "md"),
+  createWidgetInstance("action-required", {}, "md"),
+  createWidgetInstance("activity-feed", { entityFilter: "all" }, "sm"),
+];
+
+const ADMIN_DEFAULT: WidgetInstance[] = [
+  createWidgetInstance("task-pulse", {}, "sm"),
+  createWidgetInstance("todays-schedule", { scope: "team" }, "md"),
+  createWidgetInstance("action-required", {}, "md"),
+  createWidgetInstance("crew-board", {}, "md"),
+  createWidgetInstance("estimates-overview", {}, "md"),
+  createWidgetInstance("invoice-list", { statusFilter: "all-open" }, "md"),
+  createWidgetInstance("activity-feed", { entityFilter: "all" }, "sm"),
+  createWidgetInstance("client-attention", {}, "sm"),
+  createWidgetInstance("notifications", {}, "sm"),
+];
+
+const OPERATOR_DEFAULT: WidgetInstance[] = [
+  createWidgetInstance("task-pulse", {}, "sm"),
+  createWidgetInstance("crew-board", {}, "md"),
+  createWidgetInstance("todays-schedule", { scope: "team" }, "lg"),
+  createWidgetInstance("crew-locations", {}, "md"),
+  createWidgetInstance("action-required", {}, "sm"),
+  createWidgetInstance("site-visits", {}, "sm"),
+  createWidgetInstance("activity-feed", { entityFilter: "all" }, "sm"),
+];
+
+const CREW_DEFAULT: WidgetInstance[] = [
+  createWidgetInstance("task-pulse", {}, "xs"),
+  createWidgetInstance("todays-schedule", { scope: "personal" }, "sm"),
+  createWidgetInstance("task-list", { filter: "due-today" }, "md"),
+  createWidgetInstance("site-visits", { filter: "upcoming" }, "sm"),
+];
+
+/** Get default widget layout based on user role */
+export function getDefaultWidgetInstances(userRole: UserRole): WidgetInstance[] {
+  const clone = (inst: WidgetInstance): WidgetInstance => ({
+    ...inst,
+    id: createWidgetInstance(inst.typeId).id,
+  });
+
+  switch (userRole) {
+    case UserRole.Owner:
+      return OWNER_DEFAULT.map(clone);
+    case UserRole.Admin:
+      return ADMIN_DEFAULT.map(clone);
+    case UserRole.Operator:
+      return OPERATOR_DEFAULT.map(clone);
+    case UserRole.Crew:
+      return CREW_DEFAULT.map(clone);
+    default:
+      return OWNER_DEFAULT.map(clone);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
