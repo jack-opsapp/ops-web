@@ -277,8 +277,8 @@ export function CardCarousel<T>({
           </div>
         )}
 
-        {/* Focused card — sizes to content, scrolls when exceeding available space */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        {/* Focused card — sizes to content, scrolls only when content exceeds available space */}
+        <div className="flex-1 min-h-0 flex flex-col">
           <AnimatePresence mode="wait" custom={direction}>
             {current && (
               <motion.div
@@ -288,7 +288,7 @@ export function CardCarousel<T>({
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="border border-white/10 p-4 h-full overflow-y-auto scrollbar-hide overscroll-contain"
+                className="border border-white/10 p-4 max-h-full overflow-y-auto scrollbar-hide overscroll-contain"
                 style={cardSurface}
               >
                 {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
