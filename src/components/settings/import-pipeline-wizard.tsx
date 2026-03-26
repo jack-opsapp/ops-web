@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle, Loader2, FileText } from "lucide-react";
+import { X, CheckCircle, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,8 @@ import { ImportProgress } from "./wizard-steps/import-progress";
 import { ActivateStep } from "./wizard-steps/activate-step";
 import { StepperRail } from "./wizard-steps/stepper-rail";
 import { buildConsolidationGroups } from "./wizard-steps/consolidation-utils";
-import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { useCreateNotification } from "@/lib/hooks/use-notifications";
+import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -181,11 +182,9 @@ export function ImportPipelineWizard({
   const bgPollRef = useRef<NodeJS.Timeout | null>(null);
 
   // ─── Notification system ───────────────────────────────────────────────────
-  const { showPrompt, removePrompt } = useActionPromptStore();
-  const showPromptRef = useRef(showPrompt);
-  showPromptRef.current = showPrompt;
-  const removePromptRef = useRef(removePrompt);
-  removePromptRef.current = removePrompt;
+  const notify = useCreateNotification();
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
 
   // ─── Cycle discovered names on minimized card ──────────────────────────────
   useEffect(() => {
@@ -209,6 +208,13 @@ export function ImportPipelineWizard({
       queryClient.invalidateQueries({ queryKey: queryKeys.gmailConnections.all });
     }
   }, [company?.id, queryClient]);
+
+  // Sync wizard open state to global store (hides FAB, suppresses shortcuts)
+  const setWizardOpen = useDashboardCustomizeStore((s) => s.setWizardOpen);
+  useEffect(() => {
+    setWizardOpen(open);
+    return () => setWizardOpen(false);
+  }, [open, setWizardOpen]);
 
   // When the wizard opens, un-minimize
   useEffect(() => {
@@ -319,11 +325,13 @@ export function ImportPipelineWizard({
           const jobData = await jobRes.json();
 
           if (jobData.status === "complete" && jobData.result) {
-            import("sonner").then(({ toast }) =>
-              toast.success("Analysis completed while you were away", {
-                description: `Found ${jobData.result.leads?.length ?? 0} leads from ${jobData.result.totalScanned ?? 0} emails`,
-              })
-            );
+            notifyRef.current({
+              type: "pipeline_complete",
+              title: "Analysis completed while you were away",
+              body: `Found ${jobData.result.leads?.length ?? 0} leads from ${jobData.result.totalScanned ?? 0} emails`,
+              actionUrl: "/settings?tab=integrations",
+              actionLabel: "Review Leads",
+            });
             setAnalysisResult(jobData.result);
             setConfirmedSources(jobData.result.detectedSources);
             setConfirmedLeads(jobData.result.leads);
@@ -438,23 +446,18 @@ export function ImportPipelineWizard({
           setBgProgress({ percent: 100, message: "Analysis complete!" });
           invalidateConnections();
 
-          showPromptRef.current({
-            id: "email-analysis-complete",
-            icon: CheckCircle,
+          notifyRef.current({
+            type: "pipeline_complete",
             title: "Pipeline analysis complete",
-            description: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
-            ctaLabel: "Review Leads",
-            ctaAction: () => {
-              removePromptRef.current("email-analysis-complete");
-              setMinimized(false);
-              setDirection(1);
-              setStep(3);
-              onOpenChange(true);
-            },
-            persistent: false,
-            dismissable: true,
-            variant: "accent",
+            body: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
+            actionUrl: "/settings?tab=integrations",
+            actionLabel: "Review Leads",
           });
+          // Auto-reopen wizard to review step
+          setMinimized(false);
+          setDirection(1);
+          setStep(3);
+          onOpenChange(true);
           return;
         }
 
@@ -467,23 +470,18 @@ export function ImportPipelineWizard({
           setBgProgress({ percent: 100, message: "Import complete!" });
           invalidateConnections();
 
-          showPromptRef.current({
-            id: "email-import-complete",
-            icon: FileText,
+          notifyRef.current({
+            type: "pipeline_complete",
             title: "Pipeline import complete",
-            description: `Created ${data.result.clientsCreated} clients and ${data.result.leadsCreated} leads`,
-            ctaLabel: "Activate Sync",
-            ctaAction: () => {
-              removePromptRef.current("email-import-complete");
-              setMinimized(false);
-              setDirection(1);
-              setStep(5);
-              onOpenChange(true);
-            },
-            persistent: false,
-            dismissable: true,
-            variant: "accent",
+            body: `Created ${data.result.clientsCreated} clients and ${data.result.leadsCreated} leads`,
+            actionUrl: "/settings?tab=integrations",
+            actionLabel: "Activate Sync",
           });
+          // Auto-reopen wizard to activation step
+          setMinimized(false);
+          setDirection(1);
+          setStep(5);
+          onOpenChange(true);
           return;
         }
 
@@ -548,21 +546,24 @@ export function ImportPipelineWizard({
 
     setImportStarting(true);
 
-    // Build title lookup from consolidation groups
+    // Build lookup from consolidation groups for titles and merged company names
     const titleMap = new Map<string, string>();
+    const companyNameMap = new Map<string, string>();
     for (const group of consolidationGroups) {
       if (group.leads.length > 1) {
         for (const gl of group.leads) {
           if (gl.title) titleMap.set(gl.leadId, gl.title);
+          companyNameMap.set(gl.leadId, group.companyName);
         }
       }
     }
 
-    // Reconcile triage decisions: apply stage overrides and filter discards
+    // Reconcile triage decisions: include all leads (discarded are imported with stage=discarded for analytics)
     const importLeads = confirmedLeads.filter((lead) => {
       if (!lead.enabled) return false;
-      const decision = triageDecisions.get(lead.id);
-      return decision !== "discard";
+      // Include all triaged leads — discarded get stage="discarded"
+      if (lead.needsReview && !triageDecisions.has(lead.id)) return false;
+      return true;
     });
 
     setImportLeadCount(importLeads.length);
@@ -573,15 +574,19 @@ export function ImportPipelineWizard({
         companyId,
         leads: importLeads.map((lead) => {
           const decision = triageDecisions.get(lead.id);
-          const isTerminal = decision === "won" || decision === "lost";
-          const stage = isTerminal ? decision : lead.stage;
+          // Resolve effective stage: triage decision overrides AI assessment
+          const stage = decision === "won" ? "won"
+            : decision === "lost" ? "lost"
+            : decision === "discard" ? "discarded"
+            : lead.stage;
 
           return {
             id: lead.id,
             threadId: lead.threadId,
-            clientName: lead.client.name,
+            clientName: companyNameMap.get(lead.id) || lead.client.name,
             clientEmail: lead.client.email,
             clientPhone: lead.client.phone,
+            clientAddress: lead.client.address || null,
             description: lead.client.description,
             stage,
             estimatedValue: lead.estimatedValue,
@@ -594,7 +599,7 @@ export function ImportPipelineWizard({
             mergeWithLeadId: lead.duplicateGroupId,
             subContacts: lead.subContacts || [],
             title: titleMap.get(lead.id) || null,
-            actualCloseDate: isTerminal ? (lead.lastMessageDate || null) : null,
+            actualCloseDate: (stage === "won" || stage === "lost" || stage === "discarded") ? (lead.lastMessageDate || null) : null,
           };
         }),
         syncProfile: {
@@ -627,6 +632,7 @@ export function ImportPipelineWizard({
       setImportJobId(jobId);
       setRunningJobId(jobId);
       setRunningJobType("import");
+      setImportStarting(false);
       setBgProgress({ percent: 0, message: `Starting import of ${importLeads.length} leads...` });
       invalidateConnections();
     } catch (err) {
@@ -797,9 +803,14 @@ export function ImportPipelineWizard({
       onOpenChange(isOpen);
     }}>
       <DialogContent
-        className="max-w-[680px] p-0 border border-white/10 bg-[#0D0D0D] overflow-hidden"
+        className="w-[90vw] max-w-[920px] p-0 border border-white/10 bg-[#0D0D0D] overflow-hidden"
         style={{ borderRadius: 4 }}
         hideClose
+        onKeyDown={(e) => {
+          // Trap ALL keyboard events inside the wizard so they don't
+          // propagate to settings tabs, keyboard shortcuts, or other listeners
+          e.stopPropagation();
+        }}
       >
         <DialogTitle className="sr-only">Import Your Pipeline</DialogTitle>
         <DialogDescription className="sr-only">
@@ -832,8 +843,8 @@ export function ImportPipelineWizard({
           </button>
         </div>
 
-        {/* Main layout: stepper rail + content */}
-        <div className="flex min-h-[400px] max-h-[calc(85vh-140px)]">
+        {/* Main layout: stepper rail + content — fixed height to prevent layout shifts */}
+        <div className="flex overflow-hidden" style={{ height: "calc(85vh - 100px)" }}>
           {/* Stepper rail */}
           <div className="pl-5 pt-4 pb-4 flex-shrink-0">
             <StepperRail
@@ -846,8 +857,8 @@ export function ImportPipelineWizard({
             />
           </div>
 
-          {/* Step content */}
-          <div className="px-6 pb-2 pt-4 flex-1 min-w-0 overflow-y-auto">
+          {/* Step content — flex column so carousel sub-steps can fill height */}
+          <div className="px-6 pb-2 pt-4 flex-1 min-w-0 flex flex-col overflow-hidden">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={`${step}-${importJobId ? "importing" : `sub${reviewSubStep}`}`}
@@ -856,11 +867,25 @@ export function ImportPipelineWizard({
               initial="enter"
               animate="center"
               exit="exit"
+              className="flex-1 min-h-0 flex flex-col"
             >
               {step === 1 && (
                 <ConnectStep
                   companyId={companyId}
                 />
+              )}
+              {step === 2 && !connectionId && (
+                <div className="flex flex-col items-center justify-center py-16 gap-4">
+                  <p className="font-mohave text-[14px] text-[#999]">
+                    No connection found. Please go back and connect your email.
+                  </p>
+                  <button
+                    onClick={() => goTo(1)}
+                    className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#597794] hover:text-white transition-colors"
+                  >
+                    ← Back to Connect
+                  </button>
+                </div>
               )}
               {step === 2 && connectionId && (
                 !stateCheckComplete ? (
@@ -976,8 +1001,8 @@ export function ImportPipelineWizard({
                       setConsolidationGroups((prev) =>
                         prev.map((g) => ({ ...g, decision: null }))
                       );
-                      // Go back to filter if flagged leads exist, otherwise to sources
-                      const hasFlagged = confirmedLeads.some((l) => l.needsReview);
+                      // Go back to filter if flagged+enabled leads exist, otherwise to sources
+                      const hasFlagged = confirmedLeads.some((l) => l.needsReview && l.enabled);
                       if (hasFlagged) {
                         setReviewSubStep(1);
                       } else {
@@ -989,6 +1014,7 @@ export function ImportPipelineWizard({
                 ) : reviewSubStep === 3 ? (
                   <TriageStep
                     leads={confirmedLeads}
+                    onLeadsChanged={setConfirmedLeads}
                     triageDecisions={triageDecisions}
                     onTriageDecision={(id, decision) => {
                       setTriageDecisions((prev) => new Map(prev).set(id, decision));
@@ -1001,9 +1027,12 @@ export function ImportPipelineWizard({
                       if (consolidationGroups.length > 0) {
                         setReviewSubStep(2);
                       } else {
-                        const hasFlagged = confirmedLeads.some((l) => l.needsReview);
-                        setReviewSubStep(hasFlagged ? 1 : 1);
-                        if (!hasFlagged) goTo(3);
+                        const hasFlagged = confirmedLeads.some((l) => l.needsReview && l.enabled);
+                        if (hasFlagged) {
+                          setReviewSubStep(1);
+                        } else {
+                          goTo(3);
+                        }
                       }
                     }}
                     onComplete={() => setReviewSubStep(4)}
@@ -1018,10 +1047,23 @@ export function ImportPipelineWizard({
                         prev.map((l) => (l.id === id ? { ...l, stage } : l))
                       );
                     }}
+                    onNameChange={(id, name) => {
+                      setConfirmedLeads((prev) =>
+                        prev.map((l) => (l.id === id ? { ...l, client: { ...l.client, name } } : l))
+                      );
+                    }}
                     onBack={() => setReviewSubStep(3)}
                     onImport={handleImport}
                   />
                 )
+              )}
+              {step === 5 && !importResult && (
+                <div className="flex flex-col items-center justify-center py-16 gap-4">
+                  <Loader2 size={24} className="text-ops-accent animate-spin" />
+                  <p className="font-mohave text-[14px] text-[#999]">
+                    Loading import results...
+                  </p>
+                </div>
               )}
               {step === 5 && importResult && (
                 <ActivateStep

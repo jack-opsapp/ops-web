@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
@@ -40,6 +40,7 @@ interface ConfirmPipelineStepProps {
   triageDecisions: Map<string, TriageDecision>;
   consolidationGroups: ConsolidationGroup[];
   onStageChange: (leadId: string, stage: string) => void;
+  onNameChange: (leadId: string, name: string) => void;
   onBack: () => void;
   onImport: () => void;
 }
@@ -49,6 +50,7 @@ export function ConfirmPipelineStep({
   triageDecisions,
   consolidationGroups,
   onStageChange,
+  onNameChange,
   onBack,
   onImport,
 }: ConfirmPipelineStepProps) {
@@ -82,6 +84,23 @@ export function ConfirmPipelineStep({
     return map;
   }, [consolidationGroups]);
 
+  // Resolve effective stage: triage decision overrides AI's original assessment
+  const getEffectiveStage = (lead: AnalyzedLead): string => {
+    if (!lead.enabled) return "discarded";
+    const decision = triageDecisions.get(lead.id);
+    if (decision === "discard") return "discarded";
+    if (decision === "won") return "won";
+    if (decision === "lost") return "lost";
+    if (decision === "active") {
+      // "active" triage means keep the AI stage, but ensure it's not terminal
+      return lead.stage === "won" || lead.stage === "lost" || lead.stage === "discarded"
+        ? "new_lead"
+        : lead.stage;
+    }
+    // No triage decision — use lead's own stage
+    return lead.stage;
+  };
+
   // Compute summary counts
   const counts = useMemo(() => {
     let active = 0;
@@ -90,55 +109,38 @@ export function ConfirmPipelineStep({
     let discarded = 0;
 
     for (const lead of leads) {
-      if (!lead.enabled) {
-        discarded++;
-        continue;
-      }
-      const decision = triageDecisions.get(lead.id);
-      if (decision === "discard") {
-        discarded++;
-      } else if (decision === "won" || lead.stage === "won") {
-        won++;
-      } else if (decision === "lost" || lead.stage === "lost") {
-        lost++;
-      } else if (lead.stage === "discarded") {
-        discarded++;
-      } else if (!lead.needsReview) {
-        active++;
-      }
+      if (lead.needsReview && !triageDecisions.has(lead.id)) continue;
+      const effective = getEffectiveStage(lead);
+      if (effective === "discarded") discarded++;
+      else if (effective === "won") won++;
+      else if (effective === "lost") lost++;
+      else active++;
     }
 
-    return { active, won, lost, discarded, importTotal: active + won + lost };
-  }, [leads, triageDecisions]);
+    return { active, won, lost, discarded, importTotal: active + won + lost + discarded };
+  }, [leads, triageDecisions]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // All importable leads (enabled, not discarded) grouped by stage
-  const importableLeads = useMemo(() => {
-    return leads.filter((l) => {
-      if (!l.enabled) return false;
-      const decision = triageDecisions.get(l.id);
-      if (decision === "discard") return false;
-      if (l.stage === "discarded") return false;
-      if (decision === "won" || decision === "lost" || decision === "active") return true;
-      // No explicit decision — include if not flagged for review
-      return !l.needsReview;
-    });
-  }, [leads, triageDecisions]);
-
+  // All leads grouped by their effective stage (including discarded)
   const stageGrouped = useMemo(() => {
     const groups: Record<string, AnalyzedLead[]> = {};
     for (const stage of ALL_STAGES) {
-      groups[stage] = importableLeads.filter((l) => {
-        const decision = triageDecisions.get(l.id);
-        // Triage decision overrides the lead's original stage
-        if (decision === "won") return stage === "won";
-        if (decision === "lost") return stage === "lost";
-        if (decision === "active") return l.stage === stage && stage !== "won" && stage !== "lost";
-        // No decision — use lead's own stage
-        return l.stage === stage;
-      });
+      groups[stage] = [];
+    }
+    for (const lead of leads) {
+      if (!lead.enabled && getEffectiveStage(lead) !== "discarded") continue;
+      if (lead.needsReview && !triageDecisions.has(lead.id)) continue;
+      const effective = getEffectiveStage(lead);
+      if (groups[effective]) {
+        groups[effective].push(lead);
+      }
     }
     return groups;
-  }, [importableLeads, triageDecisions]);
+  }, [leads, triageDecisions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Discarded leads for the separate section
+  const discardedLeads = useMemo(() => {
+    return stageGrouped["discarded"] ?? [];
+  }, [stageGrouped]);
 
   const getDisplayName = (lead: AnalyzedLead) => {
     const consolidated = consolidationLookup.get(lead.id);
@@ -188,14 +190,14 @@ export function ConfirmPipelineStep({
 
       {/* Scrollable stage groups */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto scrollbar-hide overscroll-contain relative pb-20"
+        className="flex-1 min-h-0 overflow-y-auto scrollbar-hide overscroll-contain"
         style={{
           maskImage: "linear-gradient(to bottom, transparent 0%, black 8px, black calc(100% - 8px), transparent 100%)",
           WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 8px, black calc(100% - 8px), transparent 100%)",
         }}
       >
-        <div className="space-y-2">
-          {ALL_STAGES.map((stage) => {
+        <div className="space-y-2 pb-2">
+          {ALL_STAGES.filter((s) => s !== "discarded").map((stage) => {
             const stageLeads = stageGrouped[stage];
             if (!stageLeads || stageLeads.length === 0) return null;
 
@@ -245,7 +247,9 @@ export function ConfirmPipelineStep({
                           key={lead.id}
                           lead={lead}
                           displayName={getDisplayName(lead)}
+                          effectiveStage={getEffectiveStage(lead)}
                           onStageChange={(s) => onStageChange(lead.id, s)}
+                          onNameChange={(name) => onNameChange(lead.id, name)}
                         />
                       ))}
                     </motion.div>
@@ -254,49 +258,139 @@ export function ConfirmPipelineStep({
               </div>
             );
           })}
-        </div>
 
-        {/* Sticky summary bar */}
-        <div
-          className="sticky bottom-0 -mx-4 px-4 py-3 flex items-center justify-between border-t border-white/10 mt-4"
-          style={{
-            background: "rgba(10, 10, 10, 0.90)",
-            backdropFilter: "blur(20px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-            zIndex: 10,
-          }}
-        >
-          <div className="flex items-center gap-3">
+          {/* Discarded section — separated from active stages */}
+          {discardedLeads.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/5">
+              <button
+                onClick={() => toggleStage("_discarded")}
+                className="flex items-center gap-2 w-full py-1.5 group"
+              >
+                <div
+                  className="w-2 h-2"
+                  style={{ background: "#444", borderRadius: 1, opacity: 0.6 }}
+                />
+                <span className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#555]">
+                  Discarded
+                </span>
+                <span className="font-mohave text-[11px] text-[#444]">
+                  ({discardedLeads.length})
+                </span>
+                <span className="font-mohave text-[10px] text-[#444] ml-1">
+                  — won&apos;t be imported
+                </span>
+                <ChevronDown
+                  size={12}
+                  className="ml-auto text-[#444] transition-transform duration-200"
+                  style={{
+                    transform: expandedStages.has("_discarded") ? "rotate(0)" : "rotate(-90deg)",
+                  }}
+                />
+              </button>
+
+              <AnimatePresence>
+                {expandedStages.has("_discarded") && (
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0 }}
+                    animate={{ opacity: 1, transition: { duration: prefersReduced ? 0 : 0.2, ease: EASE_SMOOTH } }}
+                    exit={{ opacity: 0, transition: { duration: prefersReduced ? 0 : 0.15 } }}
+                    className="space-y-1 ml-4"
+                  >
+                    {discardedLeads.map((lead) => (
+                      <div
+                        key={lead.id}
+                        className="py-2 px-3 border border-white/[0.03] opacity-50"
+                        style={{ borderRadius: 2 }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-mohave text-[13px] text-[#666] truncate block">
+                              {getDisplayName(lead)}
+                            </span>
+                            {lead.client.email && (
+                              <span className="font-mohave text-[11px] text-[#444] truncate block mt-0.5">
+                                {lead.client.email}
+                              </span>
+                            )}
+                          </div>
+                          {/* Allow restoring — changing stage removes from discarded */}
+                          <select
+                            value="discarded"
+                            onChange={(e) => {
+                              // Re-enable the lead and set its stage
+                              onStageChange(lead.id, e.target.value);
+                            }}
+                            className="font-mohave text-[11px] bg-transparent border border-white/[0.06] px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0 text-[#555]"
+                            style={{ borderRadius: 4 }}
+                          >
+                            <option value="discarded" className="bg-[#1a1a1a]">
+                              Discarded
+                            </option>
+                            {ALL_STAGES.filter((s) => s !== "discarded").map((s) => (
+                              <option key={s} value={s} className="bg-[#1a1a1a]">
+                                {STAGE_CONFIG[s].label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer — outside scroll container, always anchored at bottom */}
+      <div
+        className="flex-shrink-0 border-t border-white/8 pt-3 mt-1"
+      >
+        {/* Summary counts */}
+        <div className="flex items-center gap-4 mb-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#999]" />
             <span className="font-mohave text-[12px] text-[#999]">
               {counts.active} {t("summary.active")}
             </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#9DB582]" />
             <span className="font-mohave text-[12px] text-[#9DB582]">
               {counts.won} {t("summary.won")}
             </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#6B7280]" />
             <span className="font-mohave text-[12px] text-[#6B7280]">
               {counts.lost} {t("summary.lost")}
             </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#444]" />
             <span className="font-mohave text-[12px] text-[#444]">
               {counts.discarded} {t("summary.discarded")}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={onBack}
-              variant="ghost"
-              className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666] px-3 py-1.5"
-            >
-              ← {t("confirm.back")}
-            </Button>
-            <Button
-              onClick={onImport}
-              disabled={counts.importTotal === 0}
-              className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2 disabled:opacity-40"
-              style={{ borderRadius: 3 }}
-            >
-              {t("confirm.import")} {counts.importTotal} LEAD{counts.importTotal !== 1 ? "S" : ""}
-            </Button>
-          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+          >
+            ← {t("confirm.back")}
+          </button>
+          <button
+            onClick={onImport}
+            disabled={counts.importTotal === 0}
+            className="font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794] text-[#597794] hover:bg-[#597794] hover:text-white px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            style={{ borderRadius: 3 }}
+          >
+            {t("confirm.import")} {counts.importTotal}
+          </button>
         </div>
       </div>
     </div>
@@ -308,11 +402,15 @@ export function ConfirmPipelineStep({
 function LeadRow({
   lead,
   displayName,
+  effectiveStage,
   onStageChange,
+  onNameChange,
 }: {
   lead: AnalyzedLead;
   displayName: string;
+  effectiveStage: string;
   onStageChange: (stage: string) => void;
+  onNameChange: (name: string) => void;
 }) {
   return (
     <div
@@ -322,9 +420,10 @@ function LeadRow({
       <div className="flex items-center gap-3">
         {/* Name + metadata */}
         <div className="flex-1 min-w-0">
-          <span className="font-mohave text-[13px] text-white truncate block">
-            {displayName}
-          </span>
+          <InlineEditableName
+            value={displayName}
+            onChange={onNameChange}
+          />
           {(lead.client.address || lead.client.description) && (
             <span className="font-mohave text-[11px] text-[#777] truncate block mt-0.5">
               {lead.client.address && <span>{lead.client.address}</span>}
@@ -334,14 +433,14 @@ function LeadRow({
           )}
         </div>
 
-        {/* Stage dropdown — includes won/lost for reclassification */}
+        {/* Stage dropdown — uses effective stage (triage decision overrides AI) */}
         <select
-          value={lead.stage}
+          value={effectiveStage}
           onChange={(e) => onStageChange(e.target.value)}
           className="font-mohave text-[11px] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0"
           style={{
             borderRadius: 4,
-            color: STAGE_CONFIG[lead.stage]?.color || "#999",
+            color: STAGE_CONFIG[effectiveStage]?.color || "#999",
           }}
         >
           {ALL_STAGES.map((s) => (
@@ -357,5 +456,63 @@ function LeadRow({
         <EmailThreadView lead={lead} />
       </div>
     </div>
+  );
+}
+
+// ─── Inline editable name ────────────────────────────────────────────────────
+
+function InlineEditableName({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setDraft(value); }, [value]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onChange(trimmed);
+    else setDraft(value);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") { setDraft(value); setEditing(false); }
+          e.stopPropagation();
+        }}
+        className="font-mohave text-[13px] text-white bg-transparent border-b border-[#597794] outline-none w-full truncate"
+        style={{ borderRadius: 0 }}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="font-mohave text-[13px] text-white text-left hover:text-[#597794] transition-colors cursor-text truncate block w-full"
+      title="Click to edit"
+    >
+      {value}
+    </button>
   );
 }
