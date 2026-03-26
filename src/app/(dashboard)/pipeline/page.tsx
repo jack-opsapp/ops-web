@@ -487,6 +487,14 @@ export default function PipelinePage() {
     [handleMoveStage]
   );
 
+  /** Discard — direct stage move, no confirmation dialog needed */
+  const handleDiscard = useCallback(
+    (opportunityId: string) => {
+      handleMoveStage(opportunityId, OpportunityStage.Discarded);
+    },
+    [handleMoveStage]
+  );
+
   /** Confirm Won/Lost transition */
   const handleTransitionConfirm = useCallback(
     (data: {
@@ -651,6 +659,7 @@ export default function PipelinePage() {
     onLogText: handleLogText,
     onAddNote: handleAddNote,
     onArchive: handleArchive,
+    onDiscard: handleDiscard,
     onMarkWon: handleMarkWon,
     onMarkLost: handleMarkLost,
     onOpenDetail: handleSelectOpportunity,

@@ -42,6 +42,7 @@ interface PipelineMobileProps {
   onLogText: (opportunityId: string) => void;
   onAddNote: (opportunityId: string, note: string) => void;
   onArchive: (opportunityId: string) => void;
+  onDiscard: (opportunityId: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
   onOpenDetail: (opportunity: Opportunity) => void;
@@ -84,6 +85,7 @@ interface SwipeableCardProps {
   onLogText: () => void;
   onAddNote: (note: string) => void;
   onArchive: () => void;
+  onDiscard: () => void;
   onMarkWon: () => void;
   onMarkLost: () => void;
   onOpenDetail: () => void;
@@ -106,6 +108,7 @@ function SwipeableCard({
   onLogText,
   onAddNote,
   onArchive,
+  onDiscard,
   onMarkWon,
   onMarkLost,
   onOpenDetail,
@@ -220,6 +223,7 @@ function SwipeableCard({
           onLogText={onLogText}
           onAddNote={onAddNote}
           onArchive={onArchive}
+          onDiscard={onDiscard}
           onMarkWon={onMarkWon}
           onMarkLost={onMarkLost}
           onOpenDetail={onOpenDetail}
@@ -247,6 +251,7 @@ export function PipelineMobile({
   onLogText,
   onAddNote,
   onArchive,
+  onDiscard,
   onMarkWon,
   onMarkLost,
   onOpenDetail,
@@ -366,6 +371,7 @@ export function PipelineMobile({
                     onLogText={() => onLogText(opp.id)}
                     onAddNote={(note) => onAddNote(opp.id, note)}
                     onArchive={() => onArchive(opp.id)}
+                    onDiscard={() => onDiscard(opp.id)}
                     onMarkWon={() => onMarkWon(opp)}
                     onMarkLost={() => onMarkLost(opp)}
                     onOpenDetail={() => onOpenDetail(opp)}
