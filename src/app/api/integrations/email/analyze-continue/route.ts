@@ -147,12 +147,17 @@ function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
     group.sort((a, b) => b.correspondenceCount - a.correspondenceCount);
     const primary = { ...group[0] };
 
-    // Sum correspondence counts and merge emails from other leads
+    // Sum correspondence counts, merge emails and excerpts from other leads
     for (let i = 1; i < group.length; i++) {
       const other = group[i];
       primary.correspondenceCount += other.correspondenceCount;
       primary.outboundCount += other.outboundCount;
       primary.emails = [...primary.emails, ...other.emails];
+
+      // Merge emailExcerpts from sibling threads
+      if (other.emailExcerpts?.length) {
+        primary.emailExcerpts = [...(primary.emailExcerpts || []), ...other.emailExcerpts];
+      }
 
       // If the other lead has a higher value, use it
       if (other.estimatedValue && (!primary.estimatedValue || other.estimatedValue > primary.estimatedValue)) {
@@ -163,6 +168,21 @@ function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
       if (other.lastMessageDate > primary.lastMessageDate) {
         primary.lastMessageDate = other.lastMessageDate;
       }
+    }
+
+    // Deduplicate excerpts by date+from (cross-thread bundling may have already included them)
+    // and keep the 8 most recent
+    if (primary.emailExcerpts && primary.emailExcerpts.length > 0) {
+      const seen = new Set<string>();
+      primary.emailExcerpts = primary.emailExcerpts
+        .filter((ex) => {
+          const key = `${ex.date}|${ex.from}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-8);
     }
 
     // Update the ID to reflect it's a merged lead
@@ -394,36 +414,58 @@ async function runPhaseB(
   // ─── 4. Deep AI extraction ─────────────────────────────────────────────────
   await updateProgress("analyzing_threads", "Extracting lead details with AI...", 82);
 
-  // Build deep extraction inputs — last 6 messages with full body text (no cap)
+  // ── Build clientEmail → threadId[] map so AI sees ALL threads per client ──
+  const clientThreadMapForAI = new Map<string, string[]>();
+  for (const lead of leads) {
+    const normEmail = cleanEmailAddress(lead.client.email);
+    if (!clientThreadMapForAI.has(normEmail)) {
+      clientThreadMapForAI.set(normEmail, []);
+    }
+    const threadIds = clientThreadMapForAI.get(normEmail)!;
+    if (!threadIds.includes(lead.threadId)) {
+      threadIds.push(lead.threadId);
+    }
+  }
+
+  // Build deep extraction inputs — bundle ALL threads per client so AI has complete picture
   const extractionInputs: DeepExtractionInput[] = [];
   const extractionThreadIds: string[] = [];
   let skippedNoMessages = 0;
 
   for (const lead of leads) {
-    const messages = fetchedThreads.get(lead.threadId);
-    if (!messages || messages.length === 0) {
+    const normEmail = cleanEmailAddress(lead.client.email);
+    const siblingThreadIds = clientThreadMapForAI.get(normEmail) || [lead.threadId];
+
+    // Collect messages from ALL sibling threads for this client
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allMessages: any[] = [];
+    for (const tid of siblingThreadIds) {
+      const msgs = fetchedThreads.get(tid);
+      if (msgs) allMessages.push(...msgs);
+    }
+    if (allMessages.length === 0) {
       skippedNoMessages++;
       continue;
     }
 
-    // Sort by date descending, take last 6, reverse to chronological
-    const sorted = [...messages].sort((a: { date: Date }, b: { date: Date }) =>
+    // Sort by date descending, take last 8 (bumped from 6 to accommodate cross-thread), reverse to chronological
+    const sorted = [...allMessages].sort((a: { date: Date }, b: { date: Date }) =>
       b.date.getTime() - a.date.getTime()
     );
-    const lastSix = sorted.slice(0, 6).reverse();
+    const lastEight = sorted.slice(0, 8).reverse();
 
     extractionInputs.push({
       threadId: lead.threadId,
       subject: lead.emails[0]?.subject || '',
       participants: [...new Set(
-        messages.flatMap((m: { from: string; to: string[] }) => [m.from, ...m.to])
+        allMessages.flatMap((m: { from: string; to: string[] }) => [m.from, ...m.to])
           .map((a: string) => a.toLowerCase())
       )],
-      messageCount: messages.length,
-      outboundCount: messages.filter(
+      messageCount: allMessages.length,
+      outboundCount: allMessages.filter(
         (m: { from: string }) => safe(m.from).includes(ownerEmailLower)
       ).length,
-      messages: lastSix.map((m: { from: string; fromName: string; to: string[]; date: Date; bodyText: string; snippet: string }) => ({
+      messages: lastEight.map((m: { from: string; fromName: string; to: string[]; date: Date; bodyText: string; snippet: string }) => ({
         from: m.from,
         fromName: m.fromName || '',
         to: m.to,
@@ -501,6 +543,9 @@ async function runPhaseB(
     }
     if (extraction.client.description) {
       lead.client.description = extraction.client.description;
+    }
+    if (extraction.client.address) {
+      lead.client.address = extraction.client.address;
     }
 
     // Override stage
@@ -603,20 +648,45 @@ async function runPhaseB(
 
   console.log(`[email-analyze-continue] Extraction stats: ${JSON.stringify(extractionStats)}`);
 
-  // Build emailExcerpts from fetched thread messages for the wizard UI
+  // ── Build clientEmail → threadId[] map so we can bundle ALL threads per client ──
+  const clientThreadMap = new Map<string, string[]>();
   for (const lead of leads) {
-    const messages = fetchedThreads.get(lead.threadId);
-    if (!messages) continue;
+    const normEmail = cleanEmailAddress(lead.client.email);
+    if (!clientThreadMap.has(normEmail)) {
+      clientThreadMap.set(normEmail, []);
+    }
+    const threadIds = clientThreadMap.get(normEmail)!;
+    if (!threadIds.includes(lead.threadId)) {
+      threadIds.push(lead.threadId);
+    }
+  }
 
-    const sorted = [...messages].sort((a: { date: Date }, b: { date: Date }) =>
+  // Build emailExcerpts from ALL threads that involve the same client email.
+  // This gives the user (and later the AI) a complete correspondence picture.
+  for (const lead of leads) {
+    const normEmail = cleanEmailAddress(lead.client.email);
+    const siblingThreadIds = clientThreadMap.get(normEmail) || [lead.threadId];
+
+    // Collect messages from ALL sibling threads
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allMessages: any[] = [];
+    for (const tid of siblingThreadIds) {
+      const msgs = fetchedThreads.get(tid);
+      if (msgs) allMessages.push(...msgs);
+    }
+    if (allMessages.length === 0) continue;
+
+    const sorted = [...allMessages].sort((a: { date: Date }, b: { date: Date }) =>
       b.date.getTime() - a.date.getTime()
     );
+    // Take the 4 most recent client messages and 4 most recent owner messages
+    // across ALL threads — gives a balanced view of both sides
     const clientMsgs = sorted
       .filter((e: { from: string }) => !safe(e.from).includes(ownerEmailLower))
-      .slice(0, 3);
+      .slice(0, 4);
     const ownerMsgs = sorted
       .filter((e: { from: string }) => safe(e.from).includes(ownerEmailLower))
-      .slice(0, 3);
+      .slice(0, 4);
 
     lead.emailExcerpts = [...clientMsgs, ...ownerMsgs]
       .sort((a: { date: Date }, b: { date: Date }) => a.date.getTime() - b.date.getTime())
@@ -628,6 +698,8 @@ async function runPhaseB(
         body: (e.bodyText || e.snippet || '').slice(0, 4000),
       }));
   }
+
+  console.log(`[email-analyze-continue] Cross-thread excerpt stats: ${[...clientThreadMap.entries()].filter(([, ids]) => ids.length > 1).length} clients with multi-thread correspondence`);
 
   // Update discovered lead names
   for (const lead of leads) {
@@ -774,12 +846,12 @@ async function runPhaseB(
     await supabase.from("notifications").insert({
       user_id: currentConn.user_id,
       company_id: currentConn.company_id || companyId,
-      type: "mention",
+      type: "pipeline_complete",
       title: "Pipeline analysis complete",
       body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
       is_read: false,
       persistent: true,
-      action_url: "/settings?tab=company",
+      action_url: "/settings?tab=integrations",
       action_label: "Review Results",
     }).then(({ error: notifErr }) => {
       if (notifErr) console.error("[email-analyze-continue] Failed to create notification:", notifErr.message);

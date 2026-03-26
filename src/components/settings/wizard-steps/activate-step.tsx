@@ -66,7 +66,7 @@ export function ActivateStep({
             Import Complete
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <p className="font-mohave text-[22px] font-semibold text-white">
               {importResult.leadsCreated}
@@ -79,6 +79,14 @@ export function ActivateStep({
             </p>
             <p className="font-mohave text-[11px] text-[#666]">New clients</p>
           </div>
+          {(importResult.imagesExtracted ?? 0) > 0 && (
+            <div>
+              <p className="font-mohave text-[22px] font-semibold text-white">
+                {importResult.imagesExtracted}
+              </p>
+              <p className="font-mohave text-[11px] text-[#666]">Photos extracted</p>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -94,7 +102,7 @@ export function ActivateStep({
       {/* How ongoing sync works */}
       <motion.div
         variants={staggerItem}
-        className="mb-6 p-3 border border-white/8 bg-white/[0.02]"
+        className="mb-6 p-3 border border-white/10 bg-white/[0.02]"
         style={{ borderRadius: 3 }}
       >
         <p className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#597794] mb-2">

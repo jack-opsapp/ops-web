@@ -69,11 +69,11 @@ export function PortalProviders({ children }: { children: React.ReactNode }) {
             portalTokenId: "",
             sessionToken: "",
             email: data.client?.email ?? "",
-            companyId: data.company?.id ?? "",
+            companyId: data.company?.id ?? data.branding?.companyId ?? "",
             clientId: data.client?.id ?? "",
             expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             createdAt: new Date(),
-            isPreview: false,
+            isPreview: data.isPreview ?? false,
           });
         }
       } catch {

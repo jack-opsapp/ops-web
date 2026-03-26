@@ -347,7 +347,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: EASE }}
-              className="mt-6 pt-4 border-t border-white/8"
+              className="mt-6 pt-4 border-t border-white/10"
             >
               <button
                 onClick={onMinimize}

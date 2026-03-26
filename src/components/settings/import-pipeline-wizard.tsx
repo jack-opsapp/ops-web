@@ -1044,8 +1044,16 @@ export function ImportPipelineWizard({
                     consolidationGroups={consolidationGroups}
                     onStageChange={(id, stage) => {
                       setConfirmedLeads((prev) =>
-                        prev.map((l) => (l.id === id ? { ...l, stage } : l))
+                        prev.map((l) => (l.id === id ? { ...l, stage, enabled: stage !== "discarded" } : l))
                       );
+                      // Update triage decision to match so getEffectiveStage doesn't override
+                      const triageMap: Record<string, TriageDecision> = {
+                        won: "won",
+                        lost: "lost",
+                        discarded: "discard",
+                      };
+                      const newDecision = triageMap[stage] ?? "active";
+                      setTriageDecisions((prev) => new Map(prev).set(id, newDecision));
                     }}
                     onNameChange={(id, name) => {
                       setConfirmedLeads((prev) =>

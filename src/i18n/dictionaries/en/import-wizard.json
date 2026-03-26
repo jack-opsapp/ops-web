@@ -14,7 +14,7 @@
   "filter.description": "These were flagged by the agent. Decide what belongs in your pipeline.",
   "filter.import": "IMPORT",
   "filter.discard": "DISCARD",
-  "filter.hint": "↑↓ navigate · 1 import · 2 discard · ⏎ accept · E thread",
+  "filter.hint": "←→ select · ↓/⏎ accept · ↑ back · ⌫ discard · E thread",
 
   "filter.reason.legal": "Legal",
   "filter.reason.legal_desc": "Settlement, dispute, or lawyer correspondence",
@@ -38,15 +38,16 @@
   "consolidate.via": "via",
   "consolidate.leads": "Leads",
   "consolidate.contacts": "Contacts",
-  "consolidate.hint": "↑↓ navigate · 1 confirm · 2 merge · ⏎ accept · ⌫ discard",
+  "consolidate.hint": "←→ select · ↓/⏎ accept · ↑ back · ⌫ discard",
 
-  "triage.title": "TRIAGE COMPLETED WORK",
+  "triage.title": "TRIAGE LEADS",
   "triage.description": "Mark past projects as won or lost. Everything else stays active.",
   "triage.won": "WON",
   "triage.lost": "LOST",
   "triage.active": "ACTIVE",
   "triage.agentSuggests": "Agent suggests",
-  "triage.hint": "↑↓ navigate · 1 won · 2 lost · 3 active · ⌫ discard · E thread",
+  "triage.discard": "DISCARD",
+  "triage.hint": "←→ select · ↓/⏎ accept · ↑ back · E thread",
 
   "confirm.title": "CONFIRM PIPELINE",
   "confirm.description": "Review your active leads and adjust stages before import.",

@@ -18,6 +18,7 @@ import { roleNeededTemplate } from "./templates/role-needed";
 import { betaAccessRequestTemplate } from "./templates/beta-access-request";
 import { betaAccessDecisionTemplate } from "./templates/beta-access-decision";
 import { adsBriefingTemplate } from "./templates/ads-briefing";
+import { passwordResetTemplate } from "./templates/password-reset";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
 
 let initialized = false;
@@ -265,4 +266,22 @@ export async function sendAdsBriefing(params: {
       })
     )
   );
+}
+
+export async function sendPasswordReset(params: {
+  email: string;
+  resetLink: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = passwordResetTemplate({
+    resetLink: params.resetLink,
+  });
+
+  await sgMail.send({
+    to: params.email,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject: "Reset your OPS password",
+    html,
+  });
 }

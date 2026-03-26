@@ -301,8 +301,8 @@ export function CardCarousel<T>({
                   : { opacity: 0, y: 20, transition: { duration: dur * 0.6, ease: EASE_SMOOTH } }
                 }
                 transition={{ duration: dur, ease: EASE_SMOOTH, maxHeight: { duration: 0.25, ease: EASE_SMOOTH } }}
-                className="min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10 transition-[flex] duration-300"
-                style={{ ...cardSurface, flex: threadExpanded ? "1.5 1 0%" : "0 1 auto", transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
+                className="min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10 transition-[flex-grow] duration-300"
+                style={{ ...cardSurface, flex: threadExpanded ? "6 1 auto" : "0 1 auto", transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
               >
                 {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle, () => setThreadExpanded((v) => !v))}
               </motion.div>

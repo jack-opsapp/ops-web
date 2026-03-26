@@ -16,7 +16,13 @@ import {
   type FetchTasksOptions,
   type CreateTaskWithEventData,
 } from "../api/services";
-import type { ProjectTask, TaskStatus } from "../types/models";
+import {
+  dispatchTaskAssignment,
+  dispatchTaskCompleted,
+  dispatchScheduleChange,
+} from "../api/services/notification-dispatch";
+import type { Project, ProjectTask, TaskStatus } from "../types/models";
+import { getTaskDisplayTitle } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -117,7 +123,7 @@ export function useCreateTask() {
       }
     ) => TaskService.createTask(data),
 
-    onSuccess: (_id, variables) => {
+    onSuccess: (taskId, variables) => {
       // Invalidate relevant task lists
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.lists(),
@@ -130,6 +136,24 @@ export function useCreateTask() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.projects.detail(variables.projectId),
       });
+
+      // Notify assigned team members
+      const memberIds = variables.teamMemberIds ?? [];
+      if (memberIds.length > 0) {
+        const project = queryClient.getQueryData<Project>(
+          queryKeys.projects.detail(variables.projectId)
+        );
+        dispatchTaskAssignment({
+          taskId,
+          taskTitle: getTaskDisplayTitle(
+            { customTitle: variables.customTitle ?? null },
+          ),
+          projectId: variables.projectId,
+          projectTitle: project?.title ?? "a project",
+          newMemberIds: memberIds,
+          companyId: variables.companyId,
+        });
+      }
     },
   });
 }
@@ -144,7 +168,7 @@ export function useCreateTaskWithEvent() {
     mutationFn: (data: CreateTaskWithEventData) =>
       TaskService.createTaskWithEvent(data),
 
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.lists(),
       });
@@ -157,6 +181,27 @@ export function useCreateTaskWithEvent() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.projects.detail(variables.task.projectId),
       });
+
+      // Notify assigned team members (from task or schedule data)
+      const memberIds =
+        variables.task.teamMemberIds ??
+        variables.schedule?.teamMemberIds ??
+        [];
+      if (memberIds.length > 0) {
+        const project = queryClient.getQueryData<Project>(
+          queryKeys.projects.detail(variables.task.projectId)
+        );
+        dispatchTaskAssignment({
+          taskId: result.taskId,
+          taskTitle: getTaskDisplayTitle(
+            { customTitle: variables.task.customTitle ?? null },
+          ),
+          projectId: variables.task.projectId,
+          projectTitle: project?.title ?? "a project",
+          newMemberIds: memberIds,
+          companyId: variables.task.companyId,
+        });
+      }
     },
   });
 }
@@ -204,6 +249,59 @@ export function useUpdateTask() {
       }
     },
 
+    onSuccess: (_data, { id, data }, context) => {
+      if (!context?.previousTask) return;
+
+      const prev = context.previousTask;
+      const project = queryClient.getQueryData<Project>(
+        queryKeys.projects.detail(prev.projectId)
+      );
+      const taskTitle = getTaskDisplayTitle(
+        { customTitle: data.customTitle ?? prev.customTitle },
+        prev.taskType
+      );
+      const projectTitle = project?.title ?? "a project";
+
+      // Notify newly assigned team members
+      if (data.teamMemberIds !== undefined) {
+        const previousIds = new Set(prev.teamMemberIds ?? []);
+        const newMembers = (data.teamMemberIds ?? []).filter(
+          (memberId) => !previousIds.has(memberId)
+        );
+        if (newMembers.length > 0) {
+          dispatchTaskAssignment({
+            taskId: id,
+            taskTitle,
+            projectId: prev.projectId,
+            projectTitle,
+            newMemberIds: newMembers,
+            companyId: prev.companyId,
+          });
+        }
+      }
+
+      // Notify team when schedule changes (start or end date moved)
+      const dateChanged =
+        (data.startDate !== undefined &&
+          data.startDate?.getTime() !== prev.startDate?.getTime()) ||
+        (data.endDate !== undefined &&
+          data.endDate?.getTime() !== prev.endDate?.getTime());
+
+      if (dateChanged) {
+        const allMembers = data.teamMemberIds ?? prev.teamMemberIds ?? [];
+        if (allMembers.length > 0) {
+          dispatchScheduleChange({
+            taskId: id,
+            taskTitle,
+            projectId: prev.projectId,
+            projectTitle,
+            teamMemberIds: allMembers,
+            companyId: prev.companyId,
+          });
+        }
+      }
+    },
+
     onSettled: (_data, _error, { id }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.detail(id),
@@ -220,6 +318,7 @@ export function useUpdateTask() {
  */
 export function useUpdateTaskStatus() {
   const queryClient = useQueryClient();
+  const { currentUser } = useAuthStore();
 
   return useMutation({
     mutationFn: ({
@@ -255,6 +354,31 @@ export function useUpdateTaskStatus() {
           queryKeys.tasks.detail(id),
           context.previousTask
         );
+      }
+    },
+
+    onSuccess: (_data, { id, status }, context) => {
+      // Notify project team when a task is completed
+      if (status === "Completed" && context?.previousTask) {
+        const prev = context.previousTask;
+        const allMembers = prev.teamMemberIds ?? [];
+
+        if (allMembers.length > 0) {
+          const project = queryClient.getQueryData<Project>(
+            queryKeys.projects.detail(prev.projectId)
+          );
+          dispatchTaskCompleted({
+            taskId: id,
+            taskTitle: getTaskDisplayTitle(prev, prev.taskType),
+            projectId: prev.projectId,
+            projectTitle: project?.title ?? "a project",
+            completedByName: currentUser
+              ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
+              : "A team member",
+            teamMemberIds: allMembers,
+            companyId: prev.companyId,
+          });
+        }
       }
     },
 

@@ -243,14 +243,18 @@ export function useSendInvite() {
 // ─── Auth Mutations ───────────────────────────────────────────────────────────
 
 /**
- * Reset password mutation (via Firebase).
+ * Reset password mutation — calls /api/auth/reset-password
+ * which generates a Firebase reset link and sends a branded OPS email via SendGrid.
  */
 export function useResetPassword() {
   return useMutation({
     mutationFn: async (email: string) => {
-      const { sendPasswordResetEmail, getAuth } = await import("firebase/auth");
-      const auth = getAuth();
-      await sendPasswordResetEmail(auth, email);
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error("Failed to request password reset");
     },
   });
 }

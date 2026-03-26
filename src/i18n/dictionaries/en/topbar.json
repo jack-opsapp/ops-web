@@ -22,5 +22,7 @@
   "notifications.yesterday": "Yesterday",
   "notifications.earlier": "Earlier",
   "notifications.count": "{count}",
-  "notifications.overflow": "+{count}"
+  "notifications.overflow": "+{count}",
+
+  "menu.ariaLabel": "Open menu"
 }

@@ -240,6 +240,7 @@ export interface DeepExtractionResult {
     email: string;
     phone: string | null;
     description: string;
+    address: string | null;
   };
   subContacts: Array<{ name: string; email: string; phone: string | null }>;
   companyName: string | null;
@@ -906,7 +907,8 @@ CLIENT INFO:
   The individual person goes in subContacts.
 - client.email: The primary contact email for this client
 - client.phone: Primary contact phone if found (omit if not found)
-- client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title in CRM. Be specific: include addresses, measurements, materials mentioned.
+- client.addr: Physical address if mentioned — project site address, client home address, or job location. Extract the most complete address found (street, city, province/state). Omit if not found.
+- client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title in CRM. Be specific: include measurements, materials mentioned.
 
 SUBCONTACTS — People at the client who are NOT the owner and NOT employees of ${context.companyName}:
 - For BUSINESS clients: the primary person MUST be the first subContact (same email/phone as client). Add any other people from CC/signatures.
@@ -991,7 +993,7 @@ No explanation.`;
           (r.stage as string) || null,
           (r.flag as string) || null
         );
-        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string } | null;
+        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string; addr?: string; address?: string } | null;
 
         let threadId = (r.tid as string) || (r.threadId as string);
         if (!threadId && idx < threads.length) {
@@ -1005,6 +1007,7 @@ No explanation.`;
             email: client?.email || '',
             phone: client?.phone || null,
             description: client?.desc || client?.description || '',
+            address: client?.addr || client?.address || null,
           },
           subContacts: ((r.subContacts || r.additionalContacts) as Array<{ name: string; email: string; phone: string | null }>) || [],
           companyName: (r.companyName as string) || null,
@@ -1021,7 +1024,7 @@ No explanation.`;
 
       // Parse review items — flagged for user attention
       for (const r of rawReview) {
-        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string } | null;
+        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string; addr?: string; address?: string } | null;
         const threadId = (r.tid as string) || (r.threadId as string);
         const reviewReason = (r.reviewReason as string) || 'ambiguous';
         console.log(`[deep-extract] REVIEW: tid=${threadId} reason=${reviewReason} name=${client?.name || '?'}`);
@@ -1033,6 +1036,7 @@ No explanation.`;
             email: client?.email || '',
             phone: client?.phone || null,
             description: client?.desc || client?.description || '',
+            address: client?.addr || client?.address || null,
           },
           subContacts: [],
           companyName: null,

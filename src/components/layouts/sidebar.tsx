@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import {
   LayoutDashboard,
@@ -101,12 +101,14 @@ function NavItemButton({
   isCollapsed,
   isRequested,
   onGatedClick,
+  onNavigate,
 }: {
   item: NavItem;
   isActive: boolean;
   isCollapsed: boolean;
   isRequested?: boolean;
   onGatedClick?: () => void;
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
 
@@ -125,6 +127,7 @@ function NavItemButton({
           onGatedClick();
         } else if (!item.gated) {
           router.push(item.href);
+          onNavigate?.();
         }
       }}
       title={tooltipText}
@@ -175,7 +178,7 @@ function NavItemButton({
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isCollapsed, toggle } = useSidebarStore();
+  const { isCollapsed, toggle, isMobileOpen, closeMobile } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const storeCompany = useAuthStore((s) => s.company);
   const { data: freshCompany } = useCompany();
@@ -190,6 +193,22 @@ export function Sidebar() {
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
   const { data: inboxUnreadCount = 0 } = useInboxUnreadCount();
+
+  // Mobile: detect viewport and derive effective collapsed state
+  const [isMobileView, setIsMobileView] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobileView(mobile);
+      if (!mobile) closeMobile();
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [closeMobile]);
+
+  // On mobile, always show expanded sidebar (labels visible)
+  const effectiveCollapsed = isMobileView ? false : isCollapsed;
   const allNavItems = useMemo(
     () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
     [t, hasInventoryAccess]
@@ -235,19 +254,31 @@ export function Sidebar() {
   };
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 h-screen z-[45]",
-        "ultrathin-material-dark border-r border-border",
-        "flex flex-col transition-all duration-200 ease-out",
-        isCollapsed ? "w-[72px]" : "w-[256px]"
+    <>
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[44] md:hidden"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
       )}
-    >
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-screen z-[45]",
+          "ultrathin-material-dark border-r border-border",
+          "flex flex-col transition-all duration-200 ease-out",
+          effectiveCollapsed ? "w-[72px]" : "w-[256px]",
+          // Mobile: off-screen by default, slide in when open
+          isMobileOpen ? "translate-x-0" : "-translate-x-full",
+          "md:translate-x-0"
+        )}
+      >
       {/* Company Branding */}
       <div
         className={cn(
           "flex items-center h-[56px] border-b border-border shrink-0",
-          isCollapsed ? "justify-center px-1" : "px-2 gap-1.5"
+          effectiveCollapsed ? "justify-center px-1" : "px-2 gap-1.5"
         )}
       >
         <div className="shrink-0 w-[24px] h-[24px] rounded bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
@@ -263,7 +294,7 @@ export function Sidebar() {
             <Building2 className="w-[14px] h-[14px] text-text-tertiary" />
           )}
         </div>
-        {!isCollapsed && (
+        {!effectiveCollapsed && (
           <span className="font-mohave text-body text-text-primary truncate uppercase">
             {company?.name || t("companyFallback")}
           </span>
@@ -286,7 +317,8 @@ export function Sidebar() {
               key={entry.href}
               item={entry}
               isActive={!entry.gated && isActive(entry.href)}
-              isCollapsed={isCollapsed}
+              isCollapsed={effectiveCollapsed}
+              onNavigate={closeMobile}
               isRequested={isRequested}
               onGatedClick={
                 entry.gated && slug
@@ -301,20 +333,20 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse Chevron — positioned on sidebar right edge */}
+      {/* Collapse Chevron — positioned on sidebar right edge, hidden on mobile */}
       <button
         onClick={toggle}
-        title={isCollapsed ? t("expandSidebar") : t("collapseSidebar")}
+        title={effectiveCollapsed ? t("expandSidebar") : t("collapseSidebar")}
         className={cn(
           "absolute top-1/2 -translate-y-1/2 -right-[10px] z-50",
           "w-[20px] h-[20px] rounded-full",
           "bg-background-panel border border-border",
-          "flex items-center justify-center",
+          "hidden md:flex items-center justify-center",
           "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)]",
           "transition-colors"
         )}
       >
-        {isCollapsed ? (
+        {effectiveCollapsed ? (
           <ChevronRight className="w-[12px] h-[12px]" />
         ) : (
           <ChevronLeft className="w-[12px] h-[12px]" />
@@ -327,7 +359,7 @@ export function Sidebar() {
         <div
           className={cn(
             "flex items-center rounded px-1.5 py-1",
-            isCollapsed ? "justify-center" : "gap-1"
+            effectiveCollapsed ? "justify-center" : "gap-1"
           )}
         >
           <Image
@@ -337,7 +369,7 @@ export function Sidebar() {
             height={6}
             className="select-none shrink-0 opacity-40"
           />
-          {!isCollapsed && (
+          {!effectiveCollapsed && (
             <span className="font-mono text-[10px] text-text-disabled select-none">
               VERSION 02/16/2026
             </span>
@@ -351,7 +383,7 @@ export function Sidebar() {
               className={cn(
                 "flex items-center rounded bg-[rgba(255,255,255,0.03)] p-1 w-full",
                 "hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer",
-                isCollapsed ? "justify-center" : "gap-1.5"
+                effectiveCollapsed ? "justify-center" : "gap-1.5"
               )}
             >
               <div
@@ -372,7 +404,7 @@ export function Sidebar() {
                 )}
               </div>
 
-              {!isCollapsed && (
+              {!effectiveCollapsed && (
                 <div className="flex-1 min-w-0 text-left">
                   <p className="font-mohave text-body-sm text-text-primary truncate">
                     {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : t("userFallback")}
@@ -382,7 +414,7 @@ export function Sidebar() {
             </button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent side="top" align={isCollapsed ? "center" : "start"} sideOffset={8}>
+          <DropdownMenuContent side="top" align={effectiveCollapsed ? "center" : "start"} sideOffset={8}>
             <DropdownMenuItem onClick={() => router.push("/settings")}>
               <Settings className="w-[16px] h-[16px] text-text-tertiary" />
               Settings
@@ -423,5 +455,6 @@ export function Sidebar() {
         />
       )}
     </aside>
+    </>
   );
 }

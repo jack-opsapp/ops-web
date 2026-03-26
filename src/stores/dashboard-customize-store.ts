@@ -9,6 +9,9 @@ interface DashboardCustomizeState {
   /** Whether the widget tray (catalog) is currently open */
   trayOpen: boolean;
   setTrayOpen: (v: boolean) => void;
+  /** Whether a full-screen wizard is open (hides FAB, suppresses global shortcuts) */
+  wizardOpen: boolean;
+  setWizardOpen: (v: boolean) => void;
 }
 
 export const useDashboardCustomizeStore = create<DashboardCustomizeState>((set) => ({
@@ -16,4 +19,6 @@ export const useDashboardCustomizeStore = create<DashboardCustomizeState>((set) 
   setIsCustomizing: (v) => set({ isCustomizing: v }),
   trayOpen: false,
   setTrayOpen: (v) => set({ trayOpen: v }),
+  wizardOpen: false,
+  setWizardOpen: (v) => set({ wizardOpen: v }),
 }));

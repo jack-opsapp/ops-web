@@ -42,7 +42,7 @@ import type {
 } from "@/lib/types/pipeline";
 import { DEFAULT_SYNC_FILTERS, PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { toast } from "sonner";
-import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { useCreateNotification } from "@/lib/hooks/use-notifications";
 
 // ─── Animation ───────────────────────────────────────────────────────────────
 
@@ -178,8 +178,7 @@ export function EmailSetupWizard({
   const { data: connections = [], isLoading: connectionsLoading } = useGmailConnections();
   const gmailImport = useGmailImport();
   const updateConnection = useUpdateGmailConnection();
-  const showPrompt = useActionPromptStore((s) => s.showPrompt);
-  const removePrompt = useActionPromptStore((s) => s.removePrompt);
+  const notify = useCreateNotification();
   const { data: clientsData } = useClients();
   const existingClients = clientsData?.clients ?? [];
 
@@ -231,7 +230,6 @@ export function EmailSetupWizard({
   const [importStarted, setImportStarted] = useState(false);
 
   // Constants for scan — declared early so reset-on-open effect can reference them
-  const SCAN_PROMPT_ID = "email-scan-progress";
   const SCAN_STEP_INDEX = STEPS.findIndex((s) => s.id === "scan");
 
   // Update filters when connection loads (use stringified comparison to avoid object ref loops)
@@ -327,8 +325,7 @@ export function EmailSetupWizard({
       if (scanning || scanComplete) {
         setStepIndex(SCAN_STEP_INDEX);
         setDirection(1);
-        // Clear any in-progress action prompt since wizard is open
-        removePrompt(SCAN_PROMPT_ID);
+        // Wizard is open — notifications stay in rail (user can dismiss from there)
         // Resume polling if scan is running but polling stopped (e.g. unmount/remount)
         if (scanning && scanJobId && !pollIntervalRef.current) {
           startPolling(scanJobId);
@@ -499,7 +496,13 @@ export function EmailSetupWizard({
               pollIntervalRef.current = null;
               setScanning(false);
               setScanJobId(null);
-              removePrompt(SCAN_PROMPT_ID);
+              notify({
+                type: "system",
+                title: "Email scan timed out",
+                body: "The scan stopped responding. Please try again.",
+                actionUrl: "/settings?tab=integrations",
+                actionLabel: "Retry",
+              });
               toast.error("Email scan timed out", {
                 description: "The scan stopped responding. Please try again.",
               });
@@ -539,25 +542,14 @@ export function EmailSetupWizard({
             toast.success("Email scan complete", { description: summary });
           }
 
-          // If wizard is closed, show action prompt
+          // If wizard is closed, create notification in the rail
           if (!openRef.current) {
-            removePrompt(SCAN_PROMPT_ID);
-            showPrompt({
-              id: SCAN_PROMPT_ID,
-              icon: CheckCircle,
+            notify({
+              type: "pipeline_complete",
               title: "Email scan complete",
-              description: summary,
-              ctaLabel: "Review Filters",
-              ctaAction: () => {
-                removePrompt(SCAN_PROMPT_ID);
-                onOpenChange(true);
-                setDirection(1);
-                setStepIndex(SCAN_STEP_INDEX);
-              },
-              persistent: true,
-              dismissable: true,
-              permanentDismiss: false,
-              variant: "accent",
+              body: summary,
+              actionUrl: "/settings?tab=integrations",
+              actionLabel: "Review Filters",
             });
           }
         } else if (data.status === "error") {
@@ -566,7 +558,6 @@ export function EmailSetupWizard({
           pollIntervalRef.current = null;
           setScanning(false);
           setScanJobId(null);
-          removePrompt(SCAN_PROMPT_ID);
           toast.error("Email scan failed", {
             description: data.error ?? "Something went wrong.",
           });
@@ -809,22 +800,14 @@ export function EmailSetupWizard({
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen && scanning) {
-      // User is closing wizard during active scan — show progress prompt
-      removePrompt(SCAN_PROMPT_ID);
-      showPrompt({
-        id: SCAN_PROMPT_ID,
-        icon: Search,
+      // User is closing wizard during active scan — notify in rail
+      notify({
+        type: "pipeline_complete",
         title: "Scan in progress",
-        description: "AI is still analyzing your emails. We\u2019ll notify you when it\u2019s done.",
-        ctaLabel: "Open Wizard",
-        ctaAction: () => {
-          removePrompt(SCAN_PROMPT_ID);
-          onOpenChange(true);
-        },
+        body: "AI is still analyzing your emails. We\u2019ll notify you when it\u2019s done.",
         persistent: true,
-        dismissable: true,
-        permanentDismiss: false,
-        variant: "accent",
+        actionUrl: "/settings?tab=integrations",
+        actionLabel: "Open Wizard",
       });
     }
     onOpenChange(nextOpen);

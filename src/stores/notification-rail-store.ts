@@ -22,7 +22,7 @@ export const useNotificationRailStore = create<NotificationRailState>()(
       set((s) => ({
         railState: s.railState === "collapsed" ? "expanded" : "collapsed",
       })),
-    openModal: () => set({ modalOpen: true }),
+    openModal: () => set({ modalOpen: true, railState: "collapsed" }),
     closeModal: () => set({ modalOpen: false }),
   })
 );

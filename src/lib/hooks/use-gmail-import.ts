@@ -1,18 +1,16 @@
 /**
  * OPS Web - Gmail Historical Import Hook
  *
- * Starts a historical import job, polls for progress, and shows
- * Action Prompts with status updates.
+ * Starts a historical import job, polls for progress, and creates
+ * notifications in the rail with status updates.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Mail, CheckCircle, AlertCircle } from "lucide-react";
-import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { useCreateNotification } from "./use-notifications";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const PROMPT_ID = "gmail-import-progress";
 const POLL_INTERVAL_MS = 3_000;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -51,8 +49,7 @@ export function useGmailImport() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<ImportStatusResponse | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const showPrompt = useActionPromptStore((s) => s.showPrompt);
-  const removePrompt = useActionPromptStore((s) => s.removePrompt);
+  const notify = useCreateNotification();
 
   // ── Start import mutation ──────────────────────────────────────────────
 
@@ -73,17 +70,14 @@ export function useGmailImport() {
       setJobId(data.jobId);
       setStatus({ status: "running" });
 
-      // Show running prompt
-      showPrompt({
-        id: PROMPT_ID,
-        icon: Mail,
+      // Create a persistent notification for the running import
+      notify({
+        type: "pipeline_complete",
         title: "Importing emails...",
-        description: "Scanning your inbox for leads. This may take a minute.",
-        ctaLabel: "Dismiss",
-        ctaAction: () => removePrompt(PROMPT_ID),
+        body: "Scanning your inbox for leads. This may take a minute.",
         persistent: true,
-        dismissable: true,
-        variant: "accent",
+        actionUrl: "/settings?tab=integrations",
+        actionLabel: "View Progress",
       });
     },
   });
@@ -111,11 +105,10 @@ export function useGmailImport() {
 
         if (data.status === "completed") {
           stopPolling();
-          removePrompt(PROMPT_ID);
 
-          const hasReview = (data.needsReview ?? 0) > 0;
           const cCreated = data.clientsCreated ?? 0;
           const lCreated = data.leadsCreated ?? 0;
+          const hasReview = (data.needsReview ?? 0) > 0;
 
           // Build a description that highlights what was created
           let desc: string;
@@ -131,37 +124,22 @@ export function useGmailImport() {
               : `Found ${data.matchedLeads ?? 0} leads from ${data.processedEmails ?? 0} emails.`;
           }
 
-          showPrompt({
-            id: PROMPT_ID,
-            icon: CheckCircle,
+          notify({
+            type: "pipeline_complete",
             title: "Import complete",
-            description: desc,
-            ctaLabel: lCreated > 0 ? "View Pipeline" : hasReview ? "Review Matches" : "Done",
-            ctaAction: () => {
-              removePrompt(PROMPT_ID);
-              if (lCreated > 0) {
-                window.location.href = "/pipeline";
-              } else if (hasReview) {
-                window.location.href = "/pipeline?review=true";
-              }
-            },
-            persistent: true,
-            dismissable: true,
-            variant: "accent",
+            body: desc,
+            actionUrl: lCreated > 0 ? "/pipeline" : hasReview ? "/pipeline?review=true" : "/settings?tab=integrations",
+            actionLabel: lCreated > 0 ? "View Pipeline" : hasReview ? "Review Matches" : "View",
           });
         } else if (data.status === "failed") {
           stopPolling();
-          removePrompt(PROMPT_ID);
 
-          showPrompt({
-            id: PROMPT_ID,
-            icon: AlertCircle,
+          notify({
+            type: "system",
             title: "Import failed",
-            description: data.error ?? "Something went wrong during import.",
-            ctaLabel: "Dismiss",
-            ctaAction: () => removePrompt(PROMPT_ID),
-            persistent: true,
-            dismissable: true,
+            body: data.error ?? "Something went wrong during import.",
+            actionUrl: "/settings?tab=integrations",
+            actionLabel: "View",
           });
         }
       } catch {
@@ -174,7 +152,7 @@ export function useGmailImport() {
     intervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
 
     return () => stopPolling();
-  }, [jobId, stopPolling, showPrompt, removePrompt]);
+  }, [jobId, stopPolling, notify]);
 
   // ── Public API ─────────────────────────────────────────────────────────
 

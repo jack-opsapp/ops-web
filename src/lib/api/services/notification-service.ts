@@ -1,10 +1,26 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 
+export type NotificationType =
+  | "mention"
+  | "role_needed"
+  | "pipeline_complete"
+  | "gmail_sync"
+  | "intel_available"
+  | "setup_prompt"
+  | "leads_waiting"
+  | "system"
+  | "project_assigned"
+  | "task_assigned"
+  | "task_completed"
+  | "schedule_change"
+  | "expense_submitted"
+  | "expense_approved";
+
 export interface AppNotification {
   id: string;
   userId: string;
   companyId: string;
-  type: "mention" | "role_needed";
+  type: NotificationType;
   title: string;
   body: string;
   projectId: string | null;
@@ -21,7 +37,7 @@ function mapRow(row: Record<string, unknown>): AppNotification {
     id: row.id as string,
     userId: row.user_id as string,
     companyId: row.company_id as string,
-    type: row.type as "mention" | "role_needed",
+    type: row.type as NotificationType,
     title: row.title as string,
     body: row.body as string,
     projectId: row.project_id as string | null,
@@ -34,7 +50,58 @@ function mapRow(row: Record<string, unknown>): AppNotification {
   };
 }
 
+export interface CreateNotificationParams {
+  userId: string;
+  companyId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  persistent?: boolean;
+  actionUrl?: string;
+  actionLabel?: string;
+  projectId?: string;
+}
+
 export const NotificationService = {
+  /**
+   * General-purpose notification creation. Use this for all new notification types.
+   * Deduplicates by (userId, type, title) — won't insert if an unread notification
+   * with the same type + title already exists for this user.
+   */
+  async create(params: CreateNotificationParams): Promise<void> {
+    const supabase = requireSupabase();
+
+    // Deduplicate: skip if an unread notification with same type+title exists
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("user_id", params.userId)
+      .eq("company_id", params.companyId)
+      .eq("type", params.type)
+      .eq("title", params.title)
+      .eq("is_read", false)
+      .limit(1);
+
+    if (existing && existing.length > 0) return;
+
+    const { error } = await supabase.from("notifications").insert({
+      user_id: params.userId,
+      company_id: params.companyId,
+      type: params.type,
+      title: params.title,
+      body: params.body,
+      is_read: false,
+      persistent: params.persistent ?? false,
+      action_url: params.actionUrl ?? null,
+      action_label: params.actionLabel ?? null,
+      project_id: params.projectId ?? null,
+    });
+
+    if (error) {
+      console.error("[NotificationService.create] Failed:", error.message);
+    }
+  },
+
   async createMentionNotifications(params: {
     mentionedUserIds: string[];
     authorName: string;

@@ -184,7 +184,6 @@ export function TimelineGrid({
 
   const selectedTaskId = useCalendarStore((s) => s.selectedTaskId);
   const selectedTaskIds = useCalendarStore((s) => s.selectedTaskIds);
-  const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
 
   // ── Context menu state ──────────────────────────────────────────────
 
@@ -227,10 +226,9 @@ export function TimelineGrid({
 
   const handleEventClick = useCallback(
     (event: InternalCalendarEvent) => {
-      setSidePanelTask(event.id);
       onEventClick?.(event);
     },
-    [setSidePanelTask, onEventClick]
+    [onEventClick]
   );
 
   const handleContextMenu = useCallback(

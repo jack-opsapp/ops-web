@@ -125,6 +125,9 @@ export function InvoiceDetailPanel({
         reviewedBy: userId,
         approvedAmount: totalAmount,
         expenseIds,
+        submittedBy: batch.submittedBy,
+        companyId: batch.companyId,
+        batchNumber: batch.batchNumber,
       },
       {
         onSuccess: () => toast.success("Invoice approved"),

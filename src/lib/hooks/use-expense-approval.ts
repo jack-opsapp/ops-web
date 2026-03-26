@@ -8,6 +8,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { ExpenseApprovalService } from "../api/services/expense-approval-service";
+import { dispatchExpenseApproved } from "../api/services/notification-dispatch";
 import { useAuthStore } from "../store/auth-store";
 import type { ExpenseBatch, CreateAutoApproveRule } from "../types/expense-approval";
 
@@ -83,13 +84,27 @@ export function useApproveBatch() {
       reviewedBy: string;
       approvedAmount: number;
       expenseIds: string[];
+      /** Pass batch metadata for notification dispatch */
+      submittedBy?: string | null;
+      companyId?: string;
+      batchNumber?: string;
     }) =>
       Promise.all([
         ExpenseApprovalService.approveBatch(batchId, reviewedBy, approvedAmount),
         ExpenseApprovalService.approveExpenses(expenseIds, reviewedBy),
       ]),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
+
+      // Notify the submitter that their batch was approved
+      if (variables.submittedBy && variables.companyId) {
+        dispatchExpenseApproved({
+          expenseDescription: `Batch ${variables.batchNumber ?? variables.batchId}`,
+          submitterId: variables.submittedBy,
+          companyId: variables.companyId,
+          actionUrl: "/expenses",
+        });
+      }
     },
   });
 }

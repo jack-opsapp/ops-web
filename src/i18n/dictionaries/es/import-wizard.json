@@ -14,7 +14,7 @@
   "filter.description": "Estos fueron marcados por el agente. Decide qué pertenece a tu pipeline.",
   "filter.import": "IMPORTAR",
   "filter.discard": "DESCARTAR",
-  "filter.hint": "↑↓ navegar · 1 importar · 2 descartar · ⏎ aceptar · E hilo",
+  "filter.hint": "←→ seleccionar · ↓/⏎ aceptar · ↑ atrás · ⌫ descartar · E hilo",
 
   "filter.reason.legal": "Legal",
   "filter.reason.legal_desc": "Acuerdo, disputa o correspondencia con abogados",
@@ -38,15 +38,16 @@
   "consolidate.via": "vía",
   "consolidate.leads": "Leads",
   "consolidate.contacts": "Contactos",
-  "consolidate.hint": "↑↓ navegar · 1 confirmar · 2 fusionar · ⏎ aceptar · ⌫ descartar",
+  "consolidate.hint": "←→ seleccionar · ↓/⏎ aceptar · ↑ atrás · ⌫ descartar",
 
-  "triage.title": "CLASIFICAR TRABAJO COMPLETADO",
+  "triage.title": "CLASIFICAR LEADS",
   "triage.description": "Marca proyectos pasados como ganados o perdidos. Todo lo demás permanece activo.",
   "triage.won": "GANADO",
   "triage.lost": "PERDIDO",
   "triage.active": "ACTIVO",
   "triage.agentSuggests": "El agente sugiere",
-  "triage.hint": "↑↓ navegar · 1 ganado · 2 perdido · 3 activo · ⌫ descartar · E hilo",
+  "triage.discard": "DESCARTAR",
+  "triage.hint": "←→ seleccionar · ↓/⏎ aceptar · ↑ atrás · E hilo",
 
   "confirm.title": "CONFIRMAR PIPELINE",
   "confirm.description": "Revisa tus leads activos y ajusta las etapas antes de importar.",

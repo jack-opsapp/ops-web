@@ -28,10 +28,12 @@ export function usePortalMessages(options?: PortalMessagesOptions) {
 
   return useQuery<PortalMessage[]>({
     queryKey: portalKeys.messages(options as Record<string, unknown>),
-    queryFn: () =>
-      portalFetch<PortalMessage[]>(
+    queryFn: async () => {
+      const body = await portalFetch<{ messages: PortalMessage[] }>(
         `/api/portal/messages?limit=${limit}&offset=${offset}`
-      ),
+      );
+      return body.messages;
+    },
   });
 }
 

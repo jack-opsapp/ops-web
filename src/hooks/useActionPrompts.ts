@@ -1,23 +1,20 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Mail, Users } from "lucide-react";
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
-import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { useCreateNotification } from "@/lib/hooks/use-notifications";
 
 /**
- * Evaluates conditions and shows relevant action prompts.
+ * Evaluates conditions and creates setup-prompt notifications in the rail.
+ * Deduplication is handled by NotificationService.create (same type+title = skip).
  * Mount once in the dashboard layout via a wrapper component.
  */
 export function useActionPrompts() {
-  const router = useRouter();
   const isAdmin = useAuthStore(selectIsAdmin);
   const company = useAuthStore((s) => s.company);
-  const showPrompt = useActionPromptStore((s) => s.showPrompt);
-  const isDismissed = useActionPromptStore((s) => s.isDismissed);
+  const notify = useCreateNotification();
 
   const { data: gmailData, isLoading: gmailLoading } = useGmailConnections();
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
@@ -29,21 +26,16 @@ export function useActionPrompts() {
     // ── Connect Gmail ──────────────────────────────────────────────────
     if (
       isAdmin &&
-      !isDismissed("connect-gmail") &&
       gmailData !== undefined &&
       Array.isArray(gmailData) &&
       gmailData.length === 0
     ) {
-      showPrompt({
-        id: "connect-gmail",
-        icon: Mail,
+      notify({
+        type: "setup_prompt",
         title: "Connect Gmail",
-        description: "Automate your pipeline by connecting your inbox.",
-        ctaLabel: "Set up",
-        ctaAction: () => router.push("/settings?tab=integrations"),
-        persistent: true,
-        dismissable: true,
-        variant: "accent",
+        body: "Automate your pipeline by connecting your inbox.",
+        actionUrl: "/settings?tab=integrations",
+        actionLabel: "Set up",
       });
     }
 
@@ -53,17 +45,13 @@ export function useActionPrompts() {
       size !== null && size !== undefined && size !== "" && size !== "just-me";
     const fewMembers = !teamData || teamData.users.length <= 1;
 
-    if (hasTeamSize && fewMembers && !isDismissed("invite-team")) {
-      showPrompt({
-        id: "invite-team",
-        icon: Users,
+    if (hasTeamSize && fewMembers) {
+      notify({
+        type: "setup_prompt",
         title: "Invite your team",
-        description: "Get your crew on OPS so everyone stays in sync.",
-        ctaLabel: "Invite",
-        ctaAction: () => router.push("/settings?tab=team&action=invite"),
-        persistent: true,
-        dismissable: true,
-        variant: "default",
+        body: "Get your crew on OPS so everyone stays in sync.",
+        actionUrl: "/settings?tab=team&action=invite",
+        actionLabel: "Invite",
       });
     }
   }, [
@@ -73,8 +61,6 @@ export function useActionPrompts() {
     gmailLoading,
     teamData,
     teamLoading,
-    isDismissed,
-    showPrompt,
-    router,
+    notify,
   ]);
 }

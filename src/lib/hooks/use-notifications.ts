@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { queryKeys } from "../api/query-client";
-import { NotificationService, type AppNotification } from "../api/services/notification-service";
+import {
+  NotificationService,
+  type AppNotification,
+  type NotificationType,
+  type CreateNotificationParams,
+} from "../api/services/notification-service";
 import { useAuthStore } from "../store/auth-store";
 
 /**
@@ -19,6 +25,36 @@ export function useNotifications() {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
+}
+
+/**
+ * Create a notification and invalidate the cache so it appears in the rail immediately.
+ * Returns a stable `notify` function that can be called from effects and callbacks.
+ */
+export function useCreateNotification() {
+  const { currentUser, company } = useAuthStore();
+  const userId = currentUser?.id ?? "";
+  const companyId = company?.id ?? "";
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.notifications.unread(userId, companyId);
+
+  const mutation = useMutation({
+    mutationFn: (params: Omit<CreateNotificationParams, "userId" | "companyId">) =>
+      NotificationService.create({ ...params, userId, companyId }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  const notify = useCallback(
+    (params: Omit<CreateNotificationParams, "userId" | "companyId">) => {
+      if (!userId || !companyId) return;
+      mutation.mutate(params);
+    },
+    [userId, companyId, mutation]
+  );
+
+  return notify;
 }
 
 /**

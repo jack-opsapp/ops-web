@@ -152,6 +152,7 @@ async function runImport(
     leadsCreated: 0,
     activitiesLogged: 0,
     labelsApplied: 0,
+    imagesExtracted: 0,
     errors: [],
   };
 
@@ -176,6 +177,8 @@ async function runImport(
 
   // Track merge groups: mergeWithLeadId → primary lead's clientId
   const mergeMap = new Map<string, string>();
+  // Track lead.id → opportunityId for post-import image extraction
+  const oppMap = new Map<string, string>();
 
   // Sort leads so merge targets (primary leads) appear before dependents.
   // Leads without mergeWithLeadId come first, followed by leads that merge into others.
@@ -325,9 +328,10 @@ async function runImport(
         negotiation: OpportunityStage.Negotiation,
         won: OpportunityStage.Won,
         lost: OpportunityStage.Lost,
+        discarded: OpportunityStage.Discarded,
       };
       const stage = stageMap[lead.stage] || OpportunityStage.NewLead;
-      const isTerminal = stage === OpportunityStage.Won || stage === OpportunityStage.Lost;
+      const isTerminal = stage === OpportunityStage.Won || stage === OpportunityStage.Lost || stage === OpportunityStage.Discarded;
 
       // Check for existing open opportunity for this client
       const { data: existingOpps } = await supabase
@@ -378,7 +382,7 @@ async function runImport(
           lostReason: null,
           lostNotes: null,
           quoteDeliveryMethod: null,
-          address: null,
+          address: lead.clientAddress || null,
           correspondenceCount: lead.correspondenceCount || 0,
           outboundCount: lead.outboundCount || 0,
           inboundCount,
@@ -400,6 +404,9 @@ async function runImport(
             .eq("id", opportunityId);
         }
       }
+
+      // Track opportunity for post-import image extraction
+      if (opportunityId) oppMap.set(lead.id, opportunityId);
 
       // Create sub-clients from detected sub-contacts (spouse, PM, site super, etc.)
       if (lead.subContacts?.length) {
@@ -495,6 +502,140 @@ async function runImport(
     `[email-import] Complete: ${result.clientsCreated} clients, ${result.leadsCreated} leads, ${result.activitiesLogged} activities, ${result.labelsApplied} labels`
   );
 
+  // ─── Extract images from email threads ──────────────────────────────────────
+  // After all leads are created, scan their threads for image attachments,
+  // download from Gmail, upload to Supabase Storage, and link to the opportunity.
+  await updateProgress(leads.length, "Extracting images from emails...");
+
+  // imagesExtracted tracked via result.imagesExtracted
+  const MAX_IMAGES_PER_LEAD = 10;
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB (matches Supabase bucket limit)
+  const IMAGE_CONCURRENCY = 3;
+
+  // Collect all unique threadIds + allowed sender emails per opportunity
+  const oppThreadMap = new Map<string, {
+    opportunityId: string;
+    threadIds: string[];
+    allowedSenders: Set<string>; // Only grab images from client + sub-contact emails
+  }>();
+  for (const lead of leads) {
+    const oppId = oppMap.get(lead.id);
+    if (!oppId) continue;
+    const existing = oppThreadMap.get(oppId);
+    const threadIds = lead.mergeWithLeadId
+      ? lead.mergeWithLeadId.split(",").filter(Boolean)
+      : [lead.threadId];
+
+    // Build allowlist: client email + all sub-contact emails
+    const senderEmails = new Set<string>();
+    if (lead.clientEmail) senderEmails.add(lead.clientEmail.toLowerCase().trim());
+    if (lead.subContacts) {
+      for (const sc of lead.subContacts) {
+        if (sc.email) senderEmails.add(sc.email.toLowerCase().trim());
+      }
+    }
+
+    if (existing) {
+      for (const tid of threadIds) {
+        if (!existing.threadIds.includes(tid)) existing.threadIds.push(tid);
+      }
+      for (const email of senderEmails) existing.allowedSenders.add(email);
+    } else {
+      oppThreadMap.set(oppId, { opportunityId: oppId, threadIds: [...threadIds], allowedSenders: senderEmails });
+    }
+  }
+
+  for (const [, { opportunityId, threadIds, allowedSenders }] of oppThreadMap) {
+    try {
+      // Collect image attachment metadata from all threads
+      const allImageMeta: Array<{
+        messageId: string;
+        attachmentId: string;
+        filename: string;
+        mimeType: string;
+        size: number;
+        fromEmail: string;
+      }> = [];
+
+      for (const tid of threadIds) {
+        try {
+          const images = await provider.getImageAttachmentsFromThread(tid);
+          allImageMeta.push(...images);
+        } catch (err) {
+          console.warn(`[email-import] Failed to scan thread ${tid} for images:`, err);
+        }
+      }
+
+      // Only keep images sent BY the client or their sub-contacts — not our own outbound images
+      const clientImages = allImageMeta.filter((img) => allowedSenders.has(img.fromEmail));
+
+      if (clientImages.length === 0) continue;
+
+      // Deduplicate by attachmentId and limit
+      const seen = new Set<string>();
+      const uniqueImages = clientImages.filter((img) => {
+        if (seen.has(img.attachmentId)) return false;
+        if (img.size > MAX_IMAGE_SIZE) return false;
+        seen.add(img.attachmentId);
+        return true;
+      }).slice(0, MAX_IMAGES_PER_LEAD);
+
+      console.log(`[email-import] Opportunity ${opportunityId}: found ${uniqueImages.length} images across ${threadIds.length} threads`);
+
+      // Download and upload in batches
+      const imageUrls: string[] = [];
+
+      for (let i = 0; i < uniqueImages.length; i += IMAGE_CONCURRENCY) {
+        const batch = uniqueImages.slice(i, i + IMAGE_CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map(async (img) => {
+            const buffer = await provider.fetchAttachment(img.messageId, img.attachmentId);
+
+            // Upload to Supabase Storage
+            const ext = img.filename.split(".").pop()?.toLowerCase() || "jpg";
+            const storagePath = `email-imports/${opportunityId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+            const { error: uploadErr } = await supabase.storage
+              .from("images")
+              .upload(storagePath, buffer, {
+                contentType: img.mimeType,
+                upsert: false,
+              });
+
+            if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
+
+            const { data: urlData } = supabase.storage
+              .from("images")
+              .getPublicUrl(storagePath);
+
+            return urlData.publicUrl;
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            imageUrls.push(r.value);
+            result.imagesExtracted++;
+          } else {
+            console.warn(`[email-import] Image upload failed:`, r.reason);
+          }
+        }
+      }
+
+      // Store image URLs on the opportunity
+      if (imageUrls.length > 0) {
+        await supabase
+          .from("opportunities")
+          .update({ images: imageUrls })
+          .eq("id", opportunityId);
+      }
+    } catch (err) {
+      console.warn(`[email-import] Image extraction failed for opportunity ${opportunityId}:`, err);
+    }
+  }
+
+  console.log(`[email-import] Image extraction complete: ${result.imagesExtracted} images uploaded`);
+
   // ─── Mark job complete ──────────────────────────────────────────────────────
   await supabase
     .from("gmail_scan_jobs")
@@ -545,7 +686,7 @@ async function runImport(
       body: `Created ${result.clientsCreated} client${result.clientsCreated !== 1 ? "s" : ""} and ${result.leadsCreated} lead${result.leadsCreated !== 1 ? "s" : ""}`,
       is_read: false,
       persistent: true,
-      action_url: "/settings?tab=company",
+      action_url: "/settings?tab=integrations",
       action_label: "Activate Sync",
     }).then(({ error: notifErr }) => {
       if (notifErr) console.error("[email-import] Failed to create notification:", notifErr.message);

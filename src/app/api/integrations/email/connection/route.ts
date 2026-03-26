@@ -38,3 +38,54 @@ export async function GET(request: NextRequest) {
     setSupabaseOverride(null);
   }
 }
+
+/**
+ * PATCH /api/integrations/email/connection
+ * Merges the provided syncFilters into the existing connection syncFilters.
+ * Used by the wizard to persist review state mid-flow.
+ */
+export async function PATCH(request: NextRequest) {
+  let body: { connectionId?: string; syncFilters?: Record<string, unknown> };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const { connectionId, syncFilters } = body;
+  if (!connectionId || !syncFilters) {
+    return NextResponse.json(
+      { error: "connectionId and syncFilters required" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = getServiceRoleClient();
+  setSupabaseOverride(supabase);
+  try {
+    // Read existing filters so we merge rather than overwrite
+    const existing = await EmailService.getConnection(connectionId);
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const mergedFilters = {
+      ...((existing.syncFilters as Record<string, unknown>) || {}),
+      ...syncFilters,
+    };
+
+    await EmailService.updateConnection(connectionId, {
+      syncFilters: mergedFilters,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[connection PATCH] Failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Update failed" },
+      { status: 500 }
+    );
+  } finally {
+    setSupabaseOverride(null);
+  }
+}

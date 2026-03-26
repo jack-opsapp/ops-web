@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, BellOff } from "lucide-react";
 import { notifModalVariants, notifBackdropVariants } from "@/lib/utils/motion";
@@ -68,6 +68,47 @@ export function NotificationModal() {
     [dismissAllMutation]
   );
 
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap: focus the modal on open, handle Escape
+  useEffect(() => {
+    if (!modalOpen) return;
+    // Focus the modal container
+    modalRef.current?.focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        closeModal();
+        return;
+      }
+
+      // Trap Tab focus inside modal
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [modalOpen, closeModal]);
+
   return (
     <AnimatePresence>
       {modalOpen && (
@@ -78,7 +119,7 @@ export function NotificationModal() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed inset-0 z-[100]"
+            className="fixed inset-0 z-[3000]"
             style={{
               backgroundColor: "rgba(0, 0, 0, 0.5)",
               backdropFilter: "blur(8px)",
@@ -88,13 +129,18 @@ export function NotificationModal() {
           />
 
           {/* Modal — flex-centered to avoid transform conflicts with framer motion */}
-          <div className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 z-[3001] flex items-center justify-center pointer-events-none">
             <motion.div
+              ref={modalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="notif-modal-title"
+              tabIndex={-1}
               variants={notifModalVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="w-full max-w-[480px] max-h-[70vh] flex flex-col rounded-sm pointer-events-auto"
+              className="w-full max-w-[480px] max-h-[70vh] flex flex-col rounded-sm pointer-events-auto outline-none"
               style={{
                 background: "rgba(10, 10, 10, 0.70)",
                 backdropFilter: "blur(20px) saturate(1.2)",
@@ -104,7 +150,7 @@ export function NotificationModal() {
             >
             {/* Header */}
             <div className="flex items-center justify-between px-[12px] py-[10px] border-b border-[rgba(255,255,255,0.08)] shrink-0">
-              <h2 className="font-mohave text-body-lg text-text-primary font-medium text-left">
+              <h2 id="notif-modal-title" className="font-mohave text-body-lg text-text-primary font-medium text-left">
                 {t("notifications.title")}
               </h2>
               <div className="flex items-center gap-[8px]">

@@ -72,6 +72,12 @@ function mapBrandingFromDb(row: Record<string, unknown>): PortalBranding {
     themeMode: (row.theme_mode as PortalThemeMode) ?? "dark",
     fontCombo: (row.font_combo as PortalTemplate) ?? "modern",
     welcomeMessage: (row.welcome_message as string) ?? null,
+    showQuantities: row.show_quantities != null ? !!(row.show_quantities) : null,
+    showUnitPrices: row.show_unit_prices != null ? !!(row.show_unit_prices) : null,
+    showLineTotals: row.show_line_totals != null ? !!(row.show_line_totals) : null,
+    showDescriptions: row.show_descriptions != null ? !!(row.show_descriptions) : null,
+    showTax: row.show_tax != null ? !!(row.show_tax) : null,
+    showDiscount: row.show_discount != null ? !!(row.show_discount) : null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };

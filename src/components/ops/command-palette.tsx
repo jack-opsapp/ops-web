@@ -27,7 +27,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useSignOutStore } from "@/stores/signout-store";
-import { useProjects } from "@/lib/hooks/use-projects";
+import { useScopedProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import {
@@ -60,8 +60,8 @@ export function CommandPalette() {
   const can = usePermissionStore((s) => s.can);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
 
-  // Entity data for search (uses cached data, no extra fetches)
-  const { data: projectsData } = useProjects(undefined, { enabled: open });
+  // Entity data for search (scope-aware to match cached data from app)
+  const { data: projectsData } = useScopedProjects(undefined, { enabled: open });
   const { data: clientsData } = useClients(undefined, { enabled: open });
   const { data: tasksData } = useTasks(undefined, { enabled: open });
 
@@ -481,8 +481,9 @@ export function CommandPalette() {
                 {entityResults.projects.map((p) => (
                   <CommandItem
                     key={`project-${p.id}`}
-                    value={`project ${p.title} ${p.address ?? ""}`}
+                    value={`project-${p.id} ${p.title}`}
                     onSelect={() => navigate(`/projects/${p.id}`)}
+                    forceMount
                   >
                     <FolderKanban className="w-[16px] h-[16px] text-text-tertiary" />
                     <span className="truncate">{p.title}</span>
@@ -500,8 +501,9 @@ export function CommandPalette() {
                 {entityResults.clients.map((c) => (
                   <CommandItem
                     key={`client-${c.id}`}
-                    value={`client ${c.name} ${c.email ?? ""}`}
+                    value={`client-${c.id} ${c.name}`}
                     onSelect={() => navigate(`/clients/${c.id}`)}
+                    forceMount
                   >
                     <Users className="w-[16px] h-[16px] text-text-tertiary" />
                     <span className="truncate">{c.name}</span>
@@ -519,8 +521,9 @@ export function CommandPalette() {
                 {entityResults.tasks.map((t) => (
                   <CommandItem
                     key={`task-${t.id}`}
-                    value={`task ${t.customTitle ?? ""} ${t.taskNotes ?? ""}`}
+                    value={`task-${t.id} ${t.customTitle ?? ""}`}
                     onSelect={() => navigate(`/projects/${t.projectId}`)}
+                    forceMount
                   >
                     <ClipboardList className="w-[16px] h-[16px] text-text-tertiary" />
                     <span className="truncate">{t.customTitle || "Untitled Task"}</span>

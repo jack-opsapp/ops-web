@@ -636,6 +636,7 @@ async function runPhaseA(
         email: clientEmail,
         phone: extracted?.phone || null,
         description: extracted?.message || thread.subject,
+        address: null, // Phase B AI extraction will populate
       },
       stage,
       stageConfidence,

@@ -1,26 +1,24 @@
 /**
  * OPS Web - Gmail Sync Notifications Hook
  *
- * Periodically checks for new unread email activities and shows
- * an Action Prompt when new emails are detected. Only polls while
- * the tab is visible, and auto-dismisses after 10 seconds.
+ * Periodically checks for new unread email activities and creates
+ * a notification in the rail when new emails are detected. Only polls
+ * while the tab is visible.
  */
 
 "use client";
 
 import { useRef, useEffect } from "react";
 import { useAuthStore } from "../store/auth-store";
-import { useActionPromptStore } from "@/stores/action-prompt-store";
-import { Mail } from "lucide-react";
+import { useCreateNotification } from "./use-notifications";
 
 const POLL_INTERVAL = 60_000; // 60 seconds
-const PROMPT_ID = "gmail-sync-notification";
 
 export function useGmailSyncNotifications() {
   const { company } = useAuthStore();
   const companyId = company?.id;
   const lastCountRef = useRef<number | null>(null);
-  const showPrompt = useActionPromptStore((s) => s.showPrompt);
+  const notify = useCreateNotification();
 
   useEffect(() => {
     if (!companyId) return;
@@ -47,18 +45,12 @@ export function useGmailSyncNotifications() {
         // Only notify when the count has increased since last check
         const newCount = currentCount - lastCountRef.current;
         if (newCount > 0) {
-          showPrompt({
-            id: PROMPT_ID,
-            icon: Mail,
+          notify({
+            type: "gmail_sync",
             title: `${newCount} new email${newCount > 1 ? "s" : ""} synced`,
-            description: "New emails matched to your clients",
-            ctaLabel: "View",
-            ctaAction: () => {
-              window.location.href = "/pipeline";
-            },
-            persistent: false,
-            dismissable: true,
-            autoDismissMs: 10000,
+            body: "New emails matched to your clients",
+            actionUrl: "/pipeline",
+            actionLabel: "View",
           });
         }
 
@@ -70,5 +62,5 @@ export function useGmailSyncNotifications() {
 
     const interval = setInterval(check, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [companyId, showPrompt]);
+  }, [companyId, notify]);
 }

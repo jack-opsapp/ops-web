@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   startOfMonth,
@@ -36,8 +37,6 @@ import { CalendarGridMonth } from "./_components/calendar-grid-month";
 import { CalendarGridDay } from "./_components/calendar-grid-day";
 import { TimelineGrid } from "./_components/timeline/timeline-grid";
 import { FilterSidebar } from "./_components/filter-sidebar";
-import { TaskDetailPanel } from "./_components/side-panel/task-detail-panel";
-import { ProjectDrawerPanel } from "./_components/side-panel/project-drawer-panel";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
 
@@ -49,7 +48,6 @@ export default function CalendarPage() {
     view,
     setView,
     setCurrentDate,
-    setSidePanelTask,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,
@@ -57,6 +55,8 @@ export default function CalendarPage() {
     isConfirmBarVisible,
     ghostPreviews,
   } = useCalendarStore();
+
+  const router = useRouter();
 
   // Keyboard shortcuts (replaces inline handler)
   useSchedulerShortcuts();
@@ -191,9 +191,11 @@ export default function CalendarPage() {
 
   const handleEventClick = useCallback(
     (event: InternalCalendarEvent) => {
-      setSidePanelTask(event.id);
+      if (event.projectId) {
+        router.push(`/projects/${event.projectId}`);
+      }
     },
-    [setSidePanelTask]
+    [router]
   );
 
   // Timeline start date (week start)
@@ -291,13 +293,6 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Side panels (right) — hidden on mobile */}
-        {!isMobile && (
-          <>
-            <TaskDetailPanel />
-            <ProjectDrawerPanel />
-          </>
-        )}
       </div>
     </div>
   );

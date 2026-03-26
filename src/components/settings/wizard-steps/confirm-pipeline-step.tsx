@@ -71,18 +71,26 @@ export function ConfirmPipelineStep({
     });
   };
 
-  // Consolidation lookup for display names
+  // Consolidation lookup for display names and sibling leads
   const consolidationLookup = useMemo(() => {
-    const map = new Map<string, { companyName: string; title: string }>();
+    const map = new Map<string, { companyName: string; title: string; siblingLeadIds: string[] }>();
     for (const group of consolidationGroups) {
       if (group.leads.length > 1) {
+        const allLeadIds = group.leads.map((gl) => gl.leadId);
         for (const gl of group.leads) {
-          map.set(gl.leadId, { companyName: group.companyName, title: gl.title });
+          map.set(gl.leadId, { companyName: group.companyName, title: gl.title, siblingLeadIds: allLeadIds });
         }
       }
     }
     return map;
   }, [consolidationGroups]);
+
+  // Lookup from lead ID → full lead data (for resolving sibling threads)
+  const leadsById = useMemo(() => {
+    const map = new Map<string, AnalyzedLead>();
+    for (const lead of leads) map.set(lead.id, lead);
+    return map;
+  }, [leads]);
 
   // Resolve effective stage: triage decision overrides AI's original assessment
   const getEffectiveStage = (lead: AnalyzedLead): string => {
@@ -242,16 +250,34 @@ export function ConfirmPipelineStep({
                       exit={{ opacity: 0, transition: { duration: prefersReduced ? 0 : 0.15 } }}
                       className="space-y-1 ml-4"
                     >
-                      {stageLeads.map((lead) => (
-                        <LeadRow
-                          key={lead.id}
-                          lead={lead}
-                          displayName={getDisplayName(lead)}
-                          effectiveStage={getEffectiveStage(lead)}
-                          onStageChange={(s) => onStageChange(lead.id, s)}
-                          onNameChange={(name) => onNameChange(lead.id, name)}
-                        />
-                      ))}
+                      <AnimatePresence initial={false}>
+                        {stageLeads.map((lead) => (
+                          <motion.div
+                            key={lead.id}
+                            layout={!prefersReduced}
+                            initial={prefersReduced ? false : { opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto", transition: { height: { duration: 0.25, ease: EASE_SMOOTH }, opacity: { duration: 0.2, ease: EASE_SMOOTH, delay: 0.05 } } }}
+                            exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.15, ease: EASE_SMOOTH }, height: { duration: 0.2, ease: EASE_SMOOTH, delay: 0.08 } } }}
+                            className="overflow-hidden"
+                          >
+                            <LeadRow
+                              lead={lead}
+                              displayName={getDisplayName(lead)}
+                              effectiveStage={getEffectiveStage(lead)}
+                              onStageChange={(s) => onStageChange(lead.id, s)}
+                              onNameChange={(name) => onNameChange(lead.id, name)}
+                              siblingLeads={(() => {
+                                const c = consolidationLookup.get(lead.id);
+                                if (!c) return undefined;
+                                return c.siblingLeadIds
+                                  .filter((id) => id !== lead.id)
+                                  .map((id) => leadsById.get(id))
+                                  .filter((l): l is AnalyzedLead => !!l);
+                              })()}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -296,10 +322,18 @@ export function ConfirmPipelineStep({
                     exit={{ opacity: 0, transition: { duration: prefersReduced ? 0 : 0.15 } }}
                     className="space-y-1 ml-4"
                   >
+                    <AnimatePresence initial={false}>
                     {discardedLeads.map((lead) => (
-                      <div
+                      <motion.div
                         key={lead.id}
-                        className="py-2 px-3 border border-white/[0.03] opacity-50"
+                        layout={!prefersReduced}
+                        initial={prefersReduced ? false : { opacity: 0, height: 0 }}
+                        animate={{ opacity: 0.5, height: "auto", transition: { height: { duration: 0.25, ease: EASE_SMOOTH }, opacity: { duration: 0.2, ease: EASE_SMOOTH, delay: 0.05 } } }}
+                        exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.15, ease: EASE_SMOOTH }, height: { duration: 0.2, ease: EASE_SMOOTH, delay: 0.08 } } }}
+                        className="overflow-hidden"
+                      >
+                      <div
+                        className="py-2 px-3 border border-white/[0.03]"
                         style={{ borderRadius: 2 }}
                       >
                         <div className="flex items-center gap-3">
@@ -334,7 +368,9 @@ export function ConfirmPipelineStep({
                           </select>
                         </div>
                       </div>
+                      </motion.div>
                     ))}
+                    </AnimatePresence>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -405,12 +441,14 @@ function LeadRow({
   effectiveStage,
   onStageChange,
   onNameChange,
+  siblingLeads,
 }: {
   lead: AnalyzedLead;
   displayName: string;
   effectiveStage: string;
   onStageChange: (stage: string) => void;
   onNameChange: (name: string) => void;
+  siblingLeads?: AnalyzedLead[];
 }) {
   return (
     <div
@@ -453,7 +491,7 @@ function LeadRow({
 
       {/* Expandable thread */}
       <div className="mt-1.5">
-        <EmailThreadView lead={lead} />
+        <EmailThreadView lead={lead} siblingLeads={siblingLeads} />
       </div>
     </div>
   );

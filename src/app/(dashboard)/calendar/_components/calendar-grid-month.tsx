@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   startOfMonth,
   endOfMonth,
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
+  addDays,
   format,
   isSameMonth,
   isSameDay,
@@ -14,7 +15,18 @@ import {
   differenceInCalendarDays,
 } from "date-fns";
 import { motion } from "framer-motion";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { toast } from "sonner";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { useUpdateTask } from "@/lib/hooks";
 import {
   MonthEventBar,
   type DisplayLevel,
@@ -86,6 +98,186 @@ function getMaxSlots(cellHeight: number, displayLevel: DisplayLevel): number {
 /** Check if an event spans multiple days */
 function isMultiDay(event: InternalCalendarEvent): boolean {
   return !isSameDay(event.startDate, event.endDate);
+}
+
+// ─── Droppable Day Cell ─────────────────────────────────────────────────────
+
+function MonthDayCell({
+  day,
+  isCurrentMonth,
+  isCurrentDay,
+  isWeekend,
+  overflow,
+  onSelectDate,
+}: {
+  day: Date;
+  isCurrentMonth: boolean;
+  isCurrentDay: boolean;
+  isWeekend: boolean;
+  overflow: number;
+  onSelectDate?: (date: Date) => void;
+}) {
+  const dayKey = format(day, "yyyy-MM-dd");
+  const { setNodeRef, isOver } = useDroppable({
+    id: `month-day-${dayKey}`,
+    data: { type: "month-day", day },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="relative overflow-hidden group"
+      style={{
+        borderRight: "1px solid rgba(255,255,255,0.10)",
+        opacity: isCurrentMonth ? 1 : 0.3,
+        backgroundColor: isOver
+          ? "rgba(89, 119, 148, 0.08)"
+          : isWeekend && isCurrentMonth
+            ? "rgba(255,255,255,0.02)"
+            : undefined,
+      }}
+    >
+      {/* Day number — top-left */}
+      <div
+        className="flex items-center"
+        style={{ padding: "4px 4px 0 4px", height: DAY_NUMBER_HEIGHT }}
+      >
+        <button
+          className="cursor-pointer flex items-center justify-center transition-colors duration-100"
+          style={{
+            fontFamily: "var(--font-mohave), sans-serif",
+            fontWeight: 600,
+            fontSize: 13,
+            width: 22,
+            height: 22,
+            borderRadius: isCurrentDay ? "50%" : "2px",
+            backgroundColor: isCurrentDay ? "rgba(89,119,148,0.15)" : "transparent",
+            color: isCurrentDay ? "#FFFFFF" : "#999999",
+            border: "none",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectDate?.(day);
+          }}
+        >
+          {format(day, "d")}
+        </button>
+      </div>
+
+      {/* Clickable empty area */}
+      <div
+        className="absolute inset-0 cursor-pointer"
+        style={{ zIndex: 0, top: DAY_NUMBER_HEIGHT }}
+        onClick={() => onSelectDate?.(day)}
+      />
+
+      {/* Overflow "+N more" — bottom of cell */}
+      {overflow > 0 && (
+        <button
+          className="absolute cursor-pointer font-kosugi uppercase hover:underline"
+          style={{
+            bottom: 2,
+            left: 4,
+            fontSize: 10,
+            color: "#999999",
+            background: "none",
+            border: "none",
+            padding: 0,
+            zIndex: 2,
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectDate?.(day);
+          }}
+        >
+          +{overflow} MORE
+        </button>
+      )}
+
+      {/* Drop indicator */}
+      {isOver && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            border: "1px solid rgba(89, 119, 148, 0.3)",
+            borderRadius: 2,
+            zIndex: 4,
+          }}
+        />
+      )}
+
+      {/* Hover border */}
+      <div
+        className="absolute inset-0 border border-transparent group-hover:border-[rgba(89,119,148,0.2)] pointer-events-none transition-colors duration-150"
+        style={{ borderRadius: 2, zIndex: 3 }}
+      />
+    </div>
+  );
+}
+
+// ─── Draggable Event Wrapper ────────────────────────────────────────────────
+
+function DraggableMonthEvent({
+  event,
+  weekIndex,
+  positionStyle,
+  disabled,
+  children,
+}: {
+  event: InternalCalendarEvent;
+  weekIndex: number;
+  positionStyle: React.CSSProperties;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `month-event-${event.id}-w${weekIndex}`,
+    data: { type: "month-event", event },
+    disabled,
+  });
+
+  // Suppress click events that fire immediately after a drag ends
+  const justDraggedRef = useRef(false);
+  useEffect(() => {
+    if (isDragging) {
+      justDraggedRef.current = true;
+    } else if (justDraggedRef.current) {
+      const id = requestAnimationFrame(() => {
+        justDraggedRef.current = false;
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [isDragging]);
+
+  const dragStyle: React.CSSProperties = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 20,
+        cursor: "grabbing",
+      }
+    : {};
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="absolute pointer-events-auto"
+      style={{
+        ...positionStyle,
+        ...dragStyle,
+        opacity: isDragging ? 0.5 : undefined,
+      }}
+      onClickCapture={(e) => {
+        if (justDraggedRef.current) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -337,7 +529,58 @@ export function CalendarGridMonth({
   // ── Slot height for current level ──
   const baseSlotHeight = displayLevel === "compact" ? 10 : 14;
 
+  // ── DnD ──
+  const updateTask = useUpdateTask();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const handleDragEnd = useCallback(
+    (dragEvent: DragEndEvent) => {
+      const { active, over } = dragEvent;
+      if (!over) return;
+
+      const activeData = active.data?.current as
+        | { type?: string; event?: InternalCalendarEvent }
+        | undefined;
+      const overData = over.data?.current as
+        | { type?: string; day?: Date }
+        | undefined;
+
+      if (activeData?.type !== "month-event" || overData?.type !== "month-day") return;
+      if (!activeData.event || !overData.day) return;
+
+      const calEvent = activeData.event;
+      const targetDay = overData.day;
+
+      // Coerce to Date for safety (Supabase responses may be strings)
+      const eventStart = calEvent.startDate instanceof Date
+        ? calEvent.startDate
+        : new Date(calEvent.startDate);
+      const eventEnd = calEvent.endDate instanceof Date
+        ? calEvent.endDate
+        : new Date(calEvent.endDate);
+
+      // Shift both start and end dates by the day delta
+      const dayDelta = differenceInCalendarDays(targetDay, eventStart);
+      if (dayDelta === 0) return;
+
+      const newStart = addDays(eventStart, dayDelta);
+      const newEnd = addDays(eventEnd, dayDelta);
+
+      updateTask.mutate(
+        { id: calEvent.id, data: { startDate: newStart, endDate: newEnd } },
+        {
+          onError: (err) =>
+            toast.error("Failed to move event", { description: err.message }),
+        }
+      );
+    },
+    [updateTask]
+  );
+
   return (
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
     <div className="flex flex-col flex-1 min-h-0" onWheel={handleWheel}>
       {/* Day name headers — fixed top row */}
       <div className="grid grid-cols-7 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
@@ -374,85 +617,17 @@ export function CalendarGridMonth({
             }}
           >
             {row.weekDays.map((day, dayIdx) => {
-              const isCurrentMonth = isSameMonth(day, currentDate);
-              const isCurrentDay = isToday(day);
-              const isWeekend = dayIdx >= 5; // Mon-start: Sat=5, Sun=6
               const dayKey = format(day, "yyyy-MM-dd");
-              const overflow = overflowCounts.get(dayKey) || 0;
-
               return (
-                <div
+                <MonthDayCell
                   key={dayIdx}
-                  className="relative overflow-hidden group"
-                  style={{
-                    borderRight: "1px solid rgba(255,255,255,0.10)",
-                    opacity: isCurrentMonth ? 1 : 0.3,
-                    backgroundColor: isWeekend && isCurrentMonth ? "rgba(255,255,255,0.02)" : undefined,
-                  }}
-                >
-                  {/* Day number — top-left */}
-                  <div
-                    className="flex items-center"
-                    style={{ padding: "4px 4px 0 4px", height: DAY_NUMBER_HEIGHT }}
-                  >
-                    <button
-                      className="cursor-pointer flex items-center justify-center transition-colors duration-100"
-                      style={{
-                        fontFamily: "var(--font-mohave), sans-serif",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        width: 22,
-                        height: 22,
-                        borderRadius: isCurrentDay ? "50%" : "2px",
-                        backgroundColor: isCurrentDay ? "rgba(89,119,148,0.15)" : "transparent",
-                        color: isCurrentDay ? "#FFFFFF" : "#999999",
-                        border: "none",
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectDate?.(day);
-                      }}
-                    >
-                      {format(day, "d")}
-                    </button>
-                  </div>
-
-                  {/* Clickable empty area */}
-                  <div
-                    className="absolute inset-0 cursor-pointer"
-                    style={{ zIndex: 0, top: DAY_NUMBER_HEIGHT }}
-                    onClick={() => onSelectDate?.(day)}
-                  />
-
-                  {/* Overflow "+N more" — bottom of cell */}
-                  {overflow > 0 && (
-                    <button
-                      className="absolute cursor-pointer font-kosugi uppercase hover:underline"
-                      style={{
-                        bottom: 2,
-                        left: 4,
-                        fontSize: 10,
-                        color: "#999999",
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        zIndex: 2,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectDate?.(day);
-                      }}
-                    >
-                      +{overflow} MORE
-                    </button>
-                  )}
-
-                  {/* Hover border */}
-                  <div
-                    className="absolute inset-0 border border-transparent group-hover:border-[rgba(89,119,148,0.2)] pointer-events-none transition-colors duration-150"
-                    style={{ borderRadius: 2, zIndex: 3 }}
-                  />
-                </div>
+                  day={day}
+                  isCurrentMonth={isSameMonth(day, currentDate)}
+                  isCurrentDay={isToday(day)}
+                  isWeekend={dayIdx >= 5}
+                  overflow={overflowCounts.get(dayKey) || 0}
+                  onSelectDate={onSelectDate}
+                />
               );
             })}
 
@@ -466,32 +641,35 @@ export function CalendarGridMonth({
                   const colStart = span.startDayIndex;
                   const colSpan = span.endDayIndex - span.startDayIndex + 1;
 
+                  // Only allow drag from the first segment of multi-day events
+                  const isDragDisabled = !span.isSingleDay && !span.isFirstSegment;
+
                   // For compact mode, render dots differently
                   if (displayLevel === "compact") {
-                    // Single dot per event at the correct slot
                     const top = slotIndex * (10 + SLOT_GAP);
                     const left = `calc(${(colStart / 7) * 100}% + 4px)`;
 
                     return (
-                      <motion.div
+                      <DraggableMonthEvent
                         key={`${event.id}-w${row.weekIndex}`}
-                        className="absolute pointer-events-auto"
-                        style={{
-                          top,
-                          left,
-                          zIndex: 1,
-                        }}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.15 }}
+                        event={event}
+                        weekIndex={row.weekIndex}
+                        positionStyle={{ top, left, zIndex: 1 }}
+                        disabled={isDragDisabled}
                       >
-                        <MonthEventBar
-                          event={event}
-                          displayLevel={displayLevel}
-                          span={span}
-                          onClick={onEventClick}
-                        />
-                      </motion.div>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <MonthEventBar
+                            event={event}
+                            displayLevel={displayLevel}
+                            span={span}
+                            onClick={onEventClick}
+                          />
+                        </motion.div>
+                      </DraggableMonthEvent>
                     );
                   }
 
@@ -502,10 +680,12 @@ export function CalendarGridMonth({
                   const widthPct = (colSpan / 7) * 100;
 
                   return (
-                    <motion.div
+                    <DraggableMonthEvent
                       key={`${event.id}-w${row.weekIndex}`}
-                      className="absolute pointer-events-auto"
-                      style={{
+                      event={event}
+                      weekIndex={row.weekIndex}
+                      disabled={isDragDisabled}
+                      positionStyle={{
                         top,
                         left: `${leftPct}%`,
                         width: `${widthPct}%`,
@@ -514,17 +694,20 @@ export function CalendarGridMonth({
                         paddingRight: span.isLastSegment || span.isSingleDay ? 2 : 0,
                         zIndex: 1,
                       }}
-                      initial={{ opacity: 0, y: 2 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.15 }}
                     >
-                      <MonthEventBar
-                        event={event}
-                        displayLevel={displayLevel}
-                        span={span}
-                        onClick={onEventClick}
-                      />
-                    </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <MonthEventBar
+                          event={event}
+                          displayLevel={displayLevel}
+                          span={span}
+                          onClick={onEventClick}
+                        />
+                      </motion.div>
+                    </DraggableMonthEvent>
                   );
                 })
               )}
@@ -533,5 +716,6 @@ export function CalendarGridMonth({
         ))}
       </div>
     </div>
+    </DndContext>
   );
 }

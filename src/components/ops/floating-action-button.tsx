@@ -49,8 +49,9 @@ export function FloatingActionButton() {
   // ── Hide on intel page (full-bleed canvas, overlaps zoom controls) ───
   const pathname = usePathname();
 
-  // ── Hide when dashboard is in customize mode ─────────────────────────
+  // ── Hide when dashboard is in customize mode or wizard is open ──────
   const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
+  const wizardOpen = useDashboardCustomizeStore((s) => s.wizardOpen);
 
   // ── Active actions from user prefs ──────────────────────────────────────
   const userActionIds = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
@@ -177,6 +178,9 @@ export function FloatingActionButton() {
   // Hide on intel page (full-bleed canvas, overlaps zoom controls)
   if (pathname === "/intel") return null;
 
+  // Hide when dashboard customizing or a wizard is open
+  if (dashboardCustomizing || wizardOpen) return null;
+
   return (
     <>
       {/* ── Overlay — right-edge gradient ── */}
@@ -205,7 +209,7 @@ export function FloatingActionButton() {
       <div
         ref={containerRef}
         className={cn(
-          "fixed bottom-4 right-6 z-[95] transition-all duration-200",
+          "fixed bottom-[120px] right-6 z-[95] transition-all duration-200",
           dashboardCustomizing && "opacity-0 pointer-events-none translate-y-2"
         )}
       >

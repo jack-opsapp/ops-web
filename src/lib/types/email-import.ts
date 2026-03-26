@@ -42,6 +42,8 @@ export interface AnalyzedLead {
     email: string;
     phone: string | null;
     description: string;
+    /** Physical address extracted from email correspondence (project site, client home, etc.) */
+    address: string | null;
   };
   stage: string;
   stageConfidence: number;
@@ -113,6 +115,7 @@ export interface ImportPayload {
     clientName: string;
     clientEmail: string;
     clientPhone: string | null;
+    clientAddress: string | null;
     description: string;
     stage: string;
     estimatedValue: number | null;
@@ -154,5 +157,6 @@ export interface ImportResult {
   leadsCreated: number;
   activitiesLogged: number;
   labelsApplied: number;
+  imagesExtracted: number;
   errors: string[];
 }

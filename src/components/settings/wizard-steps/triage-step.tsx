@@ -89,23 +89,34 @@ export function TriageStep({
     [leads]
   );
 
-  // Build lookups for consolidated data: company name, title, and all contacts in the group
+  // Build lookups for consolidated data: company name, title, all contacts, and sibling leads
   const consolidationLookup = useMemo(() => {
-    const map = new Map<string, { companyName: string; title: string; allContacts: Array<{ name: string; email: string }> }>();
+    const map = new Map<string, { companyName: string; title: string; allContacts: Array<{ name: string; email: string }>; siblingLeadIds: string[] }>();
     for (const group of consolidationGroups) {
       if (group.leads.length > 1) {
         const allContacts = group.contacts.map((c) => ({ name: c.name, email: c.email }));
+        const allLeadIds = group.leads.map((gl) => gl.leadId);
         for (const gl of group.leads) {
           map.set(gl.leadId, {
             companyName: group.companyName,
             title: gl.title,
             allContacts,
+            siblingLeadIds: allLeadIds,
           });
         }
       }
     }
     return map;
   }, [consolidationGroups]);
+
+  // Build a lookup from lead ID → full lead data (for resolving sibling threads)
+  const leadsById = useMemo(() => {
+    const map = new Map<string, AnalyzedLead>();
+    for (const lead of leads) {
+      map.set(lead.id, lead);
+    }
+    return map;
+  }, [leads]);
 
   // Build carousel items with AI defaults
   const items: CarouselItem<AnalyzedLead>[] = useMemo(
@@ -269,7 +280,20 @@ export function TriageStep({
             </div>
 
             {/* Email thread */}
-            <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} onToggle={onThreadToggle} />
+            <EmailThreadView
+              lead={lead}
+              siblingLeads={(() => {
+                const consolidated = consolidationLookup.get(lead.id);
+                if (!consolidated) return undefined;
+                return consolidated.siblingLeadIds
+                  .filter((id) => id !== lead.id)
+                  .map((id) => leadsById.get(id))
+                  .filter((l): l is AnalyzedLead => !!l);
+              })()}
+              keyboardEnabled
+              toggleSignal={threadToggle}
+              onToggle={onThreadToggle}
+            />
 
             {/* Action buttons — only on focused card */}
             {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">

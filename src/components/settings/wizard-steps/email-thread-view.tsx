@@ -98,6 +98,8 @@ export function formatRelativeDate(iso: string): string {
 
 interface EmailThreadViewProps {
   lead: AnalyzedLead;
+  /** Additional sibling leads whose threads should be shown alongside the primary */
+  siblingLeads?: AnalyzedLead[];
   defaultExpanded?: boolean;
   /** Show [E] hint — only when this thread is inside the focused carousel card */
   keyboardEnabled?: boolean;
@@ -107,8 +109,17 @@ interface EmailThreadViewProps {
   onToggle?: () => void;
 }
 
+/** A thread with its excerpts and Gmail link */
+interface ThreadGroup {
+  threadId: string;
+  label: string;
+  excerpts: NonNullable<AnalyzedLead["emailExcerpts"]>;
+  gmailUrl: string;
+}
+
 export function EmailThreadView({
   lead,
+  siblingLeads,
   defaultExpanded = false,
   keyboardEnabled = false,
   toggleSignal = 0,
@@ -128,29 +139,64 @@ export function EmailThreadView({
   const prefersReduced = useReducedMotion();
   const { t } = useDictionary("import-wizard");
 
-  // E key toggle is handled by the carousel's onKeyDown and passed via onToggleThread prop
-  // (no DOM query needed — works reliably inside Radix Dialog portals)
+  // Build thread groups: primary lead's thread + any sibling threads
+  const threads: ThreadGroup[] = useMemo(() => {
+    const result: ThreadGroup[] = [];
+    const seenThreadIds = new Set<string>();
 
-  const excerpts = lead.emailExcerpts ?? [];
+    // Primary lead's thread
+    if (lead.emailExcerpts?.length) {
+      seenThreadIds.add(lead.threadId);
+      result.push({
+        threadId: lead.threadId,
+        label: lead.emails?.[0]?.subject || "Thread 1",
+        excerpts: lead.emailExcerpts,
+        gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${lead.threadId}`,
+      });
+    }
 
-  const sorted = useMemo(
-    () =>
-      [...excerpts].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      ),
-    [excerpts]
+    // Sibling leads' threads
+    if (siblingLeads) {
+      for (const sibling of siblingLeads) {
+        if (sibling.id === lead.id) continue;
+        if (seenThreadIds.has(sibling.threadId)) continue;
+        if (!sibling.emailExcerpts?.length) continue;
+        seenThreadIds.add(sibling.threadId);
+        result.push({
+          threadId: sibling.threadId,
+          label: sibling.emails?.[0]?.subject || `Thread ${result.length + 1}`,
+          excerpts: sibling.emailExcerpts,
+          gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${sibling.threadId}`,
+        });
+      }
+    }
+
+    return result;
+  }, [lead, siblingLeads]);
+
+  // Flatten all excerpts for the single-thread legacy path and total count
+  const allExcerpts = useMemo(
+    () => threads.flatMap((t) => t.excerpts).sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    ),
+    [threads]
   );
 
-  if (sorted.length === 0) return null;
+  if (allExcerpts.length === 0) return null;
 
-  const visible = showAll ? sorted : sorted.slice(0, INITIAL_VISIBLE);
-  const hiddenCount = sorted.length - INITIAL_VISIBLE;
+  const hasMultipleThreads = threads.length > 1;
+  const totalExcerptCount = allExcerpts.length;
+
+  // For single thread: use flat view (original behavior)
+  // For multiple threads: group by thread
+  const visible = showAll ? allExcerpts : allExcerpts.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = totalExcerptCount - INITIAL_VISIBLE;
   const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${lead.threadId}`;
 
   const dur = prefersReduced ? 0 : 0.2;
 
   // Compact inline preview (shown when collapsed) — most recent message
-  const latestExcerpt = sorted[0];
+  const latestExcerpt = allExcerpts[0];
   const previewText = latestExcerpt ? cleanBody(latestExcerpt.body) : "";
 
   return (
@@ -167,10 +213,11 @@ export function EmailThreadView({
         />
         <span className="flex-1 min-w-0">
           {isExpanded ? (
-            <span>{t("thread.hide")} <span className="text-[#444]">({sorted.length})</span></span>
+            <span>{t("thread.hide")} <span className="text-[#444]">({totalExcerptCount}{hasMultipleThreads ? ` · ${threads.length} threads` : ""})</span></span>
           ) : (
             <span className="text-[#777] line-clamp-2">
-              {previewText || `${t("thread.show")} (${sorted.length})`}
+              {previewText || `${t("thread.show")} (${totalExcerptCount})`}
+              {hasMultipleThreads && <span className="text-[#555]"> · {threads.length} threads</span>}
             </span>
           )}
         </span>
@@ -186,41 +233,61 @@ export function EmailThreadView({
             animate={{
               height: "auto",
               opacity: 1,
-              transition: { height: { duration: 0.3, ease: EASE_SMOOTH }, opacity: { duration: dur, ease: EASE_SMOOTH, delay: 0.05 } },
+              transition: {
+                height: { duration: 0.35, ease: EASE_SMOOTH },
+                opacity: { duration: 0.25, ease: EASE_SMOOTH, delay: 0.08 },
+              },
             }}
             exit={{
               height: 0,
               opacity: 0,
-              transition: { opacity: { duration: prefersReduced ? 0 : 0.1, ease: EASE_SMOOTH }, height: { duration: 0.25, ease: EASE_SMOOTH, delay: 0.05 } },
+              transition: {
+                opacity: { duration: prefersReduced ? 0 : 0.12, ease: EASE_SMOOTH },
+                height: { duration: 0.25, ease: EASE_SMOOTH, delay: 0.08 },
+              },
             }}
             className="mt-2 space-y-3 ml-4 overflow-hidden"
           >
-            {visible.map((excerpt, i) => (
-              <div key={i} className="flex gap-2">
-                <span
-                  className="font-mohave text-[13px] flex-shrink-0 mt-0.5 select-none"
-                  style={{
-                    color:
-                      excerpt.direction === "inbound" ? "#597794" : "#777",
-                  }}
-                >
-                  {excerpt.direction === "inbound" ? "←" : "→"}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-mohave text-[13px] text-[#bbb]">
-                      {excerpt.fromName}
-                    </span>
-                    <span className="font-mohave text-[12px] text-[#666]">
-                      {formatRelativeDate(excerpt.date)}
-                    </span>
+            {hasMultipleThreads ? (
+              /* ── Multi-thread grouped view ── */
+              threads.map((thread, ti) => {
+                const threadExcerpts = [...thread.excerpts].sort(
+                  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
+                const threadVisible = showAll ? threadExcerpts : threadExcerpts.slice(0, 2);
+                return (
+                  <div key={thread.threadId} className={ti > 0 ? "mt-2 pt-2 border-t border-white/[0.06]" : ""}>
+                    {/* Thread label */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-kosugi text-[9px] tracking-[0.1em] uppercase text-[#555]">
+                        Thread {ti + 1} · {threadExcerpts.length} emails
+                      </span>
+                      <a
+                        href={thread.gmailUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 font-mohave text-[11px] text-[#597794] hover:text-[#6A88A5] transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Gmail
+                        <ExternalLink size={9} />
+                      </a>
+                    </div>
+                    {/* Excerpts */}
+                    {threadVisible.map((excerpt, i) => (
+                      <ExcerptRow key={`${thread.threadId}-${i}`} excerpt={excerpt} index={ti * 3 + i} prefersReduced={prefersReduced} />
+                    ))}
                   </div>
-                  <p className="font-mohave text-[13px] text-[#999] leading-[1.5] whitespace-pre-wrap break-words">
-                    {cleanBody(excerpt.body)}
-                  </p>
-                </div>
-              </div>
-            ))}
+                );
+              })
+            ) : (
+              /* ── Single-thread flat view ── */
+              <>
+                {visible.map((excerpt, i) => (
+                  <ExcerptRow key={i} excerpt={excerpt} index={i} prefersReduced={prefersReduced} />
+                ))}
+              </>
+            )}
 
             {!showAll && hiddenCount > 0 && (
               <button
@@ -231,18 +298,61 @@ export function EmailThreadView({
               </button>
             )}
 
-            <a
-              href={gmailUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 font-mohave text-[12px] text-[#597794] hover:text-[#6A88A5] transition-colors"
-            >
-              {t("thread.viewInGmail")}
-              <ExternalLink size={10} />
-            </a>
+            {!hasMultipleThreads && (
+              <a
+                href={gmailUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 font-mohave text-[12px] text-[#597794] hover:text-[#6A88A5] transition-colors"
+              >
+                {t("thread.viewInGmail")}
+                <ExternalLink size={10} />
+              </a>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ─── Excerpt row ──────────────────────────────────────────────────────────────
+
+function ExcerptRow({
+  excerpt,
+  index,
+  prefersReduced,
+}: {
+  excerpt: NonNullable<AnalyzedLead["emailExcerpts"]>[number];
+  index: number;
+  prefersReduced: boolean | null;
+}) {
+  return (
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH, delay: prefersReduced ? 0 : 0.1 + index * 0.04 }}
+      className="flex gap-2"
+    >
+      <span
+        className="font-mohave text-[13px] flex-shrink-0 mt-0.5 select-none"
+        style={{ color: excerpt.direction === "inbound" ? "#597794" : "#777" }}
+      >
+        {excerpt.direction === "inbound" ? "←" : "→"}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-mohave text-[13px] text-[#bbb]">
+            {excerpt.fromName}
+          </span>
+          <span className="font-mohave text-[12px] text-[#666]">
+            {formatRelativeDate(excerpt.date)}
+          </span>
+        </div>
+        <p className="font-mohave text-[13px] text-[#999] leading-[1.5] whitespace-pre-wrap break-words">
+          {cleanBody(excerpt.body)}
+        </p>
+      </div>
+    </motion.div>
   );
 }

@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Search,
-  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useActionPromptStore } from "@/stores/action-prompt-store";
+import { useCreateNotification } from "@/lib/hooks/use-notifications";
 import { AutoSendSettings } from "./auto-send-settings";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -65,15 +64,13 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   const [totalScanned, setTotalScanned] = useState<number | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const completeFiredRef = useRef(false);
-  const { showPrompt, removePrompt } = useActionPromptStore();
+  const notify = useCreateNotification();
 
   // Use refs for callbacks to avoid re-triggering the poll effect
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const showPromptRef = useRef(showPrompt);
-  showPromptRef.current = showPrompt;
-  const removePromptRef = useRef(removePrompt);
-  removePromptRef.current = removePrompt;
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
 
   useEffect(() => {
     // Don't poll when the wizard is open — the wizard handles its own polling
@@ -99,41 +96,25 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           setLeadCount(data.result.leads?.length ?? 0);
           setTotalScanned(data.result.totalScanned ?? 0);
 
-          // Fire action prompt notification
-          showPromptRef.current({
-            id: "email-analysis-complete",
-            icon: CheckCircle,
+          // Create DB notification — appears in the header rail
+          notifyRef.current({
+            type: "pipeline_complete",
             title: "Pipeline analysis complete",
-            description: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
-            ctaLabel: "Review Leads",
-            ctaAction: () => {
-              removePromptRef.current("email-analysis-complete");
-              onCompleteRef.current();
-            },
-            persistent: false,
-            dismissable: true,
-            variant: "accent",
+            body: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
+            actionUrl: "/settings?tab=integrations",
+            actionLabel: "Review Leads",
           });
 
-          // Phase C background indexing toast — fires after Phase B completion.
-          // Navigates to /intel where the activation animation plays.
-          setTimeout(() => {
-            showPromptRef.current({
-              id: `phase-c-indexing-${jobId}`,
-              icon: Database,
-              title: "New intel available",
-              description: "Your business data is being indexed.",
-              ctaLabel: "View Intel",
-              ctaAction: () => {
-                removePromptRef.current(`phase-c-indexing-${jobId}`);
-                window.location.href = "/intel";
-              },
-              persistent: false,
-              dismissable: true,
-              autoDismissMs: 8000,
-              variant: "accent",
-            });
-          }, 2000); // Slight delay so it doesn't overlap the Phase B toast
+          // Phase C background indexing notification
+          notifyRef.current({
+            type: "intel_available",
+            title: "New intel available",
+            body: "Your business data is being indexed.",
+            actionUrl: "/intel",
+            actionLabel: "View Intel",
+          });
+
+          onCompleteRef.current();
           return;
         }
 
@@ -258,9 +239,9 @@ export function IntegrationsTab() {
   const companyConnections = connections.filter((c) => c.type === "company");
   const hasAnyConnection = connections.length > 0;
 
-  // ─── Abandoned wizard prompt ──────────────────────────────────────────────
-  // If the wizard was started but not completed, nudge the user to finish.
-  const { showPrompt: showActionPrompt, removePrompt: removeActionPrompt } = useActionPromptStore();
+  // ─── Abandoned wizard notification ───────────────────────────────────────
+  // If the wizard was started but not completed, create a notification in the rail.
+  const notify = useCreateNotification();
   const abandonedPromptFiredRef = useRef(false);
   useEffect(() => {
     if (abandonedPromptFiredRef.current || !hasAnyConnection) return;
@@ -268,22 +249,16 @@ export function IntegrationsTab() {
     if (!conn) return;
     const filters = conn.syncFilters as unknown as Record<string, unknown> | undefined;
     if (!filters) return;
-    // Only prompt if analysis is done but wizard was never completed
+    // Only notify if analysis is done but wizard was never completed
     if (filters.lastScanComplete === true && filters.wizardCompleted !== true) {
       abandonedPromptFiredRef.current = true;
-      showActionPrompt({
-        id: "email-wizard-abandoned",
-        icon: Mail,
+      notify({
+        type: "leads_waiting",
         title: "You have leads waiting",
-        description: "Your inbox analysis found leads. Finish the import to add them to your pipeline.",
-        ctaLabel: "Continue Import",
-        ctaAction: () => {
-          removeActionPrompt("email-wizard-abandoned");
-          setWizardOpen(true);
-        },
-        persistent: false,
-        dismissable: true,
-        variant: "accent",
+        body: "Your inbox analysis found leads. Finish the import to add them to your pipeline.",
+        persistent: true,
+        actionUrl: "/settings?tab=integrations",
+        actionLabel: "Continue Import",
       });
     }
   }, [hasAnyConnection, companyConnections]); // eslint-disable-line react-hooks/exhaustive-deps

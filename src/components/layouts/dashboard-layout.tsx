@@ -13,7 +13,6 @@ import { PreferencesApplier } from "@/components/ops/preferences-applier";
 import { WindowDock } from "@/components/ops/window-dock";
 import { FloatingActionButton } from "@/components/ops/floating-action-button";
 import { BugReportButton } from "@/components/ops/bug-report-button";
-import { ActionPromptRenderer } from "@/components/ops/action-prompt-renderer";
 import { NotificationModal } from "@/components/layouts/notification-modal";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
@@ -161,9 +160,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <main
         className={cn(
           "h-screen min-w-0 overflow-y-auto overflow-x-auto transition-all duration-200 ease-out",
+          "ml-0 w-full",
           isCollapsed
-            ? "ml-[72px] w-[calc(100vw-72px)]"
-            : "ml-[256px] w-[calc(100vw-256px)]"
+            ? "md:ml-[72px] md:w-[calc(100vw-72px)]"
+            : "md:ml-[256px] md:w-[calc(100vw-256px)]"
         )}
       >
         <div className="sticky top-0 z-10">
@@ -185,7 +185,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <ActionPromptsInitializer />
       <GmailSyncNotifier />
       <DashboardPreferencesSync />
-      <ActionPromptRenderer />
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />

@@ -282,6 +282,103 @@ export class GmailProvider implements EmailProviderInterface {
     return auth.startsWith("Bearer ");
   }
 
+  // ─── Attachment Methods ──────────────────────────────────────────────────────
+
+  /** Image MIME types we extract from email threads */
+  private static IMAGE_MIMES = new Set([
+    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+    "image/gif", "image/bmp", "image/tiff",
+  ]);
+
+  /**
+   * Scan a thread's messages for image attachments.
+   * Returns metadata only — call fetchAttachment() to get the actual bytes.
+   */
+  async getImageAttachmentsFromThread(threadId: string): Promise<Array<{
+    messageId: string;
+    attachmentId: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    fromEmail: string;
+  }>> {
+    const res = await this.gmailFetch(`/threads/${threadId}?format=full`);
+    const data = await res.json();
+    const images: Array<{
+      messageId: string;
+      attachmentId: string;
+      filename: string;
+      mimeType: string;
+      size: number;
+      fromEmail: string;
+    }> = [];
+
+    for (const msg of (data.messages || [])) {
+      const msgId = msg.id as string;
+      // Extract sender email from message headers
+      const headers = ((msg.payload?.headers || []) as Array<{ name: string; value: string }>);
+      const fromHeader = headers.find((h: { name: string }) => h.name.toLowerCase() === "from")?.value || "";
+      const emailMatch = fromHeader.match(/<([^>]+)>/) || [null, fromHeader];
+      const fromEmail = (emailMatch[1] || fromHeader).toLowerCase().trim();
+      this.collectImageParts(msg.payload, msgId, fromEmail, images);
+    }
+
+    return images;
+  }
+
+  /** Recursively collect image attachment parts from a Gmail message payload */
+  private collectImageParts(
+    payload: Record<string, unknown> | undefined,
+    messageId: string,
+    fromEmail: string,
+    out: Array<{ messageId: string; attachmentId: string; filename: string; mimeType: string; size: number; fromEmail: string }>
+  ): void {
+    if (!payload) return;
+
+    const mimeType = (payload.mimeType as string) || "";
+    const filename = (payload.filename as string) || "";
+    const body = payload.body as { attachmentId?: string; size?: number } | undefined;
+
+    // Check if this part is an image attachment (not inline signature images which are tiny)
+    if (
+      GmailProvider.IMAGE_MIMES.has(mimeType.toLowerCase()) &&
+      body?.attachmentId &&
+      filename &&
+      (body.size || 0) > 5000 // Skip tiny inline signature images (<5KB)
+    ) {
+      out.push({
+        messageId,
+        attachmentId: body.attachmentId,
+        filename,
+        mimeType: mimeType.toLowerCase(),
+        size: body.size || 0,
+        fromEmail,
+      });
+    }
+
+    // Recurse into nested parts
+    const parts = payload.parts as Array<Record<string, unknown>> | undefined;
+    if (parts) {
+      for (const part of parts) {
+        this.collectImageParts(part, messageId, fromEmail, out);
+      }
+    }
+  }
+
+  /**
+   * Download an attachment's raw bytes from Gmail.
+   * Returns a Buffer with the file content.
+   */
+  async fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer> {
+    const res = await this.gmailFetch(
+      `/messages/${messageId}/attachments/${attachmentId}`
+    );
+    const data = await res.json();
+    // Gmail returns base64url-encoded data
+    const base64Data = (data.data as string) || "";
+    return Buffer.from(base64Data, "base64url");
+  }
+
   async getProfile(): Promise<{ email: string; name: string }> {
     const res = await this.gmailFetch("/profile");
     const data = await res.json();

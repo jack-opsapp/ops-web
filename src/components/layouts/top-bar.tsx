@@ -7,6 +7,7 @@ import {
   Check,
   Clock,
   WifiOff,
+  Menu,
 } from "lucide-react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
@@ -16,6 +17,7 @@ import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useConnectivity } from "@/lib/hooks/use-connectivity";
 import { useDictionary } from "@/i18n/client";
 import { NotificationRail } from "./notification-rail";
+import { useSidebarStore } from "@/stores/sidebar-store";
 
 type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
@@ -70,6 +72,7 @@ function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => 
 export function TopBar() {
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const { t } = useDictionary("topbar");
+  const openMobile = useSidebarStore((s) => s.openMobile);
   const openModal = useNotificationRailStore((s) => s.openModal);
   const { data: notifications = [] } = useNotifications();
   const unreadCount = notifications.length;
@@ -88,11 +91,26 @@ export function TopBar() {
 
   return (
     <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative bg-transparent min-w-0">
-      {/* Left: Notification Rail */}
-      <NotificationRail />
+      {/* Left: Hamburger (mobile) + Notification Rail */}
+      <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+        <button
+          onClick={openMobile}
+          className={cn(
+            "md:hidden p-2 rounded-[4px]",
+            "text-text-tertiary hover:text-text-secondary",
+            "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
+            "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)]",
+            "transition-all duration-150"
+          )}
+          aria-label={t("menu.ariaLabel")}
+        >
+          <Menu className="w-[18px] h-[18px]" />
+        </button>
+        <NotificationRail />
+      </div>
 
       {/* Right: Search + Sync + Notifications Bell */}
-      <div className="flex items-center gap-[6px]">
+      <div className="flex items-center gap-[6px] shrink-0">
         {/* Search trigger - styled as input, opens CommandPalette */}
         <button
           className={cn(

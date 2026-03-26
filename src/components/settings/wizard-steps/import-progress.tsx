@@ -237,7 +237,7 @@ export function ImportProgress({
               return (
                 <div
                   key={stat.label}
-                  className="p-3 border border-white/8 bg-white/[0.02]"
+                  className="p-3 border border-white/10 bg-white/[0.02]"
                   style={{ borderRadius: 3 }}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -266,7 +266,7 @@ export function ImportProgress({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.5, ease: EASE }}
-              className="mt-6 pt-4 border-t border-white/8"
+              className="mt-6 pt-4 border-t border-white/10"
             >
               <button
                 onClick={onMinimize}
