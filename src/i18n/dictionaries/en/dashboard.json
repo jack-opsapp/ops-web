@@ -533,5 +533,80 @@
 
   "calendar.viewFull": "View All",
   "calendar.eventSingular": "event",
-  "calendar.eventPlural": "events"
+  "calendar.eventPlural": "events",
+
+  "taskPulse.title": "Tasks",
+  "taskPulse.overdue": "Overdue",
+  "taskPulse.dueToday": "Due Today",
+  "taskPulse.inProgress": "In Progress",
+  "taskPulse.upcoming": "Upcoming",
+  "taskPulse.allClear": "All clear",
+  "taskPulse.openTasks": "Open Tasks",
+
+  "actionRequired.title": "Action Required",
+  "actionRequired.allClear": "All clear — no items need attention",
+  "actionRequired.overdueTask": "overdue",
+  "actionRequired.pastDueInvoice": "past due",
+  "actionRequired.expiringEstimate": "expires soon",
+  "actionRequired.staleFollowUp": "follow-up overdue",
+
+  "revenuePulse.title": "Revenue",
+  "revenuePulse.mtdRevenue": "MTD Revenue",
+  "revenuePulse.ytdTotal": "YTD Total",
+  "revenuePulse.ytd": "YTD",
+
+  "profitGauge.title": "Profit",
+  "profitGauge.margin": "Margin",
+  "profitGauge.revenue": "Revenue",
+  "profitGauge.expenses": "Expenses",
+  "profitGauge.profit": "Profit",
+  "profitGauge.noData": "No data for this period",
+
+  "expenseTracker.title": "Expenses",
+  "expenseTracker.noExpenses": "No expenses recorded",
+  "expenseTracker.categories": "Categories",
+  "expenseTracker.ofTotal": "of total",
+
+  "cashPosition.title": "Cash Flow",
+  "cashPosition.netCashFlow": "Net Cash Flow",
+  "cashPosition.collected": "Collected",
+  "cashPosition.spent": "Spent",
+  "cashPosition.noTransactions": "No transactions this period",
+
+  "winRate.title": "Win Rate",
+  "winRate.sent": "Sent",
+  "winRate.won": "Won",
+  "winRate.lost": "Lost",
+  "winRate.noEstimates": "No estimates in period",
+
+  "backlogDepth.title": "Backlog",
+  "backlogDepth.weeks": "wk",
+  "backlogDepth.projects": "projects",
+  "backlogDepth.noPending": "No signed projects pending",
+  "backlogDepth.healthy": "Healthy",
+  "backlogDepth.caution": "Caution",
+  "backlogDepth.risk": "Risk",
+
+  "bookingRate.title": "Bookings",
+  "bookingRate.thisMonth": "This month",
+  "bookingRate.vsLastMonth": "vs last month",
+  "bookingRate.noProjects": "No projects yet",
+
+  "todaysSchedule.title": "Schedule",
+  "todaysSchedule.noEvents": "No events today",
+  "todaysSchedule.moreToday": "more today",
+  "todaysSchedule.tomorrow": "Tomorrow",
+
+  "crewBoard.title": "Crew",
+  "crewBoard.utilization": "Utilization",
+  "crewBoard.tasks": "tasks",
+  "crewBoard.noMembers": "No team members",
+
+  "topClients.title": "Top Clients",
+  "topClients.noData": "No client data yet",
+  "topClients.projects": "projects",
+  "topClients.lastActive": "Last active",
+
+  "leadSources.title": "Lead Sources",
+  "leadSources.ofTotal": "of total"
 }

@@ -533,5 +533,80 @@
 
   "calendar.viewFull": "Ver todo",
   "calendar.eventSingular": "evento",
-  "calendar.eventPlural": "eventos"
+  "calendar.eventPlural": "eventos",
+
+  "taskPulse.title": "Tareas",
+  "taskPulse.overdue": "Vencidas",
+  "taskPulse.dueToday": "Hoy",
+  "taskPulse.inProgress": "En Progreso",
+  "taskPulse.upcoming": "Próximas",
+  "taskPulse.allClear": "Todo al día",
+  "taskPulse.openTasks": "Tareas Abiertas",
+
+  "actionRequired.title": "Acción Requerida",
+  "actionRequired.allClear": "Todo al día — no hay elementos pendientes",
+  "actionRequired.overdueTask": "vencida",
+  "actionRequired.pastDueInvoice": "vencida",
+  "actionRequired.expiringEstimate": "por vencer",
+  "actionRequired.staleFollowUp": "seguimiento vencido",
+
+  "revenuePulse.title": "Ingresos",
+  "revenuePulse.mtdRevenue": "Ingresos del Mes",
+  "revenuePulse.ytdTotal": "Total del Año",
+  "revenuePulse.ytd": "Año",
+
+  "profitGauge.title": "Ganancia",
+  "profitGauge.margin": "Margen",
+  "profitGauge.revenue": "Ingresos",
+  "profitGauge.expenses": "Gastos",
+  "profitGauge.profit": "Ganancia",
+  "profitGauge.noData": "Sin datos para este período",
+
+  "expenseTracker.title": "Gastos",
+  "expenseTracker.noExpenses": "Sin gastos registrados",
+  "expenseTracker.categories": "Categorías",
+  "expenseTracker.ofTotal": "del total",
+
+  "cashPosition.title": "Flujo de Caja",
+  "cashPosition.netCashFlow": "Flujo Neto",
+  "cashPosition.collected": "Cobrado",
+  "cashPosition.spent": "Gastado",
+  "cashPosition.noTransactions": "Sin transacciones este período",
+
+  "winRate.title": "Tasa de Cierre",
+  "winRate.sent": "Enviados",
+  "winRate.won": "Ganados",
+  "winRate.lost": "Perdidos",
+  "winRate.noEstimates": "Sin presupuestos en el período",
+
+  "backlogDepth.title": "Cartera",
+  "backlogDepth.weeks": "sem",
+  "backlogDepth.projects": "proyectos",
+  "backlogDepth.noPending": "Sin proyectos firmados pendientes",
+  "backlogDepth.healthy": "Saludable",
+  "backlogDepth.caution": "Precaución",
+  "backlogDepth.risk": "Riesgo",
+
+  "bookingRate.title": "Reservas",
+  "bookingRate.thisMonth": "Este mes",
+  "bookingRate.vsLastMonth": "vs mes anterior",
+  "bookingRate.noProjects": "Sin proyectos aún",
+
+  "todaysSchedule.title": "Agenda",
+  "todaysSchedule.noEvents": "Sin eventos hoy",
+  "todaysSchedule.moreToday": "más hoy",
+  "todaysSchedule.tomorrow": "Mañana",
+
+  "crewBoard.title": "Equipo",
+  "crewBoard.utilization": "Utilización",
+  "crewBoard.tasks": "tareas",
+  "crewBoard.noMembers": "Sin miembros del equipo",
+
+  "topClients.title": "Top Clientes",
+  "topClients.noData": "Sin datos de clientes",
+  "topClients.projects": "proyectos",
+  "topClients.lastActive": "Última actividad",
+
+  "leadSources.title": "Fuentes de Prospectos",
+  "leadSources.ofTotal": "del total"
 }
