@@ -101,6 +101,18 @@ export function ConsolidateContactsStep({
         }
         return { label: "MERGED", color: "#C4A868" };
       },
+      "3": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
+        const group = item.data;
+        onLeadsChanged(
+          leads.map((l) => {
+            const isInGroup = group.leads.some(
+              (gl) => gl.leadId === l.id
+            );
+            return isInGroup ? { ...l, enabled: false } : l;
+          })
+        );
+        return { label: "DISCARDED", color: "#6B7280" };
+      },
       Backspace: (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
         onLeadsChanged(
@@ -125,7 +137,7 @@ export function ConsolidateContactsStep({
       onComplete={onComplete}
       onBack={onBack}
       keyboardHint={t("consolidate.hint")}
-      renderCard={(item) => {
+      renderCard={(item, _focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
         const group = item.data;
 
         return (
@@ -135,45 +147,55 @@ export function ConsolidateContactsStep({
               value={group.companyName}
               onChange={(name) => updateGroup(group.id, { companyName: name })}
             />
-            <p className="font-mohave text-[11px] text-[#666] -mt-1">
+            <p className="font-mohave text-[13px] text-[#888] -mt-2">
               {group.contacts.length} {group.domain ? `${t("consolidate.contactsFrom")} ${group.domain}` : t("consolidate.contacts")}
             </p>
 
             {/* Contacts list */}
-            <div className="space-y-1">
-              <span className="font-kosugi text-[8px] tracking-[0.12em] uppercase text-[#555]">
+            <div className="space-y-1.5">
+              <span className="font-kosugi text-[9px] tracking-[0.12em] uppercase text-[#777]">
                 {t("consolidate.contacts")}
               </span>
-              {group.contacts.map((contact) => (
-                <div
-                  key={contact.leadId}
-                  className="flex items-center gap-2 py-1 px-2 border border-white/5"
-                  style={{ borderRadius: 4 }}
-                >
-                  <span className="font-mohave text-[11px] text-[#999] flex-1 truncate">
-                    {contact.name}
-                  </span>
-                  <span className="font-mohave text-[10px] text-[#555] truncate">
-                    {contact.email}
-                  </span>
-                  {group.contacts.length > 2 && (
-                    <button
-                      onClick={() =>
-                        removeContactFromGroup(group.id, contact.leadId)
-                      }
-                      className="flex-shrink-0 text-[#444] hover:text-[#999] transition-colors"
-                      title="Remove from group"
-                    >
-                      <X size={10} />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {group.contacts.map((contact) => {
+                const isRemoved = !group.leads.some((gl) => gl.leadId === contact.leadId);
+                return (
+                  <div
+                    key={contact.leadId}
+                    className="flex items-center gap-2 py-1.5 px-2.5 border border-white/5"
+                    style={{
+                      borderRadius: 4,
+                      opacity: isRemoved ? 0.3 : 1,
+                    }}
+                  >
+                    <span className="font-mohave text-[13px] text-[#ccc] flex-1 truncate">
+                      {contact.name}
+                    </span>
+                    <span className="font-mohave text-[12px] text-[#777] truncate">
+                      {contact.email}
+                    </span>
+                    {!isRemoved && group.contacts.filter((c) => group.leads.some((gl) => gl.leadId === c.leadId)).length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Remove this contact's lead from the group — keeps the group intact,
+                          // just removes this sub-contact so it won't be created on import
+                          const updatedLeads = group.leads.filter((gl) => gl.leadId !== contact.leadId);
+                          updateGroup(group.id, { leads: updatedLeads });
+                        }}
+                        className="flex-shrink-0 text-[#444] hover:text-[#999] transition-colors"
+                        title="Remove this contact"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Leads list with editable titles */}
-            <div className="space-y-1">
-              <span className="font-kosugi text-[8px] tracking-[0.12em] uppercase text-[#555]">
+            <div className="space-y-1.5">
+              <span className="font-kosugi text-[9px] tracking-[0.12em] uppercase text-[#777]">
                 {t("consolidate.leads")} ({group.leads.length})
               </span>
               {group.leads.map((gl, i) => {
@@ -203,7 +225,7 @@ export function ConsolidateContactsStep({
                     </p>
                     {fullLead && (
                       <div className="ml-4">
-                        <EmailThreadView lead={fullLead} keyboardEnabled={i === 0} />
+                        <EmailThreadView lead={fullLead} keyboardEnabled={i === 0} toggleSignal={i === 0 ? threadToggle : 0} />
                       </div>
                     )}
                   </div>
@@ -211,31 +233,55 @@ export function ConsolidateContactsStep({
               })}
             </div>
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+            {/* Action buttons — sticky at bottom of scrollable card */}
+            <div
+              className="flex items-center gap-1.5 pt-2.5 border-t border-white/5 sticky bottom-0 -mx-4 px-4 pb-1 -mb-4"
+              style={{
+                background: "rgba(10, 10, 10, 0.90)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+              }}
+            >
               <button
-                onClick={() => actions["1"](item)}
-                className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794]/30 text-[#597794] hover:bg-[#597794]/10 transition-colors"
-                style={{ borderRadius: 4 }}
+                onClick={() => triggerAction("1")}
+                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                style={{
+                  borderRadius: 4,
+                  borderColor: highlightedKey === "1" ? "#597794" : "rgba(89, 119, 148, 0.3)",
+                  color: "#597794",
+                  background: highlightedKey === "1" ? "rgba(89, 119, 148, 0.12)" : "transparent",
+                }}
               >
-                1: {t("consolidate.confirm")}
+                1: SAVE AS {group.leads.length} LEAD{group.leads.length !== 1 ? "S" : ""}
               </button>
               <button
-                onClick={() => actions["2"](item)}
-                className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#C4A868]/30 text-[#C4A868] hover:bg-[#C4A868]/10 transition-colors"
-                style={{ borderRadius: 4 }}
+                onClick={() => triggerAction("2")}
+                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                style={{
+                  borderRadius: 4,
+                  borderColor: highlightedKey === "2" ? "#C4A868" : "rgba(196, 168, 104, 0.3)",
+                  color: "#C4A868",
+                  background: highlightedKey === "2" ? "rgba(196, 168, 104, 0.12)" : "transparent",
+                }}
               >
                 2: {t("consolidate.mergeIntoOne")}
+              </button>
+              <button
+                onClick={() => triggerAction("3")}
+                className="py-1.5 px-2.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex-shrink-0"
+                style={{
+                  borderRadius: 4,
+                  borderColor: highlightedKey === "3" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
+                  color: "#555",
+                  background: highlightedKey === "3" ? "rgba(255,255,255,0.04)" : "transparent",
+                }}
+              >
+                3: {t("filter.discard")}
               </button>
             </div>
           </div>
         );
       }}
-      renderPreview={(item) => (
-        <span className="font-mohave text-[11px] text-[#777] truncate">
-          {item.data.companyName} ({item.data.contacts.length})
-        </span>
-      )}
     />
   );
 }
@@ -282,7 +328,7 @@ function EditableCompanyName({
           }
           e.stopPropagation(); // prevent carousel keyboard capture
         }}
-        className="font-mohave text-[15px] text-white bg-transparent border-b border-[#597794] outline-none w-full py-0"
+        className="font-mohave text-[18px] text-white bg-transparent border-b border-[#597794] outline-none w-full py-0"
         style={{ borderRadius: 0 }}
       />
     );
@@ -291,7 +337,7 @@ function EditableCompanyName({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="font-mohave text-[15px] text-white text-left hover:text-[#597794] transition-colors cursor-text"
+      className="font-mohave text-[18px] text-white text-left hover:text-[#597794] transition-colors cursor-text"
       title="Click to edit company name"
     >
       {value}
