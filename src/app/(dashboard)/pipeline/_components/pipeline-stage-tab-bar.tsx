@@ -23,6 +23,7 @@ const STAGE_ABBREVIATIONS: Record<OpportunityStage, string> = {
   [OpportunityStage.Negotiation]: "NEG",
   [OpportunityStage.Won]: "WON",
   [OpportunityStage.Lost]: "LOST",
+  [OpportunityStage.Discarded]: "DISC",
 };
 
 export function PipelineStageTabBar({

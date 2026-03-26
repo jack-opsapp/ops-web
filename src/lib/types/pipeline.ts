@@ -35,6 +35,7 @@ export enum OpportunityStage {
   Negotiation = "negotiation",
   Won = "won",
   Lost = "lost",
+  Discarded = "discarded",
 }
 
 /** How the lead was acquired */
@@ -202,6 +203,7 @@ export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
   [OpportunityStage.Negotiation]: "#B58289",
   [OpportunityStage.Won]: "#9DB582",
   [OpportunityStage.Lost]: "#6B7280",
+  [OpportunityStage.Discarded]: "#444444",
 };
 
 export const ESTIMATE_STATUS_COLORS: Record<EstimateStatus, string> = {
@@ -267,6 +269,7 @@ export const OPPORTUNITY_STAGE_SORT_ORDER: Record<OpportunityStage, number> = {
   [OpportunityStage.Negotiation]: 5,
   [OpportunityStage.Won]: 6,
   [OpportunityStage.Lost]: 7,
+  [OpportunityStage.Discarded]: 8,
 };
 
 // ─── Default Pipeline Stage Configurations ────────────────────────────────────
@@ -343,6 +346,14 @@ export const PIPELINE_STAGES_DEFAULT: PipelineStageDefault[] = [
     slug: "lost",
     color: "#6B7280",
     sortOrder: 7,
+    winProbability: 0,
+    autoFollowUpDays: null,
+  },
+  {
+    name: "Discarded",
+    slug: "discarded",
+    color: "#444444",
+    sortOrder: 8,
     winProbability: 0,
     autoFollowUpDays: null,
   },
@@ -782,6 +793,7 @@ const PIPELINE_STAGE_ORDER: OpportunityStage[] = [
   OpportunityStage.Negotiation,
   OpportunityStage.Won,
   OpportunityStage.Lost,
+  OpportunityStage.Discarded,
 ];
 
 export function nextOpportunityStage(
@@ -802,12 +814,12 @@ export function previousOpportunityStage(
 
 /** Active stages (neither Won nor Lost) */
 export function isActiveStage(stage: OpportunityStage): boolean {
-  return stage !== OpportunityStage.Won && stage !== OpportunityStage.Lost;
+  return stage !== OpportunityStage.Won && stage !== OpportunityStage.Lost && stage !== OpportunityStage.Discarded;
 }
 
 /** Terminal stages (Won or Lost) */
 export function isTerminalStage(stage: OpportunityStage): boolean {
-  return stage === OpportunityStage.Won || stage === OpportunityStage.Lost;
+  return stage === OpportunityStage.Won || stage === OpportunityStage.Lost || stage === OpportunityStage.Discarded;
 }
 
 /** Get ordered active stages only (excludes Won and Lost) */

@@ -28,6 +28,7 @@ const STAGE_STATUS_MAP: Record<OpportunityStage, string> = {
   [OpportunityStage.Negotiation]: "in_progress",
   [OpportunityStage.Won]: "accepted",
   [OpportunityStage.Lost]: "closed",
+  [OpportunityStage.Discarded]: "closed",
 };
 
 // ─── Time Formatting ──────────────────────────────────────────────────────────
