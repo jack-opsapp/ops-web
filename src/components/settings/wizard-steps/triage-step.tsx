@@ -257,14 +257,7 @@ export function TriageStep({
             <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} />
 
             {/* Action buttons — sticky at bottom of scrollable card */}
-            <div
-              className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-4 -mb-4"
-              style={{
-                background: "rgba(10, 10, 10, 0.85)",
-                backdropFilter: "blur(16px) saturate(1.2)",
-                WebkitBackdropFilter: "blur(16px) saturate(1.2)",
-              }}
-            >
+            <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-4 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
                 className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
