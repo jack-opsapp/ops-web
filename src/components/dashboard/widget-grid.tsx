@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { WidgetInstance } from "@/lib/types/dashboard-widgets";
@@ -11,6 +11,23 @@ import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore, WIDGET_GAP_VALUES } from "@/stores/preferences-store";
 import { WidgetShell, COL_SPAN_CLASSES } from "./widget-shell";
 import { GridPlaceholderCell } from "./grid-placeholder-cell";
+
+// ---------------------------------------------------------------------------
+// Entry stagger animation
+// ---------------------------------------------------------------------------
+function getEntryStyle(
+  index: number,
+  hasEntered: boolean,
+  reducedMotion: boolean
+): React.CSSProperties {
+  return {
+    opacity: hasEntered ? 1 : 0,
+    transform: hasEntered ? "translateY(0)" : "translateY(12px)",
+    transition: reducedMotion
+      ? "opacity 200ms ease"
+      : `opacity 400ms cubic-bezier(0.16, 1, 0.3, 1) ${index * 60}ms, transform 400ms cubic-bezier(0.16, 1, 0.3, 1) ${index * 60}ms`,
+  };
+}
 
 const PLACEHOLDER_COUNT = 8;
 
@@ -37,6 +54,13 @@ export function WidgetGrid({
   const visibleInstances = orderedInstances.filter((i: WidgetInstance) => i.visible);
   const visibleIds = visibleInstances.map((i: WidgetInstance) => i.id);
 
+  // Entry stagger: trigger on mount
+  const [hasEntered, setHasEntered] = useState(false);
+  useEffect(() => { setHasEntered(true); }, []);
+  const reducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
   // During customize mode, use the wider edit gap for comfortable dragging.
   // In normal mode, use the user's preference.
   const gap = isCustomizing ? EDIT_MODE_GAP : WIDGET_GAP_VALUES[widgetGap];
@@ -55,7 +79,7 @@ export function WidgetGrid({
       }}
     >
       <AnimatePresence mode="popLayout">
-        {visibleInstances.map((instance: WidgetInstance) => {
+        {visibleInstances.map((instance: WidgetInstance, index: number) => {
           // Ghost widget — render as dashed accent placeholder, not a real WidgetShell
           if (instance.id === ghostId) {
             const ghostEntry = WIDGET_TYPE_REGISTRY[instance.typeId];
@@ -80,18 +104,19 @@ export function WidgetGrid({
           }
 
           return (
-            <WidgetShell
-              key={instance.id}
-              instanceId={instance.id}
-              typeId={instance.typeId}
-              size={instance.size}
-              config={instance.config}
-              isCustomizing={isCustomizing}
-              isDragActive={activeId !== null}
-              isBeingDragged={activeId === instance.id}
-            >
-              {children[instance.id] ?? null}
-            </WidgetShell>
+            <div key={instance.id} style={isCustomizing ? undefined : getEntryStyle(index, hasEntered, reducedMotion)}>
+              <WidgetShell
+                instanceId={instance.id}
+                typeId={instance.typeId}
+                size={instance.size}
+                config={instance.config}
+                isCustomizing={isCustomizing}
+                isDragActive={activeId !== null}
+                isBeingDragged={activeId === instance.id}
+              >
+                {children[instance.id] ?? null}
+              </WidgetShell>
+            </div>
           );
         })}
       </AnimatePresence>
