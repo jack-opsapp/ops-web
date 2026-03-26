@@ -238,26 +238,27 @@ export function CardCarousel<T>({
       */}
       <div className="flex-1 min-h-0 flex flex-col">
 
-        {/* Previous card — full card, faded + shrunken */}
+        {/* Previous card — collapsed title bar, tucked behind focused card */}
         {prev && (
           <AnimatePresence mode="wait">
             <motion.div
               key={`prev-${prev.id}`}
-              initial={prefersReduced ? false : { opacity: 0, y: -6, scale: 0.95 }}
-              animate={{ opacity: 0.35, y: 0, scale: 0.97 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={prefersReduced ? false : { opacity: 0, y: -4 }}
+              animate={{ opacity: 0.5, y: 0 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: dur, ease: EASE_SMOOTH }}
-              className="flex-shrink-0 mb-2 pointer-events-none select-none"
-              style={{ transformOrigin: "bottom center" }}
+              className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0"
+              style={{ transformOrigin: "bottom center", transform: "scale(0.96)" }}
             >
               <div
-                className="border border-white/[0.06] p-4 relative"
-                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)" }}
+                className="border border-white/[0.06] px-4 py-2.5 overflow-hidden relative"
+                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", height: 40 }}
               >
                 {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
+                {/* Decision badge — top-right */}
                 {decisions.get(prev.id) && (
                   <div
-                    className="absolute top-3 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
+                    className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
                     style={{ color: decisions.get(prev.id)!.color }}
                   >
                     {decisions.get(prev.id)!.label}
