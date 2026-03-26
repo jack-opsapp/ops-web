@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Camera, Save, Loader2, Lock, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { Camera, Save, Loader2, Lock, ShieldCheck, Eye, EyeOff, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useCurrentUser, useUpdateUser, useImageUpload } from "@/lib/hooks";
 import { getUserFullName } from "@/lib/types/models";
 import { isEmailPasswordUser, getAuthProvider, changePassword } from "@/lib/firebase/auth";
+import { useResetPassword } from "@/lib/hooks/use-users";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 
@@ -334,6 +335,66 @@ export function ProfileTab() {
 
       {/* Change Password — only for email/password users */}
       <ChangePasswordSection />
+
+      {/* Reset Password via Email — only for email/password users */}
+      <ResetPasswordSection userEmail={user?.email ?? null} />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reset Password via Email — sends a Firebase password reset link
+// ---------------------------------------------------------------------------
+function ResetPasswordSection({ userEmail }: { userEmail: string | null }) {
+  const { t } = useDictionary("settings");
+  const [isEmailUser, setIsEmailUser] = useState<boolean | null>(null);
+  const resetPassword = useResetPassword();
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    setIsEmailUser(isEmailPasswordUser());
+  }, []);
+
+  if (!isEmailUser || !userEmail) return null;
+
+  async function handleReset() {
+    if (!userEmail) return;
+    try {
+      await resetPassword.mutateAsync(userEmail);
+      setSent(true);
+      toast.success(t("password.reset.sent"));
+    } catch {
+      // Always show success to prevent email enumeration
+      setSent(true);
+      toast.success(t("password.reset.sent"));
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-mohave text-body-sm text-text-secondary">
+              {t("password.reset.title")}
+            </p>
+            <p className="font-mohave text-body-sm text-text-disabled mt-0.5">
+              {t("password.reset.description")}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReset}
+            loading={resetPassword.isPending}
+            disabled={sent}
+            className="gap-[6px] shrink-0"
+          >
+            {!resetPassword.isPending && <Mail className="w-[14px] h-[14px]" />}
+            {sent ? t("password.reset.sentButton") : t("password.reset.send")}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

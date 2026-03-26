@@ -9,6 +9,7 @@ import { signInWithGoogle, signInWithApple, signInWithEmail, signOut } from "@/l
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useSetupStore } from "@/stores/setup-store";
+import { useResetPassword } from "@/lib/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackLogin } from "@/lib/analytics/analytics";
@@ -36,6 +37,10 @@ function LoginForm() {
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingApple, setIsLoadingApple] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const resetPassword = useResetPassword();
 
   const setUser = useAuthStore((s) => s.setUser);
   const setCompany = useAuthStore((s) => s.setCompany);
@@ -174,6 +179,23 @@ function LoginForm() {
     }
   }
 
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetEmail) {
+      setError(t("login.error.emptyFields"));
+      return;
+    }
+    setError(null);
+    try {
+      await resetPassword.mutateAsync(resetEmail);
+      setResetSent(true);
+    } catch {
+      // Firebase sends the email even if account doesn't exist (security)
+      // so we always show success to prevent email enumeration
+      setResetSent(true);
+    }
+  }
+
   return (
     <div className="flex flex-col">
       {/* Mobile logo — hidden on desktop (hero has branding) */}
@@ -301,25 +323,103 @@ function LoginForm() {
               disabled={anyLoading}
               autoComplete="current-password"
             />
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full"
-              loading={isLoadingEmail}
-              disabled={isLoadingGoogle || isLoadingApple}
-            >
-              {t("login.signIn")}
-            </Button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowEmailForm(false);
-                setError(null);
-              }}
-              className="w-full text-center font-kosugi text-[11px] text-text-disabled hover:text-text-tertiary transition-colors py-[4px]"
-            >
-              {t("login.backToOptions")}
-            </button>
+            {!showForgotPassword ? (
+              <>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(true);
+                      setResetEmail(email);
+                      setResetSent(false);
+                      setError(null);
+                    }}
+                    className="font-kosugi text-[10px] text-text-disabled hover:text-ops-accent transition-colors"
+                  >
+                    {t("login.forgotPassword")}
+                  </button>
+                </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  loading={isLoadingEmail}
+                  disabled={isLoadingGoogle || isLoadingApple}
+                >
+                  {t("login.signIn")}
+                </Button>
+              </>
+            ) : (
+              <div className="space-y-1.5 animate-fade-in">
+                {resetSent ? (
+                  <div className="py-2">
+                    <p className="font-mohave text-body-sm text-[#9DB582]">
+                      {t("login.resetSent")}
+                    </p>
+                    <p className="font-mohave text-body-sm text-text-tertiary mt-1">
+                      {t("login.resetSentDesc")}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setResetSent(false);
+                      }}
+                      className="font-kosugi text-[10px] text-ops-accent hover:text-ops-accent-hover transition-colors mt-2"
+                    >
+                      {t("login.backToSignIn")}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-mohave text-body-sm text-text-tertiary">
+                      {t("login.forgotPasswordDesc")}
+                    </p>
+                    <Input
+                      type="email"
+                      placeholder={t("login.emailPlaceholder")}
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      prefixIcon={<Mail className="w-[16px] h-[16px]" />}
+                      disabled={resetPassword.isPending}
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="w-full"
+                      loading={resetPassword.isPending}
+                      onClick={handleForgotPassword}
+                    >
+                      {t("login.sendResetLink")}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setError(null);
+                      }}
+                      className="w-full text-center font-kosugi text-[10px] text-text-disabled hover:text-text-tertiary transition-colors"
+                    >
+                      {t("login.backToSignIn")}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {!showForgotPassword && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmailForm(false);
+                  setShowForgotPassword(false);
+                  setError(null);
+                }}
+                className="w-full text-center font-kosugi text-[11px] text-text-disabled hover:text-text-tertiary transition-colors py-[4px]"
+              >
+                {t("login.backToOptions")}
+              </button>
+            )}
           </form>
         )}
       </div>

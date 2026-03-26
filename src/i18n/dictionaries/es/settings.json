@@ -62,6 +62,11 @@
   "password.toast.wrongCurrent": "La contraseña actual es incorrecta",
   "password.toast.tooManyAttempts": "Demasiados intentos. Por favor intenta de nuevo más tarde.",
   "password.ssoNotice": "Tu cuenta usa inicio de sesión con {provider}. La contraseña es administrada por tu proveedor.",
+  "password.reset.title": "Restablecer contraseña por correo",
+  "password.reset.description": "Enviaremos un enlace para restablecer tu contraseña a tu correo.",
+  "password.reset.send": "Enviar enlace",
+  "password.reset.sent": "Enlace enviado — revisa tu correo",
+  "password.reset.sentButton": "Enlace enviado",
 
   "appearance.theme": "Tema",
   "appearance.accentColor": "Color de acento",

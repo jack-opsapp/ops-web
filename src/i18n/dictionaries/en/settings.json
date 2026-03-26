@@ -62,6 +62,11 @@
   "password.toast.wrongCurrent": "Current password is incorrect",
   "password.toast.tooManyAttempts": "Too many attempts. Please try again later.",
   "password.ssoNotice": "Your account uses {provider} sign-in. Password is managed by your provider.",
+  "password.reset.title": "Reset Password via Email",
+  "password.reset.description": "We'll send a password reset link to your email address.",
+  "password.reset.send": "Send Reset Link",
+  "password.reset.sent": "Reset link sent — check your email",
+  "password.reset.sentButton": "Link Sent",
 
   "appearance.theme": "Theme",
   "appearance.accentColor": "Accent Color",
