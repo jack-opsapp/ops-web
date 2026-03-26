@@ -9,6 +9,7 @@
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type {
   EmailProviderInterface,
+  ImageAttachmentMeta,
   NormalizedEmail,
   SendEmailParams,
   SendEmailResult,
@@ -294,24 +295,10 @@ export class GmailProvider implements EmailProviderInterface {
    * Scan a thread's messages for image attachments.
    * Returns metadata only — call fetchAttachment() to get the actual bytes.
    */
-  async getImageAttachmentsFromThread(threadId: string): Promise<Array<{
-    messageId: string;
-    attachmentId: string;
-    filename: string;
-    mimeType: string;
-    size: number;
-    fromEmail: string;
-  }>> {
+  async getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]> {
     const res = await this.gmailFetch(`/threads/${threadId}?format=full`);
     const data = await res.json();
-    const images: Array<{
-      messageId: string;
-      attachmentId: string;
-      filename: string;
-      mimeType: string;
-      size: number;
-      fromEmail: string;
-    }> = [];
+    const images: ImageAttachmentMeta[] = [];
 
     for (const msg of (data.messages || [])) {
       const msgId = msg.id as string;
@@ -331,7 +318,7 @@ export class GmailProvider implements EmailProviderInterface {
     payload: Record<string, unknown> | undefined,
     messageId: string,
     fromEmail: string,
-    out: Array<{ messageId: string; attachmentId: string; filename: string; mimeType: string; size: number; fromEmail: string }>
+    out: ImageAttachmentMeta[]
   ): void {
     if (!payload) return;
 

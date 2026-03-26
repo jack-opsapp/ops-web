@@ -188,9 +188,15 @@ export function EmailThreadView({
   const totalExcerptCount = allExcerpts.length;
 
   // For single thread: use flat view (original behavior)
-  // For multiple threads: group by thread
+  // For multiple threads: group by thread (2 per thread when collapsed)
+  const MULTI_THREAD_PER = 2;
   const visible = showAll ? allExcerpts : allExcerpts.slice(0, INITIAL_VISIBLE);
-  const hiddenCount = totalExcerptCount - INITIAL_VISIBLE;
+  const visibleInMultiThread = hasMultipleThreads
+    ? threads.reduce((sum, t) => sum + Math.min(t.excerpts.length, MULTI_THREAD_PER), 0)
+    : INITIAL_VISIBLE;
+  const hiddenCount = hasMultipleThreads
+    ? totalExcerptCount - visibleInMultiThread
+    : totalExcerptCount - INITIAL_VISIBLE;
   const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${lead.threadId}`;
 
   const dur = prefersReduced ? 0 : 0.2;
@@ -254,7 +260,7 @@ export function EmailThreadView({
                 const threadExcerpts = [...thread.excerpts].sort(
                   (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
                 );
-                const threadVisible = showAll ? threadExcerpts : threadExcerpts.slice(0, 2);
+                const threadVisible = showAll ? threadExcerpts : threadExcerpts.slice(0, MULTI_THREAD_PER);
                 return (
                   <div key={thread.threadId} className={ti > 0 ? "mt-2 pt-2 border-t border-white/[0.06]" : ""}>
                     {/* Thread label */}

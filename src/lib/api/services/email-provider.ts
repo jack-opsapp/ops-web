@@ -49,6 +49,17 @@ export interface SendEmailResult {
   threadId: string;      // Thread/conversation ID
 }
 
+// ─── Attachment Types ────────────────────────────────────────────────────────
+
+export interface ImageAttachmentMeta {
+  messageId: string;
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  fromEmail: string;
+}
+
 // ─── Provider Interface ──────────────────────────────────────────────────────
 
 export interface EmailProviderInterface {
@@ -66,6 +77,10 @@ export interface EmailProviderInterface {
 
   // Thread operations
   fetchThread(threadId: string): Promise<NormalizedEmail[]>;
+
+  // Attachments — scan threads for images and download them
+  getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]>;
+  fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer>;
 
   // Labels/categories
   createLabel(name: string): Promise<string>;

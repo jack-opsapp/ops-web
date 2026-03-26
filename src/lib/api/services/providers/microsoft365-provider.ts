@@ -8,6 +8,7 @@
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type {
   EmailProviderInterface,
+  ImageAttachmentMeta,
   NormalizedEmail,
   SendEmailParams,
   SendEmailResult,
@@ -330,6 +331,55 @@ export class Microsoft365Provider implements EmailProviderInterface {
     } catch {
       return false;
     }
+  }
+
+  async getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]> {
+    // M365: fetch all messages in the conversation, then check each for image attachments
+    const messages = await this.fetchThread(threadId);
+    const images: ImageAttachmentMeta[] = [];
+
+    for (const msg of messages) {
+      if (!msg.hasAttachments) continue;
+
+      // Fetch attachments for this message
+      const data = await this.graphFetch(`/me/messages/${msg.id}/attachments`);
+      const attachments = (data.value as Array<Record<string, unknown>>) || [];
+
+      for (const att of attachments) {
+        const contentType = ((att.contentType as string) || "").toLowerCase();
+        const name = (att.name as string) || "";
+        const size = (att.size as number) || 0;
+        const attId = att.id as string;
+
+        // Only image attachments above 5KB (skip inline signature images)
+        if (
+          contentType.startsWith("image/") &&
+          attId &&
+          name &&
+          size > 5000
+        ) {
+          images.push({
+            messageId: msg.id,
+            attachmentId: attId,
+            filename: name,
+            mimeType: contentType,
+            size,
+            fromEmail: msg.from.toLowerCase(),
+          });
+        }
+      }
+    }
+
+    return images;
+  }
+
+  async fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer> {
+    const data = await this.graphFetch(
+      `/me/messages/${messageId}/attachments/${attachmentId}`
+    );
+    // M365 returns base64-encoded content in contentBytes
+    const base64Data = (data.contentBytes as string) || "";
+    return Buffer.from(base64Data, "base64");
   }
 
   async getProfile(): Promise<{ email: string; name: string }> {
