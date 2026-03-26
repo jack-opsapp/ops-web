@@ -79,6 +79,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const osResult = await osResponse.json();
 
+    console.log("[api/notifications/send] OneSignal response:", JSON.stringify(osResult));
+    console.log("[api/notifications/send] Payload sent:", JSON.stringify({ recipientUserIds, title }));
+
     if (!osResponse.ok) {
       console.error("[api/notifications/send] OneSignal error:", osResult);
       return NextResponse.json(
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      recipients: recipientUserIds.length,
+      recipients: osResult.recipients || 0,
       onesignalId: osResult.id,
     });
   } catch (error) {
