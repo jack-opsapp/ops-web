@@ -191,6 +191,12 @@ export async function POST(req: NextRequest) {
           themeMode: "light",
           fontCombo: "modern",
           welcomeMessage: null,
+          showQuantities: null,
+          showUnitPrices: null,
+          showLineTotals: null,
+          showDescriptions: null,
+          showTax: null,
+          showDiscount: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
