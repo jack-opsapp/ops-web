@@ -232,12 +232,11 @@ export function CardCarousel<T>({
 
       {/* ── Card stack ── */}
       {/*
-        Layout: the stack always fills the space between header and footer.
-        Three slots: prev-peek (48px) | focused (flex-1) | next-peek (48px).
-        Slots only exist when the corresponding card exists — the focused
-        card expands to absorb the space of missing peeks.
+        The focused card sizes to its content. Peeks sit directly adjacent.
+        Remaining space falls to the bottom via a spacer.
+        When content is taller than available space, the card scrolls.
       */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col">
 
         {/* Previous card peek — 48px, only when there's a card behind */}
         {prev && (
@@ -281,25 +280,23 @@ export function CardCarousel<T>({
           </div>
         )}
 
-        {/* Focused card — flex-1 fills all remaining space, scrolls internally */}
-        <div className="flex-1 min-h-0 relative">
-          <AnimatePresence mode="wait" custom={direction}>
-            {current && (
-              <motion.div
-                key={current.id}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="absolute inset-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
-                style={cardSurface}
-              >
-                {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Focused card — sizes to content, shrinks + scrolls when exceeding space */}
+        <AnimatePresence mode="wait" custom={direction}>
+          {current && (
+            <motion.div
+              key={current.id}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="shrink min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain"
+              style={cardSurface}
+            >
+              {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Next card peek — 48px, only when there's a card ahead */}
         {next && (
@@ -334,6 +331,9 @@ export function CardCarousel<T>({
             </AnimatePresence>
           </div>
         )}
+
+        {/* Spacer — absorbs remaining vertical space below the stack */}
+        <div className="flex-1 shrink-0" />
       </div>
 
       {/* Footer */}
