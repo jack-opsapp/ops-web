@@ -26,10 +26,10 @@ interface ActionItem {
 }
 
 const TYPE_CONFIG = {
-  "overdue-task": { icon: CheckSquare, color: "#B58289", label: "Overdue Tasks" },
-  "past-due-invoice": { icon: FileText, color: "#C4976A", label: "Past Due Invoices" },
-  "expiring-estimate": { icon: FileSpreadsheet, color: "#C4A868", label: "Expiring Estimates" },
-  "stale-follow-up": { icon: Phone, color: "#597794", label: "Follow-ups Overdue" },
+  "overdue-task": { icon: CheckSquare, color: "#B58289", labelKey: "actionRequired.groupOverdueTasks" },
+  "past-due-invoice": { icon: FileText, color: "#C4976A", labelKey: "actionRequired.groupPastDueInvoices" },
+  "expiring-estimate": { icon: FileSpreadsheet, color: "#C4A868", labelKey: "actionRequired.groupExpiringEstimates" },
+  "stale-follow-up": { icon: Phone, color: "#597794", labelKey: "actionRequired.groupStaleFollowUps" },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -52,12 +52,13 @@ function daysBetween(a: Date, b: Date): number {
   return Math.floor((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function formatAge(days: number, prefix: "overdue" | "due"): string {
-  if (days === 0) return "today";
-  if (days === 1) return prefix === "overdue" ? "1d overdue" : "Due in 1d";
-  if (days < 7) return prefix === "overdue" ? `${days}d overdue` : `Due in ${days}d`;
+function formatAge(days: number, prefix: "overdue" | "due", t: (key: string) => string | undefined): string {
+  if (days === 0) return t("actionRequired.today") ?? "today";
+  const overdueLabel = t("actionRequired.overdueShort") ?? "overdue";
+  const dueInLabel = t("actionRequired.dueIn") ?? "Due in";
+  if (days < 7) return prefix === "overdue" ? `${days}d ${overdueLabel}` : `${dueInLabel} ${days}d`;
   const weeks = Math.floor(days / 7);
-  return prefix === "overdue" ? `${weeks}w overdue` : `Due in ${weeks}w`;
+  return prefix === "overdue" ? `${weeks}w ${overdueLabel}` : `${dueInLabel} ${weeks}w`;
 }
 
 function formatCurrency(amount: number): string {
@@ -102,7 +103,7 @@ export function ActionRequiredWidget({
         type: "overdue-task",
         priority: 2,
         description: task.customTitle || task.taskType?.display || "Task",
-        age: formatAge(days, "overdue"),
+        age: formatAge(days, "overdue", t),
         navigateTo: `/projects/${task.projectId}`,
       });
     }
@@ -126,7 +127,7 @@ export function ActionRequiredWidget({
         type: "past-due-invoice",
         priority,
         description: `#${inv.invoiceNumber}${inv.client?.name ? ` — ${inv.client.name}` : ""}`,
-        age: formatAge(days, "overdue"),
+        age: formatAge(days, "overdue", t),
         amount: inv.balanceDue,
         navigateTo: `/invoices/${inv.id}`,
       });
@@ -147,7 +148,9 @@ export function ActionRequiredWidget({
         type: "expiring-estimate",
         priority: 4,
         description: `#${est.estimateNumber}${est.client?.name ? ` — ${est.client.name}` : ""}`,
-        age: daysUntil === 0 ? "Expires today" : `Expires in ${daysUntil}d`,
+        age: daysUntil === 0
+          ? (t("actionRequired.expiresToday") ?? "Expires today")
+          : `${t("actionRequired.expiresIn") ?? "Expires in"} ${daysUntil}d`,
         amount: est.total,
         navigateTo: `/estimates/${est.id}`,
       });
@@ -166,7 +169,7 @@ export function ActionRequiredWidget({
         type: "stale-follow-up",
         priority: 5,
         description: opp.title || "Follow-up",
-        age: formatAge(days, "overdue"),
+        age: formatAge(days, "overdue", t),
         amount: opp.estimatedValue ?? undefined,
         navigateTo: `/pipeline/${opp.id}`,
       });
@@ -304,7 +307,7 @@ export function ActionRequiredWidget({
                   <div className="flex items-center gap-1 mb-1">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: config.color }} />
                     <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
-                      {config.label} ({categoryCounts[group.type]})
+                      {t(config.labelKey) ?? group.type} ({categoryCounts[group.type]})
                     </span>
                   </div>
                   {group.items.map((item, i) => (

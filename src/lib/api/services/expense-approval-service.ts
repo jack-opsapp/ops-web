@@ -195,6 +195,28 @@ export const ExpenseApprovalService = {
   },
 
   /**
+   * Fetch ALL expense line items for a company (for dashboard widgets).
+   * Joins expense_categories for name. Excludes soft-deleted rows.
+   */
+  async fetchAllExpenses(companyId: string): Promise<ExpenseLineItem[]> {
+    const supabase = requireSupabase();
+
+    const { data, error } = await supabase
+      .from("expenses")
+      .select(
+        "*, expense_categories(name), expense_project_allocations(project_id)"
+      )
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("expense_date", { ascending: false });
+
+    if (error) throw new Error(`Failed to fetch all expenses: ${error.message}`);
+    if (!data) return [];
+
+    return data.map((r) => mapExpenseFromDb(r as Record<string, unknown>));
+  },
+
+  /**
    * Fetch expense line items for a specific batch.
    * Joins expense_categories for name and expense_project_allocations for project_id.
    * Excludes soft-deleted rows.

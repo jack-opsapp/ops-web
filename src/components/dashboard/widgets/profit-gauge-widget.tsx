@@ -9,20 +9,9 @@ import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
+import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface Expense {
-  id: string;
-  amount: number;
-  status: string;
-  date: Date | string;
-  category: string | null;
-  deletedAt: Date | null;
-}
 
 // ---------------------------------------------------------------------------
 // Color zones
@@ -40,7 +29,7 @@ interface ProfitGaugeWidgetProps {
   size: WidgetSize;
   config: Record<string, unknown>;
   invoices: Invoice[];
-  expenses: Expense[];
+  expenses: ExpenseLineItem[];
   isLoading: boolean;
 }
 
@@ -109,7 +98,8 @@ export function ProfitGaugeWidget({
     for (const exp of expenses) {
       if (exp.deletedAt) continue;
       if (exp.status !== "approved") continue;
-      const expDate = new Date(exp.date);
+      if (!exp.expenseDate) continue;
+      const expDate = new Date(exp.expenseDate);
       if (expDate < start || expDate > end) continue;
       totalExpenses += exp.amount;
     }

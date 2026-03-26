@@ -12,6 +12,20 @@ import { dispatchExpenseApproved } from "../api/services/notification-dispatch";
 import { useAuthStore } from "../store/auth-store";
 import type { ExpenseBatch, CreateAutoApproveRule } from "../types/expense-approval";
 
+// ─── All Expenses (dashboard widgets) ─────────────────────────────────────────
+
+export function useAllExpenses() {
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  return useQuery({
+    queryKey: queryKeys.expenseBatches.allExpenses(companyId),
+    queryFn: () => ExpenseApprovalService.fetchAllExpenses(companyId),
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 // ─── Batch Queries ────────────────────────────────────────────────────────────
 
 export function useExpenseBatches() {

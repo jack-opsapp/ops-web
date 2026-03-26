@@ -227,6 +227,8 @@ export const queryKeys = {
       [...queryKeys.expenseBatches.details(), batchId] as const,
     expenses: (batchId: string) =>
       [...queryKeys.expenseBatches.all, "expenses", batchId] as const,
+    allExpenses: (companyId: string) =>
+      [...queryKeys.expenseBatches.all, "allExpenses", companyId] as const,
     autoApproveRules: (companyId: string) =>
       [...queryKeys.expenseBatches.all, "autoApproveRules", companyId] as const,
   },

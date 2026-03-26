@@ -204,6 +204,7 @@ export {
 
 // Expense Approval (batches, flagging, approval, auto-approve rules)
 export {
+  useAllExpenses,
   useExpenseBatches,
   useBatchExpenses,
   useFlagExpense,

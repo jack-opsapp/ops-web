@@ -38,6 +38,7 @@ import {
   useInvoices,
   useEstimates,
   useOpportunities,
+  useAllExpenses,
 } from "@/lib/hooks";
 import {
   type ProjectTask,
@@ -227,6 +228,7 @@ export default function DashboardPage() {
   const { data: invoicesData, isLoading: invoicesLoading } = useInvoices();
   const { data: estimatesData, isLoading: estimatesLoading } = useEstimates();
   const { data: opportunitiesData, isLoading: opportunitiesLoading } = useOpportunities();
+  const { data: expensesData, isLoading: expensesLoading } = useAllExpenses();
 
   const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
   const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData]);
@@ -235,6 +237,7 @@ export default function DashboardPage() {
   const estimates = estimatesData ?? [];
   const opportunities = opportunitiesData ?? [];
   const clients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
+  const expenses = expensesData ?? [];
   const weekEvents: InternalCalendarEvent[] = useMemo(() => {
     if (!scheduledTasks) return [];
     return scheduledTasks
@@ -530,11 +533,11 @@ export default function DashboardPage() {
       case "receivables-aging":
         return <ReceivablesAgingWidget size={size} invoices={invoices} isLoading={invoicesLoading} onNavigate={navigate} />;
       case "profit-gauge":
-        return <ProfitGaugeWidget size={size} config={config} invoices={invoices} expenses={[]} isLoading={invoicesLoading} />;
+        return <ProfitGaugeWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} />;
       case "expense-tracker":
-        return <ExpenseTrackerWidget size={size} config={config} expenses={[]} isLoading={false} onNavigate={navigate} />;
+        return <ExpenseTrackerWidget size={size} config={config} expenses={expenses} isLoading={expensesLoading} onNavigate={navigate} />;
       case "cash-position":
-        return <CashPositionWidget size={size} config={config} invoices={invoices} expenses={[]} isLoading={invoicesLoading} />;
+        return <CashPositionWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} />;
       case "invoice-list":
         return <InvoiceListWidget size={size} config={config} />;
       case "payments-recent":
