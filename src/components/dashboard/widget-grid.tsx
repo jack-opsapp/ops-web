@@ -104,19 +104,19 @@ export function WidgetGrid({
           }
 
           return (
-            <div key={instance.id} style={isCustomizing ? undefined : getEntryStyle(index, hasEntered, reducedMotion)}>
-              <WidgetShell
-                instanceId={instance.id}
-                typeId={instance.typeId}
-                size={instance.size}
-                config={instance.config}
-                isCustomizing={isCustomizing}
-                isDragActive={activeId !== null}
-                isBeingDragged={activeId === instance.id}
-              >
-                {children[instance.id] ?? null}
-              </WidgetShell>
-            </div>
+            <WidgetShell
+              key={instance.id}
+              instanceId={instance.id}
+              typeId={instance.typeId}
+              size={instance.size}
+              config={instance.config}
+              isCustomizing={isCustomizing}
+              isDragActive={activeId !== null}
+              isBeingDragged={activeId === instance.id}
+              entryStyle={isCustomizing ? undefined : getEntryStyle(index, hasEntered, reducedMotion)}
+            >
+              {children[instance.id] ?? null}
+            </WidgetShell>
           );
         })}
       </AnimatePresence>

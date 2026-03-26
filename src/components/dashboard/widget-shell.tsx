@@ -43,6 +43,8 @@ interface WidgetShellProps {
   isCustomizing?: boolean;
   isDragActive?: boolean;
   isBeingDragged?: boolean;
+  /** CSS entry stagger style applied to the outermost grid element */
+  entryStyle?: React.CSSProperties;
   children: ReactNode;
 }
 
@@ -54,6 +56,7 @@ export function WidgetShell({
   isCustomizing,
   isDragActive,
   isBeingDragged,
+  entryStyle,
   children,
 }: WidgetShellProps) {
   const updateWidgetInstance = usePreferencesStore((s) => s.updateWidgetInstance);
@@ -115,10 +118,13 @@ export function WidgetShell({
         isCustomizing && !isSpacer && "ring-1 ring-border-medium rounded-md cursor-grab active:cursor-grabbing",
         isCustomizing && isSpacer && "cursor-grab active:cursor-grabbing"
       )}
-      style={isSpacer ? {
-        gridColumn: `span ${spacerColSpan}`,
-        gridRow: `span ${spacerRowSpan}`,
-      } : undefined}
+      style={{
+        ...(isSpacer ? {
+          gridColumn: `span ${spacerColSpan}`,
+          gridRow: `span ${spacerRowSpan}`,
+        } : undefined),
+        ...entryStyle,
+      }}
       data-widget-id={instanceId}
       data-widget-type={typeId}
       data-widget-size={size}
