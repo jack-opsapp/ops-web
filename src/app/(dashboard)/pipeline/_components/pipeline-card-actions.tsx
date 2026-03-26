@@ -10,6 +10,7 @@ import {
   UserPlus,
   Trophy,
   XCircle,
+  Ban,
   Archive,
   Trash2,
 } from "lucide-react";
@@ -26,6 +27,7 @@ interface PipelineCardActionsProps {
   onArchive: () => void;
   onMarkWon: () => void;
   onMarkLost: () => void;
+  onDiscard: () => void;
   onAssign: () => void;
   onScheduleFollowUp: () => void;
   onOpenDetail: () => void;
@@ -41,6 +43,7 @@ export function PipelineCardActions({
   onArchive,
   onMarkWon,
   onMarkLost,
+  onDiscard,
   onAssign,
   onScheduleFollowUp,
   onOpenDetail,
@@ -282,6 +285,17 @@ export function PipelineCardActions({
                 >
                   <XCircle size={14} className="shrink-0" />
                   {t("actions.markLost")}
+                </button>
+              )}
+
+              {isActiveStage(stage) && (
+                <button
+                  type="button"
+                  onClick={(e) => handleDropdownAction(e, onDiscard)}
+                  className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
+                >
+                  <Ban size={14} className="shrink-0" />
+                  {t("actions.discard")}
                 </button>
               )}
 
