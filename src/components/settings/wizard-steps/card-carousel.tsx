@@ -20,6 +20,8 @@ export interface CarouselItem<T> {
   data: T;
   /** AI-suggested default action key (e.g. "1", "2", "3") */
   defaultAction: string;
+  /** Original AI suggestion key — never overwritten by user decisions */
+  aiDefaultAction?: string;
 }
 
 export interface CarouselDecision {
@@ -30,7 +32,7 @@ export interface CarouselDecision {
 interface CardCarouselProps<T> {
   title: string;
   items: CarouselItem<T>[];
-  renderCard: (item: CarouselItem<T>, isFocused: boolean, setDecision: (d: CarouselDecision) => void, triggerAction: (key: string) => void, highlightedKey: string, threadToggle: number) => ReactNode;
+  renderCard: (item: CarouselItem<T>, isFocused: boolean, setDecision: (d: CarouselDecision) => void, triggerAction: (key: string) => void, highlightedKey: string, threadToggle: number, onThreadToggle: () => void, hideBadge?: boolean) => ReactNode;
   actions: Record<string, (item: CarouselItem<T>) => CarouselDecision | void>;
   onComplete: () => void;
   onBack?: () => void;
@@ -44,6 +46,7 @@ interface CardCarouselProps<T> {
 
 const noopSetDecision = () => {};
 const noopTrigger = () => {};
+const noopToggle = () => {};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -193,17 +196,8 @@ export function CardCarousel<T>({
       if (!wheelNavigation) return;
       if (Math.abs(e.deltaY) < 2) return;
 
-      // If the card has scrollable content, let it scroll first
-      const card = cardRef.current;
-      if (card && card.scrollHeight > card.clientHeight) {
-        const atTop = card.scrollTop <= 0;
-        const atBottom = card.scrollTop + card.clientHeight >= card.scrollHeight - 1;
-
-        // Scrolling down but not at bottom — let card scroll
-        if (e.deltaY > 0 && !atBottom) return;
-        // Scrolling up but not at top — let card scroll
-        if (e.deltaY < 0 && !atTop) return;
-      }
+      // Block wheel navigation entirely when thread is expanded
+      if (threadExpanded) return;
 
       if (e.deltaY > 0) {
         if (highlightedKey) handleAction(highlightedKey);
@@ -211,7 +205,7 @@ export function CardCarousel<T>({
         goBack();
       }
     },
-    [wheelNavigation, highlightedKey, handleAction, goBack]
+    [wheelNavigation, highlightedKey, handleAction, goBack, threadExpanded]
   );
 
   useEffect(() => {
@@ -257,62 +251,80 @@ export function CardCarousel<T>({
         handles position/size changes. No absolute positioning.
       */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <AnimatePresence initial={false}>
-          {/* Previous — collapsed bar */}
-          {prev && (
-            <motion.div
-              key={prev.id}
-              animate={{ opacity: 0.5, scale: 0.96 }}
-              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -12 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH }}
-              className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0 border border-white/[0.06] px-4 py-2.5 overflow-hidden"
-              style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", maxHeight: 40, transformOrigin: "bottom center" }}
-            >
-              {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0)}
-              {decisions.get(prev.id) && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.12, duration: 0.2 }}
-                  className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
-                  style={{ color: decisions.get(prev.id)!.color }}
-                >
-                  {decisions.get(prev.id)!.label}
-                </motion.div>
-              )}
-            </motion.div>
-          )}
+          {/* Previous — collapsed bar (no AnimatePresence, keyed by index to avoid layout fights) */}
+          <AnimatePresence initial={false} mode="popLayout">
+            {prev && (
+              <motion.div
+                key={`prev-${currentIndex}`}
+                initial={prefersReduced ? false : direction === -1 ? { opacity: 0.5, scale: 0.96 } : { opacity: 0, y: -12 }}
+                animate={{ opacity: 0.5, scale: 0.96 }}
+                exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -12 }}
+                transition={{ duration: dur * 0.7, ease: EASE_SMOOTH }}
+                className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0 border border-white/[0.06] px-4 py-2.5 overflow-hidden"
+                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", maxHeight: 40, transformOrigin: "bottom center" }}
+              >
+                {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0, noopToggle, true)}
+                {decisions.get(prev.id) && (() => {
+                  const d = decisions.get(prev.id)!;
+                  const usedKey = decisionKeys.get(prev.id);
+                  const aiKey = prev.aiDefaultAction ?? prev.defaultAction;
+                  const isDefault = usedKey === aiKey;
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.12, duration: 0.2 }}
+                      className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
+                      style={{ color: d.color }}
+                    >
+                      {isDefault ? `AGENT: ${d.label}` : `SELECTED: ${d.label}`}
+                    </motion.div>
+                  );
+                })()}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Current — focused, grows 50% when thread expanded */}
-          {current && (
-            <motion.div
-              ref={cardRef}
-              key={current.id}
-              layout={!prefersReduced}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: 0.25, ease: EASE_SMOOTH } }}
-              className="min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10"
-              style={{ ...cardSurface, flex: threadExpanded ? "1.5 1 0%" : "0 1 auto" }}
-            >
-              {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
-            </motion.div>
-          )}
+          {/* Current — focused card */}
+          <AnimatePresence initial={false} mode="popLayout">
+            {current && (
+              <motion.div
+                ref={cardRef}
+                key={current.id}
+                initial={prefersReduced ? false : direction === -1
+                  ? { opacity: 0.5, scale: 0.96, maxHeight: 40 }
+                  : { opacity: 0, y: 20 }
+                }
+                animate={{ opacity: 1, scale: 1, maxHeight: 2000 }}
+                exit={prefersReduced ? { opacity: 0 } : direction === 1
+                  ? { opacity: 0, y: -12, maxHeight: 40, transition: { duration: dur * 0.6, ease: EASE_SMOOTH } }
+                  : { opacity: 0, y: 20, transition: { duration: dur * 0.6, ease: EASE_SMOOTH } }
+                }
+                transition={{ duration: dur, ease: EASE_SMOOTH, maxHeight: { duration: 0.25, ease: EASE_SMOOTH } }}
+                className="min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10 transition-[flex] duration-300"
+                style={{ ...cardSurface, flex: threadExpanded ? "1.5 1 0%" : "0 1 auto", transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
+              >
+                {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle, () => setThreadExpanded((v) => !v))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Next — full card, faded */}
-          {next && (
-            <motion.div
-              key={next.id}
-              initial={prefersReduced ? false : { opacity: 0, y: 20 }}
-              animate={{ opacity: 0.35, scale: 0.97 }}
-              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH }}
-              className="flex-shrink-0 mt-2 pointer-events-none select-none border border-white/[0.06] p-4"
-              style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", transformOrigin: "top center" }}
-            >
-              {renderCard(next, false, noopSetDecision, noopTrigger, "", 0)}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <AnimatePresence initial={false} mode="popLayout">
+            {next && (
+              <motion.div
+                key={`next-${currentIndex}`}
+                initial={prefersReduced ? false : direction === 1 ? { opacity: 0, y: 20 } : { opacity: 0.35, scale: 0.97 }}
+                animate={{ opacity: 0.35, scale: 0.97 }}
+                exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
+                transition={{ duration: dur * 0.7, ease: EASE_SMOOTH }}
+                className="flex-shrink-0 mt-2 pointer-events-none select-none border border-white/[0.06] p-4"
+                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", transformOrigin: "top center" }}
+              >
+                {renderCard(next, false, noopSetDecision, noopTrigger, "", 0, noopToggle)}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
         {/* Spacer */}
         <div className="flex-1 shrink-0" />

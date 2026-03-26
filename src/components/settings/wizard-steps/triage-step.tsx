@@ -111,12 +111,23 @@ export function TriageStep({
   const items: CarouselItem<AnalyzedLead>[] = useMemo(
     () =>
       triageLeads.map((lead) => {
+        const aiDefault = computeTriageDefault(lead);
         const existing = triageDecisions.get(lead.id);
-        const defaultDecision = existing || computeTriageDefault(lead);
+        // defaultAction = user's pick if revisiting, otherwise AI suggestion
+        const effectiveDecision = existing || aiDefault;
         const actionKey =
-          defaultDecision === "won"
+          effectiveDecision === "won"
             ? "1"
-            : defaultDecision === "lost"
+            : effectiveDecision === "lost"
+              ? "2"
+              : effectiveDecision === "discard"
+                ? "4"
+                : "3"; // active
+        // aiDefaultAction = always the AI's original suggestion (never overwritten)
+        const aiActionKey =
+          aiDefault === "won"
+            ? "1"
+            : aiDefault === "lost"
               ? "2"
               : "3"; // active
 
@@ -124,6 +135,7 @@ export function TriageStep({
           id: lead.id,
           data: lead,
           defaultAction: actionKey,
+          aiDefaultAction: aiActionKey,
         };
       }),
     [triageLeads, triageDecisions]
@@ -162,7 +174,7 @@ export function TriageStep({
       onBack={onBack}
       keyboardHint={t("triage.hint")}
       wheelNavigation
-      renderCard={(item, focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
+      renderCard={(item, focused, _setDecision, triggerAction, highlightedKey, threadToggle, onThreadToggle, hideBadge) => {
         const lead = item.data;
         const consolidated = consolidationLookup.get(lead.id);
         const displayName = consolidated
@@ -174,6 +186,7 @@ export function TriageStep({
         return (
           <div className="space-y-3">
             {/* Lead identity — inline editable name */}
+            <div className="flex items-start justify-between gap-3">
             <div>
               <InlineEditableText
                 value={displayName}
@@ -238,30 +251,31 @@ export function TriageStep({
               </div>
             </div>
 
-            {/* AI suggestion badge */}
-            {defaultDecision !== "active" && (
+            {/* AI suggestion badge — inline, top right (hidden on prev peek cards) */}
+            {!hideBadge && defaultDecision !== "active" && (
               <div
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 border"
+                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 border"
                 style={{
                   borderRadius: 4,
                   borderColor: `${DECISION_COLORS[defaultDecision]}30`,
                   color: DECISION_COLORS[defaultDecision],
                 }}
               >
-                <span className="font-kosugi text-[9px] tracking-[0.1em] uppercase">
+                <span className="font-kosugi text-[9px] tracking-[0.1em] uppercase whitespace-nowrap">
                   {t("triage.agentSuggests")}: {DECISION_LABELS[defaultDecision]}
                 </span>
               </div>
             )}
+            </div>
 
             {/* Email thread */}
-            <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} />
+            <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} onToggle={onThreadToggle} />
 
             {/* Action buttons — only on focused card */}
             {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "1" ? "#9DB582" : "rgba(157, 181, 130, 0.3)",
@@ -269,23 +283,25 @@ export function TriageStep({
                   background: highlightedKey === "1" ? "rgb(20, 26, 18)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
-                1: {t("triage.won")}
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">1</kbd>
+                {t("triage.won")}
               </button>
               <button
                 onClick={() => triggerAction("2")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
-                  borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
-                  color: "#888",
-                  background: highlightedKey === "2" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
+                  borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                  color: highlightedKey === "2" ? "#aaa" : "#888",
+                  background: highlightedKey === "2" ? "rgba(255, 255, 255, 0.08)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
-                2: {t("triage.lost")}
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">2</kbd>
+                {t("triage.lost")}
               </button>
               <button
                 onClick={() => triggerAction("3")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "3" ? "#597794" : "rgba(89, 119, 148, 0.3)",
@@ -293,19 +309,21 @@ export function TriageStep({
                   background: highlightedKey === "3" ? "rgb(18, 24, 30)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
-                3: {t("triage.active")}
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">3</kbd>
+                {t("triage.active")}
               </button>
               <button
                 onClick={() => triggerAction("4")}
-                className="py-1.5 px-2.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex-shrink-0"
+                className="py-1.5 px-2.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex-shrink-0 flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
-                  borderColor: highlightedKey === "4" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
-                  color: "#555",
-                  background: highlightedKey === "4" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
+                  borderColor: highlightedKey === "4" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)",
+                  color: highlightedKey === "4" ? "#888" : "#555",
+                  background: highlightedKey === "4" ? "rgba(255, 255, 255, 0.06)" : "rgba(10, 10, 10, 0.90)",
                 }}
               >
-                4: {t("triage.discard")}
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">4</kbd>
+                {t("triage.discard")}
               </button>
             </div>}
           </div>

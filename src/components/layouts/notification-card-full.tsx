@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notifCardFullVariants } from "@/lib/utils/motion";
+import { useNotificationRailStore } from "@/stores/notification-rail-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
 interface NotificationCardFullProps {
@@ -29,6 +30,17 @@ export function NotificationCardFull({
   onDismiss,
 }: NotificationCardFullProps) {
   const router = useRouter();
+  const closeModal = useNotificationRailStore((s) => s.closeModal);
+
+  function handleCardClick() {
+    if (notification.actionUrl) {
+      if (!notification.persistent) {
+        onDismiss(notification.id);
+      }
+      closeModal();
+      router.push(notification.actionUrl);
+    }
+  }
 
   return (
     <motion.div
@@ -37,17 +49,22 @@ export function NotificationCardFull({
       initial="hidden"
       animate="visible"
       exit="exit"
+      onClick={handleCardClick}
       className="relative px-[12px] py-[10px] border-b border-[rgba(255,255,255,0.06)]"
       style={{
+        cursor: notification.actionUrl ? "pointer" : "default",
         borderLeft: notification.persistent
-          ? "2px solid #597794"
+          ? "2px solid var(--ops-accent, #597794)"
           : undefined,
       }}
     >
       {/* Dismiss X — top right, only non-persistent */}
       {!notification.persistent && (
         <button
-          onClick={() => onDismiss(notification.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss(notification.id);
+          }}
           className="absolute top-[8px] right-[8px] p-[2px] text-text-disabled hover:text-text-secondary transition-colors duration-150"
           aria-label="Dismiss"
         >
@@ -72,14 +89,11 @@ export function NotificationCardFull({
         </p>
       )}
 
-      {/* Row 3: Action button */}
+      {/* Row 3: Action label (visual indicator — whole card is clickable) */}
       {notification.actionLabel && notification.actionUrl && (
-        <button
-          onClick={() => router.push(notification.actionUrl!)}
-          className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794] hover:text-text-primary transition-colors duration-150 mt-[4px]"
-        >
+        <span className="font-kosugi text-[10px] uppercase tracking-wider text-ops-accent inline-block mt-[4px]">
           {notification.actionLabel}
-        </button>
+        </span>
       )}
     </motion.div>
   );

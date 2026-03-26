@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notifCardVariants, notifCardVariantsReduced } from "@/lib/utils/motion";
+import { useNotificationRailStore } from "@/stores/notification-rail-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
 interface NotificationMiniCardProps {
@@ -19,7 +20,19 @@ export function NotificationMiniCard({
 }: NotificationMiniCardProps) {
   const router = useRouter();
   const reducedMotion = useReducedMotion();
+  const collapse = useNotificationRailStore((s) => s.collapse);
   const variants = reducedMotion ? notifCardVariantsReduced : notifCardVariants;
+  const hasAction = notification.actionUrl && notification.actionLabel;
+
+  function handleCardClick() {
+    if (notification.actionUrl) {
+      if (!notification.persistent) {
+        onDismiss(notification.id);
+      }
+      collapse();
+      router.push(notification.actionUrl);
+    }
+  }
 
   return (
     <motion.div
@@ -30,15 +43,16 @@ export function NotificationMiniCard({
       animate="visible"
       exit="exit"
       custom={index}
-      className="shrink-0 flex items-center gap-[6px] h-[36px] px-[8px] rounded-sm snap-start"
+      onClick={handleCardClick}
+      className="shrink-0 flex items-center gap-[6px] h-[36px] px-[8px] rounded-sm snap-start w-max max-w-[240px]"
       style={{
-        width: 180,
+        cursor: notification.actionUrl ? "pointer" : "default",
         background: "rgba(10, 10, 10, 0.70)",
         backdropFilter: "blur(20px) saturate(1.2)",
         WebkitBackdropFilter: "blur(20px) saturate(1.2)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderLeft: notification.persistent
-          ? "2px solid #597794"
+          ? "2px solid var(--ops-accent, #597794)"
           : "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
@@ -47,17 +61,11 @@ export function NotificationMiniCard({
         {notification.title}
       </span>
 
-      {/* Action button */}
-      {notification.actionLabel && notification.actionUrl && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(notification.actionUrl!);
-          }}
-          className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-[#597794] hover:text-text-primary transition-colors duration-150"
-        >
+      {/* Action label (visual indicator only — whole card is clickable) */}
+      {hasAction && (
+        <span className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-ops-accent">
           {notification.actionLabel}
-        </button>
+        </span>
       )}
 
       {/* Dismiss button — only on non-persistent */}
