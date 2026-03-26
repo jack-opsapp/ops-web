@@ -36,6 +36,8 @@ interface CardCarouselProps<T> {
   onBack?: () => void;
   skipLabel?: string;
   keyboardHint?: string;
+  /** Enable mouse wheel to advance (scroll down) / go back (scroll up) */
+  wheelNavigation?: boolean;
 }
 
 // ─── Noop helpers for non-interactive peek cards ─────────────────────────────
@@ -54,6 +56,7 @@ export function CardCarousel<T>({
   onBack,
   skipLabel = "SKIP TO NEXT STEP",
   keyboardHint = "←→ select · ↓/⏎ accept · ↑ back · ⌫ discard · E thread",
+  wheelNavigation = false,
 }: CardCarouselProps<T>) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -70,6 +73,8 @@ export function CardCarousel<T>({
   const [highlightedKey, setHighlightedKey] = useState<string>("");
   // Incremented on E key — passed to EmailThreadView to toggle expand/collapse
   const [threadToggle, setThreadToggle] = useState(0);
+  // Track whether thread is expanded — card grows when true
+  const [threadExpanded, setThreadExpanded] = useState(false);
 
   // Track which action key was used per item — for restoring highlight on revisit
   const [decisionKeys, setDecisionKeys] = useState<Map<string, string>>(new Map());
@@ -174,14 +179,36 @@ export function CardCarousel<T>({
         case "E":
           e.preventDefault();
           setThreadToggle((n) => n + 1);
+          setThreadExpanded((v) => !v);
           break;
       }
     },
     [highlightedKey, actionKeys, goBack, handleAction]
   );
 
+  // ── Mouse wheel navigation ─────────────────────────────────────────
+  const wheelCooldown = useRef(false);
+  const onWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      if (!wheelNavigation || wheelCooldown.current) return;
+      const threshold = 30;
+      if (Math.abs(e.deltaY) < threshold) return;
+
+      wheelCooldown.current = true;
+      setTimeout(() => { wheelCooldown.current = false; }, 300);
+
+      if (e.deltaY > 0) {
+        if (highlightedKey) handleAction(highlightedKey);
+      } else {
+        goBack();
+      }
+    },
+    [wheelNavigation, highlightedKey, handleAction, goBack]
+  );
+
   useEffect(() => {
     containerRef.current?.focus();
+    setThreadExpanded(false);
   }, [currentIndex]);
 
   if (items.length === 0) return null;
@@ -201,6 +228,7 @@ export function CardCarousel<T>({
       ref={containerRef}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      onWheel={onWheel}
       data-carousel-container
       className="flex flex-col outline-none h-full"
     >
@@ -226,10 +254,9 @@ export function CardCarousel<T>({
           {prev && (
             <motion.div
               key={prev.id}
-              layout={!prefersReduced}
               animate={{ opacity: 0.5, scale: 0.96 }}
               exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -12 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: dur } }}
+              transition={{ duration: dur, ease: EASE_SMOOTH }}
               className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0 border border-white/[0.06] px-4 py-2.5 overflow-hidden"
               style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", maxHeight: 40, transformOrigin: "bottom center" }}
             >
@@ -248,15 +275,15 @@ export function CardCarousel<T>({
             </motion.div>
           )}
 
-          {/* Current — focused, content-driven height */}
+          {/* Current — focused, grows 50% when thread expanded */}
           {current && (
             <motion.div
               key={current.id}
               layout={!prefersReduced}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: 0.25, ease: EASE_SMOOTH } }}
-              className="shrink min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10"
-              style={cardSurface}
+              className="min-h-0 border border-white/10 p-4 overflow-y-auto scrollbar-hide overscroll-contain relative z-10"
+              style={{ ...cardSurface, flex: threadExpanded ? "1.5 1 0%" : "0 1 auto" }}
             >
               {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
             </motion.div>
@@ -266,11 +293,10 @@ export function CardCarousel<T>({
           {next && (
             <motion.div
               key={next.id}
-              layout={!prefersReduced}
               initial={prefersReduced ? false : { opacity: 0, y: 20 }}
               animate={{ opacity: 0.35, scale: 0.97 }}
               exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: dur, ease: EASE_SMOOTH, layout: { duration: dur } }}
+              transition={{ duration: dur, ease: EASE_SMOOTH }}
               className="flex-shrink-0 mt-2 pointer-events-none select-none border border-white/[0.06] p-4"
               style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", transformOrigin: "top center" }}
             >

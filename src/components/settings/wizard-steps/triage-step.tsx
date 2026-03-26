@@ -161,6 +161,7 @@ export function TriageStep({
       onComplete={onComplete}
       onBack={onBack}
       keyboardHint={t("triage.hint")}
+      wheelNavigation
       renderCard={(item, focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
         const lead = item.data;
         const consolidated = consolidationLookup.get(lead.id);
