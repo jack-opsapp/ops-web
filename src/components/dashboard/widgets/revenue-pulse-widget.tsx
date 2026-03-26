@@ -168,9 +168,9 @@ export function RevenuePulseWidget({
             {t("revenuePulse.title") ?? "Revenue"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-3 pb-2 flex flex-col items-center justify-center h-[calc(100%-28px)]">
+        <CardContent className="px-3 pb-2 flex flex-col items-start justify-center h-[calc(100%-28px)]">
           <DollarSign className="w-6 h-6 text-text-quaternary opacity-20 mb-1" />
-          <span className="font-mohave text-[13px] text-text-tertiary">No paid invoices yet</span>
+          <span className="font-mohave text-[13px] text-text-tertiary">{t("revenuePulse.noData") ?? "No paid invoices yet"}</span>
         </CardContent>
       </Card>
     );

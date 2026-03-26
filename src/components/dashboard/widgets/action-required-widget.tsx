@@ -27,7 +27,7 @@ interface ActionItem {
 
 const TYPE_CONFIG = {
   "overdue-task": { icon: CheckSquare, color: "#B58289", label: "Overdue Tasks" },
-  "past-due-invoice": { icon: FileText, color: "#F97316", label: "Past Due Invoices" },
+  "past-due-invoice": { icon: FileText, color: "#C4976A", label: "Past Due Invoices" },
   "expiring-estimate": { icon: FileSpreadsheet, color: "#C4A868", label: "Expiring Estimates" },
   "stale-follow-up": { icon: Phone, color: "#597794", label: "Follow-ups Overdue" },
 } as const;

@@ -23,6 +23,7 @@
   "notifications.earlier": "Earlier",
   "notifications.count": "{count}",
   "notifications.overflow": "+{count}",
+  "notifications.clickToExpand": "Click to expand",
 
   "menu.ariaLabel": "Open menu"
 }

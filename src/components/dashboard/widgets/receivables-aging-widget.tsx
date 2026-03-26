@@ -17,7 +17,7 @@ import { useDictionary } from "@/i18n/client";
 const BUCKETS = [
   { key: "current", label: "Current", min: -Infinity, max: 0, color: "#597794" },
   { key: "1-30", label: "1-30 days", min: 1, max: 30, color: "#C4A868" },
-  { key: "31-60", label: "31-60 days", min: 31, max: 60, color: "#F97316" },
+  { key: "31-60", label: "31-60 days", min: 31, max: 60, color: "#C4976A" },
   { key: "61-90", label: "61-90 days", min: 61, max: 90, color: "rgba(181,130,137,0.7)" },
   { key: "90+", label: "90+ days", min: 91, max: Infinity, color: "#B58289" },
 ] as const;

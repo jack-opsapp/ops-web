@@ -25,7 +25,9 @@ import {
   useUpdateProduct,
   useDeleteProduct,
   useTaskTypes,
+  useProductMetrics,
 } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import {
   formatCurrency,
   calculateMargin,
@@ -44,6 +46,7 @@ export default function ProductsPage() {
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
 
+  const { data: productMetrics = [] } = useProductMetrics();
   const { data: products = [], isLoading } = useProducts();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -91,18 +94,21 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-3 pb-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <p className="font-mohave text-body-sm text-text-tertiary">
-          {stats.total} {t("products.items")} — {stats.active} {t("products.active")}, {stats.inactive} {t("products.inactive")}
-        </p>
-        {can("products.manage") && (
-          <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
-            <Plus className="w-[14px] h-[14px]" />
-            {t("products.newItem")}
-          </Button>
-        )}
-      </div>
+      {/* Metrics Header */}
+      <MetricsHeader
+        variant="compact"
+        tabId="products"
+        title="Products"
+        metrics={productMetrics}
+        actions={
+          can("products.manage") ? (
+            <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">
+              <Plus className="w-[14px] h-[14px]" />
+              {t("products.newItem")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2">

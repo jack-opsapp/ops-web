@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useClients } from "@/lib/hooks";
+import { useClients, useClientMetrics } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
@@ -344,6 +345,7 @@ export default function ClientsPage() {
   // Track screen view
   useEffect(() => { trackScreenView("clients"); }, []);
 
+  const { data: clientMetrics = [] } = useClientMetrics();
   const { data, isLoading } = useClients();
   const { data: projectsData } = useProjects();
 
@@ -404,18 +406,8 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-3">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-kosugi text-caption-sm text-text-tertiary">
-            {totalCount} {t("title").toLowerCase()}
-          </span>
-          <span className="text-text-disabled font-mono text-[10px]">|</span>
-          <span className="font-kosugi text-caption-sm text-text-tertiary">
-            {totalSubClients} {t("subContacts")}
-          </span>
-        </div>
-      </div>
+      {/* Metrics Header */}
+      <MetricsHeader variant="compact" tabId="clients" title="Clients" metrics={clientMetrics} />
 
       {/* Search + Filters + View Toggle */}
       <div className="flex flex-col sm:flex-row gap-2">

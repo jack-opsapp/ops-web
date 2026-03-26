@@ -535,6 +535,9 @@
   "calendar.eventSingular": "event",
   "calendar.eventPlural": "events",
 
+  "pipelineFunnel.noProjects": "No active projects",
+  "pipelineFunnel.ofPipeline": "Of pipeline",
+
   "taskPulse.title": "Tasks",
   "taskPulse.overdue": "Overdue",
   "taskPulse.dueToday": "Due Today",
@@ -554,6 +557,7 @@
   "revenuePulse.mtdRevenue": "MTD Revenue",
   "revenuePulse.ytdTotal": "YTD Total",
   "revenuePulse.ytd": "YTD",
+  "revenuePulse.noData": "No paid invoices yet",
 
   "profitGauge.title": "Profit",
   "profitGauge.margin": "Margin",

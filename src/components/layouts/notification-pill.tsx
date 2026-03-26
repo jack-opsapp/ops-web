@@ -48,7 +48,7 @@ export function NotificationPill({ persistent, layoutId, title, body }: Notifica
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.12, ease: EASE_SMOOTH }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[6px] pointer-events-none z-[1000]"
+            className="absolute top-full left-1/2 -translate-x-1/2 mt-[6px] pointer-events-none z-[1000]"
           >
             <div
               className="px-[8px] py-[5px] rounded-sm max-w-[200px]"

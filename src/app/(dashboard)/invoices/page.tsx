@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
-import { MetricCard } from "@/components/ops/metric-card";
+import { MetricsHeader } from "@/components/metrics";
 import {
   LineItemEditor,
   createEmptyLineItem,
@@ -46,6 +46,7 @@ import {
   useClients,
   useProjects,
   useProducts,
+  useInvoiceMetrics,
 } from "@/lib/hooks";
 import {
   InvoiceStatus,
@@ -144,6 +145,9 @@ export default function InvoicesPage() {
 
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
 
+  // ── Metrics header data ────────────────────────────────────────────
+  const { data: invoiceMetrics = [] } = useInvoiceMetrics();
+
   // ── Setup gate ──────────────────────────────────────────────────────
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -224,21 +228,8 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-3">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <MetricCard
-          label={t("invoices.outstanding")}
-          value={formatCurrency(metrics.outstanding)}
-          icon={<Receipt className="w-[16px] h-[16px]" />}
-        />
-        <MetricCard
-          label={t("invoices.overdue")}
-          value={formatCurrency(metrics.overdue)}
-          icon={metrics.overdue > 0 ? <AlertTriangle className="w-[16px] h-[16px] text-ops-error" /> : undefined}
-        />
-        <MetricCard label={t("invoices.paidThisMonth")} value={formatCurrency(metrics.paidThisMonth)} />
-        <MetricCard label={t("invoices.drafts")} value={String(metrics.draftCount)} />
-      </div>
+      {/* Metrics Header */}
+      <MetricsHeader variant="full" tabId="invoices" title="Invoices" metrics={invoiceMetrics} />
 
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -39,6 +39,8 @@ import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useScopedProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
+import { useProjectMetrics } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { exportToCSV } from "@/lib/utils/csv-export";
 import {
@@ -268,6 +270,9 @@ export default function ProjectsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupComplete]);
 
+  // ── Metrics header data ────────────────────────────────────────────
+  const { data: projectMetrics = [] } = useProjectMetrics();
+
   // Track screen view
   useEffect(() => { trackScreenView("projects"); }, []);
 
@@ -490,6 +495,9 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-3">
+      {/* Metrics Header */}
+      <MetricsHeader variant="full" tabId="projects" title="Projects" metrics={projectMetrics} />
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <p className="font-kosugi text-caption-sm text-text-tertiary">

@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
-import { MetricCard } from "@/components/ops/metric-card";
+import { MetricsHeader } from "@/components/metrics";
 import {
   LineItemEditor,
   createEmptyLineItem,
@@ -48,6 +48,7 @@ import {
   useClients,
   useProjects,
   useProducts,
+  useEstimateMetrics,
 } from "@/lib/hooks";
 import {
   EstimateStatus,
@@ -113,6 +114,9 @@ export default function EstimatesPage() {
   const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
   const [sendingEstimate, setSendingEstimate] = useState<Estimate | null>(null);
   const [reviewTasksEstimate, setReviewTasksEstimate] = useState<Estimate | null>(null);
+
+  // ── Metrics header data ────────────────────────────────────────────
+  const { data: estimateMetrics = [] } = useEstimateMetrics();
 
   // Data
   const { data: estimates = [], isLoading } = useEstimates();
@@ -209,17 +213,8 @@ export default function EstimatesPage() {
 
   return (
     <div className="space-y-3">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <MetricCard
-          label={t("estimates.totalValue")}
-          value={formatCurrency(metrics.total)}
-          icon={<FileText className="w-[16px] h-[16px]" />}
-        />
-        <MetricCard label={t("estimates.accepted")} value={formatCurrency(metrics.acceptedTotal)} />
-        <MetricCard label={t("estimates.drafts")} value={String(metrics.draft)} />
-        <MetricCard label={t("estimates.sent")} value={String(metrics.sent)} />
-      </div>
+      {/* Metrics Header */}
+      <MetricsHeader variant="full" tabId="estimates" title="Estimates" metrics={estimateMetrics} />
 
       {/* Header */}
       <div className="flex items-center justify-between">

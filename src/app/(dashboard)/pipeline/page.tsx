@@ -23,7 +23,9 @@ import {
   useArchiveOpportunity,
   useUnarchiveOpportunity,
   useGmailConnections,
+  usePipelineMetrics,
 } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import {
   type Opportunity,
   OpportunityStage,
@@ -41,7 +43,6 @@ import {
 
 import { PipelineBoard } from "./_components/pipeline-board";
 import { PipelineMobile } from "./_components/pipeline-mobile";
-import { PipelineMetricsBar } from "./_components/pipeline-metrics-bar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
@@ -232,6 +233,9 @@ export default function PipelinePage() {
     }
     openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
   }, [setupComplete, openWindow]);
+
+  // ── Metrics header data ────────────────────────────────────────────
+  const { data: pipelineMetrics = [] } = usePipelineMetrics();
 
   // ── Data fetching ─────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
@@ -671,13 +675,8 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-2 h-full flex flex-col min-w-0">
-      {/* Metrics bar — uses unfiltered data for big-picture stats */}
-      <PipelineMetricsBar
-        opportunities={activeOpportunities}
-        clients={clientNameMap}
-        onOpenDetail={handleSelectOpportunity}
-        isLoading={false}
-      />
+      {/* Metrics Header */}
+      <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} />
 
       {/* Filter row */}
       <PipelineFilterRow

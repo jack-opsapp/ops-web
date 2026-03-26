@@ -2,7 +2,6 @@
 
 import {
   Search,
-  Bell,
   RefreshCw,
   Check,
   Clock,
@@ -12,8 +11,6 @@ import {
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { useNotificationRailStore } from "@/stores/notification-rail-store";
-import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useConnectivity } from "@/lib/hooks/use-connectivity";
 import { useDictionary } from "@/i18n/client";
 import { NotificationRail } from "./notification-rail";
@@ -73,10 +70,6 @@ export function TopBar() {
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const { t } = useDictionary("topbar");
   const openMobile = useSidebarStore((s) => s.openMobile);
-  const openModal = useNotificationRailStore((s) => s.openModal);
-  const { data: notifications = [] } = useNotifications();
-  const unreadCount = notifications.length;
-
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
   const isFetching = useIsFetching();
@@ -109,7 +102,7 @@ export function TopBar() {
         <NotificationRail />
       </div>
 
-      {/* Right: Search + Sync + Notifications Bell */}
+      {/* Right: Search + Sync */}
       <div className="flex items-center gap-[6px] shrink-0">
         {/* Search trigger - styled as input, opens CommandPalette */}
         <button
@@ -144,23 +137,6 @@ export function TopBar() {
         {/* Sync status */}
         <SyncIndicator status={syncStatus} t={t} />
 
-        {/* Notifications bell — opens modal */}
-        <button
-          onClick={openModal}
-          className="relative p-[10px] rounded-[4px] text-text-tertiary hover:text-text-secondary bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)] transition-all"
-          title={t("notifications.title")}
-          aria-label={t("notifications.ariaLabel")}
-        >
-          <Bell className="w-[18px] h-[18px]" />
-
-          {/* Unread dot */}
-          {unreadCount > 0 && (
-            <span
-              className="absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-full"
-              style={{ backgroundColor: "#93321A" }}
-            />
-          )}
-        </button>
       </div>
     </header>
   );

@@ -9,6 +9,8 @@ import {
   useInventoryTags,
   useInventoryItemTags,
 } from "@/lib/hooks/use-inventory";
+import { useInventoryMetrics } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import {
   getEffectiveThresholds,
   getThresholdStatus,
@@ -49,6 +51,9 @@ function InventoryContent() {
   const { data: items = [] } = useInventoryItems();
   const { data: tags = [] } = useInventoryTags();
   const { data: itemTags = [] } = useInventoryItemTags();
+
+  // ── Metrics header data ────────────────────────────────────────────
+  const { data: inventoryMetrics = [] } = useInventoryMetrics();
 
   // FAB ?action=new handling
   const action = searchParams.get("action");
@@ -95,28 +100,8 @@ function InventoryContent() {
 
   return (
     <div className="space-y-3 pb-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-1.5 py-[2px] rounded-sm">
-            {stats.total} items
-          </span>
-        </div>
-        {(stats.warning > 0 || stats.critical > 0) && (
-          <div className="flex items-center gap-2 mt-[4px]">
-            {stats.warning > 0 && (
-              <span className="font-mono text-[11px] text-ops-amber">
-                {stats.warning} low stock
-              </span>
-            )}
-            {stats.critical > 0 && (
-              <span className="font-mono text-[11px] text-ops-error">
-                {stats.critical} critical
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Metrics Header */}
+      <MetricsHeader variant="full" tabId="inventory" title="Inventory" metrics={inventoryMetrics} />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

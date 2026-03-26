@@ -30,7 +30,9 @@ import {
   useTeamMembers,
   useUpdateUserRole,
   useRemoveSeatedEmployee,
+  useTeamMetrics,
 } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { UserRole, getUserFullName } from "@/lib/types/models";
@@ -490,6 +492,7 @@ export default function TeamPage() {
 
   // ─── Auth store ──────────────────────────────────────────────────────────
   const { company } = useAuthStore();
+  const { data: teamMetrics = [] } = useTeamMetrics(company?.maxSeats ?? 10);
   const isCurrentUserAdmin = useAuthStore(selectIsAdmin);
   const can = usePermissionStore((s) => s.can);
   const canManageTeam = can("team.manage");
@@ -576,67 +579,24 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mt-[4px] flex-wrap">
-            <span className="font-kosugi text-caption-sm text-text-tertiary">
-              {team.length} {t("team.members")}
-            </span>
-
-            {/* Seat indicator */}
-            <div className="flex items-center gap-[6px]">
-              <div className="w-[80px] h-[4px] bg-background-elevated rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    activeCount / maxSeats > 0.85
-                      ? "bg-ops-error"
-                      : "bg-ops-accent"
-                  )}
-                  style={{ width: `${(activeCount / maxSeats) * 100}%` }}
-                />
-              </div>
-              <span className="font-mono text-[11px] text-text-tertiary">
-                {activeCount}/{maxSeats} {t("team.seats")}
-              </span>
-            </div>
-
-            {/* Role breakdown */}
-            <div className="hidden sm:flex items-center gap-1.5">
-              <span className="text-text-disabled font-mono text-[10px]">|</span>
-              <span className="font-mono text-[10px] text-ops-amber">
-                {adminCount} {t("team.admin")}
-              </span>
-              {officeCount > 0 && (
-                <span className="font-mono text-[10px] text-ops-accent">
-                  {officeCount} {t("team.office")}
-                </span>
-              )}
-              <span className="font-mono text-[10px] text-ops-accent">
-                {operatorCount} {operatorCount === 1 ? t("team.operator") : t("team.operators")}
-              </span>
-              <span className="font-mono text-[10px] text-text-tertiary">
-                {crewCount} {t("team.crew")}
-              </span>
-              {unassignedCount > 0 && (
-                <span className="font-mono text-[10px] text-text-disabled">
-                  {unassignedCount} {t("team.unassigned")}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        {canManageTeam && (
-          <Button
-            className="gap-[6px]"
-            onClick={() => setInviteOpen(true)}
-          >
-            <Plus className="w-[16px] h-[16px]" />
-            {t("team.inviteMember")}
-          </Button>
-        )}
-      </div>
+      {/* Metrics Header */}
+      <MetricsHeader
+        variant="compact"
+        tabId="team"
+        title="Team"
+        metrics={teamMetrics}
+        actions={
+          canManageTeam ? (
+            <Button
+              className="gap-[6px]"
+              onClick={() => setInviteOpen(true)}
+            >
+              <Plus className="w-[16px] h-[16px]" />
+              {t("team.inviteMember")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Search */}
       <div className="max-w-[400px]">

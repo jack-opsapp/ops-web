@@ -309,3 +309,20 @@ export {
   type IntelKnowledgeEdge,
   type IntelEntityDetail,
 } from "./use-intel-entity";
+
+// Metrics
+export {
+  useInvoiceMetrics,
+  useProjectMetrics,
+  usePipelineMetrics,
+  useEstimateMetrics,
+  useAccountingMetrics,
+  useInventoryMetrics,
+  useClientMetrics,
+  useTeamMetrics,
+  useProductMetrics,
+  useJobBoardMetrics,
+  useCalendarMetrics,
+  useMapMetrics,
+  useInboxMetrics,
+} from "./use-metrics";

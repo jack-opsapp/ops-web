@@ -133,7 +133,7 @@ export function PipelineFunnelWidget({
               />
             ))}
           </div>
-          <p className="font-kosugi text-[9px] text-text-tertiary mt-2 text-center">
+          <p className="font-kosugi text-[9px] text-text-tertiary mt-2">
             {t("pipelineFunnel.noProjects") ?? "No active projects"}
           </p>
         </CardContent>
@@ -204,7 +204,7 @@ export function PipelineFunnelWidget({
       <CardContent className="px-3 pb-2 overflow-hidden relative">
         <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchor="above">
           <TooltipRow label={tooltip.stage} value={`${tooltip.count}`} />
-          <TooltipRow label="Of pipeline" value={`${tooltip.pct}%`} />
+          <TooltipRow label={t("pipelineFunnel.ofPipeline") ?? "Of pipeline"} value={`${tooltip.pct}%`} />
         </WidgetTooltip>
 
         {/* Funnel bars */}

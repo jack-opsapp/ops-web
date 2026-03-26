@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useWidgetIntersection } from "./use-widget-intersection";
 
 interface SparklineProps {
@@ -14,6 +14,9 @@ interface SparklineProps {
 export function Sparkline({ data, width = 60, height = 24, color = "currentColor", className }: SparklineProps) {
   const ref = useRef<SVGSVGElement>(null);
   const isVisible = useWidgetIntersection(ref);
+  const [reducedMotion] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(prefers-reduced-motion: reduce)").matches : false
+  );
 
   const pathD = useMemo(() => {
     if (data.length < 2) return "";
@@ -61,8 +64,8 @@ export function Sparkline({ data, width = 60, height = 24, color = "currentColor
         strokeLinejoin="round"
         style={{
           strokeDasharray: totalLength,
-          strokeDashoffset: isVisible ? 0 : totalLength,
-          transition: "stroke-dashoffset 600ms cubic-bezier(0.16, 1, 0.3, 1)",
+          strokeDashoffset: isVisible || reducedMotion ? 0 : totalLength,
+          transition: reducedMotion ? "none" : "stroke-dashoffset 600ms cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       />
     </svg>

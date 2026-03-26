@@ -19,7 +19,7 @@ import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MetricCard } from "@/components/ops/metric-card";
+import { MetricsHeader } from "@/components/metrics";
 import {
   useAccountingConnections,
   useInitiateOAuth,
@@ -28,6 +28,7 @@ import {
   useSyncHistory,
   useInvoices,
   useClients,
+  useAccountingMetrics,
 } from "@/lib/hooks";
 import {
   AccountingProvider,
@@ -345,6 +346,9 @@ export default function AccountingPage() {
   const can = usePermissionStore((s) => s.can);
   const companyId = company?.id ?? "";
 
+  // ── Metrics header data ────────────────────────────────────────────
+  const { data: accountingMetrics = [] } = useAccountingMetrics();
+
   // Data
   const { data: connections = [], isLoading: connectionsLoading } = useAccountingConnections();
   const { data: syncHistory = [], isLoading: historyLoading } = useSyncHistory();
@@ -496,29 +500,8 @@ export default function AccountingPage() {
       {/* Dashboard Tab */}
       {activeTab === "dashboard" && (
         <div className="space-y-3">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-            <MetricCard
-              label={t("metrics.totalOutstanding")}
-              value={formatCurrency(metrics.outstanding)}
-              icon={<DollarSign className="w-[16px] h-[16px]" />}
-            />
-            <MetricCard
-              label={t("metrics.overdue")}
-              value={formatCurrency(metrics.overdue)}
-              icon={<AlertTriangle className="w-[16px] h-[16px]" />}
-            />
-            <MetricCard
-              label={t("metrics.paidThisMonth")}
-              value={formatCurrency(metrics.paidThisMonth)}
-              icon={<TrendingUp className="w-[16px] h-[16px]" />}
-            />
-            <MetricCard
-              label={t("metrics.totalInvoiced")}
-              value={formatCurrency(metrics.totalInvoiced)}
-              icon={<Calculator className="w-[16px] h-[16px]" />}
-            />
-          </div>
+          {/* Metrics Header */}
+          <MetricsHeader variant="full" tabId="accounting" title="Accounting" metrics={accountingMetrics} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {/* Aging Report */}

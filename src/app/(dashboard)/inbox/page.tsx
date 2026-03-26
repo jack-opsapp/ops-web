@@ -8,6 +8,8 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
 import { useInboxUnreadCount } from "@/lib/hooks/use-inbox";
+import { useInboxMetrics } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import { PipelineThreadList } from "@/components/ops/inbox/pipeline-thread-list";
 import { AllMailList } from "@/components/ops/inbox/all-mail-list";
 import { ThreadView } from "@/components/ops/inbox/thread-view";
@@ -40,6 +42,7 @@ export default function InboxPage() {
 
   // Unread count for pipeline badge
   const { data: unreadCount = 0 } = useInboxUnreadCount();
+  const { data: inboxMetrics = [] } = useInboxMetrics();
 
   // Permission checks
   const canViewPipeline = can("pipeline.view");
@@ -130,6 +133,9 @@ export default function InboxPage() {
 
   return (
     <div className="space-y-3 pb-6">
+      {/* Metrics Header */}
+      <MetricsHeader variant="compact" tabId="inbox" title="Inbox" metrics={inboxMetrics} />
+
       {/* Header with Tab Switcher + New Email */}
       <div className="flex items-center gap-1">
         {/* Tabs */}

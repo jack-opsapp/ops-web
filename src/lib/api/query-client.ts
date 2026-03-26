@@ -143,6 +143,13 @@ export const queryKeys = {
       [...queryKeys.payments.all, "invoice", invoiceId] as const,
   },
 
+  // Metrics (tab-level aggregated metrics)
+  metrics: {
+    all: ["metrics"] as const,
+    tab: (tabId: string, companyId: string) =>
+      [...queryKeys.metrics.all, tabId, companyId] as const,
+  },
+
   // Accounting
   accounting: {
     all: ["accounting"] as const,

@@ -100,3 +100,5 @@ export { WritingProfileService } from "./writing-profile-service";
 
 export { DraftGenerator } from "./draft-generator";
 export type { DraftResult } from "./draft-generator";
+
+export { MetricsService } from "./metrics-service";

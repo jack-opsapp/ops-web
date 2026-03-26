@@ -23,6 +23,7 @@ export function NotificationRail() {
 
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [countHovered, setCountHovered] = useState(false);
 
   const isExpanded = railState === "expanded";
   const count = notifications.length;
@@ -53,7 +54,6 @@ export function NotificationRail() {
     const el = scrollRef.current;
     if (!el) return;
 
-    // Initial check after cards render
     const raf = requestAnimationFrame(updateScrollState);
 
     el.addEventListener("scroll", updateScrollState, { passive: true });
@@ -88,6 +88,14 @@ export function NotificationRail() {
   const visiblePills = notifications.slice(0, MAX_VISIBLE_PILLS);
   const overflowCount = count - MAX_VISIBLE_PILLS;
 
+  // Most urgent 2 notifications for hover preview (persistent first, then newest)
+  const urgentPreview = [...notifications]
+    .sort((a, b) => {
+      if (a.persistent !== b.persistent) return a.persistent ? -1 : 1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    })
+    .slice(0, 2);
+
   return (
     <div
       ref={railRef}
@@ -96,12 +104,26 @@ export function NotificationRail() {
       <AnimatePresence mode="popLayout">
         {isExpanded ? (
           <motion.div key="expanded" className="flex items-center gap-[3px] min-w-0 overflow-hidden">
-            {/* Collapse chevron */}
+            {/* VIEW ALL — left side, replaces count when expanded */}
             <motion.button
-              key="collapse-btn"
+              key="view-all-btn"
               initial={{ opacity: 0, x: -4 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -4 }}
+              transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+              onClick={openModal}
+              className="shrink-0 flex items-center gap-[6px] px-[8px] py-[4px] rounded-sm font-kosugi text-[10px] uppercase tracking-[0.08em] text-ops-accent hover:text-white transition-colors duration-150 whitespace-nowrap"
+            >
+              <span>{count}</span>
+              <span className="text-text-secondary">{t("notifications.viewAll")}</span>
+            </motion.button>
+
+            {/* Collapse chevron */}
+            <motion.button
+              key="collapse-btn"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: EASE_SMOOTH }}
               onClick={collapse}
               className="shrink-0 p-[4px] text-text-disabled hover:text-text-secondary transition-colors duration-150"
@@ -140,17 +162,6 @@ export function NotificationRail() {
                   onDismiss={handleDismiss}
                 />
               ))}
-
-              {/* View all button */}
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.2, ease: EASE_SMOOTH }}
-                onClick={openModal}
-                className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-text-disabled hover:text-text-secondary transition-colors duration-150 px-[8px] whitespace-nowrap"
-              >
-                {t("notifications.viewAll")}
-              </motion.button>
             </div>
 
             {/* Right arrow */}
@@ -172,7 +183,73 @@ export function NotificationRail() {
           </motion.div>
         ) : (
           <motion.div key="collapsed" className="flex items-center gap-[3px]">
-            {/* Collapsed pills — click to expand, hover for popover */}
+            {/* Count — left side, hover to preview, click to expand */}
+            <div
+              className="relative shrink-0"
+              onMouseEnter={() => setCountHovered(true)}
+              onMouseLeave={() => setCountHovered(false)}
+            >
+              <motion.button
+                key="count-btn"
+                className="shrink-0 font-mono text-[11px] text-text-secondary hover:text-text-primary px-[6px] py-[4px] rounded-sm transition-colors duration-150 cursor-pointer"
+                onClick={expand}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+                aria-label={`${count} notifications — click to expand`}
+              >
+                {count}
+              </motion.button>
+
+              {/* Hover preview — 2 most urgent notifications */}
+              <AnimatePresence>
+                {countHovered && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+                    className="absolute top-full left-0 mt-[6px] z-[1000] pointer-events-none"
+                  >
+                    <div
+                      className="flex flex-col gap-[4px] p-[6px] min-w-[220px] max-w-[280px]"
+                      style={{
+                        borderRadius: 4,
+                        background: "rgba(10, 10, 10, 0.85)",
+                        backdropFilter: "blur(16px) saturate(1.2)",
+                        WebkitBackdropFilter: "blur(16px) saturate(1.2)",
+                        border: "1px solid rgba(255, 255, 255, 0.10)",
+                      }}
+                    >
+                      {urgentPreview.map((n) => (
+                        <div
+                          key={n.id}
+                          className="px-[6px] py-[4px]"
+                          style={{
+                            borderLeft: n.persistent ? "2px solid var(--ops-accent, #597794)" : undefined,
+                          }}
+                        >
+                          <p className="font-mohave text-[11px] text-text-primary text-left leading-tight truncate">
+                            {n.title}
+                          </p>
+                          {n.body && (
+                            <p className="font-mohave text-[10px] text-text-secondary text-left leading-tight mt-[1px] line-clamp-1">
+                              {n.body}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                      <p className="font-kosugi text-[8px] uppercase tracking-wider text-text-disabled text-center mt-[2px]">
+                        {t("notifications.clickToExpand")}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Collapsed pills — click to expand */}
             <motion.button
               key="pill-row"
               className="flex items-center gap-[3px] py-[4px] px-[4px] rounded-sm hover:brightness-110 transition-all duration-150 cursor-pointer"
@@ -199,11 +276,6 @@ export function NotificationRail() {
                 </span>
               )}
             </motion.button>
-
-            {/* Count label */}
-            <span className="font-mono text-[10px] text-text-disabled ml-[4px]">
-              {count}
-            </span>
           </motion.div>
         )}
       </AnimatePresence>

@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useScopedProjects } from "@/lib/hooks/use-projects";
+import { useMapMetrics } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import {
   ProjectStatus,
   PROJECT_STATUS_COLORS,
@@ -132,6 +134,7 @@ export default function MapPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
 
+  const { data: mapMetrics = [] } = useMapMetrics();
   const { data, isLoading } = useScopedProjects();
   const projects = useMemo(() => data?.projects ?? [], [data]);
 
@@ -179,7 +182,11 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-56px)] -m-3 relative">
+    <div className="flex flex-col h-[calc(100vh-56px)] -m-3 relative">
+      <div className="px-3 pt-3">
+        <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} />
+      </div>
+      <div className="flex flex-1 min-h-0 relative">
       {/* Sidebar */}
       <div
         className={cn(
@@ -362,6 +369,7 @@ export default function MapPage() {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

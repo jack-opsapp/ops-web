@@ -54,7 +54,9 @@ import {
   useTeamMembers,
   useClients,
   useInvoices,
+  useJobBoardMetrics,
 } from "@/lib/hooks";
+import { MetricsHeader } from "@/components/metrics";
 import {
   type Project,
   ProjectStatus,
@@ -889,6 +891,7 @@ export default function JobBoardPage() {
   const [dndOverrides, setDndOverrides] = useState<Record<string, ColumnId>>({});
 
   // ─── Data Hooks ──────────────────────────────────────────────────────────
+  const { data: jobBoardMetrics = [] } = useJobBoardMetrics();
   const { data: projectsData, isLoading: projectsLoading, dataUpdatedAt } = useScopedProjects();
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
@@ -1218,6 +1221,9 @@ export default function JobBoardPage() {
 
   return (
     <div className="flex flex-col h-full space-y-2">
+      {/* Metrics Header */}
+      <MetricsHeader variant="compact" tabId="job-board" title="Job Board" metrics={jobBoardMetrics} />
+
       {/* Filter Bar */}
       <FilterBar
         searchQuery={searchQuery}

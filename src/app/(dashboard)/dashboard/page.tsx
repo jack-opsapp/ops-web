@@ -509,22 +509,9 @@ export default function DashboardPage() {
   function renderWidgetContent(instance: WidgetInstance): ReactNode {
     const { typeId, size, config } = instance;
 
-    // ── Permission gating: hide widgets the user's role cannot access ──
-    const FINANCIAL_WIDGETS: string[] = [
-      "revenue-pulse", "receivables-aging", "profit-gauge", "expense-tracker",
-      "cash-position", "invoice-list", "payments-recent",
-    ];
-    const PIPELINE_WIDGETS: string[] = [
-      "pipeline-funnel", "win-rate", "backlog-depth", "booking-rate",
-      "estimates-overview", "pipeline-list", "lead-sources",
-    ];
-    const CLIENT_WIDGETS: string[] = [
-      "top-clients", "client-attention", "client-list",
-    ];
-
-    if (FINANCIAL_WIDGETS.includes(typeId) && !can("invoices.view")) return null;
-    if (PIPELINE_WIDGETS.includes(typeId) && !can("pipeline.view")) return null;
-    if (CLIENT_WIDGETS.includes(typeId) && !can("clients.view")) return null;
+    // Permission gating is handled by visibleInstances filter (line ~202)
+    // which checks each widget's requiredPermission from the registry.
+    // No redundant coarse-grained gates here — the registry is authoritative.
 
     switch (typeId as WidgetTypeId) {
       // ── LAYOUT ──
