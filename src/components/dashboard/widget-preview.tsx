@@ -9,35 +9,34 @@ import {
   getDefaultConfig,
 } from "@/lib/types/dashboard-widgets";
 
-// Widget components — same imports as page.tsx
-import { StatWidget } from "@/components/dashboard/widgets/stat-widget";
-import { CalendarWidget } from "@/components/dashboard/widgets/calendar-widget";
-import { CrewWidget } from "@/components/dashboard/widgets/crew-status-widget";
+// New/redesigned widgets
+import { RevenuePulseWidget } from "@/components/dashboard/widgets/revenue-pulse-widget";
+import { ReceivablesAgingWidget } from "@/components/dashboard/widgets/receivables-aging-widget";
+import { ProfitGaugeWidget } from "@/components/dashboard/widgets/profit-gauge-widget";
+import { ExpenseTrackerWidget } from "@/components/dashboard/widgets/expense-tracker-widget";
+import { CashPositionWidget } from "@/components/dashboard/widgets/cash-position-widget";
+import { PipelineFunnelWidget } from "@/components/dashboard/widgets/pipeline-funnel-widget";
+import { WinRateWidget } from "@/components/dashboard/widgets/win-rate-widget";
+import { BacklogDepthWidget } from "@/components/dashboard/widgets/backlog-depth-widget";
+import { BookingRateWidget } from "@/components/dashboard/widgets/booking-rate-widget";
+import { TaskPulseWidget } from "@/components/dashboard/widgets/task-pulse-widget";
+import { TodaysScheduleWidget } from "@/components/dashboard/widgets/todays-schedule-widget";
+import { CrewBoardWidget } from "@/components/dashboard/widgets/crew-board-widget";
+import { TopClientsWidget } from "@/components/dashboard/widgets/top-clients-widget";
+import { ActionRequiredWidget } from "@/components/dashboard/widgets/action-required-widget";
+import { LeadSourcesWidget } from "@/components/dashboard/widgets/lead-sources-widget";
+// Kept widgets
 import { TaskListWidget } from "@/components/dashboard/widgets/task-list-widget";
-import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
-import { PipelineWidget } from "@/components/dashboard/widgets/pipeline-funnel-widget";
-import { RevenueWidget } from "@/components/dashboard/widgets/revenue-chart-widget";
 import { InvoiceListWidget } from "@/components/dashboard/widgets/invoice-list-widget";
-import { InvoiceAgingWidget } from "@/components/dashboard/widgets/invoice-aging-widget";
 import { PaymentsRecentWidget } from "@/components/dashboard/widgets/payments-recent-widget";
-import { ExpenseSummaryWidget } from "@/components/dashboard/widgets/expense-summary-widget";
-import { PipelineListWidget } from "@/components/dashboard/widgets/pipeline-list-widget";
-import { PipelineValueWidget } from "@/components/dashboard/widgets/pipeline-value-widget";
-import { PipelineVelocityWidget } from "@/components/dashboard/widgets/pipeline-velocity-widget";
-import { PipelineSourcesWidget } from "@/components/dashboard/widgets/pipeline-sources-widget";
-import { ClientListWidget } from "@/components/dashboard/widgets/client-list-widget";
-import { ClientRevenueWidget } from "@/components/dashboard/widgets/client-revenue-widget";
-import { ClientActivityWidget } from "@/components/dashboard/widgets/client-activity-widget";
-import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
 import { EstimatesOverviewWidget } from "@/components/dashboard/widgets/estimates-overview-widget";
-import { EstimatesFunnelWidget } from "@/components/dashboard/widgets/estimates-funnel-widget";
-import { OverdueTasksWidget } from "@/components/dashboard/widgets/overdue-tasks-widget";
-import { PastDueInvoicesWidget } from "@/components/dashboard/widgets/past-due-invoices-widget";
+import { PipelineListWidget } from "@/components/dashboard/widgets/pipeline-list-widget";
+import { ClientListWidget } from "@/components/dashboard/widgets/client-list-widget";
+import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
+import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
-import { FollowUpsDueWidget } from "@/components/dashboard/widgets/follow-ups-due-widget";
 import { SiteVisitsWidget } from "@/components/dashboard/widgets/site-visits-widget";
 import { CrewLocationsWidget } from "@/components/dashboard/widgets/crew-locations-widget";
-import { ClientRankingWidget, ProjectRankingWidget } from "@/components/dashboard/widgets/ranking-widget";
 
 // No-op navigate for preview
 const noop = () => {};
@@ -54,107 +53,65 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
   const config = getDefaultConfig(typeId);
 
   switch (typeId) {
-    // ── STAT WIDGETS (self-contained) ──
-    case "stat-projects":
-    case "stat-tasks":
-    case "stat-events":
-    case "stat-clients":
-    case "stat-team":
-    case "stat-revenue":
-    case "stat-invoices":
-    case "stat-estimates":
-    case "stat-opportunities":
-    // Per-status projects
-    case "stat-projects-rfq":
-    case "stat-projects-estimated":
-    case "stat-projects-accepted":
-    case "stat-projects-in-progress":
-    case "stat-projects-completed":
-    // Per-status tasks
-    case "stat-tasks-booked":
-    case "stat-tasks-in-progress":
-    case "stat-tasks-completed":
-    case "stat-tasks-overdue":
-    // Client segment
-    case "stat-clients-active":
-    // Financial
-    case "stat-receivables":
-    case "stat-collect":
-    case "stat-profit-mtd":
-    case "stat-projected-profit":
-      return <StatWidget typeId={typeId} size={size} config={config} />;
-
-    // ── RANKING WIDGETS ──
-    case "stat-client-ranking":
-      return <ClientRankingWidget size={size} config={config} />;
-    case "stat-project-ranking":
-      return <ProjectRankingWidget size={size} config={config} />;
-
-    // ── SCHEDULE (need data props → pass empty) ──
-    case "calendar":
-      return <CalendarWidget size={size} events={[]} isLoading={false} onNavigate={noop} />;
-    case "task-list":
-      return <TaskListWidget size={size} tasks={[]} isLoading={false} today={PREVIEW_TODAY} onNavigate={noop} />;
-
-    // ── TEAM (need data props → pass empty) ──
-    case "crew-status":
-      return <CrewWidget size={size} teamMembers={[]} isLoading={false} onNavigate={noop} />;
-    case "crew-locations":
-      return <CrewLocationsWidget size={size} />;
+    // ── MONEY ──
+    case "revenue-pulse":
+      return <RevenuePulseWidget size={size} config={config} invoices={[]} isLoading={false} onNavigate={noop} />;
+    case "receivables-aging":
+      return <ReceivablesAgingWidget size={size} invoices={[]} isLoading={false} onNavigate={noop} />;
+    case "profit-gauge":
+      return <ProfitGaugeWidget size={size} config={config} invoices={[]} expenses={[]} isLoading={false} />;
+    case "expense-tracker":
+      return <ExpenseTrackerWidget size={size} config={config} expenses={[]} isLoading={false} onNavigate={noop} />;
+    case "cash-position":
+      return <CashPositionWidget size={size} config={config} invoices={[]} expenses={[]} isLoading={false} />;
+    case "invoice-list":
+      return <InvoiceListWidget size={size} config={config} />;
+    case "payments-recent":
+      return <PaymentsRecentWidget size={size} />;
 
     // ── PIPELINE ──
     case "pipeline-funnel":
-      return <PipelineWidget size={size} projects={[]} isLoading={false} onNavigate={noop} />;
-    case "pipeline-list":
-      return <PipelineListWidget size={size} config={config} />;
-    case "pipeline-value":
-      return <PipelineValueWidget size={size} />;
-    case "pipeline-velocity":
-      return <PipelineVelocityWidget size={size} />;
-    case "pipeline-sources":
-      return <PipelineSourcesWidget size={size} />;
-
-    // ── FINANCIAL ──
-    case "revenue-chart":
-      return <RevenueWidget size={size} />;
-    case "invoice-list":
-      return <InvoiceListWidget size={size} config={config} />;
-    case "invoice-aging":
-      return <InvoiceAgingWidget size={size} />;
-    case "payments-recent":
-      return <PaymentsRecentWidget size={size} />;
-    case "expense-summary":
-      return <ExpenseSummaryWidget size={size} config={config} />;
-
-    // ── CLIENTS ──
-    case "client-list":
-      return <ClientListWidget size={size} config={config} />;
-    case "client-revenue":
-      return <ClientRevenueWidget size={size} config={config} />;
-    case "client-activity":
-      return <ClientActivityWidget size={size} />;
-    case "client-attention":
-      return <ClientAttentionWidget size={size} />;
-
-    // ── ESTIMATES ──
+      return <PipelineFunnelWidget size={size} projects={[]} isLoading={false} onNavigate={noop} />;
+    case "win-rate":
+      return <WinRateWidget size={size} config={config} estimates={[]} isLoading={false} />;
+    case "backlog-depth":
+      return <BacklogDepthWidget size={size} projects={[]} isLoading={false} />;
+    case "booking-rate":
+      return <BookingRateWidget size={size} projects={[]} isLoading={false} />;
     case "estimates-overview":
       return <EstimatesOverviewWidget size={size} config={config} />;
-    case "estimates-funnel":
-      return <EstimatesFunnelWidget size={size} />;
+    case "pipeline-list":
+      return <PipelineListWidget size={size} config={config} />;
+    case "lead-sources":
+      return <LeadSourcesWidget size={size} />;
 
-    // ── ACTIVITY ──
-    case "activity-feed":
-      return <ActivityWidget />;
-    case "follow-ups-due":
-      return <FollowUpsDueWidget size={size} />;
+    // ── OPERATIONS ──
+    case "task-pulse":
+      return <TaskPulseWidget size={size} tasks={[]} isLoading={false} onNavigate={noop} />;
+    case "todays-schedule":
+      return <TodaysScheduleWidget size={size} config={config} events={[]} isLoading={false} onNavigate={noop} />;
+    case "task-list":
+      return <TaskListWidget size={size} tasks={[]} isLoading={false} today={PREVIEW_TODAY} onNavigate={noop} />;
+    case "crew-board":
+      return <CrewBoardWidget size={size} teamMembers={[]} tasks={[]} isLoading={false} onNavigate={noop} />;
+    case "crew-locations":
+      return <CrewLocationsWidget size={size} />;
     case "site-visits":
       return <SiteVisitsWidget size={size} config={config} />;
 
-    // ── ALERTS ──
-    case "overdue-tasks":
-      return <OverdueTasksWidget size={size} />;
-    case "past-due-invoices":
-      return <PastDueInvoicesWidget size={size} />;
+    // ── CLIENTS ──
+    case "top-clients":
+      return <TopClientsWidget size={size} config={config} clients={[]} invoices={[]} projects={[]} isLoading={false} onNavigate={noop} />;
+    case "client-attention":
+      return <ClientAttentionWidget size={size} />;
+    case "client-list":
+      return <ClientListWidget size={size} config={config} />;
+
+    // ── ALERTS & ACTIVITY ──
+    case "action-required":
+      return <ActionRequiredWidget size={size} tasks={[]} invoices={[]} opportunities={[]} estimates={[]} isLoading={false} onNavigate={noop} />;
+    case "activity-feed":
+      return <ActivityWidget />;
     case "notifications":
       return <NotificationsWidget size={size} config={config} />;
 
