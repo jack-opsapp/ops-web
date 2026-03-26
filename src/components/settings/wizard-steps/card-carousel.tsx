@@ -233,8 +233,8 @@ export function CardCarousel<T>({
       {/* ── Card stack: prev peek → focused → next peek ── */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
-        {/* Previous card peek — only reserve space when a prev card exists */}
-        {prev ? (
+        {/* Previous card peek */}
+        {prev && (
           <div className="flex-shrink-0 mb-1.5 relative" style={{ height: 48 }}>
             <AnimatePresence mode="wait">
               <motion.div
@@ -275,12 +275,10 @@ export function CardCarousel<T>({
               </motion.div>
             </AnimatePresence>
           </div>
-        ) : (
-          <div className="flex-shrink-0 mb-1.5" style={{ height: 48 }} />
         )}
 
-        {/* Focused card — fills available space, scrolls if content overflows */}
-        <div className="flex-1 min-h-0 relative">
+        {/* Focused card — sizes to content, scrolls when exceeding available space */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           <AnimatePresence mode="wait" custom={direction}>
             {current && (
               <motion.div
@@ -290,7 +288,7 @@ export function CardCarousel<T>({
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="border border-white/10 p-4 absolute inset-0 overflow-y-auto scrollbar-hide overscroll-contain"
+                className="border border-white/10 p-4 h-full overflow-y-auto scrollbar-hide overscroll-contain"
                 style={cardSurface}
               >
                 {renderCard(current, true, (d) => recordDecision(current.id, d), handleAction, highlightedKey, threadToggle)}
@@ -299,8 +297,8 @@ export function CardCarousel<T>({
           </AnimatePresence>
         </div>
 
-        {/* Next card peek — only reserve space when a next card exists */}
-        {next ? (
+        {/* Next card peek */}
+        {next && (
           <div className="flex-shrink-0 mt-1.5 relative" style={{ height: 48 }}>
             <AnimatePresence mode="wait">
               <motion.div
@@ -332,8 +330,6 @@ export function CardCarousel<T>({
               </motion.div>
             </AnimatePresence>
           </div>
-        ) : (
-          <div className="flex-shrink-0 mt-1.5" style={{ height: 48 }} />
         )}
       </div>
 

@@ -234,14 +234,7 @@ export function ConsolidateContactsStep({
             </div>
 
             {/* Action buttons — sticky at bottom of scrollable card */}
-            <div
-              className="flex items-center gap-1.5 pt-2.5 border-t border-white/5 sticky bottom-0 -mx-4 px-4 pb-1 -mb-4"
-              style={{
-                background: "rgba(10, 10, 10, 0.90)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-              }}
-            >
+            <div className="flex items-center gap-1.5 pt-2.5 border-t border-white/5 sticky bottom-0 -mx-4 px-4 pb-1 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
                 className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
