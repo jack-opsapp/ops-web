@@ -4,9 +4,7 @@ import { useSpatialCanvasStore } from "./spatial-canvas-store";
 
 // ── Types ──
 
-interface SpatialMarqueeSelectProps {
-  // Canvas space coordinates are managed by the store
-}
+type SpatialMarqueeSelectProps = Record<string, never>;
 
 // ── Component ──
 

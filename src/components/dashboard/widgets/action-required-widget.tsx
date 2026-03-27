@@ -179,9 +179,37 @@ export function ActionRequiredWidget({
     return result.sort((a, b) => a.priority - b.priority);
   }, [tasks, invoices, estimates, opportunities]);
 
+  // All hooks must be called before any early returns
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+      counts[item.type] = (counts[item.type] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  const grouped = useMemo(() => {
+    if (size !== "lg") return null;
+    const groups = new Map<string, ActionItem[]>();
+    for (const item of items) {
+      if (!groups.has(item.type)) groups.set(item.type, []);
+      groups.get(item.type)!.push(item);
+    }
+    const result: { type: string; items: ActionItem[] }[] = [];
+    for (const [type, groupItems] of groups) {
+      const limit = type === "stale-follow-up" ? 2 : 3;
+      result.push({ type, items: groupItems.slice(0, limit) });
+    }
+    return result;
+  }, [items, size]);
+
   const reducedMotion = typeof window !== "undefined"
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : false;
+
+  const totalColor = items.length > 5 ? "#B58289" : items.length > 0 ? "#C4A868" : "#6B8F71";
+  const maxItems = size === "lg" ? undefined : 5;
+  const displayItems = maxItems ? items.slice(0, maxItems) : items;
 
   if (isLoading) {
     return (
@@ -219,17 +247,6 @@ export function ActionRequiredWidget({
     );
   }
 
-  // Category counts for sm size
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const item of items) {
-      counts[item.type] = (counts[item.type] ?? 0) + 1;
-    }
-    return counts;
-  }, [items]);
-
-  const totalColor = items.length > 5 ? "#B58289" : items.length > 0 ? "#C4A868" : "#6B8F71";
-
   // ── SM ──────────────────────────────────────────────────────────────────
   if (size === "sm") {
     return (
@@ -263,26 +280,6 @@ export function ActionRequiredWidget({
   }
 
   // ── MD / LG ─────────────────────────────────────────────────────────────
-  const maxItems = size === "lg" ? undefined : 5;
-  const displayItems = maxItems ? items.slice(0, maxItems) : items;
-
-  // For LG: group by type
-  const grouped = useMemo(() => {
-    if (size !== "lg") return null;
-    const groups = new Map<string, ActionItem[]>();
-    for (const item of items) {
-      if (!groups.has(item.type)) groups.set(item.type, []);
-      groups.get(item.type)!.push(item);
-    }
-    // Limit items per group
-    const result: { type: string; items: ActionItem[] }[] = [];
-    for (const [type, groupItems] of groups) {
-      const limit = type === "stale-follow-up" ? 2 : 3;
-      result.push({ type, items: groupItems.slice(0, limit) });
-    }
-    return result;
-  }, [items, size]);
-
   return (
     <Card className="h-full" ref={ref}>
       <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
