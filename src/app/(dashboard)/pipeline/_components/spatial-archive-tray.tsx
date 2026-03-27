@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import type { Opportunity } from "@/lib/types/pipeline";
 import {
@@ -119,13 +119,22 @@ export function SpatialArchiveTray({
                       </p>
                     </div>
 
-                    {/* Restore button */}
-                    <button
-                      className="font-kosugi text-[10px] text-[#597794] hover:text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer whitespace-nowrap"
-                      onClick={() => handleRestore(opp.id)}
-                    >
-                      {t("archiveTray.restore")}
-                    </button>
+                    {/* Restore + Delete buttons */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="font-kosugi text-[10px] text-[#597794] hover:text-white cursor-pointer whitespace-nowrap"
+                        onClick={() => handleRestore(opp.id)}
+                      >
+                        {t("archiveTray.restore")}
+                      </button>
+                      <button
+                        className="p-0.5 text-[#555] hover:text-[#93321A] cursor-pointer transition-colors"
+                        onClick={() => onDeletePermanently(opp.id)}
+                        title={t("contextMenu.deletePermanently")}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 );
               })

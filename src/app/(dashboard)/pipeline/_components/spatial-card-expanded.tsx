@@ -6,27 +6,11 @@ import { Phone, Mail } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { PipelineCardActions } from "./pipeline-card-actions";
+import { formatTimeAgo } from "@/lib/utils/date";
 import {
   pipelineCardContentVariants,
   pipelineCardContentVariantsReduced,
 } from "@/lib/utils/motion";
-
-// ── Date helpers ──
-
-function formatTimeAgo(date: Date): string {
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "1d ago";
-  return `${diffDays}d ago`;
-}
 
 // ── Types ──
 

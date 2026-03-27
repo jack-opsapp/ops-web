@@ -208,3 +208,50 @@ export {
   parseISO,
   isValid,
 };
+
+// ── Pipeline date helpers (used by spatial canvas cards) ──
+
+/** Check if a date is today (date-only comparison) */
+export function isDateToday(date: Date | null): boolean {
+  if (!date) return false;
+  const d = date instanceof Date ? date : new Date(date);
+  return isSameDay(d, new Date());
+}
+
+/** Check if a date is before today (date-only comparison) */
+export function isDateOverdue(date: Date | null): boolean {
+  if (!date) return false;
+  const d = date instanceof Date ? date : new Date(date);
+  const now = new Date();
+  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return dateOnly < todayOnly;
+}
+
+/** Calculate days overdue from today */
+export function daysOverdue(date: Date): number {
+  const d = date instanceof Date ? date : new Date(date);
+  return differenceInDays(new Date(), d);
+}
+
+/** Format a date as short weekday (e.g. "Thu") */
+export function formatShortDay(date: Date): string {
+  const d = date instanceof Date ? date : new Date(date);
+  return format(d, "EEE");
+}
+
+/** Format relative time ago — compact format for pipeline cards */
+export function formatTimeAgo(date: Date): string {
+  const d = date instanceof Date ? date : new Date(date);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "1d ago";
+  return `${diffDays}d ago`;
+}

@@ -5,62 +5,17 @@ import { useDictionary } from "@/i18n/client";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { getDaysInStage, getStageDisplayName } from "@/lib/types/pipeline";
 import {
+  isDateToday,
+  isDateOverdue,
+  daysOverdue,
+  formatShortDay,
+  formatTimeAgo,
+} from "@/lib/utils/date";
+import {
   spatialHoverMetricsVariants,
   spatialHoverMetricsVariantsReduced,
 } from "@/lib/utils/motion";
 import { CARD_WIDTH } from "./spatial-canvas-store";
-
-// ── Date helpers (copied from pipeline-card.tsx) ──
-
-function isDateToday(date: Date | null): boolean {
-  if (!date) return false;
-  const d = date instanceof Date ? date : new Date(date);
-  const today = new Date();
-  return (
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  );
-}
-
-function isDateOverdue(date: Date | null): boolean {
-  if (!date) return false;
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return dateOnly < todayOnly;
-}
-
-function daysOverdue(date: Date): number {
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.floor(
-    (todayOnly.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24)
-  );
-}
-
-function formatShortDay(date: Date): string {
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleDateString("en-US", { weekday: "short" });
-}
-
-function formatTimeAgo(date: Date): string {
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "1d ago";
-  return `${diffDays}d ago`;
-}
 
 // ── Types ──
 

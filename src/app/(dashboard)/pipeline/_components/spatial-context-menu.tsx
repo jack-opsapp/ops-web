@@ -53,6 +53,7 @@ export function SpatialContextMenu({
   onArchiveBatch,
   onDelete,
   onMoveToStage,
+  onAssign,
   onMarkWon,
   onMarkLost,
   onSelectAll,
@@ -216,6 +217,15 @@ export function SpatialContextMenu({
                     </div>
                   )}
                 </div>
+                <MenuItem
+                  icon={<UserPlus className="w-[14px] h-[14px]" />}
+                  label={t("contextMenu.assignTo")}
+                  onClick={() =>
+                    handleItemClick(() =>
+                      onAssign(Array.from(selectedCardIds))
+                    )
+                  }
+                />
                 <MenuItem
                   icon={<Archive className="w-[14px] h-[14px]" />}
                   label={t("contextMenu.archive")}
