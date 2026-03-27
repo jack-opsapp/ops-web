@@ -125,6 +125,10 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   const toggleCardExpanded = useSpatialCanvasStore((s) => s.toggleCardExpanded);
   const setHoveredCard = useSpatialCanvasStore((s) => s.setHoveredCard);
   const toggleCardSelected = useSpatialCanvasStore((s) => s.toggleCardSelected);
+  const customPos = useSpatialCanvasStore((s) => s.customPositions.get(opportunity.id));
+
+  // Use custom (free-form) position if set, otherwise fall back to layout position
+  const effectivePosition = customPos ?? position;
 
   const clientName =
     clientNameMap.get(opportunity.clientId ?? "") ??
@@ -139,8 +143,8 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
       data-spatial-card
       className="absolute"
       style={{
-        left: position.x,
-        top: position.y,
+        left: effectivePosition.x,
+        top: effectivePosition.y,
         width: CARD_WIDTH,
         zIndex: isExpanded ? 20 : isHovered ? 10 : 1,
         transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -350,14 +354,37 @@ function SpatialCanvasDesktop({
             clearSelection();
           }
         }
+      } else {
+        // Dropped on empty canvas — save as free-form position (Finder-style)
+        const { setCustomPosition, customPositions, zoom } = useSpatialCanvasStore.getState();
+        const draggedIds = selectedCardIds.has(draggedId)
+          ? Array.from(selectedCardIds)
+          : [draggedId];
+
+        const { delta } = event;
+
+        const allPositions = [
+          ...layout.stacks.flatMap((s) => s.cardPositions),
+          ...layout.terminalRegions.flatMap((r) => r.cardPositions),
+        ];
+
+        for (const id of draggedIds) {
+          const currentPos = allPositions.find((p) => p.opportunityId === id);
+          const existingCustom = customPositions.get(id);
+          const basePos = existingCustom ?? (currentPos ? { x: currentPos.x, y: currentPos.y } : null);
+          if (basePos) {
+            setCustomPosition(id, {
+              x: basePos.x + delta.x / zoom,
+              y: basePos.y + delta.y / zoom,
+            });
+          }
+        }
       }
-      // Note: dropping on empty canvas (over === null) just snaps back —
-      // discard requires intentional action via context menu, not accidental drop
 
       setActiveId(null);
       endDrag();
     },
-    [selectedCardIds, onMoveStage, onMarkWon, onMarkLost, clearSelection, endDrag, opportunities]
+    [selectedCardIds, onMoveStage, onMarkWon, onMarkLost, clearSelection, endDrag, opportunities, layout]
   );
 
   // Context menu handlers
@@ -388,16 +415,19 @@ function SpatialCanvasDesktop({
   );
 
   // Marquee selection → compute which cards fall inside the rectangle
+  // Uses custom positions when present so marquee matches visual card locations
   const handleMarqueeEnd = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const { customPositions } = useSpatialCanvasStore.getState();
       const allPositions = [
         ...layout.stacks.flatMap((s) => s.cardPositions),
         ...layout.terminalRegions.flatMap((r) => r.cardPositions),
       ];
       const selected = allPositions
-        .filter((pos) =>
-          isCardInMarquee(pos.x, pos.y, CARD_WIDTH, CARD_HEIGHT, start, end)
-        )
+        .filter((pos) => {
+          const effective = customPositions.get(pos.opportunityId) ?? pos;
+          return isCardInMarquee(effective.x, effective.y, CARD_WIDTH, CARD_HEIGHT, start, end);
+        })
         .map((pos) => pos.opportunityId);
       if (selected.length > 0) {
         selectCards(selected);

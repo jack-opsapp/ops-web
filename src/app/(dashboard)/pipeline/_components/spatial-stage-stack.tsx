@@ -71,8 +71,8 @@ export function SpatialStageStack({
   // Glow opacity: drag-over > mouse-hover > idle
   const glowOpacity = isOver ? "20" : isRegionHovered ? "15" : "08";
 
-  // Cards displace downward when a foreign card is dragged over this stack
-  const displaced = isOver && activeId != null && !oppMap.has(activeId);
+  // True when a card from another stack is being dragged over this one
+  const isForeignDragOver = isOver && activeId != null && !oppMap.has(activeId);
 
   return (
     <div
@@ -147,26 +147,37 @@ export function SpatialStageStack({
       </div>
 
       {/* Cards — positions converted from canvas-absolute to stack-relative */}
-      {layout.cardPositions.map((pos, index) => {
+      {layout.cardPositions.map((pos) => {
         const opp = oppMap.get(pos.opportunityId);
         if (!opp) return null;
-        // Only displace cards in the bottom half when a foreign card is dragged over
-        const shouldDisplace = displaced && index >= Math.floor(layout.cardPositions.length / 2);
-        return (
-          <div
-            key={opp.id}
-            style={{
-              transition: "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
-              transform: shouldDisplace ? "translateY(50px)" : undefined,
-            }}
-          >
-            {renderCard(opp, {
-              x: pos.x - layout.regionBounds.x,
-              y: pos.y - layout.regionBounds.y,
-            })}
-          </div>
-        );
+        return renderCard(opp, {
+          x: pos.x - layout.regionBounds.x,
+          y: pos.y - layout.regionBounds.y,
+        });
       })}
+
+      {/* Insertion placeholder when a foreign card is dragged over this stack */}
+      {isForeignDragOver && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: 8,
+            top:
+              layout.cardPositions.length > 0
+                ? layout.cardPositions[layout.cardPositions.length - 1].y -
+                  layout.regionBounds.y +
+                  CARD_HEIGHT +
+                  STACK_GAP
+                : 8 + STACK_HEADER_HEIGHT,
+            width: CARD_WIDTH,
+            height: CARD_HEIGHT,
+            border: `1px dashed ${stageColor}30`,
+            borderRadius: 4,
+            opacity: 1,
+            transition: "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        />
+      )}
 
       {/* Empty state */}
       {opportunities.length === 0 && (
