@@ -116,18 +116,18 @@ export function SpatialCardHoverMetrics({
           <div className="flex flex-col gap-[2px]">
             {/* Days in stage */}
             <span className="font-kosugi text-[10px] text-[#666]">
-              {t("spatial.daysInStage", {
-                count: String(days),
-                stage: stageName,
-              })}
+              {t("spatial.daysInStage")
+                .replace("{count}", String(days))
+                .replace("{stage}", stageName)}
             </span>
 
             {/* Last correspondence */}
             <span className="font-kosugi text-[10px] text-[#555]">
               {lastCorrespondence
-                ? t("spatial.emailTimeAgo", {
-                    timeAgo: formatTimeAgo(lastCorrespondence),
-                  })
+                ? t("spatial.emailTimeAgo").replace(
+                    "{timeAgo}",
+                    formatTimeAgo(lastCorrespondence)
+                  )
                 : t("spatial.noCorrespondence")}
             </span>
 
@@ -144,14 +144,16 @@ export function SpatialCardHoverMetrics({
                 }}
               >
                 {isDateOverdue(followUp)
-                  ? t("spatial.overdueCount", {
-                      count: String(daysOverdue(followUp)),
-                    })
+                  ? t("spatial.overdueCount").replace(
+                      "{count}",
+                      String(daysOverdue(followUp))
+                    )
                   : isDateToday(followUp)
                     ? t("spatial.followUpToday")
-                    : t("spatial.followUpDate", {
-                        date: formatShortDay(followUp),
-                      })}
+                    : t("spatial.followUpDate").replace(
+                        "{date}",
+                        formatShortDay(followUp)
+                      )}
               </span>
             )}
           </div>
