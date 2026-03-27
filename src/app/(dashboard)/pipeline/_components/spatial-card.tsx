@@ -146,7 +146,7 @@ export const SpatialCard = memo(function SpatialCard({
       {...(draggable ? attributes : {})}
       role="button"
       tabIndex={0}
-      aria-label={`${clientName}, ${opportunity.estimatedValue ? formatCurrency(opportunity.estimatedValue) : "no value"}`}
+      aria-label={`${clientName}, ${opportunity.estimatedValue ? formatCurrency(opportunity.estimatedValue) : "$--"}`}
       aria-expanded={isExpanded}
       className={cn(
         "absolute cursor-pointer select-none",

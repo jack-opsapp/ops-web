@@ -1284,7 +1284,7 @@ export default function PipelinePage() {
               className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] text-[#8BB8D4] text-xs font-medium hover:bg-[rgba(89,119,148,0.20)] transition-colors cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5" />
-              Review Emails
+              {t("gmail.reviewEmails")}
               <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#597794] text-[9px] font-bold text-white">
                 {reviewCount > 99 ? "99+" : reviewCount}
               </span>

@@ -35,9 +35,9 @@ export function SpatialFloatingToolbar({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleFitAll = useCallback(() => {
-    const parent = containerRef.current?.parentElement;
-    if (!parent) return;
-    fitAll(parent.clientWidth, parent.clientHeight);
+    const canvas = document.querySelector("[data-spatial-canvas]");
+    if (!canvas) return;
+    fitAll(canvas.clientWidth, canvas.clientHeight);
   }, [fitAll]);
 
   return (

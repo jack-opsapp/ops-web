@@ -21,6 +21,7 @@
   "gmail.connectDesc": "Incoming client emails become pipeline leads automatically.",
   "gmail.connect": "Connect",
   "gmail.dismiss": "Dismiss",
+  "gmail.reviewEmails": "Review Emails",
 
   "loading": "Loading pipeline...",
 

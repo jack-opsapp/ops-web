@@ -21,6 +21,7 @@
   "gmail.connectDesc": "Los correos entrantes de clientes se convierten en prospectos del pipeline automáticamente.",
   "gmail.connect": "Conectar",
   "gmail.dismiss": "Descartar",
+  "gmail.reviewEmails": "Revisar correos",
 
   "loading": "Cargando pipeline...",
 
