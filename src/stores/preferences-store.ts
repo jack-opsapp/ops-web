@@ -223,15 +223,15 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 13,
+      version: 14,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
 
-        // ── v11/v12 → v13: Dashboard widget consolidation ─────────────
-        // Runs for v11 (original migration) AND v12 (users who got v12
-        // version bump during hot-reload before migration code was added)
-        if (version < 13) {
+        // ── Dashboard widget consolidation (unconditional) ────────────
+        // Runs on EVERY migration regardless of version. Idempotent:
+        // already-migrated widgets pass through unchanged.
+        {
           const instances = state.widgetInstances as WidgetInstance[] | undefined;
           if (instances && Array.isArray(instances)) {
             // 1. Map renamed widget type IDs
