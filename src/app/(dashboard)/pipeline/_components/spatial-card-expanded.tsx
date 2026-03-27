@@ -116,14 +116,17 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           className="mb-1"
         >
           <p className="font-kosugi text-[10px] text-[#666]">
-            {opportunity.correspondenceCount} email
-            {opportunity.correspondenceCount !== 1 ? "s" : ""}
+            {t("spatial.emailCount")
+              .replace("{count}", String(opportunity.correspondenceCount))}
             {" · "}
-            {opportunity.inboundCount} in / {opportunity.outboundCount} out
+            {t("spatial.emailInOut")
+              .replace("{in}", String(opportunity.inboundCount))
+              .replace("{out}", String(opportunity.outboundCount))}
           </p>
           {lastCorrespondenceDate && (
             <p className="font-kosugi text-[10px] text-[#555]">
-              last {formatTimeAgo(lastCorrespondenceDate)}
+              {t("spatial.emailLastTime")
+                .replace("{time}", formatTimeAgo(lastCorrespondenceDate))}
             </p>
           )}
         </motion.div>

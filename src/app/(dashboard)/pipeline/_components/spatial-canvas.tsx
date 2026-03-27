@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   useSpatialCanvasStore,
   ZOOM_STEP,
@@ -26,6 +26,7 @@ export function SpatialCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const interactionMode = useRef<"idle" | "pan" | "marquee">("idle");
   const lastPointer = useRef({ x: 0, y: 0 });
+  const [cursor, setCursor] = useState<"default" | "grabbing" | "crosshair">("default");
 
   const viewportX = useSpatialCanvasStore((s) => s.viewportX);
   const viewportY = useSpatialCanvasStore((s) => s.viewportY);
@@ -54,7 +55,7 @@ export function SpatialCanvas({
 
       // Trackpad pinch sends ctrlKey with small deltaY — use higher sensitivity
       // Mouse wheel sends larger deltaY without ctrlKey — use lower sensitivity
-      const sensitivity = e.ctrlKey ? 0.01 : 0.005;
+      const sensitivity = e.ctrlKey ? 0.005 : 0.002;
       const delta = -e.deltaY * sensitivity;
       const centerX = e.clientX - rect.left;
       const centerY = e.clientY - rect.top;
@@ -95,35 +96,29 @@ export function SpatialCanvas({
   }, []);
 
   // ── Pointer handlers ──
-  // Left-click-drag on empty canvas = pan
-  // Shift + left-click-drag on empty canvas = marquee select
-  // Middle-click-drag = pan
+  // Middle-click-drag = pan (scroll wheel press)
+  // Left-click-drag on empty canvas = marquee select
+  // Left-click on card = handled by dnd-kit (drag items)
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      // Middle mouse → always pan
+      // Middle mouse → pan
       if (e.button === 1) {
         e.preventDefault();
         interactionMode.current = "pan";
+        setCursor("grabbing");
         lastPointer.current = { x: e.clientX, y: e.clientY };
         containerRef.current?.setPointerCapture(e.pointerId);
         return;
       }
 
-      // Left click on empty canvas (not on a card)
+      // Left click on empty canvas (not on a card) → marquee select
       if (e.button === 0 && !isCardTarget(e.target)) {
         e.preventDefault();
         containerRef.current?.setPointerCapture(e.pointerId);
-
-        if (e.shiftKey) {
-          // Shift + drag = marquee select
-          interactionMode.current = "marquee";
-          const canvasPos = screenToCanvas(e.clientX, e.clientY);
-          startMarquee(canvasPos);
-        } else {
-          // Plain drag = pan
-          interactionMode.current = "pan";
-          lastPointer.current = { x: e.clientX, y: e.clientY };
-        }
+        interactionMode.current = "marquee";
+        setCursor("crosshair");
+        const canvasPos = screenToCanvas(e.clientX, e.clientY);
+        startMarquee(canvasPos);
       }
     },
     [startMarquee, screenToCanvas, isCardTarget]
@@ -132,26 +127,44 @@ export function SpatialCanvas({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (interactionMode.current === "pan") {
+        // Dismiss context menu on pan
+        const state = useSpatialCanvasStore.getState();
+        if (state.contextMenu) hideContextMenu();
+
         const dx = e.clientX - lastPointer.current.x;
         const dy = e.clientY - lastPointer.current.y;
         lastPointer.current = { x: e.clientX, y: e.clientY };
-        const state = useSpatialCanvasStore.getState();
-        setViewport(state.viewportX + dx, state.viewportY + dy);
+
+        // Clamp pan so content stays partially visible
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          const maxPanRight = rect.width * 0.5;
+          const maxPanDown = rect.height * 0.5;
+          const scaledW = state.canvasWidth * state.zoom;
+          const scaledH = state.canvasHeight * state.zoom;
+          const newX = Math.max(-scaledW + rect.width * 0.5, Math.min(maxPanRight, state.viewportX + dx));
+          const newY = Math.max(-scaledH + rect.height * 0.5, Math.min(maxPanDown, state.viewportY + dy));
+          setViewport(newX, newY);
+        } else {
+          setViewport(state.viewportX + dx, state.viewportY + dy);
+        }
       } else if (interactionMode.current === "marquee") {
         const canvasPos = screenToCanvas(e.clientX, e.clientY);
         updateMarquee(canvasPos);
       }
     },
-    [setViewport, updateMarquee, screenToCanvas]
+    [setViewport, updateMarquee, screenToCanvas, hideContextMenu]
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
       if (interactionMode.current === "pan") {
         interactionMode.current = "idle";
+        setCursor("default");
         containerRef.current?.releasePointerCapture(e.pointerId);
       } else if (interactionMode.current === "marquee") {
         interactionMode.current = "idle";
+        setCursor("default");
         const state = useSpatialCanvasStore.getState();
         if (state.marqueeStart && state.marqueeEnd && onMarqueeEnd) {
           onMarqueeEnd(state.marqueeStart, state.marqueeEnd);
@@ -174,12 +187,30 @@ export function SpatialCanvas({
     [clearSelection, hideContextMenu, isCardTarget]
   );
 
+  // ── Escape key handler ──
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.key === "Escape") {
+        const state = useSpatialCanvasStore.getState();
+        if (state.isMarqueeActive) {
+          endMarquee();
+        } else if (state.contextMenu) {
+          hideContextMenu();
+        } else if (state.selectedCardIds.size > 0) {
+          clearSelection();
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [endMarquee, hideContextMenu, clearSelection]);
+
   return (
     <div
       ref={containerRef}
       data-spatial-canvas
       className="relative w-full h-full overflow-hidden bg-[#0A0A0A] select-none"
-      style={{ touchAction: "none" }}
+      style={{ touchAction: "none", cursor }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -199,7 +230,7 @@ export function SpatialCanvas({
           height: canvasHeight,
           transition: "width 0.3s cubic-bezier(0.22, 1, 0.36, 1), height 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
-        className="relative"
+        className="relative select-none"
       >
         {/* Background dot grid */}
         <svg

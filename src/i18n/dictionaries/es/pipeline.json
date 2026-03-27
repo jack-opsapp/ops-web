@@ -271,5 +271,8 @@
   "spatial.noWonDeals": "Sin tratos ganados",
   "spatial.noLostDeals": "Sin tratos perdidos",
   "spatial.viewDetails": "Ver detalles",
-  "spatial.activity": "actividad {timeAgo}"
+  "spatial.activity": "actividad {timeAgo}",
+  "spatial.emailCount": "{count} correos",
+  "spatial.emailInOut": "{in} entrada / {out} salida",
+  "spatial.emailLastTime": "último {time}"
 }

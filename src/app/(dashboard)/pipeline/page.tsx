@@ -35,6 +35,7 @@ import {
   getStageDisplayName,
   isActiveStage,
   nextOpportunityStage,
+  previousOpportunityStage,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
 import {
@@ -134,7 +135,17 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   const cb = callbacksRef.current;
 
   return (
-    <div data-spatial-card className="absolute" style={{ left: position.x, top: position.y }}>
+    <div
+      data-spatial-card
+      className="absolute"
+      style={{
+        left: position.x,
+        top: position.y,
+        width: CARD_WIDTH,
+        zIndex: isExpanded ? 20 : isHovered ? 10 : 1,
+        transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
       <SpatialCard
         opportunity={opportunity}
         clientName={clientName}
@@ -157,7 +168,10 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
           const next = nextOpportunityStage(opportunity.stage);
           if (next) cb.onMoveStage(opportunity.id, next);
         }}
-        onRetreat={() => {}}
+        onRetreat={() => {
+          const prev = previousOpportunityStage(opportunity.stage);
+          if (prev) cb.onMoveStage(opportunity.id, prev);
+        }}
         onLogCall={() => cb.onLogCall(opportunity.id)}
         onLogText={() => cb.onLogText(opportunity.id)}
         onAddNote={(note) => cb.onAddNote(opportunity.id, note)}
@@ -168,25 +182,27 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
         onOpenDetail={() => cb.onOpenDetail(opportunity)}
         onAssign={() => cb.onAssign(opportunity.id)}
         onScheduleFollowUp={() => cb.onScheduleFollowUp(opportunity.id)}
+        expandedContent={
+          isExpanded && !isBirdEye ? (
+            <SpatialCardExpanded
+              opportunity={opportunity}
+              canManage={canManage}
+              onLogCall={() => cb.onLogCall(opportunity.id)}
+              onLogText={() => cb.onLogText(opportunity.id)}
+              onAddNote={(note) => cb.onAddNote(opportunity.id, note)}
+              onArchive={() => cb.onArchive(opportunity.id)}
+              onDiscard={() => cb.onDiscard(opportunity.id)}
+              onMarkWon={() => cb.onMarkWon(opportunity)}
+              onMarkLost={() => cb.onMarkLost(opportunity)}
+              onAssign={() => cb.onAssign(opportunity.id)}
+              onScheduleFollowUp={() => cb.onScheduleFollowUp(opportunity.id)}
+              onOpenDetail={() => cb.onOpenDetail(opportunity)}
+            />
+          ) : undefined
+        }
       />
       {isHovered && !isExpanded && !isBirdEye && (
         <SpatialCardHoverMetrics opportunity={opportunity} isVisible={true} />
-      )}
-      {isExpanded && !isBirdEye && (
-        <SpatialCardExpanded
-          opportunity={opportunity}
-          canManage={canManage}
-          onLogCall={() => cb.onLogCall(opportunity.id)}
-          onLogText={() => cb.onLogText(opportunity.id)}
-          onAddNote={(note) => cb.onAddNote(opportunity.id, note)}
-          onArchive={() => cb.onArchive(opportunity.id)}
-          onDiscard={() => cb.onDiscard(opportunity.id)}
-          onMarkWon={() => cb.onMarkWon(opportunity)}
-          onMarkLost={() => cb.onMarkLost(opportunity)}
-          onAssign={() => cb.onAssign(opportunity.id)}
-          onScheduleFollowUp={() => cb.onScheduleFollowUp(opportunity.id)}
-          onOpenDetail={() => cb.onOpenDetail(opportunity)}
-        />
       )}
     </div>
   );
@@ -200,7 +216,6 @@ function SpatialCanvasDesktop({
   clientNameMap,
   canManage,
   onMoveStage,
-  onToggleExpand,
   onLogCall,
   onLogText,
   onAddNote,
@@ -220,7 +235,6 @@ function SpatialCanvasDesktop({
   clientNameMap: Map<string, string>;
   canManage: boolean;
   onMoveStage: (id: string, stage: OpportunityStage) => void;
-  onToggleExpand: (id: string) => void;
   onLogCall: (id: string) => void;
   onLogText: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
@@ -289,10 +303,16 @@ function SpatialCanvasDesktop({
     (event: DragStartEvent) => {
       const id = String(event.active.id);
       setActiveId(id);
-      const ids = selectedCardIds.has(id) ? Array.from(selectedCardIds) : [id];
-      startDrag(ids, { x: 0, y: 0 });
+      if (selectedCardIds.has(id)) {
+        // Dragging a selected card — drag all selected
+        startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
+      } else {
+        // Dragging an unselected card — clear selection, drag just this one
+        clearSelection();
+        startDrag([id], { x: 0, y: 0 });
+      }
     },
-    [selectedCardIds, startDrag]
+    [selectedCardIds, startDrag, clearSelection]
   );
 
   const handleDragEnd = useCallback(
@@ -303,21 +323,41 @@ function SpatialCanvasDesktop({
       if (over) {
         const data = over.data.current as { stage?: OpportunityStage; isTerminal?: boolean } | undefined;
         if (data?.stage) {
-          // Move dragged cards to this stage
-          const ids = selectedCardIds.has(draggedId)
-            ? Array.from(selectedCardIds)
-            : [draggedId];
-          for (const id of ids) {
-            onMoveStage(id, data.stage);
+          // Check if dropping on a terminal region — trigger transition dialog
+          if (data.isTerminal) {
+            const ids = selectedCardIds.has(draggedId)
+              ? Array.from(selectedCardIds)
+              : [draggedId];
+            for (const id of ids) {
+              const opp = opportunities.find((o) => o.id === id);
+              if (opp) {
+                if (data.stage === OpportunityStage.Won) {
+                  onMarkWon(opp);
+                } else if (data.stage === OpportunityStage.Lost) {
+                  onMarkLost(opp);
+                }
+              }
+            }
+            clearSelection();
+          } else {
+            // Move dragged cards to this stage
+            const ids = selectedCardIds.has(draggedId)
+              ? Array.from(selectedCardIds)
+              : [draggedId];
+            for (const id of ids) {
+              onMoveStage(id, data.stage);
+            }
+            clearSelection();
           }
-          clearSelection();
         }
       }
+      // Note: dropping on empty canvas (over === null) just snaps back —
+      // discard requires intentional action via context menu, not accidental drop
 
       setActiveId(null);
       endDrag();
     },
-    [selectedCardIds, onMoveStage, clearSelection, endDrag]
+    [selectedCardIds, onMoveStage, onMarkWon, onMarkLost, clearSelection, endDrag, opportunities]
   );
 
   // Context menu handlers
@@ -484,9 +524,6 @@ function SpatialCanvasDesktop({
           batchCount={batchCount}
         />
       </DndContext>
-
-      {/* Floating toolbar */}
-      <SpatialFloatingToolbar onAddLead={onAddLead} />
 
       {/* Context menu */}
       <SpatialContextMenu
@@ -1148,93 +1185,109 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="space-y-2 h-full flex flex-col min-w-0">
-      {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
+    <div className="relative h-[calc(100vh-56px)] -m-3 min-w-0">
+      {/* Floating metrics bar — frosted glass overlay */}
+      <div className="absolute top-0 left-0 right-0 z-[100] pointer-events-none">
+        <div
+          className="pointer-events-auto"
+          style={{
+            background: "rgba(10, 10, 10, 0.70)",
+            backdropFilter: "blur(20px) saturate(1.2)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          }}
+        >
+          <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
+        </div>
+        {/* Toolbar — centered below metrics */}
+        <div className="pointer-events-auto flex justify-center py-1">
+          <SpatialFloatingToolbar onAddLead={gatedOpenCreate} />
+        </div>
+      </div>
 
-      {/* Filter row removed — spatial canvas has its own controls */}
+      {/* Floating notifications/banners — stacked below metrics */}
+      <div className="absolute top-[72px] left-0 right-0 z-[90] pointer-events-none flex flex-col gap-1 px-2">
+        {/* Gmail connect prompt */}
+        {gmailConnections.length === 0 && !gmailBannerDismissed && (
+          <div className="pointer-events-auto flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
+            <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
+              <Mail className="w-[16px] h-[16px] text-[#597794]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-mohave text-body text-text-primary">
+                {t("gmail.connectBanner")}
+              </p>
+              <p className="font-kosugi text-[11px] text-text-disabled">
+                {t("gmail.connectDesc")}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                size="sm"
+                className="gap-[6px]"
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    companyId: company?.id ?? "",
+                    type: "company",
+                  });
+                  window.location.href = `/api/integrations/gmail?${params}`;
+                }}
+              >
+                <Mail className="w-[14px] h-[14px]" />
+                {t("gmail.connect")}
+              </Button>
+              <button
+                onClick={() => setGmailBannerDismissed(true)}
+                className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
+                title={t("gmail.dismiss")}
+              >
+                <X className="w-[14px] h-[14px]" />
+              </button>
+            </div>
+          </div>
+        )}
 
-      {/* Gmail connect prompt */}
-      {gmailConnections.length === 0 && !gmailBannerDismissed && (
-        <div className="shrink-0 flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
-          <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
-            <Mail className="w-[16px] h-[16px] text-[#597794]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-mohave text-body text-text-primary">
-              {t("gmail.connectBanner")}
-            </p>
-            <p className="font-kosugi text-[11px] text-text-disabled">
-              {t("gmail.connectDesc")}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              size="sm"
-              className="gap-[6px]"
-              onClick={() => {
-                const params = new URLSearchParams({
-                  companyId: company?.id ?? "",
-                  type: "company",
-                });
-                window.location.href = `/api/integrations/gmail?${params}`;
-              }}
-            >
-              <Mail className="w-[14px] h-[14px]" />
-              {t("gmail.connect")}
-            </Button>
+        {/* Email review badge */}
+        {reviewCount > 0 && (
+          <div className="pointer-events-auto">
             <button
-              onClick={() => setGmailBannerDismissed(true)}
-              className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
-              title={t("gmail.dismiss")}
+              onClick={() => setReviewPanelOpen(true)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] text-[#8BB8D4] text-xs font-medium hover:bg-[rgba(89,119,148,0.20)] transition-colors cursor-pointer"
             >
-              <X className="w-[14px] h-[14px]" />
+              <Mail className="w-3.5 h-3.5" />
+              Review Emails
+              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#597794] text-[9px] font-bold text-white">
+                {reviewCount > 99 ? "99+" : reviewCount}
+              </span>
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Email review badge */}
-      {reviewCount > 0 && (
-        <div className="shrink-0">
-          <button
-            onClick={() => setReviewPanelOpen(true)}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] text-[#8BB8D4] text-xs font-medium hover:bg-[rgba(89,119,148,0.20)] transition-colors cursor-pointer"
-          >
-            <Mail className="w-3.5 h-3.5" />
-            Review Emails
-            <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#597794] text-[9px] font-bold text-white">
-              {reviewCount > 99 ? "99+" : reviewCount}
+        {/* Inbox leads */}
+        {showInboxLeads && (
+          <div className="pointer-events-auto">
+            <InboxLeadsQueue
+              onCreateLead={(prefill) => {
+                setShowInboxLeads(false);
+                createLeadFromEmail(prefill);
+              }}
+              className="max-w-[600px]"
+            />
+          </div>
+        )}
+
+        {/* Mutation loading indicator */}
+        {moveStage.isPending && (
+          <div className="pointer-events-auto flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
+            <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
+            <span className="font-kosugi text-[11px] text-[#597794]">
+              {t("column.updating")}
             </span>
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* Inbox leads toggle */}
-      {showInboxLeads && (
-        <div className="shrink-0">
-          <InboxLeadsQueue
-            onCreateLead={(prefill) => {
-              setShowInboxLeads(false);
-              createLeadFromEmail(prefill);
-            }}
-            className="max-w-[600px]"
-          />
-        </div>
-      )}
-
-      {/* Mutation loading indicator */}
-      {moveStage.isPending && (
-        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
-          <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
-          <span className="font-kosugi text-[11px] text-[#597794]">
-            {t("column.updating")}
-          </span>
-        </div>
-      )}
-
-      {/* Pipeline Spatial Canvas / Mobile */}
-      <div className="flex-1 min-h-0 min-w-0">
+      {/* Full-bleed canvas */}
+      <div className="absolute inset-0">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
@@ -1243,7 +1296,6 @@ export default function PipelinePage() {
             clientNameMap={clientNameMap}
             canManage={canManage}
             onMoveStage={handleMoveStage}
-            onToggleExpand={handleToggleExpand}
             onLogCall={handleLogCall}
             onLogText={handleLogText}
             onAddNote={handleAddNote}

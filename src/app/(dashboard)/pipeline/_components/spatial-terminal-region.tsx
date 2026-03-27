@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -34,6 +34,7 @@ export function SpatialTerminalRegion({
 }: SpatialTerminalRegionProps) {
   const { t } = useDictionary("pipeline");
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
+  const [isRegionHovered, setIsRegionHovered] = useState(false);
 
   // O(1) lookup instead of O(n) per card
   const oppMap = useMemo(
@@ -46,25 +47,33 @@ export function SpatialTerminalRegion({
     data: { stage, isTerminal: true },
   });
 
-  const glowOpacity = isOver ? "15" : "05";
+  // Glow opacity: drag-over > mouse-hover > idle
+  const glowOpacity = isOver ? "15" : isRegionHovered ? "10" : "05";
 
   return (
     <div
       ref={setNodeRef}
       className="absolute"
+      role="region"
+      aria-label={`${getStageDisplayName(stage)} stage - ${opportunities.length} deals`}
       style={{
         left: layout.bounds.x,
         top: layout.bounds.y,
         width: layout.bounds.width,
         height: layout.bounds.height,
+        background: `${stageColor}05`,
+        borderRadius: 4,
+        border: `1px solid ${stageColor}10`,
       }}
+      onMouseEnter={() => setIsRegionHovered(true)}
+      onMouseLeave={() => setIsRegionHovered(false)}
     >
       {/* Region glow background (dimmer than active stacks) */}
       <div
         className="absolute inset-0 pointer-events-none rounded-[4px]"
         style={{
-          background: `radial-gradient(ellipse at center, ${stageColor}${glowOpacity} 0%, transparent 70%)`,
-          transition: "background 0.2s ease-out",
+          boxShadow: `inset 0 0 60px ${stageColor}${glowOpacity}`,
+          transition: "box-shadow 0.2s ease-out",
         }}
       />
 
@@ -76,7 +85,7 @@ export function SpatialTerminalRegion({
           top: 8,
           width: CARD_WIDTH,
           height: STACK_HEADER_HEIGHT,
-          borderTop: `3px solid ${stageColor}`,
+          borderBottom: `1px solid ${stageColor}30`,
           padding: "10px 0 0 0",
         }}
       >

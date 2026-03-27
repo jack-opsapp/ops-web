@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import type { Opportunity } from "@/lib/types/pipeline";
@@ -38,6 +39,7 @@ export interface SpatialCardProps {
   onOpenDetail: () => void;
   onAssign: () => void;
   onScheduleFollowUp: () => void;
+  expandedContent?: React.ReactNode;
 }
 
 // ── Component ──
@@ -70,7 +72,9 @@ export const SpatialCard = memo(function SpatialCard({
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
+  expandedContent,
 }: SpatialCardProps) {
+  const reduced = useReducedMotion();
   const {
     attributes,
     listeners,
@@ -79,7 +83,7 @@ export const SpatialCard = memo(function SpatialCard({
   } = useDraggable({
     id: opportunity.id,
     data: { opportunity },
-    disabled: !draggable,
+    disabled: !draggable || !canManage,
   });
 
   const handleClick = useCallback(
@@ -169,11 +173,13 @@ export const SpatialCard = memo(function SpatialCard({
       {/* Card surface */}
       <div
         className={cn(
-          "w-full rounded-[4px] backdrop-blur-xl",
-          "transition-[border-color,box-shadow] duration-150"
+          "w-full rounded-[4px]",
+          !reduced && "transition-[border-color,box-shadow] duration-150"
         )}
         style={{
           background: "rgba(13,13,13,0.6)",
+          backdropFilter: "blur(20px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
           border: isSelected
             ? `2px solid ${stageColor}`
             : isHovered
@@ -198,7 +204,19 @@ export const SpatialCard = memo(function SpatialCard({
           </span>
         </div>
 
-        {/* Expanded content is rendered externally by SpatialCardExpanded */}
+        {/* Expanded content — rendered inside card surface */}
+        <AnimatePresence initial={false}>
+          {isExpanded && expandedContent && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {expandedContent}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

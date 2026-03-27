@@ -9,6 +9,7 @@ import {
   OPPORTUNITY_STAGE_COLORS,
   formatCurrency,
 } from "@/lib/types/pipeline";
+import { formatTimeAgo } from "@/lib/utils/date";
 import { useSpatialCanvasStore } from "./spatial-canvas-store";
 import {
   spatialArchiveTrayVariants,
@@ -56,7 +57,7 @@ export function SpatialArchiveTray({
           style={{
             width: 280,
             top: 56,
-            zIndex: 1500,
+            zIndex: 500,
             background: "rgba(10, 10, 10, 0.70)",
             backdropFilter: "blur(20px) saturate(1.2)",
             WebkitBackdropFilter: "blur(20px) saturate(1.2)",
@@ -118,6 +119,11 @@ export function SpatialArchiveTray({
                           ? formatCurrency(opp.estimatedValue)
                           : "$--"}
                       </p>
+                      {opp.archivedAt && (
+                        <p className="font-kosugi text-[10px] text-[#444]">
+                          {formatTimeAgo(opp.archivedAt)}
+                        </p>
+                      )}
                     </div>
 
                     {/* Restore + Delete buttons */}

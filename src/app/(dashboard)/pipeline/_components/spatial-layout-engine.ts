@@ -68,8 +68,8 @@ function sortOpportunities(
       break;
     case "date":
       sorted.sort((a, b) => {
-        const dateA = a.stageEnteredAt?.getTime() ?? 0;
-        const dateB = b.stageEnteredAt?.getTime() ?? 0;
+        const dateA = a.createdAt?.getTime() ?? 0;
+        const dateB = b.createdAt?.getTime() ?? 0;
         return dateB - dateA;
       });
       break;
@@ -147,10 +147,10 @@ export function calculateCanvasLayout(
       headerPosition: headerPos,
       cardPositions,
       regionBounds: {
-        x: xCursor - 8,
-        y: CANVAS_PADDING - 8,
-        width: CARD_WIDTH + 16,
-        height: stackContentHeight + 16,
+        x: xCursor - 20,
+        y: CANVAS_PADDING - 20,
+        width: CARD_WIDTH + 40,
+        height: stackContentHeight + 40,
       },
     });
 
@@ -161,15 +161,17 @@ export function calculateCanvasLayout(
     xCursor += CARD_WIDTH + STACK_HORIZONTAL_GAP;
   }
 
-  // Build terminal regions (Won, Lost) to the right of active stacks
+  // Build terminal regions (Won above Lost) to the right of active stacks
   const terminalStartX = xCursor + TERMINAL_GAP;
   const terminalRegions: TerminalRegionLayout[] = [];
+  const TERMINAL_VERTICAL_GAP = 40;
+  let terminalYCursor = CANVAS_PADDING;
 
-  for (const [idx, config] of [
+  for (const config of [
     { stage: OpportunityStage.Won, opps: wonOpps },
     { stage: OpportunityStage.Lost, opps: lostOpps },
-  ].entries()) {
-    const regionX = terminalStartX + idx * (TERMINAL_COLS * (CARD_WIDTH + STACK_GAP) + TERMINAL_GAP);
+  ]) {
+    const regionX = terminalStartX;
     const sorted = sortOpportunities(config.opps, sortBy, clientNames);
 
     const cardPositions = sorted.map((opp, i) => {
@@ -178,7 +180,7 @@ export function calculateCanvasLayout(
       return {
         opportunityId: opp.id,
         x: regionX + col * (CARD_WIDTH + STACK_GAP),
-        y: CANVAS_PADDING + STACK_HEADER_HEIGHT + row * (CARD_HEIGHT + STACK_GAP),
+        y: terminalYCursor + STACK_HEADER_HEIGHT + row * (CARD_HEIGHT + STACK_GAP),
       };
     });
 
@@ -190,19 +192,23 @@ export function calculateCanvasLayout(
 
     terminalRegions.push({
       stage: config.stage,
-      position: { x: regionX, y: CANVAS_PADDING },
+      position: { x: regionX, y: terminalYCursor },
       cardPositions,
       bounds: {
-        x: regionX - 8,
-        y: CANVAS_PADDING - 8,
-        width: Math.max(regionWidth, CARD_WIDTH) + 16,
-        height: regionHeight + 16,
+        x: regionX - 20,
+        y: terminalYCursor - 20,
+        width: Math.max(regionWidth, CARD_WIDTH) + 40,
+        height: regionHeight + 40,
       },
     });
 
-    if (regionHeight > maxStackHeight) {
-      maxStackHeight = regionHeight;
-    }
+    terminalYCursor += regionHeight + TERMINAL_VERTICAL_GAP;
+  }
+
+  // Track total terminal height for canvas sizing
+  const totalTerminalHeight = terminalYCursor - CANVAS_PADDING;
+  if (totalTerminalHeight > maxStackHeight) {
+    maxStackHeight = totalTerminalHeight;
   }
 
   // Calculate total canvas dimensions

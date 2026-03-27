@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -8,6 +8,7 @@ import {
   OpportunityStage,
   OPPORTUNITY_STAGE_COLORS,
   getStageDisplayName,
+  getDaysInStage,
   formatCurrency,
 } from "@/lib/types/pipeline";
 import type { StackLayout } from "./spatial-layout-engine";
@@ -44,6 +45,8 @@ export function SpatialStageStack({
 }: SpatialStageStackProps) {
   const { t } = useDictionary("pipeline");
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
+  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+  const [isRegionHovered, setIsRegionHovered] = useState(false);
 
   // O(1) lookup instead of O(n) per card
   const oppMap = useMemo(
@@ -65,61 +68,104 @@ export function SpatialStageStack({
     [opportunities]
   );
 
-  // Glow opacity based on hover/drop state
-  const glowOpacity = isOver ? "20" : "08";
+  // Glow opacity: drag-over > mouse-hover > idle
+  const glowOpacity = isOver ? "20" : isRegionHovered ? "15" : "08";
+
+  // Cards displace downward when a foreign card is dragged over this stack
+  const displaced = isOver && activeId != null && !oppMap.has(activeId);
 
   return (
     <div
       ref={setNodeRef}
       className="absolute"
+      role="region"
+      aria-label={`${getStageDisplayName(stage)} stage - ${opportunities.length} deals`}
       style={{
         left: layout.regionBounds.x,
         top: layout.regionBounds.y,
         width: layout.regionBounds.width,
         height: layout.regionBounds.height,
+        background: "rgba(255, 255, 255, 0.015)",
+        border: "1px solid rgba(255, 255, 255, 0.04)",
+        borderRadius: 8,
       }}
+      onMouseEnter={() => setIsRegionHovered(true)}
+      onMouseLeave={() => setIsRegionHovered(false)}
     >
       {/* Region glow background */}
       <div
         className="absolute inset-0 pointer-events-none rounded-[4px]"
         style={{
-          background: `radial-gradient(ellipse at center, ${stageColor}${glowOpacity} 0%, transparent 70%)`,
-          transition: "background 0.2s ease-out",
+          boxShadow: `inset 0 0 60px ${stageColor}${glowOpacity}`,
+          transition: "box-shadow 0.3s ease-out",
         }}
       />
 
       {/* Header */}
       <div
-        className="absolute flex items-baseline gap-2"
+        className="absolute flex flex-col"
         style={{
           left: 8,
           top: 8,
           width: CARD_WIDTH,
           height: STACK_HEADER_HEIGHT,
-          borderTop: `3px solid ${stageColor}`,
+          borderBottom: `1px solid ${stageColor}30`,
           padding: "10px 0 0 0",
+          background: "rgba(10, 10, 10, 0.25)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
+        onMouseEnter={() => setIsHeaderHovered(true)}
+        onMouseLeave={() => setIsHeaderHovered(false)}
       >
-        <span className="font-kosugi text-[10px] text-[#666] uppercase tracking-widest">
-          {getStageDisplayName(stage)}
-        </span>
-        <span className="font-mohave text-sm text-white">
-          {opportunities.length}
-        </span>
-        <span className="font-mohave text-sm text-[#444]">/</span>
-        <span className="font-mohave text-sm text-white">
-          {totalValue > 0 ? formatCurrency(totalValue) : "$--"}
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-kosugi text-[10px] text-[#666] uppercase tracking-widest">
+            {getStageDisplayName(stage)}
+          </span>
+          <span className="font-mohave text-sm text-white">
+            {opportunities.length}
+          </span>
+          <span className="font-mohave text-sm text-[#444]">/</span>
+          <span className="font-mohave text-sm text-white">
+            {totalValue > 0 ? formatCurrency(totalValue) : "$--"}
+          </span>
+        </div>
+        {isHeaderHovered && opportunities.length > 0 && (
+          <div
+            className="flex items-baseline gap-2 mt-1 opacity-0 animate-fade-in"
+            style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
+          >
+            {/* Metric abbreviations — intentionally not i18n'd (universal shorthand) */}
+            <span className="font-kosugi text-[10px] text-[#444]">
+              avg {Math.round(opportunities.reduce((sum, o) => sum + getDaysInStage(o), 0) / opportunities.length)}d
+            </span>
+            <span className="font-kosugi text-[10px] text-[#444]">
+              oldest: {Math.max(...opportunities.map((o) => getDaysInStage(o)))}d
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Cards — positions converted from canvas-absolute to stack-relative */}
-      {layout.cardPositions.map((pos) => {
+      {layout.cardPositions.map((pos, index) => {
         const opp = oppMap.get(pos.opportunityId);
         if (!opp) return null;
-        return renderCard(opp, {
-          x: pos.x - layout.regionBounds.x,
-          y: pos.y - layout.regionBounds.y,
-        });
+        // Only displace cards in the bottom half when a foreign card is dragged over
+        const shouldDisplace = displaced && index >= Math.floor(layout.cardPositions.length / 2);
+        return (
+          <div
+            key={opp.id}
+            style={{
+              transition: "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+              transform: shouldDisplace ? "translateY(50px)" : undefined,
+            }}
+          >
+            {renderCard(opp, {
+              x: pos.x - layout.regionBounds.x,
+              y: pos.y - layout.regionBounds.y,
+            })}
+          </div>
+        );
       })}
 
       {/* Empty state */}

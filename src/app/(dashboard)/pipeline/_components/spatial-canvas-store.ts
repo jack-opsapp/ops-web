@@ -13,8 +13,8 @@ export const BIRD_EYE_THRESHOLD = 0.5;
 export const CARD_WIDTH = 200;
 export const CARD_HEIGHT = 44;
 export const CARD_PILL_HEIGHT = 8;
-export const STACK_GAP = 6;
-export const STACK_HORIZONTAL_GAP = 40;
+export const STACK_GAP = 10;
+export const STACK_HORIZONTAL_GAP = 80;
 export const STACK_HEADER_HEIGHT = 52;
 export const CANVAS_PADDING = 200;
 export const TERMINAL_COLS = 3;
@@ -65,6 +65,9 @@ interface SpatialCanvasState {
   // Context menu
   contextMenu: ContextMenuState | null;
 
+  // Custom positions (Finder-style free positioning)
+  customPositions: Map<string, CardPosition>;
+
   // Archive tray
   isArchiveTrayOpen: boolean;
 
@@ -88,6 +91,8 @@ interface SpatialCanvasState {
   endMarquee: () => void;
   showContextMenu: (menu: ContextMenuState) => void;
   hideContextMenu: () => void;
+  setCustomPosition: (id: string, pos: CardPosition) => void;
+  clearCustomPositions: () => void;
   toggleArchiveTray: () => void;
   fitAll: (viewportWidth: number, viewportHeight: number) => void;
   resetLayout: () => void;
@@ -111,6 +116,7 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
   marqueeStart: null,
   marqueeEnd: null,
   contextMenu: null,
+  customPositions: new Map(),
   isArchiveTrayOpen: false,
 
   // Actions
@@ -185,6 +191,15 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
 
   hideContextMenu: () => set({ contextMenu: null }),
 
+  setCustomPosition: (id, pos) =>
+    set((state) => {
+      const next = new Map(state.customPositions);
+      next.set(id, pos);
+      return { customPositions: next };
+    }),
+
+  clearCustomPositions: () => set({ customPositions: new Map() }),
+
   toggleArchiveTray: () =>
     set((state) => ({ isArchiveTrayOpen: !state.isArchiveTrayOpen })),
 
@@ -201,5 +216,5 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
     set({ zoom, viewportX, viewportY });
   },
 
-  resetLayout: () => set({ sortBy: "value" }),
+  resetLayout: () => set({ sortBy: "value", customPositions: new Map() }),
 }));

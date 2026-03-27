@@ -43,33 +43,31 @@ export function SpatialFloatingToolbar({
   return (
     <motion.div
       ref={containerRef}
-      className="absolute left-1/2 -translate-x-1/2 flex items-center gap-[2px]"
+      className="flex items-center"
       style={{
-        top: 8,
-        zIndex: 100,
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
-        borderRadius: 4,
-        padding: "4px 8px",
+        background: "rgba(10, 10, 10, 0.50)",
+        border: "1px solid rgba(255, 255, 255, 0.06)",
+        borderRadius: 3,
+        padding: "2px 4px",
       }}
       initial="hidden"
       animate="visible"
       variants={variants}
     >
       <ToolbarButton
-        icon={<Maximize2 className="w-4 h-4" />}
+        icon={<Maximize2 className="w-3 h-3" />}
         tooltip={t("spatial.fitAll")}
         onClick={handleFitAll}
       />
+      <ToolbarDivider />
       <ToolbarButton
-        icon={<Plus className="w-4 h-4" />}
+        icon={<Plus className="w-3 h-3" />}
         tooltip={t("spatial.newLead")}
         onClick={onAddLead}
       />
+      <ToolbarDivider />
       <ToolbarButton
-        icon={<Archive className="w-4 h-4" />}
+        icon={<Archive className="w-3 h-3" />}
         tooltip={t("spatial.archivedDeals")}
         onClick={toggleArchiveTray}
         isActive={isArchiveTrayOpen}
@@ -94,10 +92,10 @@ function ToolbarButton({
   return (
     <button
       className={cn(
-        "p-[6px] rounded-[2px] transition-all duration-150 cursor-pointer",
+        "p-[4px] rounded-[2px] transition-all duration-150 cursor-pointer",
         isActive
           ? "text-[#597794] bg-[rgba(89,119,148,0.1)]"
-          : "text-[#555] hover:text-white hover:bg-[rgba(255,255,255,0.06)]"
+          : "text-[#444] hover:text-white hover:bg-[rgba(255,255,255,0.06)]"
       )}
       onClick={onClick}
       title={tooltip}
@@ -105,4 +103,8 @@ function ToolbarButton({
       {icon}
     </button>
   );
+}
+
+function ToolbarDivider() {
+  return <div className="w-px h-3 bg-[rgba(255,255,255,0.08)] mx-[2px]" />;
 }

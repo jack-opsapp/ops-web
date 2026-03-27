@@ -37,7 +37,7 @@ export function SpatialMarqueeSelect(_props: SpatialMarqueeSelectProps) {
         border: "1px solid rgba(89, 119, 148, 0.5)",
         background: "rgba(89, 119, 148, 0.08)",
         borderRadius: 2,
-        zIndex: 50,
+        zIndex: 100,
       }}
     />
   );

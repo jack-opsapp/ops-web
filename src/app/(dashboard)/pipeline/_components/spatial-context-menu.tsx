@@ -72,8 +72,16 @@ export function SpatialContextMenu({
 
   const menuRef = useRef<HTMLDivElement>(null);
   const [showStageSubmenu, setShowStageSubmenu] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
-  // Dismiss on Escape or click outside
+  // Reset delete confirmation when menu closes
+  useEffect(() => {
+    if (!contextMenu) {
+      setConfirmingDelete(null);
+    }
+  }, [contextMenu]);
+
+  // Dismiss on Escape, click outside, or scroll/zoom
   // Use requestAnimationFrame to prevent the opening right-click from immediately closing the menu
   useEffect(() => {
     if (!contextMenu) return;
@@ -87,14 +95,18 @@ export function SpatialContextMenu({
       }
     };
 
+    const handleWheel = () => hideContextMenu();
+
     const frame = requestAnimationFrame(() => {
       document.addEventListener("keydown", handleKeyDown);
       document.addEventListener("mousedown", handleClick);
+      document.addEventListener("wheel", handleWheel, { passive: true });
     });
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("wheel", handleWheel);
     };
   }, [contextMenu, hideContextMenu]);
 
@@ -108,6 +120,16 @@ export function SpatialContextMenu({
 
   const activeStages = getActiveStages();
 
+  // Clamp menu position to viewport
+  const menuWidth = contextMenu?.type === "selection" ? 220 : 180;
+  const menuHeight = 300;
+  const clampedX = contextMenu
+    ? Math.min(contextMenu.x, window.innerWidth - menuWidth - 8)
+    : 0;
+  const clampedY = contextMenu
+    ? Math.min(contextMenu.y, window.innerHeight - menuHeight - 8)
+    : 0;
+
   return (
     <AnimatePresence>
       {contextMenu && (
@@ -115,8 +137,8 @@ export function SpatialContextMenu({
           ref={menuRef}
           className="fixed"
           style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
+            left: clampedX,
+            top: clampedY,
             zIndex: 1000,
           }}
           initial="hidden"
@@ -155,16 +177,40 @@ export function SpatialContextMenu({
                     )
                   }
                 />
-                <MenuItem
-                  icon={<Trash2 className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.delete")}
-                  onClick={() =>
-                    handleItemClick(() =>
-                      onDelete(contextMenu.targetCardId!)
-                    )
-                  }
-                  destructive
-                />
+                {confirmingDelete === contextMenu.targetCardId ? (
+                  <div className="px-3 py-1.5">
+                    <p className="font-mohave text-sm text-[#93321A] mb-1">
+                      {t("contextMenu.deleteConfirm")}
+                    </p>
+                    <div className="flex gap-1">
+                      <button
+                        className="font-kosugi text-[10px] text-white px-2 py-0.5 rounded-[2px] bg-[#93321A] cursor-pointer"
+                        onClick={() =>
+                          handleItemClick(() =>
+                            onDelete(contextMenu.targetCardId!)
+                          )
+                        }
+                      >
+                        {t("spatial.confirm")}
+                      </button>
+                      <button
+                        className="font-kosugi text-[10px] text-[#666] px-2 py-0.5 cursor-pointer"
+                        onClick={() => setConfirmingDelete(null)}
+                      >
+                        {t("spatial.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <MenuItem
+                    icon={<Trash2 className="w-[14px] h-[14px]" />}
+                    label={t("contextMenu.delete")}
+                    onClick={() =>
+                      setConfirmingDelete(contextMenu.targetCardId!)
+                    }
+                    destructive
+                  />
+                )}
               </>
             )}
 
