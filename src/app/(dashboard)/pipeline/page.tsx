@@ -530,13 +530,9 @@ function SpatialCanvasDesktop({
   const oppsByStage = useMemo(() => {
     const map = new Map<OpportunityStage, Opportunity[]>();
     for (const opp of opportunities) {
-      // Discarded deals are grouped under Lost to match the layout engine
-      const effectiveStage = opp.stage === OpportunityStage.Discarded
-        ? OpportunityStage.Lost
-        : opp.stage;
-      const arr = map.get(effectiveStage) ?? [];
+      const arr = map.get(opp.stage) ?? [];
       arr.push(opp);
-      map.set(effectiveStage, arr);
+      map.set(opp.stage, arr);
     }
     return map;
   }, [opportunities]);
