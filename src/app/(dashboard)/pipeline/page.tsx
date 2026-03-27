@@ -41,9 +41,16 @@ import {
   actionPromptVariantsReduced,
 } from "@/lib/utils/motion";
 
-import { PipelineBoard } from "./_components/pipeline-board";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { PipelineMobile } from "./_components/pipeline-mobile";
-import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { DealDetailSheet } from "./_components/deal-detail-sheet";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { useWindowStore } from "@/stores/window-store";
@@ -51,6 +58,421 @@ import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
 import { EmailReviewPanel } from "@/components/ops/email-review-panel";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
+import { SpatialCanvas } from "./_components/spatial-canvas";
+import { SpatialStageStack } from "./_components/spatial-stage-stack";
+import { SpatialCard } from "./_components/spatial-card";
+import { SpatialCardHoverMetrics } from "./_components/spatial-card-hover-metrics";
+import { SpatialCardExpanded } from "./_components/spatial-card-expanded";
+import { SpatialDragOverlay } from "./_components/spatial-drag-overlay";
+import { SpatialMarqueeSelect } from "./_components/spatial-marquee-select";
+import { SpatialContextMenu } from "./_components/spatial-context-menu";
+import { SpatialTerminalRegion } from "./_components/spatial-terminal-region";
+import { SpatialFloatingToolbar } from "./_components/spatial-floating-toolbar";
+import { SpatialArchiveTray } from "./_components/spatial-archive-tray";
+import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
+import { calculateBatchStaleness } from "./_components/spatial-staleness";
+import {
+  useSpatialCanvasStore,
+  BIRD_EYE_THRESHOLD,
+  CARD_WIDTH,
+  CARD_HEIGHT,
+} from "./_components/spatial-canvas-store";
+import { OPPORTUNITY_STAGE_COLORS } from "@/lib/types/pipeline";
+
+// ---------------------------------------------------------------------------
+// Spatial Canvas Desktop — wraps all spatial components with DndContext
+// ---------------------------------------------------------------------------
+function SpatialCanvasDesktop({
+  opportunities,
+  clientNameMap,
+  canManage,
+  onMoveStage,
+  onToggleExpand,
+  onLogCall,
+  onLogText,
+  onAddNote,
+  onArchive,
+  onDiscard,
+  onMarkWon,
+  onMarkLost,
+  onOpenDetail,
+  onAssign,
+  onScheduleFollowUp,
+  onAddLead,
+  archivedOpportunities,
+  onRestore,
+  onDeletePermanently,
+}: {
+  opportunities: Opportunity[];
+  clientNameMap: Map<string, string>;
+  canManage: boolean;
+  onMoveStage: (id: string, stage: OpportunityStage) => void;
+  onToggleExpand: (id: string) => void;
+  onLogCall: (id: string) => void;
+  onLogText: (id: string) => void;
+  onAddNote: (id: string, note: string) => void;
+  onArchive: (id: string) => void;
+  onDiscard: (id: string) => void;
+  onMarkWon: (opportunity: Opportunity) => void;
+  onMarkLost: (opportunity: Opportunity) => void;
+  onOpenDetail: (opportunity: Opportunity) => void;
+  onAssign: (id: string) => void;
+  onScheduleFollowUp: (id: string) => void;
+  onAddLead: () => void;
+  archivedOpportunities: Opportunity[];
+  onRestore: (id: string) => void;
+  onDeletePermanently: (id: string) => void;
+}) {
+  const zoom = useSpatialCanvasStore((s) => s.zoom);
+  const sortBy = useSpatialCanvasStore((s) => s.sortBy);
+  const expandedCardIds = useSpatialCanvasStore((s) => s.expandedCardIds);
+  const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
+  const hoveredCardId = useSpatialCanvasStore((s) => s.hoveredCardId);
+  const toggleCardExpanded = useSpatialCanvasStore((s) => s.toggleCardExpanded);
+  const setHoveredCard = useSpatialCanvasStore((s) => s.setHoveredCard);
+  const toggleCardSelected = useSpatialCanvasStore((s) => s.toggleCardSelected);
+  const clearSelection = useSpatialCanvasStore((s) => s.clearSelection);
+  const showContextMenu = useSpatialCanvasStore((s) => s.showContextMenu);
+  const selectCards = useSpatialCanvasStore((s) => s.selectCards);
+  const startDrag = useSpatialCanvasStore((s) => s.startDrag);
+  const endDrag = useSpatialCanvasStore((s) => s.endDrag);
+
+  const isBirdEye = zoom < BIRD_EYE_THRESHOLD;
+
+  // Calculate layout
+  const layout = useMemo(
+    () => calculateCanvasLayout(opportunities, sortBy, clientNameMap),
+    [opportunities, sortBy, clientNameMap]
+  );
+
+  // Calculate staleness
+  const stalenessMap = useMemo(
+    () => calculateBatchStaleness(opportunities),
+    [opportunities]
+  );
+
+  // Active drag state
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeOpportunity = activeId
+    ? opportunities.find((o) => o.id === activeId) ?? null
+    : null;
+
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = String(event.active.id);
+      setActiveId(id);
+      const ids = selectedCardIds.has(id) ? Array.from(selectedCardIds) : [id];
+      startDrag(ids, { x: 0, y: 0 });
+    },
+    [selectedCardIds, startDrag]
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { over } = event;
+      const draggedId = String(event.active.id);
+
+      if (over) {
+        const data = over.data.current as { stage?: OpportunityStage; isTerminal?: boolean } | undefined;
+        if (data?.stage) {
+          // Move dragged cards to this stage
+          const ids = selectedCardIds.has(draggedId)
+            ? Array.from(selectedCardIds)
+            : [draggedId];
+          for (const id of ids) {
+            onMoveStage(id, data.stage);
+          }
+          clearSelection();
+        }
+      }
+
+      setActiveId(null);
+      endDrag();
+    },
+    [selectedCardIds, onMoveStage, clearSelection, endDrag]
+  );
+
+  // Context menu handlers
+  const handleCardContextMenu = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      showContextMenu({
+        visible: true,
+        x: e.clientX,
+        y: e.clientY,
+        type: selectedCardIds.size > 1 && selectedCardIds.has(id) ? "selection" : "card",
+        targetCardId: id,
+      });
+    },
+    [showContextMenu, selectedCardIds]
+  );
+
+  const handleCanvasContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) {
+        e.preventDefault();
+        showContextMenu({
+          visible: true,
+          x: e.clientX,
+          y: e.clientY,
+          type: "canvas",
+          targetCardId: null,
+        });
+      }
+    },
+    [showContextMenu]
+  );
+
+  // Render card helper (passed to stacks/regions)
+  const renderCard = useCallback(
+    (opportunity: Opportunity, position: { x: number; y: number }, draggable = true) => {
+      const clientName =
+        clientNameMap.get(opportunity.clientId ?? "") ??
+        opportunity.contactName ??
+        "Unknown";
+      const stageColor = OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? "#BCBCBC";
+      const isSelected = selectedCardIds.has(opportunity.id);
+      const isExpanded = expandedCardIds.has(opportunity.id);
+      const isHovered = hoveredCardId === opportunity.id;
+      const stalenessOpacity = stalenessMap.get(opportunity.id) ?? 1.0;
+
+      return (
+        <div
+          key={opportunity.id}
+          className="absolute"
+          style={{ left: position.x, top: position.y }}
+        >
+          <SpatialCard
+            opportunity={opportunity}
+            clientName={clientName}
+            stageColor={stageColor}
+            stalenessOpacity={stalenessOpacity}
+            isSelected={isSelected}
+            isExpanded={isExpanded}
+            isHovered={isHovered}
+            isBirdEye={isBirdEye}
+            canManage={canManage}
+            draggable={draggable}
+            onToggleExpand={() => toggleCardExpanded(opportunity.id)}
+            onHover={() => setHoveredCard(opportunity.id)}
+            onHoverEnd={() => setHoveredCard(null)}
+            onSelect={(e) => {
+              if (e.shiftKey || e.metaKey) {
+                toggleCardSelected(opportunity.id);
+              }
+            }}
+            onContextMenu={(e) => handleCardContextMenu(e, opportunity.id)}
+            onAdvance={() => {
+              const next = nextOpportunityStage(opportunity.stage);
+              if (next) onMoveStage(opportunity.id, next);
+            }}
+            onRetreat={() => {}}
+            onLogCall={() => onLogCall(opportunity.id)}
+            onLogText={() => onLogText(opportunity.id)}
+            onAddNote={(note) => onAddNote(opportunity.id, note)}
+            onArchive={() => onArchive(opportunity.id)}
+            onDiscard={() => onDiscard(opportunity.id)}
+            onMarkWon={() => onMarkWon(opportunity)}
+            onMarkLost={() => onMarkLost(opportunity)}
+            onOpenDetail={() => onOpenDetail(opportunity)}
+            onAssign={() => onAssign(opportunity.id)}
+            onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
+          />
+          {/* Hover metrics */}
+          {isHovered && !isExpanded && !isBirdEye && (
+            <SpatialCardHoverMetrics
+              opportunity={opportunity}
+              isVisible={true}
+            />
+          )}
+          {/* Expanded content */}
+          {isExpanded && !isBirdEye && (
+            <SpatialCardExpanded
+              opportunity={opportunity}
+              canManage={canManage}
+              onLogCall={() => onLogCall(opportunity.id)}
+              onLogText={() => onLogText(opportunity.id)}
+              onAddNote={(note) => onAddNote(opportunity.id, note)}
+              onArchive={() => onArchive(opportunity.id)}
+              onDiscard={() => onDiscard(opportunity.id)}
+              onMarkWon={() => onMarkWon(opportunity)}
+              onMarkLost={() => onMarkLost(opportunity)}
+              onAssign={() => onAssign(opportunity.id)}
+              onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
+              onOpenDetail={() => onOpenDetail(opportunity)}
+            />
+          )}
+        </div>
+      );
+    },
+    [
+      clientNameMap,
+      selectedCardIds,
+      expandedCardIds,
+      hoveredCardId,
+      stalenessMap,
+      isBirdEye,
+      canManage,
+      toggleCardExpanded,
+      setHoveredCard,
+      toggleCardSelected,
+      handleCardContextMenu,
+      onMoveStage,
+      onLogCall,
+      onLogText,
+      onAddNote,
+      onArchive,
+      onDiscard,
+      onMarkWon,
+      onMarkLost,
+      onOpenDetail,
+      onAssign,
+      onScheduleFollowUp,
+    ]
+  );
+
+  // Group opportunities by stage for stacks
+  const oppsByStage = useMemo(() => {
+    const map = new Map<OpportunityStage, Opportunity[]>();
+    for (const opp of opportunities) {
+      const arr = map.get(opp.stage) ?? [];
+      arr.push(opp);
+      map.set(opp.stage, arr);
+    }
+    return map;
+  }, [opportunities]);
+
+  const batchCount = activeId && selectedCardIds.has(activeId)
+    ? selectedCardIds.size
+    : 1;
+
+  return (
+    <div className="relative h-full w-full" onContextMenu={handleCanvasContextMenu}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SpatialCanvas
+          canvasWidth={layout.canvasWidth}
+          canvasHeight={layout.canvasHeight}
+        >
+          {/* Active stage stacks */}
+          {layout.stacks.map((stackLayout) => (
+            <SpatialStageStack
+              key={stackLayout.stage}
+              stage={stackLayout.stage}
+              opportunities={oppsByStage.get(stackLayout.stage) ?? []}
+              clients={clientNameMap}
+              layout={stackLayout}
+              expandedCardIds={expandedCardIds}
+              selectedCardIds={selectedCardIds}
+              hoveredCardId={hoveredCardId}
+              isBirdEye={isBirdEye}
+              canManage={canManage}
+              activeId={activeId}
+              onToggleExpand={onToggleExpand}
+              onHoverCard={setHoveredCard}
+              onSelectCard={(id, e) => {
+                if (e.shiftKey || e.metaKey) toggleCardSelected(id);
+              }}
+              onCardContextMenu={handleCardContextMenu}
+              onAdvance={(opp) => {
+                const next = nextOpportunityStage(opp.stage);
+                if (next) onMoveStage(opp.id, next);
+              }}
+              onRetreat={() => {}}
+              onLogCall={onLogCall}
+              onLogText={onLogText}
+              onAddNote={onAddNote}
+              onArchive={onArchive}
+              onDiscard={onDiscard}
+              onMarkWon={onMarkWon}
+              onMarkLost={onMarkLost}
+              onOpenDetail={onOpenDetail}
+              onAssign={onAssign}
+              onScheduleFollowUp={onScheduleFollowUp}
+              renderCard={(opp, pos) => renderCard(opp, pos)}
+            />
+          ))}
+
+          {/* Terminal regions (Won/Lost) */}
+          {layout.terminalRegions.map((regionLayout) => (
+            <SpatialTerminalRegion
+              key={regionLayout.stage}
+              stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
+              opportunities={oppsByStage.get(regionLayout.stage) ?? []}
+              clients={clientNameMap}
+              layout={regionLayout}
+              isBirdEye={isBirdEye}
+              onOpenDetail={onOpenDetail}
+              onContextMenu={handleCardContextMenu}
+              renderCard={(opp, pos) => renderCard(opp, pos, false)}
+            />
+          ))}
+
+          {/* Marquee selection */}
+          <SpatialMarqueeSelect />
+        </SpatialCanvas>
+
+        {/* Drag overlay */}
+        <SpatialDragOverlay
+          activeOpportunity={activeOpportunity}
+          clientName={
+            activeOpportunity
+              ? clientNameMap.get(activeOpportunity.clientId ?? "") ??
+                activeOpportunity.contactName ??
+                "Unknown"
+              : ""
+          }
+          batchCount={batchCount}
+        />
+      </DndContext>
+
+      {/* Floating toolbar */}
+      <SpatialFloatingToolbar onAddLead={onAddLead} />
+
+      {/* Context menu */}
+      <SpatialContextMenu
+        onEdit={(id) => {
+          const opp = opportunities.find((o) => o.id === id);
+          if (opp) onOpenDetail(opp);
+        }}
+        onArchive={onArchive}
+        onArchiveBatch={(ids) => ids.forEach(onArchive)}
+        onDelete={onDiscard}
+        onMoveToStage={(ids, stage) => ids.forEach((id) => onMoveStage(id, stage))}
+        onAssign={(ids) => ids.forEach(onAssign)}
+        onMarkWon={(ids) => {
+          for (const id of ids) {
+            const opp = opportunities.find((o) => o.id === id);
+            if (opp) onMarkWon(opp);
+          }
+        }}
+        onMarkLost={(ids) => {
+          for (const id of ids) {
+            const opp = opportunities.find((o) => o.id === id);
+            if (opp) onMarkLost(opp);
+          }
+        }}
+        onSelectAll={() => selectCards(opportunities.map((o) => o.id))}
+      />
+
+      {/* Archive tray */}
+      <SpatialArchiveTray
+        archivedOpportunities={archivedOpportunities}
+        clients={clientNameMap}
+        onRestore={onRestore}
+        onDeletePermanently={onDeletePermanently}
+      />
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Loading Skeleton
@@ -235,7 +657,7 @@ export default function PipelinePage() {
   }, [setupComplete, openWindow]);
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: pipelineMetrics = [] } = usePipelineMetrics();
+  const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } = usePipelineMetrics();
 
   // ── Data fetching ─────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
@@ -676,20 +1098,9 @@ export default function PipelinePage() {
   return (
     <div className="space-y-2 h-full flex flex-col min-w-0">
       {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} />
+      <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
 
-      {/* Filter row */}
-      <PipelineFilterRow
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        stageFilter={stageFilter}
-        onStageFilterChange={setStageFilter}
-        assigneeFilter={assigneeFilter}
-        onAssigneeFilterChange={setAssigneeFilter}
-        teamMembers={teamMembers}
-        onAddLead={gatedOpenCreate}
-        canManage={canManage}
-      />
+      {/* Filter row removed — spatial canvas has its own controls */}
 
       {/* Gmail connect prompt */}
       {gmailConnections.length === 0 && !gmailBannerDismissed && (
@@ -770,14 +1181,34 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* Pipeline Board / Mobile */}
+      {/* Pipeline Spatial Canvas / Mobile */}
       <div className="flex-1 min-h-0 min-w-0">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
-          <div className="h-full min-w-0">
-            <PipelineBoard {...sharedBoardProps} />
-          </div>
+          <SpatialCanvasDesktop
+            opportunities={filteredOpportunities}
+            clientNameMap={clientNameMap}
+            canManage={canManage}
+            onMoveStage={handleMoveStage}
+            onToggleExpand={handleToggleExpand}
+            onLogCall={handleLogCall}
+            onLogText={handleLogText}
+            onAddNote={handleAddNote}
+            onArchive={handleArchive}
+            onDiscard={handleDiscard}
+            onMarkWon={handleMarkWon}
+            onMarkLost={handleMarkLost}
+            onOpenDetail={handleSelectOpportunity}
+            onAssign={handleAssign}
+            onScheduleFollowUp={handleScheduleFollowUp}
+            onAddLead={gatedOpenCreate}
+            archivedOpportunities={
+              opportunities?.filter((o) => !!o.archivedAt) ?? []
+            }
+            onRestore={(id) => unarchiveMutation.mutate(id)}
+            onDeletePermanently={() => {}}
+          />
         )}
       </div>
 
