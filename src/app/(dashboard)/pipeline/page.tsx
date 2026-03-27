@@ -134,7 +134,7 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   const cb = callbacksRef.current;
 
   return (
-    <div className="absolute" style={{ left: position.x, top: position.y }}>
+    <div data-spatial-card className="absolute" style={{ left: position.x, top: position.y }}>
       <SpatialCard
         opportunity={opportunity}
         clientName={clientName}

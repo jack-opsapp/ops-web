@@ -24,7 +24,7 @@ export function SpatialCanvas({
   onMarqueeEnd,
 }: SpatialCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isPanning = useRef(false);
+  const interactionMode = useRef<"idle" | "pan" | "marquee">("idle");
   const lastPointer = useRef({ x: 0, y: 0 });
 
   const viewportX = useSpatialCanvasStore((s) => s.viewportX);
@@ -32,38 +32,35 @@ export function SpatialCanvas({
   const zoom = useSpatialCanvasStore((s) => s.zoom);
   const setViewport = useSpatialCanvasStore((s) => s.setViewport);
   const zoomBy = useSpatialCanvasStore((s) => s.zoomBy);
-  const setCanvasDimensions = useSpatialCanvasStore(
-    (s) => s.setCanvasDimensions
-  );
+  const setCanvasDimensions = useSpatialCanvasStore((s) => s.setCanvasDimensions);
   const hideContextMenu = useSpatialCanvasStore((s) => s.hideContextMenu);
   const clearSelection = useSpatialCanvasStore((s) => s.clearSelection);
+  const startMarquee = useSpatialCanvasStore((s) => s.startMarquee);
+  const updateMarquee = useSpatialCanvasStore((s) => s.updateMarquee);
+  const endMarquee = useSpatialCanvasStore((s) => s.endMarquee);
 
   // Sync canvas dimensions from layout engine
   useEffect(() => {
     setCanvasDimensions(canvasWidth, canvasHeight);
   }, [canvasWidth, canvasHeight, setCanvasDimensions]);
 
-  // ── Wheel → zoom ──
-  // Read latest viewport from store to avoid stale closures during rapid scroll
+  // ── Wheel → ALWAYS zoom (no modifier needed) ──
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      if (e.ctrlKey || e.metaKey) {
-        const delta = -e.deltaY * 0.01;
-        const centerX = e.clientX - rect.left;
-        const centerY = e.clientY - rect.top;
-        zoomBy(delta, centerX, centerY);
-      } else {
-        const state = useSpatialCanvasStore.getState();
-        const newX = state.viewportX - e.deltaX;
-        const newY = state.viewportY - e.deltaY;
-        setViewport(newX, newY);
-      }
+      // Trackpad pinch sends ctrlKey with small deltaY — use higher sensitivity
+      // Mouse wheel sends larger deltaY without ctrlKey — use lower sensitivity
+      const sensitivity = e.ctrlKey ? 0.01 : 0.005;
+      const delta = -e.deltaY * sensitivity;
+      const centerX = e.clientX - rect.left;
+      const centerY = e.clientY - rect.top;
+      zoomBy(delta, centerX, centerY);
     },
-    [zoomBy, setViewport]
+    [zoomBy]
   );
 
   useEffect(() => {
@@ -72,11 +69,6 @@ export function SpatialCanvas({
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
   }, [handleWheel]);
-
-  const startMarquee = useSpatialCanvasStore((s) => s.startMarquee);
-  const updateMarquee = useSpatialCanvasStore((s) => s.updateMarquee);
-  const endMarquee = useSpatialCanvasStore((s) => s.endMarquee);
-  const isMarqueeActive = useRef(false);
 
   // Convert screen coords to canvas coords
   const screenToCanvas = useCallback(
@@ -92,40 +84,60 @@ export function SpatialCanvas({
     []
   );
 
-  // ── Pointer handlers: middle-click → pan, left-click on empty → marquee ──
+  // Check if the click target is on a card (has data-spatial-card ancestor)
+  const isCardTarget = useCallback((target: EventTarget | null): boolean => {
+    let el = target as HTMLElement | null;
+    while (el && el !== containerRef.current) {
+      if (el.hasAttribute("data-spatial-card")) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }, []);
+
+  // ── Pointer handlers ──
+  // Left-click-drag on empty canvas = pan
+  // Shift + left-click-drag on empty canvas = marquee select
+  // Middle-click-drag = pan
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+      // Middle mouse → always pan
       if (e.button === 1) {
-        // Middle mouse → pan
         e.preventDefault();
-        isPanning.current = true;
+        interactionMode.current = "pan";
         lastPointer.current = { x: e.clientX, y: e.clientY };
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      } else if (
-        e.button === 0 &&
-        (e.target === containerRef.current ||
-          (e.target as HTMLElement).tagName === "rect" ||
-          (e.target as HTMLElement).tagName === "svg")
-      ) {
-        // Left-click on empty canvas → start marquee
-        const canvasPos = screenToCanvas(e.clientX, e.clientY);
-        isMarqueeActive.current = true;
-        startMarquee(canvasPos);
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        containerRef.current?.setPointerCapture(e.pointerId);
+        return;
+      }
+
+      // Left click on empty canvas (not on a card)
+      if (e.button === 0 && !isCardTarget(e.target)) {
+        e.preventDefault();
+        containerRef.current?.setPointerCapture(e.pointerId);
+
+        if (e.shiftKey) {
+          // Shift + drag = marquee select
+          interactionMode.current = "marquee";
+          const canvasPos = screenToCanvas(e.clientX, e.clientY);
+          startMarquee(canvasPos);
+        } else {
+          // Plain drag = pan
+          interactionMode.current = "pan";
+          lastPointer.current = { x: e.clientX, y: e.clientY };
+        }
       }
     },
-    [startMarquee, screenToCanvas]
+    [startMarquee, screenToCanvas, isCardTarget]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (isPanning.current) {
+      if (interactionMode.current === "pan") {
         const dx = e.clientX - lastPointer.current.x;
         const dy = e.clientY - lastPointer.current.y;
         lastPointer.current = { x: e.clientX, y: e.clientY };
         const state = useSpatialCanvasStore.getState();
         setViewport(state.viewportX + dx, state.viewportY + dy);
-      } else if (isMarqueeActive.current) {
+      } else if (interactionMode.current === "marquee") {
         const canvasPos = screenToCanvas(e.clientX, e.clientY);
         updateMarquee(canvasPos);
       }
@@ -135,17 +147,17 @@ export function SpatialCanvas({
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (isPanning.current) {
-        isPanning.current = false;
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-      } else if (isMarqueeActive.current) {
-        isMarqueeActive.current = false;
+      if (interactionMode.current === "pan") {
+        interactionMode.current = "idle";
+        containerRef.current?.releasePointerCapture(e.pointerId);
+      } else if (interactionMode.current === "marquee") {
+        interactionMode.current = "idle";
         const state = useSpatialCanvasStore.getState();
         if (state.marqueeStart && state.marqueeEnd && onMarqueeEnd) {
           onMarqueeEnd(state.marqueeStart, state.marqueeEnd);
         }
         endMarquee();
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        containerRef.current?.releasePointerCapture(e.pointerId);
       }
     },
     [endMarquee, onMarqueeEnd]
@@ -154,27 +166,26 @@ export function SpatialCanvas({
   // ── Click on empty canvas → clear selection ──
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
-      // Only if click was directly on the canvas (not a child)
-      if (e.target === e.currentTarget) {
+      if (!isCardTarget(e.target)) {
         clearSelection();
         hideContextMenu();
       }
     },
-    [clearSelection, hideContextMenu]
+    [clearSelection, hideContextMenu, isCardTarget]
   );
 
   return (
     <div
       ref={containerRef}
       data-spatial-canvas
-      className="relative w-full h-full overflow-hidden bg-[#0A0A0A] cursor-grab active:cursor-grabbing"
+      className="relative w-full h-full overflow-hidden bg-[#0A0A0A] select-none"
+      style={{ touchAction: "none" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onClick={handleCanvasClick}
       onContextMenu={(e) => {
-        // Fire canvas context menu if the click was on the container or its direct bg, not on a card
-        if (onCanvasContextMenu && (e.target === containerRef.current || (e.target as HTMLElement).tagName === "rect")) {
+        if (onCanvasContextMenu && !isCardTarget(e.target)) {
           e.preventDefault();
           onCanvasContextMenu(e);
         }
