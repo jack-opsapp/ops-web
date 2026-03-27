@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Plus, Archive } from "lucide-react";
+import { Maximize2, Plus, Archive, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useSpatialCanvasStore } from "./spatial-canvas-store";
@@ -15,12 +15,16 @@ import {
 
 interface SpatialFloatingToolbarProps {
   onAddLead: () => void;
+  reviewCount?: number;
+  onReviewEmails?: () => void;
 }
 
 // ── Component ──
 
 export function SpatialFloatingToolbar({
   onAddLead,
+  reviewCount = 0,
+  onReviewEmails,
 }: SpatialFloatingToolbarProps) {
   const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
@@ -32,8 +36,6 @@ export function SpatialFloatingToolbar({
   const toggleArchiveTray = useSpatialCanvasStore((s) => s.toggleArchiveTray);
   const isArchiveTrayOpen = useSpatialCanvasStore((s) => s.isArchiveTrayOpen);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
   const handleFitAll = useCallback(() => {
     const canvas = document.querySelector("[data-spatial-canvas]");
     if (!canvas) return;
@@ -42,69 +44,78 @@ export function SpatialFloatingToolbar({
 
   return (
     <motion.div
-      ref={containerRef}
-      className="flex items-center"
-      style={{
-        background: "rgba(10, 10, 10, 0.50)",
-        border: "1px solid rgba(255, 255, 255, 0.06)",
-        borderRadius: 3,
-        padding: "2px 4px",
-      }}
+      className="flex items-center gap-[8px] px-[6px]"
       initial="hidden"
       animate="visible"
       variants={variants}
     >
-      <ToolbarButton
-        icon={<Maximize2 className="w-3 h-3" />}
-        tooltip={t("spatial.fitAll")}
-        onClick={handleFitAll}
-      />
-      <ToolbarDivider />
-      <ToolbarButton
-        icon={<Plus className="w-3 h-3" />}
-        tooltip={t("spatial.newLead")}
-        onClick={onAddLead}
-      />
-      <ToolbarDivider />
-      <ToolbarButton
-        icon={<Archive className="w-3 h-3" />}
-        tooltip={t("spatial.archivedDeals")}
-        onClick={toggleArchiveTray}
-        isActive={isArchiveTrayOpen}
-      />
+      {/* Review Emails — only when there are emails to review */}
+      {reviewCount > 0 && onReviewEmails && (
+        <>
+          <ToolbarAction onClick={onReviewEmails}>
+            <Mail className="w-[13px] h-[13px] text-ops-accent" />
+            <span className="font-kosugi text-micro-sm text-ops-accent uppercase tracking-wider">
+              {t("gmail.reviewEmails")}
+            </span>
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-ops-accent/30 bg-ops-accent-muted font-kosugi text-micro-xs text-ops-accent">
+              {reviewCount > 99 ? "99+" : reviewCount}
+            </span>
+          </ToolbarAction>
+          <div className="w-[1px] h-[18px] bg-border-subtle" />
+        </>
+      )}
+
+      {/* Canvas tools */}
+      <ToolbarAction onClick={handleFitAll}>
+        <Maximize2 className="w-[13px] h-[13px]" />
+        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+          {t("spatial.fitAll")}
+        </span>
+      </ToolbarAction>
+
+      <div className="w-[1px] h-[18px] bg-border-subtle" />
+
+      <ToolbarAction onClick={onAddLead}>
+        <Plus className="w-[13px] h-[13px]" />
+        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+          {t("spatial.newLead")}
+        </span>
+      </ToolbarAction>
+
+      <div className="w-[1px] h-[18px] bg-border-subtle" />
+
+      <ToolbarAction onClick={toggleArchiveTray} isActive={isArchiveTrayOpen}>
+        <Archive className="w-[13px] h-[13px]" />
+        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+          {t("spatial.archivedDeals")}
+        </span>
+      </ToolbarAction>
     </motion.div>
   );
 }
 
 // ── Sub-components ──
 
-function ToolbarButton({
-  icon,
-  tooltip,
+function ToolbarAction({
+  children,
   onClick,
   isActive,
 }: {
-  icon: React.ReactNode;
-  tooltip: string;
+  children: React.ReactNode;
   onClick: () => void;
   isActive?: boolean;
 }) {
   return (
     <button
       className={cn(
-        "p-[4px] rounded-[2px] transition-all duration-150 cursor-pointer",
+        "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
-          ? "text-ops-accent bg-[rgba(89,119,148,0.1)]"
-          : "text-text-disabled hover:text-white hover:bg-[rgba(255,255,255,0.06)]"
+          ? "text-ops-accent bg-ops-accent-muted/20"
+          : "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]"
       )}
       onClick={onClick}
-      title={tooltip}
     >
-      {icon}
+      {children}
     </button>
   );
-}
-
-function ToolbarDivider() {
-  return <div className="w-px h-3 bg-[rgba(255,255,255,0.08)] mx-[2px]" />;
 }

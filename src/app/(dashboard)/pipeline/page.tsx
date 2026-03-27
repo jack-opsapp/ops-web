@@ -53,7 +53,9 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { PipelineMobile } from "./_components/pipeline-mobile";
-import { DealDetailSheet } from "./_components/deal-detail-sheet";
+import { useDetailPopoverStore } from "./_components/detail-popover-store";
+import { DetailPopover } from "./_components/detail-popover";
+import { DetailPopoverTether } from "./_components/detail-popover-tether";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { useWindowStore } from "@/stores/window-store";
 import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
@@ -141,6 +143,7 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   return (
     <div
       data-spatial-card
+      data-opportunity-id={opportunity.id}
       className="absolute"
       style={{
         left: effectivePosition.x,
@@ -256,6 +259,7 @@ function SpatialCanvasDesktop({
 }) {
   const { t: tPipeline } = useDictionary("pipeline");
   const sortBy = useSpatialCanvasStore((s) => s.sortBy);
+  const stageSortOverrides = useSpatialCanvasStore((s) => s.stageSortOverrides);
   const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
   const clearSelection = useSpatialCanvasStore((s) => s.clearSelection);
   const showContextMenu = useSpatialCanvasStore((s) => s.showContextMenu);
@@ -266,8 +270,8 @@ function SpatialCanvasDesktop({
 
   // Calculate layout
   const layout = useMemo(
-    () => calculateCanvasLayout(opportunities, sortBy, clientNameMap),
-    [opportunities, sortBy, clientNameMap]
+    () => calculateCanvasLayout(opportunities, sortBy, clientNameMap, stageSortOverrides),
+    [opportunities, sortBy, clientNameMap, stageSortOverrides]
   );
 
   // Auto-fit canvas on first load
@@ -390,28 +394,63 @@ function SpatialCanvasDesktop({
   // Context menu handlers
   const handleCardContextMenu = useCallback(
     (e: React.MouseEvent, id: string) => {
+      const opp = opportunities.find((o) => o.id === id);
       showContextMenu({
         visible: true,
         x: e.clientX,
         y: e.clientY,
         type: selectedCardIds.size > 1 && selectedCardIds.has(id) ? "selection" : "card",
         targetCardId: id,
+        stage: opp?.stage ?? null,
       });
     },
-    [showContextMenu, selectedCardIds]
+    [showContextMenu, selectedCardIds, opportunities]
   );
 
   const handleCanvasContextMenu = useCallback(
     (e: React.MouseEvent) => {
+      // Hit-test: convert screen coords to canvas-space and check region bounds
+      const container = document.querySelector("[data-spatial-canvas]");
+      const rect = container?.getBoundingClientRect();
+      const { viewportX, viewportY, zoom } = useSpatialCanvasStore.getState();
+
+      let hitStage: string | null = null;
+
+      if (rect) {
+        const canvasX = (e.clientX - rect.left - viewportX) / zoom;
+        const canvasY = (e.clientY - rect.top - viewportY) / zoom;
+
+        // Check active stage regions
+        for (const stack of layout.stacks) {
+          const b = stack.regionBounds;
+          if (canvasX >= b.x && canvasX <= b.x + b.width && canvasY >= b.y && canvasY <= b.y + b.height) {
+            hitStage = stack.stage;
+            break;
+          }
+        }
+
+        // Check terminal regions if no active stage hit
+        if (!hitStage) {
+          for (const region of layout.terminalRegions) {
+            const b = region.bounds;
+            if (canvasX >= b.x && canvasX <= b.x + b.width && canvasY >= b.y && canvasY <= b.y + b.height) {
+              hitStage = region.stage;
+              break;
+            }
+          }
+        }
+      }
+
       showContextMenu({
         visible: true,
         x: e.clientX,
         y: e.clientY,
         type: "canvas",
         targetCardId: null,
+        stage: hitStage,
       });
     },
-    [showContextMenu]
+    [showContextMenu, layout]
   );
 
   // Marquee selection → compute which cards fall inside the rectangle
@@ -578,7 +617,13 @@ function SpatialCanvasDesktop({
             if (opp) onMarkLost(opp);
           }
         }}
-        onSelectAll={() => selectCards(opportunities.map((o) => o.id))}
+        onSelectAll={(stage) => {
+          if (stage) {
+            selectCards(opportunities.filter((o) => o.stage === stage).map((o) => o.id));
+          } else {
+            selectCards(opportunities.map((o) => o.id));
+          }
+        }}
       />
 
       {/* Archive tray */}
@@ -724,9 +769,9 @@ export default function PipelinePage() {
   // ── Gmail banner ──────────────────────────────────────────────────────
   const [gmailBannerDismissed, setGmailBannerDismissed] = useState(false);
 
-  // ── Detail sheet ──────────────────────────────────────────────────────
-  const [selectedOpportunity, setSelectedOpportunity] =
-    useState<Opportunity | null>(null);
+  // ── Detail popovers ──────────────────────────────────────────────────
+  const openPopover = useDetailPopoverStore((s) => s.openPopover);
+  const popoversMap = useDetailPopoverStore((s) => s.popovers);
 
   // ── Stage transition dialog ───────────────────────────────────────────
   const [transitionType, setTransitionType] = useState<"won" | "lost" | null>(
@@ -875,6 +920,39 @@ export default function PipelinePage() {
   const boardOpportunities = useMemo(() => {
     return filteredOpportunities.filter((o) => isActiveStage(o.stage));
   }, [filteredOpportunities]);
+
+  // ── Card positions map for tether overlay ──────────────────────────────
+  const sortBy = useSpatialCanvasStore((s) => s.sortBy);
+  const stageSortOverrides = useSpatialCanvasStore((s) => s.stageSortOverrides);
+  const parentLayout = useMemo(
+    () => calculateCanvasLayout(filteredOpportunities, sortBy, clientNameMap, stageSortOverrides),
+    [filteredOpportunities, sortBy, clientNameMap, stageSortOverrides]
+  );
+  const cardPositionsMap = useMemo(() => {
+    const map = new Map<string, { x: number; y: number }>();
+    const allPositions = [
+      ...parentLayout.stacks.flatMap((s) => s.cardPositions),
+      ...parentLayout.terminalRegions.flatMap((r) => r.cardPositions),
+    ];
+    for (const pos of allPositions) {
+      map.set(pos.opportunityId, { x: pos.x, y: pos.y });
+    }
+    return map;
+  }, [parentLayout]);
+
+  // ── Close orphaned popovers when opportunities are deleted ───────────
+  const popoverCount = useDetailPopoverStore((s) => s.popovers.size);
+
+  useEffect(() => {
+    if (!opportunities || popoverCount === 0) return;
+    const { popovers, closePopover: close } = useDetailPopoverStore.getState();
+    const oppIds = new Set(opportunities.map((o) => o.id));
+    for (const id of popovers.keys()) {
+      if (!oppIds.has(id)) {
+        close(id);
+      }
+    }
+  }, [opportunities, popoverCount]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -1112,10 +1190,23 @@ export default function PipelinePage() {
     setPendingStageMove(null);
   }, []);
 
-  /** Open detail sheet for an opportunity */
-  const handleSelectOpportunity = useCallback((opp: Opportunity) => {
-    setSelectedOpportunity(opp);
-  }, []);
+  /** Open detail popover for an opportunity */
+  const handleOpenDetail = useCallback((opp: Opportunity) => {
+    // Collapse the inline card expansion before opening the popover
+    const { expandedCardIds, toggleCardExpanded } = useSpatialCanvasStore.getState();
+    if (expandedCardIds.has(opp.id)) {
+      toggleCardExpanded(opp.id);
+    }
+
+    // Get card position for popover placement (read BEFORE collapse animation)
+    const cardEl = document.querySelector(`[data-spatial-card][data-opportunity-id="${opp.id}"]`);
+    const rect = cardEl?.getBoundingClientRect();
+    const screenPos = rect
+      ? { x: rect.right + 20, y: rect.top }
+      : { x: globalThis.innerWidth / 2 - 190, y: 100 };
+    const stageColor = OPPORTUNITY_STAGE_COLORS[opp.stage] ?? "#BCBCBC";
+    openPopover(opp.id, screenPos, opp.title, stageColor);
+  }, [openPopover]);
 
   /** Handle quick advance: move to next stage */
   const handleAdvanceStage = useCallback(
@@ -1168,22 +1259,22 @@ export default function PipelinePage() {
     [company, currentUser, createOpportunity, t]
   );
 
-  /** Placeholder: assign (opened via detail sheet for now) */
+  /** Placeholder: assign (opens detail popover) */
   const handleAssign = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
-      if (opp) setSelectedOpportunity(opp);
+      if (opp) handleOpenDetail(opp);
     },
-    [activeOpportunities]
+    [activeOpportunities, handleOpenDetail]
   );
 
-  /** Placeholder: schedule follow-up (opened via detail sheet for now) */
+  /** Placeholder: schedule follow-up (opens detail popover) */
   const handleScheduleFollowUp = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
-      if (opp) setSelectedOpportunity(opp);
+      if (opp) handleOpenDetail(opp);
     },
-    [activeOpportunities]
+    [activeOpportunities, handleOpenDetail]
   );
 
   // ── Loading state ─────────────────────────────────────────────────────
@@ -1207,7 +1298,7 @@ export default function PipelinePage() {
     onDiscard: handleDiscard,
     onMarkWon: handleMarkWon,
     onMarkLost: handleMarkLost,
-    onOpenDetail: handleSelectOpportunity,
+    onOpenDetail: handleOpenDetail,
     onAssign: handleAssign,
     onScheduleFollowUp: handleScheduleFollowUp,
     onAddLead: gatedOpenCreate,
@@ -1227,10 +1318,14 @@ export default function PipelinePage() {
           }}
         >
           <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
-        </div>
-        {/* Toolbar — centered below metrics */}
-        <div className="pointer-events-auto flex justify-center py-1">
-          <SpatialFloatingToolbar onAddLead={gatedOpenCreate} />
+          {/* Toolbar — left-aligned below metrics, inside frosted glass */}
+          <div className="inline-flex w-fit mx-3 my-1.5 py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]">
+            <SpatialFloatingToolbar
+              onAddLead={gatedOpenCreate}
+              reviewCount={reviewCount}
+              onReviewEmails={() => setReviewPanelOpen(true)}
+            />
+          </div>
         </div>
       </div>
 
@@ -1276,22 +1371,6 @@ export default function PipelinePage() {
           </div>
         )}
 
-        {/* Email review badge */}
-        {reviewCount > 0 && (
-          <div className="pointer-events-auto">
-            <button
-              onClick={() => setReviewPanelOpen(true)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] text-[#8BB8D4] text-xs font-medium hover:bg-[rgba(89,119,148,0.20)] transition-colors cursor-pointer"
-            >
-              <Mail className="w-3.5 h-3.5" />
-              {t("gmail.reviewEmails")}
-              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#597794] text-[9px] font-bold text-white">
-                {reviewCount > 99 ? "99+" : reviewCount}
-              </span>
-            </button>
-          </div>
-        )}
-
         {/* Inbox leads */}
         {showInboxLeads && (
           <div className="pointer-events-auto">
@@ -1333,7 +1412,7 @@ export default function PipelinePage() {
             onDiscard={handleDiscard}
             onMarkWon={handleMarkWon}
             onMarkLost={handleMarkLost}
-            onOpenDetail={handleSelectOpportunity}
+            onOpenDetail={handleOpenDetail}
             onAssign={handleAssign}
             onScheduleFollowUp={handleScheduleFollowUp}
             onAddLead={gatedOpenCreate}
@@ -1346,44 +1425,29 @@ export default function PipelinePage() {
         )}
       </div>
 
-      {/* Deal Detail Sheet */}
-      <DealDetailSheet
-        opportunity={selectedOpportunity}
-        open={selectedOpportunity !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedOpportunity(null);
-        }}
-        onAdvanceStage={
-          selectedOpportunity && isActiveStage(selectedOpportunity.stage)
-            ? () => {
-                handleAdvanceStage(selectedOpportunity);
-                setSelectedOpportunity(null);
-              }
-            : undefined
-        }
-        onMarkWon={
-          selectedOpportunity && isActiveStage(selectedOpportunity.stage)
-            ? () => {
-                handleMoveStage(
-                  selectedOpportunity.id,
-                  OpportunityStage.Won
-                );
-                setSelectedOpportunity(null);
-              }
-            : undefined
-        }
-        onMarkLost={
-          selectedOpportunity && isActiveStage(selectedOpportunity.stage)
-            ? () => {
-                handleMoveStage(
-                  selectedOpportunity.id,
-                  OpportunityStage.Lost
-                );
-                setSelectedOpportunity(null);
-              }
-            : undefined
-        }
-      />
+      {/* Detail Popover Tether Lines */}
+      <DetailPopoverTether cardPositions={cardPositionsMap} />
+
+      {/* Detail Popovers */}
+      <AnimatePresence>
+        {Array.from(popoversMap.entries()).map(([oppId, popoverState]) => {
+          const opp = opportunities?.find((o) => o.id === oppId);
+          if (!opp) return null;
+          return (
+            <DetailPopover
+              key={oppId}
+              popoverState={popoverState}
+              opportunity={opp}
+              canManage={canManage}
+              onAdvanceStage={() => handleAdvanceStage(opp)}
+              onMarkWon={() => handleMoveStage(opp.id, OpportunityStage.Won)}
+              onMarkLost={() => handleMoveStage(opp.id, OpportunityStage.Lost)}
+              onArchive={() => handleArchive(opp.id)}
+              onDelete={() => deleteMutation.mutate(opp.id)}
+            />
+          );
+        })}
+      </AnimatePresence>
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog
