@@ -140,6 +140,10 @@ export const SpatialCard = memo(function SpatialCard({
       ref={setNodeRef}
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
+      role="button"
+      tabIndex={0}
+      aria-label={`${clientName}, ${opportunity.estimatedValue ? formatCurrency(opportunity.estimatedValue) : "no value"}`}
+      aria-expanded={isExpanded}
       className={cn(
         "absolute cursor-pointer select-none",
         isDragging && "opacity-20"
@@ -150,9 +154,17 @@ export const SpatialCard = memo(function SpatialCard({
         opacity: isDragging ? 0.2 : effectiveOpacity,
       }}
       onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggleExpand();
+        }
+      }}
       onContextMenu={handleContextMenu}
       onMouseEnter={onHover}
       onMouseLeave={onHoverEnd}
+      onFocus={onHover}
+      onBlur={onHoverEnd}
     >
       {/* Card surface */}
       <div
@@ -162,14 +174,12 @@ export const SpatialCard = memo(function SpatialCard({
         )}
         style={{
           background: "rgba(13,13,13,0.6)",
-          borderLeft: `3px solid ${stageColor}`,
           border: isSelected
             ? `2px solid ${stageColor}`
             : isHovered
               ? "1px solid rgba(255,255,255,0.15)"
               : "1px solid rgba(255,255,255,0.08)",
-          borderLeftWidth: 3,
-          borderLeftColor: stageColor,
+          borderLeft: `3px solid ${stageColor}`,
           boxShadow: isSelected
             ? `0 0 12px ${stageColor}40`
             : undefined,
@@ -188,107 +198,8 @@ export const SpatialCard = memo(function SpatialCard({
           </span>
         </div>
 
-        {/* Expanded content */}
-        {isExpanded && (
-          <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
-            {/* Contact info */}
-            {opportunity.contactName && (
-              <p className="font-mohave text-sm text-[#999] truncate">
-                {opportunity.contactName}
-              </p>
-            )}
-
-            {/* Correspondence stats */}
-            {opportunity.correspondenceCount > 0 && (
-              <p className="font-kosugi text-[10px] text-[#666] mt-1">
-                {opportunity.correspondenceCount} email{opportunity.correspondenceCount !== 1 ? "s" : ""}
-                {" · "}
-                {opportunity.inboundCount} in / {opportunity.outboundCount} out
-              </p>
-            )}
-
-            {/* Actions bar */}
-            <div className="mt-2">
-              <SpatialCardActionsInline
-                opportunity={opportunity}
-                canManage={canManage}
-                onLogCall={onLogCall}
-                onLogText={onLogText}
-                onAddNote={onAddNote}
-                onArchive={onArchive}
-                onDiscard={onDiscard}
-                onMarkWon={onMarkWon}
-                onMarkLost={onMarkLost}
-                onAssign={onAssign}
-                onScheduleFollowUp={onScheduleFollowUp}
-                onOpenDetail={onOpenDetail}
-              />
-            </div>
-
-            {/* Details link */}
-            <button
-              className="font-mohave text-sm text-[#597794] hover:text-white cursor-pointer mt-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDetail();
-              }}
-            >
-              View details →
-            </button>
-          </div>
-        )}
+        {/* Expanded content is rendered externally by SpatialCardExpanded */}
       </div>
     </div>
   );
 });
-
-// ── Inline actions (simplified for spatial card) ──
-function SpatialCardActionsInline({
-  opportunity,
-  canManage,
-  onLogCall,
-  onLogText,
-  onAddNote,
-  onArchive,
-  onDiscard,
-  onMarkWon,
-  onMarkLost,
-  onAssign,
-  onScheduleFollowUp,
-  onOpenDetail,
-}: {
-  opportunity: Opportunity;
-  canManage: boolean;
-  onLogCall: () => void;
-  onLogText: () => void;
-  onAddNote: (note: string) => void;
-  onArchive: () => void;
-  onDiscard: () => void;
-  onMarkWon: () => void;
-  onMarkLost: () => void;
-  onAssign: () => void;
-  onScheduleFollowUp: () => void;
-  onOpenDetail: () => void;
-}) {
-  // Import and render the existing PipelineCardActions component
-  // This is done lazily to avoid circular dependencies
-  const PipelineCardActions = require("./pipeline-card-actions").PipelineCardActions;
-
-  return (
-    <PipelineCardActions
-      opportunityId={opportunity.id}
-      stage={opportunity.stage}
-      canManage={canManage}
-      onLogCall={onLogCall}
-      onLogText={onLogText}
-      onAddNote={onAddNote}
-      onArchive={onArchive}
-      onMarkWon={onMarkWon}
-      onMarkLost={onMarkLost}
-      onDiscard={onDiscard}
-      onAssign={onAssign}
-      onScheduleFollowUp={onScheduleFollowUp}
-      onOpenDetail={onOpenDetail}
-    />
-  );
-}

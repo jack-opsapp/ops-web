@@ -23,32 +23,9 @@ import {
 interface SpatialStageStackProps {
   stage: OpportunityStage;
   opportunities: Opportunity[];
-  clients: Map<string, string>;
   layout: StackLayout;
-  expandedCardIds: Set<string>;
-  selectedCardIds: Set<string>;
-  hoveredCardId: string | null;
   isBirdEye: boolean;
-  canManage: boolean;
   activeId: string | null;
-  // Card callbacks (passed through to children)
-  onToggleExpand: (id: string) => void;
-  onHoverCard: (id: string | null) => void;
-  onSelectCard: (id: string, e: React.MouseEvent) => void;
-  onCardContextMenu: (e: React.MouseEvent, id: string) => void;
-  onAdvance: (opportunity: Opportunity) => void;
-  onRetreat: (opportunity: Opportunity) => void;
-  onLogCall: (id: string) => void;
-  onLogText: (id: string) => void;
-  onAddNote: (id: string, note: string) => void;
-  onArchive: (id: string) => void;
-  onDiscard: (id: string) => void;
-  onMarkWon: (opportunity: Opportunity) => void;
-  onMarkLost: (opportunity: Opportunity) => void;
-  onOpenDetail: (opportunity: Opportunity) => void;
-  onAssign: (id: string) => void;
-  onScheduleFollowUp: (id: string) => void;
-  // Render card function (passed from parent to avoid circular deps)
   renderCard: (
     opportunity: Opportunity,
     position: { x: number; y: number }
@@ -67,6 +44,12 @@ export function SpatialStageStack({
 }: SpatialStageStackProps) {
   const { t } = useDictionary("pipeline");
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
+
+  // O(1) lookup instead of O(n) per card
+  const oppMap = useMemo(
+    () => new Map(opportunities.map((o) => [o.id, o])),
+    [opportunities]
+  );
 
   const { setNodeRef, isOver } = useDroppable({
     id: `stage-${stage}`,
@@ -131,7 +114,7 @@ export function SpatialStageStack({
 
       {/* Cards */}
       {layout.cardPositions.map((pos) => {
-        const opp = opportunities.find((o) => o.id === pos.opportunityId);
+        const opp = oppMap.get(pos.opportunityId);
         if (!opp) return null;
         return renderCard(opp, pos);
       })}

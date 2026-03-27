@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
+import { useDictionary } from "@/i18n/client";
 import {
   type Opportunity,
   OpportunityStage,
@@ -15,11 +17,7 @@ import { CARD_WIDTH, STACK_HEADER_HEIGHT } from "./spatial-canvas-store";
 interface SpatialTerminalRegionProps {
   stage: OpportunityStage.Won | OpportunityStage.Lost;
   opportunities: Opportunity[];
-  clients: Map<string, string>;
   layout: TerminalRegionLayout;
-  isBirdEye: boolean;
-  onOpenDetail: (opportunity: Opportunity) => void;
-  onContextMenu: (e: React.MouseEvent, opportunityId: string) => void;
   renderCard: (
     opportunity: Opportunity,
     position: { x: number; y: number }
@@ -32,10 +30,16 @@ export function SpatialTerminalRegion({
   stage,
   opportunities,
   layout,
-  isBirdEye,
   renderCard,
 }: SpatialTerminalRegionProps) {
+  const { t } = useDictionary("pipeline");
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
+
+  // O(1) lookup instead of O(n) per card
+  const oppMap = useMemo(
+    () => new Map(opportunities.map((o) => [o.id, o])),
+    [opportunities]
+  );
 
   const { setNodeRef, isOver } = useDroppable({
     id: `terminal-${stage}`,
@@ -86,7 +90,7 @@ export function SpatialTerminalRegion({
 
       {/* Cards in 2D grid */}
       {layout.cardPositions.map((pos) => {
-        const opp = opportunities.find((o) => o.id === pos.opportunityId);
+        const opp = oppMap.get(pos.opportunityId);
         if (!opp) return null;
         return renderCard(opp, pos);
       })}
@@ -103,7 +107,7 @@ export function SpatialTerminalRegion({
           }}
         >
           <span className="font-kosugi text-[10px] text-[#333] uppercase">
-            {stage === OpportunityStage.Won ? "No won deals" : "No lost deals"}
+            {stage === OpportunityStage.Won ? t("spatial.noWonDeals") : t("spatial.noLostDeals")}
           </span>
         </div>
       )}

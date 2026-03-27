@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Maximize2, Plus, Archive } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useSpatialCanvasStore } from "./spatial-canvas-store";
 import {
@@ -92,26 +93,14 @@ function ToolbarButton({
 }) {
   return (
     <button
-      className="p-[6px] rounded-[2px] transition-all duration-150 cursor-pointer"
-      style={{
-        color: isActive ? "#597794" : "#555",
-        background: isActive ? "rgba(89,119,148,0.1)" : "transparent",
-      }}
+      className={cn(
+        "p-[6px] rounded-[2px] transition-all duration-150 cursor-pointer",
+        isActive
+          ? "text-[#597794] bg-[rgba(89,119,148,0.1)]"
+          : "text-[#555] hover:text-white hover:bg-[rgba(255,255,255,0.06)]"
+      )}
       onClick={onClick}
       title={tooltip}
-      onMouseEnter={(e) => {
-        if (!isActive) {
-          (e.currentTarget as HTMLElement).style.color = "#fff";
-          (e.currentTarget as HTMLElement).style.background =
-            "rgba(255,255,255,0.06)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isActive) {
-          (e.currentTarget as HTMLElement).style.color = "#555";
-          (e.currentTarget as HTMLElement).style.background = "transparent";
-        }
-      }}
     >
       {icon}
     </button>

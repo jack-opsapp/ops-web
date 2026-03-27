@@ -55,7 +55,7 @@ export function SpatialArchiveTray({
           className="fixed right-0 top-0 bottom-0 flex flex-col"
           style={{
             width: 280,
-            zIndex: 500,
+            zIndex: 1500,
             background: "rgba(10, 10, 10, 0.70)",
             backdropFilter: "blur(20px) saturate(1.2)",
             WebkitBackdropFilter: "blur(20px) saturate(1.2)",
@@ -92,7 +92,7 @@ export function SpatialArchiveTray({
                 const clientName =
                   clients.get(opp.clientId ?? "") ??
                   opp.contactName ??
-                  "Unknown";
+                  t("card.unknown");
                 const stageColor =
                   OPPORTUNITY_STAGE_COLORS[opp.stage] ?? "#444";
 

@@ -266,5 +266,10 @@
 
   "archiveTray.title": "ARCHIVED",
   "archiveTray.restore": "Restore",
-  "archiveTray.empty": "No archived deals"
+  "archiveTray.empty": "No archived deals",
+
+  "spatial.noWonDeals": "No won deals",
+  "spatial.noLostDeals": "No lost deals",
+  "spatial.viewDetails": "View details",
+  "spatial.activity": "activity {timeAgo}"
 }

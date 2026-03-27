@@ -73,6 +73,7 @@ export function SpatialContextMenu({
   const [showStageSubmenu, setShowStageSubmenu] = useState(false);
 
   // Dismiss on Escape or click outside
+  // Use requestAnimationFrame to prevent the opening right-click from immediately closing the menu
   useEffect(() => {
     if (!contextMenu) return;
 
@@ -85,9 +86,12 @@ export function SpatialContextMenu({
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("mousedown", handleClick);
+    const frame = requestAnimationFrame(() => {
+      document.addEventListener("keydown", handleKeyDown);
+      document.addEventListener("mousedown", handleClick);
+    });
     return () => {
+      cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClick);
     };

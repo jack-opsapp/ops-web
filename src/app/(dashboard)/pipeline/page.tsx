@@ -64,7 +64,7 @@ import { SpatialCard } from "./_components/spatial-card";
 import { SpatialCardHoverMetrics } from "./_components/spatial-card-hover-metrics";
 import { SpatialCardExpanded } from "./_components/spatial-card-expanded";
 import { SpatialDragOverlay } from "./_components/spatial-drag-overlay";
-import { SpatialMarqueeSelect } from "./_components/spatial-marquee-select";
+import { SpatialMarqueeSelect, isCardInMarquee } from "./_components/spatial-marquee-select";
 import { SpatialContextMenu } from "./_components/spatial-context-menu";
 import { SpatialTerminalRegion } from "./_components/spatial-terminal-region";
 import { SpatialFloatingToolbar } from "./_components/spatial-floating-toolbar";
@@ -213,18 +213,34 @@ function SpatialCanvasDesktop({
 
   const handleCanvasContextMenu = useCallback(
     (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) {
-        e.preventDefault();
-        showContextMenu({
-          visible: true,
-          x: e.clientX,
-          y: e.clientY,
-          type: "canvas",
-          targetCardId: null,
-        });
-      }
+      showContextMenu({
+        visible: true,
+        x: e.clientX,
+        y: e.clientY,
+        type: "canvas",
+        targetCardId: null,
+      });
     },
     [showContextMenu]
+  );
+
+  // Marquee selection → compute which cards fall inside the rectangle
+  const handleMarqueeEnd = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const allPositions = [
+        ...layout.stacks.flatMap((s) => s.cardPositions),
+        ...layout.terminalRegions.flatMap((r) => r.cardPositions),
+      ];
+      const selected = allPositions
+        .filter((pos) =>
+          isCardInMarquee(pos.x, pos.y, CARD_WIDTH, CARD_HEIGHT, start, end)
+        )
+        .map((pos) => pos.opportunityId);
+      if (selected.length > 0) {
+        selectCards(selected);
+      }
+    },
+    [layout, selectCards]
   );
 
   // Render card helper (passed to stacks/regions)
@@ -351,7 +367,7 @@ function SpatialCanvasDesktop({
     : 1;
 
   return (
-    <div className="relative h-full w-full" onContextMenu={handleCanvasContextMenu}>
+    <div className="relative h-full w-full">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -361,6 +377,8 @@ function SpatialCanvasDesktop({
         <SpatialCanvas
           canvasWidth={layout.canvasWidth}
           canvasHeight={layout.canvasHeight}
+          onCanvasContextMenu={handleCanvasContextMenu}
+          onMarqueeEnd={handleMarqueeEnd}
         >
           {/* Active stage stacks */}
           {layout.stacks.map((stackLayout) => (
@@ -368,35 +386,9 @@ function SpatialCanvasDesktop({
               key={stackLayout.stage}
               stage={stackLayout.stage}
               opportunities={oppsByStage.get(stackLayout.stage) ?? []}
-              clients={clientNameMap}
               layout={stackLayout}
-              expandedCardIds={expandedCardIds}
-              selectedCardIds={selectedCardIds}
-              hoveredCardId={hoveredCardId}
               isBirdEye={isBirdEye}
-              canManage={canManage}
               activeId={activeId}
-              onToggleExpand={onToggleExpand}
-              onHoverCard={setHoveredCard}
-              onSelectCard={(id, e) => {
-                if (e.shiftKey || e.metaKey) toggleCardSelected(id);
-              }}
-              onCardContextMenu={handleCardContextMenu}
-              onAdvance={(opp) => {
-                const next = nextOpportunityStage(opp.stage);
-                if (next) onMoveStage(opp.id, next);
-              }}
-              onRetreat={() => {}}
-              onLogCall={onLogCall}
-              onLogText={onLogText}
-              onAddNote={onAddNote}
-              onArchive={onArchive}
-              onDiscard={onDiscard}
-              onMarkWon={onMarkWon}
-              onMarkLost={onMarkLost}
-              onOpenDetail={onOpenDetail}
-              onAssign={onAssign}
-              onScheduleFollowUp={onScheduleFollowUp}
               renderCard={(opp, pos) => renderCard(opp, pos)}
             />
           ))}
@@ -407,11 +399,7 @@ function SpatialCanvasDesktop({
               key={regionLayout.stage}
               stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
               opportunities={oppsByStage.get(regionLayout.stage) ?? []}
-              clients={clientNameMap}
               layout={regionLayout}
-              isBirdEye={isBirdEye}
-              onOpenDetail={onOpenDetail}
-              onContextMenu={handleCardContextMenu}
               renderCard={(opp, pos) => renderCard(opp, pos, false)}
             />
           ))}

@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Phone, Mail } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { PipelineCardActions } from "./pipeline-card-actions";
 import {
@@ -60,6 +61,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
   onScheduleFollowUp,
   onOpenDetail,
 }: SpatialCardExpandedProps) {
+  const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
   const variants = reduced
     ? pipelineCardContentVariantsReduced
@@ -179,7 +181,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           variants={variants}
           className="font-kosugi text-[10px] text-[#555] mt-1"
         >
-          activity {formatTimeAgo(opportunity.lastActivityAt)}
+          {t("spatial.activity").replace("{timeAgo}", formatTimeAgo(opportunity.lastActivityAt))}
         </motion.p>
       )}
 
@@ -196,7 +198,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           onOpenDetail();
         }}
       >
-        View details →
+        {t("spatial.viewDetails")} →
       </motion.button>
     </div>
   );
