@@ -252,6 +252,22 @@ function SpatialCanvasDesktop({
     [opportunities, sortBy, clientNameMap]
   );
 
+  // Auto-fit canvas on first load
+  const fitAll = useSpatialCanvasStore((s) => s.fitAll);
+  const hasAutoFit = useRef(false);
+  useEffect(() => {
+    if (!hasAutoFit.current && layout.canvasWidth > 0) {
+      hasAutoFit.current = true;
+      // Slight delay to ensure container is measured
+      requestAnimationFrame(() => {
+        const el = document.querySelector("[data-spatial-canvas]");
+        if (el) {
+          fitAll(el.clientWidth, el.clientHeight);
+        }
+      });
+    }
+  }, [layout.canvasWidth, fitAll]);
+
   // Calculate staleness
   const stalenessMap = useMemo(
     () => calculateBatchStaleness(opportunities),

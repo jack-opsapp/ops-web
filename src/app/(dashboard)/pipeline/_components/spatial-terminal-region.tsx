@@ -88,11 +88,14 @@ export function SpatialTerminalRegion({
         </span>
       </div>
 
-      {/* Cards in 2D grid */}
+      {/* Cards in 2D grid — positions converted from canvas-absolute to region-relative */}
       {layout.cardPositions.map((pos) => {
         const opp = oppMap.get(pos.opportunityId);
         if (!opp) return null;
-        return renderCard(opp, pos);
+        return renderCard(opp, {
+          x: pos.x - layout.bounds.x,
+          y: pos.y - layout.bounds.y,
+        });
       })}
 
       {/* Empty state */}

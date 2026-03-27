@@ -112,11 +112,14 @@ export function SpatialStageStack({
         </span>
       </div>
 
-      {/* Cards */}
+      {/* Cards — positions converted from canvas-absolute to stack-relative */}
       {layout.cardPositions.map((pos) => {
         const opp = oppMap.get(pos.opportunityId);
         if (!opp) return null;
-        return renderCard(opp, pos);
+        return renderCard(opp, {
+          x: pos.x - layout.regionBounds.x,
+          y: pos.y - layout.regionBounds.y,
+        });
       })}
 
       {/* Empty state */}

@@ -52,9 +52,10 @@ export function SpatialArchiveTray({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed right-0 top-0 bottom-0 flex flex-col"
+          className="fixed right-0 bottom-0 flex flex-col"
           style={{
             width: 280,
+            top: 56,
             zIndex: 1500,
             background: "rgba(10, 10, 10, 0.70)",
             backdropFilter: "blur(20px) saturate(1.2)",

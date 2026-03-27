@@ -166,6 +166,7 @@ export function SpatialCanvas({
   return (
     <div
       ref={containerRef}
+      data-spatial-canvas
       className="relative w-full h-full overflow-hidden bg-[#0A0A0A] cursor-grab active:cursor-grabbing"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
