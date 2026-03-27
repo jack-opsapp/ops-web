@@ -70,11 +70,11 @@ export function SpatialArchiveTray({
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="font-kosugi text-[10px] text-[#666] uppercase tracking-widest">
+            <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
               {t("archiveTray.title")}
             </span>
             <button
-              className="p-1 text-[#555] hover:text-white transition-colors cursor-pointer"
+              className="p-1 text-text-disabled hover:text-white transition-colors cursor-pointer"
               onClick={toggleArchiveTray}
             >
               <X className="w-4 h-4" />
@@ -85,7 +85,7 @@ export function SpatialArchiveTray({
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             {archivedOpportunities.length === 0 ? (
               <div className="flex items-center justify-center h-32">
-                <span className="font-mohave text-sm text-[#444]">
+                <span className="font-mohave text-body-sm text-text-disabled">
                   {t("archiveTray.empty")}
                 </span>
               </div>
@@ -111,16 +111,16 @@ export function SpatialArchiveTray({
 
                     {/* Name + value */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-mohave text-sm text-[#999] truncate">
+                      <p className="font-mohave text-body-sm text-text-secondary truncate">
                         {clientName}
                       </p>
-                      <p className="font-mohave text-xs text-[#555]">
+                      <p className="font-mohave text-caption-sm text-text-disabled">
                         {opp.estimatedValue
                           ? formatCurrency(opp.estimatedValue)
                           : "$--"}
                       </p>
                       {opp.archivedAt && (
-                        <p className="font-kosugi text-[10px] text-[#444]">
+                        <p className="font-kosugi text-micro-sm text-text-disabled">
                           {formatTimeAgo(opp.archivedAt)}
                         </p>
                       )}
@@ -129,13 +129,13 @@ export function SpatialArchiveTray({
                     {/* Restore + Delete buttons */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        className="font-kosugi text-[10px] text-[#597794] hover:text-white cursor-pointer whitespace-nowrap"
+                        className="font-kosugi text-micro-sm text-ops-accent hover:text-white cursor-pointer whitespace-nowrap"
                         onClick={() => handleRestore(opp.id)}
                       >
                         {t("archiveTray.restore")}
                       </button>
                       <button
-                        className="p-0.5 text-[#555] hover:text-[#93321A] cursor-pointer transition-colors"
+                        className="p-0.5 text-text-disabled hover:text-ops-error cursor-pointer transition-colors"
                         onClick={() => onDeletePermanently(opp.id)}
                         title={t("contextMenu.deletePermanently")}
                       >

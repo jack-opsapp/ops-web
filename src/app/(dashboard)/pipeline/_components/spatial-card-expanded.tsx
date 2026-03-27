@@ -73,18 +73,18 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           variants={variants}
           className="mb-1"
         >
-          <p className="font-mohave text-sm text-[#999]">
+          <p className="font-mohave text-body-sm text-text-secondary">
             {opportunity.contactName}
           </p>
           <div className="flex items-center gap-3 mt-1">
             {opportunity.contactPhone && (
               <a
                 href={`tel:${opportunity.contactPhone}`}
-                className="flex items-center gap-1 text-[#597794] hover:text-white transition-colors"
+                className="flex items-center gap-1 text-ops-accent hover:text-text-primary transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Phone className="w-3 h-3" />
-                <span className="font-kosugi text-[10px]">
+                <span className="font-kosugi text-micro-sm">
                   {opportunity.contactPhone}
                 </span>
               </a>
@@ -92,11 +92,11 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
             {opportunity.contactEmail && (
               <a
                 href={`mailto:${opportunity.contactEmail}`}
-                className="flex items-center gap-1 text-[#597794] hover:text-white transition-colors"
+                className="flex items-center gap-1 text-ops-accent hover:text-text-primary transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Mail className="w-3 h-3" />
-                <span className="font-kosugi text-[10px] truncate max-w-[120px]">
+                <span className="font-kosugi text-micro-sm truncate max-w-[120px]">
                   {opportunity.contactEmail}
                 </span>
               </a>
@@ -115,7 +115,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           variants={variants}
           className="mb-1"
         >
-          <p className="font-kosugi text-[10px] text-[#666]">
+          <p className="font-kosugi text-micro-sm text-text-tertiary">
             {t("spatial.emailCount")
               .replace("{count}", String(opportunity.correspondenceCount))}
             {" · "}
@@ -124,7 +124,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
               .replace("{out}", String(opportunity.outboundCount))}
           </p>
           {lastCorrespondenceDate && (
-            <p className="font-kosugi text-[10px] text-[#555]">
+            <p className="font-kosugi text-micro-sm text-text-disabled">
               {t("spatial.emailLastTime")
                 .replace("{time}", formatTimeAgo(lastCorrespondenceDate))}
             </p>
@@ -166,7 +166,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           animate="visible"
           exit="exit"
           variants={variants}
-          className="font-kosugi text-[10px] text-[#555] mt-1"
+          className="font-kosugi text-micro-sm text-text-disabled mt-1"
         >
           {t("spatial.activity").replace("{timeAgo}", formatTimeAgo(opportunity.lastActivityAt))}
         </motion.p>
@@ -179,7 +179,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
         animate="visible"
         exit="exit"
         variants={variants}
-        className="font-mohave text-sm text-[#597794] hover:text-white cursor-pointer mt-2"
+        className="font-mohave text-body-sm text-ops-accent hover:text-text-primary cursor-pointer mt-2"
         onClick={(e) => {
           e.stopPropagation();
           onOpenDetail();

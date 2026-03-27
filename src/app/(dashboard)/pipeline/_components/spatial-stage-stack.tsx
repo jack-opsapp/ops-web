@@ -119,14 +119,14 @@ export function SpatialStageStack({
         onMouseLeave={() => setIsHeaderHovered(false)}
       >
         <div className="flex items-baseline gap-2">
-          <span className="font-kosugi text-[10px] text-[#666] uppercase tracking-widest">
+          <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
             {getStageDisplayName(stage)}
           </span>
-          <span className="font-mohave text-sm text-white">
+          <span className="font-mohave text-body-sm text-text-primary">
             {opportunities.length}
           </span>
-          <span className="font-mohave text-sm text-[#444]">/</span>
-          <span className="font-mohave text-sm text-white">
+          <span className="font-mohave text-body-sm text-text-disabled">/</span>
+          <span className="font-mohave text-body-sm text-text-primary">
             {totalValue > 0 ? formatCurrency(totalValue) : "$--"}
           </span>
         </div>
@@ -136,10 +136,10 @@ export function SpatialStageStack({
             style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
           >
             {/* Metric abbreviations — intentionally not i18n'd (universal shorthand) */}
-            <span className="font-kosugi text-[10px] text-[#444]">
+            <span className="font-kosugi text-micro-sm text-text-disabled">
               avg {Math.round(opportunities.reduce((sum, o) => sum + getDaysInStage(o), 0) / opportunities.length)}d
             </span>
-            <span className="font-kosugi text-[10px] text-[#444]">
+            <span className="font-kosugi text-micro-sm text-text-disabled">
               oldest: {Math.max(...opportunities.map((o) => getDaysInStage(o)))}d
             </span>
           </div>
@@ -190,10 +190,10 @@ export function SpatialStageStack({
             height: CARD_HEIGHT * 2,
           }}
         >
-          <span className="font-kosugi text-[10px] text-[#444] uppercase">
+          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
             {t("empty.noDeals")}
           </span>
-          <span className="font-kosugi text-[9px] text-[#333] uppercase mt-1">
+          <span className="font-kosugi text-micro-xs text-text-disabled uppercase mt-1">
             {t("empty.dropHere")}
           </span>
         </div>

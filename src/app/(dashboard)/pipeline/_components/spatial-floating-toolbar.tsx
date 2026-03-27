@@ -94,8 +94,8 @@ function ToolbarButton({
       className={cn(
         "p-[4px] rounded-[2px] transition-all duration-150 cursor-pointer",
         isActive
-          ? "text-[#597794] bg-[rgba(89,119,148,0.1)]"
-          : "text-[#444] hover:text-white hover:bg-[rgba(255,255,255,0.06)]"
+          ? "text-ops-accent bg-[rgba(89,119,148,0.1)]"
+          : "text-text-disabled hover:text-white hover:bg-[rgba(255,255,255,0.06)]"
       )}
       onClick={onClick}
       title={tooltip}

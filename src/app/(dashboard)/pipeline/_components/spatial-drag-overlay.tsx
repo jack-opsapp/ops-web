@@ -50,10 +50,10 @@ export function SpatialDragOverlay({
           }}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mohave text-sm font-medium text-white truncate">
+            <span className="font-mohave text-body-sm font-medium text-text-primary truncate">
               {clientName}
             </span>
-            <span className="font-mohave text-sm text-[#999] whitespace-nowrap">
+            <span className="font-mohave text-body-sm text-text-secondary whitespace-nowrap">
               {activeOpportunity.estimatedValue
                 ? formatCurrency(activeOpportunity.estimatedValue)
                 : "$--"}
@@ -72,7 +72,7 @@ export function SpatialDragOverlay({
               padding: "2px 8px",
             }}
           >
-            <span className="font-kosugi text-[10px] text-white">
+            <span className="font-kosugi text-micro-sm text-text-primary">
               +{batchCount - 1}
             </span>
           </div>

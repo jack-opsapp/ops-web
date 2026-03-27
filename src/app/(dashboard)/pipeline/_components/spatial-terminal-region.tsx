@@ -89,10 +89,10 @@ export function SpatialTerminalRegion({
           padding: "10px 0 0 0",
         }}
       >
-        <span className="font-kosugi text-[10px] text-[#666] uppercase tracking-widest">
+        <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
           {getStageDisplayName(stage)}
         </span>
-        <span className="font-mohave text-sm text-white">
+        <span className="font-mohave text-body-sm text-text-primary">
           {opportunities.length}
         </span>
       </div>
@@ -118,7 +118,7 @@ export function SpatialTerminalRegion({
             height: 44,
           }}
         >
-          <span className="font-kosugi text-[10px] text-[#333] uppercase">
+          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
             {stage === OpportunityStage.Won ? t("spatial.noWonDeals") : t("spatial.noLostDeals")}
           </span>
         </div>
