@@ -71,6 +71,12 @@
   "detail.lost": "Lost",
   "detail.description": "Description",
   "detail.siteVisits": "Site Visits",
+  "detail.emailsTab": "Emails",
+  "detail.followUpsTab": "Follow-ups",
+  "detail.visitsTab": "Visits",
+  "detail.noFollowUps": "No pending follow-ups",
+  "detail.noVisits": "No site visits",
+  "detail.newVisit": "Schedule Visit",
 
   "transition.wonTitle": "Deal Won!",
   "transition.wonDescription": "Congratulations on closing",
@@ -262,12 +268,16 @@
   "contextMenu.sortByDays": "Sort by: Days in stage",
   "contextMenu.organizeByStage": "Organize by stage",
   "contextMenu.selectAll": "Select all",
+  "contextMenu.selectAllInStage": "Select all in stage",
   "contextMenu.restoreTo": "Restore to...",
   "contextMenu.deletePermanently": "Delete permanently",
 
   "archiveTray.title": "ARCHIVED",
   "archiveTray.restore": "Restore",
   "archiveTray.empty": "No archived deals",
+
+  "discardTray.title": "DISCARDED",
+  "discardTray.empty": "No discarded deals",
 
   "spatial.noWonDeals": "No won deals",
   "spatial.noLostDeals": "No lost deals",

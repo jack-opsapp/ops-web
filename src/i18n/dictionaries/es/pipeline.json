@@ -71,6 +71,12 @@
   "detail.lost": "Perdido",
   "detail.description": "Descripción",
   "detail.siteVisits": "Visitas al sitio",
+  "detail.emailsTab": "Correos",
+  "detail.followUpsTab": "Seguimientos",
+  "detail.visitsTab": "Visitas",
+  "detail.noFollowUps": "Sin seguimientos pendientes",
+  "detail.noVisits": "Sin visitas",
+  "detail.newVisit": "Programar Visita",
 
   "transition.wonTitle": "¡Trato ganado!",
   "transition.wonDescription": "Felicidades por cerrar",
@@ -262,12 +268,16 @@
   "contextMenu.sortByDays": "Ordenar por: Días en etapa",
   "contextMenu.organizeByStage": "Organizar por etapa",
   "contextMenu.selectAll": "Seleccionar todo",
+  "contextMenu.selectAllInStage": "Seleccionar todo en etapa",
   "contextMenu.restoreTo": "Restaurar a...",
   "contextMenu.deletePermanently": "Eliminar permanentemente",
 
   "archiveTray.title": "ARCHIVADOS",
   "archiveTray.restore": "Restaurar",
   "archiveTray.empty": "Sin tratos archivados",
+
+  "discardTray.title": "DESCARTADOS",
+  "discardTray.empty": "Sin tratos descartados",
 
   "spatial.noWonDeals": "Sin tratos ganados",
   "spatial.noLostDeals": "Sin tratos perdidos",

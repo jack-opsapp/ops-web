@@ -33,6 +33,7 @@ import {
   OpportunitySource,
   ActivityType,
   getStageDisplayName,
+  formatCurrency,
   isActiveStage,
   nextOpportunityStage,
   previousOpportunityStage,
@@ -72,7 +73,7 @@ import { SpatialMarqueeSelect, isCardInMarquee } from "./_components/spatial-mar
 import { SpatialContextMenu } from "./_components/spatial-context-menu";
 import { SpatialTerminalRegion } from "./_components/spatial-terminal-region";
 import { SpatialFloatingToolbar } from "./_components/spatial-floating-toolbar";
-import { SpatialArchiveTray } from "./_components/spatial-archive-tray";
+import { SpatialArchiveTray, SpatialDiscardTray } from "./_components/spatial-archive-tray";
 import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import {
@@ -235,6 +236,7 @@ function SpatialCanvasDesktop({
   onScheduleFollowUp,
   onAddLead,
   archivedOpportunities,
+  discardedOpportunities,
   onRestore,
   onDeletePermanently,
 }: {
@@ -254,6 +256,7 @@ function SpatialCanvasDesktop({
   onScheduleFollowUp: (id: string) => void;
   onAddLead: () => void;
   archivedOpportunities: Opportunity[];
+  discardedOpportunities: Opportunity[];
   onRestore: (id: string) => void;
   onDeletePermanently: (id: string) => void;
 }) {
@@ -527,9 +530,13 @@ function SpatialCanvasDesktop({
   const oppsByStage = useMemo(() => {
     const map = new Map<OpportunityStage, Opportunity[]>();
     for (const opp of opportunities) {
-      const arr = map.get(opp.stage) ?? [];
+      // Discarded deals are grouped under Lost to match the layout engine
+      const effectiveStage = opp.stage === OpportunityStage.Discarded
+        ? OpportunityStage.Lost
+        : opp.stage;
+      const arr = map.get(effectiveStage) ?? [];
       arr.push(opp);
-      map.set(opp.stage, arr);
+      map.set(effectiveStage, arr);
     }
     return map;
   }, [opportunities]);
@@ -629,6 +636,14 @@ function SpatialCanvasDesktop({
       {/* Archive tray */}
       <SpatialArchiveTray
         archivedOpportunities={archivedOpportunities}
+        clients={clientNameMap}
+        onRestore={onRestore}
+        onDeletePermanently={onDeletePermanently}
+      />
+
+      {/* Discard tray */}
+      <SpatialDiscardTray
+        discardedOpportunities={discardedOpportunities}
         clients={clientNameMap}
         onRestore={onRestore}
         onDeletePermanently={onDeletePermanently}
@@ -1055,6 +1070,9 @@ export default function PipelinePage() {
       const opp = activeOpportunities.find((o) => o.id === id);
       if (!opp) return;
 
+      // No-op: card dropped back on its own stage
+      if (opp.stage === newStage) return;
+
       // Won / Lost need confirmation dialogs
       if (newStage === OpportunityStage.Won) {
         setTransitionOpportunity(opp);
@@ -1075,9 +1093,13 @@ export default function PipelinePage() {
         { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
+            const clientName = clientNameMap.get(opp.clientId ?? "") ?? opp.contactName ?? opp.title ?? "";
+            const value = opp.estimatedValue ? formatCurrency(opp.estimatedValue) : "";
+            const fromStage = getStageDisplayName(opp.stage);
+            const toStage = getStageDisplayName(newStage);
             toast.success(
-              `${t("toast.movedTo")} ${getStageDisplayName(newStage)}`,
-              { description: opp.title }
+              `${clientName}${value ? ` · ${value}` : ""}`,
+              { description: `${fromStage} → ${toStage}` }
             );
           },
           onError: (error) => {
@@ -1418,6 +1440,9 @@ export default function PipelinePage() {
             onAddLead={gatedOpenCreate}
             archivedOpportunities={
               opportunities?.filter((o) => !!o.archivedAt) ?? []
+            }
+            discardedOpportunities={
+              opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
             }
             onRestore={(id) => unarchiveMutation.mutate(id)}
             onDeletePermanently={(id) => deleteMutation.mutate(id)}

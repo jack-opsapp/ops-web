@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Plus, Archive, Mail } from "lucide-react";
+import { Maximize2, Plus, Archive, Trash2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useSpatialCanvasStore } from "./spatial-canvas-store";
@@ -35,6 +35,8 @@ export function SpatialFloatingToolbar({
   const fitAll = useSpatialCanvasStore((s) => s.fitAll);
   const toggleArchiveTray = useSpatialCanvasStore((s) => s.toggleArchiveTray);
   const isArchiveTrayOpen = useSpatialCanvasStore((s) => s.isArchiveTrayOpen);
+  const toggleDiscardTray = useSpatialCanvasStore((s) => s.toggleDiscardTray);
+  const isDiscardTrayOpen = useSpatialCanvasStore((s) => s.isDiscardTrayOpen);
 
   const handleFitAll = useCallback(() => {
     const canvas = document.querySelector("[data-spatial-canvas]");
@@ -88,6 +90,15 @@ export function SpatialFloatingToolbar({
         <Archive className="w-[13px] h-[13px]" />
         <span className="font-kosugi text-micro-sm uppercase tracking-wider">
           {t("spatial.archivedDeals")}
+        </span>
+      </ToolbarAction>
+
+      <div className="w-[1px] h-[18px] bg-border-subtle" />
+
+      <ToolbarAction onClick={toggleDiscardTray} isActive={isDiscardTrayOpen}>
+        <Trash2 className="w-[13px] h-[13px]" />
+        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+          {t("discardTray.title")}
         </span>
       </ToolbarAction>
     </motion.div>

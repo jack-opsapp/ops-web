@@ -21,6 +21,8 @@ export const TERMINAL_COLS = 3;
 export const TERMINAL_GAP = 80;
 
 // ── Types ──
+export type SortOption = "value" | "name" | "date" | "days_in_stage";
+
 export interface CardPosition {
   x: number;
   y: number;
@@ -32,6 +34,8 @@ export interface ContextMenuState {
   y: number;
   type: "canvas" | "card" | "selection";
   targetCardId: string | null;
+  /** Stage the context menu was opened within (null = global / outside any region) */
+  stage: string | null;
 }
 
 interface SpatialCanvasState {
@@ -44,8 +48,9 @@ interface SpatialCanvasState {
   canvasWidth: number;
   canvasHeight: number;
 
-  // Sort
-  sortBy: "value" | "name" | "date" | "days_in_stage";
+  // Sort — global default + per-stage overrides
+  sortBy: SortOption;
+  stageSortOverrides: Map<string, SortOption>;
 
   // Selection
   selectedCardIds: Set<string>;
@@ -68,15 +73,19 @@ interface SpatialCanvasState {
   // Custom positions (Finder-style free positioning)
   customPositions: Map<string, CardPosition>;
 
-  // Archive tray
+  // Trays
   isArchiveTrayOpen: boolean;
+  isDiscardTrayOpen: boolean;
 
   // Actions
   setViewport: (x: number, y: number) => void;
   setZoom: (zoom: number) => void;
   zoomBy: (delta: number, centerX: number, centerY: number) => void;
   setCanvasDimensions: (width: number, height: number) => void;
-  setSortBy: (sort: SpatialCanvasState["sortBy"]) => void;
+  setSortBy: (sort: SortOption) => void;
+  setStageSortBy: (stage: string, sort: SortOption) => void;
+  clearStageSortBy: (stage: string) => void;
+  getSortForStage: (stage: string) => SortOption;
   toggleCardExpanded: (id: string) => void;
   setHoveredCard: (id: string | null) => void;
   selectCard: (id: string) => void;
@@ -94,6 +103,7 @@ interface SpatialCanvasState {
   setCustomPosition: (id: string, pos: CardPosition) => void;
   clearCustomPositions: () => void;
   toggleArchiveTray: () => void;
+  toggleDiscardTray: () => void;
   fitAll: (viewportWidth: number, viewportHeight: number) => void;
   resetLayout: () => void;
 }
@@ -106,6 +116,7 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
   canvasWidth: 1600,
   canvasHeight: 900,
   sortBy: "value",
+  stageSortOverrides: new Map(),
   selectedCardIds: new Set(),
   expandedCardIds: new Set(),
   hoveredCardId: null,
@@ -118,6 +129,7 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
   contextMenu: null,
   customPositions: new Map(),
   isArchiveTrayOpen: false,
+  isDiscardTrayOpen: false,
 
   // Actions
   setViewport: (x, y) => set({ viewportX: x, viewportY: y }),
@@ -140,6 +152,25 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
     set({ canvasWidth: width, canvasHeight: height }),
 
   setSortBy: (sortBy) => set({ sortBy }),
+
+  setStageSortBy: (stage, sort) =>
+    set((state) => {
+      const next = new Map(state.stageSortOverrides);
+      next.set(stage, sort);
+      return { stageSortOverrides: next };
+    }),
+
+  clearStageSortBy: (stage) =>
+    set((state) => {
+      const next = new Map(state.stageSortOverrides);
+      next.delete(stage);
+      return { stageSortOverrides: next };
+    }),
+
+  getSortForStage: (stage) => {
+    const state = get();
+    return state.stageSortOverrides.get(stage) ?? state.sortBy;
+  },
 
   toggleCardExpanded: (id) =>
     set((state) => {
@@ -201,7 +232,10 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
   clearCustomPositions: () => set({ customPositions: new Map() }),
 
   toggleArchiveTray: () =>
-    set((state) => ({ isArchiveTrayOpen: !state.isArchiveTrayOpen })),
+    set((state) => ({ isArchiveTrayOpen: !state.isArchiveTrayOpen, isDiscardTrayOpen: false })),
+
+  toggleDiscardTray: () =>
+    set((state) => ({ isDiscardTrayOpen: !state.isDiscardTrayOpen, isArchiveTrayOpen: false })),
 
   fitAll: (viewportWidth, viewportHeight) => {
     const state = get();
@@ -216,5 +250,5 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
     set({ zoom, viewportX, viewportY });
   },
 
-  resetLayout: () => set({ sortBy: "value", customPositions: new Map() }),
+  resetLayout: () => set({ sortBy: "value", stageSortOverrides: new Map(), customPositions: new Map() }),
 }));

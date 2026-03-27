@@ -18,36 +18,34 @@ import {
 
 // ── Types ──
 
-interface SpatialArchiveTrayProps {
-  archivedOpportunities: Opportunity[];
+interface SpatialDealTrayProps {
+  opportunities: Opportunity[];
   clients: Map<string, string>;
-  onRestore: (id: string, toStage?: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  emptyLabel: string;
+  onRestore: (id: string) => void;
   onDeletePermanently: (id: string) => void;
 }
 
-// ── Component ──
+// ── Shared tray component ──
 
-export function SpatialArchiveTray({
-  archivedOpportunities,
+function SpatialDealTray({
+  opportunities,
   clients,
+  isOpen,
+  onClose,
+  title,
+  emptyLabel,
   onRestore,
   onDeletePermanently,
-}: SpatialArchiveTrayProps) {
+}: SpatialDealTrayProps) {
   const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
   const variants = reduced
     ? spatialArchiveTrayVariantsReduced
     : spatialArchiveTrayVariants;
-
-  const isOpen = useSpatialCanvasStore((s) => s.isArchiveTrayOpen);
-  const toggleArchiveTray = useSpatialCanvasStore((s) => s.toggleArchiveTray);
-
-  const handleRestore = useCallback(
-    (id: string) => {
-      onRestore(id);
-    },
-    [onRestore]
-  );
 
   return (
     <AnimatePresence>
@@ -71,11 +69,11 @@ export function SpatialArchiveTray({
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
             <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
-              {t("archiveTray.title")}
+              {title}
             </span>
             <button
-              className="p-1 text-text-disabled hover:text-white transition-colors cursor-pointer"
-              onClick={toggleArchiveTray}
+              className="p-1 text-text-disabled hover:text-text-primary transition-colors cursor-pointer"
+              onClick={onClose}
             >
               <X className="w-4 h-4" />
             </button>
@@ -83,14 +81,14 @@ export function SpatialArchiveTray({
 
           {/* List */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
-            {archivedOpportunities.length === 0 ? (
+            {opportunities.length === 0 ? (
               <div className="flex items-center justify-center h-32">
                 <span className="font-mohave text-body-sm text-text-disabled">
-                  {t("archiveTray.empty")}
+                  {emptyLabel}
                 </span>
               </div>
             ) : (
-              archivedOpportunities.map((opp) => {
+              opportunities.map((opp) => {
                 const clientName =
                   clients.get(opp.clientId ?? "") ??
                   opp.contactName ??
@@ -109,7 +107,7 @@ export function SpatialArchiveTray({
                       style={{ background: stageColor }}
                     />
 
-                    {/* Name + value */}
+                    {/* Name + value + date */}
                     <div className="flex-1 min-w-0">
                       <p className="font-mohave text-body-sm text-text-secondary truncate">
                         {clientName}
@@ -129,8 +127,8 @@ export function SpatialArchiveTray({
                     {/* Restore + Delete buttons */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        className="font-kosugi text-micro-sm text-ops-accent hover:text-white cursor-pointer whitespace-nowrap"
-                        onClick={() => handleRestore(opp.id)}
+                        className="font-kosugi text-micro-sm text-ops-accent hover:text-text-primary cursor-pointer whitespace-nowrap"
+                        onClick={() => onRestore(opp.id)}
                       >
                         {t("archiveTray.restore")}
                       </button>
@@ -150,5 +148,69 @@ export function SpatialArchiveTray({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ── Public exports: Archive + Discard trays ──
+
+interface SpatialArchiveTrayProps {
+  archivedOpportunities: Opportunity[];
+  clients: Map<string, string>;
+  onRestore: (id: string, toStage?: string) => void;
+  onDeletePermanently: (id: string) => void;
+}
+
+export function SpatialArchiveTray({
+  archivedOpportunities,
+  clients,
+  onRestore,
+  onDeletePermanently,
+}: SpatialArchiveTrayProps) {
+  const { t } = useDictionary("pipeline");
+  const isOpen = useSpatialCanvasStore((s) => s.isArchiveTrayOpen);
+  const toggle = useSpatialCanvasStore((s) => s.toggleArchiveTray);
+
+  return (
+    <SpatialDealTray
+      opportunities={archivedOpportunities}
+      clients={clients}
+      isOpen={isOpen}
+      onClose={toggle}
+      title={t("archiveTray.title")}
+      emptyLabel={t("archiveTray.empty")}
+      onRestore={(id) => onRestore(id)}
+      onDeletePermanently={onDeletePermanently}
+    />
+  );
+}
+
+interface SpatialDiscardTrayProps {
+  discardedOpportunities: Opportunity[];
+  clients: Map<string, string>;
+  onRestore: (id: string) => void;
+  onDeletePermanently: (id: string) => void;
+}
+
+export function SpatialDiscardTray({
+  discardedOpportunities,
+  clients,
+  onRestore,
+  onDeletePermanently,
+}: SpatialDiscardTrayProps) {
+  const { t } = useDictionary("pipeline");
+  const isOpen = useSpatialCanvasStore((s) => s.isDiscardTrayOpen);
+  const toggle = useSpatialCanvasStore((s) => s.toggleDiscardTray);
+
+  return (
+    <SpatialDealTray
+      opportunities={discardedOpportunities}
+      clients={clients}
+      isOpen={isOpen}
+      onClose={toggle}
+      title={t("discardTray.title")}
+      emptyLabel={t("discardTray.empty")}
+      onRestore={onRestore}
+      onDeletePermanently={onDeletePermanently}
+    />
   );
 }
