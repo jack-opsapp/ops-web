@@ -77,6 +77,10 @@
   "detail.noFollowUps": "No pending follow-ups",
   "detail.noVisits": "No site visits",
   "detail.newVisit": "Schedule Visit",
+  "detail.aiInsight": "AI Insight",
+  "detail.stageActions": "Stage actions",
+  "detail.noEmails": "No email conversations yet",
+  "detail.noImages": "No images",
 
   "transition.wonTitle": "Deal Won!",
   "transition.wonDescription": "Congratulations on closing",
@@ -241,7 +245,8 @@
 
   "spatial.fitAll": "Fit all",
   "spatial.newLead": "New lead",
-  "spatial.archivedDeals": "Archived deals",
+  "spatial.archivedDeals": "Archived",
+  "spatial.discardedDeals": "Discarded",
   "spatial.noArchivedDeals": "No archived deals",
   "spatial.discardConfirm": "Discard {name}?",
   "spatial.discardBatchConfirm": "Discard {count} deals?",
@@ -285,5 +290,7 @@
   "spatial.activity": "activity {timeAgo}",
   "spatial.emailCount": "{count} emails",
   "spatial.emailInOut": "{in} in / {out} out",
-  "spatial.emailLastTime": "last {time}"
+  "spatial.emailLastTime": "last {time}",
+  "spatial.log": "Log",
+  "spatial.details": "Details"
 }

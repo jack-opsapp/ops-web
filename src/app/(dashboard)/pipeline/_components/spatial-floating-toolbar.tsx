@@ -98,7 +98,7 @@ export function SpatialFloatingToolbar({
       <ToolbarAction onClick={toggleDiscardTray} isActive={isDiscardTrayOpen}>
         <Trash2 className="w-[13px] h-[13px]" />
         <span className="font-kosugi text-micro-sm uppercase tracking-wider">
-          {t("discardTray.title")}
+          {t("spatial.discardedDeals")}
         </span>
       </ToolbarAction>
     </motion.div>

@@ -241,7 +241,8 @@
 
   "spatial.fitAll": "Ajustar todo",
   "spatial.newLead": "Nuevo prospecto",
-  "spatial.archivedDeals": "Tratos archivados",
+  "spatial.archivedDeals": "Archivados",
+  "spatial.discardedDeals": "Descartados",
   "spatial.noArchivedDeals": "Sin tratos archivados",
   "spatial.discardConfirm": "¿Descartar {name}?",
   "spatial.discardBatchConfirm": "¿Descartar {count} tratos?",
