@@ -262,9 +262,10 @@ export class GmailProvider implements EmailProviderInterface {
     });
     const data = await res.json();
 
+    const expMs = Number(data.expiration);
     return {
       subscriptionId: data.historyId,
-      expiresAt: new Date(Number(data.expiration)),
+      expiresAt: isNaN(expMs) ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : new Date(expMs),
     };
   }
 

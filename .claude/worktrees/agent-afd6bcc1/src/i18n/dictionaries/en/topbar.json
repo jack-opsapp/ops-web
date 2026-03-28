@@ -1,0 +1,26 @@
+{
+  "sync.synced": "Synced",
+  "sync.syncing": "Syncing",
+  "sync.pending": "Pending",
+  "sync.offline": "Offline",
+  "sync.syncedTitle": "All data synced",
+  "sync.syncingTitle": "Syncing data...",
+  "sync.pendingTitle": "Changes pending sync",
+  "sync.offlineTitle": "No internet connection",
+
+  "search.placeholder": "Search...",
+  "search.shortcut": "⌘K",
+  "search.ariaLabel": "Open search",
+
+  "notifications.title": "Notifications",
+  "notifications.ariaLabel": "Notifications",
+  "notifications.viewAll": "View all",
+  "notifications.dismissAll": "Dismiss all",
+  "notifications.empty": "No new notifications",
+  "notifications.emptyHint": "You're all caught up.",
+  "notifications.today": "Today",
+  "notifications.yesterday": "Yesterday",
+  "notifications.earlier": "Earlier",
+  "notifications.count": "{count}",
+  "notifications.overflow": "+{count}"
+}

@@ -1,0 +1,237 @@
+/**
+ * OPS Web - Auth Store
+ *
+ * Zustand store for authentication state.
+ * Persists auth state to localStorage for session survival.
+ *
+ * Role detection: company.adminIds FIRST, then employeeType, then default unassigned.
+ */
+
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { User, Company } from "../types/models";
+import { UserRole } from "../types/models";
+import { requireSupabase } from "@/lib/supabase/helpers";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface AuthState {
+  // State
+  currentUser: User | null;
+  company: Company | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  role: UserRole;
+
+  // Actions
+  login: (user: User, token: string) => void;
+  logout: () => void;
+  setUser: (user: User) => void;
+  setCompany: (company: Company) => void;
+  setToken: (token: string) => void;
+  setLoading: (loading: boolean) => void;
+  setFirebaseAuth: (authenticated: boolean) => void;
+  updateRole: () => void;
+  hydrate: () => void;
+  updateFabActions: (actions: string[]) => Promise<void>;
+}
+
+// ─── Store ────────────────────────────────────────────────────────────────────
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      // isLoading defaults to true — AuthProvider sets it to false once
+      // Firebase auth state is determined. This prevents a redirect loop
+      // where stale isAuthenticated in localStorage triggers premature
+      // navigation before Firebase can verify the actual session.
+      currentUser: null,
+      company: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: true,
+      role: UserRole.Unassigned,
+
+      // Login: set user, token, and update auth state
+      login: (user: User, token: string) => {
+        set({
+          currentUser: user,
+          token,
+          isAuthenticated: true,
+          role: user.role,
+          isLoading: false,
+        });
+      },
+
+      // Logout: clear all auth state
+      logout: () => {
+        set({
+          currentUser: null,
+          company: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+          role: UserRole.Unassigned,
+        });
+      },
+
+      // Update user data (e.g., after profile update or sync)
+      setUser: (user: User) => {
+        set({ currentUser: user, role: user.role });
+      },
+
+      // Set company data (fetched separately from user)
+      setCompany: (company: Company) => {
+        set({ company });
+        // Re-evaluate role with company admin IDs
+        get().updateRole();
+      },
+
+      // Set auth token (e.g., after token refresh)
+      setToken: (token: string) => {
+        set({ token });
+      },
+
+      // Set loading state
+      setLoading: (loading: boolean) => {
+        set({ isLoading: loading });
+      },
+
+      // Handle Firebase auth state changes (from AuthProvider)
+      setFirebaseAuth: (authenticated: boolean) => {
+        if (authenticated) {
+          // Only set isAuthenticated — do NOT set isLoading: false here.
+          // AuthProvider controls loading lifecycle: loading stays true
+          // until syncUser completes (or fails). This prevents the
+          // dashboard from rendering before user/company data is available.
+          set({ isAuthenticated: true });
+        } else {
+          // User signed out of Firebase - clear everything
+          set({
+            currentUser: null,
+            company: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+            role: UserRole.Unassigned,
+          });
+        }
+      },
+
+      // Re-evaluate role using iOS priority logic:
+      // 1. user.id IN company.adminIds[] -> Admin
+      // 2. user.employeeType -> mapped role
+      // 3. default -> Unassigned
+      updateRole: () => {
+        const { currentUser, company } = get();
+        if (!currentUser) return;
+
+        let role = UserRole.Unassigned;
+
+        // Priority 1: Check company admin IDs
+        if (company?.adminIds?.includes(currentUser.id)) {
+          role = UserRole.Admin;
+        }
+        // Priority 2: Use user's existing role (from employeeType)
+        else if (currentUser.role) {
+          role = currentUser.role;
+        }
+
+        set({
+          role,
+          currentUser: { ...currentUser, role, isCompanyAdmin: role === UserRole.Admin },
+        });
+      },
+
+      // Hydrate auth state from persisted storage
+      hydrate: () => {
+        // No-op: Firebase handles auth state automatically
+      },
+
+      // Persist FAB action preferences for the current user
+      updateFabActions: async (actions: string[]) => {
+        const { currentUser } = get();
+        if (!currentUser) return;
+
+        // Optimistic update — apply immediately, revert on failure
+        const previousActions = currentUser.fabActions;
+        set({ currentUser: { ...currentUser, fabActions: actions } });
+
+        try {
+          const supabase = requireSupabase();
+          const { error } = await supabase
+            .from("users")
+            .update({ fab_actions: actions })
+            .eq("id", currentUser.id);
+
+          if (error) {
+            console.error("Failed to save FAB actions:", error.message);
+            // Revert optimistic update
+            const current = get().currentUser;
+            if (current) {
+              set({ currentUser: { ...current, fabActions: previousActions } });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to save FAB actions:", err);
+          const current = get().currentUser;
+          if (current) {
+            set({ currentUser: { ...current, fabActions: previousActions } });
+          }
+        }
+      },
+    }),
+    {
+      name: "ops-auth-storage",
+      storage: createJSONStorage(() => {
+        // Use localStorage in browser, no-op in SSR
+        if (typeof window !== "undefined") {
+          return localStorage;
+        }
+        return {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        };
+      }),
+      partialize: (state) => ({
+        currentUser: state.currentUser,
+        company: state.company,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+        role: state.role,
+      }),
+      onRehydrateStorage: () => {
+        return () => {
+          // No-op: auth tokens are managed by Firebase
+        };
+      },
+    }
+  )
+);
+
+// ─── Selectors ────────────────────────────────────────────────────────────────
+
+/** Check if user has admin role */
+export const selectIsAdmin = (state: AuthState) =>
+  state.role === UserRole.Admin;
+
+/** Check if user has admin or owner role */
+export const selectIsAdminOrOwner = (state: AuthState) =>
+  state.role === UserRole.Admin || state.role === UserRole.Owner;
+
+/** Check if user is field-level (crew or operator) */
+export const selectIsFieldRole = (state: AuthState) =>
+  state.role === UserRole.Crew || state.role === UserRole.Operator;
+
+/** Get the company ID */
+export const selectCompanyId = (state: AuthState) =>
+  state.company?.id ?? null;
+
+/** Get the user ID */
+export const selectUserId = (state: AuthState) =>
+  state.currentUser?.id ?? null;
+
+export default useAuthStore;

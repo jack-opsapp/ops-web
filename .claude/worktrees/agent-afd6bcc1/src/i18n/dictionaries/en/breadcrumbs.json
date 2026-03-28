@@ -1,0 +1,18 @@
+{
+  "route.dashboard": "Dashboard",
+  "route.projects": "Projects",
+  "route.calendar": "Calendar",
+  "route.clients": "Clients",
+  "route.jobBoard": "Job Board",
+  "route.team": "Team",
+  "route.map": "Map",
+  "route.pipeline": "Pipeline",
+  "route.estimates": "Estimates",
+  "route.products": "Products",
+  "route.inventory": "Inventory",
+  "route.invoices": "Invoices",
+  "route.accounting": "Accounting",
+  "route.portalInbox": "Portal Inbox",
+  "route.settings": "Settings",
+  "route.new": "New"
+}

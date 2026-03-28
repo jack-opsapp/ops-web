@@ -50,7 +50,7 @@ export const maxDuration = 800; // Pro plan max
 
 // ─── Valid stages for safety checks ──────────────────────────────────────────
 
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation'];
+const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation', 'won', 'lost'];
 
 function sanitizeStage(stage: string | null | undefined): string {
   if (stage && VALID_STAGES.includes(stage)) return stage;

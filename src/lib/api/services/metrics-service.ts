@@ -45,9 +45,15 @@ async function dailyTrend(
     .from(table)
     .select(sumColumn ? `${dateColumn}, ${sumColumn}` : dateColumn)
     .eq("company_id", companyId)
-    .is("deleted_at", null)
     .gte(dateColumn, since.toISOString())
     .order(dateColumn, { ascending: true });
+
+  // Soft-delete filter: payments use voided_at, all others use deleted_at
+  if (table === "payments") {
+    query = query.is("voided_at", null);
+  } else {
+    query = query.is("deleted_at", null);
+  }
 
   const { data: rows } = await query;
   if (!rows?.length) return [];
@@ -128,11 +134,15 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
     .reverse()
     .map((inv) => Math.max(0, (new Date(inv.paid_at!).getTime() - new Date(inv.issue_date!).getTime()) / 86400000));
 
+  const pastDueCount = invoices.filter((inv) => inv.due_date && new Date(inv.due_date) < now && inv.status !== "paid" && inv.status !== "void").length;
+  const receivablesCount = invoices.filter((inv) => inv.status !== "paid" && inv.status !== "void").length;
+
   return [
     {
       label: "Revenue",
       value: revenue,
       formatType: "currency",
+      breakdown: `${formatMetricCurrency(revenue)} paid across ${invoices.length} invoices`,
       trend: trend(currRevenue, prevRevenue),
       viz: { type: "sparkline", data: revenueTrend, color: "#597794" },
     },
@@ -140,6 +150,7 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
       label: "Past Due",
       value: pastDue,
       formatType: "currency",
+      breakdown: `${pastDueCount} invoices past due date`,
       trend: pastDue > 0 ? trendInverted(pastDue, 0) : undefined,
       viz: pastDue > 0 ? { type: "sparkline", data: pastDueTrend, color: "#93321A" } : undefined,
       color: pastDue > 0 ? "#93321A" : undefined,
@@ -148,6 +159,7 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
       label: "Receivables",
       value: receivables,
       formatType: "currency",
+      breakdown: `${receivablesCount} unpaid invoices`,
       viz: { type: "sparkline", data: receivablesTrend, color: "#C4A868" },
       color: "#C4A868",
     },
@@ -155,12 +167,14 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
       label: "Collection",
       value: collectionRate,
       formatType: "percentage",
+      breakdown: `${formatMetricCurrency(revenue)} paid ÷ ${formatMetricCurrency(totalBilled)} billed`,
       viz: { type: "progress", data: [collectionRate], color: "#A5B368" },
     },
     {
       label: "Avg Days to Pay",
       value: avgDaysToPay,
       formatType: "days",
+      breakdown: `across ${paidInvoices.length} paid invoices (90d)`,
       viz: last7Paid.length > 0 ? { type: "bars", data: last7Paid, color: "#597794" } : undefined,
     },
   ];
@@ -185,13 +199,13 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
   const activeStatuses = ["rfq", "estimated", "accepted", "in_progress"];
   const active = projects.filter((p) => activeStatuses.includes(p.status));
   const completed = projects.filter((p) => p.status === "completed" || p.status === "closed");
-  const completionDenominator = projects.filter((p) => ["completed", "in_progress", "accepted"].includes(p.status));
+  const completionDenominator = projects.filter((p) => ["completed", "closed", "in_progress", "accepted"].includes(p.status));
   const completionRate = completionDenominator.length > 0
-    ? (completed.length / completionDenominator.length) * 100
+    ? Math.min(100, (completed.length / completionDenominator.length) * 100)
     : 0;
 
   const { data: tasks = [] } = await supabase
-    .from("scheduled_tasks")
+    .from("project_tasks")
     .select("id, end_date, status")
     .eq("company_id", companyId)
     .is("deleted_at", null)
@@ -232,12 +246,14 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
       label: "Active",
       value: active.length,
       formatType: "count",
+      breakdown: `${active.length} in rfq/estimated/accepted/in_progress`,
       viz: { type: "sparkline", data: activeTrend, color: "#597794" },
     },
     {
       label: "Total Value",
       value: totalValue,
       formatType: "currency",
+      breakdown: `${formatMetricCurrency(totalValue)} across ${invoices.length} invoices`,
       viz: { type: "sparkline", data: valueTrend, color: "#C4A868" },
       color: "#C4A868",
     },
@@ -245,12 +261,14 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
       label: "Completion",
       value: completionRate,
       formatType: "percentage",
+      breakdown: `${completed.length} completed ÷ ${completionDenominator.length} total`,
       viz: { type: "progress", data: [completionRate], color: "#A5B368" },
     },
     {
       label: "Overdue Tasks",
       value: overdueTasks,
       formatType: "count",
+      breakdown: `${overdueTasks} tasks past end date`,
       viz: overdueTasks > 0 ? { type: "dots", data: Array(Math.min(overdueTasks, 8)).fill(1), color: "#93321A" } : undefined,
       color: overdueTasks > 0 ? "#93321A" : "#6B6B6B",
     },
@@ -258,6 +276,7 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
       label: "Avg Duration",
       value: avgDuration,
       formatType: "days",
+      breakdown: `across ${recentCompleted.length} completed (90d)`,
       viz: last7Durations.length > 0 ? { type: "bars", data: last7Durations, color: "#597794" } : undefined,
     },
   ];
@@ -294,7 +313,7 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
     ? transitions.reduce((sum, t) => sum + Number(t.duration_in_stage ?? 0), 0) / transitions.length / 86400000
     : 0;
 
-  const stageNames = ["prospect", "lead", "qualified", "proposal", "negotiating"];
+  const stageNames = ["new_lead", "qualifying", "quoting", "quoted", "follow_up"];
   const stageDurations = stageNames.map((stage) => {
     const stageTransitions = transitions.filter((t) => t.from_stage === stage);
     if (stageTransitions.length === 0) return 0;
@@ -315,6 +334,7 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
       label: "Pipeline Value",
       value: pipelineValue,
       formatType: "currency",
+      breakdown: `${formatMetricCurrency(pipelineValue)} across ${openStages.length} open`,
       viz: { type: "sparkline", data: valueTrend, color: "#C4A868" },
       color: "#C4A868",
     },
@@ -322,24 +342,28 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
       label: "Win Rate",
       value: winRate,
       formatType: "percentage",
+      breakdown: `${won.length} won ÷ ${won.length + lost.length} decided`,
       viz: { type: "progress", data: [winRate], color: "#A5B368" },
     },
     {
       label: "Opportunities",
       value: openStages.length,
       formatType: "count",
+      breakdown: `${openStages.length} open (excl. won/lost)`,
       viz: { type: "sparkline", data: countTrend, color: "#597794" },
     },
     {
       label: "Avg Deal",
       value: avgDeal,
       formatType: "currency",
+      breakdown: `${formatMetricCurrency(pipelineValue)} ÷ ${openStages.length} opportunities`,
       viz: last7Deals.length > 0 ? { type: "bars", data: last7Deals, color: "#597794" } : undefined,
     },
     {
       label: "Velocity",
       value: avgVelocity,
       formatType: "days",
+      breakdown: `avg across ${transitions.length} transitions`,
       trend: avgVelocity > 0 ? { direction: "down", value: `${Math.round(avgVelocity)}d`, sentiment: "positive" } : undefined,
       viz: stageDurations.some((d) => d > 0) ? { type: "bars", data: stageDurations, color: "#597794" } : undefined,
     },
@@ -357,7 +381,7 @@ export async function fetchEstimateMetrics(companyId: string): Promise<MetricCol
 
   const { data: estimates = [] } = await supabase
     .from("estimates")
-    .select("id, total, status, sent_at, approved_at, estimate_id, created_at")
+    .select("id, total, status, sent_at, approved_at, created_at")
     .eq("company_id", companyId)
     .is("deleted_at", null);
 
@@ -400,6 +424,7 @@ export async function fetchEstimateMetrics(companyId: string): Promise<MetricCol
       label: "Pending Value",
       value: pendingValue,
       formatType: "currency",
+      breakdown: `${pending.length} sent estimates awaiting response`,
       viz: { type: "sparkline", data: pendingTrend, color: "#C4A868" },
       color: "#C4A868",
     },
@@ -407,24 +432,28 @@ export async function fetchEstimateMetrics(companyId: string): Promise<MetricCol
       label: "Approval Rate",
       value: approvalRate,
       formatType: "percentage",
+      breakdown: `${approved.length} approved ÷ ${reviewable.length} reviewed`,
       viz: { type: "progress", data: [approvalRate], color: "#A5B368" },
     },
     {
       label: "Sent This Month",
       value: sentThisMonth,
       formatType: "count",
+      breakdown: `${sentThisMonth} since ${monthStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
       viz: { type: "sparkline", data: sentTrend, color: "#597794" },
     },
     {
       label: "Avg Estimate",
       value: avgEstimate,
       formatType: "currency",
+      breakdown: `across ${nonDraft.length} non-draft (90d)`,
       viz: last7Sent.length > 0 ? { type: "bars", data: last7Sent, color: "#597794" } : undefined,
     },
     {
       label: "Convert Rate",
       value: convertRate,
       formatType: "percentage",
+      breakdown: `${convertedCount} invoiced ÷ ${approved.length} approved`,
       viz: { type: "progress", data: [convertRate], color: "#A5B368" },
     },
   ];
@@ -449,7 +478,7 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
     .from("payments")
     .select("amount, payment_date")
     .eq("company_id", companyId)
-    .is("deleted_at", null)
+    .is("voided_at", null)
     .gte("payment_date", monthStart.toISOString());
 
   const outstanding = invoices
@@ -469,6 +498,13 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
     })
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
 
+  const outstandingCount = invoices.filter((inv) => inv.status !== "paid" && inv.status !== "void").length;
+  const overdueCount = invoices.filter((inv) => inv.due_date && new Date(inv.due_date) < now && inv.status !== "paid" && inv.status !== "void").length;
+  const aging90Count = invoices.filter((inv) => {
+    if (!inv.due_date || inv.status === "paid" || inv.status === "void") return false;
+    return new Date(inv.due_date) < ninetyDaysAgo;
+  }).length;
+
   const outstandingTrend = await dailyTrend("invoices", "issue_date", "balance_due", companyId, 30);
   const collectedTrend = await dailyTrend("payments", "payment_date", "amount", companyId, 30);
 
@@ -477,6 +513,7 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
       label: "Outstanding",
       value: outstanding,
       formatType: "currency",
+      breakdown: `${outstandingCount} unpaid invoices`,
       viz: { type: "sparkline", data: outstandingTrend, color: "#C4A868" },
       color: "#C4A868",
     },
@@ -484,18 +521,21 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
       label: "Collected MTD",
       value: collectedMtd,
       formatType: "currency",
+      breakdown: `${payments.length} payments this month`,
       viz: { type: "sparkline", data: collectedTrend, color: "#A5B368" },
     },
     {
       label: "Overdue",
       value: overdue,
       formatType: "currency",
+      breakdown: `${overdueCount} invoices past due`,
       color: overdue > 0 ? "#93321A" : undefined,
     },
     {
       label: "Aging 90+",
       value: aging90,
       formatType: "currency",
+      breakdown: `${aging90Count} invoices due 90+ days ago`,
       color: aging90 > 0 ? "#93321A" : undefined,
     },
   ];
@@ -508,32 +548,32 @@ export async function fetchInventoryMetrics(companyId: string): Promise<MetricCo
 
   const { data: items = [] } = await supabase
     .from("inventory_items")
-    .select("id, quantity, min_threshold, reorder_quantity")
+    .select("id, quantity, warning_threshold, critical_threshold")
     .eq("company_id", companyId)
     .is("deleted_at", null);
 
   const total = items.length;
   const lowStock = items.filter((item) => {
-    const threshold = Number(item.min_threshold ?? 0);
+    const threshold = Number(item.warning_threshold ?? 0);
     const qty = Number(item.quantity ?? 0);
-    return threshold > 0 && qty <= threshold * 1.2 && qty > threshold;
+    return threshold > 0 && qty <= threshold && qty > Number(item.critical_threshold ?? 0);
   }).length;
   const critical = items.filter((item) => {
-    const threshold = Number(item.min_threshold ?? 0);
+    const threshold = Number(item.critical_threshold ?? 0);
     const qty = Number(item.quantity ?? 0);
     return threshold > 0 && qty <= threshold;
   }).length;
   const reorderNeeded = items.filter((item) => {
-    const reorder = Number(item.reorder_quantity ?? 0);
+    const reorder = Number(item.warning_threshold ?? 0);
     const qty = Number(item.quantity ?? 0);
     return reorder > 0 && qty <= reorder;
   }).length;
 
   return [
-    { label: "Total Items", value: total, formatType: "count" },
-    { label: "Low Stock", value: lowStock, formatType: "count", color: lowStock > 0 ? "#C4A868" : undefined },
-    { label: "Critical", value: critical, formatType: "count", color: critical > 0 ? "#93321A" : undefined },
-    { label: "Reorder Needed", value: reorderNeeded, formatType: "count", color: reorderNeeded > 0 ? "#C4A868" : undefined },
+    { label: "Total Items", value: total, formatType: "count", breakdown: `${total} tracked items` },
+    { label: "Low Stock", value: lowStock, formatType: "count", breakdown: `${lowStock} items near warning threshold`, color: lowStock > 0 ? "#C4A868" : undefined },
+    { label: "Critical", value: critical, formatType: "count", breakdown: `${critical} at or below critical threshold`, color: critical > 0 ? "#93321A" : undefined },
+    { label: "Reorder Needed", value: reorderNeeded, formatType: "count", breakdown: `${reorderNeeded} below warning level`, color: reorderNeeded > 0 ? "#C4A868" : undefined },
   ];
 }
 
@@ -647,7 +687,7 @@ export async function fetchCalendarMetrics(companyId: string): Promise<InlineMet
   sunday.setHours(23, 59, 59, 999);
 
   const { data: tasks = [] } = await supabase
-    .from("scheduled_tasks").select("id, team_member_ids, end_date, status")
+    .from("project_tasks").select("id, team_member_ids, end_date, status")
     .eq("company_id", companyId).is("deleted_at", null)
     .gte("start_date", monday.toISOString())
     .lte("start_date", sunday.toISOString());
@@ -656,7 +696,7 @@ export async function fetchCalendarMetrics(companyId: string): Promise<InlineMet
   const unassigned = tasks.filter((t) => !t.team_member_ids || t.team_member_ids.length === 0).length;
 
   const { count: overdue } = await supabase
-    .from("scheduled_tasks").select("id", { count: "exact", head: true })
+    .from("project_tasks").select("id", { count: "exact", head: true })
     .eq("company_id", companyId).is("deleted_at", null)
     .lt("end_date", now.toISOString()).neq("status", "completed");
 
@@ -693,17 +733,24 @@ export async function fetchMapMetrics(companyId: string): Promise<InlineMetricCo
 export async function fetchInboxMetrics(companyId: string): Promise<InlineMetricConfig[]> {
   const supabase = requireSupabase();
 
-  const { data: threads = [] } = await supabase
-    .from("email_threads").select("id, unread_count, opportunity_id")
+  // Unread count: email activities that haven't been read
+  const { count: unread } = await supabase
+    .from("activities")
+    .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .eq("type", "email")
+    .eq("is_read", false)
+    .not("opportunity_id", "is", null);
 
-  const unread = threads.reduce((sum, t) => sum + Number(t.unread_count ?? 0), 0);
-  const pipeline = threads.filter((t) => t.opportunity_id != null).length;
+  // Pipeline thread count: opportunities that have linked email threads
+  const { count: pipeline } = await supabase
+    .from("opportunity_email_threads")
+    .select("id, opportunities!inner(company_id)", { count: "exact", head: true })
+    .eq("opportunities.company_id", companyId);
 
   return [
-    { value: unread, label: "unread", color: unread > 0 ? "#C4A868" : undefined },
-    { value: pipeline, label: "pipeline" },
+    { value: unread ?? 0, label: "unread", color: (unread ?? 0) > 0 ? "#C4A868" : undefined },
+    { value: pipeline ?? 0, label: "pipeline" },
   ];
 }
 

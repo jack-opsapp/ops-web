@@ -56,7 +56,10 @@ export async function POST(request: NextRequest) {
       const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/integrations/email/webhook/${connection.provider}`;
       const webhook = await provider.setupWebhook(webhookUrl);
       webhookSubscriptionId = webhook.subscriptionId;
-      webhookExpiresAt = webhook.expiresAt;
+      // Guard against invalid date from provider response
+      webhookExpiresAt = webhook.expiresAt instanceof Date && !isNaN(webhook.expiresAt.getTime())
+        ? webhook.expiresAt
+        : null;
     } catch (err) {
       console.error("[email-activate] Failed to set up webhook:", err);
       // Non-fatal — scheduled sync will still work

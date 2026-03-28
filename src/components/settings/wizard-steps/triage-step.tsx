@@ -8,15 +8,17 @@ import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/typ
 
 // ─── Heuristics ───────────────────────────────────────────────────────────────
 //
-// The spec describes heuristics in terms of email content analysis (quote/price
-// language, booking language). The scan data does NOT contain full bodies — only
-// metadata (dates, counts, direction) and estimatedValue. These heuristics are
-// approximations using available data:
-// - estimatedValue → proxy for "quote was sent"
-// - outboundCount >= 2 → proxy for "ongoing engagement that likely concluded"
+// Conservative defaults — prefer "active" over guessing won/lost.
+// The AI deep extraction now directly assigns won/lost stages when it finds
+// clear evidence in email content. These heuristics are FALLBACKS only,
+// applied when the AI didn't make a terminal determination.
+//
+// Key principle: it is better to show the user a lead as "active" and let them
+// triage it than to auto-assign won/lost incorrectly. Wrong defaults erode
+// trust in the entire import.
 
 function computeTriageDefault(lead: AnalyzedLead): TriageDecision {
-  // High confidence: AI terminal flags
+  // AI terminal flags or direct won/lost stages — trust the AI's content analysis
   if (lead.terminalFlag === "likely_won" || lead.stage === "won") return "won";
   if (lead.terminalFlag === "likely_lost" || lead.stage === "lost") return "lost";
 
@@ -26,21 +28,21 @@ function computeTriageDefault(lead: AnalyzedLead): TriageDecision {
     (Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  // Medium confidence: time-based heuristics
-  if (daysSinceLast > 30) {
-    // Old thread with outbound quote → likely won (silence = acceptance in trades)
-    if (lead.outboundCount > 0 && lead.estimatedValue) return "won";
-    // Old thread, last message inbound with no reply → likely lost
+  // Very stale threads (60+ days) with minimal engagement → likely lost (ghosted)
+  if (daysSinceLast > 60 && lead.correspondenceCount <= 2) {
+    return "lost";
+  }
+
+  // Very stale threads (60+ days) where the last message was outbound and
+  // unanswered — the company followed up and got no response → lost
+  if (daysSinceLast > 60) {
     const lastExcerpt = [...(lead.emailExcerpts ?? [])].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     )[0];
-    if (lastExcerpt?.direction === "inbound") return "lost";
+    if (lastExcerpt?.direction === "outbound") return "lost";
   }
 
-  if (daysSinceLast > 21 && lead.outboundCount >= 2) {
-    return "won"; // likely booked and completed
-  }
-
+  // Everything else: let the user decide
   return "active";
 }
 

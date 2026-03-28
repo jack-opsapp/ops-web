@@ -1,0 +1,69 @@
+/**
+ * OPS Web - API Services Barrel Export
+ */
+
+export { ProjectService } from "./project-service";
+export type { FetchProjectsOptions } from "./project-service";
+
+export { TaskService } from "./task-service";
+export type { FetchTasksOptions, CreateTaskWithEventData } from "./task-service";
+
+export { ClientService } from "./client-service";
+export type { FetchClientsOptions } from "./client-service";
+
+export { UserService } from "./user-service";
+export type { FetchUsersOptions } from "./user-service";
+
+export { CompanyService } from "./company-service";
+
+export { CalendarService } from "./calendar-service";
+export type { FetchCalendarEventsOptions } from "./calendar-service";
+
+export { TaskTypeService } from "./task-type-service";
+
+export { uploadImage, uploadMultipleImages, ImageUploadError } from "./image-service";
+export type { ImageUploadErrorCode } from "./image-service";
+
+export { ProductService } from "./product-service";
+
+export { EstimateService } from "./estimate-service";
+export type { FetchEstimatesOptions } from "./estimate-service";
+
+export { InvoiceService } from "./invoice-service";
+export type { FetchInvoicesOptions } from "./invoice-service";
+
+export { AccountingService } from "./accounting-service";
+
+export { OpportunityService } from "./opportunity-service";
+export type { FetchOpportunitiesOptions } from "./opportunity-service";
+
+export { TaskTemplateService } from "./task-template-service";
+export type { ProposedTask } from "./task-template-service";
+
+export { ActivityCommentService } from "./activity-comment-service";
+
+export { SiteVisitService } from "./site-visit-service";
+export type { FetchSiteVisitsOptions } from "./site-visit-service";
+
+export { ProjectPhotoService } from "./project-photo-service";
+
+export { CompanySettingsService } from "./company-settings-service";
+
+export { ExpenseSettingsService } from "./expense-settings-service";
+export type { ExpenseSettings, UpdateExpenseSettings } from "./expense-settings-service";
+
+export { NotificationPreferencesService } from "./notification-preferences-service";
+export type { NotificationPreferences, UpdateNotificationPreferences } from "./notification-preferences-service";
+
+export { GmailService } from "./gmail-service";
+
+export { InventoryService } from "./inventory-service";
+
+export { CrewLocationService } from "./crew-location-service";
+export type { CrewLocation, CrewStatus } from "./crew-location-service";
+export { resolveCrewStatus } from "./crew-location-service";
+
+export { EmailFilterService } from "./email-filter-service";
+
+export { EmailMatchingService } from "./email-matching-service";
+export type { MatchResult } from "./email-matching-service";

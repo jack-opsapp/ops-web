@@ -8,7 +8,7 @@
 // - Returns per-thread structured data
 // - Detects duplicates across threads
 // - Assigns pipeline stages based on thread context
-// - Validates stage values — never allows likely_won/likely_lost as stage
+// - Validates stage values — allows won/lost as direct stages, rescues likely_won/likely_lost to terminalFlag
 
 import { getImportOpenAI } from './openai-clients';
 
@@ -71,25 +71,27 @@ function getOpenAI(override?: import('openai').default): import('openai').defaul
 }
 
 // Valid pipeline stages — used for validation
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation'] as const;
+const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation', 'won', 'lost'] as const;
 type ValidStage = typeof VALID_STAGES[number];
 
 function isValidStage(stage: string): stage is ValidStage {
   return (VALID_STAGES as readonly string[]).includes(stage);
 }
 
-/** Sanitize a stage value from AI output. Moves likely_won/likely_lost to flag if needed. */
+/** Sanitize a stage value from AI output. Derives terminalFlag from won/lost stages. */
 function sanitizeStageAndFlag(
   rawStage: string | null | undefined,
   rawFlag: string | null | undefined
 ): { stage: string; terminalFlag: 'likely_won' | 'likely_lost' | null } {
   const stage = rawStage && isValidStage(rawStage) ? rawStage : 'new_lead';
-  // If AI put likely_won/likely_lost in the stage field, rescue it to flag
+  // Derive terminal flag from stage or explicit flag
   let terminalFlag: 'likely_won' | 'likely_lost' | null =
     (rawFlag === 'likely_won' || rawFlag === 'likely_lost') ? rawFlag : null;
-  if (!terminalFlag && (rawStage === 'likely_won' || rawStage === 'likely_lost')) {
-    terminalFlag = rawStage;
-  }
+  if (!terminalFlag && rawStage === 'likely_won') terminalFlag = 'likely_won';
+  if (!terminalFlag && rawStage === 'likely_lost') terminalFlag = 'likely_lost';
+  // If AI directly set won/lost as the stage, also set the terminal flag
+  if (!terminalFlag && stage === 'won') terminalFlag = 'likely_won';
+  if (!terminalFlag && stage === 'lost') terminalFlag = 'likely_lost';
   return { stage, terminalFlag };
 }
 
@@ -479,7 +481,10 @@ For each thread, determine:
   - Vendors pitching their products/services TO the company → "biz"
   - Be inclusive — err on the side of "lead" over "skip" for ambiguous threads
 - confidence: 0.0 to 1.0
-- stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation". NEVER use "likely_won" or "likely_lost" as a stage — those go ONLY in the flag field.
+- stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation", "won", "lost".
+  Use "won" ONLY when there is CLEAR EVIDENCE the job was awarded — client explicitly confirmed, scheduling/start dates discussed, deposit/payment made, or work began.
+  Use "lost" ONLY when there is CLEAR EVIDENCE — client declined, chose another contractor, said "no thanks", or 60+ days of repeated follow-ups with no response.
+  When in doubt, choose an active stage ("quoted", "follow_up"). It is better to let the user triage than to guess wrong.
   Stage heuristics when unsure:
   - 0 outbound replies → "new_lead"
   - 1 outbound reply → "qualifying"
@@ -503,12 +508,7 @@ For each thread, determine:
 
 - additionalContacts: array of other people mentioned in the thread who are NOT the primary client and NOT the owner. Each has { name, email, phone }. These might be project managers, office staff, spouses, or other stakeholders cc'd or mentioned. Only include if you can identify a real name or email. null if none.
 - dupes: array of other threadIds in this batch that appear to be the same client/project (for dedup)
-- flag: "likely_won" if client confirmed/accepted, "likely_lost" if client declined/went elsewhere, null otherwise. This is the ONLY place for terminal flags.
-  TERMINAL HEURISTICS (apply in addition to content signals):
-  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
-  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
-  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
-  - Trade industry context: silence after a quote is more often acceptance than rejection.
+- flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
 
 RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
 
@@ -604,16 +604,14 @@ Company domains: ${context.companyDomains.join(', ')}
 For each email, determine:
 - verdict: "lead" (customer inquiry/conversation), "biz" (subtrade/vendor/contractor), "skip" (noise/spam/newsletter)
 - confidence: 0.0 to 1.0
-- stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation". NEVER use "likely_won" or "likely_lost" as a stage value — those go ONLY in the flag field. null if not a lead.
+- stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation", "won", "lost". null if not a lead.
+  Use "won" ONLY with CLEAR EVIDENCE — client explicitly confirmed, scheduling/start dates discussed, deposit/payment made, or work began. Silence after a quote does NOT mean won.
+  Use "lost" ONLY with CLEAR EVIDENCE — client declined, chose another contractor, or 60+ days of follow-ups with no response.
+  When in doubt, choose an active stage ("quoted", "follow_up").
 - val: estimated dollar value if pricing is mentioned. null otherwise.
 - client: { name, email, phone, desc } if lead. Extract from email content. null otherwise.
 - dupes: array of other email IDs in this batch that appear to be from the same client/project
-- flag: "likely_won" if client confirmed, "likely_lost" if client declined, null otherwise. This is the ONLY place for terminal flags.
-  TERMINAL HEURISTICS (apply in addition to content signals):
-  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
-  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
-  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
-  - Trade industry context: silence after a quote is more often acceptance than rejection.
+- flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
 
 RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize output tokens.`;
 
@@ -692,20 +690,17 @@ Pipeline stages (in order):
 - quoted: estimate with pricing has been sent
 - follow_up: waiting for client response after quote
 - negotiation: client responded to quote, discussing terms
+- won: client EXPLICITLY confirmed — "go ahead", "let's book it", scheduling confirmed, deposit paid
+- lost: client EXPLICITLY declined — "went with someone else", "not going ahead", "too expensive", or 60+ days of follow-ups with zero response
 
-CRITICAL: stage MUST be one of the above values. NEVER use "likely_won" or "likely_lost" as a stage value — those go ONLY in the flag field.
+CRITICAL: Use "won" or "lost" ONLY with clear evidence in the email content. Silence after a quote does NOT mean won — many clients ghost quotes they don't like. When in doubt, use an active stage ("quoted", "follow_up").
 
 For each thread, determine:
-- stage: most accurate pipeline stage based on content (MUST be one of the 6 stages above)
+- stage: most accurate pipeline stage based on content (MUST be one of the 8 stages above)
 - c: confidence 0.0 to 1.0
 - val: dollar value if pricing detected
 - signals: array of short codes for what you detected (e.g., "pricing_sent", "photos_requested", "promo_mentioned")
-- flag: "likely_won" or "likely_lost" if terminal language detected, null otherwise
-  TERMINAL HEURISTICS (apply in addition to content signals):
-  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
-  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
-  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
-  - Trade industry context: silence after a quote is more often acceptance than rejection.
+- flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
 
 RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
@@ -917,15 +912,20 @@ SUBCONTACTS — People at the client who are NOT the owner and NOT employees of 
 - CRITICAL: The email field must contain an email address. The phone field must contain a phone number. Never swap them.
 
 PIPELINE:
-- stage: "new_lead"|"qualifying"|"quoting"|"quoted"|"follow_up"|"negotiation"
+- stage: "new_lead"|"qualifying"|"quoting"|"quoted"|"follow_up"|"negotiation"|"won"|"lost"
+  Use "won" when there is CLEAR EVIDENCE the job was awarded — the client explicitly confirmed, scheduling/start dates were discussed, a deposit/payment was made, or work clearly began. Do NOT assume won from silence alone.
+  Use "lost" when there is CLEAR EVIDENCE the opportunity is dead — the client explicitly declined, chose another contractor, said "no thanks", or the thread shows repeated follow-ups with no response over 60+ days.
+  When in doubt between won/lost and an active stage, choose the active stage. It is better to let the user triage than to guess wrong.
 - stageC: Confidence 0.0-1.0
 - val: Dollar value if pricing is mentioned (omit if none)
-- flag: "likely_won"|"likely_lost" (omit if neither)
-  TERMINAL HEURISTICS (apply in addition to content signals):
-  - Thread last activity >30 days ago + last outbound contained pricing/quote → "likely_won" (silence after quote = acceptance in trades)
-  - Thread last activity >30 days ago + last message inbound with no outbound reply → "likely_lost"
-  - Thread last activity >21 days ago + outbound contained scheduling/booking language → "likely_won"
-  - Trade industry context: silence after a quote is more often acceptance than rejection.
+- flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
+
+STAGE DECISION GUIDE (read the email content carefully):
+- "won" signals: client says "go ahead", "let's book it", "sounds good let's proceed", scheduling/start date confirmed, deposit/payment discussed, work instructions given
+- "lost" signals: client says "we went with someone else", "not going ahead", "too expensive", "no longer needed", repeated follow-ups with zero response over 60+ days
+- "quoted" signals: estimate/quote was sent, waiting for response (even if old — do NOT assume won from silence)
+- "follow_up" signals: quote sent, follow-up emails sent, still no definitive answer
+- Silence after a quote does NOT mean won. Many clients ghost quotes they don't like. Only mark "won" if there is positive confirmation in the emails.
 
 STEP 3 — FOR REVIEW items, extract minimal info:
 - tid, client.name, client.email, client.desc (what the thread is about — "Settlement agreement for Mike Geric project", "Job application from Grade 12 student", "Procore bid invitation for Royal Bay Apartments")

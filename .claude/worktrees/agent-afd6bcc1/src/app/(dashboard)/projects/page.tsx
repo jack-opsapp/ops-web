@@ -1,0 +1,817 @@
+"use client";
+
+import { useState, useMemo, useEffect, useCallback } from "react";
+import {
+  Plus,
+  Search,
+  LayoutGrid,
+  List,
+  CalendarDays,
+  MapPin,
+  AlertCircle,
+  RefreshCw,
+  Trash2,
+  Download,
+  ArrowRight,
+  CheckSquare,
+} from "lucide-react";
+import { trackScreenView } from "@/lib/analytics/analytics";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { StatusBadge, type ProjectStatus as StatusBadgeProjectStatus } from "@/components/ops/status-badge";
+import { EmptyState } from "@/components/ops/empty-state";
+import { BulkActionBar, type BulkAction } from "@/components/ops/bulk-action-bar";
+import { SelectableRow } from "@/components/ops/selectable-row";
+import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { ProjectDetailSheet } from "@/components/ops/project-detail-sheet";
+import { useSelectionStore } from "@/stores/selection-store";
+import { useWindowStore } from "@/stores/window-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
+import { useProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
+import { useClients } from "@/lib/hooks/use-clients";
+import { useTeamMembers } from "@/lib/hooks/use-users";
+import { UserAvatar } from "@/components/ops/user-avatar";
+import { exportToCSV } from "@/lib/utils/csv-export";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  type Project,
+  ProjectStatus,
+  isActiveProjectStatus,
+  getUserFullName,
+  getInitials,
+} from "@/lib/types/models";
+
+type FilterStatus = "all" | "active" | "completed" | "archived";
+type ViewMode = "cards" | "table";
+
+const ALL_PROJECT_STATUSES = [
+  ProjectStatus.RFQ,
+  ProjectStatus.Estimated,
+  ProjectStatus.Accepted,
+  ProjectStatus.InProgress,
+  ProjectStatus.Completed,
+  ProjectStatus.Closed,
+  ProjectStatus.Archived,
+];
+
+/**
+ * Map a ProjectStatus enum value to the kebab-case key used by StatusBadge.
+ */
+function statusToKey(status: ProjectStatus): StatusBadgeProjectStatus {
+  switch (status) {
+    case ProjectStatus.RFQ:
+      return "rfq";
+    case ProjectStatus.Estimated:
+      return "estimated";
+    case ProjectStatus.Accepted:
+      return "accepted";
+    case ProjectStatus.InProgress:
+      return "in-progress";
+    case ProjectStatus.Completed:
+      return "completed";
+    case ProjectStatus.Closed:
+      return "closed";
+    case ProjectStatus.Archived:
+      return "archived";
+    default:
+      return "rfq";
+  }
+}
+
+function TeamAvatars({ project, memberMap }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User> }) {
+  const { t } = useDictionary("projects");
+  const resolvedMembers = project.teamMemberIds
+    .map((id) => memberMap.get(id))
+    .filter(Boolean) as import("@/lib/types/models").User[];
+  const display = resolvedMembers.slice(0, 3);
+  const overflow = resolvedMembers.length - 3;
+
+  if (display.length === 0) {
+    return (
+      <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+        {t("noTeam")}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center -space-x-[6px]">
+      {display.map((member) => (
+        <UserAvatar
+          key={member.id}
+          name={getUserFullName(member)}
+          imageUrl={member.profileImageURL}
+          size="sm"
+          color={member.userColor ?? undefined}
+        />
+      ))}
+      {overflow > 0 && (
+        <div className="w-[24px] h-[24px] rounded-full bg-background-elevated border-2 border-background-card flex items-center justify-center">
+          <span className="font-mono text-[9px] text-text-tertiary">+{overflow}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectCardContent({ project, memberMap, onClick }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User>; onClick: () => void }) {
+  const { locale } = useLocale();
+  const clientName = project.client?.name ?? "No Client";
+
+  return (
+    <Card variant="interactive" className="p-2 space-y-1.5" onClick={onClick}>
+      <div className="flex items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-mohave text-card-title text-text-primary truncate">
+            {project.title}
+          </h3>
+          <p className="font-kosugi text-caption-sm text-text-tertiary">{clientName}</p>
+        </div>
+        <StatusBadge status={statusToKey(project.status) } />
+      </div>
+
+      {project.address && (
+        <div className="flex items-center gap-[6px] text-text-tertiary">
+          <MapPin className="w-[14px] h-[14px] shrink-0" />
+          <span className="font-mohave text-body-sm truncate">{project.address}</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-[4px] border-t border-border-subtle">
+        <TeamAvatars project={project} memberMap={memberMap} />
+        <div className="flex items-center gap-[6px] text-text-tertiary">
+          <CalendarDays className="w-[13px] h-[13px]" />
+          <span className="font-mono text-[11px]">
+            {project.startDate
+              ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
+                  month: "short",
+                  day: "numeric",
+                })
+              : "No date"}
+            {project.endDate && (
+              <>
+                {" - "}
+                {new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
+                  month: "short",
+                  day: "numeric",
+                })}
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
+  if (viewMode === "cards") {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="bg-background-card border border-border rounded-lg p-2 space-y-1.5 animate-pulse">
+            <div className="h-[18px] bg-background-elevated rounded w-3/4" />
+            <div className="h-[14px] bg-background-elevated rounded w-1/2" />
+            <div className="h-[14px] bg-background-elevated rounded w-full" />
+            <div className="flex justify-between pt-1">
+              <div className="flex -space-x-1">
+                {[1, 2].map((j) => (
+                  <div key={j} className="w-[24px] h-[24px] rounded-full bg-background-elevated" />
+                ))}
+              </div>
+              <div className="h-[14px] bg-background-elevated rounded w-[80px]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1 animate-pulse">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-[48px] bg-background-card border border-border rounded" />
+      ))}
+    </div>
+  );
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useDictionary("projects");
+  return (
+    <div className="flex flex-col items-center justify-center py-8">
+      <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
+        <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
+      </div>
+      <h3 className="font-mohave text-heading text-text-primary">{t("empty.loadFailed")}</h3>
+      <p className="font-kosugi text-caption text-text-tertiary mt-0.5 max-w-[300px]">
+        {message}
+      </p>
+      <Button variant="secondary" className="mt-3 gap-[6px]" onClick={onRetry}>
+        <RefreshCw className="w-[16px] h-[16px]" />
+        Retry
+      </Button>
+    </div>
+  );
+}
+
+export default function ProjectsPage() {
+  const { t } = useDictionary("projects");
+  const { locale } = useLocale();
+  const filterTabs = useMemo<{ value: FilterStatus; label: string }[]>(() => [
+    { value: "all", label: t("filter.all") },
+    { value: "active", label: t("filter.active") },
+    { value: "completed", label: t("filter.completed") },
+    { value: "archived", label: t("filter.archived") },
+  ], [t]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
+  const openWindow = useWindowStore((s) => s.openWindow);
+  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+
+  // ── Setup gate ──────────────────────────────────────────────────────
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [pendingGatedAction, setPendingGatedAction] = useState<(() => void) | null>(null);
+
+  const gatedOpenCreate = useCallback(() => {
+    if (!setupComplete) {
+      setPendingGatedAction(() => openCreateProject);
+      setShowSetupModal(true);
+      return;
+    }
+    openCreateProject();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupComplete]);
+
+  // Track screen view
+  useEffect(() => { trackScreenView("projects"); }, []);
+
+  const {
+    selectedIds,
+    isSelecting,
+    selectAll,
+    clearSelection,
+    toggleSelection,
+  } = useSelectionStore();
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useProjects();
+
+  const { data: clientsData } = useClients();
+  const { data: teamData } = useTeamMembers();
+
+  const updateStatus = useUpdateProjectStatus();
+  const deleteProject = useDeleteProject();
+
+  // Build client lookup map (clientId → Client) to resolve client names on project cards
+  const clientMap = useMemo(() => {
+    const map = new Map<string, { name: string }>();
+    for (const client of clientsData?.clients ?? []) {
+      map.set(client.id, { name: client.name });
+    }
+    return map;
+  }, [clientsData]);
+
+  // Build team member lookup map (userId → User) to resolve avatars on project cards
+  const memberMap = useMemo(() => {
+    const map = new Map<string, import("@/lib/types/models").User>();
+    for (const user of teamData?.users ?? []) {
+      map.set(user.id, user);
+    }
+    return map;
+  }, [teamData]);
+
+  // Enrich projects with client relationship data
+  const projects = useMemo(() => {
+    const raw = data?.projects ?? [];
+    return raw.map((p) => {
+      if (p.clientId && !p.client) {
+        const client = clientMap.get(p.clientId);
+        if (client) {
+          return { ...p, client: { ...client, id: p.clientId } as Project["client"] };
+        }
+      }
+      return p;
+    });
+  }, [data, clientMap]);
+
+  const filteredProjects = useMemo(() => {
+    let filtered = [...projects];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.title.toLowerCase().includes(query) ||
+          p.client?.name?.toLowerCase().includes(query) ||
+          p.address?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (statusFilter === "active") {
+      filtered = filtered.filter((p) => isActiveProjectStatus(p.status));
+    } else if (statusFilter === "completed") {
+      filtered = filtered.filter(
+        (p) =>
+          p.status === ProjectStatus.Completed || p.status === ProjectStatus.Closed
+      );
+    } else if (statusFilter === "archived") {
+      filtered = filtered.filter((p) => p.status === ProjectStatus.Archived);
+    }
+
+    // Sort by newest created first
+    filtered.sort((a, b) => {
+      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bDate - aDate;
+    });
+
+    return filtered;
+  }, [projects, searchQuery, statusFilter]);
+
+  const filteredIds = useMemo(
+    () => filteredProjects.map((p) => p.id),
+    [filteredProjects]
+  );
+
+  const allFilteredSelected =
+    filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+
+  const someFilteredSelected =
+    filteredIds.some((id) => selectedIds.has(id)) && !allFilteredSelected;
+
+  // Keyboard shortcut: Escape to clear selection
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && isSelecting) {
+        clearSelection();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSelecting, clearSelection]);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    clearSelection();
+  }, [searchQuery, statusFilter, clearSelection]);
+
+  // --- Bulk Action Handlers ---
+
+  const handleBulkStatusChange = useCallback(
+    (ids: string[], newStatus: ProjectStatus) => {
+      for (const id of ids) {
+        updateStatus.mutate({ id, status: newStatus });
+      }
+      clearSelection();
+      setStatusDropdownOpen(false);
+    },
+    [updateStatus, clearSelection]
+  );
+
+  const handleBulkDelete = useCallback(
+    (ids: string[]) => {
+      setPendingDeleteIds(ids);
+      setDeleteConfirmOpen(true);
+    },
+    []
+  );
+
+  const confirmBulkDelete = useCallback(() => {
+    for (const id of pendingDeleteIds) {
+      deleteProject.mutate(id);
+    }
+    clearSelection();
+    setDeleteConfirmOpen(false);
+    setPendingDeleteIds([]);
+  }, [pendingDeleteIds, deleteProject, clearSelection]);
+
+  const handleBulkExport = useCallback(
+    (ids: string[]) => {
+      const selected = projects.filter((p) => ids.includes(p.id));
+      exportToCSV(
+        selected.map((p) => ({
+          title: p.title,
+          client: p.client?.name ?? "",
+          status: p.status,
+          address: p.address ?? "",
+          startDate: p.startDate
+            ? new Date(p.startDate).toLocaleDateString()
+            : "",
+          endDate: p.endDate
+            ? new Date(p.endDate).toLocaleDateString()
+            : "",
+          teamSize: String(p.teamMemberIds.length),
+          notes: p.notes ?? "",
+        })),
+        [
+          { key: "title", header: "Project" },
+          { key: "client", header: "Client" },
+          { key: "status", header: "Status" },
+          { key: "address", header: "Address" },
+          { key: "startDate", header: "Start Date" },
+          { key: "endDate", header: "End Date" },
+          { key: "teamSize", header: "Team Size" },
+          { key: "notes", header: "Notes" },
+        ],
+        `ops-projects-${new Date().toISOString().split("T")[0]}`
+      );
+    },
+    [projects]
+  );
+
+  const handleSelectAllToggle = useCallback(() => {
+    if (allFilteredSelected) {
+      clearSelection();
+    } else {
+      selectAll(filteredIds);
+    }
+  }, [allFilteredSelected, clearSelection, selectAll, filteredIds]);
+
+  // --- Bulk Actions Config ---
+
+  const bulkActions: BulkAction[] = [
+    {
+      id: "status",
+      label: t("bulk.status"),
+      icon: ArrowRight,
+      onClick: () => setStatusDropdownOpen(true),
+    },
+    {
+      id: "export",
+      label: t("bulk.export"),
+      icon: Download,
+      onClick: handleBulkExport,
+    },
+    {
+      id: "delete",
+      label: t("bulk.delete"),
+      icon: Trash2,
+      variant: "destructive",
+      onClick: handleBulkDelete,
+    },
+  ];
+
+  const noDataAvailable = !isLoading && projects.length === 0 && !isError;
+
+  return (
+    <div className="space-y-3">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <p className="font-kosugi text-caption-sm text-text-tertiary">
+          {isLoading
+            ? t("loading")
+            : `${projects.length} total project${projects.length !== 1 ? "s" : ""}`}
+        </p>
+        <div className="flex items-center gap-1">
+          {/* Select mode toggle */}
+          {filteredProjects.length > 0 && !isLoading && (
+            <Button
+              variant={isSelecting ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                if (isSelecting) {
+                  clearSelection();
+                } else {
+                  toggleSelection(filteredIds[0]);
+                }
+              }}
+              className="gap-[4px]"
+            >
+              <CheckSquare className="w-[14px] h-[14px]" />
+              {isSelecting ? t("cancel") : t("select")}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex-1 max-w-[400px]">
+          <Input
+            placeholder={t("search.placeholder")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefixIcon={<Search className="w-[16px] h-[16px]" />}
+          />
+        </div>
+
+        <div className="flex items-center gap-1">
+          {/* Status tabs */}
+          <SegmentedPicker
+            options={filterTabs.map((tab) => ({ value: tab.value, label: tab.label }))}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
+
+          {/* View toggle */}
+          <SegmentedPicker
+            options={[
+              { value: "cards" as ViewMode, label: "Cards", icon: LayoutGrid },
+              { value: "table" as ViewMode, label: "Table", icon: List },
+            ]}
+            value={viewMode}
+            onChange={setViewMode}
+            iconOnly
+          />
+        </div>
+      </div>
+
+      {/* Select All bar (visible when in selection mode) */}
+      {isSelecting && filteredProjects.length > 0 && (
+        <div className="flex items-center gap-1.5 px-1.5 py-1 bg-background-card border border-border rounded-lg animate-fade-in">
+          <Checkbox
+            checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+            onCheckedChange={handleSelectAllToggle}
+            aria-label="Select all projects"
+          />
+          <span className="font-mohave text-body-sm text-text-secondary">
+            {allFilteredSelected
+              ? `${filteredIds.length} ${t("bulk.allSelected")}`
+              : `${t("bulk.selectAll")} ${filteredIds.length}`}
+          </span>
+          {selectedIds.size > 0 && (
+            <button
+              onClick={clearSelection}
+              className="ml-auto font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover transition-colors"
+            >
+              {t("bulk.clearSelection")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Content */}
+      {isLoading ? (
+        <LoadingSkeleton viewMode={viewMode} />
+      ) : isError ? (
+        <ErrorState
+          message={
+            error instanceof Error
+              ? error.message
+              : "Something went wrong. Please try again."
+          }
+          onRetry={() => refetch()}
+        />
+      ) : noDataAvailable && !searchQuery && statusFilter === "all" ? (
+        <EmptyState
+          icon={<LayoutGrid className="w-[48px] h-[48px]" />}
+          title={t("empty.title")}
+          description={t("empty.description")}
+          action={{
+            label: t("newProject"),
+            onClick: () => openCreateProject(),
+          }}
+        />
+      ) : filteredProjects.length === 0 ? (
+        <div className="text-left py-6">
+          <p className="font-mohave text-body text-text-tertiary">
+            {t("empty.noMatch")}
+          </p>
+        </div>
+      ) : viewMode === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+          {filteredProjects.map((project) => (
+            <SelectableRow
+              key={project.id}
+              id={project.id}
+              allIds={filteredIds}
+              selectionActive={isSelecting}
+              onClick={() => setPreviewProjectId(project.id)}
+              className="rounded-lg"
+            >
+              <ProjectCardContent
+                project={project}
+                memberMap={memberMap}
+                onClick={() => {
+                  if (!isSelecting) {
+                    setPreviewProjectId(project.id);
+                  }
+                }}
+              />
+            </SelectableRow>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-background-card border border-border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                {/* Checkbox column header */}
+                {isSelecting && (
+                  <th className="px-1 py-1 w-[40px]">
+                    <Checkbox
+                      checked={
+                        allFilteredSelected
+                          ? true
+                          : someFilteredSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={handleSelectAllToggle}
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  {t("table.project")}
+                </th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  {t("table.client")}
+                </th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  {t("table.status")}
+                </th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  {t("table.team")}
+                </th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  {t("table.startDate")}
+                </th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  Created
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProjects.map((project) => {
+                const isChecked = selectedIds.has(project.id);
+                const clientName = project.client?.name ?? "No Client";
+
+                return (
+                  <tr
+                    key={project.id}
+                    onClick={() => {
+                      if (isSelecting) {
+                        toggleSelection(project.id);
+                      } else {
+                        setPreviewProjectId(project.id);
+                      }
+                    }}
+                    className={cn(
+                      "border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors",
+                      isChecked && "bg-ops-accent/[0.06]"
+                    )}
+                  >
+                    {/* Checkbox cell */}
+                    {isSelecting && (
+                      <td className="px-1 py-1 w-[40px]">
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => toggleSelection(project.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Select ${project.title}`}
+                        />
+                      </td>
+                    )}
+                    <td className="px-1.5 py-1">
+                      <span className="font-mohave text-body text-text-primary">
+                        {project.title}
+                      </span>
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <span className="font-mohave text-body-sm text-text-secondary">
+                        {clientName}
+                      </span>
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <StatusBadge status={statusToKey(project.status) } />
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <TeamAvatars project={project} memberMap={memberMap} />
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <span className="font-mono text-data-sm text-text-tertiary">
+                        {project.startDate
+                          ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "--"}
+                      </span>
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <span className="font-mono text-data-sm text-text-tertiary">
+                        {project.createdAt
+                          ? new Date(project.createdAt).toLocaleDateString(getDateLocale(locale), {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "--"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar actions={bulkActions} entityName="project" />
+
+      {/* Status Change Dropdown (anchored to a hidden trigger) */}
+      <DropdownMenu
+        open={statusDropdownOpen}
+        onOpenChange={setStatusDropdownOpen}
+      >
+        <DropdownMenuTrigger asChild>
+          <button className="sr-only" aria-hidden="true" tabIndex={-1} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="center"
+          side="top"
+          className="min-w-[200px]"
+          style={{
+            position: "fixed",
+            bottom: "80px",
+            left: "50%",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <DropdownMenuLabel>{t("bulk.changeStatus")}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {ALL_PROJECT_STATUSES.map((status) => (
+            <DropdownMenuItem
+              key={status}
+              onClick={() =>
+                handleBulkStatusChange(Array.from(selectedIds), status)
+              }
+            >
+              <StatusBadge status={statusToKey(status) } />
+              <span className="ml-1">{status}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={`Delete ${pendingDeleteIds.length} project${pendingDeleteIds.length !== 1 ? "s" : ""}?`}
+        description={`This will permanently remove ${pendingDeleteIds.length} project${pendingDeleteIds.length !== 1 ? "s" : ""} and all associated tasks. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmBulkDelete}
+        loading={deleteProject.isPending}
+      />
+
+      {/* Project Detail Sheet */}
+      <ProjectDetailSheet
+        projectId={previewProjectId}
+        open={!!previewProjectId}
+        onOpenChange={(open) => {
+          if (!open) setPreviewProjectId(null);
+        }}
+      />
+
+      {/* Setup interception modal */}
+      <SetupInterceptionModal
+        isOpen={showSetupModal}
+        onComplete={() => {
+          setShowSetupModal(false);
+          pendingGatedAction?.();
+          setPendingGatedAction(null);
+        }}
+        onDismiss={() => {
+          setShowSetupModal(false);
+          setPendingGatedAction(null);
+        }}
+        missingSteps={missingSteps}
+        triggerAction="projects"
+      />
+    </div>
+  );
+}

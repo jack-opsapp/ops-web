@@ -118,12 +118,15 @@ export function ImportPipelineWizard({
         filteredOutIds: confirmedLeads.filter((l) => !l.enabled && l.needsReview).map((l) => l.id),
         consolidationDecisions: consolidationGroups
           .filter((g) => g.decision)
-          .map((g) => ({ groupId: g.id, decision: g.decision })),
+          .map((g) => ({ groupId: g.id, decision: g.decision, companyName: g.companyName })),
         triageDecisions: Array.from(triageDecisions.entries())
           .map(([leadId, decision]) => ({ leadId, decision })),
         stageOverrides: confirmedLeads
           .filter((l) => l.enabled)
           .map((l) => ({ leadId: l.id, stage: l.stage })),
+        nameOverrides: confirmedLeads
+          .filter((l) => l.enabled)
+          .map((l) => ({ leadId: l.id, name: l.client.name })),
         savedAt: new Date().toISOString(),
       };
       await fetch("/api/integrations/email/connection", {
@@ -135,6 +138,25 @@ export function ImportPipelineWizard({
       console.error("[wizard] Failed to save review state:", err);
     }
   }, [connectionId, step, reviewSubStep, confirmedLeads, consolidationGroups, triageDecisions]);
+
+  // ─── Import job tracking ───────────────────────────────────────────────────
+  // When the user clicks "Import" in step 4, this is set to the background job ID.
+  // Step 4 then renders ImportProgress instead of the review sub-steps.
+  const [importJobId, setImportJobId] = useState<string | null>(null);
+  const [importLeadCount, setImportLeadCount] = useState(0);
+
+  // ─── Auto-save review state every 30s during step 4 ────────────────────
+  const autoSaveRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (step !== 4 || importJobId) {
+      if (autoSaveRef.current) clearInterval(autoSaveRef.current);
+      return;
+    }
+    autoSaveRef.current = setInterval(() => {
+      saveReviewState();
+    }, 30_000);
+    return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
+  }, [step, importJobId, saveReviewState]);
 
   // Stepper rail computed state
   const completedSteps = useMemo(() => {
@@ -167,12 +189,6 @@ export function ImportPipelineWizard({
   // Tracks either analysis or import jobs — both use gmail_scan_jobs and same poll pattern
   const [runningJobId, setRunningJobId] = useState<string | null>(null);
   const [runningJobType, setRunningJobType] = useState<JobType | null>(null);
-
-  // ─── Import job tracking ───────────────────────────────────────────────────
-  // When the user clicks "Import" in step 4, this is set to the background job ID.
-  // Step 4 then renders ImportProgress instead of the review sub-steps.
-  const [importJobId, setImportJobId] = useState<string | null>(null);
-  const [importLeadCount, setImportLeadCount] = useState(0);
 
   // ─── Background progress (for minimized card) ──────────────────────────────
   const [bgProgress, setBgProgress] = useState({ percent: 0, message: "Working..." });
@@ -349,6 +365,25 @@ export function ImportPipelineWizard({
                   ...l,
                   enabled: filteredSet.has(l.id) ? false : l.enabled,
                 }));
+
+                // Restore name overrides
+                if (reviewState.nameOverrides?.length) {
+                  const nameMap = new Map(reviewState.nameOverrides.map((n: { leadId: string; name: string }) => [n.leadId, n.name]));
+                  for (const lead of restoredLeads) {
+                    const nameOverride = nameMap.get(lead.id);
+                    if (nameOverride) lead.client = { ...lead.client, name: nameOverride };
+                  }
+                }
+
+                // Restore stage overrides
+                if (reviewState.stageOverrides?.length) {
+                  const stageMap = new Map(reviewState.stageOverrides.map((s: { leadId: string; stage: string }) => [s.leadId, s.stage]));
+                  for (const lead of restoredLeads) {
+                    const stageOverride = stageMap.get(lead.id);
+                    if (stageOverride) lead.stage = stageOverride;
+                  }
+                }
+
                 setConfirmedLeads(restoredLeads);
 
                 // Restore triage decisions
@@ -360,16 +395,32 @@ export function ImportPipelineWizard({
                   setTriageDecisions(map);
                 }
 
-                // Restore stage overrides
-                if (reviewState.stageOverrides?.length) {
-                  const stageMap = new Map(reviewState.stageOverrides.map((s: { leadId: string; stage: string }) => [s.leadId, s.stage]));
-                  setConfirmedLeads((prev) =>
-                    prev.map((l) => {
-                      const override = stageMap.get(l.id);
-                      return override ? { ...l, stage: override as string } : l;
-                    })
+                // Restore consolidation groups + decisions
+                const enabledLeads = restoredLeads.filter((l: AnalyzedLead) => l.enabled);
+                const groups = buildConsolidationGroups(enabledLeads);
+                if (reviewState.consolidationDecisions?.length) {
+                  const decisionMap = new Map(
+                    reviewState.consolidationDecisions.map((d: { groupId: string; decision: string; companyName?: string }) => [d.groupId, d])
                   );
+                  for (const group of groups) {
+                    const saved = decisionMap.get(group.id) as { groupId: string; decision: string; companyName?: string } | undefined;
+                    if (saved) {
+                      group.decision = saved.decision as 'confirm' | 'merge';
+                      if (saved.companyName) group.companyName = saved.companyName;
+                    }
+                  }
+                  // Re-disable secondary leads for merge decisions
+                  for (const group of groups) {
+                    if (group.decision === "merge" && group.leads.length > 1) {
+                      const secondaryIds = new Set(group.leads.slice(1).map((gl) => gl.leadId));
+                      for (const lead of restoredLeads) {
+                        if (secondaryIds.has(lead.id)) lead.enabled = false;
+                      }
+                    }
+                  }
+                  setConfirmedLeads([...restoredLeads]);
                 }
+                setConsolidationGroups(groups);
 
                 setReviewSubStep(reviewState.subStep || 1);
                 setDirection(1);

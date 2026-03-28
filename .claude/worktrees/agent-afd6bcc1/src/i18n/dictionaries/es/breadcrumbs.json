@@ -1,0 +1,14 @@
+{
+  "route.dashboard": "Panel",
+  "route.projects": "Proyectos",
+  "route.calendar": "Calendario",
+  "route.clients": "Clientes",
+  "route.jobBoard": "Tablero de trabajos",
+  "route.team": "Equipo",
+  "route.map": "Mapa",
+  "route.pipeline": "Pipeline",
+  "route.invoices": "Facturas",
+  "route.accounting": "Contabilidad",
+  "route.settings": "Configuración",
+  "route.new": "Nuevo"
+}

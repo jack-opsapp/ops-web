@@ -47,7 +47,7 @@ function delay(ms: number): Promise<void> {
 
 // ─── Valid stages for safety checks ──────────────────────────────────────────
 
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation'];
+const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation', 'won', 'lost'];
 
 function sanitizeStage(stage: string | null | undefined): string {
   if (stage && VALID_STAGES.includes(stage)) return stage;
@@ -411,10 +411,43 @@ async function runPhaseB(
   console.log(`[email-analyze-continue] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped`);
   console.log(`[email-analyze-continue] Fetched threadIds sample: ${[...fetchedThreads.keys()].slice(0, 5).join(', ')}`);
 
+  // ─── 3b. Build body-mention index ──────────────────────────────────────────
+  // Scan all fetched message bodies for email addresses. This catches form
+  // submission emails (from noreply@platform.com) that mention the real
+  // client email in the body text. When we find a match, we include that
+  // thread in the client's extraction bundle so the AI sees the full picture.
+  const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  const bodyMentionIndex = new Map<string, Set<string>>(); // email → Set<threadId>
+
+  for (const [threadId, messages] of fetchedThreads) {
+    for (const msg of messages) {
+      const body = (msg.bodyText || msg.snippet || '') as string;
+      const matches = body.match(EMAIL_REGEX);
+      if (!matches) continue;
+      for (const rawEmail of matches) {
+        const email = rawEmail.toLowerCase();
+        // Skip owner, employees, company domains, and common platform/noreply addresses
+        if (email === ownerEmailLower) continue;
+        if (employeeEmailSet.has(email)) continue;
+        const domain = email.split('@')[1] || '';
+        if (companyDomainSet.has(domain)) continue;
+        if (email.startsWith('noreply') || email.startsWith('no-reply') || email.startsWith('donotreply')) continue;
+
+        if (!bodyMentionIndex.has(email)) bodyMentionIndex.set(email, new Set());
+        bodyMentionIndex.get(email)!.add(threadId);
+      }
+    }
+  }
+
+  const mentionLinks = [...bodyMentionIndex.entries()].filter(([, tids]) => tids.size > 0).length;
+  console.log(`[email-analyze-continue] Body mention index: ${mentionLinks} unique emails found across thread bodies`);
+
   // ─── 4. Deep AI extraction ─────────────────────────────────────────────────
   await updateProgress("analyzing_threads", "Extracting lead details with AI...", 82);
 
   // ── Build clientEmail → threadId[] map so AI sees ALL threads per client ──
+  // Includes both direct threads (client.email matches) AND mention threads
+  // (threads where client email appears in message body, e.g. form submissions).
   const clientThreadMapForAI = new Map<string, string[]>();
   for (const lead of leads) {
     const normEmail = cleanEmailAddress(lead.client.email);
@@ -424,6 +457,15 @@ async function runPhaseB(
     const threadIds = clientThreadMapForAI.get(normEmail)!;
     if (!threadIds.includes(lead.threadId)) {
       threadIds.push(lead.threadId);
+    }
+    // Add threads that mention this client's email in body text
+    const mentionThreadIds = bodyMentionIndex.get(normEmail);
+    if (mentionThreadIds) {
+      for (const tid of mentionThreadIds) {
+        if (!threadIds.includes(tid) && fetchedThreads.has(tid)) {
+          threadIds.push(tid);
+        }
+      }
     }
   }
 
@@ -622,12 +664,17 @@ async function runPhaseB(
       }
     }
 
-    // Apply terminal flag from AI (likely_won / likely_lost)
+    // Apply terminal state from AI — either via flag or direct won/lost stage
     if (extraction.terminalFlag) {
       lead.terminalFlag = extraction.terminalFlag;
       lead.stage = extraction.terminalFlag === 'likely_won' ? 'won' : 'lost';
-      lead.enabled = extraction.terminalFlag === 'likely_won';
-      console.log(`[deep-extract] TERMINAL: ${lead.client.name} (${lead.client.email}) — ${extraction.terminalFlag}`);
+      lead.enabled = true; // Terminal leads stay enabled — user triages in step 4
+      console.log(`[deep-extract] TERMINAL (flag): ${lead.client.name} (${lead.client.email}) — ${extraction.terminalFlag}`);
+    } else if (extraction.stage === 'won' || extraction.stage === 'lost') {
+      lead.terminalFlag = extraction.stage === 'won' ? 'likely_won' : 'likely_lost';
+      lead.stage = extraction.stage;
+      lead.enabled = true; // Terminal leads stay enabled — user triages in step 4
+      console.log(`[deep-extract] TERMINAL (stage): ${lead.client.name} (${lead.client.email}) — ${extraction.stage}`);
     }
 
     // Apply review flags
@@ -649,6 +696,7 @@ async function runPhaseB(
   console.log(`[email-analyze-continue] Extraction stats: ${JSON.stringify(extractionStats)}`);
 
   // ── Build clientEmail → threadId[] map so we can bundle ALL threads per client ──
+  // Includes body-mention threads (e.g. form submissions mentioning the client email)
   const clientThreadMap = new Map<string, string[]>();
   for (const lead of leads) {
     const normEmail = cleanEmailAddress(lead.client.email);
@@ -658,6 +706,15 @@ async function runPhaseB(
     const threadIds = clientThreadMap.get(normEmail)!;
     if (!threadIds.includes(lead.threadId)) {
       threadIds.push(lead.threadId);
+    }
+    // Add threads that mention this client's email in body text
+    const mentionThreadIds = bodyMentionIndex.get(normEmail);
+    if (mentionThreadIds) {
+      for (const tid of mentionThreadIds) {
+        if (!threadIds.includes(tid) && fetchedThreads.has(tid)) {
+          threadIds.push(tid);
+        }
+      }
     }
   }
 
