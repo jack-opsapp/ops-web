@@ -166,7 +166,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             : "md:ml-[256px] md:w-[calc(100vw-256px)]"
         )}
       >
-        <div className="sticky top-0 z-10">
+        <div className="sticky top-0 z-10 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border-b border-[rgba(255,255,255,0.06)]">
           <TopBar />
         </div>
         <ContentHeader />
