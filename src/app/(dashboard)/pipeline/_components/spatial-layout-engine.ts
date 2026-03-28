@@ -87,7 +87,8 @@ function sortOpportunities(
 export function calculateCanvasLayout(
   opportunities: Opportunity[],
   sortBy: "value" | "name" | "date" | "days_in_stage",
-  clientNames: Map<string, string>
+  clientNames: Map<string, string>,
+  stageSortOverrides?: Map<string, "value" | "name" | "date" | "days_in_stage">
 ): CanvasLayout {
   const activeStages = getActiveStages();
 
@@ -113,9 +114,10 @@ export function calculateCanvasLayout(
     }
   }
 
-  // Sort each stage's cards
+  // Sort each stage's cards (per-stage override takes priority over global)
   for (const [stage, opps] of byStage) {
-    byStage.set(stage, sortOpportunities(opps, sortBy, clientNames));
+    const stageSort = stageSortOverrides?.get(stage) ?? sortBy;
+    byStage.set(stage, sortOpportunities(opps, stageSort, clientNames));
   }
 
   // Build active stage stacks (left to right, in stage order)
@@ -164,7 +166,7 @@ export function calculateCanvasLayout(
   // Build terminal regions (Won above Lost) to the right of active stacks
   const terminalStartX = xCursor + TERMINAL_GAP;
   const terminalRegions: TerminalRegionLayout[] = [];
-  const TERMINAL_VERTICAL_GAP = 40;
+  const TERMINAL_VERTICAL_GAP = 60;
   let terminalYCursor = CANVAS_PADDING;
 
   for (const config of [
@@ -172,7 +174,8 @@ export function calculateCanvasLayout(
     { stage: OpportunityStage.Lost, opps: lostOpps },
   ]) {
     const regionX = terminalStartX;
-    const sorted = sortOpportunities(config.opps, sortBy, clientNames);
+    const terminalSort = stageSortOverrides?.get(config.stage) ?? sortBy;
+    const sorted = sortOpportunities(config.opps, terminalSort, clientNames);
 
     const cardPositions = sorted.map((opp, i) => {
       const col = i % TERMINAL_COLS;

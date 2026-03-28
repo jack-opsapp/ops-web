@@ -59,9 +59,13 @@ export function SpatialCardHoverMetrics({
           className="absolute pointer-events-none"
           style={{
             left: 0,
-            top: "calc(100% + 4px)",
+            top: "calc(100% - 4px)",
             width: CARD_WIDTH,
             zIndex: 10,
+            padding: "2px 10px 32px",
+            background: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.4) 70%, transparent 100%)",
+            maskImage: "linear-gradient(to right, transparent 0%, black 12px, black calc(100% - 12px), transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 12px, black calc(100% - 12px), transparent 100%)",
           }}
           initial="hidden"
           animate="visible"
@@ -77,7 +81,7 @@ export function SpatialCardHoverMetrics({
             </span>
 
             {/* Last correspondence */}
-            <span className="font-kosugi text-micro-sm text-text-disabled">
+            <span className="font-kosugi text-micro-sm text-text-tertiary">
               {lastCorrespondence
                 ? t("spatial.emailTimeAgo").replace(
                     "{timeAgo}",

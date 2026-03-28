@@ -24,7 +24,7 @@ import {
   getStageDisplayName,
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
-import { useSpatialCanvasStore, type ContextMenuState } from "./spatial-canvas-store";
+import { useSpatialCanvasStore, type ContextMenuState, type SortOption } from "./spatial-canvas-store";
 import {
   spatialContextMenuVariants,
   spatialContextMenuVariantsReduced,
@@ -41,7 +41,7 @@ interface SpatialContextMenuProps {
   onAssign: (ids: string[]) => void;
   onMarkWon: (ids: string[]) => void;
   onMarkLost: (ids: string[]) => void;
-  onSelectAll: () => void;
+  onSelectAll: (stage?: string | null) => void;
   teamMembers?: { id: string; name: string }[];
 }
 
@@ -68,6 +68,7 @@ export function SpatialContextMenu({
   const hideContextMenu = useSpatialCanvasStore((s) => s.hideContextMenu);
   const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
   const setSortBy = useSpatialCanvasStore((s) => s.setSortBy);
+  const setStageSortBy = useSpatialCanvasStore((s) => s.setStageSortBy);
   const resetLayout = useSpatialCanvasStore((s) => s.resetLayout);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -156,6 +157,30 @@ export function SpatialContextMenu({
               width: contextMenu.type === "selection" ? 220 : 180,
             }}
           >
+            {/* ── Stage label (always shown for card + canvas menus) ── */}
+            {(contextMenu.type === "card" || contextMenu.type === "canvas") && (
+              <div className="flex items-center gap-2 px-3 h-7 border-b border-[rgba(255,255,255,0.06)]">
+                {contextMenu.stage ? (
+                  <>
+                    <div
+                      className="w-[6px] h-[6px] rounded-[2px] shrink-0"
+                      style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
+                    />
+                    <span
+                      className="font-kosugi text-micro-sm uppercase tracking-widest"
+                      style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
+                    >
+                      in {getStageDisplayName(contextMenu.stage as OpportunityStage)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-kosugi text-micro-sm uppercase tracking-widest text-text-disabled">
+                    all stages
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* ── Card context menu ── */}
             {contextMenu.type === "card" && contextMenu.targetCardId && (
               <>
@@ -302,43 +327,17 @@ export function SpatialContextMenu({
               </>
             )}
 
-            {/* ── Canvas context menu ── */}
+            {/* ── Canvas context menu (sort scoped to region or global) ── */}
             {contextMenu.type === "canvas" && (
-              <>
-                <MenuItem
-                  icon={<ArrowDownWideNarrow className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.sortByValue")}
-                  onClick={() => handleItemClick(() => setSortBy("value"))}
-                />
-                <MenuItem
-                  icon={<ArrowDownAZ className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.sortByName")}
-                  onClick={() => handleItemClick(() => setSortBy("name"))}
-                />
-                <MenuItem
-                  icon={<Calendar className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.sortByDate")}
-                  onClick={() => handleItemClick(() => setSortBy("date"))}
-                />
-                <MenuItem
-                  icon={<Clock className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.sortByDays")}
-                  onClick={() =>
-                    handleItemClick(() => setSortBy("days_in_stage"))
-                  }
-                />
-                <Divider />
-                <MenuItem
-                  icon={<LayoutGrid className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.organizeByStage")}
-                  onClick={() => handleItemClick(resetLayout)}
-                />
-                <MenuItem
-                  icon={<CheckSquare className="w-[14px] h-[14px]" />}
-                  label={t("contextMenu.selectAll")}
-                  onClick={() => handleItemClick(onSelectAll)}
-                />
-              </>
+              <CanvasSortMenu
+                stage={contextMenu.stage}
+                setSortBy={setSortBy}
+                setStageSortBy={setStageSortBy}
+                resetLayout={resetLayout}
+                onSelectAll={onSelectAll}
+                onItemClick={handleItemClick}
+                t={t}
+              />
             )}
           </div>
         </motion.div>
@@ -387,5 +386,69 @@ function MenuItem({
 function Divider() {
   return (
     <div className="my-1 border-t border-[rgba(255,255,255,0.06)]" />
+  );
+}
+
+function CanvasSortMenu({
+  stage,
+  setSortBy,
+  setStageSortBy,
+  resetLayout,
+  onSelectAll,
+  onItemClick,
+  t,
+}: {
+  stage: string | null;
+  setSortBy: (sort: SortOption) => void;
+  setStageSortBy: (stage: string, sort: SortOption) => void;
+  resetLayout: () => void;
+  onSelectAll: (stage?: string | null) => void;
+  onItemClick: (action: () => void) => void;
+  t: (key: string) => string;
+}) {
+  const applySort = (sort: SortOption) => {
+    if (stage) {
+      setStageSortBy(stage, sort);
+    } else {
+      setSortBy(sort);
+    }
+  };
+
+  return (
+    <>
+      <MenuItem
+        icon={<ArrowDownWideNarrow className="w-[14px] h-[14px]" />}
+        label={t("contextMenu.sortByValue")}
+        onClick={() => onItemClick(() => applySort("value"))}
+      />
+      <MenuItem
+        icon={<ArrowDownAZ className="w-[14px] h-[14px]" />}
+        label={t("contextMenu.sortByName")}
+        onClick={() => onItemClick(() => applySort("name"))}
+      />
+      <MenuItem
+        icon={<Calendar className="w-[14px] h-[14px]" />}
+        label={t("contextMenu.sortByDate")}
+        onClick={() => onItemClick(() => applySort("date"))}
+      />
+      <MenuItem
+        icon={<Clock className="w-[14px] h-[14px]" />}
+        label={t("contextMenu.sortByDays")}
+        onClick={() => onItemClick(() => applySort("days_in_stage"))}
+      />
+      <Divider />
+      {!stage && (
+        <MenuItem
+          icon={<LayoutGrid className="w-[14px] h-[14px]" />}
+          label={t("contextMenu.organizeByStage")}
+          onClick={() => onItemClick(resetLayout)}
+        />
+      )}
+      <MenuItem
+        icon={<CheckSquare className="w-[14px] h-[14px]" />}
+        label={stage ? t("contextMenu.selectAllInStage") ?? "Select All in Stage" : t("contextMenu.selectAll")}
+        onClick={() => onItemClick(() => onSelectAll(stage))}
+      />
+    </>
   );
 }

@@ -8,6 +8,8 @@ import {
   OpportunityStage,
   OPPORTUNITY_STAGE_COLORS,
   getStageDisplayName,
+  getDaysInStage,
+  formatCurrency,
 } from "@/lib/types/pipeline";
 import type { TerminalRegionLayout } from "./spatial-layout-engine";
 import { CARD_WIDTH, STACK_HEADER_HEIGHT } from "./spatial-canvas-store";
@@ -47,8 +49,19 @@ export function SpatialTerminalRegion({
     data: { stage, isTerminal: true },
   });
 
-  // Glow opacity: drag-over > mouse-hover > idle
-  const glowOpacity = isOver ? "15" : isRegionHovered ? "10" : "05";
+  const totalValue = useMemo(
+    () =>
+      opportunities.reduce(
+        (sum, opp) => sum + (opp.estimatedValue ?? 0),
+        0
+      ),
+    [opportunities]
+  );
+
+  // Hex alpha tiers: drag-over > mouse-hover > idle
+  const bgAlpha = isOver ? "14" : isRegionHovered ? "0C" : "06";
+  const borderAlpha = isOver ? "30" : isRegionHovered ? "20" : "10";
+  const glowOpacity = isOver ? "28" : isRegionHovered ? "18" : "08";
 
   return (
     <div
@@ -61,9 +74,10 @@ export function SpatialTerminalRegion({
         top: layout.bounds.y,
         width: layout.bounds.width,
         height: layout.bounds.height,
-        background: `${stageColor}05`,
+        background: `${stageColor}${bgAlpha}`,
         borderRadius: 4,
-        border: `1px solid ${stageColor}10`,
+        border: `1px solid ${stageColor}${borderAlpha}`,
+        transition: "background 0.2s ease-out, border-color 0.2s ease-out",
       }}
       onMouseEnter={() => setIsRegionHovered(true)}
       onMouseLeave={() => setIsRegionHovered(false)}
@@ -79,22 +93,62 @@ export function SpatialTerminalRegion({
 
       {/* Header */}
       <div
-        className="absolute flex items-baseline gap-2"
+        className="absolute flex flex-col"
         style={{
-          left: 8,
-          top: 8,
+          left: 20,
+          top: 12,
           width: CARD_WIDTH,
           height: STACK_HEADER_HEIGHT,
-          borderBottom: `1px solid ${stageColor}30`,
-          padding: "10px 0 0 0",
+          padding: "8px 0 0 0",
+          position: "relative",
         }}
       >
-        <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
-          {getStageDisplayName(stage)}
-        </span>
-        <span className="font-mohave text-body-sm text-text-primary">
-          {opportunities.length}
-        </span>
+        {/* Bottom border — animates left-to-right on hover */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            height: 1,
+            background: isRegionHovered ? stageColor : `${stageColor}30`,
+            width: "100%",
+            opacity: isRegionHovered ? 1 : 0.5,
+            transformOrigin: "left",
+            transform: isRegionHovered ? "scaleX(1)" : "scaleX(0.3)",
+            transition: "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease-out, background 0.3s ease-out",
+          }}
+        />
+        <div className="flex items-baseline gap-2">
+          <span
+            className="font-kosugi text-micro-sm uppercase tracking-widest"
+            style={{
+              color: isRegionHovered ? stageColor : "#666",
+              transition: "color 0.25s ease-out",
+            }}
+          >
+            {getStageDisplayName(stage)}
+          </span>
+          <span className="font-mohave text-body-sm text-text-primary">
+            {opportunities.length}
+          </span>
+          <span className="font-mohave text-body-sm text-text-disabled">/</span>
+          <span className="font-mohave text-body-sm text-text-primary">
+            {totalValue > 0 ? formatCurrency(totalValue) : "$--"}
+          </span>
+        </div>
+        {isRegionHovered && opportunities.length > 0 && (
+          <div
+            className="flex items-baseline gap-2 mt-1 opacity-0 animate-fade-in"
+            style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
+          >
+            <span className="font-kosugi text-micro-sm text-text-disabled">
+              avg {Math.round(opportunities.reduce((sum, o) => sum + getDaysInStage(o), 0) / opportunities.length)}d
+            </span>
+            <span className="font-kosugi text-micro-sm text-text-disabled">
+              oldest: {Math.max(...opportunities.map((o) => getDaysInStage(o)))}d
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Cards in 2D grid — positions converted from canvas-absolute to region-relative */}
@@ -112,8 +166,8 @@ export function SpatialTerminalRegion({
         <div
           className="absolute flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px]"
           style={{
-            left: 8,
-            top: 8 + STACK_HEADER_HEIGHT,
+            left: 20,
+            top: 12 + STACK_HEADER_HEIGHT,
             width: CARD_WIDTH,
             height: 44,
           }}
