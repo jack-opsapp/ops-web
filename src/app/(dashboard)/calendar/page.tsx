@@ -114,7 +114,7 @@ export default function CalendarPage() {
     }
   }, [currentDate, view]);
 
-  const { data: calendarMetrics = [] } = useCalendarMetrics();
+  const { data: calendarMetrics = [], isLoading: calendarMetricsLoading } = useCalendarMetrics();
 
   const { data: scheduledTasks, isLoading } = useScheduledTasks(
     rangeStart,
@@ -210,7 +210,7 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col h-full gap-1.5">
-      <MetricsHeader variant="compact" tabId="calendar" title="Schedule" metrics={calendarMetrics} />
+      <MetricsHeader variant="compact" tabId="calendar" title="Schedule" metrics={calendarMetrics} isLoading={calendarMetricsLoading} />
       <CalendarHeader t={t} />
       <CalendarToolbar events={events} t={t} />
 

@@ -492,7 +492,7 @@ export default function TeamPage() {
 
   // ─── Auth store ──────────────────────────────────────────────────────────
   const { company } = useAuthStore();
-  const { data: teamMetrics = [] } = useTeamMetrics(company?.maxSeats ?? 10);
+  const { data: teamMetrics = [], isLoading: teamMetricsLoading } = useTeamMetrics(company?.maxSeats ?? 10);
   const isCurrentUserAdmin = useAuthStore(selectIsAdmin);
   const can = usePermissionStore((s) => s.can);
   const canManageTeam = can("team.manage");
@@ -585,6 +585,7 @@ export default function TeamPage() {
         tabId="team"
         title="Team"
         metrics={teamMetrics}
+        isLoading={teamMetricsLoading}
         actions={
           canManageTeam ? (
             <Button

@@ -42,7 +42,7 @@ export default function InboxPage() {
 
   // Unread count for pipeline badge
   const { data: unreadCount = 0 } = useInboxUnreadCount();
-  const { data: inboxMetrics = [] } = useInboxMetrics();
+  const { data: inboxMetrics = [], isLoading: inboxMetricsLoading } = useInboxMetrics();
 
   // Permission checks
   const canViewPipeline = can("pipeline.view");
@@ -134,7 +134,7 @@ export default function InboxPage() {
   return (
     <div className="space-y-3 pb-6">
       {/* Metrics Header */}
-      <MetricsHeader variant="compact" tabId="inbox" title="Inbox" metrics={inboxMetrics} />
+      <MetricsHeader variant="compact" tabId="inbox" title="Inbox" metrics={inboxMetrics} isLoading={inboxMetricsLoading} />
 
       {/* Header with Tab Switcher + New Email */}
       <div className="flex items-center gap-1">

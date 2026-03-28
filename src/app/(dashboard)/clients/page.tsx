@@ -345,7 +345,7 @@ export default function ClientsPage() {
   // Track screen view
   useEffect(() => { trackScreenView("clients"); }, []);
 
-  const { data: clientMetrics = [] } = useClientMetrics();
+  const { data: clientMetrics = [], isLoading: clientMetricsLoading } = useClientMetrics();
   const { data, isLoading } = useClients();
   const { data: projectsData } = useProjects();
 
@@ -407,7 +407,7 @@ export default function ClientsPage() {
   return (
     <div className="space-y-3">
       {/* Metrics Header */}
-      <MetricsHeader variant="compact" tabId="clients" title="Clients" metrics={clientMetrics} />
+      <MetricsHeader variant="compact" tabId="clients" title="Clients" metrics={clientMetrics} isLoading={clientMetricsLoading} />
 
       {/* Search + Filters + View Toggle */}
       <div className="flex flex-col sm:flex-row gap-2">

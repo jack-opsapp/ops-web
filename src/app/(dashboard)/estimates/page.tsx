@@ -116,7 +116,7 @@ export default function EstimatesPage() {
   const [reviewTasksEstimate, setReviewTasksEstimate] = useState<Estimate | null>(null);
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: estimateMetrics = [] } = useEstimateMetrics();
+  const { data: estimateMetrics = [], isLoading: estimateMetricsLoading } = useEstimateMetrics();
 
   // Data
   const { data: estimates = [], isLoading } = useEstimates();
@@ -214,7 +214,7 @@ export default function EstimatesPage() {
   return (
     <div className="space-y-3">
       {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="estimates" title="Estimates" metrics={estimateMetrics} />
+      <MetricsHeader variant="full" tabId="estimates" title="Estimates" metrics={estimateMetrics} isLoading={estimateMetricsLoading} />
 
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -347,7 +347,7 @@ export default function AccountingPage() {
   const companyId = company?.id ?? "";
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: accountingMetrics = [] } = useAccountingMetrics();
+  const { data: accountingMetrics = [], isLoading: accountingMetricsLoading } = useAccountingMetrics();
 
   // Data
   const { data: connections = [], isLoading: connectionsLoading } = useAccountingConnections();
@@ -501,7 +501,7 @@ export default function AccountingPage() {
       {activeTab === "dashboard" && (
         <div className="space-y-3">
           {/* Metrics Header */}
-          <MetricsHeader variant="full" tabId="accounting" title="Accounting" metrics={accountingMetrics} />
+          <MetricsHeader variant="full" tabId="accounting" title="Accounting" metrics={accountingMetrics} isLoading={accountingMetricsLoading} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {/* Aging Report */}

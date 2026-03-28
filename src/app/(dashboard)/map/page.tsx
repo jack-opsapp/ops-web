@@ -134,7 +134,7 @@ export default function MapPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const { data: mapMetrics = [] } = useMapMetrics();
+  const { data: mapMetrics = [], isLoading: mapMetricsLoading } = useMapMetrics();
   const { data, isLoading } = useScopedProjects();
   const projects = useMemo(() => data?.projects ?? [], [data]);
 
@@ -184,7 +184,7 @@ export default function MapPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] -m-3 relative">
       <div className="px-3 pt-3">
-        <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} />
+        <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} isLoading={mapMetricsLoading} />
       </div>
       <div className="flex flex-1 min-h-0 relative">
       {/* Sidebar */}

@@ -46,7 +46,7 @@ export default function ProductsPage() {
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
 
-  const { data: productMetrics = [] } = useProductMetrics();
+  const { data: productMetrics = [], isLoading: productMetricsLoading } = useProductMetrics();
   const { data: products = [], isLoading } = useProducts();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -100,6 +100,7 @@ export default function ProductsPage() {
         tabId="products"
         title="Products"
         metrics={productMetrics}
+        isLoading={productMetricsLoading}
         actions={
           can("products.manage") ? (
             <Button variant="default" size="sm" onClick={() => setShowModal(true)} className="gap-1">

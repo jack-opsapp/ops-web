@@ -53,7 +53,7 @@ function InventoryContent() {
   const { data: itemTags = [] } = useInventoryItemTags();
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: inventoryMetrics = [] } = useInventoryMetrics();
+  const { data: inventoryMetrics = [], isLoading: inventoryMetricsLoading } = useInventoryMetrics();
 
   // FAB ?action=new handling
   const action = searchParams.get("action");
@@ -101,7 +101,7 @@ function InventoryContent() {
   return (
     <div className="space-y-3 pb-6">
       {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="inventory" title="Inventory" metrics={inventoryMetrics} />
+      <MetricsHeader variant="full" tabId="inventory" title="Inventory" metrics={inventoryMetrics} isLoading={inventoryMetricsLoading} />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

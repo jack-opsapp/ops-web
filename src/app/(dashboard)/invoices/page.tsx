@@ -146,7 +146,7 @@ export default function InvoicesPage() {
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: invoiceMetrics = [] } = useInvoiceMetrics();
+  const { data: invoiceMetrics = [], isLoading: invoiceMetricsLoading } = useInvoiceMetrics();
 
   // ── Setup gate ──────────────────────────────────────────────────────
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
@@ -229,7 +229,7 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-3">
       {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="invoices" title="Invoices" metrics={invoiceMetrics} />
+      <MetricsHeader variant="full" tabId="invoices" title="Invoices" metrics={invoiceMetrics} isLoading={invoiceMetricsLoading} />
 
       {/* Header */}
       <div className="flex items-center justify-between">

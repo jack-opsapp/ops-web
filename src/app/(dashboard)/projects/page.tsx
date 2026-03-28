@@ -271,7 +271,7 @@ export default function ProjectsPage() {
   }, [setupComplete]);
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: projectMetrics = [] } = useProjectMetrics();
+  const { data: projectMetrics = [], isLoading: projectMetricsLoading } = useProjectMetrics();
 
   // Track screen view
   useEffect(() => { trackScreenView("projects"); }, []);
@@ -496,7 +496,7 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-3">
       {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="projects" title="Projects" metrics={projectMetrics} />
+      <MetricsHeader variant="full" tabId="projects" title="Projects" metrics={projectMetrics} isLoading={projectMetricsLoading} />
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
