@@ -27,6 +27,7 @@ interface SpatialDealTrayProps {
   emptyLabel: string;
   onRestore: (id: string) => void;
   onDeletePermanently: (id: string) => void;
+  showStageDot?: boolean;
 }
 
 // ── Shared tray component ──
@@ -40,6 +41,7 @@ function SpatialDealTray({
   emptyLabel,
   onRestore,
   onDeletePermanently,
+  showStageDot = true,
 }: SpatialDealTrayProps) {
   const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
@@ -101,11 +103,13 @@ function SpatialDealTray({
                     key={opp.id}
                     className="flex items-center gap-2 px-3 py-2 border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.04)] transition-colors group"
                   >
-                    {/* Stage color dot */}
-                    <div
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: stageColor }}
-                    />
+                    {/* Stage color dot — hidden for single-stage trays */}
+                    {showStageDot && (
+                      <div
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: stageColor }}
+                      />
+                    )}
 
                     {/* Name + value + date */}
                     <div className="flex-1 min-w-0">
@@ -210,6 +214,7 @@ export function SpatialDiscardTray({
       title={t("discardTray.title")}
       emptyLabel={t("discardTray.empty")}
       onRestore={onRestore}
+      showStageDot={false}
       onDeletePermanently={onDeletePermanently}
     />
   );

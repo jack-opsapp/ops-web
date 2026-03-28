@@ -29,7 +29,9 @@ interface SpatialStageStackProps {
   activeId: string | null;
   renderCard: (
     opportunity: Opportunity,
-    position: { x: number; y: number }
+    position: { x: number; y: number },
+    draggable?: boolean,
+    flow?: boolean
   ) => React.ReactNode;
 }
 
@@ -105,21 +107,39 @@ export function SpatialStageStack({
       <div
         className="absolute flex flex-col"
         style={{
-          left: 8,
-          top: 8,
+          left: 20,
+          top: 12,
           width: CARD_WIDTH,
           height: STACK_HEADER_HEIGHT,
-          borderBottom: `1px solid ${stageColor}30`,
-          padding: "10px 0 0 0",
-          background: "rgba(10, 10, 10, 0.25)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          padding: "8px 0 0 0",
+          position: "relative",
         }}
         onMouseEnter={() => setIsHeaderHovered(true)}
         onMouseLeave={() => setIsHeaderHovered(false)}
       >
+        {/* Bottom border — animates left-to-right on hover */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            height: 1,
+            background: isHeaderHovered ? stageColor : `${stageColor}30`,
+            width: isHeaderHovered ? "100%" : "100%",
+            opacity: isHeaderHovered ? 1 : 0.5,
+            transformOrigin: "left",
+            transform: isHeaderHovered ? "scaleX(1)" : "scaleX(0.3)",
+            transition: "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease-out, background 0.3s ease-out",
+          }}
+        />
         <div className="flex items-baseline gap-2">
-          <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-widest">
+          <span
+            className="font-kosugi text-micro-sm uppercase tracking-widest"
+            style={{
+              color: isHeaderHovered ? stageColor : "#666",
+              transition: "color 0.25s ease-out",
+            }}
+          >
             {getStageDisplayName(stage)}
           </span>
           <span className="font-mohave text-body-sm text-text-primary">
@@ -146,48 +166,46 @@ export function SpatialStageStack({
         )}
       </div>
 
-      {/* Cards — positions converted from canvas-absolute to stack-relative */}
-      {layout.cardPositions.map((pos) => {
-        const opp = oppMap.get(pos.opportunityId);
-        if (!opp) return null;
-        return renderCard(opp, {
-          x: pos.x - layout.regionBounds.x,
-          y: pos.y - layout.regionBounds.y,
-        });
-      })}
+      {/* Cards — flex column so expanded cards push siblings down */}
+      <div
+        className="absolute flex flex-col"
+        style={{
+          left: 20,
+          top: 20 + STACK_HEADER_HEIGHT,
+          width: CARD_WIDTH,
+          gap: STACK_GAP,
+        }}
+      >
+        {layout.cardPositions.map((pos) => {
+          const opp = oppMap.get(pos.opportunityId);
+          if (!opp) return null;
+          return renderCard(opp, { x: 0, y: 0 }, true, true);
+        })}
 
-      {/* Insertion placeholder when a foreign card is dragged over this stack */}
-      {isForeignDragOver && (
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: 8,
-            top:
-              layout.cardPositions.length > 0
-                ? layout.cardPositions[layout.cardPositions.length - 1].y -
-                  layout.regionBounds.y +
-                  CARD_HEIGHT +
-                  STACK_GAP
-                : 8 + STACK_HEADER_HEIGHT,
-            width: CARD_WIDTH,
-            height: CARD_HEIGHT,
-            border: `1px dashed ${stageColor}30`,
-            borderRadius: 4,
-            opacity: 1,
-            transition: "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        />
-      )}
+        {/* Insertion placeholder when a foreign card is dragged over this stack */}
+        {isForeignDragOver && (
+          <div
+            className="pointer-events-none"
+            style={{
+              width: CARD_WIDTH,
+              height: CARD_HEIGHT,
+              border: `1px dashed ${stageColor}30`,
+              borderRadius: 4,
+              transition: "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          />
+        )}
+      </div>
 
       {/* Empty state */}
       {opportunities.length === 0 && (
         <div
-          className="absolute flex flex-col items-center justify-center border border-dashed border-[rgba(255,255,255,0.1)] rounded-[4px]"
+          className="absolute flex flex-col items-center justify-center text-center border border-dashed border-[rgba(255,255,255,0.1)] rounded-[4px]"
           style={{
-            left: 8,
-            top: 8 + STACK_HEADER_HEIGHT,
-            width: CARD_WIDTH,
-            height: CARD_HEIGHT * 2,
+            left: 12,
+            top: 20 + STACK_HEADER_HEIGHT,
+            right: 12,
+            bottom: 12,
           }}
         >
           <span className="font-kosugi text-micro-sm text-text-disabled uppercase">

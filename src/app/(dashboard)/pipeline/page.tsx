@@ -91,6 +91,7 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   opportunity,
   position,
   draggable,
+  flow,
   clientNameMap,
   stalenessMap,
   canManage,
@@ -101,6 +102,7 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   opportunity: Opportunity;
   position: { x: number; y: number };
   draggable: boolean;
+  flow?: boolean;
   clientNameMap: Map<string, string>;
   stalenessMap: Map<string, number>;
   canManage: boolean;
@@ -145,13 +147,17 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
     <div
       data-spatial-card
       data-opportunity-id={opportunity.id}
-      className="absolute"
+      className={flow ? "relative" : "absolute"}
       style={{
-        left: effectivePosition.x,
-        top: effectivePosition.y,
-        width: CARD_WIDTH,
+        ...(flow
+          ? { width: CARD_WIDTH }
+          : {
+              left: effectivePosition.x,
+              top: effectivePosition.y,
+              width: CARD_WIDTH,
+              transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+            }),
         zIndex: isExpanded ? 20 : isHovered ? 10 : 1,
-        transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
       <SpatialCard
@@ -509,12 +515,13 @@ function SpatialCanvasDesktop({
   // Render card helper — returns a wrapper that reads reactive state from the store
   // This avoids recreating renderCard on every hover/selection/expand change
   const renderCard = useCallback(
-    (opportunity: Opportunity, position: { x: number; y: number }, draggable = true) => (
+    (opportunity: Opportunity, position: { x: number; y: number }, draggable = true, flow = false) => (
       <SpatialCardWrapperComponent
         key={opportunity.id}
         opportunity={opportunity}
         position={position}
         draggable={draggable}
+        flow={flow}
         clientNameMap={clientNameMap}
         stalenessMap={stalenessMap}
         canManage={canManage}
@@ -564,7 +571,7 @@ function SpatialCanvasDesktop({
               layout={stackLayout}
               isBirdEye={isBirdEye}
               activeId={activeId}
-              renderCard={(opp, pos) => renderCard(opp, pos)}
+              renderCard={(opp, pos, draggable, flow) => renderCard(opp, pos, draggable, flow)}
             />
           ))}
 
