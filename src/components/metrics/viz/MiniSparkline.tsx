@@ -40,8 +40,15 @@ export function MiniSparkline({ data, color, height = 24 }: MiniSparklineProps) 
 
   useEffect(() => {
     if (!svgRef.current) return;
-    const w = svgRef.current.getBoundingClientRect().width;
-    if (w > 0) setWidth(w);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const w = entry.contentRect.width;
+        if (w > 0) setWidth(w);
+      }
+    });
+    observer.observe(svgRef.current);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {

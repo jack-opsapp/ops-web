@@ -22,6 +22,8 @@ export interface MetricColumnConfig {
   trend?: MetricTrend;
   viz?: MetricViz;
   color?: string;
+  /** Formula/breakdown shown on card flip (e.g., "12 won ÷ 15 decided") */
+  breakdown?: string;
 }
 
 export interface InlineMetricConfig {

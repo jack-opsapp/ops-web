@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 
 const EASE_SMOOTH_CSS = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -12,8 +12,23 @@ interface MiniBarChartProps {
 }
 
 export function MiniBarChart({ data, color, height = 24 }: MiniBarChartProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [width, setWidth] = useState(140);
   const [animated, setAnimated] = useState(false);
   const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const w = entry.contentRect.width;
+        if (w > 0) setWidth(w);
+      }
+    });
+    observer.observe(svgRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimated(true), 50);
@@ -29,15 +44,16 @@ export function MiniBarChart({ data, color, height = 24 }: MiniBarChartProps) {
 
   return (
     <svg
+      ref={svgRef}
       width="100%"
       height={height}
-      viewBox={`0 0 140 ${height}`}
+      viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
       role="img"
       aria-label={`Bar chart: ${data.length} values`}
     >
       {data.map((value, i) => {
-        const unitWidth = 140 / totalUnits;
+        const unitWidth = width / totalUnits;
         const barWidth = unitWidth;
         const x = i * unitWidth * (1 + gap);
         const barHeight = (value / max) * (height - 2);

@@ -10,24 +10,12 @@ export function InlineMetric({ config }: InlineMetricProps) {
   return (
     <div className="flex items-baseline gap-1">
       <span
-        className="font-mono"
-        style={{
-          fontSize: 16,
-          fontWeight: 600,
-          color: color ?? "#E5E5E5",
-        }}
+        className="font-mono text-body font-semibold"
+        style={{ color: color ?? "#E5E5E5" }}
       >
         {value}
       </span>
-      <span
-        className="font-kosugi"
-        style={{
-          fontSize: 9,
-          textTransform: "uppercase",
-          letterSpacing: "1px",
-          color: "#6B6B6B",
-        }}
-      >
+      <span className="font-kosugi text-micro-xs uppercase tracking-[1px] text-[#6B6B6B]">
         {label}
       </span>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import type { MetricColumnConfig } from "./types";
 import { formatMetricValue } from "./format";
 import { useAnimatedValue } from "./hooks/useAnimatedValue";
@@ -13,9 +14,14 @@ interface MetricColumnProps {
 }
 
 export function MetricColumn({ config }: MetricColumnProps) {
-  const { label, value, formatType, trend, viz, color } = config;
+  const { label, value, formatType, trend, viz, color, breakdown } = config;
   const animatedValue = useAnimatedValue(value);
   const displayValue = formatMetricValue(animatedValue, formatType);
+  const [flipped, setFlipped] = useState(false);
+
+  const handleFlip = useCallback(() => {
+    if (breakdown) setFlipped((f) => !f);
+  }, [breakdown]);
 
   const trendColor = trend
     ? trend.sentiment === "positive"
@@ -38,51 +44,72 @@ export function MetricColumn({ config }: MetricColumnProps) {
   return (
     <div
       className="flex-1 min-w-0"
-      aria-label={`${label}: ${formatMetricValue(value, formatType)}${trend ? `, ${trendArrow} ${trend.value}` : ""}`}
+      style={{ perspective: breakdown ? 600 : undefined }}
+      aria-label={`${label}: ${formatMetricValue(value, formatType)}${trend ? `, ${trendArrow} ${trend.value}` : ""}${breakdown ? ". Click to see breakdown." : ""}`}
     >
       <div
-        className="mb-1 font-kosugi"
+        onClick={handleFlip}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleFlip(); } }}
+        role={breakdown ? "button" : undefined}
+        tabIndex={breakdown ? 0 : undefined}
+        className={breakdown ? "cursor-pointer" : undefined}
         style={{
-          fontSize: 9,
-          textTransform: "uppercase",
-          letterSpacing: "2px",
-          color: "#6B6B6B",
+          transformStyle: breakdown ? "preserve-3d" : undefined,
+          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+          transition: "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
-        {label}
-      </div>
+        {/* ── Front face ── */}
+        <div style={{ backfaceVisibility: "hidden" }}>
+          <div className="mb-1 font-kosugi text-micro-xs uppercase tracking-[2px] text-[#6B6B6B]">
+            {label}
+          </div>
 
-      <div className="flex items-baseline gap-1.5">
-        <span
-          className="font-mono"
-          style={{
-            fontSize: 28,
-            fontWeight: 600,
-            letterSpacing: "-1px",
-            color: valueColor,
-            lineHeight: 1,
-          }}
-        >
-          {displayValue}
-        </span>
-        {trend && (
-          <span
-            aria-hidden="true"
-            className="font-mono"
+          <div className="flex items-baseline gap-1.5">
+            <span
+              className="font-mono text-display tracking-[-1px] leading-none"
+              style={{ color: valueColor }}
+            >
+              {displayValue}
+            </span>
+            {trend && (
+              <span
+                aria-hidden="true"
+                className="font-mono text-micro-sm"
+                style={{ color: trendColor }}
+              >
+                {trendArrow} {trend.value}
+              </span>
+            )}
+          </div>
+
+          {viz?.type === "sparkline" && <MiniSparkline data={viz.data} color={viz.color} />}
+          {viz?.type === "bars" && <MiniBarChart data={viz.data} color={viz.color} />}
+          {viz?.type === "progress" && <MiniProgressBar value={value} color={viz.color} />}
+          {viz?.type === "dots" && <SeverityDots count={value} color={viz.color} />}
+        </div>
+
+        {/* ── Back face (breakdown) ── */}
+        {breakdown && (
+          <div
+            className="absolute inset-0 flex flex-col justify-center"
             style={{
-              fontSize: 10,
-              color: trendColor,
+              backfaceVisibility: "hidden",
+              transform: "rotateY(180deg)",
             }}
           >
-            {trendArrow} {trend.value}
-          </span>
+            <div className="mb-1 font-kosugi text-micro-xs uppercase tracking-[2px] text-[#6B6B6B]">
+              {label}
+            </div>
+            <div
+              className="font-mono text-[13px] leading-relaxed tracking-wide"
+              style={{ color: "rgba(255,255,255,0.55)" }}
+            >
+              {breakdown}
+            </div>
+          </div>
         )}
       </div>
-
-      {viz?.type === "sparkline" && <MiniSparkline data={viz.data} color={viz.color} />}
-      {viz?.type === "bars" && <MiniBarChart data={viz.data} color={viz.color} />}
-      {viz?.type === "progress" && <MiniProgressBar value={value} color={viz.color} />}
-      {viz?.type === "dots" && <SeverityDots count={value} color={viz.color} />}
     </div>
   );
 }
