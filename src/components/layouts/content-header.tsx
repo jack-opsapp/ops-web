@@ -72,6 +72,10 @@ export function ContentHeader() {
   // No breadcrumbs at all (shouldn't happen, but guard)
   if (breadcrumbs.length === 0) return null;
 
+  // Pages that render their own full-bleed header (MetricsHeader with title)
+  const fullBleedPages = ["/pipeline", "/dashboard"];
+  if (breadcrumbs.length === 1 && fullBleedPages.includes(pathname)) return null;
+
   // Top-level route — render page title
   if (breadcrumbs.length === 1) {
     return (
