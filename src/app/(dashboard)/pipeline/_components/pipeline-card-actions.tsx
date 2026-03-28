@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Phone,
   MessageSquare,
-  FileText,
+  Mail,
+  StickyNote,
   MoreHorizontal,
   Calendar,
   UserPlus,
@@ -12,8 +13,8 @@ import {
   XCircle,
   Ban,
   Archive,
-  Trash2,
 } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { OpportunityStage, isActiveStage } from "@/lib/types/pipeline";
 
@@ -50,8 +51,6 @@ export function PipelineCardActions({
 }: PipelineCardActionsProps) {
   const { t } = useDictionary("pipeline");
 
-  const [callFlash, setCallFlash] = useState(false);
-  const [textFlash, setTextFlash] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteValue, setNoteValue] = useState("");
   const [showMore, setShowMore] = useState(false);
@@ -59,38 +58,28 @@ export function PipelineCardActions({
   const noteInputRef = useRef<HTMLInputElement>(null);
   const moreContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-focus note input when it appears
+  // Auto-focus note input
   useEffect(() => {
     if (showNoteInput && noteInputRef.current) {
       noteInputRef.current.focus();
     }
   }, [showNoteInput]);
 
-  // Close dropdown on outside click or Escape — uses the entire More container as boundary
+  // Close dropdown on outside click or Escape
   useEffect(() => {
     if (!showMore) return;
-
     function handleOutsideClick(e: MouseEvent) {
-      if (
-        moreContainerRef.current &&
-        !moreContainerRef.current.contains(e.target as Node)
-      ) {
+      if (moreContainerRef.current && !moreContainerRef.current.contains(e.target as Node)) {
         setShowMore(false);
       }
     }
-
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setShowMore(false);
-      }
+      if (e.key === "Escape") setShowMore(false);
     }
-
-    // Delay registration by one frame to avoid catching the click that opened it
     const frame = requestAnimationFrame(() => {
       document.addEventListener("mousedown", handleOutsideClick);
       document.addEventListener("keydown", handleEscape);
     });
-
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("mousedown", handleOutsideClick);
@@ -98,66 +87,19 @@ export function PipelineCardActions({
     };
   }, [showMore]);
 
-  // -- Handlers (all stop propagation to prevent card collapse) --
-
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-  const handleCallClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!canManage) return;
-      onLogCall();
-      setCallFlash(true);
-      setTimeout(() => setCallFlash(false), 150);
-    },
-    [canManage, onLogCall]
-  );
-
-  const handleTextClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!canManage) return;
-      onLogText();
-      setTextFlash(true);
-      setTimeout(() => setTextFlash(false), 150);
-    },
-    [canManage, onLogText]
-  );
-
-  const handleNoteClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!canManage) return;
-      setShowNoteInput((prev) => !prev);
-      if (showNoteInput) {
-        setNoteValue("");
-      }
-    },
-    [canManage, showNoteInput]
-  );
-
-  function handleNoteKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  const handleNoteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.key === "Enter") {
-      if (noteValue.trim()) {
-        onAddNote(noteValue.trim());
-      }
+    if (e.key === "Enter" && noteValue.trim()) {
+      onAddNote(noteValue.trim());
       setNoteValue("");
       setShowNoteInput(false);
     } else if (e.key === "Escape") {
       setNoteValue("");
       setShowNoteInput(false);
     }
-  }
-
-  const handleMoreClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!canManage) return;
-      setShowMore((prev) => !prev);
-    },
-    [canManage]
-  );
+  };
 
   const handleDropdownAction = useCallback(
     (e: React.MouseEvent, action: () => void) => {
@@ -168,154 +110,97 @@ export function PipelineCardActions({
     []
   );
 
-  const buttonBase =
-    "flex-1 flex flex-col items-center gap-[2px] py-[8px] rounded-[4px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.10)] transition-all duration-150 cursor-pointer";
-
-  const disabledClass = !canManage ? "opacity-50 pointer-events-none" : "";
-
   return (
     <div onClick={stop} onMouseDown={stop}>
-      {/* Action bar */}
-      <div className="flex items-center gap-[6px]">
-        {/* Call button */}
-        <button
-          type="button"
-          onClick={handleCallClick}
-          className={[
-            buttonBase,
-            disabledClass,
-            callFlash ? "bg-[rgba(165,179,104,0.2)]" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <Phone size={16} className="text-text-tertiary" />
-          <span className="font-kosugi text-micro-sm text-text-disabled">
-            {t("actions.call")}
-          </span>
-        </button>
+      {/* Compact icon action row */}
+      <div className="flex items-center gap-[2px]">
+        <ActionIcon
+          icon={<Phone className="w-[12px] h-[12px]" />}
+          label={t("actions.logCall")}
+          onClick={(e) => { e.stopPropagation(); if (canManage) onLogCall(); }}
+          disabled={!canManage}
+        />
+        <ActionIcon
+          icon={<MessageSquare className="w-[12px] h-[12px]" />}
+          label={t("actions.logText")}
+          onClick={(e) => { e.stopPropagation(); if (canManage) onLogText(); }}
+          disabled={!canManage}
+        />
+        <ActionIcon
+          icon={<Mail className="w-[12px] h-[12px]" />}
+          label={t("actions.email")}
+          onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}
+        />
+        <ActionIcon
+          icon={<StickyNote className="w-[12px] h-[12px]" />}
+          label={t("actions.addNote")}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (canManage) setShowNoteInput((prev) => !prev);
+          }}
+          disabled={!canManage}
+          isActive={showNoteInput}
+        />
 
-        {/* Text button */}
-        <button
-          type="button"
-          onClick={handleTextClick}
-          className={[
-            buttonBase,
-            disabledClass,
-            textFlash ? "bg-[rgba(165,179,104,0.2)]" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <MessageSquare size={16} className="text-text-tertiary" />
-          <span className="font-kosugi text-micro-sm text-text-disabled">
-            {t("actions.text")}
-          </span>
-        </button>
+        {/* Spacer pushes More to the right */}
+        <div className="flex-1" />
 
-        {/* Note button */}
-        <button
-          type="button"
-          onClick={handleNoteClick}
-          className={[buttonBase, disabledClass].filter(Boolean).join(" ")}
-        >
-          <FileText size={16} className="text-text-tertiary" />
-          <span className="font-kosugi text-micro-sm text-text-disabled">
-            {t("actions.note")}
-          </span>
-        </button>
+        {/* More menu */}
+        <div ref={moreContainerRef} className="relative">
+          <ActionIcon
+            icon={<MoreHorizontal className="w-[12px] h-[12px]" />}
+            label={t("actions.more")}
+            onClick={(e) => { e.stopPropagation(); if (canManage) setShowMore((prev) => !prev); }}
+            disabled={!canManage}
+            isActive={showMore}
+          />
 
-        {/* More button + dropdown */}
-        <div ref={moreContainerRef} className="flex-1 relative">
-          <button
-            type="button"
-            onClick={handleMoreClick}
-            className={[
-              "w-full flex flex-col items-center gap-[2px] py-[8px] rounded-[4px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.10)] transition-all duration-150 cursor-pointer",
-              disabledClass,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            <MoreHorizontal size={16} className="text-text-tertiary" />
-            <span className="font-kosugi text-micro-sm text-text-disabled">
-              {t("actions.more")}
-            </span>
-          </button>
-
-          {/* Dropdown */}
           {showMore && (
             <div
-              className="absolute top-full right-0 mt-[4px] z-50 min-w-[180px] bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border border-[rgba(255,255,255,0.10)] rounded-[4px] p-[4px] shadow-lg shadow-black/40"
+              className="absolute bottom-full right-0 mb-[4px] z-50 min-w-[180px] rounded-[4px] p-[4px]"
+              style={{
+                background: "rgba(10, 10, 10, 0.90)",
+                backdropFilter: "blur(20px) saturate(1.2)",
+                WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+                border: "1px solid rgba(255, 255, 255, 0.10)",
+              }}
             >
-              <button
-                type="button"
+              <DropdownItem
+                icon={<Calendar size={13} />}
+                label={t("actions.scheduleFollowUp")}
                 onClick={(e) => handleDropdownAction(e, onScheduleFollowUp)}
-                className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-              >
-                <Calendar size={14} className="shrink-0" />
-                {t("actions.scheduleFollowUp")}
-              </button>
-
-              <button
-                type="button"
+              />
+              <DropdownItem
+                icon={<UserPlus size={13} />}
+                label={t("actions.assignTo")}
                 onClick={(e) => handleDropdownAction(e, onAssign)}
-                className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-              >
-                <UserPlus size={14} className="shrink-0" />
-                {t("actions.assignTo")}
-              </button>
-
+              />
               {isActiveStage(stage) && (
-                <button
-                  type="button"
-                  onClick={(e) => handleDropdownAction(e, onMarkWon)}
-                  className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-                >
-                  <Trophy size={14} className="shrink-0" />
-                  {t("actions.markWon")}
-                </button>
+                <>
+                  <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
+                  <DropdownItem
+                    icon={<Trophy size={13} />}
+                    label={t("actions.markWon")}
+                    onClick={(e) => handleDropdownAction(e, onMarkWon)}
+                  />
+                  <DropdownItem
+                    icon={<XCircle size={13} />}
+                    label={t("actions.markLost")}
+                    onClick={(e) => handleDropdownAction(e, onMarkLost)}
+                  />
+                  <DropdownItem
+                    icon={<Ban size={13} />}
+                    label={t("actions.discard")}
+                    onClick={(e) => handleDropdownAction(e, onDiscard)}
+                  />
+                </>
               )}
-
-              {isActiveStage(stage) && (
-                <button
-                  type="button"
-                  onClick={(e) => handleDropdownAction(e, onMarkLost)}
-                  className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-                >
-                  <XCircle size={14} className="shrink-0" />
-                  {t("actions.markLost")}
-                </button>
-              )}
-
-              {isActiveStage(stage) && (
-                <button
-                  type="button"
-                  onClick={(e) => handleDropdownAction(e, onDiscard)}
-                  className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-                >
-                  <Ban size={14} className="shrink-0" />
-                  {t("actions.discard")}
-                </button>
-              )}
-
-              <button
-                type="button"
+              <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
+              <DropdownItem
+                icon={<Archive size={13} />}
+                label={t("actions.archive")}
                 onClick={(e) => handleDropdownAction(e, onArchive)}
-                className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-              >
-                <Archive size={14} className="shrink-0" />
-                {t("actions.archive")}
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => handleDropdownAction(e, onOpenDetail)}
-                className="flex items-center gap-[8px] w-full px-[10px] py-[6px] font-mohave text-body-sm text-[#93321A] hover:bg-[rgba(255,255,255,0.06)] rounded-[4px] transition-colors"
-              >
-                <Trash2 size={14} className="shrink-0" />
-                {t("actions.delete")}
-              </button>
+              />
             </div>
           )}
         </div>
@@ -323,7 +208,7 @@ export function PipelineCardActions({
 
       {/* Inline note input */}
       {showNoteInput && (
-        <div className="mt-[6px] flex gap-[4px]">
+        <div className="mt-[4px] flex gap-[3px]">
           <input
             ref={noteInputRef}
             type="text"
@@ -331,25 +216,78 @@ export function PipelineCardActions({
             onChange={(e) => setNoteValue(e.target.value)}
             onClick={stop}
             onKeyDown={handleNoteKeyDown}
-            placeholder={t("detail.addNotePlaceholder")}
-            className="flex-1 px-[8px] py-[6px] rounded-[4px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-body-sm text-text-primary placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+            placeholder={t("actions.notePlaceholder")}
+            className="flex-1 min-w-0 px-[6px] py-[4px] rounded-[3px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text-primary placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
           />
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (noteValue.trim()) {
-                onAddNote(noteValue.trim());
-              }
+              if (noteValue.trim()) onAddNote(noteValue.trim());
               setNoteValue("");
               setShowNoteInput(false);
             }}
             disabled={!noteValue.trim()}
-            className="px-[8px] py-[6px] rounded-[4px] bg-ops-accent/20 text-ops-accent font-kosugi text-[10px] uppercase tracking-wider hover:bg-ops-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="px-[6px] py-[4px] rounded-[3px] bg-ops-accent/20 text-ops-accent font-kosugi text-micro-xs uppercase tracking-wider hover:bg-ops-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           >
-            Save
+            {t("spatial.confirm")}
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+// ── Sub-components ──
+
+function ActionIcon({
+  icon,
+  label,
+  onClick,
+  disabled,
+  isActive,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+  disabled?: boolean;
+  isActive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      className={cn(
+        "p-[5px] rounded-[3px] transition-colors duration-150 cursor-pointer",
+        isActive
+          ? "text-ops-accent bg-ops-accent-muted/20"
+          : "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)]",
+        disabled && "opacity-40 pointer-events-none"
+      )}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function DropdownItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-[8px] w-full px-[8px] py-[5px] font-mohave text-caption-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[3px] transition-colors cursor-pointer"
+    >
+      <span className="text-text-tertiary shrink-0">{icon}</span>
+      {label}
+    </button>
   );
 }
