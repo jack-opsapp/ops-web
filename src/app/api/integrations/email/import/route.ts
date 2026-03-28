@@ -362,7 +362,7 @@ async function runImport(
         const opp = await OpportunityService.createOpportunity({
           companyId,
           clientId,
-          title: lead.title || lead.description || `Email inquiry from ${lead.clientName}`,
+          title: lead.title || null,
           stage,
           source: OpportunitySource.Email,
           contactName: lead.clientName,
@@ -394,13 +394,17 @@ async function runImport(
         opportunityId = opp.id;
         result.leadsCreated++;
 
-        // Set stage_entered_at to last correspondence date so "days in stage"
-        // reflects real timeline, not import date. CreateOpportunity omits this
-        // field (defaults to now()), so we patch it directly.
-        if (lastMessageDate) {
+        // Patch fields that CreateOpportunity omits
+        const patches: Record<string, unknown> = {};
+        // stage_entered_at → real timeline, not import date
+        if (lastMessageDate) patches.stage_entered_at = lastMessageDate.toISOString();
+        // ai_summary → the AI-generated description from the classifier
+        if (lead.description) patches.ai_summary = lead.description;
+
+        if (Object.keys(patches).length > 0) {
           await supabase
             .from("opportunities")
-            .update({ stage_entered_at: lastMessageDate.toISOString() })
+            .update(patches)
             .eq("id", opportunityId);
         }
       }
