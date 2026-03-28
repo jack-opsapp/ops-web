@@ -2,15 +2,21 @@
 
 import { memo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Phone, Mail } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import type { Opportunity } from "@/lib/types/pipeline";
-import { PipelineCardActions } from "./pipeline-card-actions";
-import { formatTimeAgo } from "@/lib/utils/date";
+import { getDaysInStage, getStageDisplayName } from "@/lib/types/pipeline";
+import {
+  isDateToday,
+  isDateOverdue,
+  daysOverdue,
+  formatShortDay,
+  formatTimeAgo,
+} from "@/lib/utils/date";
 import {
   pipelineCardContentVariants,
   pipelineCardContentVariantsReduced,
 } from "@/lib/utils/motion";
+import { PipelineCardActions } from "./pipeline-card-actions";
 
 // ── Types ──
 
@@ -51,8 +57,11 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
     ? pipelineCardContentVariantsReduced
     : pipelineCardContentVariants;
 
+  const days = getDaysInStage(opportunity);
+  const stageName = getStageDisplayName(opportunity.stage);
+
   // Most recent correspondence date
-  const lastCorrespondenceDate = (() => {
+  const lastCorrespondence = (() => {
     const dates = [
       opportunity.lastInboundAt,
       opportunity.lastOutboundAt,
@@ -61,85 +70,77 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
     return dates.reduce((a, b) => (a.getTime() > b.getTime() ? a : b));
   })();
 
+  // Follow-up status
+  const followUp = opportunity.nextFollowUpAt;
+
   return (
     <div className="mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
-      {/* Contact info */}
-      {opportunity.contactName && (
-        <motion.div
-          custom={0}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          variants={variants}
-          className="mb-1"
-        >
-          <p className="font-mohave text-body-sm text-text-secondary">
-            {opportunity.contactName}
-          </p>
-          <div className="flex items-center gap-3 mt-1">
-            {opportunity.contactPhone && (
-              <a
-                href={`tel:${opportunity.contactPhone}`}
-                className="flex items-center gap-1 text-ops-accent hover:text-text-primary transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Phone className="w-3 h-3" />
-                <span className="font-kosugi text-micro-sm">
-                  {opportunity.contactPhone}
-                </span>
-              </a>
-            )}
-            {opportunity.contactEmail && (
-              <a
-                href={`mailto:${opportunity.contactEmail}`}
-                className="flex items-center gap-1 text-ops-accent hover:text-text-primary transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Mail className="w-3 h-3" />
-                <span className="font-kosugi text-micro-sm truncate max-w-[120px]">
-                  {opportunity.contactEmail}
-                </span>
-              </a>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Email correspondence stats */}
-      {opportunity.correspondenceCount > 0 && (
-        <motion.div
-          custom={1}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          variants={variants}
-          className="mb-1"
-        >
-          <p className="font-kosugi text-micro-sm text-text-tertiary">
-            {t("spatial.emailCount")
-              .replace("{count}", String(opportunity.correspondenceCount))}
-            {" · "}
-            {t("spatial.emailInOut")
-              .replace("{in}", String(opportunity.inboundCount))
-              .replace("{out}", String(opportunity.outboundCount))}
-          </p>
-          {lastCorrespondenceDate && (
-            <p className="font-kosugi text-micro-sm text-text-disabled">
-              {t("spatial.emailLastTime")
-                .replace("{time}", formatTimeAgo(lastCorrespondenceDate))}
-            </p>
-          )}
-        </motion.div>
-      )}
-
-      {/* Actions bar */}
+      {/* ── Compact metrics ── */}
       <motion.div
-        custom={2}
+        custom={0}
         initial="hidden"
         animate="visible"
         exit="exit"
         variants={variants}
-        className="mt-2"
+        className="flex flex-col gap-[3px] mb-2"
+      >
+        {/* Email stats */}
+        {opportunity.correspondenceCount > 0 ? (
+          <div className="flex items-center justify-between">
+            <span className="font-kosugi text-micro-sm text-text-tertiary">
+              {t("spatial.emailCount").replace("{count}", String(opportunity.correspondenceCount))}
+              {" · "}
+              {t("spatial.emailInOut")
+                .replace("{in}", String(opportunity.inboundCount))
+                .replace("{out}", String(opportunity.outboundCount))}
+            </span>
+            {lastCorrespondence && (
+              <span className="font-mono text-micro-xs text-text-disabled">
+                {formatTimeAgo(lastCorrespondence)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="font-kosugi text-micro-sm text-text-disabled">
+            {t("spatial.noCorrespondence")}
+          </span>
+        )}
+
+        {/* Days in stage + follow-up */}
+        <div className="flex items-center justify-between">
+          <span className="font-kosugi text-micro-sm text-text-disabled">
+            {t("spatial.daysInStage")
+              .replace("{count}", String(days))
+              .replace("{stage}", stageName)}
+          </span>
+          {followUp && (
+            <span
+              className="font-mono text-micro-xs"
+              style={{
+                color: isDateOverdue(followUp)
+                  ? "#93321A"
+                  : isDateToday(followUp)
+                    ? "#C4A868"
+                    : undefined,
+              }}
+            >
+              {isDateOverdue(followUp)
+                ? t("spatial.overdueCount").replace("{count}", String(daysOverdue(followUp)))
+                : isDateToday(followUp)
+                  ? t("spatial.followUpToday")
+                  : t("spatial.followUpDate").replace("{date}", formatShortDay(followUp))}
+            </span>
+          )}
+        </div>
+      </motion.div>
+
+      {/* ── Actions ── */}
+      <motion.div
+        custom={1}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        variants={variants}
       >
         <PipelineCardActions
           opportunityId={opportunity.id}
@@ -157,36 +158,6 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
           onOpenDetail={onOpenDetail}
         />
       </motion.div>
-
-      {/* Last activity */}
-      {opportunity.lastActivityAt && (
-        <motion.p
-          custom={3}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          variants={variants}
-          className="font-kosugi text-micro-sm text-text-disabled mt-1"
-        >
-          {t("spatial.activity").replace("{timeAgo}", formatTimeAgo(opportunity.lastActivityAt))}
-        </motion.p>
-      )}
-
-      {/* Details link */}
-      <motion.button
-        custom={4}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        variants={variants}
-        className="font-mohave text-body-sm text-ops-accent hover:text-text-primary cursor-pointer mt-2"
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpenDetail();
-        }}
-      >
-        {t("spatial.viewDetails")} →
-      </motion.button>
     </div>
   );
 });

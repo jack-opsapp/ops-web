@@ -114,7 +114,7 @@ export const SpatialCard = memo(function SpatialCard({
         ref={setNodeRef}
         {...(draggable ? listeners : {})}
         {...(draggable ? attributes : {})}
-        className="absolute cursor-pointer"
+        className="relative cursor-pointer"
         style={{
           width: CARD_WIDTH,
           height: CARD_PILL_HEIGHT,
@@ -137,7 +137,12 @@ export const SpatialCard = memo(function SpatialCard({
   }
 
   // ── Normal rendering ──
-  const effectiveOpacity = isHovered || isDragging ? 1.0 : stalenessOpacity;
+  const effectiveOpacity = isHovered || isDragging || isExpanded ? 1.0 : stalenessOpacity;
+  const cardEdgeBorder = isSelected
+    ? `2px solid ${stageColor}`
+    : isHovered || isExpanded
+      ? `1px solid ${stageColor}50`
+      : "1px solid rgba(255,255,255,0.08)";
 
   return (
     <div
@@ -149,7 +154,7 @@ export const SpatialCard = memo(function SpatialCard({
       aria-label={`${clientName}, ${opportunity.estimatedValue ? formatCurrency(opportunity.estimatedValue) : "$--"}`}
       aria-expanded={isExpanded}
       className={cn(
-        "absolute cursor-pointer select-none",
+        "relative cursor-pointer select-none",
         isDragging && "opacity-20"
       )}
       style={{
@@ -180,11 +185,9 @@ export const SpatialCard = memo(function SpatialCard({
           background: "rgba(13,13,13,0.6)",
           backdropFilter: "blur(20px) saturate(1.2)",
           WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-          border: isSelected
-            ? `2px solid ${stageColor}`
-            : isHovered
-              ? "1px solid rgba(255,255,255,0.15)"
-              : "1px solid rgba(255,255,255,0.08)",
+          borderTop: cardEdgeBorder,
+          borderRight: cardEdgeBorder,
+          borderBottom: cardEdgeBorder,
           borderLeft: `3px solid ${stageColor}`,
           boxShadow: isSelected
             ? `0 0 12px ${stageColor}40`
