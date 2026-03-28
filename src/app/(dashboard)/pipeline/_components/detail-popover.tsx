@@ -30,6 +30,11 @@ import {
   useDetailPopoverStore,
   type DetailPopoverState,
 } from "./detail-popover-store";
+import { DetailPopoverNextSteps } from "./detail-popover-next-steps";
+import { DetailPopoverTabBar } from "./detail-popover-tab-bar";
+import { DetailPopoverCorrespondenceTab } from "./detail-popover-correspondence-tab";
+import { DetailPopoverTimelineTab } from "./detail-popover-timeline-tab";
+import { DetailPopoverPhotosTab } from "./detail-popover-photos-tab";
 
 // ── Easing ──
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -369,8 +374,29 @@ export const DetailPopover = memo(function DetailPopover({
         </div>
       )}
 
-      {/* ── Content ── */}
+      {/* ── Next Steps ── */}
+      <DetailPopoverNextSteps
+        opportunityId={popoverState.id}
+        opportunity={opportunity}
+      />
+
+      {/* ── Tab bar ── */}
+      <DetailPopoverTabBar
+        popoverId={popoverState.id}
+        activeTab={popoverState.activeTab}
+      />
+
+      {/* ── Tab content ── */}
       <div className="flex-1 overflow-y-auto scrollbar-hide p-3">
+        {popoverState.activeTab === "correspondence" && (
+          <DetailPopoverCorrespondenceTab opportunityId={popoverState.id} />
+        )}
+        {popoverState.activeTab === "timeline" && (
+          <DetailPopoverTimelineTab opportunityId={popoverState.id} />
+        )}
+        {popoverState.activeTab === "photos" && (
+          <DetailPopoverPhotosTab opportunityId={popoverState.id} />
+        )}
       </div>
 
       {/* ── Resize handle (bottom-right) ── */}
