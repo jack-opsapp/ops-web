@@ -9,6 +9,11 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import type { MetricColumnConfig, InlineMetricConfig } from "@/components/metrics/types";
 import { formatMetricCurrency } from "@/components/metrics/format";
 
+/** Supabase returns `data: T[] | null` — default destructuring doesn't narrow in strict mode */
+function rows<T>(result: { data: T[] | null }): T[] {
+  return result.data ?? [];
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function trend(current: number, previous: number): { direction: "up" | "down" | "flat"; value: string; sentiment: "positive" | "negative" | "neutral" } | undefined {
@@ -91,11 +96,11 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
   const ninetyDaysAgo = new Date(now);
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const { data: invoices = [] } = await supabase
+  const invoices = rows(await supabase
     .from("invoices")
     .select("total, amount_paid, balance_due, status, issue_date, due_date, paid_at")
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .is("deleted_at", null));
 
   const revenue = invoices.reduce((sum, inv) => sum + Number(inv.amount_paid ?? 0), 0);
   const pastDue = invoices
@@ -190,11 +195,11 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
   const ninetyDaysAgo = new Date(now);
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const { data: projects = [] } = await supabase
+  const projects = rows(await supabase
     .from("projects")
     .select("id, status, start_date, end_date, created_at")
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .is("deleted_at", null));
 
   const activeStatuses = ["rfq", "estimated", "accepted", "in_progress"];
   const active = projects.filter((p) => activeStatuses.includes(p.status));
@@ -204,13 +209,13 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
     ? Math.min(100, (completed.length / completionDenominator.length) * 100)
     : 0;
 
-  const { data: tasks = [] } = await supabase
+  const tasks = rows(await supabase
     .from("project_tasks")
     .select("id, end_date, status")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .lt("end_date", now.toISOString())
-    .neq("status", "completed");
+    .neq("status", "completed"));
 
   const overdueTasks = tasks.length;
 
@@ -223,12 +228,12 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
       }, 0) / recentCompleted.length
     : 0;
 
-  const { data: invoices = [] } = await supabase
+  const invoices = rows(await supabase
     .from("invoices")
     .select("total, project_id")
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .not("project_id", "is", null);
+    .not("project_id", "is", null));
 
   const totalValue = invoices.reduce((sum, inv) => sum + Number(inv.total ?? 0), 0);
 
@@ -289,11 +294,11 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const { data: opportunities = [] } = await supabase
+  const opportunities = rows(await supabase
     .from("opportunities")
     .select("id, stage, estimated_value, stage_entered_at, created_at")
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .is("deleted_at", null));
 
   const openStages = opportunities.filter((o) => o.stage !== "won" && o.stage !== "lost");
   const pipelineValue = openStages.reduce((sum, o) => sum + Number(o.estimated_value ?? 0), 0);
@@ -304,10 +309,10 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
     ? openStages.reduce((sum, o) => sum + Number(o.estimated_value ?? 0), 0) / openStages.length
     : 0;
 
-  const { data: transitions = [] } = await supabase
+  const transitions = rows(await supabase
     .from("stage_transitions")
     .select("from_stage, to_stage, duration_in_stage")
-    .eq("company_id", companyId);
+    .eq("company_id", companyId));
 
   const avgVelocity = transitions.length > 0
     ? transitions.reduce((sum, t) => sum + Number(t.duration_in_stage ?? 0), 0) / transitions.length / 86400000
@@ -379,11 +384,11 @@ export async function fetchEstimateMetrics(companyId: string): Promise<MetricCol
   const ninetyDaysAgo = new Date(now);
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const { data: estimates = [] } = await supabase
+  const estimates = rows(await supabase
     .from("estimates")
     .select("id, total, status, sent_at, approved_at, created_at")
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .is("deleted_at", null));
 
   const pending = estimates.filter((e) => e.status === "sent");
   const pendingValue = pending.reduce((sum, e) => sum + Number(e.total ?? 0), 0);
@@ -399,12 +404,12 @@ export async function fetchEstimateMetrics(companyId: string): Promise<MetricCol
     ? nonDraft.reduce((sum, e) => sum + Number(e.total ?? 0), 0) / nonDraft.length
     : 0;
 
-  const { data: invoicesWithEstimate = [] } = await supabase
+  const invoicesWithEstimate = rows(await supabase
     .from("invoices")
     .select("estimate_id")
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .not("estimate_id", "is", null);
+    .not("estimate_id", "is", null));
 
   const convertedIds = new Set(invoicesWithEstimate.map((i) => i.estimate_id));
   const convertedCount = approved.filter((e) => convertedIds.has(e.id)).length;
@@ -468,18 +473,18 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
   const ninetyDaysAgo = new Date(now);
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const { data: invoices = [] } = await supabase
+  const invoices = rows(await supabase
     .from("invoices")
     .select("total, amount_paid, balance_due, status, due_date")
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .is("deleted_at", null));
 
-  const { data: payments = [] } = await supabase
+  const payments = rows(await supabase
     .from("payments")
     .select("amount, payment_date")
     .eq("company_id", companyId)
     .is("voided_at", null)
-    .gte("payment_date", monthStart.toISOString());
+    .gte("payment_date", monthStart.toISOString()));
 
   const outstanding = invoices
     .filter((inv) => inv.status !== "paid" && inv.status !== "void")
@@ -546,11 +551,11 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
 export async function fetchInventoryMetrics(companyId: string): Promise<MetricColumnConfig[]> {
   const supabase = requireSupabase();
 
-  const { data: items = [] } = await supabase
+  const items = rows(await supabase
     .from("inventory_items")
     .select("id, quantity, warning_threshold, critical_threshold")
     .eq("company_id", companyId)
-    .is("deleted_at", null);
+    .is("deleted_at", null));
 
   const total = items.length;
   const lowStock = items.filter((item) => {
@@ -597,9 +602,9 @@ export async function fetchClientMetrics(companyId: string): Promise<InlineMetri
     .eq("company_id", companyId).is("deleted_at", null)
     .gte("created_at", thirtyDaysAgo.toISOString());
 
-  const { data: invoices = [] } = await supabase
+  const invoices = rows(await supabase
     .from("invoices").select("amount_paid")
-    .eq("company_id", companyId).is("deleted_at", null);
+    .eq("company_id", companyId).is("deleted_at", null));
 
   const revenue = invoices.reduce((sum, inv) => sum + Number(inv.amount_paid ?? 0), 0);
 
@@ -614,9 +619,9 @@ export async function fetchClientMetrics(companyId: string): Promise<InlineMetri
 export async function fetchTeamMetrics(companyId: string, maxSeats: number): Promise<InlineMetricConfig[]> {
   const supabase = requireSupabase();
 
-  const { data: users = [] } = await supabase
+  const users = rows(await supabase
     .from("users").select("id, is_active")
-    .eq("company_id", companyId).is("deleted_at", null);
+    .eq("company_id", companyId).is("deleted_at", null));
 
   const members = users.length;
   const active = users.filter((u) => u.is_active).length;
@@ -631,9 +636,9 @@ export async function fetchTeamMetrics(companyId: string, maxSeats: number): Pro
 export async function fetchProductMetrics(companyId: string): Promise<InlineMetricConfig[]> {
   const supabase = requireSupabase();
 
-  const { data: products = [] } = await supabase
+  const products = rows(await supabase
     .from("products").select("id, is_active, default_price, unit_cost")
-    .eq("company_id", companyId).is("deleted_at", null);
+    .eq("company_id", companyId).is("deleted_at", null));
 
   const total = products.length;
   const activeCount = products.filter((p) => p.is_active).length;
@@ -654,9 +659,9 @@ export async function fetchProductMetrics(companyId: string): Promise<InlineMetr
 export async function fetchJobBoardMetrics(companyId: string): Promise<InlineMetricConfig[]> {
   const supabase = requireSupabase();
 
-  const { data: projects = [] } = await supabase
+  const projects = rows(await supabase
     .from("projects").select("id, status, opportunity_id")
-    .eq("company_id", companyId).is("deleted_at", null);
+    .eq("company_id", companyId).is("deleted_at", null));
 
   const activeStatuses = ["rfq", "estimated", "accepted", "in_progress"];
   const active = projects.filter((p) => activeStatuses.includes(p.status));
@@ -664,9 +669,9 @@ export async function fetchJobBoardMetrics(companyId: string): Promise<InlineMet
   const oppIds = active.map((p) => p.opportunity_id).filter(Boolean);
   let totalValue = 0;
   if (oppIds.length > 0) {
-    const { data: opps = [] } = await supabase
+    const opps = rows(await supabase
       .from("opportunities").select("estimated_value")
-      .in("id", oppIds);
+      .in("id", oppIds));
     totalValue = opps.reduce((sum, o) => sum + Number(o.estimated_value ?? 0), 0);
   }
 
@@ -686,11 +691,11 @@ export async function fetchCalendarMetrics(companyId: string): Promise<InlineMet
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
 
-  const { data: tasks = [] } = await supabase
+  const tasks = rows(await supabase
     .from("project_tasks").select("id, team_member_ids, end_date, status")
     .eq("company_id", companyId).is("deleted_at", null)
     .gte("start_date", monday.toISOString())
-    .lte("start_date", sunday.toISOString());
+    .lte("start_date", sunday.toISOString()));
 
   const thisWeek = tasks.length;
   const unassigned = tasks.filter((t) => !t.team_member_ids || t.team_member_ids.length === 0).length;
@@ -710,9 +715,9 @@ export async function fetchCalendarMetrics(companyId: string): Promise<InlineMet
 export async function fetchMapMetrics(companyId: string): Promise<InlineMetricConfig[]> {
   const supabase = requireSupabase();
 
-  const { data: projects = [] } = await supabase
+  const projects = rows(await supabase
     .from("projects").select("id, latitude, status")
-    .eq("company_id", companyId).is("deleted_at", null);
+    .eq("company_id", companyId).is("deleted_at", null));
 
   const mapped = projects.filter((p) => p.latitude != null).length;
   const activeStatuses = ["accepted", "in_progress"];

@@ -362,7 +362,7 @@ async function runImport(
         const opp = await OpportunityService.createOpportunity({
           companyId,
           clientId,
-          title: lead.title || null,
+          title: lead.title || "",
           stage,
           source: OpportunitySource.Email,
           contactName: lead.clientName,
