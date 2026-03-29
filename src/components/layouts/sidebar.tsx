@@ -130,15 +130,15 @@ function NavItemButton({
       }}
       title={tooltipText}
       className={cn(
-        "group relative flex items-center w-full rounded transition-all duration-150",
-        isCollapsed ? "justify-center px-0 py-1.5 mx-auto" : "gap-1.5 px-1.5 py-1",
+        "group relative flex items-center w-full h-[36px] rounded transition-all duration-150",
+        isCollapsed ? "justify-center px-0" : "gap-1.5 px-1.5",
         item.gated
           ? "text-text-disabled opacity-50 cursor-pointer hover:opacity-70"
           : [
               "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
               isActive && [
-                "text-text-primary bg-[rgba(255,255,255,0.06)]",
-                "border-l-2 border-l-[rgba(255,255,255,0.2)]",
+                "text-ops-accent bg-[rgba(89,119,148,0.12)]",
+                "border-l-2 border-l-ops-accent",
               ],
               !isActive && "border-l-2 border-l-transparent",
             ]
@@ -150,7 +150,7 @@ function NavItemButton({
           item.gated
             ? "text-text-disabled"
             : isActive
-              ? "text-text-primary"
+              ? "text-ops-accent"
               : "text-text-tertiary group-hover:text-text-secondary"
         )}
       />
@@ -267,13 +267,18 @@ export function Sidebar() {
         onMouseLeave={() => { if (!isMobileView) setHoverExpanded(false); }}
         className={cn(
           "fixed left-0 top-0 h-screen z-[45]",
-          "ultrathin-material-dark border-r border-border",
+          "border-r border-[rgba(255,255,255,0.06)]",
           "flex flex-col transition-all duration-200 ease-out",
           effectiveCollapsed ? "w-[72px]" : "w-[256px]",
           // Mobile: off-screen by default, slide in when open
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
           "md:translate-x-0"
         )}
+        style={{
+          background: "rgba(10, 10, 10, 0.80)",
+          backdropFilter: "blur(24px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.3)",
+        }}
       >
       {/* Company Branding */}
       <div
