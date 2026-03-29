@@ -1331,9 +1331,9 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="relative h-[calc(100vh-56px)] -m-3 min-w-0">
+    <div className="relative h-screen -m-3 -mt-[59px] min-w-0">
       {/* Floating metrics bar — frosted glass overlay */}
-      <div className="absolute top-0 left-0 right-0 z-[100] pointer-events-none">
+      <div className="absolute top-[56px] left-0 right-0 z-[100] pointer-events-none">
         <div
           className="pointer-events-auto"
           style={{
@@ -1343,14 +1343,14 @@ export default function PipelinePage() {
           }}
         >
           <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
-          {/* Toolbar — left-aligned below metrics, inside frosted glass */}
-          <div className="inline-flex w-fit mx-3 my-1.5 py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]">
-            <SpatialFloatingToolbar
-              onAddLead={gatedOpenCreate}
-              reviewCount={reviewCount}
-              onReviewEmails={() => setReviewPanelOpen(true)}
-            />
-          </div>
+        </div>
+        {/* Toolbar — floats over canvas, outside frosted glass */}
+        <div className="pointer-events-auto inline-flex w-fit mx-3 my-1.5 py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.50)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]">
+          <SpatialFloatingToolbar
+            onAddLead={gatedOpenCreate}
+            reviewCount={reviewCount}
+            onReviewEmails={() => setReviewPanelOpen(true)}
+          />
         </div>
       </div>
 

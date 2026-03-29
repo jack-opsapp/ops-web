@@ -105,12 +105,12 @@ export function NotificationRail() {
   return (
     <div
       ref={railRef}
-      className="flex items-center gap-[3px] h-[40px] px-[6px] rounded-[4px] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] min-w-0 overflow-visible"
+      className="flex flex-row-reverse items-center gap-[3px] h-[40px] px-[6px] rounded-[4px] min-w-0 overflow-visible"
     >
       <AnimatePresence mode="popLayout">
         {isExpanded ? (
           /* ═══════════════════════ EXPANDED ═══════════════════════ */
-          <motion.div key="expanded" className="flex items-center gap-[3px] min-w-0 overflow-hidden">
+          <motion.div key="expanded" className="flex flex-row-reverse items-center gap-[3px] min-w-0 overflow-hidden">
             {/* Close (X) button — count morphs into X */}
             <motion.button
               key="close-btn"
@@ -119,7 +119,7 @@ export function NotificationRail() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2, ease: EASE_SMOOTH }}
               onClick={collapse}
-              className="shrink-0 w-[28px] h-[28px] flex items-center justify-center rounded-[3px] border border-[rgba(255,255,255,0.12)] text-text-secondary hover:text-text-primary hover:border-[rgba(255,255,255,0.2)] transition-colors duration-150"
+              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] text-text-secondary hover:text-text-primary hover:border-[rgba(255,255,255,0.2)] transition-colors duration-150"
               aria-label="Collapse notifications"
             >
               <X className="w-[13px] h-[13px]" />
@@ -133,7 +133,7 @@ export function NotificationRail() {
               exit={{ opacity: 0, x: -4 }}
               transition={{ duration: 0.15, ease: EASE_SMOOTH }}
               onClick={openModal}
-              className="shrink-0 flex items-center gap-[5px] px-[8px] py-[4px] rounded-[3px] border border-[rgba(89,119,148,0.3)] hover:border-[rgba(89,119,148,0.5)] transition-colors duration-150 whitespace-nowrap"
+              className="shrink-0 flex items-center gap-[5px] h-[40px] px-[10px] rounded-[4px] border border-[rgba(89,119,148,0.3)] hover:border-[rgba(89,119,148,0.5)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] transition-colors duration-150 whitespace-nowrap"
             >
               <span className="font-mono text-[11px] text-ops-accent">{count}</span>
               <span className="font-kosugi text-[9px] uppercase tracking-[0.08em] text-text-secondary">{t("notifications.viewAll")}</span>
@@ -192,14 +192,14 @@ export function NotificationRail() {
           /* ═══════════════════════ COLLAPSED ═══════════════════════ */
           <motion.div
             key="collapsed"
-            className="flex items-center gap-[4px]"
+            className="flex flex-row-reverse items-center gap-[4px]"
             onMouseLeave={() => setCountHovered(false)}
             exit={{ opacity: 0, transition: { duration: 0.08 } }}
           >
             {/* Count button — styled, bespoke */}
             <motion.button
               key="count-btn"
-              className="shrink-0 w-[28px] h-[28px] flex items-center justify-center rounded-[3px] border border-[rgba(255,255,255,0.12)] hover:border-[rgba(89,119,148,0.4)] font-mono text-[12px] text-text-secondary hover:text-ops-accent transition-all duration-150 cursor-pointer"
+              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(89,119,148,0.4)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-secondary hover:text-ops-accent transition-all duration-150 cursor-pointer"
               style={{
                 background: countHovered ? "rgba(89, 119, 148, 0.08)" : "transparent",
               }}
@@ -225,7 +225,7 @@ export function NotificationRail() {
                     animate={{ width: 160, opacity: 1 }}
                     transition={{ duration: 0.25, ease: EASE_SMOOTH }}
                     onClick={expandRail}
-                    className="shrink-0 h-[28px] rounded-[3px] cursor-pointer overflow-hidden"
+                    className="shrink-0 h-[40px] rounded-[4px] cursor-pointer overflow-hidden"
                     style={{
                       background: "rgba(10, 10, 10, 0.70)",
                       backdropFilter: "blur(20px) saturate(1.2)",

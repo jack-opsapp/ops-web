@@ -44,7 +44,7 @@ export function NotificationMiniCard({
       exit="exit"
       custom={index}
       onClick={handleCardClick}
-      className="shrink-0 flex items-center gap-[6px] h-[36px] px-[8px] rounded-sm snap-start w-max max-w-[240px]"
+      className="shrink-0 flex items-center gap-[6px] h-[40px] px-[8px] rounded-[4px] snap-start w-max max-w-[240px]"
       style={{
         cursor: notification.actionUrl ? "pointer" : "default",
         background: "rgba(10, 10, 10, 0.70)",

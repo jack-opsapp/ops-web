@@ -8,6 +8,7 @@ import {
   WifiOff,
   Menu,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -16,60 +17,83 @@ import { useDictionary } from "@/i18n/client";
 import { NotificationRail } from "./notification-rail";
 import { useSidebarStore } from "@/stores/sidebar-store";
 
+// ── Route → title mapping ────────────────────────────────────────────────────
+
+const routeTitles: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/projects": "Projects",
+  "/calendar": "Schedule",
+  "/clients": "Clients",
+  "/job-board": "Job Board",
+  "/team": "Team",
+  "/map": "Map",
+  "/pipeline": "Pipeline",
+  "/inbox": "Inbox",
+  "/estimates": "Estimates",
+  "/products": "Products",
+  "/inventory": "Inventory",
+  "/invoices": "Invoices",
+  "/accounting": "Accounting",
+  "/portal-inbox": "Portal Inbox",
+  "/settings": "Settings",
+};
+
+function getPageTitle(pathname: string): string {
+  // Exact match first
+  if (routeTitles[pathname]) return routeTitles[pathname];
+  // Match first segment for nested routes (e.g. /clients/abc → "Clients")
+  const firstSegment = "/" + pathname.split("/").filter(Boolean)[0];
+  return routeTitles[firstSegment] ?? "";
+}
+
+// ── Sync indicator ───────────────────────────────────────────────────────────
+
 type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
 function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => string }) {
+  const icon = {
+    synced: <Check className="w-[14px] h-[14px] shrink-0" />,
+    syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin" />,
+    pending: <Clock className="w-[14px] h-[14px] shrink-0" />,
+    offline: <WifiOff className="w-[14px] h-[14px] shrink-0" />,
+  }[status];
+
+  const label = {
+    synced: t("sync.synced"),
+    syncing: t("sync.syncing"),
+    pending: t("sync.pending"),
+    offline: t("sync.offline"),
+  }[status];
+
   return (
     <div
       className={cn(
-        "flex items-center gap-[6px] px-2 py-[6px] rounded-[4px]",
+        "group flex items-center justify-center h-[40px] px-[12px] rounded-[4px]",
         "font-mono text-[11px] tracking-wider",
         "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
         "border border-[rgba(255,255,255,0.06)]",
+        "transition-all duration-150",
         status === "offline" ? "text-ops-error" : "text-text-tertiary"
       )}
-      title={
-        status === "synced"
-          ? t("sync.syncedTitle")
-          : status === "syncing"
-            ? t("sync.syncingTitle")
-            : status === "offline"
-              ? t("sync.offlineTitle")
-              : t("sync.pendingTitle")
-      }
+      title={label}
     >
-      {status === "synced" && (
-        <>
-          <Check className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline uppercase">{t("sync.synced")}</span>
-        </>
-      )}
-      {status === "syncing" && (
-        <>
-          <RefreshCw className="w-[14px] h-[14px] animate-spin" />
-          <span className="hidden xl:inline uppercase">{t("sync.syncing")}</span>
-        </>
-      )}
-      {status === "pending" && (
-        <>
-          <Clock className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline uppercase">{t("sync.pending")}</span>
-        </>
-      )}
-      {status === "offline" && (
-        <>
-          <WifiOff className="w-[14px] h-[14px]" />
-          <span className="hidden xl:inline uppercase">{t("sync.offline")}</span>
-        </>
-      )}
+      <span className="max-w-0 overflow-hidden group-hover:max-w-[80px] group-hover:mr-[6px] transition-all duration-200 ease-out uppercase whitespace-nowrap">
+        {label}
+      </span>
+      {icon}
     </div>
   );
 }
+
+// ── TopBar ────────────────────────────────────────────────────────────────────
 
 export function TopBar() {
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const { t } = useDictionary("topbar");
   const openMobile = useSidebarStore((s) => s.openMobile);
+  const pathname = usePathname();
+  const pageTitle = getPageTitle(pathname);
+
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
   const isFetching = useIsFetching();
@@ -83,9 +107,9 @@ export function TopBar() {
         : "synced";
 
   return (
-    <header className="h-[56px] flex items-center justify-between px-3 shrink-0 relative bg-transparent min-w-0">
-      {/* Left: Hamburger (mobile) + Notification Rail */}
-      <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+    <header className="h-[56px] flex items-center px-3 shrink-0 relative bg-transparent min-w-0">
+      {/* Left: Hamburger (mobile) + Page title */}
+      <div className="flex items-center gap-2 min-w-0 shrink-0">
         <button
           onClick={openMobile}
           className={cn(
@@ -99,15 +123,18 @@ export function TopBar() {
         >
           <Menu className="w-[18px] h-[18px]" />
         </button>
-        <NotificationRail />
+        {pageTitle && (
+          <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
+            {pageTitle}
+          </h1>
+        )}
       </div>
 
-      {/* Right: Search + Sync */}
-      <div className="flex items-center gap-[6px] shrink-0">
-        {/* Search trigger - styled as input, opens CommandPalette */}
+      {/* Center: Search */}
+      <div className="flex items-center mx-auto">
         <button
           className={cn(
-            "flex items-center gap-[6px] px-2 py-[8px] rounded-[4px]",
+            "flex items-center gap-[6px] h-[40px] px-2 rounded-[4px]",
             "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
             "border border-[rgba(255,255,255,0.06)]",
             "text-text-tertiary hover:border-[rgba(255,255,255,0.14)] hover:text-text-secondary",
@@ -133,10 +160,12 @@ export function TopBar() {
             </kbd>
           )}
         </button>
+      </div>
 
-        {/* Sync status */}
+      {/* Right: Notifications + Sync */}
+      <div className="flex items-center gap-[6px] shrink-0">
+        <NotificationRail />
         <SyncIndicator status={syncStatus} t={t} />
-
       </div>
     </header>
   );

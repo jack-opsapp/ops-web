@@ -94,13 +94,18 @@ function CompactMetricsSkeleton() {
   );
 }
 
-function FullMetricsHeader({ title, metrics, isLoading, actions, className }: MetricsHeaderFullProps) {
+function FullMetricsHeader({ title: _title, metrics, isLoading, actions, className }: MetricsHeaderFullProps) {
   const showSkeleton = isLoading || metrics.length === 0;
 
   return (
     <div
-      className={cn("border-b border-white/[0.08] px-3 pb-1.5", className)}
+      className={cn("border-b border-white/[0.08] px-3 py-1.5", className)}
     >
+      {actions && (
+        <div className="flex items-center justify-end pb-1">
+          {actions}
+        </div>
+      )}
       {showSkeleton ? (
         <FullMetricsSkeleton />
       ) : (
@@ -119,39 +124,32 @@ function FullMetricsHeader({ title, metrics, isLoading, actions, className }: Me
   );
 }
 
-function CompactMetricsHeader({ tabId, title, metrics, isLoading, actions, className }: MetricsHeaderCompactProps) {
+function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, actions, className }: MetricsHeaderCompactProps) {
   const { isVisible, toggle } = useMetricsVisibility(tabId);
   const showSkeleton = isLoading || metrics.length === 0;
 
   return (
     <div
       className={cn(
-        "flex items-center justify-between border-b border-white/[0.08] py-[14px] px-3",
+        "border-b border-white/[0.08] px-3 py-1.5",
         className,
       )}
     >
       <div className="flex items-center gap-5">
-        <span className="font-kosugi text-micro uppercase tracking-[3px] text-[#6B6B6B]">
-          {title}
-        </span>
+        {actions && actions}
+        <MetricsToggle isVisible={isVisible} onToggle={toggle} />
 
-        {isVisible && showSkeleton && <CompactMetricsSkeleton />}
-
-        {isVisible && !showSkeleton && (
-          <>
-            <div className="w-px h-2 bg-white/[0.06]" />
-            {metrics.map((metric) => (
+        {isVisible && (
+          showSkeleton ? (
+            <CompactMetricsSkeleton />
+          ) : (
+            metrics.map((metric) => (
               <div key={metric.label} className="contents">
                 <InlineMetric config={metric} />
               </div>
-            ))}
-          </>
+            ))
+          )
         )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <MetricsToggle isVisible={isVisible} onToggle={toggle} />
-        {actions}
       </div>
     </div>
   );

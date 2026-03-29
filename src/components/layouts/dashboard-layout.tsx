@@ -2,10 +2,8 @@
 
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
-import { cn } from "@/lib/utils/cn";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
-import { ContentHeader } from "./content-header";
 import { CommandPalette } from "@/components/ops/command-palette";
 import { KeyboardShortcuts } from "@/components/ops/keyboard-shortcuts";
 import { FloatingWindow } from "@/components/ops/floating-window";
@@ -23,12 +21,11 @@ import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
 import { CreateLeadForm } from "@/components/ops/create-lead-modal";
 import { ComposeEmailForm } from "@/components/ops/compose-email-form";
 import type { ComposeEmailData } from "@/lib/types/email-template";
-import { useSidebarStore } from "@/stores/sidebar-store";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -112,14 +109,11 @@ function FloatingWindows() {
 }
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isCollapsed, setCollapsed } = useSidebarStore();
   const { needsWebSetup, needsEmployeeOnboarding } = useSetupGate();
   const router = useRouter();
-  const pathname = usePathname();
   const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
 
   // Redirect to the appropriate onboarding flow if incomplete.
-  // Employee check first — employees should never see employer setup.
   useEffect(() => {
     if (needsEmployeeOnboarding) {
       router.push("/employee-setup");
@@ -128,22 +122,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     }
   }, [needsEmployeeOnboarding, needsWebSetup, router]);
 
-  // Auto-collapse on small screens
-  useEffect(() => {
-    function handleResize() {
-      if (window.innerWidth < 1024) {
-        setCollapsed(true);
-      }
-    }
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [setCollapsed]);
-
   // Block all dashboard rendering while onboarding is needed.
-  // Without this, the full layout (map, preferences sync, etc.) mounts
-  // before the useEffect redirect fires, causing Leaflet and Supabase
-  // errors from components that should never have initialized.
   if (needsOnboarding) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -155,28 +134,39 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
+    <div className="relative h-screen overflow-hidden bg-background">
+      {/* Page content — fills entire viewport, scrolls behind HUD overlays */}
       <main
-        className={cn(
-          "h-screen min-w-0 overflow-y-auto overflow-x-auto transition-all duration-200 ease-out",
-          "ml-0 w-full",
-          isCollapsed
-            ? "md:ml-[72px] md:w-[calc(100vw-72px)]"
-            : "md:ml-[256px] md:w-[calc(100vw-256px)]"
-        )}
+        className="h-screen w-full overflow-y-auto overflow-x-auto"
+        style={{
+          paddingTop: '56px',          /* TopBar height */
+          paddingLeft: 'calc(72px + 12px)', /* Collapsed sidebar + gutter */
+          paddingRight: '12px',
+          paddingBottom: '12px',
+        }}
       >
-        <div className="sticky top-0 z-10 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border-b border-[rgba(255,255,255,0.06)]">
-          <TopBar />
-        </div>
-        <ContentHeader />
         <UnassignedRoleBanner />
-        <div className="p-3 relative z-[1]">
-          {children}
-        </div>
+        {children}
       </main>
 
-      {/* Map background layer (dashboard route only, z-0 behind content) */}
+      {/* ── HUD Overlays ── */}
+
+      {/* TopBar — fixed glass overlay */}
+      <div
+        className="fixed top-0 left-0 right-0 z-10 h-[56px]"
+        style={{
+          background: "rgba(10, 10, 10, 0.70)",
+          backdropFilter: "blur(20px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        }}
+      >
+        <TopBar />
+      </div>
+
+      {/* Sidebar — fixed glass overlay (hover to expand) */}
+      <Sidebar />
+
+      {/* Map background layer (dashboard route only) */}
       <DashboardMapBackground />
       <MapFilterRail />
 
