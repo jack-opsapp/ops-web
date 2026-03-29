@@ -1,57 +1,48 @@
 {
   "loading": "Loading projects...",
-  "empty": {
-    "noProjects": "No projects",
-    "dropHere": "Drop here"
-  },
-  "status": {
-    "updated": "Status updated",
-    "moved": "Moved to",
-    "failed": "Failed to update status",
-    "tryAgain": "Please try again",
-    "archived": "Project archived"
-  },
-  "card": {
-    "untitledProject": "Untitled Project",
-    "tasksComplete": "{completed}/{total} tasks complete",
-    "noTasks": "No tasks",
-    "daysInStatus": "{count}d in {status}",
-    "noDatesSet": "No dates set"
-  },
-  "actions": {
-    "openDetail": "Open details",
-    "addTask": "Add task",
-    "recordPayment": "Record payment",
-    "archive": "Archive",
-    "delete": "Delete",
-    "changeStatus": "Change status"
-  },
-  "toolbar": {
-    "search": "Search projects...",
-    "allMembers": "All members",
-    "allClients": "All clients",
-    "sort": "Sort",
-    "canvas": "Canvas",
-    "spreadsheet": "Spreadsheet"
-  },
-  "sort": {
-    "title": "Title",
-    "client": "Client",
-    "date": "Date",
-    "value": "Value",
-    "progress": "Progress"
-  },
-  "drag": {
-    "confirmTitle": "Change project status?",
-    "confirmMessage": "Project statuses are usually updated automatically (e.g., when estimates are sent or tasks are completed). Are you sure you want to manually change this project's status?",
-    "confirmAction": "Change Status",
-    "dontShowAgain": "Don't show this again"
-  },
-  "archive": {
-    "title": "Archived",
-    "empty": "No archived projects"
-  },
-  "tray": {
-    "dropToArchive": "Drop to archive"
-  }
+
+  "empty.noProjects": "No projects",
+  "empty.dropHere": "Drop here",
+
+  "status.updated": "Status updated",
+  "status.moved": "Moved to",
+  "status.failed": "Failed to update status",
+  "status.tryAgain": "Please try again",
+  "status.archived": "Project archived",
+
+  "card.untitledProject": "Untitled Project",
+  "card.tasksComplete": "{completed}/{total} tasks complete",
+  "card.noTasks": "No tasks",
+  "card.daysInStatus": "{count}d in {status}",
+  "card.noDatesSet": "No dates set",
+
+  "actions.openDetail": "Open details",
+  "actions.addTask": "Add task",
+  "actions.recordPayment": "Record payment",
+  "actions.archive": "Archive",
+  "actions.delete": "Delete",
+  "actions.changeStatus": "Change status",
+
+  "toolbar.search": "Search projects...",
+  "toolbar.allMembers": "All members",
+  "toolbar.allClients": "All clients",
+  "toolbar.sort": "Sort",
+  "toolbar.canvas": "Canvas",
+  "toolbar.spreadsheet": "Spreadsheet",
+
+  "sort.title": "Title",
+  "sort.client": "Client",
+  "sort.date": "Date",
+  "sort.value": "Value",
+  "sort.progress": "Progress",
+
+  "drag.confirmTitle": "Change project status?",
+  "drag.confirmMessage": "Project statuses are usually updated automatically (e.g., when estimates are sent or tasks are completed). Are you sure you want to manually change this project's status?",
+  "drag.confirmAction": "Change Status",
+  "drag.dontShowAgain": "Don't show this again",
+
+  "archive.title": "Archived",
+  "archive.empty": "No archived projects",
+
+  "tray.dropToArchive": "Drop to archive"
 }
