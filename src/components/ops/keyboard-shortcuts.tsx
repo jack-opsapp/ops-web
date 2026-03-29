@@ -49,7 +49,8 @@ export function KeyboardShortcuts() {
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
         if (e.key.toLowerCase() === "b") {
           e.preventDefault();
-          useSidebarStore.getState().toggle();
+          const state = useSidebarStore.getState();
+          state.setHoverExpanded(!state.isHoverExpanded);
           return;
         }
       }

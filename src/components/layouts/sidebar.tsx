@@ -20,8 +20,6 @@ import {
   Calculator,
   Radar,
   Settings,
-  ChevronLeft,
-  ChevronRight,
   LogOut,
   Building2,
   MessageSquareText,
@@ -178,7 +176,7 @@ function NavItemButton({
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isCollapsed, toggle, isMobileOpen, closeMobile } = useSidebarStore();
+  const { isHoverExpanded, setHoverExpanded, isMobileOpen, closeMobile } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const storeCompany = useAuthStore((s) => s.company);
   const { data: freshCompany } = useCompany();
@@ -207,8 +205,9 @@ export function Sidebar() {
     return () => window.removeEventListener("resize", check);
   }, [closeMobile]);
 
-  // On mobile, always show expanded sidebar (labels visible)
-  const effectiveCollapsed = isMobileView ? false : isCollapsed;
+  // Desktop: collapsed at rest, expanded on hover (overlay, no content push)
+  // Mobile: always show expanded labels in the drawer
+  const effectiveCollapsed = isMobileView ? false : !isHoverExpanded;
   const allNavItems = useMemo(
     () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
     [t, hasInventoryAccess]
@@ -264,6 +263,8 @@ export function Sidebar() {
         />
       )}
       <aside
+        onMouseEnter={() => { if (!isMobileView) setHoverExpanded(true); }}
+        onMouseLeave={() => { if (!isMobileView) setHoverExpanded(false); }}
         className={cn(
           "fixed left-0 top-0 h-screen z-[45]",
           "ultrathin-material-dark border-r border-border",
@@ -318,7 +319,7 @@ export function Sidebar() {
               item={entry}
               isActive={!entry.gated && isActive(entry.href)}
               isCollapsed={effectiveCollapsed}
-              onNavigate={closeMobile}
+              onNavigate={() => { setHoverExpanded(false); closeMobile(); }}
               isRequested={isRequested}
               onGatedClick={
                 entry.gated && slug
@@ -333,25 +334,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse Chevron — positioned on sidebar right edge, hidden on mobile */}
-      <button
-        onClick={toggle}
-        title={effectiveCollapsed ? t("expandSidebar") : t("collapseSidebar")}
-        className={cn(
-          "absolute top-1/2 -translate-y-1/2 -right-[10px] z-50",
-          "w-[20px] h-[20px] rounded-full",
-          "bg-background-panel border border-border",
-          "hidden md:flex items-center justify-center",
-          "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)]",
-          "transition-colors"
-        )}
-      >
-        {effectiveCollapsed ? (
-          <ChevronRight className="w-[12px] h-[12px]" />
-        ) : (
-          <ChevronLeft className="w-[12px] h-[12px]" />
-        )}
-      </button>
+      {/* Collapse chevron removed — sidebar uses hover-to-expand in HUD mode */}
 
       {/* Bottom Section */}
       <div className="border-t border-border p-1 space-y-1 shrink-0">
