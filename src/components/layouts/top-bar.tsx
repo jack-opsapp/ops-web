@@ -180,7 +180,7 @@ export function TopBar() {
       </div>
 
       {/* Center: Search */}
-      <div className="flex items-center mx-auto">
+      <div className="flex items-center mx-auto min-w-0 flex-shrink">
         <button
           className={cn(
             "flex items-center gap-[6px] h-[40px] px-2 rounded-[4px]",
@@ -188,7 +188,7 @@ export function TopBar() {
             "border border-[rgba(255,255,255,0.06)]",
             "text-text-tertiary hover:border-[rgba(255,255,255,0.14)] hover:text-text-secondary",
             "transition-all duration-150 cursor-pointer",
-            "min-w-[140px] sm:min-w-[200px]"
+            "min-w-0 w-[140px] sm:w-[200px] shrink"
           )}
           onClick={() => {
             window.dispatchEvent(

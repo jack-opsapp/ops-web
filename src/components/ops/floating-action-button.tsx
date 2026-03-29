@@ -209,7 +209,7 @@ export function FloatingActionButton() {
       <div
         ref={containerRef}
         className={cn(
-          "fixed bottom-[120px] right-6 z-[95] transition-all duration-200",
+          "fixed bottom-[80px] right-4 md:bottom-[120px] md:right-6 z-[95] transition-all duration-200",
           dashboardCustomizing && "opacity-0 pointer-events-none translate-y-2"
         )}
       >

@@ -1331,7 +1331,7 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="relative h-[calc(100vh-56px)] -m-3 min-w-0">
+    <div className="relative h-[calc(100vh-68px)] -m-3 min-w-0">
       {/* Floating metrics bar — frosted glass overlay */}
       <div className="absolute top-0 left-0 right-0 z-[100] pointer-events-none">
         <div

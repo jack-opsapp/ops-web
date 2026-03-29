@@ -136,15 +136,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative h-screen overflow-hidden bg-background">
       {/* Page content — fills entire viewport, scrolls behind HUD overlays */}
-      <main
-        className="h-screen w-full overflow-y-auto overflow-x-auto"
-        style={{
-          paddingTop: '68px',               /* TopBar (56px) + gutter (12px) */
-          paddingLeft: 'calc(72px + 12px)',  /* Collapsed sidebar + gutter */
-          paddingRight: '12px',
-          paddingBottom: '0px',              /* Content fills to bottom edge */
-        }}
-      >
+      <main className="h-screen w-full overflow-y-auto overflow-x-auto pt-[68px] pl-3 pr-3 md:pl-[84px] md:pr-3 pb-0">
+      {/* Mobile: no sidebar space (drawer overlay). Desktop: 72px sidebar + 12px gutter */}
         <UnassignedRoleBanner />
         {children}
       </main>

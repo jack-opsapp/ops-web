@@ -182,7 +182,7 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] -m-3 relative">
+    <div className="flex flex-col h-[calc(100vh-68px)] -m-3 relative">
       <div className="px-3 pt-3">
         <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} isLoading={mapMetricsLoading} />
       </div>

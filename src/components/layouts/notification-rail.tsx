@@ -105,7 +105,7 @@ export function NotificationRail() {
   return (
     <div
       ref={railRef}
-      className="flex flex-row-reverse items-center gap-[3px] h-[40px] px-[6px] rounded-[4px] min-w-0 overflow-visible"
+      className="flex flex-row-reverse items-center gap-[3px] h-[40px] px-[6px] rounded-[4px] min-w-0 overflow-hidden md:overflow-visible max-w-[50vw] md:max-w-none"
     >
       <AnimatePresence mode="popLayout">
         {isExpanded ? (
