@@ -8,7 +8,7 @@ import {
   WifiOff,
   Menu,
 } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -16,6 +16,7 @@ import { useConnectivity } from "@/lib/hooks/use-connectivity";
 import { useDictionary } from "@/i18n/client";
 import { NotificationRail } from "./notification-rail";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 
 // ── Route → title mapping ────────────────────────────────────────────────────
 
@@ -91,8 +92,16 @@ export function TopBar() {
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const { t } = useDictionary("topbar");
   const openMobile = useSidebarStore((s) => s.openMobile);
+  const router = useRouter();
   const pathname = usePathname();
-  const pageTitle = getPageTitle(pathname);
+  const entityName = useBreadcrumbStore((s) => s.entityName);
+  const parentCrumbs = useBreadcrumbStore((s) => s.parentCrumbs);
+
+  // Build breadcrumb trail
+  const segments = pathname.split("/").filter(Boolean);
+  const isNested = segments.length > 1;
+  const rootTitle = getPageTitle(pathname); // always resolves to parent title
+  const parentRoute = "/" + segments[0];
 
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
@@ -108,7 +117,7 @@ export function TopBar() {
 
   return (
     <header className="h-[56px] flex items-center px-3 shrink-0 relative bg-transparent min-w-0">
-      {/* Left: Hamburger (mobile) + Page title */}
+      {/* Left: Hamburger (mobile) + Page title / Breadcrumbs */}
       <div className="flex items-center gap-2 min-w-0 shrink-0">
         <button
           onClick={openMobile}
@@ -123,10 +132,50 @@ export function TopBar() {
         >
           <Menu className="w-[18px] h-[18px]" />
         </button>
-        {pageTitle && (
-          <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
-            {pageTitle}
-          </h1>
+
+        {isNested ? (
+          /* Breadcrumb trail for nested routes */
+          <div className="flex items-center gap-[6px] min-w-0">
+            {parentCrumbs ? (
+              /* Custom parent crumbs (set by detail pages) */
+              parentCrumbs.map((crumb, i) => (
+                <div key={i} className="flex items-center gap-[6px]">
+                  {i > 0 && <span className="text-text-disabled font-mono text-body-sm">/</span>}
+                  {crumb.href ? (
+                    <button
+                      onClick={() => router.push(crumb.href!)}
+                      className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors uppercase tracking-wider"
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span className="font-mohave text-body-sm text-text-tertiary uppercase tracking-wider">
+                      {crumb.label}
+                    </span>
+                  )}
+                </div>
+              ))
+            ) : (
+              /* Auto-generated: parent route title */
+              <button
+                onClick={() => router.push(parentRoute)}
+                className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors uppercase tracking-wider"
+              >
+                {rootTitle}
+              </button>
+            )}
+            <span className="text-text-disabled font-mono text-body-sm">/</span>
+            <span className="font-mohave text-heading text-text-primary uppercase tracking-wider truncate">
+              {entityName || segments[segments.length - 1]}
+            </span>
+          </div>
+        ) : (
+          /* Simple title for top-level routes */
+          rootTitle && (
+            <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
+              {rootTitle}
+            </h1>
+          )
         )}
       </div>
 
