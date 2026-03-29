@@ -1,0 +1,57 @@
+{
+  "loading": "Cargando proyectos...",
+  "empty": {
+    "noProjects": "Sin proyectos",
+    "dropHere": "Soltar aquí"
+  },
+  "status": {
+    "updated": "Estado actualizado",
+    "moved": "Movido a",
+    "failed": "Error al actualizar estado",
+    "tryAgain": "Inténtalo de nuevo",
+    "archived": "Proyecto archivado"
+  },
+  "card": {
+    "untitledProject": "Proyecto sin título",
+    "tasksComplete": "{completed}/{total} tareas completadas",
+    "noTasks": "Sin tareas",
+    "daysInStatus": "{count}d en {status}",
+    "noDatesSet": "Sin fechas"
+  },
+  "actions": {
+    "openDetail": "Ver detalles",
+    "addTask": "Agregar tarea",
+    "recordPayment": "Registrar pago",
+    "archive": "Archivar",
+    "delete": "Eliminar",
+    "changeStatus": "Cambiar estado"
+  },
+  "toolbar": {
+    "search": "Buscar proyectos...",
+    "allMembers": "Todos los miembros",
+    "allClients": "Todos los clientes",
+    "sort": "Ordenar",
+    "canvas": "Lienzo",
+    "spreadsheet": "Hoja de cálculo"
+  },
+  "sort": {
+    "title": "Título",
+    "client": "Cliente",
+    "date": "Fecha",
+    "value": "Valor",
+    "progress": "Progreso"
+  },
+  "drag": {
+    "confirmTitle": "¿Cambiar estado del proyecto?",
+    "confirmMessage": "Los estados de los proyectos se actualizan automáticamente (ej. cuando se envían presupuestos o se completan tareas). ¿Estás seguro de cambiar el estado manualmente?",
+    "confirmAction": "Cambiar Estado",
+    "dontShowAgain": "No mostrar de nuevo"
+  },
+  "archive": {
+    "title": "Archivados",
+    "empty": "Sin proyectos archivados"
+  },
+  "tray": {
+    "dropToArchive": "Soltar para archivar"
+  }
+}
