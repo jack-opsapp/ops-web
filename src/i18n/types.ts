@@ -21,6 +21,7 @@ export type Namespace =
   | 'forms'
   | 'intel'
   | 'ai-drafting'
-  | 'import-wizard';
+  | 'import-wizard'
+  | 'projects-canvas';
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

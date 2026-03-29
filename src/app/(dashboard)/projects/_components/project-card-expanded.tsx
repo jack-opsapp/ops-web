@@ -87,8 +87,8 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
               <UserAvatar
                 key={member.id}
                 name={member.name}
-                avatarUrl={member.avatarUrl}
-                size="xs"
+                imageUrl={member.avatarUrl}
+                size="sm"
               />
             ))}
             {teamMembers.length > 3 && (

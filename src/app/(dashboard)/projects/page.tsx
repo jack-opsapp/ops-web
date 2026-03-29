@@ -175,7 +175,8 @@ export default function ProjectsPage() {
   usePageTitle("Projects");
   const { t } = useDictionary("projects-canvas");
   const { can } = usePermissionStore();
-  const { passed: setupPassed, modal: setupModal } = useSetupGate();
+  const { isComplete: setupComplete, needsWebSetup, missingSteps } = useSetupGate();
+  const [showSetupModal, setShowSetupModal] = useState(false);
 
   // ── Permissions ──
   const canManage = can("projects.edit");
@@ -233,8 +234,9 @@ export default function ProjectsPage() {
   // ── Lookup maps ──
   const clientNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    if (clientsData) {
-      for (const client of clientsData) {
+    const clients = clientsData?.clients ?? [];
+    if (clients) {
+      for (const client of clients) {
         map.set(client.id, client.name ?? "");
       }
     }
@@ -243,12 +245,13 @@ export default function ProjectsPage() {
 
   const teamMemberMap = useMemo(() => {
     const map = new Map<string, { id: string; name: string; avatarUrl?: string }>();
-    if (teamData) {
-      for (const member of teamData) {
+    const members = teamData?.users ?? [];
+    if (members) {
+      for (const member of members) {
         map.set(member.id, {
           id: member.id,
           name: `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.email || "Unknown",
-          avatarUrl: member.avatarUrl ?? undefined,
+          avatarUrl: member.profileImageURL ?? undefined,
         });
       }
     }
@@ -521,7 +524,7 @@ export default function ProjectsPage() {
   const handleDeleteBatch = useCallback(
     (projectIds: string[]) => {
       for (const id of projectIds) {
-        deleteProjectMutation.mutate({ id });
+        deleteProjectMutation.mutate(id);
       }
     },
     [deleteProjectMutation]
@@ -599,10 +602,18 @@ export default function ProjectsPage() {
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full">
       {/* Setup gate */}
-      {setupModal && <SetupInterceptionModal />}
+      {showSetupModal && (
+        <SetupInterceptionModal
+          isOpen={showSetupModal}
+          onComplete={() => setShowSetupModal(false)}
+          onDismiss={() => setShowSetupModal(false)}
+          missingSteps={missingSteps}
+          triggerAction="create_project"
+        />
+      )}
 
       {/* Metrics header */}
-      <MetricsHeader tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+      <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
 
       {/* Toolbar */}
       <ProjectFloatingToolbar
