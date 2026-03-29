@@ -1331,21 +1331,21 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="relative h-[calc(100vh-68px)] -m-3 min-w-0">
-      {/* Floating metrics bar — frosted glass overlay */}
-      <div className="absolute top-0 left-0 right-0 z-[100] pointer-events-none">
-        <div
-          className="pointer-events-auto"
+    <div className="flex flex-col h-[calc(100vh-68px)] min-w-0">
+      {/* Metrics — normal flow, uses universal glass MetricsHeader */}
+      <div className="shrink-0">
+        <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
+      </div>
+
+      {/* Toolbar */}
+      <div className="shrink-0 px-3 py-1.5">
+        <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
           style={{
-            background: "rgba(10, 10, 10, 0.70)",
-            backdropFilter: "blur(20px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+            background: "rgba(10, 10, 10, 0.50)",
+            backdropFilter: "blur(12px) saturate(1.1)",
+            WebkitBackdropFilter: "blur(12px) saturate(1.1)",
           }}
         >
-          <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
-        </div>
-        {/* Toolbar — floats over canvas, outside frosted glass */}
-        <div className="pointer-events-auto inline-flex w-fit mx-3 my-1.5 py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.50)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]">
           <SpatialFloatingToolbar
             onAddLead={gatedOpenCreate}
             reviewCount={reviewCount}
@@ -1354,11 +1354,11 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Floating notifications/banners — stacked below metrics */}
-      <div className="absolute top-[72px] left-0 right-0 z-[90] pointer-events-none flex flex-col gap-1 px-2">
+      {/* Banners — normal flow, shrink-0 */}
+      <div className="shrink-0 flex flex-col gap-1 px-3">
         {/* Gmail connect prompt */}
         {gmailConnections.length === 0 && !gmailBannerDismissed && (
-          <div className="pointer-events-auto flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
             <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
               <Mail className="w-[16px] h-[16px] text-[#597794]" />
             </div>
@@ -1398,20 +1398,18 @@ export default function PipelinePage() {
 
         {/* Inbox leads */}
         {showInboxLeads && (
-          <div className="pointer-events-auto">
-            <InboxLeadsQueue
-              onCreateLead={(prefill) => {
-                setShowInboxLeads(false);
-                createLeadFromEmail(prefill);
-              }}
-              className="max-w-[600px]"
-            />
-          </div>
+          <InboxLeadsQueue
+            onCreateLead={(prefill) => {
+              setShowInboxLeads(false);
+              createLeadFromEmail(prefill);
+            }}
+            className="max-w-[600px]"
+          />
         )}
 
         {/* Mutation loading indicator */}
         {moveStage.isPending && (
-          <div className="pointer-events-auto flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
             <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
             <span className="font-kosugi text-[11px] text-[#597794]">
               {t("column.updating")}
@@ -1420,8 +1418,8 @@ export default function PipelinePage() {
         )}
       </div>
 
-      {/* Full-bleed canvas */}
-      <div className="absolute inset-0">
+      {/* Canvas — fills remaining space */}
+      <div className="relative flex-1 min-h-0">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
