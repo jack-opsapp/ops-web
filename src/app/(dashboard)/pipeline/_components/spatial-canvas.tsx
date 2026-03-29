@@ -13,6 +13,7 @@ interface SpatialCanvasProps {
   canvasWidth: number;
   canvasHeight: number;
   onCanvasContextMenu?: (e: React.MouseEvent) => void;
+  onMarqueeUpdate?: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
   onMarqueeEnd?: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
 }
 
@@ -21,10 +22,12 @@ export function SpatialCanvas({
   canvasWidth,
   canvasHeight,
   onCanvasContextMenu,
+  onMarqueeUpdate,
   onMarqueeEnd,
 }: SpatialCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const interactionMode = useRef<"idle" | "pan" | "marquee">("idle");
+  const didMarquee = useRef(false);
   const lastPointer = useRef({ x: 0, y: 0 });
   const [cursor, setCursor] = useState<"default" | "grabbing" | "crosshair">("default");
 
@@ -151,9 +154,13 @@ export function SpatialCanvas({
       } else if (interactionMode.current === "marquee") {
         const canvasPos = screenToCanvas(e.clientX, e.clientY);
         updateMarquee(canvasPos);
+        const state = useSpatialCanvasStore.getState();
+        if (state.marqueeStart && onMarqueeUpdate) {
+          onMarqueeUpdate(state.marqueeStart, canvasPos);
+        }
       }
     },
-    [setViewport, updateMarquee, screenToCanvas, hideContextMenu]
+    [setViewport, updateMarquee, screenToCanvas, hideContextMenu, onMarqueeUpdate]
   );
 
   const handlePointerUp = useCallback(
@@ -166,8 +173,14 @@ export function SpatialCanvas({
         interactionMode.current = "idle";
         setCursor("default");
         const state = useSpatialCanvasStore.getState();
-        if (state.marqueeStart && state.marqueeEnd && onMarqueeEnd) {
-          onMarqueeEnd(state.marqueeStart, state.marqueeEnd);
+        const hadMarquee =
+          state.marqueeStart &&
+          state.marqueeEnd &&
+          (Math.abs(state.marqueeEnd.x - state.marqueeStart.x) >= 4 ||
+            Math.abs(state.marqueeEnd.y - state.marqueeStart.y) >= 4);
+        if (hadMarquee && onMarqueeEnd) {
+          onMarqueeEnd(state.marqueeStart!, state.marqueeEnd!);
+          didMarquee.current = true;
         }
         endMarquee();
         containerRef.current?.releasePointerCapture(e.pointerId);
@@ -176,9 +189,13 @@ export function SpatialCanvas({
     [endMarquee, onMarqueeEnd]
   );
 
-  // ── Click on empty canvas → clear selection ──
+  // ── Click on empty canvas → clear selection (skip if marquee just ended) ──
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
+      if (didMarquee.current) {
+        didMarquee.current = false;
+        return;
+      }
       if (!isCardTarget(e.target)) {
         clearSelection();
         hideContextMenu();

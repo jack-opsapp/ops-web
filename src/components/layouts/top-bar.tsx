@@ -7,7 +7,10 @@ import {
   Clock,
   WifiOff,
   Menu,
+  Undo2,
+  Loader2,
 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
@@ -17,6 +20,7 @@ import { useDictionary } from "@/i18n/client";
 import { NotificationRail } from "./notification-rail";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
+import { useUndoStore } from "@/stores/undo-store";
 
 // ── Route → title mapping ────────────────────────────────────────────────────
 
@@ -25,7 +29,7 @@ const routeTitles: Record<string, string> = {
   "/projects": "Projects",
   "/calendar": "Schedule",
   "/clients": "Clients",
-  "/job-board": "Job Board",
+
   "/team": "Team",
   "/map": "Map",
   "/pipeline": "Pipeline",
@@ -96,6 +100,34 @@ export function TopBar() {
   const pathname = usePathname();
   const entityName = useBreadcrumbStore((s) => s.entityName);
   const parentCrumbs = useBreadcrumbStore((s) => s.parentCrumbs);
+
+  // Undo
+  const undoStack = useUndoStore((s) => s.stack);
+  const isUndoing = useUndoStore((s) => s.isUndoing);
+  const undo = useUndoStore((s) => s.undo);
+  const topEntry = undoStack[0] ?? null;
+  const [isUndoHovered, setIsUndoHovered] = useState(false);
+
+  const handleUndo = useCallback(() => {
+    if (!isUndoing && topEntry) undo();
+  }, [isUndoing, topEntry, undo]);
+
+  // Cmd+Z keyboard shortcut
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        // Don't capture if user is typing in an input/textarea
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+
+        e.preventDefault();
+        const store = useUndoStore.getState();
+        if (!store.isUndoing && store.stack.length > 0) store.undo();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Build breadcrumb trail
   const segments = pathname.split("/").filter(Boolean);
@@ -179,8 +211,49 @@ export function TopBar() {
         )}
       </div>
 
-      {/* Center: Search */}
-      <div className="flex items-center mx-auto min-w-0 flex-shrink">
+      {/* Center: Undo + Search */}
+      <div className="flex items-center gap-[6px] mx-auto min-w-0 flex-shrink">
+        {/* Undo button — only visible when stack is non-empty */}
+        {topEntry && (
+          <div className="relative">
+            <button
+              onClick={handleUndo}
+              disabled={isUndoing}
+              onMouseEnter={() => setIsUndoHovered(true)}
+              onMouseLeave={() => setIsUndoHovered(false)}
+              className={cn(
+                "flex items-center justify-center h-[40px] w-[40px] rounded-[4px]",
+                "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
+                "border border-[rgba(255,255,255,0.06)]",
+                "text-text-tertiary hover:border-[rgba(255,255,255,0.14)] hover:text-text-secondary",
+                "transition-all duration-150 animate-fade-in",
+                isUndoing && "opacity-50 pointer-events-none"
+              )}
+              aria-label={t("undo.ariaLabel")}
+            >
+              {isUndoing
+                ? <Loader2 className="w-[16px] h-[16px] animate-spin" />
+                : <Undo2 className="w-[16px] h-[16px]" />
+              }
+            </button>
+            {/* Hover tooltip */}
+            {isUndoHovered && !isUndoing && (
+              <div
+                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in"
+                style={{
+                  background: "rgba(10, 10, 10, 0.90)",
+                  backdropFilter: "blur(12px) saturate(1.2)",
+                  WebkitBackdropFilter: "blur(12px) saturate(1.2)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                }}
+              >
+                <span className="font-kosugi text-micro-sm text-text-secondary uppercase tracking-wider">
+                  {t("undo.tooltip").replace("{label}", topEntry.label)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
         <button
           className={cn(
             "flex items-center gap-[6px] h-[40px] px-2 rounded-[4px]",

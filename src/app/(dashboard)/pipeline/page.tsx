@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, X, Loader2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
+import { useUndoStore } from "@/stores/undo-store";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -39,10 +40,7 @@ import {
   previousOpportunityStage,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
-import {
-  actionPromptVariants,
-  actionPromptVariantsReduced,
-} from "@/lib/utils/motion";
+// motion variants removed — archive undo toast replaced by universal undo
 
 import {
   DndContext,
@@ -464,24 +462,39 @@ function SpatialCanvasDesktop({
 
   // Marquee selection → compute which cards fall inside the rectangle
   // Uses custom positions when present so marquee matches visual card locations
-  const handleMarqueeEnd = useCallback(
+  const computeMarqueeSelection = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const { customPositions } = useSpatialCanvasStore.getState();
       const allPositions = [
         ...layout.stacks.flatMap((s) => s.cardPositions),
         ...layout.terminalRegions.flatMap((r) => r.cardPositions),
       ];
-      const selected = allPositions
+      return allPositions
         .filter((pos) => {
           const effective = customPositions.get(pos.opportunityId) ?? pos;
           return isCardInMarquee(effective.x, effective.y, CARD_WIDTH, CARD_HEIGHT, start, end);
         })
         .map((pos) => pos.opportunityId);
+    },
+    [layout]
+  );
+
+  const handleMarqueeUpdate = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const selected = computeMarqueeSelection(start, end);
+      selectCards(selected);
+    },
+    [computeMarqueeSelection, selectCards]
+  );
+
+  const handleMarqueeEnd = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const selected = computeMarqueeSelection(start, end);
       if (selected.length > 0) {
         selectCards(selected);
       }
     },
-    [layout, selectCards]
+    [computeMarqueeSelection, selectCards]
   );
 
   // Stable callbacks ref — avoids recreating renderCard on every callback change
@@ -560,6 +573,7 @@ function SpatialCanvasDesktop({
           canvasWidth={layout.canvasWidth}
           canvasHeight={layout.canvasHeight}
           onCanvasContextMenu={handleCanvasContextMenu}
+          onMarqueeUpdate={handleMarqueeUpdate}
           onMarqueeEnd={handleMarqueeEnd}
         >
           {/* Active stage stacks */}
@@ -754,19 +768,6 @@ export default function PipelinePage() {
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  // ── Reduced motion ────────────────────────────────────────────────────
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  const toastVariants = prefersReducedMotion
-    ? actionPromptVariantsReduced
-    : actionPromptVariants;
-
   // ── Filter / search state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<OpportunityStage | "all">(
@@ -802,11 +803,8 @@ export default function PipelinePage() {
     stage: OpportunityStage;
   } | null>(null);
 
-  // ── Archive undo state ────────────────────────────────────────────────
-  const [archiveUndoState, setArchiveUndoState] = useState<{
-    id: string;
-    timer: NodeJS.Timeout;
-  } | null>(null);
+  // ── Undo store ────────────────────────────────────────────────────────
+  const pushUndo = useUndoStore((s) => s.pushUndo);
 
   // ── Track screen view ─────────────────────────────────────────────────
   useEffect(() => {
@@ -1048,23 +1046,16 @@ export default function PipelinePage() {
   /** Archive with undo */
   const handleArchive = useCallback(
     (opportunityId: string) => {
+      const opp = activeOpportunities.find((o) => o.id === opportunityId);
+      const label = (opp?.contactName ?? opp?.title ?? "Deal") + " → Archived";
       archiveMutation.mutate(opportunityId);
-      // Clear any existing undo timer
-      if (archiveUndoState?.timer) clearTimeout(archiveUndoState.timer);
-      const timer = setTimeout(() => setArchiveUndoState(null), 5000);
-      setArchiveUndoState({ id: opportunityId, timer });
+      pushUndo({
+        label,
+        inverseFn: async () => { await unarchiveMutation.mutateAsync(opportunityId); },
+      });
     },
-    [archiveMutation, archiveUndoState]
+    [archiveMutation, unarchiveMutation, activeOpportunities, pushUndo]
   );
-
-  /** Undo archive */
-  const handleUndoArchive = useCallback(() => {
-    if (archiveUndoState) {
-      clearTimeout(archiveUndoState.timer);
-      unarchiveMutation.mutate(archiveUndoState.id);
-      setArchiveUndoState(null);
-    }
-  }, [archiveUndoState, unarchiveMutation]);
 
   /** Handle stage move from drag-and-drop or advance button */
   const handleMoveStage = useCallback(
@@ -1092,18 +1083,25 @@ export default function PipelinePage() {
       }
 
       // Normal stage move
+      const previousStage = opp.stage;
+      const clientName = clientNameMap.get(opp.clientId ?? "") ?? opp.contactName ?? opp.title ?? "";
       moveStage.mutate(
         { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            const clientName = clientNameMap.get(opp.clientId ?? "") ?? opp.contactName ?? opp.title ?? "";
             const value = opp.estimatedValue ? formatCurrency(opp.estimatedValue) : "";
-            const fromStage = getStageDisplayName(opp.stage);
+            const fromStage = getStageDisplayName(previousStage);
             const toStage = getStageDisplayName(newStage);
             toast.success(
               `${clientName}${value ? ` · ${value}` : ""}`,
               { description: `${fromStage} → ${toStage}` }
             );
+            pushUndo({
+              label: `${clientName} → ${toStage}`,
+              inverseFn: async () => {
+                await moveStage.mutateAsync({ id, stage: previousStage, userId: currentUser?.id });
+              },
+            });
           },
           onError: (error) => {
             toast.error(t("toast.failedMove"), {
@@ -1116,7 +1114,7 @@ export default function PipelinePage() {
         }
       );
     },
-    [activeOpportunities, moveStage, currentUser, can, t]
+    [activeOpportunities, moveStage, currentUser, can, t, clientNameMap, pushUndo]
   );
 
   /** Mark won — opens transition dialog */
@@ -1155,6 +1153,14 @@ export default function PipelinePage() {
 
       const { id, stage } = pendingStageMove;
 
+      const previousStage = transitionOpportunity.stage;
+      const clientName =
+        clientNameMap.get(transitionOpportunity.clientId ?? "") ??
+        transitionOpportunity.contactName ??
+        transitionOpportunity.title ??
+        "";
+      const toStage = getStageDisplayName(stage);
+
       moveStage.mutate(
         { id, stage, userId: currentUser?.id },
         {
@@ -1181,6 +1187,13 @@ export default function PipelinePage() {
             toast.success(toastMsg, {
               description: transitionOpportunity.title,
             });
+
+            pushUndo({
+              label: `${clientName} → ${toStage}`,
+              inverseFn: async () => {
+                await moveStage.mutateAsync({ id, stage: previousStage, userId: currentUser?.id });
+              },
+            });
           },
           onError: (error) => {
             toast.error(t("toast.failedUpdate"), {
@@ -1205,6 +1218,8 @@ export default function PipelinePage() {
       currentUser,
       can,
       t,
+      clientNameMap,
+      pushUndo,
     ]
   );
 
@@ -1511,29 +1526,7 @@ export default function PipelinePage() {
         triggerAction="leads"
       />
 
-      {/* Archive undo toast */}
-      <AnimatePresence>
-        {archiveUndoState && (
-          <motion.div
-            variants={toastVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 flex items-center gap-2"
-          >
-            <span className="font-mohave text-body-sm text-text-secondary">
-              {t("actions.archived")}
-            </span>
-            <span className="text-[rgba(255,255,255,0.12)]">|</span>
-            <button
-              onClick={handleUndoArchive}
-              className="font-mohave text-body-sm text-[#597794] hover:text-[#6d8fad] transition-colors cursor-pointer"
-            >
-              {t("actions.undoArchive")}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Archive undo toast removed — universal undo in TopBar */}
     </div>
   );
 }

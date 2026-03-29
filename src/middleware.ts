@@ -10,7 +10,7 @@ const protectedPrefixes = [
   "/projects",
   "/calendar",
   "/clients",
-  "/job-board",
+
   "/team",
   "/map",
   "/pipeline",

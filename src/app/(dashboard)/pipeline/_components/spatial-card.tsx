@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import type { Opportunity } from "@/lib/types/pipeline";
@@ -207,19 +207,21 @@ export const SpatialCard = memo(function SpatialCard({
           </span>
         </div>
 
-        {/* Expanded content — rendered inside card surface */}
-        <AnimatePresence initial={false}>
-          {isExpanded && expandedContent && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            >
+        {/* Expanded content — CSS grid height transition (no FM measurement issues) */}
+        {expandedContent && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateRows: isExpanded ? "1fr" : "0fr",
+              opacity: isExpanded ? 1 : 0,
+              transition: "grid-template-rows 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            <div style={{ overflow: "hidden" }}>
               {expandedContent}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

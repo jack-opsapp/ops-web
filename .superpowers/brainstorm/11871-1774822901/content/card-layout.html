@@ -1,0 +1,157 @@
+<h2>Project Card — Collapsed State</h2>
+<p class="subtitle">The card users see at normal zoom in each status column. Click to select your preferred layout.</p>
+
+<div class="cards" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px;">
+
+  <!-- Option A: Pipeline-match (compact) -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="padding: 0;">
+    <div class="card-body" style="padding: 16px;">
+      <div class="letter" style="position: absolute; top: 8px; right: 12px;">A</div>
+      <h3 style="margin-bottom: 8px;">Compact (Pipeline Match)</h3>
+      <p style="font-size: 12px; color: #888; margin-bottom: 16px;">200×44px — identical to pipeline cards. Title + value only.</p>
+
+      <!-- Mockup -->
+      <div style="background: #0A0A0A; padding: 24px; border-radius: 6px;">
+        <!-- Card -->
+        <div style="width: 200px; height: 44px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(20px);">
+          <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Smith Residence</span>
+          <span style="font-family: system-ui; font-size: 13px; color: #888;">$12.4k</span>
+        </div>
+        <div style="height: 10px;"></div>
+        <!-- Card 2 -->
+        <div style="width: 200px; height: 44px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Johnson HVAC</span>
+          <span style="font-family: system-ui; font-size: 13px; color: #888;">$8.2k</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #666;">
+      Shows: Title + Value<br>
+      Address & client visible on expand
+    </div>
+  </div>
+
+  <!-- Option B: Two-line (address visible) -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="padding: 0;">
+    <div class="card-body" style="padding: 16px;">
+      <div class="letter" style="position: absolute; top: 8px; right: 12px;">B</div>
+      <h3 style="margin-bottom: 8px;">Two-Line</h3>
+      <p style="font-size: 12px; color: #888; margin-bottom: 16px;">200×56px — title on top, address below. Value right-aligned.</p>
+
+      <!-- Mockup -->
+      <div style="background: #0A0A0A; padding: 24px; border-radius: 6px;">
+        <!-- Card -->
+        <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Smith Residence</span>
+            <span style="font-family: system-ui; font-size: 13px; color: #888;">$12.4k</span>
+          </div>
+          <div style="font-family: system-ui; font-size: 11px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">742 Evergreen Terr</div>
+        </div>
+        <div style="height: 10px;"></div>
+        <!-- Card 2 -->
+        <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Johnson HVAC</span>
+            <span style="font-family: system-ui; font-size: 13px; color: #888;">$8.2k</span>
+          </div>
+          <div style="font-family: system-ui; font-size: 11px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">1420 Oak Boulevard</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #666;">
+      Shows: Title + Address + Value<br>
+      Client visible on expand
+    </div>
+  </div>
+
+  <!-- Option C: Three-line (title, client, address) -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="padding: 0;">
+    <div class="card-body" style="padding: 16px;">
+      <div class="letter" style="position: absolute; top: 8px; right: 12px;">C</div>
+      <h3 style="margin-bottom: 8px;">Three-Line</h3>
+      <p style="font-size: 12px; color: #888; margin-bottom: 16px;">200×68px — title, client, address all visible. Value top-right.</p>
+
+      <!-- Mockup -->
+      <div style="background: #0A0A0A; padding: 24px; border-radius: 6px;">
+        <!-- Card -->
+        <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Smith Residence</span>
+            <span style="font-family: system-ui; font-size: 12px; color: #888;">$12.4k</span>
+          </div>
+          <div style="font-family: system-ui; font-size: 11px; color: #7a8a9a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">John Smith</div>
+          <div style="font-family: system-ui; font-size: 11px; color: #555; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">742 Evergreen Terr</div>
+        </div>
+        <div style="height: 10px;"></div>
+        <!-- Card 2 -->
+        <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Johnson HVAC</span>
+            <span style="font-family: system-ui; font-size: 12px; color: #888;">$8.2k</span>
+          </div>
+          <div style="font-family: system-ui; font-size: 11px; color: #7a8a9a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mike Johnson</div>
+          <div style="font-family: system-ui; font-size: 11px; color: #555; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">1420 Oak Boulevard</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #666;">
+      Shows: Title + Client + Address + Value<br>
+      All key info at a glance
+    </div>
+  </div>
+
+  <!-- Option D: Two-line with task progress -->
+  <div class="card" data-choice="d" onclick="toggleSelect(this)" style="padding: 0;">
+    <div class="card-body" style="padding: 16px;">
+      <div class="letter" style="position: absolute; top: 8px; right: 12px;">D</div>
+      <h3 style="margin-bottom: 8px;">Two-Line + Progress</h3>
+      <p style="font-size: 12px; color: #888; margin-bottom: 16px;">200×60px — title + address, with a thin task progress bar at bottom.</p>
+
+      <!-- Mockup -->
+      <div style="background: #0A0A0A; padding: 24px; border-radius: 6px;">
+        <!-- Card -->
+        <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px 6px 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Smith Residence</span>
+            <span style="font-family: system-ui; font-size: 13px; color: #888;">$12.4k</span>
+          </div>
+          <div style="font-family: system-ui; font-size: 11px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">742 Evergreen Terr</div>
+          <!-- Progress bar -->
+          <div style="margin-top: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;">
+            <div style="width: 60%; height: 100%; background: #8195B5; border-radius: 1px;"></div>
+          </div>
+        </div>
+        <div style="height: 10px;"></div>
+        <!-- Card 2 -->
+        <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px 6px 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Johnson HVAC</span>
+            <span style="font-family: system-ui; font-size: 13px; color: #888;">$8.2k</span>
+          </div>
+          <div style="font-family: system-ui; font-size: 11px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">1420 Oak Boulevard</div>
+          <!-- Progress bar -->
+          <div style="margin-top: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;">
+            <div style="width: 25%; height: 100%; background: #8195B5; border-radius: 1px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #666;">
+      Shows: Title + Address + Value + Task %<br>
+      Progress bar = completed/total tasks
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; max-width: 900px;">
+  <h3 style="margin-bottom: 8px; font-size: 14px;">Notes</h3>
+  <ul style="font-size: 13px; color: #888; list-style: disc; padding-left: 20px; line-height: 1.8;">
+    <li><strong>Value ($)</strong> only shows if user has accounting permissions — cards without it gracefully collapse to fill the space</li>
+    <li><strong>Address</strong> shows street number + name only (no city/state) — truncated with ellipsis</li>
+    <li><strong>Expanded state</strong> (click to open) will show: client details, full address, task breakdown, team members, dates, and quick actions — same pattern as pipeline</li>
+    <li><strong>Bird's-eye</strong> (zoom &lt; 0.5) renders as 8px colored pill — identical to pipeline</li>
+    <li>All options use the same 200px width as pipeline for layout engine compatibility</li>
+  </ul>
+</div>

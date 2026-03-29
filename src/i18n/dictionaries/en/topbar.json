@@ -25,5 +25,9 @@
   "notifications.overflow": "+{count}",
   "notifications.clickToExpand": "Click to expand",
 
-  "menu.ariaLabel": "Open menu"
+  "menu.ariaLabel": "Open menu",
+
+  "undo.ariaLabel": "Undo last action",
+  "undo.tooltip": "UNDO \"{label}\"",
+  "undo.shortcut": "⌘Z"
 }

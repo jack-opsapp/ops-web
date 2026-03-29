@@ -1,0 +1,109 @@
+<h2>Project Card — Refined Layout</h2>
+<p class="subtitle">Title (or address fallback) + client subtitle + value + progress bar. Click to confirm.</p>
+
+<div style="max-width: 700px;">
+
+  <!-- Main mockup -->
+  <div class="mockup">
+    <div class="mockup-header">Collapsed Card — Normal Zoom</div>
+    <div class="mockup-body" style="background: #0A0A0A; padding: 32px;">
+
+      <!-- Card 1: Has title, client, value, progress -->
+      <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px 6px 10px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Smith Residence</span>
+          <span style="font-family: system-ui; font-size: 12px; color: #888;">$12.4k</span>
+        </div>
+        <div style="font-family: system-ui; font-size: 11px; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">John Smith</div>
+        <div style="margin-top: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;">
+          <div style="width: 60%; height: 100%; background: #8195B5; border-radius: 1px;"></div>
+        </div>
+      </div>
+
+      <!-- Card 2: Has title, client, no value (no permission) -->
+      <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px 6px 10px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Johnson HVAC Repair</span>
+        </div>
+        <div style="font-family: system-ui; font-size: 11px; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mike Johnson</div>
+        <div style="margin-top: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;">
+          <div style="width: 25%; height: 100%; background: #8195B5; border-radius: 1px;"></div>
+        </div>
+      </div>
+
+      <!-- Card 3: No title (address fallback), has client, value -->
+      <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px 6px 10px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">1420 Oak Blvd</span>
+          <span style="font-family: system-ui; font-size: 12px; color: #888;">$8.2k</span>
+        </div>
+        <div style="font-family: system-ui; font-size: 11px; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sarah Williams</div>
+        <div style="margin-top: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;">
+          <div style="width: 80%; height: 100%; background: #8195B5; border-radius: 1px;"></div>
+        </div>
+      </div>
+
+      <!-- Card 4: No title, no address, just client + value -->
+      <div style="width: 200px; background: rgba(13,13,13,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #8195B5; border-radius: 4px; padding: 8px 10px 6px 10px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: system-ui; font-size: 13px; color: #E5E5E5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">Untitled Project</span>
+          <span style="font-family: system-ui; font-size: 12px; color: #888;">$3.1k</span>
+        </div>
+        <div style="font-family: system-ui; font-size: 11px; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Dan Cooper</div>
+        <div style="margin-top: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;">
+          <div style="width: 0%; height: 100%; background: #8195B5; border-radius: 1px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #597794; margin-bottom: 6px;">Line 1 — Primary</div>
+      <div style="font-size: 13px; color: #ccc;">title ?? address ?? "Untitled Project"</div>
+    </div>
+    <div style="padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #597794; margin-bottom: 6px;">Line 1 — Right</div>
+      <div style="font-size: 13px; color: #ccc;">value (only if accounting permission)</div>
+    </div>
+    <div style="padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #597794; margin-bottom: 6px;">Line 2 — Subtitle</div>
+      <div style="font-size: 13px; color: #ccc;">client name (dimmed)</div>
+    </div>
+    <div style="padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #597794; margin-bottom: 6px;">Bottom — Progress</div>
+      <div style="font-size: 13px; color: #ccc;">completedTasks / totalTasks (2px bar)</div>
+    </div>
+  </div>
+
+  <!-- Edge cases -->
+  <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px;">
+    <h3 style="font-size: 13px; margin-bottom: 8px;">Edge Cases Shown Above</h3>
+    <ul style="font-size: 13px; color: #888; list-style: disc; padding-left: 20px; line-height: 1.8;">
+      <li><strong>Card 1:</strong> Full data — title, client, value, 60% progress</li>
+      <li><strong>Card 2:</strong> No accounting permission — value hidden, title fills full width</li>
+      <li><strong>Card 3:</strong> No title — address used as primary label</li>
+      <li><strong>Card 4:</strong> No title or address — falls back to "Untitled Project", 0 tasks = empty bar</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="options" style="margin-top: 24px; max-width: 700px;">
+  <div class="option" data-choice="confirm" onclick="toggleSelect(this)">
+    <div class="letter" style="background: #2a4a2a; color: #9DB582;">✓</div>
+    <div class="content">
+      <h3>Looks good — move on</h3>
+      <p>Confirm this card layout and continue to expanded state design</p>
+    </div>
+  </div>
+  <div class="option" data-choice="revise" onclick="toggleSelect(this)">
+    <div class="letter" style="background: #4a3a2a; color: #B5A381;">↻</div>
+    <div class="content">
+      <h3>Needs changes</h3>
+      <p>Tell me what to adjust in the terminal</p>
+    </div>
+  </div>
+</div>

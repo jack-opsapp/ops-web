@@ -8,7 +8,7 @@ import {
   FolderKanban,
   CalendarDays,
   Users,
-  Columns3,
+
   UserCog,
   MapPin,
   GitBranch,
@@ -71,7 +71,7 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
     { label: t("nav.projects"), href: "/projects", icon: FolderKanban, permission: "projects.view" },
     { label: t("nav.calendar"), href: "/calendar", icon: CalendarDays, permission: "calendar.view" },
     { label: t("nav.clients"), href: "/clients", icon: Users, permission: "clients.view" },
-    { label: t("nav.jobBoard"), href: "/job-board", icon: Columns3, permission: "job_board.view" },
+
     { label: t("nav.team"), href: "/team", icon: UserCog, permission: "team.view" },
     { label: t("nav.map"), href: "/map", icon: MapPin, permission: "map.view" },
     "divider",

@@ -17,7 +17,7 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   "/projects": "projects.view",
   "/calendar": "calendar.view",
   "/clients": "clients.view",
-  "/job-board": "job_board.view",
+
   "/team": "team.view",
   "/map": "map.view",
   "/pipeline": "pipeline.view",

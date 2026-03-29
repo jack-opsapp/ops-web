@@ -13,7 +13,7 @@ import {
   Settings,
   Plus,
   Search,
-  Columns3,
+
   LayoutDashboard,
   GitBranch,
   Receipt,
@@ -169,15 +169,6 @@ export function CommandPalette() {
       onSelect: () => navigate("/clients"),
       keywords: ["customers", "contacts"],
       requiredPermission: "clients.view",
-    },
-    {
-      id: "nav-job-board",
-      label: "Job Board",
-      icon: Columns3,
-      shortcut: "5",
-      onSelect: () => navigate("/job-board"),
-      keywords: ["kanban", "board", "pipeline"],
-      requiredPermission: "job_board.view",
     },
     {
       id: "nav-team",

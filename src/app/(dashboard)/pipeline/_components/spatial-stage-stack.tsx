@@ -86,7 +86,7 @@ export function SpatialStageStack({
         left: layout.regionBounds.x,
         top: layout.regionBounds.y,
         width: layout.regionBounds.width,
-        height: layout.regionBounds.height,
+        minHeight: layout.regionBounds.height,
         background: "rgba(255, 255, 255, 0.015)",
         border: "1px solid rgba(255, 255, 255, 0.04)",
         borderRadius: 8,
@@ -105,14 +105,13 @@ export function SpatialStageStack({
 
       {/* Header */}
       <div
-        className="absolute flex flex-col"
+        className="relative flex flex-col"
         style={{
-          left: 20,
-          top: 12,
+          marginLeft: 20,
+          marginTop: 12,
           width: CARD_WIDTH,
           height: STACK_HEADER_HEIGHT,
           padding: "8px 0 0 0",
-          position: "relative",
         }}
         onMouseEnter={() => setIsHeaderHovered(true)}
         onMouseLeave={() => setIsHeaderHovered(false)}
@@ -168,10 +167,11 @@ export function SpatialStageStack({
 
       {/* Cards — flex column so expanded cards push siblings down */}
       <div
-        className="absolute flex flex-col"
+        className="relative flex flex-col"
         style={{
-          left: 20,
-          top: 20 + STACK_HEADER_HEIGHT,
+          marginLeft: 20,
+          marginTop: 8,
+          paddingBottom: 20,
           width: CARD_WIDTH,
           gap: STACK_GAP,
         }}

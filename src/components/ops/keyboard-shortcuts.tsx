@@ -64,11 +64,10 @@ export function KeyboardShortcuts() {
         "2": "/projects",
         "3": "/calendar",
         "4": "/clients",
-        "5": "/job-board",
-        "6": "/team",
-        "7": "/map",
-        "8": "/pipeline",
-        "9": "/invoices",
+        "5": "/team",
+        "6": "/map",
+        "7": "/pipeline",
+        "8": "/invoices",
       };
 
       if (routes[e.key]) {
