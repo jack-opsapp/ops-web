@@ -15,13 +15,12 @@ import {
 } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
-import { useInvoices, useProjectMetrics } from "@/lib/hooks";
+import { useInvoices, useProjectMetrics, useTasks } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
 import {
   type Project,
   ProjectStatus,
   PROJECT_STATUS_COLORS,
-  type TaskStatus as TaskStatusType,
 } from "@/lib/types/models";
 
 import {
@@ -190,6 +189,7 @@ export default function ProjectsPage() {
   const { data: clientsData } = useClients();
   const { data: teamData } = useTeamMembers();
   const { data: invoicesData } = useInvoices();
+  const { data: tasksData } = useTasks();
   const { data: projectMetrics } = useProjectMetrics();
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
@@ -286,19 +286,21 @@ export default function ProjectsPage() {
     return (projectsData?.projects ?? []).filter((p) => !p.deletedAt);
   }, [projectsData]);
 
-  // ── Task progress maps ──
+  // ── Task progress maps (from useTasks — all company tasks, grouped by project) ──
   const projectTaskCountMap = useMemo(() => {
     const total = new Map<string, number>();
     const completed = new Map<string, number>();
-    for (const project of allProjects) {
-      if (project.tasks) {
-        const activeTasks = project.tasks.filter((t) => !t.deletedAt);
-        total.set(project.id, activeTasks.length);
-        completed.set(project.id, activeTasks.filter((t) => t.status === "Completed").length);
+    const allTasks = tasksData?.tasks ?? [];
+    for (const task of allTasks) {
+      if (task.deletedAt) continue;
+      const pid = task.projectId;
+      total.set(pid, (total.get(pid) ?? 0) + 1);
+      if (task.status === "Completed") {
+        completed.set(pid, (completed.get(pid) ?? 0) + 1);
       }
     }
     return { total, completed };
-  }, [allProjects]);
+  }, [tasksData]);
 
   const projectProgressMap = useMemo(() => {
     const map = new Map<string, number>();
