@@ -1,830 +1,725 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
+import { Loader2 } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import {
-  Plus,
-  Search,
-  LayoutGrid,
-  List,
-  CalendarDays,
-  MapPin,
-  AlertCircle,
-  RefreshCw,
-  Trash2,
-  Download,
-  ArrowRight,
-  CheckSquare,
-} from "lucide-react";
 import { trackScreenView } from "@/lib/analytics/analytics";
-import { useDictionary, useLocale } from "@/i18n/client";
-import { getDateLocale } from "@/i18n/date-utils";
-import { cn } from "@/lib/utils/cn";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { StatusBadge, type ProjectStatus as StatusBadgeProjectStatus } from "@/components/ops/status-badge";
-import { EmptyState } from "@/components/ops/empty-state";
-import { BulkActionBar, type BulkAction } from "@/components/ops/bulk-action-bar";
-import { SelectableRow } from "@/components/ops/selectable-row";
-import { ConfirmDialog } from "@/components/ops/confirm-dialog";
-import { ProjectDetailSheet } from "@/components/ops/project-detail-sheet";
-import { useSelectionStore } from "@/stores/selection-store";
-import { useWindowStore } from "@/stores/window-store";
+import { toast } from "@/components/ui/toast";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useSetupGate } from "@/hooks/useSetupGate";
-import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-import { SegmentedPicker } from "@/components/ops/segmented-picker";
-import { useScopedProjects, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
+import {
+  useScopedProjects,
+  useUpdateProjectStatus,
+  useDeleteProject,
+} from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
-import { useProjectMetrics } from "@/lib/hooks";
+import { useInvoices, useProjectMetrics } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
-import { UserAvatar } from "@/components/ops/user-avatar";
-import { exportToCSV } from "@/lib/utils/csv-export";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import {
   type Project,
   ProjectStatus,
-  isActiveProjectStatus,
-  getUserFullName,
-  getInitials,
+  PROJECT_STATUS_COLORS,
+  type TaskStatus as TaskStatusType,
 } from "@/lib/types/models";
 
-type FilterStatus = "all" | "active" | "completed" | "archived";
-type ViewMode = "cards" | "table";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 
-const ALL_PROJECT_STATUSES = [
+import {
+  useProjectCanvasStore,
+  CARD_WIDTH,
+  CARD_HEIGHT,
+  BIRD_EYE_THRESHOLD,
+} from "./_components/project-canvas-store";
+import { calculateProjectCanvasLayout } from "./_components/project-layout-engine";
+import { calculateBatchProjectStaleness } from "./_components/project-staleness";
+import { ProjectCanvas } from "./_components/project-canvas";
+import { ProjectStageStack, getProjectStatusDisplayName } from "./_components/project-stage-stack";
+import { ProjectTerminalRegion } from "./_components/project-terminal-region";
+import { ProjectCard } from "./_components/project-card";
+import { ProjectCardExpanded } from "./_components/project-card-expanded";
+import { ProjectDragOverlay } from "./_components/project-drag-overlay";
+import { ProjectMarqueeSelect, isCardInMarquee } from "./_components/project-marquee-select";
+import { ProjectContextMenu } from "./_components/project-context-menu";
+import { ProjectArchiveTray } from "./_components/project-archive-tray";
+import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
+import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
+import { ProjectDetailPopover } from "./_components/project-detail-popover";
+import { useProjectDetailPopoverStore } from "./_components/project-detail-popover-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
+import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
+
+// ── Active statuses for the canvas columns ──
+const ACTIVE_STATUSES: ProjectStatus[] = [
   ProjectStatus.RFQ,
   ProjectStatus.Estimated,
   ProjectStatus.Accepted,
   ProjectStatus.InProgress,
   ProjectStatus.Completed,
-  ProjectStatus.Closed,
-  ProjectStatus.Archived,
 ];
 
-/**
- * Map a ProjectStatus enum value to the kebab-case key used by StatusBadge.
- */
-function statusToKey(status: ProjectStatus): StatusBadgeProjectStatus {
-  switch (status) {
-    case ProjectStatus.RFQ:
-      return "rfq";
-    case ProjectStatus.Estimated:
-      return "estimated";
-    case ProjectStatus.Accepted:
-      return "accepted";
-    case ProjectStatus.InProgress:
-      return "in-progress";
-    case ProjectStatus.Completed:
-      return "completed";
-    case ProjectStatus.Closed:
-      return "closed";
-    case ProjectStatus.Archived:
-      return "archived";
-    default:
-      return "rfq";
-  }
-}
+// ── Per-card wrapper — prevents parent re-renders on store changes ──
+const ProjectCardWrapper = memo(function ProjectCardWrapper({
+  project,
+  clientName,
+  statusColor,
+  stalenessOpacity,
+  canManage,
+  canViewAccounting,
+  canCreateTasks,
+  canRecordPayment,
+  projectValue,
+  completedTasks,
+  totalTasks,
+  teamMembers,
+  isBirdEye,
+  onOpenDetail,
+  onAddTask,
+  onRecordPayment,
+  onArchive,
+}: {
+  project: Project;
+  clientName: string;
+  statusColor: string;
+  stalenessOpacity: number;
+  canManage: boolean;
+  canViewAccounting: boolean;
+  canCreateTasks: boolean;
+  canRecordPayment: boolean;
+  projectValue: number;
+  completedTasks: number;
+  totalTasks: number;
+  teamMembers: { id: string; name: string; avatarUrl?: string }[];
+  isBirdEye: boolean;
+  onOpenDetail: (projectId: string) => void;
+  onAddTask: (projectId: string) => void;
+  onRecordPayment: (projectId: string) => void;
+  onArchive: (projectId: string) => void;
+}) {
+  const isSelected = useProjectCanvasStore((s) => s.selectedCardIds.has(project.id));
+  const isExpanded = useProjectCanvasStore((s) => s.expandedCardIds.has(project.id));
+  const isHovered = useProjectCanvasStore((s) => s.hoveredCardId === project.id);
+  const toggleCardExpanded = useProjectCanvasStore((s) => s.toggleCardExpanded);
+  const setHoveredCard = useProjectCanvasStore((s) => s.setHoveredCard);
+  const toggleCardSelected = useProjectCanvasStore((s) => s.toggleCardSelected);
+  const showContextMenu = useProjectCanvasStore((s) => s.showContextMenu);
 
-function TeamAvatars({ project, memberMap }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User> }) {
-  const { t } = useDictionary("projects");
-  const resolvedMembers = project.teamMemberIds
-    .map((id) => memberMap.get(id))
-    .filter(Boolean) as import("@/lib/types/models").User[];
-  const display = resolvedMembers.slice(0, 3);
-  const overflow = resolvedMembers.length - 3;
-
-  if (display.length === 0) {
-    return (
-      <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
-        {t("noTeam")}
-      </span>
-    );
-  }
+  const daysInStatus = useMemo(() => {
+    const ref = project.createdAt ?? project.startDate;
+    if (!ref) return 0;
+    return Math.floor((Date.now() - new Date(ref).getTime()) / (1000 * 60 * 60 * 24));
+  }, [project.createdAt, project.startDate]);
 
   return (
-    <div className="flex items-center -space-x-[6px]">
-      {display.map((member) => (
-        <UserAvatar
-          key={member.id}
-          name={getUserFullName(member)}
-          imageUrl={member.profileImageURL}
-          size="sm"
-          color={member.userColor ?? undefined}
+    <ProjectCard
+      project={project}
+      clientName={clientName}
+      statusColor={statusColor}
+      stalenessOpacity={stalenessOpacity}
+      isSelected={isSelected}
+      isExpanded={isExpanded}
+      isHovered={isHovered}
+      isBirdEye={isBirdEye}
+      canManage={canManage}
+      canViewAccounting={canViewAccounting}
+      projectValue={projectValue}
+      completedTasks={completedTasks}
+      totalTasks={totalTasks}
+      onToggleExpand={() => toggleCardExpanded(project.id)}
+      onHover={() => setHoveredCard(project.id)}
+      onHoverEnd={() => setHoveredCard(null)}
+      onSelect={() => toggleCardSelected(project.id)}
+      onContextMenu={(e) => {
+        showContextMenu({
+          visible: true,
+          x: e.clientX,
+          y: e.clientY,
+          type: "card",
+          targetCardId: project.id,
+          status: project.status,
+        });
+      }}
+      expandedContent={
+        <ProjectCardExpanded
+          project={project}
+          canManage={canManage}
+          canCreateTasks={canCreateTasks}
+          canRecordPayment={canRecordPayment}
+          completedTasks={completedTasks}
+          totalTasks={totalTasks}
+          teamMembers={teamMembers}
+          statusDisplayName={getProjectStatusDisplayName(project.status)}
+          daysInStatus={daysInStatus}
+          onOpenDetail={() => onOpenDetail(project.id)}
+          onAddTask={() => onAddTask(project.id)}
+          onRecordPayment={() => onRecordPayment(project.id)}
+          onArchive={() => onArchive(project.id)}
         />
-      ))}
-      {overflow > 0 && (
-        <div className="w-[24px] h-[24px] rounded-full bg-background-elevated border-2 border-background-card flex items-center justify-center">
-          <span className="font-mono text-[9px] text-text-tertiary">+{overflow}</span>
-        </div>
-      )}
-    </div>
+      }
+    />
   );
-}
+});
 
-function ProjectCardContent({ project, memberMap, onClick }: { project: Project; memberMap: Map<string, import("@/lib/types/models").User>; onClick: () => void }) {
-  const { locale } = useLocale();
-  const clientName = project.client?.name ?? "No Client";
-
-  return (
-    <Card variant="interactive" className="p-2 space-y-1.5" onClick={onClick}>
-      <div className="flex items-start justify-between">
-        <div className="min-w-0 flex-1">
-          <h3 className="font-mohave text-card-title text-text-primary truncate">
-            {project.title}
-          </h3>
-          <p className="font-kosugi text-caption-sm text-text-tertiary">{clientName}</p>
-        </div>
-        <StatusBadge status={statusToKey(project.status) } />
-      </div>
-
-      {project.address && (
-        <div className="flex items-center gap-[6px] text-text-tertiary">
-          <MapPin className="w-[14px] h-[14px] shrink-0" />
-          <span className="font-mohave text-body-sm truncate">{project.address}</span>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between pt-[4px] border-t border-border-subtle">
-        <TeamAvatars project={project} memberMap={memberMap} />
-        <div className="flex items-center gap-[6px] text-text-tertiary">
-          <CalendarDays className="w-[13px] h-[13px]" />
-          <span className="font-mono text-[11px]">
-            {project.startDate
-              ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
-                  month: "short",
-                  day: "numeric",
-                })
-              : "No date"}
-            {project.endDate && (
-              <>
-                {" - "}
-                {new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </>
-            )}
-          </span>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
-  if (viewMode === "cards") {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="bg-background-card border border-border rounded-lg p-2 space-y-1.5 animate-pulse">
-            <div className="h-[18px] bg-background-elevated rounded w-3/4" />
-            <div className="h-[14px] bg-background-elevated rounded w-1/2" />
-            <div className="h-[14px] bg-background-elevated rounded w-full" />
-            <div className="flex justify-between pt-1">
-              <div className="flex -space-x-1">
-                {[1, 2].map((j) => (
-                  <div key={j} className="w-[24px] h-[24px] rounded-full bg-background-elevated" />
-                ))}
-              </div>
-              <div className="h-[14px] bg-background-elevated rounded w-[80px]" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1 animate-pulse">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="h-[48px] bg-background-card border border-border rounded" />
-      ))}
-    </div>
-  );
-}
-
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  const { t } = useDictionary("projects");
-  return (
-    <div className="flex flex-col items-center justify-center py-8">
-      <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
-        <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
-      </div>
-      <h3 className="font-mohave text-heading text-text-primary">{t("empty.loadFailed")}</h3>
-      <p className="font-kosugi text-caption text-text-tertiary mt-0.5 max-w-[300px]">
-        {message}
-      </p>
-      <Button variant="secondary" className="mt-3 gap-[6px]" onClick={onRetry}>
-        <RefreshCw className="w-[16px] h-[16px]" />
-        Retry
-      </Button>
-    </div>
-  );
-}
+// ── Main Page ──
 
 export default function ProjectsPage() {
   usePageTitle("Projects");
-  const can = usePermissionStore((s) => s.can);
-  const { t } = useDictionary("projects");
-  const { locale } = useLocale();
-  const filterTabs = useMemo<{ value: FilterStatus; label: string }[]>(() => [
-    { value: "all", label: t("filter.all") },
-    { value: "active", label: t("filter.active") },
-    { value: "completed", label: t("filter.completed") },
-    { value: "archived", label: t("filter.archived") },
-  ], [t]);
+  const { t } = useDictionary("projects-canvas");
+  const { can } = usePermissionStore();
+  const { passed: setupPassed, modal: setupModal } = useSetupGate();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
-  const openWindow = useWindowStore((s) => s.openWindow);
-  const openCreateProject = () => openWindow({ id: "create-project", title: "New Project", type: "create-project" });
+  // ── Permissions ──
+  const canManage = can("projects.edit");
+  const canViewAccounting = can("accounting.view");
+  const canCreateTasks = can("tasks.create");
+  const canRecordPayment = can("accounting.edit");
+  const canDelete = can("projects.delete");
 
-  // ── Setup gate ──────────────────────────────────────────────────────
-  const { isComplete: setupComplete, missingSteps } = useSetupGate();
-  const [showSetupModal, setShowSetupModal] = useState(false);
-  const [pendingGatedAction, setPendingGatedAction] = useState<(() => void) | null>(null);
-
-  const gatedOpenCreate = useCallback(() => {
-    if (!setupComplete) {
-      setPendingGatedAction(() => openCreateProject);
-      setShowSetupModal(true);
-      return;
-    }
-    openCreateProject();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setupComplete]);
-
-  // ── Metrics header data ────────────────────────────────────────────
-  const { data: projectMetrics = [], isLoading: projectMetricsLoading } = useProjectMetrics();
-
-  // Track screen view
-  useEffect(() => { trackScreenView("projects"); }, []);
-
-  const {
-    selectedIds,
-    isSelecting,
-    selectAll,
-    clearSelection,
-    toggleSelection,
-  } = useSelectionStore();
-
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useScopedProjects();
-
+  // ── Data fetching ──
+  const { data: projectsData, isLoading } = useScopedProjects();
   const { data: clientsData } = useClients();
   const { data: teamData } = useTeamMembers();
+  const { data: invoicesData } = useInvoices();
+  const { data: projectMetrics } = useProjectMetrics();
+  const updateStatusMutation = useUpdateProjectStatus();
+  const deleteProjectMutation = useDeleteProject();
 
-  const updateStatus = useUpdateProjectStatus();
-  const deleteProject = useDeleteProject();
+  // ── Store state ──
+  const zoom = useProjectCanvasStore((s) => s.zoom);
+  const sortBy = useProjectCanvasStore((s) => s.sortBy);
+  const statusSortOverrides = useProjectCanvasStore((s) => s.statusSortOverrides);
+  const isDragging = useProjectCanvasStore((s) => s.isDragging);
+  const firstDragConfirmed = useProjectCanvasStore((s) => s.firstDragConfirmed);
+  const setFirstDragConfirmed = useProjectCanvasStore((s) => s.setFirstDragConfirmed);
+  const fitAll = useProjectCanvasStore((s) => s.fitAll);
+  const selectCards = useProjectCanvasStore((s) => s.selectCards);
+  const startDrag = useProjectCanvasStore((s) => s.startDrag);
+  const endDrag = useProjectCanvasStore((s) => s.endDrag);
 
-  // Build client lookup map (clientId → Client) to resolve client names on project cards
-  const clientMap = useMemo(() => {
-    const map = new Map<string, { name: string }>();
-    for (const client of clientsData?.clients ?? []) {
-      map.set(client.id, { name: client.name });
+  // ── Detail popover ──
+  const openPopover = useProjectDetailPopoverStore((s) => s.openPopover);
+
+  // ── Local state ──
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [pendingDrag, setPendingDrag] = useState<{
+    projectId: string;
+    targetStatus: ProjectStatus;
+  } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasFittedRef = useRef(false);
+
+  // ── DnD sensor ──
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // ── Track screen view ──
+  useEffect(() => {
+    trackScreenView("projects_canvas");
+  }, []);
+
+  // ── Lookup maps ──
+  const clientNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (clientsData) {
+      for (const client of clientsData) {
+        map.set(client.id, client.name ?? "");
+      }
     }
     return map;
   }, [clientsData]);
 
-  // Build team member lookup map (userId → User) to resolve avatars on project cards
-  const memberMap = useMemo(() => {
-    const map = new Map<string, import("@/lib/types/models").User>();
-    for (const user of teamData?.users ?? []) {
-      map.set(user.id, user);
+  const teamMemberMap = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; avatarUrl?: string }>();
+    if (teamData) {
+      for (const member of teamData) {
+        map.set(member.id, {
+          id: member.id,
+          name: `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.email || "Unknown",
+          avatarUrl: member.avatarUrl ?? undefined,
+        });
+      }
     }
     return map;
   }, [teamData]);
 
-  // Enrich projects with client relationship data
-  const projects = useMemo(() => {
-    const raw = data?.projects ?? [];
-    return raw.map((p) => {
-      if (p.clientId && !p.client) {
-        const client = clientMap.get(p.clientId);
-        if (client) {
-          return { ...p, client: { ...client, id: p.clientId } as Project["client"] };
+  const teamMemberList = useMemo(() => {
+    return Array.from(teamMemberMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [teamMemberMap]);
+
+  const clientList = useMemo(() => {
+    return Array.from(clientNameMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .filter((c) => c.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [clientNameMap]);
+
+  const projectValueMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (invoicesData) {
+      for (const invoice of invoicesData) {
+        if (invoice.projectId) {
+          map.set(invoice.projectId, (map.get(invoice.projectId) ?? 0) + (invoice.total ?? 0));
         }
       }
-      return p;
-    });
-  }, [data, clientMap]);
+    }
+    return map;
+  }, [invoicesData]);
 
+  // ── All projects (non-deleted) ──
+  const allProjects = useMemo(() => {
+    return (projectsData?.projects ?? []).filter((p) => !p.deletedAt);
+  }, [projectsData]);
+
+  // ── Task progress maps ──
+  const projectTaskCountMap = useMemo(() => {
+    const total = new Map<string, number>();
+    const completed = new Map<string, number>();
+    for (const project of allProjects) {
+      if (project.tasks) {
+        const activeTasks = project.tasks.filter((t) => !t.deletedAt);
+        total.set(project.id, activeTasks.length);
+        completed.set(project.id, activeTasks.filter((t) => t.status === "Completed").length);
+      }
+    }
+    return { total, completed };
+  }, [allProjects]);
+
+  const projectProgressMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const project of allProjects) {
+      const totalCount = projectTaskCountMap.total.get(project.id) ?? 0;
+      const completedCount = projectTaskCountMap.completed.get(project.id) ?? 0;
+      map.set(project.id, totalCount > 0 ? completedCount / totalCount : 0);
+    }
+    return map;
+  }, [allProjects, projectTaskCountMap]);
+
+  // ── Filter ──
   const filteredProjects = useMemo(() => {
-    let filtered = [...projects];
+    let result = allProjects;
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.title.toLowerCase().includes(query) ||
-          p.client?.name?.toLowerCase().includes(query) ||
-          p.address?.toLowerCase().includes(query)
-      );
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((p) => {
+        const title = (p.title ?? "").toLowerCase();
+        const address = (p.address ?? "").toLowerCase();
+        const client = (clientNameMap.get(p.clientId ?? "") ?? "").toLowerCase();
+        return title.includes(q) || address.includes(q) || client.includes(q);
+      });
     }
 
-    // Status filter
-    if (statusFilter === "active") {
-      filtered = filtered.filter((p) => isActiveProjectStatus(p.status));
-    } else if (statusFilter === "completed") {
-      filtered = filtered.filter(
-        (p) =>
-          p.status === ProjectStatus.Completed || p.status === ProjectStatus.Closed
-      );
-    } else if (statusFilter === "archived") {
-      filtered = filtered.filter((p) => p.status === ProjectStatus.Archived);
+    if (selectedMemberId) {
+      result = result.filter((p) => p.teamMemberIds.includes(selectedMemberId));
     }
 
-    // Sort by newest created first
-    filtered.sort((a, b) => {
-      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bDate - aDate;
-    });
+    if (selectedClientId) {
+      result = result.filter((p) => p.clientId === selectedClientId);
+    }
 
-    return filtered;
-  }, [projects, searchQuery, statusFilter]);
+    return result;
+  }, [allProjects, searchQuery, selectedMemberId, selectedClientId, clientNameMap]);
 
-  const filteredIds = useMemo(
-    () => filteredProjects.map((p) => p.id),
-    [filteredProjects]
-  );
+  // ── Archived projects ──
+  const archivedProjects = useMemo(() => {
+    return filteredProjects.filter((p) => p.status === ProjectStatus.Archived);
+  }, [filteredProjects]);
 
-  const allFilteredSelected =
-    filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+  // ── Non-archived projects (for the canvas) ──
+  const canvasProjects = useMemo(() => {
+    return filteredProjects.filter((p) => p.status !== ProjectStatus.Archived);
+  }, [filteredProjects]);
 
-  const someFilteredSelected =
-    filteredIds.some((id) => selectedIds.has(id)) && !allFilteredSelected;
+  // ── Layout ──
+  const layout = useMemo(() => {
+    return calculateProjectCanvasLayout(
+      canvasProjects,
+      sortBy,
+      clientNameMap,
+      projectValueMap,
+      projectProgressMap,
+      statusSortOverrides
+    );
+  }, [canvasProjects, sortBy, clientNameMap, projectValueMap, projectProgressMap, statusSortOverrides]);
 
-  // Keyboard shortcut: Escape to clear selection
+  // ── Staleness ──
+  const stalenessMap = useMemo(() => {
+    return calculateBatchProjectStaleness(canvasProjects);
+  }, [canvasProjects]);
+
+  // ── Project lookup map ──
+  const projectMap = useMemo(() => {
+    return new Map(allProjects.map((p) => [p.id, p]));
+  }, [allProjects]);
+
+  const isBirdEye = zoom < BIRD_EYE_THRESHOLD;
+
+  // ── Auto-fit on first load ──
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && isSelecting) {
-        clearSelection();
+    if (!hasFittedRef.current && !isLoading && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        fitAll(rect.width, rect.height);
+        hasFittedRef.current = true;
       }
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSelecting, clearSelection]);
+  }, [isLoading, fitAll]);
 
-  // Clear selection when filters change
-  useEffect(() => {
-    clearSelection();
-  }, [searchQuery, statusFilter, clearSelection]);
-
-  // --- Bulk Action Handlers ---
-
-  const handleBulkStatusChange = useCallback(
-    (ids: string[], newStatus: ProjectStatus) => {
-      if (!can("projects.edit")) return;
-      for (const id of ids) {
-        updateStatus.mutate({ id, status: newStatus });
-      }
-      clearSelection();
-      setStatusDropdownOpen(false);
-    },
-    [updateStatus, clearSelection]
-  );
-
-  const handleBulkDelete = useCallback(
-    (ids: string[]) => {
-      setPendingDeleteIds(ids);
-      setDeleteConfirmOpen(true);
-    },
-    []
-  );
-
-  const confirmBulkDelete = useCallback(() => {
-    if (!can("projects.delete")) return;
-    for (const id of pendingDeleteIds) {
-      deleteProject.mutate(id);
-    }
-    clearSelection();
-    setDeleteConfirmOpen(false);
-    setPendingDeleteIds([]);
-  }, [pendingDeleteIds, deleteProject, clearSelection]);
-
-  const handleBulkExport = useCallback(
-    (ids: string[]) => {
-      const selected = projects.filter((p) => ids.includes(p.id));
-      exportToCSV(
-        selected.map((p) => ({
-          title: p.title,
-          client: p.client?.name ?? "",
-          status: p.status,
-          address: p.address ?? "",
-          startDate: p.startDate
-            ? new Date(p.startDate).toLocaleDateString()
-            : "",
-          endDate: p.endDate
-            ? new Date(p.endDate).toLocaleDateString()
-            : "",
-          teamSize: String(p.teamMemberIds.length),
-          notes: p.notes ?? "",
-        })),
-        [
-          { key: "title", header: "Project" },
-          { key: "client", header: "Client" },
-          { key: "status", header: "Status" },
-          { key: "address", header: "Address" },
-          { key: "startDate", header: "Start Date" },
-          { key: "endDate", header: "End Date" },
-          { key: "teamSize", header: "Team Size" },
-          { key: "notes", header: "Notes" },
-        ],
-        `ops-projects-${new Date().toISOString().split("T")[0]}`
-      );
-    },
-    [projects]
-  );
-
-  const handleSelectAllToggle = useCallback(() => {
-    if (allFilteredSelected) {
-      clearSelection();
-    } else {
-      selectAll(filteredIds);
-    }
-  }, [allFilteredSelected, clearSelection, selectAll, filteredIds]);
-
-  // --- Bulk Actions Config ---
-
-  const bulkActions: BulkAction[] = [
-    {
-      id: "status",
-      label: t("bulk.status"),
-      icon: ArrowRight,
-      onClick: () => setStatusDropdownOpen(true),
-    },
-    {
-      id: "export",
-      label: t("bulk.export"),
-      icon: Download,
-      onClick: handleBulkExport,
-    },
-    {
-      id: "delete",
-      label: t("bulk.delete"),
-      icon: Trash2,
-      variant: "destructive",
-      onClick: handleBulkDelete,
-    },
-  ];
-
-  const noDataAvailable = !isLoading && projects.length === 0 && !isError;
-
-  return (
-    <div className="space-y-3">
-      {/* Metrics Header */}
-      <MetricsHeader variant="full" tabId="projects" title="Projects" metrics={projectMetrics} isLoading={projectMetricsLoading} />
-
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <p className="font-kosugi text-caption-sm text-text-tertiary">
-          {isLoading
-            ? t("loading")
-            : `${projects.length} total project${projects.length !== 1 ? "s" : ""}`}
-        </p>
-        <div className="flex items-center gap-1">
-          {/* Select mode toggle */}
-          {filteredProjects.length > 0 && !isLoading && (
-            <Button
-              variant={isSelecting ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => {
-                if (isSelecting) {
-                  clearSelection();
-                } else {
-                  toggleSelection(filteredIds[0]);
-                }
-              }}
-              className="gap-[4px]"
-            >
-              <CheckSquare className="w-[14px] h-[14px]" />
-              {isSelecting ? t("cancel") : t("select")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="flex-1 max-w-[400px]">
-          <Input
-            placeholder={t("search.placeholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            prefixIcon={<Search className="w-[16px] h-[16px]" />}
-          />
-        </div>
-
-        <div className="flex items-center gap-1">
-          {/* Status tabs */}
-          <SegmentedPicker
-            options={filterTabs.map((tab) => ({ value: tab.value, label: tab.label }))}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          />
-
-          {/* View toggle */}
-          <SegmentedPicker
-            options={[
-              { value: "cards" as ViewMode, label: "Cards", icon: LayoutGrid },
-              { value: "table" as ViewMode, label: "Table", icon: List },
-            ]}
-            value={viewMode}
-            onChange={setViewMode}
-            iconOnly
-          />
-        </div>
-      </div>
-
-      {/* Select All bar (visible when in selection mode) */}
-      {isSelecting && filteredProjects.length > 0 && (
-        <div className="flex items-center gap-1.5 px-1.5 py-1 bg-background-card border border-border rounded-lg animate-fade-in">
-          <Checkbox
-            checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
-            onCheckedChange={handleSelectAllToggle}
-            aria-label="Select all projects"
-          />
-          <span className="font-mohave text-body-sm text-text-secondary">
-            {allFilteredSelected
-              ? `${filteredIds.length} ${t("bulk.allSelected")}`
-              : `${t("bulk.selectAll")} ${filteredIds.length}`}
-          </span>
-          {selectedIds.size > 0 && (
-            <button
-              onClick={clearSelection}
-              className="ml-auto font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover transition-colors"
-            >
-              {t("bulk.clearSelection")}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Content */}
-      {isLoading ? (
-        <LoadingSkeleton viewMode={viewMode} />
-      ) : isError ? (
-        <ErrorState
-          message={
-            error instanceof Error
-              ? error.message
-              : "Something went wrong. Please try again."
+  // ── Marquee select ──
+  const handleMarqueeEnd = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const matchedIds: string[] = [];
+      for (const stack of layout.stacks) {
+        for (const pos of stack.cardPositions) {
+          if (isCardInMarquee(pos.x, pos.y, CARD_WIDTH, CARD_HEIGHT, start, end)) {
+            matchedIds.push(pos.projectId);
           }
-          onRetry={() => refetch()}
+        }
+      }
+      for (const region of layout.terminalRegions) {
+        for (const pos of region.cardPositions) {
+          if (isCardInMarquee(pos.x, pos.y, CARD_WIDTH, CARD_HEIGHT, start, end)) {
+            matchedIds.push(pos.projectId);
+          }
+        }
+      }
+      if (matchedIds.length > 0) {
+        selectCards(matchedIds);
+      }
+    },
+    [layout, selectCards]
+  );
+
+  // ── DnD handlers ──
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = String(event.active.id);
+      setActiveCardId(id);
+      const selectedCardIds = useProjectCanvasStore.getState().selectedCardIds;
+      const cardIds = selectedCardIds.has(id) ? Array.from(selectedCardIds) : [id];
+      startDrag(cardIds, { x: 0, y: 0 });
+    },
+    [startDrag]
+  );
+
+  const executeDrag = useCallback(
+    (projectId: string, targetStatus: ProjectStatus) => {
+      updateStatusMutation.mutate(
+        { id: projectId, status: targetStatus },
+        {
+          onSuccess: () => {
+            toast.success(t("status.updated"), {
+              description: `${t("status.moved")} ${getProjectStatusDisplayName(targetStatus)}`,
+            });
+          },
+          onError: (error) => {
+            toast.error(t("status.failed"), {
+              description: error instanceof Error ? error.message : t("status.tryAgain"),
+            });
+          },
+        }
+      );
+    },
+    [updateStatusMutation, t]
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { over } = event;
+      const projectId = String(event.active.id);
+      setActiveCardId(null);
+      endDrag();
+
+      if (!over) return;
+      const overId = String(over.id);
+
+      // Archive drop
+      if (overId === "archive-drop") {
+        executeDrag(projectId, ProjectStatus.Archived);
+        return;
+      }
+
+      // Status column drop
+      if (overId.startsWith("status-")) {
+        const targetStatus = overId.replace("status-", "") as ProjectStatus;
+        const project = projectMap.get(projectId);
+        if (!project || project.status === targetStatus) return;
+
+        if (!firstDragConfirmed) {
+          setPendingDrag({ projectId, targetStatus });
+        } else {
+          executeDrag(projectId, targetStatus);
+        }
+      }
+    },
+    [endDrag, executeDrag, firstDragConfirmed, projectMap]
+  );
+
+  // ── Drag confirmation handlers ──
+  const handleDragConfirm = useCallback(() => {
+    if (pendingDrag) {
+      setFirstDragConfirmed();
+      executeDrag(pendingDrag.projectId, pendingDrag.targetStatus);
+      setPendingDrag(null);
+    }
+  }, [pendingDrag, setFirstDragConfirmed, executeDrag]);
+
+  const handleDragCancel = useCallback(() => {
+    setPendingDrag(null);
+  }, []);
+
+  // ── Card action callbacks ──
+  const handleOpenDetail = useCallback(
+    (projectId: string) => {
+      const project = projectMap.get(projectId);
+      if (!project) return;
+      const primaryLabel = project.title || project.address?.split(",")[0] || "Untitled Project";
+      const statusColor = PROJECT_STATUS_COLORS[project.status];
+      openPopover(projectId, { x: 400, y: 200 }, primaryLabel, statusColor);
+    },
+    [projectMap, openPopover]
+  );
+
+  const handleAddTask = useCallback((_projectId: string) => {
+    // TODO: Open task creation form — integrate with existing window system
+    toast.info("Task creation coming soon");
+  }, []);
+
+  const handleRecordPayment = useCallback((_projectId: string) => {
+    // TODO: Open payment recording form
+    toast.info("Payment recording coming soon");
+  }, []);
+
+  const handleArchive = useCallback(
+    (projectId: string) => {
+      executeDrag(projectId, ProjectStatus.Archived);
+    },
+    [executeDrag]
+  );
+
+  const handleArchiveBatch = useCallback(
+    (projectIds: string[]) => {
+      for (const id of projectIds) {
+        executeDrag(id, ProjectStatus.Archived);
+      }
+    },
+    [executeDrag]
+  );
+
+  const handleDeleteBatch = useCallback(
+    (projectIds: string[]) => {
+      for (const id of projectIds) {
+        deleteProjectMutation.mutate({ id });
+      }
+    },
+    [deleteProjectMutation]
+  );
+
+  const handleChangeStatusBatch = useCallback(
+    (projectIds: string[], status: ProjectStatus) => {
+      for (const id of projectIds) {
+        executeDrag(id, status);
+      }
+    },
+    [executeDrag]
+  );
+
+  // ── Render card callback for stacks ──
+  const renderCard = useCallback(
+    (project: Project) => {
+      const clientName = clientNameMap.get(project.clientId ?? "") ?? "";
+      const statusColor = PROJECT_STATUS_COLORS[project.status];
+      const staleness = stalenessMap.get(project.id) ?? 1.0;
+      const value = projectValueMap.get(project.id) ?? 0;
+      const totalCount = projectTaskCountMap.total.get(project.id) ?? 0;
+      const completedCount = projectTaskCountMap.completed.get(project.id) ?? 0;
+      const members = project.teamMemberIds
+        .map((id) => teamMemberMap.get(id))
+        .filter(Boolean) as { id: string; name: string; avatarUrl?: string }[];
+
+      return (
+        <ProjectCardWrapper
+          key={project.id}
+          project={project}
+          clientName={clientName}
+          statusColor={statusColor}
+          stalenessOpacity={staleness}
+          canManage={canManage}
+          canViewAccounting={canViewAccounting}
+          canCreateTasks={canCreateTasks}
+          canRecordPayment={canRecordPayment}
+          projectValue={value}
+          completedTasks={completedCount}
+          totalTasks={totalCount}
+          teamMembers={members}
+          isBirdEye={isBirdEye}
+          onOpenDetail={handleOpenDetail}
+          onAddTask={handleAddTask}
+          onRecordPayment={handleRecordPayment}
+          onArchive={handleArchive}
         />
-      ) : noDataAvailable && !searchQuery && statusFilter === "all" ? (
-        <EmptyState
-          icon={<LayoutGrid className="w-[48px] h-[48px]" />}
-          title={t("empty.title")}
-          description={t("empty.description")}
-          action={can("projects.create") ? {
-            label: t("newProject"),
-            onClick: () => openCreateProject(),
-          } : undefined}
-        />
-      ) : filteredProjects.length === 0 ? (
-        <div className="text-left py-6">
-          <p className="font-mohave text-body text-text-tertiary">
-            {t("empty.noMatch")}
-          </p>
-        </div>
-      ) : viewMode === "cards" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-          {filteredProjects.map((project) => (
-            <SelectableRow
-              key={project.id}
-              id={project.id}
-              allIds={filteredIds}
-              selectionActive={isSelecting}
-              onClick={() => setPreviewProjectId(project.id)}
-              className="rounded-lg"
-            >
-              <ProjectCardContent
-                project={project}
-                memberMap={memberMap}
-                onClick={() => {
-                  if (!isSelecting) {
-                    setPreviewProjectId(project.id);
-                  }
-                }}
-              />
-            </SelectableRow>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-background-card border border-border rounded-lg overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead>
-              <tr className="border-b border-border">
-                {/* Checkbox column header */}
-                {isSelecting && (
-                  <th className="px-1 py-1 w-[40px]">
-                    <Checkbox
-                      checked={
-                        allFilteredSelected
-                          ? true
-                          : someFilteredSelected
-                            ? "indeterminate"
-                            : false
-                      }
-                      onCheckedChange={handleSelectAllToggle}
-                      aria-label="Select all"
-                    />
-                  </th>
-                )}
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  {t("table.project")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  {t("table.client")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  {t("table.status")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  {t("table.team")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  {t("table.startDate")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
-                  Created
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProjects.map((project) => {
-                const isChecked = selectedIds.has(project.id);
-                const clientName = project.client?.name ?? "No Client";
+      );
+    },
+    [clientNameMap, stalenessMap, projectValueMap, projectTaskCountMap, teamMemberMap, canManage, canViewAccounting, canCreateTasks, canRecordPayment, isBirdEye, handleOpenDetail, handleAddTask, handleRecordPayment, handleArchive]
+  );
 
-                return (
-                  <tr
-                    key={project.id}
-                    onClick={() => {
-                      if (isSelecting) {
-                        toggleSelection(project.id);
-                      } else {
-                        setPreviewProjectId(project.id);
-                      }
-                    }}
-                    className={cn(
-                      "border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors",
-                      isChecked && "bg-ops-accent/[0.06]"
-                    )}
-                  >
-                    {/* Checkbox cell */}
-                    {isSelecting && (
-                      <td className="px-1 py-1 w-[40px]">
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => toggleSelection(project.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`Select ${project.title}`}
-                        />
-                      </td>
-                    )}
-                    <td className="px-1.5 py-1">
-                      <span className="font-mohave text-body text-text-primary">
-                        {project.title}
-                      </span>
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <span className="font-mohave text-body-sm text-text-secondary">
-                        {clientName}
-                      </span>
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <StatusBadge status={statusToKey(project.status) } />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <TeamAvatars project={project} memberMap={memberMap} />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <span className="font-mono text-data-sm text-text-tertiary">
-                        {project.startDate
-                          ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "--"}
-                      </span>
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <span className="font-mono text-data-sm text-text-tertiary">
-                        {project.createdAt
-                          ? new Date(project.createdAt).toLocaleDateString(getDateLocale(locale), {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "--"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+  // ── Active project for drag overlay ──
+  const activeProject = activeCardId ? projectMap.get(activeCardId) ?? null : null;
+  const activeClientName = activeProject
+    ? clientNameMap.get(activeProject.clientId ?? "") ?? ""
+    : "";
+  const selectedCount = useProjectCanvasStore.getState().selectedCardIds.size;
+  const batchCount = activeCardId && useProjectCanvasStore.getState().selectedCardIds.has(activeCardId)
+    ? selectedCount
+    : 1;
 
-      {/* Bulk Action Bar */}
-      <BulkActionBar actions={bulkActions} entityName="project" />
+  // ── Loading ──
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 text-ops-accent animate-spin" />
+        <span className="font-mohave text-body text-text-tertiary">{t("loading")}</span>
+      </div>
+    );
+  }
 
-      {/* Status Change Dropdown (anchored to a hidden trigger) */}
-      <DropdownMenu
-        open={statusDropdownOpen}
-        onOpenChange={setStatusDropdownOpen}
-      >
-        <DropdownMenuTrigger asChild>
-          <button className="sr-only" aria-hidden="true" tabIndex={-1} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="center"
-          side="top"
-          className="min-w-[200px]"
-          style={{
-            position: "fixed",
-            bottom: "80px",
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
+  // ── Render ──
+  return (
+    <div ref={containerRef} className="flex flex-col h-full w-full">
+      {/* Setup gate */}
+      {setupModal && <SetupInterceptionModal />}
+
+      {/* Metrics header */}
+      <MetricsHeader tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+
+      {/* Toolbar */}
+      <ProjectFloatingToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        teamMembers={teamMemberList}
+        clients={clientList}
+        selectedMemberId={selectedMemberId}
+        onMemberFilterChange={setSelectedMemberId}
+        selectedClientId={selectedClientId}
+        onClientFilterChange={setSelectedClientId}
+        canViewAccounting={canViewAccounting}
+      />
+
+      {/* Canvas */}
+      <div className="flex-1 relative">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         >
-          <DropdownMenuLabel>{t("bulk.changeStatus")}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {ALL_PROJECT_STATUSES.map((status) => (
-            <DropdownMenuItem
-              key={status}
-              onClick={() =>
-                handleBulkStatusChange(Array.from(selectedIds), status)
-              }
-            >
-              <StatusBadge status={statusToKey(status) } />
-              <span className="ml-1">{status}</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          <ProjectCanvas
+            canvasWidth={layout.canvasWidth}
+            canvasHeight={layout.canvasHeight}
+            onMarqueeEnd={handleMarqueeEnd}
+            onCanvasContextMenu={(e) => {
+              useProjectCanvasStore.getState().showContextMenu({
+                visible: true,
+                x: e.clientX,
+                y: e.clientY,
+                type: "canvas",
+                targetCardId: null,
+                status: null,
+              });
+            }}
+          >
+            {/* Active status stacks */}
+            {layout.stacks.map((stackLayout) => {
+              const status = stackLayout.status;
+              const stackProjects = canvasProjects.filter((p) => p.status === status);
+              return (
+                <ProjectStageStack
+                  key={status}
+                  status={status}
+                  projects={stackProjects}
+                  layout={stackLayout}
+                  isBirdEye={isBirdEye}
+                  activeId={activeCardId}
+                  projectValues={projectValueMap}
+                  canViewAccounting={canViewAccounting}
+                  renderCard={(project) => renderCard(project)}
+                />
+              );
+            })}
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        title={`Delete ${pendingDeleteIds.length} project${pendingDeleteIds.length !== 1 ? "s" : ""}?`}
-        description={`This will permanently remove ${pendingDeleteIds.length} project${pendingDeleteIds.length !== 1 ? "s" : ""} and all associated tasks. This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={confirmBulkDelete}
-        loading={deleteProject.isPending}
+            {/* Terminal region (Closed) */}
+            {layout.terminalRegions.map((regionLayout) => {
+              const closedProjects = canvasProjects.filter((p) => p.status === regionLayout.status);
+              return (
+                <ProjectTerminalRegion
+                  key={regionLayout.status}
+                  status={regionLayout.status}
+                  projects={closedProjects}
+                  layout={regionLayout}
+                  isBirdEye={isBirdEye}
+                  activeId={activeCardId}
+                  renderCard={(project) => renderCard(project)}
+                />
+              );
+            })}
+
+            {/* Marquee select overlay */}
+            <ProjectMarqueeSelect />
+          </ProjectCanvas>
+
+          {/* Drag overlay */}
+          <ProjectDragOverlay
+            activeProject={activeProject}
+            clientName={activeClientName}
+            batchCount={batchCount}
+          />
+        </DndContext>
+
+        {/* Context menu */}
+        <ProjectContextMenu
+          canManage={canManage}
+          canCreateTasks={canCreateTasks}
+          canRecordPayment={canRecordPayment}
+          canDelete={canDelete}
+          onOpenDetail={handleOpenDetail}
+          onAddTask={handleAddTask}
+          onRecordPayment={handleRecordPayment}
+          onArchive={handleArchiveBatch}
+          onDelete={handleDeleteBatch}
+          onChangeStatus={handleChangeStatusBatch}
+        />
+
+        {/* Archive tray */}
+        <ProjectArchiveTray
+          archivedProjects={archivedProjects}
+          clientNames={clientNameMap}
+          isDragActive={isDragging}
+        />
+      </div>
+
+      {/* Drag confirmation dialog */}
+      <ProjectDragConfirmation
+        open={pendingDrag !== null}
+        onConfirm={handleDragConfirm}
+        onCancel={handleDragCancel}
       />
 
-      {/* Project Detail Sheet */}
-      <ProjectDetailSheet
-        projectId={previewProjectId}
-        open={!!previewProjectId}
-        onOpenChange={(open) => {
-          if (!open) setPreviewProjectId(null);
-        }}
-      />
-
-      {/* Setup interception modal */}
-      <SetupInterceptionModal
-        isOpen={showSetupModal}
-        onComplete={() => {
-          setShowSetupModal(false);
-          pendingGatedAction?.();
-          setPendingGatedAction(null);
-        }}
-        onDismiss={() => {
-          setShowSetupModal(false);
-          setPendingGatedAction(null);
-        }}
-        missingSteps={missingSteps}
-        triggerAction="projects"
+      {/* Detail popovers */}
+      <ProjectDetailPopover
+        projects={projectMap}
+        clientNames={clientNameMap}
       />
     </div>
   );
