@@ -11,7 +11,7 @@ import {
   WIDGET_GAP_VALUES,
   type WidgetGapId,
 } from "@/stores/preferences-store";
-import { useSidebarStore } from "@/stores/sidebar-store";
+
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   WIDGET_TYPE_REGISTRY,
@@ -124,8 +124,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
   // Toolbar sits 8px above the tray top edge
   const toolbarBottom = useTransform(sheetHeight, (h) => h + 8);
 
-  const { isCollapsed } = useSidebarStore();
-  const sidebarWidth = isCollapsed ? 72 : 256;
+  const sidebarWidth = 72;
 
   const can = usePermissionStore((s) => s.can);
 

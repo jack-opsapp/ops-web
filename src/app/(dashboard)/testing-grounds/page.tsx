@@ -40,7 +40,7 @@ export default function TestingGroundsPage() {
 
   if (!hasAccess) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+      <div className="flex items-center justify-center h-[calc(100vh-56px)]">
         <div className="text-center">
           <h1 className="font-mohave text-display text-text-primary mb-2">
             Access Denied
@@ -57,7 +57,7 @@ export default function TestingGroundsPage() {
 
   if (mode === "idle") {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] gap-6">
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-56px)] gap-6">
         <h1 className="font-mohave text-display text-text-primary">
           Testing Grounds
         </h1>

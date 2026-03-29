@@ -111,7 +111,7 @@ export default function InboxPage() {
 
   if (selectedThread) {
     return (
-      <div className="h-[calc(100vh-120px)]">
+      <div className="h-[calc(100vh-80px)]">
         <ThreadView
           threadId={selectedThread.threadId}
           source={selectedThread.source}

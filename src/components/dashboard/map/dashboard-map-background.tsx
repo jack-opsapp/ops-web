@@ -5,7 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
-import { useSidebarStore } from "@/stores/sidebar-store";
+
 import { useMapFilterStore, useMapInstanceStore } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
@@ -48,7 +48,6 @@ const DEFAULT_CENTER: [number, number] = [48.4284, -123.3656];
 export function DashboardMapBackground() {
   const pathname = usePathname();
   const isDashboard = pathname === "/dashboard";
-  const { isCollapsed } = useSidebarStore();
   const { view, showCrew } = useMapFilterStore();
   const setMapInstance = useMapInstanceStore((s) => s.setMap);
   const setUserLocation = useMapInstanceStore((s) => s.setUserLocation);
@@ -183,13 +182,6 @@ export function DashboardMapBackground() {
     };
   }, [isDashboard, setMapInstance, setUserLocation]);
 
-  // ── Invalidate map size when sidebar toggles ──
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      mapRef.current?.invalidateSize();
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [isCollapsed]);
 
   // ── Helper: stagger-animate a marker element ──
   // Uses opacity-only animation on the inner content element.
@@ -386,7 +378,7 @@ export function DashboardMapBackground() {
       <div
         className={cn(
           "fixed top-0 bottom-0 right-0 z-0 transition-all duration-200 ease-out pointer-events-none",
-          isCollapsed ? "left-[72px]" : "left-[256px]"
+          "left-[72px]"
         )}
       >
         <div ref={containerRef} className="w-full h-full pointer-events-none" />

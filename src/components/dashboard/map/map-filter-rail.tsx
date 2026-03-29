@@ -18,7 +18,7 @@ import {
   type MapViewFilter,
 } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useSidebarStore } from "@/stores/sidebar-store";
+
 import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 
 interface FilterItem {
@@ -44,8 +44,7 @@ export function MapFilterRail() {
   const map = useMapInstanceStore((s) => s.map);
   const userLocation = useMapInstanceStore((s) => s.userLocation);
   const can = usePermissionStore((s) => s.can);
-  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
-  const sidebarWidth = isCollapsed ? 72 : 256;
+  const sidebarWidth = 72;
   const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
 
   if (pathname !== "/dashboard") return null;

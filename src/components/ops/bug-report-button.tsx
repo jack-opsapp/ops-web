@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Bug, X, Send, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { useSidebarStore } from "@/stores/sidebar-store";
+
 import { useAuthStore } from "@/lib/store/auth-store";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useDictionary } from "@/i18n/client";
@@ -21,9 +21,8 @@ export function BugReportButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const pathname = usePathname();
-  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
   const { currentUser } = useAuthStore();
-  const sidebarWidth = isCollapsed ? 72 : 256;
+  const sidebarWidth = 72;
 
   // Close on outside click
   useEffect(() => {

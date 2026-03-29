@@ -2,8 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
-import { useSidebarStore } from "@/stores/sidebar-store";
-
 // GalaxyScene is lazy-loaded — Three.js (~150KB) must not be in the critical path
 const GalaxyScene = dynamic(
   () => import("@/components/intel/galaxy-scene").then((m) => m.GalaxyScene),
@@ -11,9 +9,7 @@ const GalaxyScene = dynamic(
 );
 
 export default function IntelPage() {
-  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
-  // Mirror the exact widths used by the Sidebar and DashboardLayout
-  const sidebarWidth = isCollapsed ? 72 : 256;
+  const sidebarWidth = 72;
 
   return (
     <div
