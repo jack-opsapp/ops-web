@@ -1,20 +1,6 @@
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import { normalizeCompanyName } from "@/lib/utils/name-normalization";
 import type { AnalyzedLead, ConsolidationGroup } from "@/lib/types/email-import";
-
-// ─── Name normalization ─────────────────────────────────────────────────────
-// Strips common business suffixes so "PATH Developments Ltd." matches
-// "Path Developments" and "WJ Construction Inc" matches "WJ Construction".
-
-const BUSINESS_SUFFIXES = /\b(inc\.?|ltd\.?|llc\.?|corp\.?|co\.?|limited|incorporated|corporation|enterprises?|services?|developments?|construction|contracting|group|solutions|holdings)\b/gi;
-
-function normalizeCompanyName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(BUSINESS_SUFFIXES, "")
-    .replace(/[^a-z0-9]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 /**
  * Build consolidation groups from leads that need user review.
