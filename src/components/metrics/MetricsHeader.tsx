@@ -99,7 +99,7 @@ function FullMetricsHeader({ title: _title, metrics, isLoading, actions, classNa
 
   return (
     <div
-      className={cn("border-b border-white/[0.08] px-3 py-1.5 rounded-[4px]", className)}
+      className={cn("border border-white/[0.06] px-4 py-1.5 rounded-[4px] mx-3", className)}
       style={{
         background: "rgba(10, 10, 10, 0.50)",
         backdropFilter: "blur(16px) saturate(1.2)",
@@ -136,7 +136,7 @@ function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, action
   return (
     <div
       className={cn(
-        "border-b border-white/[0.08] px-3 py-1.5 rounded-[4px]",
+        "border border-white/[0.06] px-4 py-1.5 rounded-[4px] mx-3",
         className,
       )}
       style={{
