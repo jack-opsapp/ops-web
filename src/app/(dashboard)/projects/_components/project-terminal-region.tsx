@@ -10,7 +10,13 @@ import {
 } from "@/lib/types/models";
 import type { TerminalRegionLayout } from "./project-layout-engine";
 import { getProjectStatusDisplayName } from "./project-stage-stack";
-import { CARD_WIDTH, STACK_HEADER_HEIGHT } from "./project-canvas-store";
+import {
+  CARD_WIDTH,
+  CARD_HEIGHT,
+  STACK_GAP,
+  STACK_HEADER_HEIGHT,
+  TERMINAL_COLS,
+} from "./project-canvas-store";
 
 // ── Types ──
 
@@ -56,7 +62,6 @@ export function ProjectTerminalRegion({
   const statusColor = PROJECT_STATUS_COLORS[status];
   const [isRegionHovered, setIsRegionHovered] = useState(false);
 
-  // O(1) lookup instead of O(n) per card
   const projectMap = useMemo(
     () => new Map(projects.map((p) => [p.id, p])),
     [projects]
@@ -81,6 +86,9 @@ export function ProjectTerminalRegion({
   const borderAlpha = isOver ? "30" : isRegionHovered ? "20" : "10";
   const glowOpacity = isOver ? "28" : isRegionHovered ? "18" : "08";
 
+  // Grid layout for terminal cards
+  const rows = Math.max(1, Math.ceil(projects.length / TERMINAL_COLS));
+
   return (
     <div
       ref={setNodeRef}
@@ -100,7 +108,7 @@ export function ProjectTerminalRegion({
       onMouseEnter={() => setIsRegionHovered(true)}
       onMouseLeave={() => setIsRegionHovered(false)}
     >
-      {/* Region glow background (dimmer than active stacks) */}
+      {/* Region glow background */}
       <div
         className="absolute inset-0 pointer-events-none rounded-[4px]"
         style={{
@@ -111,14 +119,13 @@ export function ProjectTerminalRegion({
 
       {/* Header */}
       <div
-        className="absolute flex flex-col"
+        className="relative flex flex-col"
         style={{
-          left: 20,
-          top: 12,
-          width: CARD_WIDTH,
+          marginLeft: 20,
+          marginTop: 12,
+          width: layout.bounds.width - 40,
           height: STACK_HEADER_HEIGHT,
           padding: "8px 0 0 0",
-          position: "relative",
         }}
       >
         {/* Bottom border — animates left-to-right on hover */}
@@ -184,25 +191,37 @@ export function ProjectTerminalRegion({
         )}
       </div>
 
-      {/* Cards in 2D grid — positions converted from canvas-absolute to region-relative */}
-      {layout.cardPositions.map((pos) => {
-        const project = projectMap.get(pos.projectId);
-        if (!project) return null;
-        return renderCard(project, {
-          x: pos.x - layout.bounds.x,
-          y: pos.y - layout.bounds.y,
-        });
-      })}
+      {/* Cards in grid layout — uses CSS grid for proper multi-column flow */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${TERMINAL_COLS}, ${CARD_WIDTH}px)`,
+          gap: STACK_GAP,
+          marginLeft: 20,
+          marginTop: 8,
+          paddingBottom: 20,
+        }}
+      >
+        {layout.cardPositions.map((pos) => {
+          const project = projectMap.get(pos.projectId);
+          if (!project) return null;
+          return (
+            <div key={project.id}>
+              {renderCard(project, { x: 0, y: 0 })}
+            </div>
+          );
+        })}
+      </div>
 
       {/* Empty state */}
       {projects.length === 0 && (
         <div
-          className="absolute flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px]"
+          className="flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px]"
           style={{
-            left: 20,
-            top: 12 + STACK_HEADER_HEIGHT,
-            width: CARD_WIDTH,
-            height: 44,
+            marginLeft: 20,
+            marginRight: 20,
+            marginTop: 8,
+            height: CARD_HEIGHT,
           }}
         >
           <span className="font-kosugi text-micro-sm text-text-disabled uppercase">

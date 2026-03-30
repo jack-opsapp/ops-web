@@ -63,7 +63,6 @@ export function ProjectStageStack({
 }: ProjectStageStackProps) {
   const { t } = useDictionary("projects-canvas");
   const statusColor = PROJECT_STATUS_COLORS[status];
-  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
   const [isRegionHovered, setIsRegionHovered] = useState(false);
 
   const projectMap = useMemo(
@@ -151,8 +150,6 @@ export function ProjectStageStack({
           height: STACK_HEADER_HEIGHT,
           padding: "8px 0 0 0",
         }}
-        onMouseEnter={() => setIsHeaderHovered(true)}
-        onMouseLeave={() => setIsHeaderHovered(false)}
       >
         {/* Bottom border animation */}
         <div
@@ -161,11 +158,11 @@ export function ProjectStageStack({
             bottom: 0,
             left: 0,
             height: 1,
-            background: isHeaderHovered ? statusColor : `${statusColor}30`,
+            background: isRegionHovered ? statusColor : `${statusColor}30`,
             width: "100%",
-            opacity: isHeaderHovered ? 1 : 0.5,
+            opacity: isRegionHovered ? 1 : 0.5,
             transformOrigin: "left",
-            transform: isHeaderHovered ? "scaleX(1)" : "scaleX(0.3)",
+            transform: isRegionHovered ? "scaleX(1)" : "scaleX(0.3)",
             transition: "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease-out, background 0.3s ease-out",
           }}
         />
@@ -173,7 +170,7 @@ export function ProjectStageStack({
           <span
             className="font-kosugi text-micro-sm uppercase tracking-widest"
             style={{
-              color: isHeaderHovered ? statusColor : "#666",
+              color: isRegionHovered ? statusColor : "#666",
               transition: "color 0.25s ease-out",
             }}
           >
@@ -191,7 +188,7 @@ export function ProjectStageStack({
             </>
           )}
         </div>
-        {isHeaderHovered && projects.length > 0 && (
+        {isRegionHovered && projects.length > 0 && (
           <div
             className="flex items-baseline gap-2 mt-1 opacity-0 animate-fade-in"
             style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
