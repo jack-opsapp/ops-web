@@ -85,7 +85,7 @@ export default function InboxPage() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-[calc(100vh-68px)] flex rounded-[4px] border border-border bg-background-panel overflow-hidden">
+    <div className="pt-[56px] h-screen flex bg-background-panel overflow-hidden">
       {/* Left: Conversation List */}
       <div style={{ width: 320 }} className="shrink-0 border-r border-border-subtle">
         <ConversationList

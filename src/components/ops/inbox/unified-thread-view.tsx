@@ -252,19 +252,22 @@ export function UnifiedThreadView({
         </div>
       </div>
 
-      {/* Channel filter */}
-      <ChannelFilterBar active={filter} onChange={setFilter} />
+      {/* Messages area with floating toolbar */}
+      <div className="flex-1 min-h-0 relative">
+        {/* Floating channel filter toolbar */}
+        <ChannelFilterBar active={filter} onChange={setFilter} />
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-hide px-3.5 py-3 space-y-1.5">
-        {isLoading && (
-          <div className="space-y-3">
-            <MessageSkeleton />
-            <MessageSkeleton />
-            <MessageSkeleton />
-          </div>
-        )}
-        {!isLoading && renderedMessages}
+        {/* Messages */}
+        <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide px-3.5 pt-12 pb-3 space-y-1.5">
+          {isLoading && (
+            <div className="space-y-3">
+              <MessageSkeleton />
+              <MessageSkeleton />
+              <MessageSkeleton />
+            </div>
+          )}
+          {!isLoading && renderedMessages}
+        </div>
       </div>
 
       {/* Reply bar */}

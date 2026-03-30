@@ -25,6 +25,7 @@ interface ProjectTerminalRegionProps {
   layout: TerminalRegionLayout;
   projectValues: Map<string, number>;
   canViewAccounting: boolean;
+  isBirdEye: boolean;
   renderCard: (
     project: Project,
     position: { x: number; y: number }

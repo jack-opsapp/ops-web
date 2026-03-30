@@ -1,5 +1,6 @@
 "use client";
 
+import { Mail, MessageSquareText, Layers } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -20,28 +21,49 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
   // If user only has one permission, no picker needed
   if (!canViewEmail || !canViewPortal) return null;
 
-  const segments: Array<{ value: ChannelFilter; label: string }> = [
-    { value: "all", label: t("filter.all") },
-    { value: "email", label: t("filter.email") },
-    { value: "portal", label: t("filter.portal") },
+  const segments: Array<{
+    value: ChannelFilter;
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      value: "all",
+      label: t("filter.all"),
+      icon: <Layers className="w-[13px] h-[13px]" />,
+    },
+    {
+      value: "email",
+      label: t("filter.email"),
+      icon: <Mail className="w-[13px] h-[13px]" />,
+    },
+    {
+      value: "portal",
+      label: t("filter.portal"),
+      icon: <MessageSquareText className="w-[13px] h-[13px]" />,
+    },
   ];
 
   return (
-    <div className="px-3.5 py-1.5 border-b border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] sticky top-0 z-10">
-      <div className="inline-flex bg-background-input border border-border-subtle rounded-[3px] overflow-hidden">
-        {segments.map((seg) => (
-          <button
-            key={seg.value}
-            onClick={() => onChange(seg.value)}
-            className={cn(
-              "px-3.5 py-1.5 font-kosugi text-micro uppercase tracking-[0.5px] border-b-2 transition-colors",
-              active === seg.value
-                ? "text-white bg-ops-accent-muted border-b-ops-accent"
-                : "text-text-disabled bg-transparent border-b-transparent hover:text-text-tertiary"
-            )}
-          >
-            {seg.label}
-          </button>
+    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+      <div className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]">
+        {segments.map((seg, i) => (
+          <div key={seg.value} className="flex items-center gap-[8px]">
+            {i > 0 && <div className="w-[1px] h-[18px] bg-border-subtle" />}
+            <button
+              onClick={() => onChange(seg.value)}
+              className={cn(
+                "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
+                active === seg.value
+                  ? "text-ops-accent bg-ops-accent-muted/20"
+                  : "text-text-tertiary hover:text-text-primary hover:bg-background-input"
+              )}
+            >
+              {seg.icon}
+              <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+                {seg.label}
+              </span>
+            </button>
+          </div>
         ))}
       </div>
     </div>
