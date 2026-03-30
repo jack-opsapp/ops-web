@@ -15,7 +15,7 @@ import {
 } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
-import { useInvoices, useProjectMetrics, useTasks } from "@/lib/hooks";
+import { useInvoices, useProjectMetrics, useTasks, useEstimates } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
 import {
   type Project,
@@ -53,6 +53,7 @@ import { ProjectArchiveTray } from "./_components/project-archive-tray";
 import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
 import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
 import { ProjectDetailPopover } from "./_components/project-detail-popover";
+import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
 import { useProjectDetailPopoverStore } from "./_components/project-detail-popover-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -189,6 +190,7 @@ export default function ProjectsPage() {
   const { data: clientsData } = useClients();
   const { data: teamData } = useTeamMembers();
   const { data: invoicesData } = useInvoices();
+  const { data: estimatesData } = useEstimates();
   const { data: tasksData } = useTasks();
   const { data: projectMetrics } = useProjectMetrics();
   const updateStatusMutation = useUpdateProjectStatus();
@@ -208,6 +210,17 @@ export default function ProjectsPage() {
 
   // ── Detail popover ──
   const openPopover = useProjectDetailPopoverStore((s) => s.openPopover);
+
+  // ── View mode ──
+  const [viewMode, setViewMode] = useState<"canvas" | "spreadsheet">(() => {
+    if (typeof window === "undefined") return "canvas";
+    return (localStorage.getItem("ops_projects_view_mode") as "canvas" | "spreadsheet") ?? "canvas";
+  });
+  const [showArchived, setShowArchived] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("ops_projects_view_mode", viewMode);
+  }, [viewMode]);
 
   // ── Local state ──
   const [searchQuery, setSearchQuery] = useState("");
@@ -269,6 +282,24 @@ export default function ProjectsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [clientNameMap]);
 
+  const clientEmailMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const clients = clientsData?.clients ?? [];
+    for (const client of clients) {
+      map.set(client.id, client.email ?? "");
+    }
+    return map;
+  }, [clientsData]);
+
+  const clientPhoneMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const clients = clientsData?.clients ?? [];
+    for (const client of clients) {
+      map.set(client.id, client.phoneNumber ?? "");
+    }
+    return map;
+  }, [clientsData]);
+
   const projectValueMap = useMemo(() => {
     const map = new Map<string, number>();
     if (invoicesData) {
@@ -280,6 +311,18 @@ export default function ProjectsPage() {
     }
     return map;
   }, [invoicesData]);
+
+  const estimateTotalMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (estimatesData) {
+      for (const estimate of estimatesData) {
+        if (estimate.projectId) {
+          map.set(estimate.projectId, (map.get(estimate.projectId) ?? 0) + (estimate.total ?? 0));
+        }
+      }
+    }
+    return map;
+  }, [estimatesData]);
 
   // ── All projects (non-deleted) ──
   const allProjects = useMemo(() => {
@@ -629,7 +672,7 @@ export default function ProjectsPage() {
       )}
 
       {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
-      <div className="absolute inset-0">
+      {viewMode === "canvas" && <div className="absolute inset-0">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -722,7 +765,30 @@ export default function ProjectsPage() {
           onRestore={handleRestoreFromArchive}
           onDeletePermanently={handleDeletePermanently}
         />
-      </div>
+      </div>}
+
+      {/* ── Spreadsheet — alternative view ── */}
+      {viewMode === "spreadsheet" && (
+        <div className="absolute inset-0 top-[130px] px-3 pb-3 overflow-hidden">
+          <ProjectSpreadsheet
+            projects={filteredProjects.filter((p) => p.status !== ProjectStatus.Archived)}
+            archivedProjects={archivedProjects}
+            showArchived={showArchived}
+            clientNameMap={clientNameMap}
+            clientEmailMap={clientEmailMap}
+            clientPhoneMap={clientPhoneMap}
+            teamMemberMap={teamMemberMap}
+            projectValueMap={projectValueMap}
+            estimateTotalMap={estimateTotalMap}
+            projectTaskCountMap={projectTaskCountMap}
+            canManage={canManage}
+            canViewAccounting={canViewAccounting}
+            canCreateTasks={canCreateTasks}
+            canRecordPayment={canRecordPayment}
+            canDelete={canDelete}
+          />
+        </div>
+      )}
 
       {/* ── Page HUD — metrics + toolbar float on top of canvas ── */}
       <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
@@ -747,6 +813,16 @@ export default function ProjectsPage() {
               selectedClientId={selectedClientId}
               onClientFilterChange={setSelectedClientId}
               canViewAccounting={canViewAccounting}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onArchivedToggle={viewMode === "canvas"
+                ? () => useProjectCanvasStore.getState().toggleArchiveTray()
+                : () => setShowArchived((prev) => !prev)
+              }
+              isArchivedActive={viewMode === "canvas"
+                ? useProjectCanvasStore.getState().isArchiveTrayOpen
+                : showArchived
+              }
             />
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Search, SlidersHorizontal, Archive, ArrowUpDown } from "lucide-react";
+import { Maximize2, Search, SlidersHorizontal, Archive, ArrowUpDown, LayoutGrid, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useProjectCanvasStore, type ProjectSortOption } from "./project-canvas-store";
@@ -23,6 +23,10 @@ interface ProjectFloatingToolbarProps {
   selectedClientId: string | null;
   onClientFilterChange: (clientId: string | null) => void;
   canViewAccounting: boolean;
+  viewMode: "canvas" | "spreadsheet";
+  onViewModeChange: (mode: "canvas" | "spreadsheet") => void;
+  onArchivedToggle: () => void;
+  isArchivedActive: boolean;
 }
 
 // ── Component ──
@@ -45,8 +49,6 @@ export function ProjectFloatingToolbar({
   const sortBy = useProjectCanvasStore((s) => s.sortBy);
   const setSortBy = useProjectCanvasStore((s) => s.setSortBy);
   const fitAll = useProjectCanvasStore((s) => s.fitAll);
-  const toggleArchiveTray = useProjectCanvasStore((s) => s.toggleArchiveTray);
-  const isArchiveTrayOpen = useProjectCanvasStore((s) => s.isArchiveTrayOpen);
 
   const [showSearch, setShowSearch] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -98,15 +100,18 @@ export function ProjectFloatingToolbar({
       animate="visible"
       variants={variants}
     >
-      {/* Fit All */}
-      <ToolbarAction onClick={handleFitAll}>
-        <Maximize2 className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
-          Fit All
-        </span>
-      </ToolbarAction>
-
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
+      {/* Fit All — canvas only */}
+      {viewMode === "canvas" && (
+        <>
+          <ToolbarAction onClick={handleFitAll}>
+            <Maximize2 className="w-[13px] h-[13px]" />
+            <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+              Fit All
+            </span>
+          </ToolbarAction>
+          <div className="w-[1px] h-[18px] bg-border-subtle" />
+        </>
+      )}
 
       {/* Search toggle + inline input */}
       <ToolbarAction
@@ -139,9 +144,11 @@ export function ProjectFloatingToolbar({
         />
       )}
 
+      {/* Sort — canvas only */}
+      {viewMode === "canvas" && (
+        <>
       <div className="w-[1px] h-[18px] bg-border-subtle" />
 
-      {/* Sort */}
       <div className="relative" ref={sortMenuRef}>
         <ToolbarAction onClick={() => setShowSortMenu(!showSortMenu)} isActive={showSortMenu}>
           <ArrowUpDown className="w-[13px] h-[13px]" />
@@ -176,6 +183,8 @@ export function ProjectFloatingToolbar({
           </div>
         )}
       </div>
+        </>
+      )}
 
       <div className="w-[1px] h-[18px] bg-border-subtle" />
 
@@ -255,12 +264,22 @@ export function ProjectFloatingToolbar({
 
       <div className="w-[1px] h-[18px] bg-border-subtle" />
 
-      {/* Archive tray toggle */}
-      <ToolbarAction onClick={toggleArchiveTray} isActive={isArchiveTrayOpen}>
+      {/* Archive toggle */}
+      <ToolbarAction onClick={onArchivedToggle} isActive={isArchivedActive}>
         <Archive className="w-[13px] h-[13px]" />
         <span className="font-kosugi text-micro-sm uppercase tracking-wider">
           Archived
         </span>
+      </ToolbarAction>
+
+      <div className="w-[1px] h-[18px] bg-border-subtle" />
+
+      {/* View toggle */}
+      <ToolbarAction onClick={() => onViewModeChange("canvas")} isActive={viewMode === "canvas"}>
+        <LayoutGrid className="w-[13px] h-[13px]" />
+      </ToolbarAction>
+      <ToolbarAction onClick={() => onViewModeChange("spreadsheet")} isActive={viewMode === "spreadsheet"}>
+        <Table2 className="w-[13px] h-[13px]" />
       </ToolbarAction>
     </motion.div>
   );
