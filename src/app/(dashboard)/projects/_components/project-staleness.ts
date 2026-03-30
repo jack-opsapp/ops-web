@@ -11,23 +11,25 @@ export function calculateProjectStaleness(project: Project): number {
   if (project.status === ProjectStatus.Closed) return 0.8;
   if (project.status === ProjectStatus.Archived) return 0.6;
 
-  // Use lastSyncedAt as proxy for "last activity"
-  const lastActivity = project.lastSyncedAt ?? project.createdAt;
-  if (!lastActivity) return 1.0;
+  // Use createdAt as reference — projects naturally sit in statuses for weeks/months
+  const createdAt = project.createdAt;
+  if (!createdAt) return 1.0;
 
-  const daysSinceActivity = Math.floor(
-    (Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24)
+  const daysSinceCreated = Math.floor(
+    (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  // Expected update cadence: ~14 days for active projects
-  const expectedDays = 14;
+  // Projects have much longer lifecycles than pipeline deals
+  // Only start dimming after 90 days, fully stale at 6 months
+  const freshDays = 90;
+  const staleDays = 180;
 
-  if (daysSinceActivity <= expectedDays * 0.5) return 1.0;
-  if (daysSinceActivity >= expectedDays * 2.0) return 0.4;
+  if (daysSinceCreated <= freshDays) return 1.0;
+  if (daysSinceCreated >= staleDays) return 0.5;
 
   const progress =
-    (daysSinceActivity - expectedDays * 0.5) / (expectedDays * 1.5);
-  return 1.0 - progress * 0.6;
+    (daysSinceCreated - freshDays) / (staleDays - freshDays);
+  return 1.0 - progress * 0.5;
 }
 
 /**
