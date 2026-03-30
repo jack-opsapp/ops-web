@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
               type: "duplicates_found",
               title: "Potential duplicates found",
               body: `${newDuplicates} potential duplicate record${newDuplicates === 1 ? "" : "s"} detected`,
-              persistent: false,
+              persistent: true,
               actionLabel: "Review",
             });
           }
