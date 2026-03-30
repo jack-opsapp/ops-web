@@ -1,23 +1,39 @@
 {
   "title": "Inbox",
-  "tabs.pipeline": "Pipeline",
-  "tabs.allMail": "All Mail",
 
-  "pipeline.empty.title": "No email threads yet",
-  "pipeline.empty.description": "When email threads are linked to pipeline opportunities, they appear here.",
-  "pipeline.unread": "unread",
-  "pipeline.messages": "messages",
-  "pipeline.from": "From",
-  "pipeline.inbound": "Received",
-  "pipeline.outbound": "Sent",
+  "filter.all": "All",
+  "filter.email": "Email",
+  "filter.portal": "Portal",
 
-  "allMail.empty.title": "No emails found",
-  "allMail.empty.description": "Connect your email account in Settings to see your inbox here.",
-  "allMail.search.placeholder": "Search emails...",
-  "allMail.noConnection.title": "No email account connected",
-  "allMail.noConnection.description": "Connect Gmail or Microsoft 365 in Settings to access your full inbox.",
-  "allMail.noConnection.cta": "Connect Email",
-  "allMail.loadMore": "Load more",
+  "search.placeholder": "Search messages",
+  "newMessage": "New Message",
+
+  "context.toggle": "Context",
+  "context.viewClient": "View Client",
+  "context.createEstimate": "Create Estimate",
+  "context.createProject": "Create Project",
+  "context.projects": "Projects",
+  "context.estimates": "Estimates",
+  "context.invoices": "Invoices",
+
+  "reply.placeholder": "Type a message...",
+  "reply.send": "Send",
+  "reply.viaPortal": "Portal",
+  "reply.viaEmail": "Email",
+
+  "channel.portal": "Client Portal",
+  "channel.email": "Email",
+  "channel.unmatched": "Unmatched",
+
+  "unmatched.linkToClient": "Link to Client",
+  "unmatched.ignore": "Ignore",
+  "unmatched.createClient": "Create Client",
+
+  "empty.title": "No conversations yet",
+  "empty.description": "Messages from clients and email threads will appear here.",
+
+  "date.today": "Today",
+  "date.yesterday": "Yesterday",
 
   "thread.back": "Back to inbox",
   "thread.aiSummary": "AI Summary",
