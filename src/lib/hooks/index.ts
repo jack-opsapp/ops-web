@@ -311,6 +311,13 @@ export {
   type IntelEntityDetail,
 } from "./use-intel-entity";
 
+// Duplicate Reviews
+export {
+  useDuplicateReviews,
+  useMergeDuplicate,
+  useDismissDuplicate,
+} from "./use-duplicate-reviews";
+
 // Metrics
 export {
   useInvoiceMetrics,
