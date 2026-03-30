@@ -390,6 +390,13 @@ export const queryKeys = {
     portalUnread: (companyId: string) =>
       [...queryKeys.inbox.all, "portal-unread", companyId] as const,
   },
+
+  // Duplicate Reviews
+  duplicateReviews: {
+    all: ["duplicateReviews"] as const,
+    pending: (companyId: string) =>
+      ["duplicateReviews", "pending", companyId] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

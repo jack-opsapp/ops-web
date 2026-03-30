@@ -14,7 +14,8 @@ export type NotificationType =
   | "task_completed"
   | "schedule_change"
   | "expense_submitted"
-  | "expense_approved";
+  | "expense_approved"
+  | "duplicates_found";
 
 export interface AppNotification {
   id: string;
