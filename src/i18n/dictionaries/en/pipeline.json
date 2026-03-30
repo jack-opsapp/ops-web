@@ -232,6 +232,7 @@
   "actions.logCall": "Log call",
   "actions.logText": "Log text",
   "actions.email": "Email",
+  "actions.openDetail": "Details",
   "actions.addNote": "Add note",
   "actions.notePlaceholder": "Type a note...",
   "actions.more": "More",

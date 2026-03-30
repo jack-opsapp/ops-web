@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Phone,
   MessageSquare,
-  Mail,
+  ExternalLink,
   StickyNote,
   MoreHorizontal,
   Calendar,
@@ -127,8 +128,8 @@ export function PipelineCardActions({
           disabled={!canManage}
         />
         <ActionIcon
-          icon={<Mail className="w-[12px] h-[12px]" />}
-          label={t("actions.email")}
+          icon={<ExternalLink className="w-[12px] h-[12px]" />}
+          label={t("actions.openDetail")}
           onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}
         />
         <ActionIcon
@@ -155,15 +156,10 @@ export function PipelineCardActions({
             isActive={showMore}
           />
 
-          {showMore && (
-            <div
-              className="absolute bottom-full right-0 mb-[4px] z-50 min-w-[180px] rounded-[4px] p-[4px]"
-              style={{
-                background: "rgba(10, 10, 10, 0.90)",
-                backdropFilter: "blur(20px) saturate(1.2)",
-                WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-                border: "1px solid rgba(255, 255, 255, 0.10)",
-              }}
+          {showMore && createPortal(
+            <PortaledDropdown
+              anchorRef={moreContainerRef}
+              onClose={() => setShowMore(false)}
             >
               <DropdownItem
                 icon={<Calendar size={13} />}
@@ -201,7 +197,8 @@ export function PipelineCardActions({
                 label={t("actions.archive")}
                 onClick={(e) => handleDropdownAction(e, onArchive)}
               />
-            </div>
+            </PortaledDropdown>,
+            document.body
           )}
         </div>
       </div>
@@ -268,6 +265,67 @@ function ActionIcon({
     >
       {icon}
     </button>
+  );
+}
+
+function PortaledDropdown({
+  anchorRef,
+  onClose,
+  children,
+}: {
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      // Position above the anchor, right-aligned
+      setPos({
+        x: Math.max(0, rect.right - 180),
+        y: Math.max(0, rect.top - 4),
+      });
+    }
+  }, [anchorRef]);
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    const frame = requestAnimationFrame(() => {
+      document.addEventListener("mousedown", handleClick);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [onClose, anchorRef]);
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[3000] min-w-[180px] rounded-[4px] p-[4px]"
+      style={{
+        left: pos.x,
+        top: pos.y,
+        transform: "translateY(-100%)",
+        background: "rgba(10, 10, 10, 0.90)",
+        backdropFilter: "blur(20px) saturate(1.2)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        border: "1px solid rgba(255, 255, 255, 0.10)",
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
   );
 }
 
