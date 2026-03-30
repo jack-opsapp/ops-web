@@ -52,7 +52,7 @@ export function ConversationItem({
         <div
           className={cn(
             "w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0",
-            "font-kosugi text-micro-sm font-semibold",
+            "font-kosugi text-caption-sm font-semibold",
             isUnmatched
               ? "bg-[rgba(255,165,0,0.1)] text-[rgba(255,165,0,0.5)]"
               : isActive
@@ -76,11 +76,11 @@ export function ConversationItem({
               {conversation.displayName}
             </span>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="font-kosugi text-micro-xs text-[rgba(255,255,255,0.25)]">
+              <span className="font-kosugi text-micro-sm text-[rgba(255,255,255,0.25)]">
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
-                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-[#597794] text-white font-kosugi text-micro-xs leading-none">
+                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-[#597794] text-white font-kosugi text-micro-sm leading-none">
                   {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                 </span>
               )}
@@ -89,7 +89,7 @@ export function ConversationItem({
 
           {/* Project name */}
           {conversation.projectName && (
-            <span className="font-kosugi text-micro-xs text-[rgba(255,255,255,0.2)] uppercase block mt-0.5 truncate">
+            <span className="font-kosugi text-micro-sm text-[rgba(255,255,255,0.2)] uppercase block mt-0.5 truncate">
               {conversation.projectName}
             </span>
           )}
@@ -98,7 +98,7 @@ export function ConversationItem({
           <div className="flex items-center gap-1 mt-1">
             <span
               className={cn(
-                "px-1 rounded-[2px] font-kosugi text-micro-xs shrink-0",
+                "px-1 rounded-[2px] font-kosugi text-micro-sm shrink-0",
                 channelBadge.accent
                   ? "bg-[rgba(89,119,148,0.25)] text-[#597794]"
                   : channelBadge.warning

@@ -1346,95 +1346,9 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-68px)] min-w-0">
-      {/* Metrics — normal flow, uses universal glass MetricsHeader */}
-      <div className="shrink-0">
-        <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
-      </div>
-
-      {/* Toolbar */}
-      <div className="shrink-0 px-3 py-1.5">
-        <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
-          style={{
-            background: "rgba(10, 10, 10, 0.50)",
-            backdropFilter: "blur(12px) saturate(1.1)",
-            WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-          }}
-        >
-          <SpatialFloatingToolbar
-            onAddLead={gatedOpenCreate}
-            reviewCount={reviewCount}
-            onReviewEmails={() => setReviewPanelOpen(true)}
-          />
-        </div>
-      </div>
-
-      {/* Banners — normal flow, shrink-0 */}
-      <div className="shrink-0 flex flex-col gap-1 px-3">
-        {/* Gmail connect prompt */}
-        {gmailConnections.length === 0 && !gmailBannerDismissed && (
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
-            <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
-              <Mail className="w-[16px] h-[16px] text-[#597794]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-mohave text-body text-text-primary">
-                {t("gmail.connectBanner")}
-              </p>
-              <p className="font-kosugi text-[11px] text-text-disabled">
-                {t("gmail.connectDesc")}
-              </p>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button
-                size="sm"
-                className="gap-[6px]"
-                onClick={() => {
-                  const params = new URLSearchParams({
-                    companyId: company?.id ?? "",
-                    type: "company",
-                  });
-                  window.location.href = `/api/integrations/gmail?${params}`;
-                }}
-              >
-                <Mail className="w-[14px] h-[14px]" />
-                {t("gmail.connect")}
-              </Button>
-              <button
-                onClick={() => setGmailBannerDismissed(true)}
-                className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
-                title={t("gmail.dismiss")}
-              >
-                <X className="w-[14px] h-[14px]" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Inbox leads */}
-        {showInboxLeads && (
-          <InboxLeadsQueue
-            onCreateLead={(prefill) => {
-              setShowInboxLeads(false);
-              createLeadFromEmail(prefill);
-            }}
-            className="max-w-[600px]"
-          />
-        )}
-
-        {/* Mutation loading indicator */}
-        {moveStage.isPending && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
-            <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
-            <span className="font-kosugi text-[11px] text-[#597794]">
-              {t("column.updating")}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Canvas — fills remaining space */}
-      <div className="relative flex-1 min-h-0">
+    <div className="relative h-screen min-w-0">
+      {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
+      <div className="absolute inset-0">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
@@ -1464,6 +1378,86 @@ export default function PipelinePage() {
             onDeletePermanently={(id) => deleteMutation.mutate(id)}
           />
         )}
+      </div>
+
+      {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
+      <div className="absolute top-[56px] left-0 md:left-[72px] right-0 z-[2] pointer-events-none">
+        <div className="pointer-events-auto">
+          <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
+        </div>
+        <div className="pointer-events-auto px-3 py-1.5">
+          <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+            style={{
+              background: "rgba(10, 10, 10, 0.50)",
+              backdropFilter: "blur(12px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+            }}
+          >
+            <SpatialFloatingToolbar
+              onAddLead={gatedOpenCreate}
+              reviewCount={reviewCount}
+              onReviewEmails={() => setReviewPanelOpen(true)}
+            />
+          </div>
+        </div>
+        {/* Banners */}
+        <div className="pointer-events-auto flex flex-col gap-1 px-3">
+          {gmailConnections.length === 0 && !gmailBannerDismissed && (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
+              <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
+                <Mail className="w-[16px] h-[16px] text-[#597794]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-mohave text-body text-text-primary">
+                  {t("gmail.connectBanner")}
+                </p>
+                <p className="font-kosugi text-[11px] text-text-disabled">
+                  {t("gmail.connectDesc")}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  size="sm"
+                  className="gap-[6px]"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      companyId: company?.id ?? "",
+                      type: "company",
+                    });
+                    window.location.href = `/api/integrations/gmail?${params}`;
+                  }}
+                >
+                  <Mail className="w-[14px] h-[14px]" />
+                  {t("gmail.connect")}
+                </Button>
+                <button
+                  onClick={() => setGmailBannerDismissed(true)}
+                  className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
+                  title={t("gmail.dismiss")}
+                >
+                  <X className="w-[14px] h-[14px]" />
+                </button>
+              </div>
+            </div>
+          )}
+          {showInboxLeads && (
+            <InboxLeadsQueue
+              onCreateLead={(prefill) => {
+                setShowInboxLeads(false);
+                createLeadFromEmail(prefill);
+              }}
+              className="max-w-[600px]"
+            />
+          )}
+          {moveStage.isPending && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
+              <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
+              <span className="font-kosugi text-[11px] text-[#597794]">
+                {t("column.updating")}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Detail Popover Tether Lines */}

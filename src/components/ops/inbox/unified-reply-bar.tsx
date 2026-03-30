@@ -57,7 +57,7 @@ export function UnifiedReplyBar({
           <button
             onClick={() => setShowChannelPicker((prev) => !prev)}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro-xs uppercase tracking-[0.3px] cursor-pointer transition-colors",
+              "flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro-sm uppercase tracking-[0.3px] cursor-pointer transition-colors",
               channel === "portal"
                 ? "bg-[rgba(89,119,148,0.08)] text-[rgba(89,119,148,0.6)]"
                 : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.35)]"
@@ -83,7 +83,7 @@ export function UnifiedReplyBar({
                   className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
                   <MessageSquareText className="w-[10px] h-[10px] text-[rgba(89,119,148,0.6)]" />
-                  <span className="font-kosugi text-micro-xs text-text-secondary uppercase">
+                  <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
                     {t("reply.viaPortal")}
                   </span>
                 </button>
@@ -97,7 +97,7 @@ export function UnifiedReplyBar({
                   className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
                   <Mail className="w-[10px] h-[10px] text-[rgba(255,255,255,0.35)]" />
-                  <span className="font-kosugi text-micro-xs text-text-secondary uppercase">
+                  <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
                     {t("reply.viaEmail")}
                   </span>
                 </button>
@@ -125,7 +125,7 @@ export function UnifiedReplyBar({
           <button
             onClick={handleSend}
             disabled={isSending || !message.trim()}
-            className="bg-[#597794] text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-micro-sm uppercase tracking-[0.3px] hover:bg-[#6a8aaa] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-[#597794] text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-micro uppercase tracking-[0.3px] hover:bg-[#6a8aaa] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("reply.send")}
           </button>

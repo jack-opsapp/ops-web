@@ -210,7 +210,7 @@ export function UnifiedThreadView({
         <div className="flex items-center gap-2 min-w-0">
           <div
             className={cn(
-              "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-kosugi text-micro font-semibold",
+              "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-kosugi text-caption-sm font-semibold",
               conversation.type === "unmatched"
                 ? "bg-[rgba(255,165,0,0.1)] text-[rgba(255,165,0,0.5)]"
                 : "bg-[rgba(89,119,148,0.25)] text-[#597794]"
@@ -219,10 +219,10 @@ export function UnifiedThreadView({
             {conversation.avatarInitials}
           </div>
           <div className="min-w-0">
-            <h2 className="font-mohave text-caption text-text-primary font-semibold truncate">
+            <h2 className="font-mohave text-body text-text-primary font-semibold truncate">
               {conversation.displayName}
             </h2>
-            <p className="font-kosugi text-micro-xs text-text-disabled uppercase truncate">
+            <p className="font-kosugi text-micro-sm text-text-disabled uppercase truncate">
               {conversation.projectName
                 ? `${conversation.projectName} \u00b7 ${emailThreadIds.length + (conversation.hasPortalMessages ? 1 : 0)} threads`
                 : `${emailThreadIds.length + (conversation.hasPortalMessages ? 1 : 0)} threads`}
@@ -232,7 +232,7 @@ export function UnifiedThreadView({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {conversation.type === "unmatched" && (
-            <button className="flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.3)] font-kosugi text-micro-xs uppercase tracking-[0.3px] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+            <button className="flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.3)] font-kosugi text-micro-sm uppercase tracking-[0.3px] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
               <LinkIcon className="w-[10px] h-[10px]" />
               {t("unmatched.linkToClient")}
             </button>
@@ -240,7 +240,7 @@ export function UnifiedThreadView({
           <button
             onClick={onToggleContext}
             className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] font-kosugi text-micro-xs uppercase tracking-[0.3px] transition-colors",
+              "flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] font-kosugi text-micro-sm uppercase tracking-[0.3px] transition-colors",
               contextOpen
                 ? "bg-[rgba(89,119,148,0.1)] text-[#597794] border-[rgba(89,119,148,0.2)]"
                 : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.3)] hover:bg-[rgba(255,255,255,0.06)]"
