@@ -20,6 +20,7 @@ interface SpatialTerminalRegionProps {
   stage: OpportunityStage.Won | OpportunityStage.Lost;
   opportunities: Opportunity[];
   layout: TerminalRegionLayout;
+  isBirdEye?: boolean;
   renderCard: (
     opportunity: Opportunity,
     position: { x: number; y: number }
@@ -32,6 +33,7 @@ export function SpatialTerminalRegion({
   stage,
   opportunities,
   layout,
+  isBirdEye = false,
   renderCard,
 }: SpatialTerminalRegionProps) {
   const { t } = useDictionary("pipeline");
@@ -74,25 +76,29 @@ export function SpatialTerminalRegion({
         top: layout.bounds.y,
         width: layout.bounds.width,
         height: layout.bounds.height,
-        background: `${stageColor}${bgAlpha}`,
-        borderRadius: 4,
-        border: `1px solid ${stageColor}${borderAlpha}`,
-        transition: "background 0.2s ease-out, border-color 0.2s ease-out",
+        ...(isBirdEye ? {} : {
+          background: `${stageColor}${bgAlpha}`,
+          borderRadius: 4,
+          border: `1px solid ${stageColor}${borderAlpha}`,
+          transition: "background 0.2s ease-out, border-color 0.2s ease-out",
+        }),
       }}
       onMouseEnter={() => setIsRegionHovered(true)}
       onMouseLeave={() => setIsRegionHovered(false)}
     >
-      {/* Region glow background (dimmer than active stacks) */}
-      <div
-        className="absolute inset-0 pointer-events-none rounded-[4px]"
-        style={{
-          boxShadow: `inset 0 0 60px ${stageColor}${glowOpacity}`,
-          transition: "box-shadow 0.2s ease-out",
-        }}
-      />
+      {/* Region glow — hidden in bird's eye */}
+      {!isBirdEye && (
+        <div
+          className="absolute inset-0 pointer-events-none rounded-[4px]"
+          style={{
+            boxShadow: `inset 0 0 60px ${stageColor}${glowOpacity}`,
+            transition: "box-shadow 0.2s ease-out",
+          }}
+        />
+      )}
 
-      {/* Header */}
-      <div
+      {/* Header — hidden in bird's eye */}
+      {!isBirdEye && <div
         className="absolute flex flex-col"
         style={{
           left: 20,
@@ -149,7 +155,7 @@ export function SpatialTerminalRegion({
             </span>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Cards in 2D grid — positions converted from canvas-absolute to region-relative */}
       {layout.cardPositions.map((pos) => {
@@ -161,8 +167,8 @@ export function SpatialTerminalRegion({
         });
       })}
 
-      {/* Empty state */}
-      {opportunities.length === 0 && (
+      {/* Empty state — hidden in bird's eye */}
+      {opportunities.length === 0 && !isBirdEye && (
         <div
           className="absolute flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px]"
           style={{

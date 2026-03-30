@@ -681,6 +681,7 @@ export default function ProjectsPage() {
                   layout={regionLayout}
                   projectValues={projectValueMap}
                   canViewAccounting={canViewAccounting}
+                  isBirdEye={isBirdEye}
                   renderCard={(project) => renderCard(project)}
                 />
               );

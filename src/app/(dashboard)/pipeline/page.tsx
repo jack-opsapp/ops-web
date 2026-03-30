@@ -596,6 +596,7 @@ function SpatialCanvasDesktop({
               stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
               opportunities={oppsByStage.get(regionLayout.stage) ?? []}
               layout={regionLayout}
+              isBirdEye={isBirdEye}
               renderCard={(opp, pos) => renderCard(opp, pos, false)}
             />
           ))}

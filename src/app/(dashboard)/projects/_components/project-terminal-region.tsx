@@ -56,6 +56,7 @@ export function ProjectTerminalRegion({
   layout,
   projectValues,
   canViewAccounting,
+  isBirdEye,
   renderCard,
 }: ProjectTerminalRegionProps) {
   const { t } = useDictionary("projects-canvas");
@@ -97,25 +98,29 @@ export function ProjectTerminalRegion({
         top: layout.bounds.y,
         width: layout.bounds.width,
         minHeight: layout.bounds.height,
-        background: `${statusColor}${bgAlpha}`,
-        borderRadius: 4,
-        border: `1px solid ${statusColor}${borderAlpha}`,
-        transition: "background 0.2s ease-out, border-color 0.2s ease-out",
+        ...(isBirdEye ? {} : {
+          background: `${statusColor}${bgAlpha}`,
+          borderRadius: 4,
+          border: `1px solid ${statusColor}${borderAlpha}`,
+          transition: "background 0.2s ease-out, border-color 0.2s ease-out",
+        }),
       }}
       onMouseEnter={() => setIsRegionHovered(true)}
       onMouseLeave={() => setIsRegionHovered(false)}
     >
-      {/* Region glow background */}
-      <div
-        className="absolute inset-0 pointer-events-none rounded-[4px]"
-        style={{
-          boxShadow: `inset 0 0 60px ${statusColor}${glowOpacity}`,
-          transition: "box-shadow 0.2s ease-out",
-        }}
-      />
+      {/* Region glow — hidden in bird's eye */}
+      {!isBirdEye && (
+        <div
+          className="absolute inset-0 pointer-events-none rounded-[4px]"
+          style={{
+            boxShadow: `inset 0 0 60px ${statusColor}${glowOpacity}`,
+            transition: "box-shadow 0.2s ease-out",
+          }}
+        />
+      )}
 
-      {/* Header */}
-      <div
+      {/* Header — hidden in bird's eye */}
+      {!isBirdEye && <div
         className="relative flex flex-col"
         style={{
           marginLeft: 20,
@@ -186,7 +191,7 @@ export function ProjectTerminalRegion({
             </span>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Cards in grid layout — uses CSS grid for proper multi-column flow */}
       <div
@@ -210,8 +215,8 @@ export function ProjectTerminalRegion({
         })}
       </div>
 
-      {/* Empty state */}
-      {projects.length === 0 && (
+      {/* Empty state — hidden in bird's eye */}
+      {projects.length === 0 && !isBirdEye && (
         <div
           className="flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px]"
           style={{

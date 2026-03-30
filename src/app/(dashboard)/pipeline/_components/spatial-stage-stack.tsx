@@ -87,24 +87,28 @@ export function SpatialStageStack({
         top: layout.regionBounds.y,
         width: layout.regionBounds.width,
         minHeight: layout.regionBounds.height,
-        background: "rgba(255, 255, 255, 0.015)",
-        border: "1px solid rgba(255, 255, 255, 0.04)",
-        borderRadius: 8,
+        ...(isBirdEye ? {} : {
+          background: "rgba(255, 255, 255, 0.015)",
+          border: "1px solid rgba(255, 255, 255, 0.04)",
+          borderRadius: 8,
+        }),
       }}
       onMouseEnter={() => setIsRegionHovered(true)}
       onMouseLeave={() => setIsRegionHovered(false)}
     >
-      {/* Region glow background */}
-      <div
-        className="absolute inset-0 pointer-events-none rounded-[4px]"
-        style={{
-          boxShadow: `inset 0 0 60px ${stageColor}${glowOpacity}`,
-          transition: "box-shadow 0.3s ease-out",
-        }}
-      />
+      {/* Region glow — hidden in bird's eye */}
+      {!isBirdEye && (
+        <div
+          className="absolute inset-0 pointer-events-none rounded-[4px]"
+          style={{
+            boxShadow: `inset 0 0 60px ${stageColor}${glowOpacity}`,
+            transition: "box-shadow 0.3s ease-out",
+          }}
+        />
+      )}
 
-      {/* Header */}
-      <div
+      {/* Header — hidden in bird's eye */}
+      {!isBirdEye && <div
         className="relative flex flex-col"
         style={{
           marginLeft: 20,
@@ -163,7 +167,7 @@ export function SpatialStageStack({
             </span>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Cards — flex column so expanded cards push siblings down */}
       <div
@@ -198,7 +202,7 @@ export function SpatialStageStack({
       </div>
 
       {/* Empty state */}
-      {opportunities.length === 0 && (
+      {opportunities.length === 0 && !isBirdEye && (
         <div
           className="absolute flex flex-col items-center justify-center text-center border border-dashed border-[rgba(255,255,255,0.1)] rounded-[4px]"
           style={{
