@@ -223,7 +223,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 14,
+      version: 15,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
@@ -338,6 +338,19 @@ export const usePreferencesStore = create<PreferencesState>()(
             }
 
             state.widgetInstances = migrated;
+          }
+        }
+
+        // ── Rename size "full" → "xl" (unconditional, idempotent) ──
+        {
+          const instances = state.widgetInstances as WidgetInstance[] | undefined;
+          if (instances && Array.isArray(instances)) {
+            state.widgetInstances = instances.map((inst) => {
+              if ((inst.size as string) === "full") {
+                return { ...inst, size: "xl" as WidgetSize };
+              }
+              return inst;
+            });
           }
         }
 
