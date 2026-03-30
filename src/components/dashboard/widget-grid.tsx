@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { WidgetInstance } from "@/lib/types/dashboard-widgets";
 import { WIDGET_TYPE_REGISTRY } from "@/lib/types/dashboard-widgets";
-import { gridVariants, EDIT_MODE_GAP, SPRING_REORDER } from "@/lib/utils/motion";
+import { gridVariants, SPRING_REORDER } from "@/lib/utils/motion";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore, WIDGET_GAP_VALUES } from "@/stores/preferences-store";
@@ -61,9 +61,7 @@ export function WidgetGrid({
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : false;
 
-  // During customize mode, use the wider edit gap for comfortable dragging.
-  // In normal mode, use the user's preference.
-  const gap = isCustomizing ? EDIT_MODE_GAP : WIDGET_GAP_VALUES[widgetGap];
+  const gap = WIDGET_GAP_VALUES[widgetGap];
 
   const gridContent = (
     <motion.div

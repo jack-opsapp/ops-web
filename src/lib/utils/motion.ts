@@ -21,9 +21,6 @@ export const DRAG_SIBLING_SCALE = 0.95;
 export const DRAG_SIBLING_SATURATION = 0.35;
 export const DRAG_SIBLING_OPACITY = 0.7;
 
-export const EDIT_MODE_GAP = 12;
-export const NORMAL_GAP = 8;
-
 export const STAGGER_GRID = { staggerChildren: 0.06 };
 
 /** Container variant — staggers children on mount */
