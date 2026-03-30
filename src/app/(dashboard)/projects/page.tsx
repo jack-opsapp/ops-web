@@ -632,17 +632,27 @@ export default function ProjectsPage() {
       <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
 
       {/* Toolbar */}
-      <ProjectFloatingToolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        teamMembers={teamMemberList}
-        clients={clientList}
-        selectedMemberId={selectedMemberId}
-        onMemberFilterChange={setSelectedMemberId}
-        selectedClientId={selectedClientId}
-        onClientFilterChange={setSelectedClientId}
-        canViewAccounting={canViewAccounting}
-      />
+      <div className="shrink-0 px-3 py-1.5">
+        <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+          style={{
+            background: "rgba(10, 10, 10, 0.50)",
+            backdropFilter: "blur(12px) saturate(1.1)",
+            WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+          }}
+        >
+          <ProjectFloatingToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            teamMembers={teamMemberList}
+            clients={clientList}
+            selectedMemberId={selectedMemberId}
+            onMemberFilterChange={setSelectedMemberId}
+            selectedClientId={selectedClientId}
+            onClientFilterChange={setSelectedClientId}
+            canViewAccounting={canViewAccounting}
+          />
+        </div>
+      </div>
 
       {/* Canvas */}
       <div className="flex-1 relative">
