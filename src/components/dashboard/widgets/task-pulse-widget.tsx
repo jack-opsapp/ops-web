@@ -6,19 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { WT, HERO_SIZE_CLASS } from "@/lib/widget-tokens";
 import type { ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
-// Segment colors
+// Segment colors — design system tokens
 // ---------------------------------------------------------------------------
 const SEGMENT_COLORS = {
-  overdue: "#B58289",
-  dueToday: "#C4A868",
-  inProgress: "#597794",
-  upcoming: "rgba(255,255,255,0.15)",
+  overdue: WT.error,
+  dueToday: WT.warning,
+  inProgress: WT.accent,
+  upcoming: WT.muted,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("taskPulse.title") ?? "Tasks"}
           </CardTitle>
         </CardHeader>
@@ -132,16 +133,15 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("taskPulse.title") ?? "Tasks"}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-2 flex flex-col items-start justify-center h-[calc(100%-28px)]">
           <div
-            className="w-full h-[20px] rounded-sm"
-            style={{ backgroundColor: "#6B8F71" }}
+            className="w-full h-[20px] rounded-sm bg-status-success"
           />
-          <span className="font-kosugi text-[9px] text-status-success uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro-sm text-status-success uppercase mt-1">
             {t("taskPulse.allClear") ?? "All clear"}
           </span>
         </CardContent>
@@ -174,23 +174,28 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
     { key: "upcoming", count: segments.upcoming, color: SEGMENT_COLORS.upcoming, label: t("taskPulse.upcoming") ?? "Upcoming" },
   ];
 
-  // ── XS ──────────────────────────────────────────────────────────────────
+  // ── XS: Header + Hero ────────────────────────────────────────────────────
   if (size === "xs") {
     const hasOverdue = segments.overdue > 0;
     return (
-      <Card className="h-full flex flex-col items-start justify-center px-3">
-        <span
-          className="font-mono text-[28px] font-medium leading-none"
-          style={{ color: hasOverdue ? SEGMENT_COLORS.overdue : "#597794" }}
-        >
-          {hasOverdue ? segments.overdue : segments.total}
-        </span>
-        <span
-          className="font-kosugi text-[9px] uppercase tracking-wider mt-1"
-          style={{ color: hasOverdue ? SEGMENT_COLORS.overdue : "var(--text-tertiary)" }}
-        >
-          {hasOverdue ? (t("taskPulse.overdue") ?? "Overdue") : (t("taskPulse.openTasks") ?? "Open Tasks")}
-        </span>
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
+        <div className="h-full flex flex-col justify-center px-3">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
+            {t("taskPulse.title") ?? "Tasks"}
+          </span>
+          <span
+            className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+            style={{ color: hasOverdue ? SEGMENT_COLORS.overdue : WT.accent }}
+          >
+            {hasOverdue ? segments.overdue : segments.total}
+          </span>
+          <span
+            className="font-kosugi text-micro-sm uppercase mt-1"
+            style={{ color: hasOverdue ? SEGMENT_COLORS.overdue : undefined }}
+          >
+            {hasOverdue ? (t("taskPulse.overdue") ?? "Overdue") : (t("taskPulse.openTasks") ?? "Open Tasks")}
+          </span>
+        </div>
       </Card>
     );
   }
@@ -204,7 +209,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
     <Card className="h-full">
       <CardHeader className="pb-1 pt-2 px-3">
         <CardTitle
-          className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary cursor-pointer hover:text-text-secondary transition-colors"
+          className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary cursor-pointer hover:text-text-secondary transition-colors"
           onClick={() => onNavigate("/calendar")}
         >
           {t("taskPulse.title") ?? "Tasks"}
@@ -252,9 +257,9 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
           {segmentEntries.map((seg) => {
             if (seg.count === 0) return null;
             return (
-              <span key={seg.key} className="font-mono text-[10px] whitespace-nowrap" style={{ color: seg.color }}>
+              <span key={seg.key} className="font-mono text-micro-sm whitespace-nowrap" style={{ color: seg.color }}>
                 {seg.count} {seg.label.toLowerCase()}
-                {seg.key !== "upcoming" && <span className="text-text-quaternary mx-0.5">·</span>}
+                {seg.key !== "upcoming" && <span className="text-text-disabled mx-0.5">·</span>}
               </span>
             );
           })}
@@ -278,11 +283,11 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
                 onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-mohave text-[12px] text-text-primary truncate">
+                  <p className="font-mohave text-caption-sm text-text-primary truncate">
                     {task.customTitle || task.taskType?.display || "Task"}
                   </p>
                   {task.project && (
-                    <p className="font-kosugi text-[9px] text-text-tertiary truncate">
+                    <p className="font-kosugi text-micro-sm text-text-disabled truncate">
                       {task.project.title}
                     </p>
                   )}
