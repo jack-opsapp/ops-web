@@ -76,7 +76,7 @@ export function ConversationList({
       {/* Search */}
       <div className="p-2.5 border-b border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center gap-1.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-[3px] px-2.5 py-[7px]">
-          <Search className="w-[12px] h-[12px] text-[rgba(255,255,255,0.3)] shrink-0" />
+          <Search className="w-3.5 h-3.5 text-text-disabled shrink-0" />
           <input
             type="text"
             value={searchQuery}
