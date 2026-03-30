@@ -353,7 +353,7 @@ export function ProjectSpreadsheet({
       </div>
 
       {/* Footer */}
-      <div className="px-2 py-1">
+      <div className="px-2 py-1 flex justify-end">
         <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
           {t("spreadsheet.footer.showing")
             .replace("{count}", String(displayProjects.length))

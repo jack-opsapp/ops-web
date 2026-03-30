@@ -3,7 +3,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -54,11 +53,14 @@ export function SpreadsheetHeader({
               <th key={col.id} className="w-[40px] px-1 py-1.5">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="Toggle columns">
-                      <Columns3 className="h-[13px] w-[13px] text-text-tertiary" />
-                    </Button>
+                    <button
+                      className="flex items-center justify-center h-6 w-6 rounded-sm text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                      aria-label="Toggle columns"
+                    >
+                      <Columns3 className="h-[13px] w-[13px]" />
+                    </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
+                  <DropdownMenuContent align="start" className="z-[1000]">
                     {toggleableColumns.map((tc) => (
                       <DropdownMenuCheckboxItem
                         key={tc.id}
