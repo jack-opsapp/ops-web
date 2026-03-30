@@ -1381,7 +1381,7 @@ export default function PipelinePage() {
       </div>
 
       {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
-      <div className="absolute top-[56px] left-0 md:left-[72px] right-0 z-[2] pointer-events-none">
+      <div className="absolute top-[56px] left-0 right-0 z-[2] pointer-events-none">
         <div className="pointer-events-auto">
           <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
         </div>
