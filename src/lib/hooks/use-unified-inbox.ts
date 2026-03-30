@@ -148,6 +148,67 @@ async function markPortalMessagesRead(
     .is("read_at", null);
 }
 
+// ─── Provider-based thread fetch ────────────────────────────────────────────
+
+/**
+ * Fetch thread messages from the email provider API (Gmail/M365).
+ * This returns the actual email body, unlike activities table stubs.
+ * Falls back to activities table if provider is unavailable.
+ */
+async function fetchProviderThreadMessages(
+  companyId: string,
+  threadId: string
+): Promise<InboxMessage[]> {
+  try {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    if (!idToken) {
+      // No auth — fall back to activities table
+      const msgs = await InboxService.getThreadMessages(companyId, threadId);
+      return normalizeEmailMessages(msgs, threadId);
+    }
+
+    const params = new URLSearchParams({ companyId, threadId });
+    const res = await fetch(`/api/integrations/email/inbox?${params}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+
+    if (!res.ok) {
+      // Provider unavailable — fall back to activities table
+      const msgs = await InboxService.getThreadMessages(companyId, threadId);
+      return normalizeEmailMessages(msgs, threadId);
+    }
+
+    const data = await res.json();
+    const messages = data.messages ?? [];
+
+    return messages.map((m: Record<string, unknown>) => ({
+      id: m.id as string,
+      channel: "email" as const,
+      direction: "inbound" as const, // Provider doesn't track this — will refine below
+      senderName: (m.fromName as string) || (m.from as string)?.split("@")[0] || "Unknown",
+      senderEmail: m.from as string,
+      content: (m.bodyText as string) || (m.snippet as string) || "",
+      timestamp: new Date(m.date as string),
+      isRead: (m.isRead as boolean) ?? true,
+      hasAttachments: (m.hasAttachments as boolean) ?? false,
+      attachmentCount: (m.hasAttachments as boolean) ? 1 : 0,
+      emailThreadId: threadId,
+      emailMessageId: m.id as string,
+      subject: m.subject as string,
+      toEmails: (m.to as string[]) ?? [],
+      ccEmails: (m.cc as string[]) ?? [],
+      projectId: null,
+      estimateId: null,
+      invoiceId: null,
+    }));
+  } catch {
+    // Any error — fall back to activities table
+    const msgs = await InboxService.getThreadMessages(companyId, threadId);
+    return normalizeEmailMessages(msgs, threadId);
+  }
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
@@ -327,6 +388,7 @@ export function useUnifiedThread(
   filter: ChannelFilter
 ) {
   const companyId = useAuthStore((s) => s.company?.id);
+  const currentUserEmail = useAuthStore((s) => s.currentUser?.email);
 
   return useQuery({
     queryKey: [
@@ -340,15 +402,23 @@ export function useUnifiedThread(
     queryFn: async () => {
       const results: InboxMessage[] = [];
 
-      // Fetch email messages (if filter allows)
+      // Fetch email messages from provider (if filter allows)
       if (filter !== "portal" && emailThreadIds.length > 0) {
         const emailPromises = emailThreadIds.map((tid) =>
-          InboxService.getThreadMessages(companyId!, tid).then((msgs) =>
-            normalizeEmailMessages(msgs, tid)
-          )
+          fetchProviderThreadMessages(companyId!, tid)
         );
         const emailResults = await Promise.all(emailPromises);
-        results.push(...emailResults.flat());
+        // Detect direction based on sender email
+        for (const msg of emailResults.flat()) {
+          if (currentUserEmail && msg.senderEmail) {
+            const senderDomain = msg.senderEmail.split("@")[1];
+            const userDomain = currentUserEmail.split("@")[1];
+            if (msg.senderEmail === currentUserEmail || senderDomain === userDomain) {
+              msg.direction = "outbound";
+            }
+          }
+          results.push(msg);
+        }
       }
 
       // Fetch portal messages (if filter allows and client is matched)
