@@ -27,8 +27,8 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
   ];
 
   return (
-    <div className="px-3.5 py-1.5 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.9)] backdrop-blur-[12px] sticky top-0 z-10">
-      <div className="inline-flex bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] rounded-[3px] overflow-hidden">
+    <div className="px-3.5 py-1.5 border-b border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] sticky top-0 z-10">
+      <div className="inline-flex bg-background-input border border-border-subtle rounded-[3px] overflow-hidden">
         {segments.map((seg) => (
           <button
             key={seg.value}
@@ -36,8 +36,8 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
             className={cn(
               "px-3.5 py-1.5 font-kosugi text-micro uppercase tracking-[0.5px] border-b-2 transition-colors",
               active === seg.value
-                ? "text-white bg-[rgba(89,119,148,0.2)] border-b-[#597794]"
-                : "text-[rgba(255,255,255,0.35)] bg-transparent border-b-transparent hover:text-[rgba(255,255,255,0.5)]"
+                ? "text-white bg-ops-accent-muted border-b-ops-accent"
+                : "text-text-disabled bg-transparent border-b-transparent hover:text-text-tertiary"
             )}
           >
             {seg.label}

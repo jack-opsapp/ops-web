@@ -28,8 +28,8 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
           className={cn(
             "px-3.5 py-3 border",
             isOutbound
-              ? "bg-[rgba(89,119,148,0.12)] border-[rgba(89,119,148,0.18)] rounded-[3px_3px_1px_3px]"
-              : "bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.08)] rounded-[3px_3px_3px_1px]"
+              ? "bg-ops-accent-muted border-ops-accent/20 rounded-[3px_3px_1px_3px]"
+              : "bg-background-input border-border-subtle rounded-[3px_3px_3px_1px]"
           )}
         >
           <p className="font-mohave text-body-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
@@ -40,7 +40,7 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
 
           {/* Attachment indicator */}
           {message.hasAttachments && message.attachmentCount > 0 && (
-            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border-subtle">
               <Paperclip className="w-3 h-3 text-text-disabled" />
               <span className="font-kosugi text-micro-sm text-text-disabled">
                 {message.attachmentCount} attachment{message.attachmentCount > 1 ? "s" : ""}

@@ -42,8 +42,8 @@ export function ConversationItem({
       className={cn(
         "w-full text-left px-2.5 py-2.5 border-l-2 cursor-pointer transition-colors",
         isActive
-          ? "border-l-[#597794] bg-[rgba(89,119,148,0.08)]"
-          : "border-l-transparent hover:bg-[rgba(255,255,255,0.02)]",
+          ? "border-l-ops-accent bg-ops-accent-muted"
+          : "border-l-transparent hover:bg-background-input",
         !hasUnread && !isActive && "opacity-50"
       )}
     >
@@ -54,10 +54,10 @@ export function ConversationItem({
             "w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0",
             "font-kosugi text-caption-sm font-semibold",
             isUnmatched
-              ? "bg-[rgba(255,165,0,0.1)] text-[rgba(255,165,0,0.5)]"
+              ? "bg-ops-amber-muted text-ops-amber"
               : isActive
-                ? "bg-[rgba(89,119,148,0.25)] text-[#597794]"
-                : "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.4)]"
+                ? "bg-ops-accent-muted text-ops-accent"
+                : "bg-background-input text-text-disabled"
           )}
         >
           {conversation.avatarInitials}
@@ -69,7 +69,7 @@ export function ConversationItem({
             <span
               className={cn(
                 "font-mohave text-body-sm truncate",
-                isUnmatched ? "italic text-[rgba(255,255,255,0.5)]" : "text-text-primary",
+                isUnmatched ? "italic text-text-tertiary" : "text-text-primary",
                 hasUnread && "font-semibold"
               )}
             >
@@ -80,7 +80,7 @@ export function ConversationItem({
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
-                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-[#597794] text-white font-kosugi text-micro-sm leading-none">
+                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-ops-accent text-white font-kosugi text-micro-sm leading-none">
                   {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                 </span>
               )}
@@ -100,10 +100,10 @@ export function ConversationItem({
               className={cn(
                 "px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro-xs shrink-0",
                 channelBadge.accent
-                  ? "bg-[rgba(89,119,148,0.15)] text-[rgba(89,119,148,0.7)]"
+                  ? "bg-ops-accent-muted text-ops-accent"
                   : channelBadge.warning
-                    ? "bg-[rgba(255,165,0,0.08)] text-[rgba(255,165,0,0.6)]"
-                    : "bg-[rgba(255,255,255,0.04)] text-text-disabled"
+                    ? "bg-ops-amber-muted text-ops-amber"
+                    : "bg-background-input text-text-disabled"
               )}
             >
               {channelBadge.label}

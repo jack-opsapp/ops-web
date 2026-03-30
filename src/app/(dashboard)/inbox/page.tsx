@@ -9,32 +9,15 @@ import { usePipelineThreads } from "@/lib/hooks/use-inbox";
 import { ConversationList } from "@/components/ops/inbox/conversation-list";
 import { UnifiedThreadView } from "@/components/ops/inbox/unified-thread-view";
 import { ContextPanel } from "@/components/ops/inbox/context-panel";
-import { ResizableDivider } from "@/components/ops/inbox/resizable-divider";
 import { ComposeEmailModal } from "@/components/ops/compose-email-modal";
 import type { InboxConversation } from "@/lib/types/unified-inbox";
 import type { ComposeEmailData } from "@/lib/types/email-template";
-
-const LIST_MIN = 240;
-const LIST_MAX = 400;
-const LIST_DEFAULT = 300;
-const STORAGE_KEY = "ops-inbox-list-width";
-
-function getStoredWidth(): number {
-  if (typeof window === "undefined") return LIST_DEFAULT;
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    const parsed = parseInt(stored, 10);
-    if (!isNaN(parsed) && parsed >= LIST_MIN && parsed <= LIST_MAX) return parsed;
-  }
-  return LIST_DEFAULT;
-}
 
 export default function InboxPage() {
   usePageTitle("Inbox");
   const { t } = useDictionary("inbox");
   const can = usePermissionStore((s) => s.can);
 
-  const [listWidth, setListWidth] = useState(getStoredWidth);
   const [selectedConversation, setSelectedConversation] = useState<InboxConversation | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
@@ -59,20 +42,6 @@ export default function InboxPage() {
     : [];
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
-
-  const handleResize = useCallback((delta: number) => {
-    setListWidth((prev) => {
-      const next = Math.max(LIST_MIN, Math.min(LIST_MAX, prev + delta));
-      return next;
-    });
-  }, []);
-
-  const handleResizeEnd = useCallback(() => {
-    setListWidth((current) => {
-      localStorage.setItem(STORAGE_KEY, String(current));
-      return current;
-    });
-  }, []);
 
   const handleSelectConversation = useCallback((conv: InboxConversation) => {
     setSelectedConversation(conv);
@@ -116,9 +85,9 @@ export default function InboxPage() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-[calc(100vh-68px)] flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.02)] overflow-hidden">
+    <div className="h-[calc(100vh-68px)] flex rounded-[4px] border border-border bg-background-panel overflow-hidden">
       {/* Left: Conversation List */}
-      <div style={{ width: listWidth, minWidth: listWidth }} className="shrink-0">
+      <div style={{ width: 320 }} className="shrink-0 border-r border-border-subtle">
         <ConversationList
           conversations={conversations}
           isLoading={isLoading}
@@ -127,9 +96,6 @@ export default function InboxPage() {
           onNewMessage={handleNewMessage}
         />
       </div>
-
-      {/* Resizable Divider */}
-      <ResizableDivider onResize={handleResize} onResizeEnd={handleResizeEnd} />
 
       {/* Center: Thread View */}
       <div className="flex-1 min-w-0">

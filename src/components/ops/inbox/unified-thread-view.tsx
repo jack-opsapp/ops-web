@@ -195,9 +195,9 @@ export function UnifiedThreadView({
   const MessageSkeleton = () => (
     <div className="flex justify-start">
       <div className="max-w-[65%] animate-pulse">
-        <div className="bg-[rgba(255,255,255,0.04)] rounded-[3px] px-3 py-2.5 space-y-1.5">
-          <div className="h-[14px] w-[200px] rounded bg-[rgba(255,255,255,0.06)]" />
-          <div className="h-[14px] w-[150px] rounded bg-[rgba(255,255,255,0.04)]" />
+        <div className="bg-background-input rounded-[3px] px-3 py-2.5 space-y-1.5">
+          <div className="h-[14px] w-[200px] rounded bg-background-input" />
+          <div className="h-[14px] w-[150px] rounded bg-border-subtle" />
         </div>
       </div>
     </div>
@@ -206,14 +206,14 @@ export function UnifiedThreadView({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 px-3.5 py-2.5 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+      <div className="shrink-0 px-3.5 py-2.5 border-b border-border-subtle flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <div
             className={cn(
               "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-kosugi text-caption-sm font-semibold",
               conversation.type === "unmatched"
-                ? "bg-[rgba(255,165,0,0.1)] text-[rgba(255,165,0,0.5)]"
-                : "bg-[rgba(89,119,148,0.25)] text-[#597794]"
+                ? "bg-ops-amber-muted text-ops-amber"
+                : "bg-ops-accent-muted text-ops-accent"
             )}
           >
             {conversation.avatarInitials}
@@ -232,7 +232,7 @@ export function UnifiedThreadView({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {conversation.type === "unmatched" && (
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-text-tertiary font-kosugi text-micro-sm uppercase tracking-wider hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-border-subtle bg-background-input text-text-tertiary font-kosugi text-micro-sm uppercase tracking-wider hover:bg-background-card transition-colors">
               <LinkIcon className="w-3.5 h-3.5" />
               {t("unmatched.linkToClient")}
             </button>
@@ -242,8 +242,8 @@ export function UnifiedThreadView({
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border font-kosugi text-micro-sm uppercase tracking-wider transition-colors",
               contextOpen
-                ? "bg-[rgba(89,119,148,0.1)] text-[#597794] border-[rgba(89,119,148,0.2)]"
-                : "bg-[rgba(255,255,255,0.04)] text-text-tertiary border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]"
+                ? "bg-ops-accent-muted text-ops-accent border-ops-accent/20"
+                : "bg-background-input text-text-tertiary border-border-subtle hover:bg-background-card"
             )}
           >
             <PanelRight className="w-3.5 h-3.5" />

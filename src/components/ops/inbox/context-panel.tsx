@@ -109,11 +109,11 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 320, opacity: 1, transition: { duration: 0.2, ease: EASE_SMOOTH } }}
           exit={{ width: 0, opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } }}
-          className="shrink-0 border-l border-[rgba(255,255,255,0.06)] overflow-hidden"
+          className="shrink-0 border-l border-border-subtle overflow-hidden"
         >
           <div className="w-[320px] h-full flex flex-col overflow-y-auto scrollbar-hide">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center justify-between p-3 border-b border-border-subtle">
               <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
                 {t("context.toggle")}
               </span>
@@ -129,11 +129,11 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                   {conversation.displayName}
                 </p>
                 <div className="space-y-1">
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors">
                     <UserPlus className="w-[12px] h-[12px] text-text-tertiary" />
                     <span className="font-kosugi text-micro text-text-secondary uppercase">{t("unmatched.createClient")}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors">
                     <Link className="w-[12px] h-[12px] text-text-tertiary" />
                     <span className="font-kosugi text-micro text-text-secondary uppercase">{t("unmatched.linkToClient")}</span>
                   </button>
@@ -146,9 +146,9 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
               <div className="p-3 space-y-4">
                 {isLoading ? (
                   <div className="space-y-3 animate-pulse">
-                    <div className="h-[18px] w-[120px] rounded bg-[rgba(255,255,255,0.06)]" />
-                    <div className="h-[14px] w-[180px] rounded bg-[rgba(255,255,255,0.04)]" />
-                    <div className="h-[14px] w-[140px] rounded bg-[rgba(255,255,255,0.04)]" />
+                    <div className="h-[18px] w-[120px] rounded bg-background-input" />
+                    <div className="h-[14px] w-[180px] rounded bg-border-subtle" />
+                    <div className="h-[14px] w-[140px] rounded bg-border-subtle" />
                   </div>
                 ) : context ? (
                   <>
@@ -185,7 +185,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                             <button
                               key={p.id}
                               onClick={() => router.push(`/projects/${p.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-[rgba(255,255,255,0.04)] transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors text-left"
                             >
                               <FolderKanban className="w-[11px] h-[11px] text-text-disabled shrink-0" />
                               <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
@@ -211,7 +211,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                             <button
                               key={e.id}
                               onClick={() => router.push(`/estimates/${e.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-[rgba(255,255,255,0.04)] transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors text-left"
                             >
                               <FileText className="w-[11px] h-[11px] text-text-disabled shrink-0" />
                               <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
@@ -237,7 +237,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                             <button
                               key={inv.id}
                               onClick={() => router.push(`/invoices/${inv.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-[rgba(255,255,255,0.04)] transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors text-left"
                             >
                               <Receipt className="w-[11px] h-[11px] text-text-disabled shrink-0" />
                               <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
@@ -253,10 +253,10 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                     )}
 
                     {/* Quick actions */}
-                    <div className="pt-2 border-t border-[rgba(255,255,255,0.06)]">
+                    <div className="pt-2 border-t border-border-subtle">
                       <button
                         onClick={() => router.push(`/clients/${conversation?.clientId}`)}
-                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors"
                       >
                         <ExternalLink className="w-[11px] h-[11px] text-text-tertiary" />
                         <span className="font-kosugi text-micro text-text-secondary uppercase">

@@ -50,7 +50,7 @@ export function UnifiedReplyBar({
   );
 
   return (
-    <div className="px-3.5 py-2.5 border-t border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.5)]">
+    <div className="px-3.5 py-2.5 border-t border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]">
       <div className="flex items-center gap-2">
         {/* Channel selector */}
         <div className="relative shrink-0">
@@ -59,8 +59,8 @@ export function UnifiedReplyBar({
             className={cn(
               "flex items-center gap-1.5 px-2 py-1 rounded-[3px] font-kosugi text-micro-sm uppercase tracking-wider cursor-pointer transition-colors",
               channel === "portal"
-                ? "bg-[rgba(89,119,148,0.1)] text-[rgba(89,119,148,0.7)]"
-                : "bg-[rgba(255,255,255,0.06)] text-text-tertiary"
+                ? "bg-ops-accent-muted text-ops-accent"
+                : "bg-background-input text-text-tertiary"
             )}
           >
             {channel === "portal" ? (
@@ -73,16 +73,16 @@ export function UnifiedReplyBar({
           </button>
 
           {showChannelPicker && (
-            <div className="absolute bottom-full left-0 mb-1 bg-[rgba(20,20,20,0.95)] border border-[rgba(255,255,255,0.08)] rounded-[3px] overflow-hidden z-20 backdrop-blur-[12px]">
+            <div className="absolute bottom-full left-0 mb-1 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] border border-border-subtle rounded-[3px] overflow-hidden z-20">
               {hasPortalMessages && (
                 <button
                   onClick={() => {
                     setChannel("portal");
                     setShowChannelPicker(false);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-background-input transition-colors"
                 >
-                  <MessageSquareText className="w-3.5 h-3.5 text-[rgba(89,119,148,0.7)]" />
+                  <MessageSquareText className="w-3.5 h-3.5 text-ops-accent" />
                   <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
                     {t("reply.viaPortal")}
                   </span>
@@ -94,7 +94,7 @@ export function UnifiedReplyBar({
                     setChannel("email");
                     setShowChannelPicker(false);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-background-input transition-colors"
                 >
                   <Mail className="w-3.5 h-3.5 text-text-tertiary" />
                   <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
@@ -114,18 +114,18 @@ export function UnifiedReplyBar({
           onKeyDown={handleKeyDown}
           placeholder={t("reply.placeholder")}
           disabled={isSending}
-          className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-[3px] px-3 py-2 font-mohave text-body-sm text-text-primary placeholder:text-[rgba(255,255,255,0.2)] outline-none disabled:opacity-50"
+          className="flex-1 bg-background-input border border-border-subtle rounded-[3px] px-3 py-2 font-mohave text-body-sm text-text-primary placeholder:text-text-placeholder outline-none disabled:opacity-50"
         />
 
         {/* Attach + Send */}
         <div className="flex items-center gap-1 shrink-0">
-          <button className="w-[28px] h-[28px] flex items-center justify-center rounded-[3px] text-[rgba(255,255,255,0.25)] hover:text-text-secondary transition-colors">
+          <button className="w-[28px] h-[28px] flex items-center justify-center rounded-[3px] text-text-disabled hover:text-text-secondary transition-colors">
             <Paperclip className="w-[14px] h-[14px]" />
           </button>
           <button
             onClick={handleSend}
             disabled={isSending || !message.trim()}
-            className="bg-[#597794] text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-micro uppercase tracking-[0.3px] hover:bg-[#6a8aaa] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-ops-accent text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-micro uppercase tracking-[0.3px] hover:bg-ops-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("reply.send")}
           </button>

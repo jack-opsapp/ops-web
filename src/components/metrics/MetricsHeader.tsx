@@ -133,6 +133,15 @@ function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, action
   const { isVisible, toggle } = useMetricsVisibility(tabId);
   const showSkeleton = isLoading || metrics.length === 0;
 
+  // Collapsed: just the toggle button, no container
+  if (!isVisible) {
+    return (
+      <div className={cn("mx-3 flex justify-end", className)}>
+        <MetricsToggle isVisible={false} onToggle={toggle} />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -147,19 +156,20 @@ function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, action
     >
       <div className="flex items-center gap-5">
         {actions && actions}
-        <MetricsToggle isVisible={isVisible} onToggle={toggle} />
 
-        {isVisible && (
-          showSkeleton ? (
-            <CompactMetricsSkeleton />
-          ) : (
-            metrics.map((metric) => (
-              <div key={metric.label} className="contents">
-                <InlineMetric config={metric} />
-              </div>
-            ))
-          )
+        {showSkeleton ? (
+          <CompactMetricsSkeleton />
+        ) : (
+          metrics.map((metric) => (
+            <div key={metric.label} className="contents">
+              <InlineMetric config={metric} />
+            </div>
+          ))
         )}
+
+        <div className="ml-auto">
+          <MetricsToggle isVisible={true} onToggle={toggle} />
+        </div>
       </div>
     </div>
   );
