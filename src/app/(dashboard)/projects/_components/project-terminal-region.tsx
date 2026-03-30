@@ -95,7 +95,7 @@ export function ProjectTerminalRegion({
         left: layout.bounds.x,
         top: layout.bounds.y,
         width: layout.bounds.width,
-        height: layout.bounds.height,
+        minHeight: layout.bounds.height,
         background: `${statusColor}${bgAlpha}`,
         borderRadius: 4,
         border: `1px solid ${statusColor}${borderAlpha}`,

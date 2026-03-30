@@ -200,7 +200,8 @@ export function calculateProjectCanvasLayout(
   const cols = Math.min(sortedClosed.length, terminalCols);
   const rows = Math.max(1, Math.ceil(sortedClosed.length / terminalCols));
   const regionWidth = cols * (CARD_WIDTH + STACK_GAP);
-  const regionHeight = STACK_HEADER_HEIGHT + rows * (CARD_HEIGHT + STACK_GAP);
+  // Internal spacing: 12px header margin-top + STACK_HEADER_HEIGHT + 8px gap + rows * cells + 20px bottom padding
+  const regionContentHeight = 12 + STACK_HEADER_HEIGHT + 8 + rows * (CARD_HEIGHT + STACK_GAP) + 20;
 
   terminalRegions.push({
     status: ProjectStatus.Closed,
@@ -211,11 +212,11 @@ export function calculateProjectCanvasLayout(
       x: terminalStartX - 20,
       y: CANVAS_PADDING - 20,
       width: Math.max(regionWidth, CARD_WIDTH) + 40,
-      height: regionHeight + 40,
+      height: regionContentHeight + 40,
     },
   });
 
-  const totalTerminalHeight = regionHeight;
+  const totalTerminalHeight = regionContentHeight;
   if (totalTerminalHeight > maxStackHeight) {
     maxStackHeight = totalTerminalHeight;
   }
