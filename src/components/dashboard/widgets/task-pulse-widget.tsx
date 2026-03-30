@@ -200,32 +200,108 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
     );
   }
 
-  // ── SM / MD ─────────────────────────────────────────────────────────────
   const reducedMotion = typeof window !== "undefined"
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : false;
 
+  const hasOverdue = segments.overdue > 0;
+
+  // ── SM: Hero number + segmented bar + footer ──────────────────────────
+  if (size === "sm") {
+    return (
+      <Card className="h-full">
+        <div className="h-full flex flex-col px-3 py-2">
+          {/* Header row: title + hero count */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+              {t("taskPulse.title") ?? "Tasks"}
+            </span>
+            <span
+              className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+              style={{ color: hasOverdue ? SEGMENT_COLORS.overdue : WT.accent }}
+            >
+              {segments.total}
+            </span>
+          </div>
+
+          {/* Segmented bar */}
+          <div ref={barRef} className="relative w-full h-[14px] rounded-sm overflow-hidden flex mt-2 cursor-pointer" onClick={() => onNavigate("/calendar")}>
+            <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={barRef} anchor="above">
+              <TooltipRow label={tooltip.segment} value={`${tooltip.count}`} delta={{ value: `${tooltip.pct}%`, direction: "neutral" }} />
+            </WidgetTooltip>
+            {segmentEntries.map((seg, i) => {
+              if (seg.count === 0) return null;
+              const pct = (seg.count / segments.total) * 100;
+              return (
+                <div
+                  key={seg.key}
+                  className="h-full transition-all"
+                  style={{
+                    width: isVisible ? `${pct}%` : "0%",
+                    backgroundColor: seg.color,
+                    transitionDuration: reducedMotion ? "200ms" : "400ms",
+                    transitionDelay: reducedMotion ? "0ms" : `${i * 100}ms`,
+                    transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                  onMouseEnter={(e) => handleSegmentHover(e, seg.label, seg.count)}
+                  onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+                />
+              );
+            })}
+          </div>
+
+          {/* Segment summary */}
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
+            {segmentEntries.map((seg) => {
+              if (seg.count === 0) return null;
+              return (
+                <span key={seg.key} className="font-mono text-micro-sm whitespace-nowrap" style={{ color: seg.color }}>
+                  {seg.count} {seg.label.toLowerCase()}
+                  {seg.key !== "upcoming" && <span className="text-text-disabled mx-0.5">·</span>}
+                </span>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <button
+            onClick={() => onNavigate("/calendar")}
+            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("taskPulse.viewCalendar") ?? "View Calendar"}
+          </button>
+        </div>
+
+        <style jsx>{`@keyframes task-pulse-overdue { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }`}</style>
+      </Card>
+    );
+  }
+
+  // ── MD / LG: Bar + detail zone with actionable tasks ───────────────────
   return (
     <Card className="h-full">
-      <CardHeader className="pb-1 pt-2 px-3">
-        <CardTitle
-          className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary cursor-pointer hover:text-text-secondary transition-colors"
-          onClick={() => onNavigate("/calendar")}
-        >
-          {t("taskPulse.title") ?? "Tasks"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-3 pb-2 overflow-hidden">
+      <div className="h-full flex flex-col px-3 py-2">
+        {/* Header */}
+        <div className="flex items-baseline justify-between mb-2">
+          <span
+            className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary cursor-pointer hover:text-text-secondary transition-colors"
+            onClick={() => onNavigate("/calendar")}
+          >
+            {t("taskPulse.title") ?? "Tasks"}
+          </span>
+          <span
+            className="font-mono text-micro-sm px-1.5 py-0.5 rounded-sm"
+            style={{ backgroundColor: hasOverdue ? `${WT.error}20` : `${WT.accent}20`, color: hasOverdue ? WT.error : WT.accent }}
+          >
+            {segments.total}
+          </span>
+        </div>
+
         {/* Segmented bar */}
         <div ref={barRef} className="relative w-full h-[20px] rounded-sm overflow-hidden flex cursor-pointer" onClick={() => onNavigate("/calendar")}>
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={barRef} anchor="above">
-            <TooltipRow
-              label={tooltip.segment}
-              value={`${tooltip.count}`}
-              delta={{ value: `${tooltip.pct}%`, direction: "neutral" }}
-            />
+            <TooltipRow label={tooltip.segment} value={`${tooltip.count}`} delta={{ value: `${tooltip.pct}%`, direction: "neutral" }} />
           </WidgetTooltip>
-
           {segmentEntries.map((seg, i) => {
             if (seg.count === 0) return null;
             const pct = (seg.count / segments.total) * 100;
@@ -240,10 +316,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
                   transitionDuration: reducedMotion ? "200ms" : "400ms",
                   transitionDelay: reducedMotion ? "0ms" : `${i * 100}ms`,
                   transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                  animation:
-                    seg.key === "overdue" && isVisible && !reducedMotion
-                      ? "task-pulse-overdue 600ms ease-in-out 1"
-                      : undefined,
+                  animation: seg.key === "overdue" && isVisible && !reducedMotion ? "task-pulse-overdue 600ms ease-in-out 1" : undefined,
                 }}
                 onMouseEnter={(e) => handleSegmentHover(e, seg.label, seg.count)}
                 onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
@@ -265,57 +338,60 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
           })}
         </div>
 
-        {/* MD: Actionable task rows */}
-        {size === "md" && actionableTasks.length > 0 && (
-          <div className="mt-2 flex flex-col gap-[2px]">
-            {actionableTasks.map(({ task, isOverdue, isDueToday }, i) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-2 py-1 px-1.5 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                style={{
-                  borderLeft: `2px solid ${isOverdue ? SEGMENT_COLORS.overdue : isDueToday ? SEGMENT_COLORS.dueToday : SEGMENT_COLORS.inProgress}`,
-                  opacity: isVisible ? 1 : 0,
-                  transform: isVisible ? "translateY(0)" : "translateY(4px)",
-                  transition: reducedMotion
-                    ? "opacity 200ms ease"
-                    : `opacity 300ms ease ${400 + i * 40}ms, transform 300ms ease ${400 + i * 40}ms`,
-                }}
-                onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-mohave text-caption-sm text-text-primary truncate">
-                    {task.customTitle || task.taskType?.display || "Task"}
-                  </p>
-                  {task.project && (
-                    <p className="font-kosugi text-micro-sm text-text-disabled truncate">
-                      {task.project.title}
+        {/* Detail zone: Actionable task rows */}
+        {actionableTasks.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-border-subtle flex-1 overflow-y-auto scrollbar-hide">
+            <div className="flex flex-col gap-[2px]">
+              {actionableTasks.map(({ task, isOverdue, isDueToday }, i) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 py-1 px-1.5 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                  style={{
+                    borderLeft: `2px solid ${isOverdue ? SEGMENT_COLORS.overdue : isDueToday ? SEGMENT_COLORS.dueToday : SEGMENT_COLORS.inProgress}`,
+                    opacity: isVisible ? 1 : 0,
+                    transform: isVisible ? "translateY(0)" : "translateY(4px)",
+                    transition: reducedMotion
+                      ? "opacity 200ms ease"
+                      : `opacity 300ms ease ${400 + i * 40}ms, transform 300ms ease ${400 + i * 40}ms`,
+                  }}
+                  onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mohave text-caption-sm text-text-primary truncate">
+                      {task.customTitle || task.taskType?.display || "Task"}
                     </p>
+                    {task.project && (
+                      <p className="font-kosugi text-micro-sm text-text-disabled truncate">
+                        {task.project.title}
+                      </p>
+                    )}
+                  </div>
+                  {task.teamMembers && task.teamMembers.length > 0 && (
+                    <div
+                      className="w-[20px] h-[20px] rounded-full bg-background-elevated flex items-center justify-center shrink-0"
+                      title={task.teamMembers[0].firstName ?? ""}
+                    >
+                      <span className="font-kosugi text-[8px] text-text-tertiary uppercase">
+                        {(task.teamMembers[0].firstName?.[0] ?? "") + (task.teamMembers[0].lastName?.[0] ?? "")}
+                      </span>
+                    </div>
                   )}
                 </div>
-                {task.teamMembers && task.teamMembers.length > 0 && (
-                  <div
-                    className="w-[20px] h-[20px] rounded-full bg-surface-secondary flex items-center justify-center shrink-0"
-                    title={task.teamMembers[0].firstName ?? ""}
-                  >
-                    <span className="font-kosugi text-[8px] text-text-tertiary uppercase">
-                      {(task.teamMembers[0].firstName?.[0] ?? "") + (task.teamMembers[0].lastName?.[0] ?? "")}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
-      </CardContent>
 
-      {/* Overdue pulse keyframe */}
-      <style jsx>{`
-        @keyframes task-pulse-overdue {
-          0% { opacity: 1; }
-          50% { opacity: 0.7; }
-          100% { opacity: 1; }
-        }
-      `}</style>
+        {/* Footer */}
+        <button
+          onClick={() => onNavigate("/calendar")}
+          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+        >
+          {t("taskPulse.viewCalendar") ?? "View Calendar"}
+        </button>
+      </div>
+
+      <style jsx>{`@keyframes task-pulse-overdue { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }`}</style>
     </Card>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import { DollarSign } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -153,20 +152,30 @@ export function RevenuePulseWidget({
     );
   }
 
-  // Empty state
+  // Empty state — show $0 as real data, not a broken icon
   const hasData = monthlyData.months.some((m) => m.amount > 0);
   if (!hasData) {
+    const compact = size === "xs" || size === "sm";
     return (
-      <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices")}>
+        <div className="h-full flex flex-col px-3 py-2">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("revenuePulse.title") ?? "Revenue"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2 flex flex-col items-start justify-center h-[calc(100%-28px)]">
-          <DollarSign className="w-6 h-6 text-text-disabled opacity-20 mb-1" />
-          <span className="font-mohave text-[13px] text-text-tertiary">{t("revenuePulse.noData") ?? "No paid invoices yet"}</span>
-        </CardContent>
+          </span>
+          <div className="flex-1 flex flex-col justify-center">
+            <span className={`font-mono ${compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded} font-bold text-text-disabled leading-none`}>
+              $0
+            </span>
+            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+              {t("revenuePulse.noData") ?? "No payments received"}
+            </span>
+          </div>
+          {size !== "xs" && (
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
+              {t("revenuePulse.viewInvoices") ?? "View Invoices"}
+            </span>
+          )}
+        </div>
       </Card>
     );
   }
