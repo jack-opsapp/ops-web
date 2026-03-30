@@ -103,7 +103,7 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </CardTitle>
         </CardHeader>
@@ -119,7 +119,7 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </CardTitle>
         </CardHeader>
@@ -128,12 +128,12 @@ export function PipelineFunnelWidget({
             {FUNNEL_STAGES.map((stage, i) => (
               <div
                 key={i}
-                className="h-[16px] rounded-sm border border-dashed border-[rgba(255,255,255,0.12)]"
+                className="h-[16px] rounded-sm border border-dashed border-border-subtle"
                 style={{ width: `${stage.maxWidth}%` }}
               />
             ))}
           </div>
-          <p className="font-kosugi text-[9px] text-text-tertiary mt-2">
+          <p className="font-kosugi text-micro-sm text-text-disabled mt-2">
             {t("pipelineFunnel.noProjects") ?? "No active projects"}
           </p>
         </CardContent>
@@ -162,10 +162,10 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">{totalProjects}</span>
+          <span className="font-mono text-micro text-text-tertiary">{totalProjects}</span>
         </CardHeader>
         <CardContent className="px-3 pb-2 overflow-hidden">
           <div ref={ref} className="flex flex-col items-center gap-[3px] relative cursor-pointer" onClick={() => onNavigate("/pipeline")}>
@@ -194,10 +194,10 @@ export function PipelineFunnelWidget({
   return (
     <Card className="h-full" ref={ref}>
       <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
-        <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+        <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
           {t("pipelineFunnel.title") ?? "Pipeline"}
         </CardTitle>
-        <span className="font-mono text-[11px] text-text-tertiary">
+        <span className="font-mono text-micro text-text-tertiary">
           {totalProjects}
         </span>
       </CardHeader>
@@ -229,8 +229,8 @@ export function PipelineFunnelWidget({
               </div>
               {/* Label + count */}
               <div className="flex items-center gap-1 shrink-0 min-w-[80px]">
-                <span className="font-mohave text-[11px] text-text-secondary">{stage.label}</span>
-                <span className="font-mono text-[11px] text-text-primary font-medium">{stage.count}</span>
+                <span className="font-mohave text-micro text-text-secondary">{stage.label}</span>
+                <span className="font-mono text-micro text-text-primary font-medium">{stage.count}</span>
               </div>
             </div>
           ))}
@@ -238,12 +238,12 @@ export function PipelineFunnelWidget({
 
         {/* LG: Per-stage project names */}
         {size === "lg" && (
-          <div className="mt-2 pt-2 border-t border-border-primary">
+          <div className="mt-2 pt-2 border-t border-border-subtle">
             {stages.map((stage, si) => {
               if (stage.count === 0) return null;
               return (
                 <div key={si} className="mb-1.5 last:mb-0">
-                  <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+                  <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
                     {stage.label}
                   </span>
                   {stage.projects.slice(0, 2).map((p) => (
@@ -252,18 +252,18 @@ export function PipelineFunnelWidget({
                       className="flex items-center justify-between py-[2px] px-1 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                       onClick={(e) => { e.stopPropagation(); onNavigate(`/projects/${p.id}`); }}
                     >
-                      <span className="font-mohave text-[12px] text-text-secondary truncate flex-1 min-w-0">
+                      <span className="font-mohave text-caption-sm text-text-secondary truncate flex-1 min-w-0">
                         {p.title || "Untitled"}
                       </span>
                       {p.client?.name && (
-                        <span className="font-kosugi text-[9px] text-text-tertiary truncate ml-2 shrink-0">
+                        <span className="font-kosugi text-micro-sm text-text-disabled truncate ml-2 shrink-0">
                           {p.client.name}
                         </span>
                       )}
                     </div>
                   ))}
                   {stage.count > 2 && (
-                    <span className="font-mono text-[10px] text-text-disabled pl-1">
+                    <span className="font-mono text-micro-sm text-text-disabled pl-1">
                       +{stage.count - 2} more
                     </span>
                   )}
