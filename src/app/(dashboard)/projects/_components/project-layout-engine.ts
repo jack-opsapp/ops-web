@@ -29,6 +29,7 @@ export interface TerminalRegionLayout {
   position: { x: number; y: number };
   cardPositions: { projectId: string; x: number; y: number }[];
   bounds: { x: number; y: number; width: number; height: number };
+  cols: number;
 }
 
 export interface ProjectCanvasLayout {
@@ -204,6 +205,7 @@ export function calculateProjectCanvasLayout(
   terminalRegions.push({
     status: ProjectStatus.Closed,
     position: { x: terminalStartX, y: CANVAS_PADDING },
+    cols: Math.max(1, cols),
     cardPositions,
     bounds: {
       x: terminalStartX - 20,

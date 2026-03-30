@@ -119,7 +119,7 @@ export function ProjectTerminalRegion({
         style={{
           marginLeft: 20,
           marginTop: 12,
-          width: layout.bounds.width - 40,
+          width: layout.cols * (CARD_WIDTH + STACK_GAP) - STACK_GAP,
           height: STACK_HEADER_HEIGHT,
           padding: "8px 0 0 0",
         }}
@@ -191,7 +191,7 @@ export function ProjectTerminalRegion({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(auto-fill, ${CARD_WIDTH}px)`,
+          gridTemplateColumns: `repeat(${layout.cols}, ${CARD_WIDTH}px)`,
           gap: STACK_GAP,
           marginLeft: 20,
           marginTop: 8,
