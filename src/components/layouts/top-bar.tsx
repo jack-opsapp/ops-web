@@ -39,7 +39,6 @@ const routeTitles: Record<string, string> = {
   "/inventory": "Inventory",
   "/invoices": "Invoices",
   "/accounting": "Accounting",
-  "/portal-inbox": "Portal Inbox",
   "/settings": "Settings",
 };
 

@@ -13,7 +13,7 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   accounting: ["/accounting", "/estimates", "/invoices"],
   products: ["/products"],
   inventory: ["/inventory"],
-  portal: ["/portal-inbox"],
+  portal: ["/inbox"],
   ai_email_review: ["/settings/integrations"],
   phase_c: ["/settings/integrations"],
 };

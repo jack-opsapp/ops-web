@@ -27,7 +27,6 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   "/inventory": "inventory.view",
   "/accounting": "accounting.view",
   "/inbox": "pipeline.view",
-  "/portal-inbox": "portal.view",
 };
 
 /** Check if the current pathname requires a permission the user doesn't have. */
