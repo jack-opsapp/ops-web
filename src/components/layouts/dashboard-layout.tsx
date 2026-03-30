@@ -12,6 +12,7 @@ import { WindowDock } from "@/components/ops/window-dock";
 import { FloatingActionButton } from "@/components/ops/floating-action-button";
 import { BugReportButton } from "@/components/ops/bug-report-button";
 import { NotificationModal } from "@/components/layouts/notification-modal";
+import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
 import { CreateProjectForm } from "@/components/ops/create-project-modal";
@@ -136,10 +137,21 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative h-screen overflow-hidden bg-background">
       {/* Page content — full bleed to all edges except left (sidebar width) */}
-      <main className="h-screen w-full overflow-y-auto overflow-x-auto pl-0 md:pl-[72px]">
+      <main className="relative z-[1] h-screen w-full overflow-y-auto overflow-x-auto pl-0 md:pl-[72px]">
         <UnassignedRoleBanner />
-        {children}
+        <div className="pt-[68px] pb-32 px-3 space-y-3">
+          {children}
+        </div>
       </main>
+
+      {/* Bottom gradient fade — signals more content below the fold */}
+      <div
+        className="fixed bottom-0 right-0 left-0 md:left-[72px] h-24 pointer-events-none z-[5]"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%)",
+        }}
+      />
 
       {/* ── HUD Overlays ── */}
 
@@ -174,6 +186,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <FloatingActionButton />
       <BugReportButton />
       <NotificationModal />
+      <DuplicateReviewSheet />
       <WindowDock />
     </div>
   );
