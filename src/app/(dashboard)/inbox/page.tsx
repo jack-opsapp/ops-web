@@ -5,7 +5,6 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useUnifiedConversations } from "@/lib/hooks/use-unified-inbox";
-import { usePipelineThreads } from "@/lib/hooks/use-inbox";
 import { ConversationList } from "@/components/ops/inbox/conversation-list";
 import { UnifiedThreadView } from "@/components/ops/inbox/unified-thread-view";
 import { ContextPanel } from "@/components/ops/inbox/context-panel";
@@ -23,9 +22,8 @@ export default function InboxPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState<ComposeEmailData | undefined>(undefined);
 
-  // Data
+  // Single data source — emailThreadIds live on each conversation
   const { data: conversations = [], isLoading } = useUnifiedConversations();
-  const { data: pipelineThreads = [] } = usePipelineThreads();
 
   // Auto-select first conversation
   useEffect(() => {
@@ -33,13 +31,6 @@ export default function InboxPage() {
       setSelectedConversation(conversations[0]);
     }
   }, [conversations, selectedConversation]);
-
-  // Get email thread IDs for the selected conversation's client
-  const emailThreadIds = selectedConversation?.clientId
-    ? pipelineThreads
-        .filter((t) => t.clientId === selectedConversation.clientId)
-        .map((t) => t.threadId)
-    : [];
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -102,7 +93,7 @@ export default function InboxPage() {
         {selectedConversation ? (
           <UnifiedThreadView
             conversation={selectedConversation}
-            emailThreadIds={emailThreadIds}
+            emailThreadIds={selectedConversation.emailThreadIds}
             onToggleContext={handleToggleContext}
             contextOpen={contextOpen}
             onReply={handleReply}

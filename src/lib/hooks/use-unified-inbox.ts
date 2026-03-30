@@ -173,13 +173,14 @@ function normalizeConversations(
 
     if (existing) {
       // Merge: update if this thread is newer
-      if (thread.latestAt > existing.lastMessageAt) {
+      if (thread.latestAt.getTime() > existing.lastMessageAt.getTime()) {
         existing.lastMessageAt = thread.latestAt;
         existing.lastMessagePreview = thread.latestSnippet || thread.latestSubject;
         existing.lastMessageChannel = "email";
       }
       existing.unreadCount += thread.unreadCount;
       existing.hasEmailThreads = true;
+      existing.emailThreadIds.push(thread.threadId);
     } else {
       conversations.set(key, {
         id: key,
@@ -196,6 +197,7 @@ function normalizeConversations(
         unreadCount: thread.unreadCount,
         hasEmailThreads: true,
         hasPortalMessages: false,
+        emailThreadIds: [thread.threadId],
       });
     }
   }
@@ -207,7 +209,7 @@ function normalizeConversations(
 
     if (existing) {
       // Merge: update if portal message is newer
-      if (portal.lastMessageAt > existing.lastMessageAt) {
+      if (portal.lastMessageAt.getTime() > existing.lastMessageAt.getTime()) {
         existing.lastMessageAt = portal.lastMessageAt;
         existing.lastMessagePreview = portal.lastMessage;
         existing.lastMessageChannel = "portal";
@@ -233,6 +235,7 @@ function normalizeConversations(
         unreadCount: portal.unreadCount,
         hasEmailThreads: false,
         hasPortalMessages: true,
+        emailThreadIds: [],
       });
     }
   }
@@ -331,6 +334,7 @@ export function useUnifiedThread(
       "unified-thread",
       companyId ?? "",
       conversationId ?? "",
+      emailThreadIds,
       filter,
     ],
     queryFn: async () => {

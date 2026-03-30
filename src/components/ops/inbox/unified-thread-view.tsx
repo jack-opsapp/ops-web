@@ -76,13 +76,15 @@ export function UnifiedThreadView({
 
   const markEmailRead = useMarkThreadRead();
 
-  // Mark as read on mount
+  // Mark as read when conversation changes or thread IDs populate
   useEffect(() => {
     if (!companyId) return;
 
     // Mark email threads as read
-    for (const tid of emailThreadIds) {
-      markEmailRead.mutate(tid);
+    if (emailThreadIds.length > 0) {
+      for (const tid of emailThreadIds) {
+        markEmailRead.mutate(tid);
+      }
     }
 
     // Mark portal messages as read
@@ -92,7 +94,7 @@ export function UnifiedThreadView({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation.id]);
+  }, [conversation.id, emailThreadIds.length]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

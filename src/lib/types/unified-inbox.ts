@@ -30,6 +30,8 @@ export interface InboxConversation {
   unreadCount: number;
   hasEmailThreads: boolean;
   hasPortalMessages: boolean;
+  /** Email thread IDs belonging to this conversation (for thread view fetch) */
+  emailThreadIds: string[];
 }
 
 // ─── Unified Message (thread view bubble) ───────────────────────────────────
