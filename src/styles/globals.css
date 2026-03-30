@@ -9,6 +9,19 @@
   --ops-accent-rgb: 65 115 148;
   --ops-accent-hover: #4d83a6;
   --ops-accent-muted: rgba(65, 115, 148, 0.15);
+
+  /* Widget color tokens — for inline styles (charts, SVGs) */
+  /* Use Tailwind classes (text-status-warning, bg-financial-revenue) where possible. */
+  /* These variables are for cases where inline style={{ }} is required. */
+  --color-status-success: #A5B368;
+  --color-status-warning: #C4A868;
+  --color-status-error: #93321A;
+  --color-financial-revenue: #C4A868;
+  --color-financial-profit: #9DB582;
+  --color-financial-cost: #B58289;
+  --color-financial-receivables: #D4A574;
+  --color-financial-overdue: #93321A;
+  --color-ops-accent: rgb(var(--ops-accent-rgb));
 }
 
 /* Compact mode spacing overrides */
