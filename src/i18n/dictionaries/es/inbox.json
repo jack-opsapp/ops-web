@@ -1,23 +1,39 @@
 {
   "title": "Bandeja de entrada",
-  "tabs.pipeline": "Pipeline",
-  "tabs.allMail": "Todo el correo",
 
-  "pipeline.empty.title": "Sin hilos de correo aún",
-  "pipeline.empty.description": "Cuando los hilos de correo se vinculan a oportunidades del pipeline, aparecen aquí.",
-  "pipeline.unread": "sin leer",
-  "pipeline.messages": "mensajes",
-  "pipeline.from": "De",
-  "pipeline.inbound": "Recibido",
-  "pipeline.outbound": "Enviado",
+  "filter.all": "Todos",
+  "filter.email": "Correo",
+  "filter.portal": "Portal",
 
-  "allMail.empty.title": "No se encontraron correos",
-  "allMail.empty.description": "Conecta tu cuenta de correo en Configuración para ver tu bandeja aquí.",
-  "allMail.search.placeholder": "Buscar correos...",
-  "allMail.noConnection.title": "Sin cuenta de correo conectada",
-  "allMail.noConnection.description": "Conecta Gmail o Microsoft 365 en Configuración para acceder a tu bandeja completa.",
-  "allMail.noConnection.cta": "Conectar correo",
-  "allMail.loadMore": "Cargar más",
+  "search.placeholder": "Buscar mensajes",
+  "newMessage": "Nuevo mensaje",
+
+  "context.toggle": "Contexto",
+  "context.viewClient": "Ver cliente",
+  "context.createEstimate": "Crear cotización",
+  "context.createProject": "Crear proyecto",
+  "context.projects": "Proyectos",
+  "context.estimates": "Cotizaciones",
+  "context.invoices": "Facturas",
+
+  "reply.placeholder": "Escribe un mensaje...",
+  "reply.send": "Enviar",
+  "reply.viaPortal": "Portal",
+  "reply.viaEmail": "Correo",
+
+  "channel.portal": "Portal del cliente",
+  "channel.email": "Correo",
+  "channel.unmatched": "Sin asignar",
+
+  "unmatched.linkToClient": "Vincular a cliente",
+  "unmatched.ignore": "Ignorar",
+  "unmatched.createClient": "Crear cliente",
+
+  "empty.title": "Sin conversaciones aún",
+  "empty.description": "Los mensajes de clientes e hilos de correo aparecerán aquí.",
+
+  "date.today": "Hoy",
+  "date.yesterday": "Ayer",
 
   "thread.back": "Volver a la bandeja",
   "thread.aiSummary": "Resumen IA",
