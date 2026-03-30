@@ -724,7 +724,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* ── Page HUD — metrics + toolbar float on top of canvas ── */}
-      <div className="absolute top-[56px] left-0 right-0 z-[2] pointer-events-none">
+      <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
         <div className="pointer-events-auto">
           <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
         </div>

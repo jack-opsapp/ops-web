@@ -150,7 +150,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           background: "rgba(10, 10, 10, 0.70)",
           backdropFilter: "blur(20px) saturate(1.2)",
           WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+          borderBottom: "1px solid hsl(0 0% 100% / 0.2)",
         }}
       >
         <TopBar />
