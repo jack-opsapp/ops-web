@@ -41,6 +41,10 @@ export function ProjectFloatingToolbar({
   selectedClientId,
   onClientFilterChange,
   canViewAccounting,
+  viewMode,
+  onViewModeChange,
+  onArchivedToggle,
+  isArchivedActive,
 }: ProjectFloatingToolbarProps) {
   const { t } = useDictionary("projects-canvas");
   const reduced = useReducedMotion();
