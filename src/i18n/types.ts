@@ -22,6 +22,7 @@ export type Namespace =
   | 'intel'
   | 'ai-drafting'
   | 'import-wizard'
-  | 'projects-canvas';
+  | 'projects-canvas'
+  | 'duplicates';
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;
