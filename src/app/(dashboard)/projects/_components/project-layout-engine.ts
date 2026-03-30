@@ -177,8 +177,14 @@ export function calculateProjectCanvasLayout(
   const terminalSort = statusSortOverrides?.get(ProjectStatus.Closed) ?? sortBy;
   const sortedClosed = sortProjects(closedProjects, terminalSort, clientNames, projectValues, projectProgress);
 
-  // Dynamic column count: grow with project count, min 3
-  const terminalCols = Math.max(TERMINAL_COLS, Math.min(sortedClosed.length, Math.ceil(Math.sqrt(sortedClosed.length * 2))));
+  // Dynamic column count: target a square region shape
+  // Card cell dimensions: 210px wide (200+10gap), 70px tall (60+10gap) → aspect ratio 3:1
+  // For a square region: cols * cellW ≈ rows * cellH → cols * 3 ≈ rows
+  // With rows = ceil(n/cols): cols * 3 ≈ ceil(n/cols) → cols² ≈ n/3 → cols ≈ sqrt(n/3)
+  const cellW = CARD_WIDTH + STACK_GAP;
+  const cellH = CARD_HEIGHT + STACK_GAP;
+  const aspectRatio = cellW / cellH; // ~3
+  const terminalCols = Math.max(1, Math.round(Math.sqrt(sortedClosed.length / aspectRatio)));
 
   const cardPositions = sortedClosed.map((project, i) => {
     const col = i % terminalCols;
