@@ -20,10 +20,14 @@ import {
 import { SpreadsheetHeader } from "./spreadsheet/spreadsheet-header";
 import { SpreadsheetRow } from "./spreadsheet/spreadsheet-row";
 
+export type SpreadsheetStatusFilter = "active" | "archived" | "closed";
+
 interface ProjectSpreadsheetProps {
+  /** All non-deleted, non-archived, non-closed projects (filtered by search/member/client) */
   projects: Project[];
-  archivedProjects: Project[];
-  showArchived: boolean;
+  /** All filtered projects regardless of status — used when statusFilter !== "active" */
+  allFilteredProjects: Project[];
+  statusFilter: SpreadsheetStatusFilter;
   clientNameMap: Map<string, string>;
   clientEmailMap: Map<string, string>;
   clientPhoneMap: Map<string, string>;
@@ -38,12 +42,13 @@ interface ProjectSpreadsheetProps {
   canDelete: boolean;
   selectedIds: Set<string>;
   onSelectedIdsChange: (ids: Set<string>) => void;
+  onAddTask: (projectId: string) => void;
 }
 
 export function ProjectSpreadsheet({
   projects,
-  archivedProjects,
-  showArchived,
+  allFilteredProjects,
+  statusFilter,
   clientNameMap,
   clientEmailMap,
   clientPhoneMap,
@@ -53,9 +58,11 @@ export function ProjectSpreadsheet({
   projectTaskCountMap,
   canManage,
   canViewAccounting,
+  canCreateTasks,
   canDelete,
   selectedIds,
   onSelectedIdsChange,
+  onAddTask,
 }: ProjectSpreadsheetProps) {
   const { t } = useDictionary("projects-canvas");
   const updateProjectMutation = useUpdateProject();
@@ -108,7 +115,14 @@ export function ProjectSpreadsheet({
 
   // ── Sorted projects ──
   const displayProjects = useMemo(() => {
-    const combined = showArchived ? [...projects, ...archivedProjects] : projects;
+    let combined: Project[];
+    if (statusFilter === "archived") {
+      combined = allFilteredProjects.filter((p) => p.status === ProjectStatus.Archived);
+    } else if (statusFilter === "closed") {
+      combined = allFilteredProjects.filter((p) => p.status === ProjectStatus.Closed);
+    } else {
+      combined = projects; // active = non-archived, non-closed
+    }
 
     if (!sortColumn || !sortDirection) return combined;
 
@@ -168,7 +182,7 @@ export function ProjectSpreadsheet({
           return 0;
       }
     });
-  }, [projects, archivedProjects, showArchived, sortColumn, sortDirection, clientNameMap, projectValueMap, estimateTotalMap, projectTaskCountMap]);
+  }, [projects, allFilteredProjects, statusFilter, sortColumn, sortDirection, clientNameMap, projectValueMap, estimateTotalMap, projectTaskCountMap]);
 
   // ── Selection handlers ──
   const handleSelect = useCallback((projectId: string, e: React.MouseEvent) => {
@@ -263,7 +277,7 @@ export function ProjectSpreadsheet({
   }, []);
 
   // ── Counts ──
-  const totalCount = projects.length + archivedProjects.length;
+  const totalCount = allFilteredProjects.length;
 
   // ── Empty state ──
   if (displayProjects.length === 0) {
@@ -312,6 +326,7 @@ export function ProjectSpreadsheet({
                   isSelected={selectedIds.has(project.id)}
                   isArchived={project.status === ProjectStatus.Archived}
                   canEdit={canManage}
+                  canCreateTasks={canCreateTasks}
                   canViewAccounting={canViewAccounting}
                   columnVisibility={columnVisibility}
                   clientName={clientNameMap.get(project.clientId ?? "") ?? ""}
@@ -322,12 +337,12 @@ export function ProjectSpreadsheet({
                   completedTasks={projectTaskCountMap.completed.get(project.id) ?? 0}
                   totalTasks={projectTaskCountMap.total.get(project.id) ?? 0}
                   teamMembers={members}
-                  photoCount={project.projectImages?.length ?? 0}
                   daysInStatus={daysInStatus}
                   onSelect={handleSelect}
                   onUpdateField={handleUpdateField}
                   onUpdateStatus={handleUpdateStatus}
                   onOpenActionMenu={handleOpenActionMenu}
+                  onAddTask={onAddTask}
                 />
               );
             })}

@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { memo, useCallback, useState, useRef, useEffect } from "react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
   type Project,
@@ -21,6 +21,7 @@ interface SpreadsheetRowProps {
   isSelected: boolean;
   isArchived: boolean;
   canEdit: boolean;
+  canCreateTasks: boolean;
   canViewAccounting: boolean;
   columnVisibility: Record<string, boolean>;
   clientName: string;
@@ -31,12 +32,26 @@ interface SpreadsheetRowProps {
   completedTasks: number;
   totalTasks: number;
   teamMembers: { id: string; name: string; avatarUrl?: string }[];
-  photoCount: number;
   daysInStatus: number;
   onSelect: (projectId: string, e: React.MouseEvent) => void;
   onUpdateField: (projectId: string, field: string, value: unknown) => void;
   onUpdateStatus: (projectId: string, status: ProjectStatus) => void;
   onOpenActionMenu: (projectId: string, e: React.MouseEvent) => void;
+  onAddTask: (projectId: string) => void;
+}
+
+/** Extract street number + street name + city from full address */
+function formatShortAddress(address: string | null): string {
+  if (!address) return "—";
+  const parts = address.split(",").map((s) => s.trim());
+  // parts[0] = street, parts[1] = city (typically)
+  if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
+  return parts[0] || "—";
+}
+
+function formatCurrency(val: number): string {
+  if (!val) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
 }
 
 export const SpreadsheetRow = memo(function SpreadsheetRow({
@@ -44,6 +59,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
   isSelected,
   isArchived,
   canEdit,
+  canCreateTasks,
   canViewAccounting,
   columnVisibility,
   clientName,
@@ -54,15 +70,30 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
   completedTasks,
   totalTasks,
   teamMembers,
-  photoCount,
   daysInStatus,
   onSelect,
   onUpdateField,
   onUpdateStatus,
   onOpenActionMenu,
+  onAddTask,
 }: SpreadsheetRowProps) {
   const statusColor = PROJECT_STATUS_COLORS[project.status];
   const editable = canEdit && !isArchived;
+
+  // ── Image gallery popover ──
+  const [showGallery, setShowGallery] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showGallery) return;
+    function handleClick(e: MouseEvent) {
+      if (galleryRef.current && !galleryRef.current.contains(e.target as Node)) {
+        setShowGallery(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showGallery]);
 
   const visibleColumns = SPREADSHEET_COLUMNS.filter((col) => {
     if (col.permission && !canViewAccounting) return false;
@@ -75,10 +106,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
     onSelect(project.id, e);
   }, [project.id, onSelect]);
 
-  const formatCurrency = (val: number): string => {
-    if (!val) return "—";
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
-  };
+  const images = project.projectImages ?? [];
 
   const renderCell = (colId: string) => {
     switch (colId) {
@@ -117,7 +145,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
       case "address":
         return (
           <SpreadsheetCellText
-            value={project.address?.split(",")[0]?.trim() ?? ""}
+            value={formatShortAddress(project.address)}
             canEdit={editable}
             onCommit={(val) => onUpdateField(project.id, "address", val)}
           />
@@ -159,6 +187,33 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         );
       }
 
+      case "tasks": {
+        if (totalTasks === 0) {
+          return canCreateTasks ? (
+            <button
+              data-no-select
+              onClick={(e) => { e.stopPropagation(); onAddTask(project.id); }}
+              className="flex items-center gap-1 text-text-tertiary hover:text-ops-accent transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              <span className="font-mohave text-[11px]">Add task</span>
+            </button>
+          ) : (
+            <span className="font-mono text-data-sm text-text-tertiary">—</span>
+          );
+        }
+        return (
+          <button
+            data-no-select
+            onClick={(e) => { e.stopPropagation(); onAddTask(project.id); }}
+            className="flex items-center gap-1 text-text-secondary hover:text-text-primary transition-colors"
+          >
+            <span className="font-mono text-data-sm">{totalTasks}</span>
+            {canCreateTasks && <Plus className="w-2.5 h-2.5 text-text-disabled" />}
+          </button>
+        );
+      }
+
       case "estimateTotal":
         return <span className="font-mono text-data-sm">{formatCurrency(estimateTotal)}</span>;
 
@@ -176,28 +231,78 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         );
 
       case "team": {
-        if (teamMembers.length === 0) return <span className="text-text-tertiary">—</span>;
-        const visible = teamMembers.slice(0, 3);
-        const overflow = teamMembers.length - 3;
+        if (teamMembers.length === 0) return <span className="text-text-tertiary text-[11px]">—</span>;
+        const visible = teamMembers.slice(0, 4);
+        const overflow = teamMembers.length - 4;
         return (
-          <div className="flex items-center -space-x-1.5">
+          <div className="flex items-center -space-x-1">
             {visible.map((m) => (
               <div
                 key={m.id}
-                className="w-6 h-6 rounded-full bg-background-elevated border border-border-subtle flex items-center justify-center overflow-hidden"
+                className="w-[18px] h-[18px] rounded-full bg-background-elevated border border-border-subtle flex items-center justify-center overflow-hidden group relative"
                 title={m.name}
               >
                 {m.avatarUrl ? (
                   <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-kosugi text-[9px] text-text-tertiary uppercase">
+                  <span className="font-kosugi text-[7px] text-text-tertiary uppercase">
                     {m.name.charAt(0)}
                   </span>
                 )}
               </div>
             ))}
             {overflow > 0 && (
-              <span className="ml-1 font-mono text-data-sm text-text-tertiary">+{overflow}</span>
+              <span className="ml-0.5 font-mono text-[10px] text-text-tertiary">+{overflow}</span>
+            )}
+          </div>
+        );
+      }
+
+      case "images": {
+        if (images.length === 0) return <span className="text-text-tertiary text-[11px]">—</span>;
+        const visibleImgs = images.slice(0, 3);
+        const overflow = images.length - 3;
+        return (
+          <div className="relative" ref={galleryRef}>
+            <button
+              data-no-select
+              onClick={(e) => { e.stopPropagation(); setShowGallery(!showGallery); }}
+              className="flex items-center -space-x-1 cursor-pointer"
+            >
+              {visibleImgs.map((url, i) => (
+                <div
+                  key={i}
+                  className="w-[18px] h-[18px] rounded-[2px] bg-background-elevated border border-border-subtle overflow-hidden"
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </div>
+              ))}
+              {overflow > 0 && (
+                <span className="ml-0.5 font-mono text-[10px] text-text-tertiary">+{overflow}</span>
+              )}
+            </button>
+
+            {showGallery && (
+              <div
+                className="absolute top-full left-0 mt-1 z-[1000] p-2 rounded-[4px] grid grid-cols-3 gap-1.5 max-w-[240px]"
+                style={{
+                  background: "rgba(10,10,10,0.95)",
+                  backdropFilter: "blur(20px) saturate(1.2)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                }}
+              >
+                {images.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-[68px] h-[68px] rounded-[2px] overflow-hidden border border-border-subtle hover:border-ops-accent/40 transition-colors"
+                  >
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  </a>
+                ))}
+              </div>
             )}
           </div>
         );
@@ -209,17 +314,18 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
       case "clientPhone":
         return <span className="font-mono text-data-sm text-text-secondary">{clientPhone || "—"}</span>;
 
-      case "photos":
-        return <span className="font-mono text-data-sm">{photoCount || "—"}</span>;
-
-      case "notes":
+      case "notes": {
+        const text = project.notes;
+        if (!text) return <span className="text-text-tertiary text-[11px]">—</span>;
         return (
-          <SpreadsheetCellTextarea
-            value={project.notes}
-            canEdit={editable}
-            onCommit={(val) => onUpdateField(project.id, "notes", val)}
-          />
+          <span
+            className="font-mohave text-[11px] leading-[14px] text-text-secondary line-clamp-2 block"
+            title={text}
+          >
+            {text}
+          </span>
         );
+      }
 
       case "description":
         return (

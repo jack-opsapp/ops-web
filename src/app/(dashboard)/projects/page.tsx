@@ -216,7 +216,7 @@ export default function ProjectsPage() {
     if (typeof window === "undefined") return "canvas";
     return (localStorage.getItem("ops_projects_view_mode") as "canvas" | "spreadsheet") ?? "canvas";
   });
-  const [showArchived, setShowArchived] = useState(false);
+  const [spreadsheetStatusFilter, setSpreadsheetStatusFilter] = useState<"active" | "archived" | "closed">("active");
   const [spreadsheetSelectedIds, setSpreadsheetSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -800,11 +800,11 @@ export default function ProjectsPage() {
 
       {/* ── Spreadsheet — alternative view ── */}
       {viewMode === "spreadsheet" && (
-        <div className="absolute inset-0 top-[148px] bottom-0 px-3 overflow-hidden flex flex-col">
+        <div className="absolute inset-0 top-[156px] bottom-0 px-3 overflow-hidden flex flex-col">
           <ProjectSpreadsheet
-            projects={filteredProjects.filter((p) => p.status !== ProjectStatus.Archived)}
-            archivedProjects={archivedProjects}
-            showArchived={showArchived}
+            projects={filteredProjects.filter((p) => p.status !== ProjectStatus.Archived && p.status !== ProjectStatus.Closed)}
+            allFilteredProjects={filteredProjects}
+            statusFilter={spreadsheetStatusFilter}
             clientNameMap={clientNameMap}
             clientEmailMap={clientEmailMap}
             clientPhoneMap={clientPhoneMap}
@@ -819,6 +819,7 @@ export default function ProjectsPage() {
             canDelete={canDelete}
             selectedIds={spreadsheetSelectedIds}
             onSelectedIdsChange={setSpreadsheetSelectedIds}
+            onAddTask={handleAddTask}
           />
         </div>
       )}
@@ -852,12 +853,14 @@ export default function ProjectsPage() {
               onViewModeChange={setViewMode}
               onArchivedToggle={viewMode === "canvas"
                 ? () => useProjectCanvasStore.getState().toggleArchiveTray()
-                : () => setShowArchived((prev) => !prev)
+                : () => setSpreadsheetStatusFilter((prev) => prev === "archived" ? "active" : "archived")
               }
               isArchivedActive={viewMode === "canvas"
                 ? useProjectCanvasStore.getState().isArchiveTrayOpen
-                : showArchived
+                : spreadsheetStatusFilter === "archived"
               }
+              onClosedToggle={() => setSpreadsheetStatusFilter((prev) => prev === "closed" ? "active" : "closed")}
+              isClosedActive={spreadsheetStatusFilter === "closed"}
               selectedCount={spreadsheetSelectedIds.size}
               onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
               onBulkArchive={handleSpreadsheetBulkArchive}

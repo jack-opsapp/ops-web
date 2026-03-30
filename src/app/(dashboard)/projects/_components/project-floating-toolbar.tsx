@@ -31,6 +31,8 @@ interface ProjectFloatingToolbarProps {
   onViewModeChange: (mode: "canvas" | "spreadsheet") => void;
   onArchivedToggle: () => void;
   isArchivedActive: boolean;
+  onClosedToggle: () => void;
+  isClosedActive: boolean;
   // Spreadsheet selection (only relevant when viewMode === "spreadsheet")
   selectedCount: number;
   onBulkChangeStatus: (status: ProjectStatus) => void;
@@ -66,6 +68,8 @@ export function ProjectFloatingToolbar({
   onViewModeChange,
   onArchivedToggle,
   isArchivedActive,
+  onClosedToggle,
+  isClosedActive,
   selectedCount,
   onBulkChangeStatus,
   onBulkArchive,
@@ -238,13 +242,21 @@ export function ProjectFloatingToolbar({
 
       <div className="w-[1px] h-[18px] bg-border-subtle" />
 
-      {/* ── SHARED: Archived ── */}
+      {/* ── SHARED: Archived + Closed ── */}
       <ToolbarAction onClick={onArchivedToggle} isActive={isArchivedActive}>
         <Archive className="w-[13px] h-[13px]" />
         <span className="font-kosugi text-micro-sm uppercase tracking-wider">
           Archived
         </span>
       </ToolbarAction>
+
+      {viewMode === "spreadsheet" && (
+        <ToolbarAction onClick={onClosedToggle} isActive={isClosedActive}>
+          <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+            Closed
+          </span>
+        </ToolbarAction>
+      )}
 
       <div className="w-[1px] h-[18px] bg-border-subtle" />
 
