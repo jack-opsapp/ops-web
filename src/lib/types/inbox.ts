@@ -19,6 +19,7 @@ export interface PipelineThread {
   opportunityStage: OpportunityStage;
   aiSummary: string | null;
   /** Client info (denormalized from opportunity) */
+  clientId: string | null;
   clientName: string | null;
   /** Latest message metadata */
   latestSubject: string;

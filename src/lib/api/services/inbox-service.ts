@@ -73,6 +73,7 @@ async function getPipelineThreads(companyId: string): Promise<PipelineThread[]> 
         title: o.title as string,
         stage: o.stage as OpportunityStage,
         aiSummary: (o.ai_summary as string) ?? null,
+        clientId: (o.client_id as string) ?? null,
         clientName: o.client_id ? clientMap[o.client_id as string] ?? null : null,
       },
     ])
@@ -105,6 +106,7 @@ async function getPipelineThreads(companyId: string): Promise<PipelineThread[]> 
       opportunityTitle: opp.title,
       opportunityStage: opp.stage,
       aiSummary: opp.aiSummary,
+      clientId: opp.clientId,
       clientName: opp.clientName,
       latestSubject: (latest.subject as string) || "(no subject)",
       latestSnippet: (latest.content as string) || "",
