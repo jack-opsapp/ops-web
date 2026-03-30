@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notifCardVariants, notifCardVariantsReduced } from "@/lib/utils/motion";
 import { useNotificationRailStore } from "@/stores/notification-rail-store";
+import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
 interface NotificationMiniCardProps {
@@ -24,7 +25,19 @@ export function NotificationMiniCard({
   const variants = reducedMotion ? notifCardVariantsReduced : notifCardVariants;
   const hasAction = notification.actionUrl && notification.actionLabel;
 
+  const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
+
   function handleCardClick() {
+    // Duplicate review notifications open a sheet instead of navigating
+    if (notification.type === "duplicates_found") {
+      if (!notification.persistent) {
+        onDismiss(notification.id);
+      }
+      collapse();
+      openDuplicateSheet();
+      return;
+    }
+
     if (notification.actionUrl) {
       if (!notification.persistent) {
         onDismiss(notification.id);
