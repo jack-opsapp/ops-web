@@ -10,6 +10,7 @@ import { TaskStatus } from "@/lib/types/models";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
+import { WT, HERO_SIZE_CLASS } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
@@ -26,10 +27,10 @@ interface ActionItem {
 }
 
 const TYPE_CONFIG = {
-  "overdue-task": { icon: CheckSquare, color: "#B58289", labelKey: "actionRequired.groupOverdueTasks" },
-  "past-due-invoice": { icon: FileText, color: "#C4976A", labelKey: "actionRequired.groupPastDueInvoices" },
-  "expiring-estimate": { icon: FileSpreadsheet, color: "#C4A868", labelKey: "actionRequired.groupExpiringEstimates" },
-  "stale-follow-up": { icon: Phone, color: "#597794", labelKey: "actionRequired.groupStaleFollowUps" },
+  "overdue-task": { icon: CheckSquare, color: WT.error, labelKey: "actionRequired.groupOverdueTasks" },
+  "past-due-invoice": { icon: FileText, color: WT.receivables, labelKey: "actionRequired.groupPastDueInvoices" },
+  "expiring-estimate": { icon: FileSpreadsheet, color: WT.warning, labelKey: "actionRequired.groupExpiringEstimates" },
+  "stale-follow-up": { icon: Phone, color: WT.accent, labelKey: "actionRequired.groupStaleFollowUps" },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -207,7 +208,7 @@ export function ActionRequiredWidget({
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : false;
 
-  const totalColor = items.length > 5 ? "#B58289" : items.length > 0 ? "#C4A868" : "#6B8F71";
+  const totalColor = items.length > 5 ? WT.error : items.length > 0 ? WT.warning : WT.success;
   const maxItems = size === "lg" ? undefined : 5;
   const displayItems = maxItems ? items.slice(0, maxItems) : items;
 
@@ -215,7 +216,7 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("actionRequired.title") ?? "Action Required"}
           </CardTitle>
         </CardHeader>
@@ -231,14 +232,14 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("actionRequired.title") ?? "Action Required"}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-2 flex flex-col items-start justify-center h-[calc(100%-28px)]">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-status-success" />
-            <span className="font-mohave text-[13px] text-status-success">
+            <span className="font-mohave text-caption-sm text-status-success">
               {t("actionRequired.allClear") ?? "All clear — no items need attention"}
             </span>
           </div>
@@ -255,12 +256,12 @@ export function ActionRequiredWidget({
         onClick={() => items.length > 0 && onNavigate(items[0].navigateTo)}
       >
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("actionRequired.title") ?? "Action Required"}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-2">
-          <span className="font-mono text-[24px] font-medium leading-none" style={{ color: totalColor }}>
+          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`} style={{ color: totalColor }}>
             {items.length}
           </span>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -269,7 +270,7 @@ export function ActionRequiredWidget({
               return (
                 <div key={type} className="flex items-center gap-1">
                   <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: config.color }} />
-                  <span className="font-mono text-[10px] text-text-tertiary">{count}</span>
+                  <span className="font-mono text-micro-sm text-text-tertiary">{count}</span>
                 </div>
               );
             })}
@@ -283,11 +284,11 @@ export function ActionRequiredWidget({
   return (
     <Card className="h-full" ref={ref}>
       <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
-        <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+        <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
           {t("actionRequired.title") ?? "Action Required"}
         </CardTitle>
         <span
-          className="font-mono text-[10px] px-1.5 py-0.5 rounded-sm"
+          className="font-mono text-micro-sm px-1.5 py-0.5 rounded-sm"
           style={{ backgroundColor: `${totalColor}20`, color: totalColor }}
         >
           {items.length}
@@ -303,7 +304,7 @@ export function ActionRequiredWidget({
                 <div key={group.type}>
                   <div className="flex items-center gap-1 mb-1">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: config.color }} />
-                    <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
                       {t(config.labelKey) ?? group.type} ({categoryCounts[group.type]})
                     </span>
                   </div>
@@ -337,7 +338,7 @@ export function ActionRequiredWidget({
               />
             ))}
             {maxItems && items.length > maxItems && (
-              <span className="font-kosugi text-[9px] text-text-tertiary mt-1">
+              <span className="font-kosugi text-micro-sm text-text-disabled mt-1">
                 +{items.length - maxItems} more
               </span>
             )}
@@ -386,13 +387,13 @@ function ActionRow({
     >
       <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: config.color }} />
       <div className="flex-1 min-w-0">
-        <p className="font-mohave text-[12px] text-text-primary truncate">{item.description}</p>
+        <p className="font-mohave text-caption-sm text-text-primary truncate">{item.description}</p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {item.amount !== undefined && (
-          <span className="font-mono text-[10px] text-text-secondary">{formatCurrency(item.amount)}</span>
+          <span className="font-mono text-micro-sm text-text-secondary">{formatCurrency(item.amount)}</span>
         )}
-        <span className="font-mono text-[9px] text-text-tertiary whitespace-nowrap">{item.age}</span>
+        <span className="font-mono text-micro-sm text-text-tertiary whitespace-nowrap">{item.age}</span>
       </div>
 
       <style jsx>{`
