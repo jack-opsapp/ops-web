@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { data: companies, error: companyErr } = await supabase
       .from("companies")
       .select(
-        "id, subscriptionPlan, subscriptionStatus, trialEndDate, seatedEmployeeIds, adminIds, maxSeats"
+        "id, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
       );
 
     if (companyErr) {
@@ -53,17 +53,24 @@ export async function POST(request: NextRequest) {
     let skippedInactive = 0;
 
     for (const row of companies ?? []) {
-      const subInfo = getSubscriptionInfo(
-        row as unknown as Pick<
-          Company,
-          | "subscriptionPlan"
-          | "subscriptionStatus"
-          | "trialEndDate"
-          | "seatedEmployeeIds"
-          | "adminIds"
-          | "maxSeats"
-        >
-      );
+      // Map snake_case DB columns to camelCase for getSubscriptionInfo
+      const companyForSub = {
+        subscriptionPlan: row.subscription_plan,
+        subscriptionStatus: row.subscription_status,
+        trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : undefined,
+        seatedEmployeeIds: row.seated_employee_ids,
+        adminIds: row.admin_ids,
+        maxSeats: row.max_seats,
+      } as Pick<
+        Company,
+        | "subscriptionPlan"
+        | "subscriptionStatus"
+        | "trialEndDate"
+        | "seatedEmployeeIds"
+        | "adminIds"
+        | "maxSeats"
+      >;
+      const subInfo = getSubscriptionInfo(companyForSub);
       if (!subInfo.isActive) {
         skippedInactive++;
         continue;
