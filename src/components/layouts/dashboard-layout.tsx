@@ -135,8 +135,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative h-screen overflow-hidden bg-background">
-      {/* Page content — fills entire viewport edge-to-edge, renders behind HUD overlays */}
-      <main className="h-screen w-full overflow-y-auto overflow-x-auto">
+      {/* Page content — full bleed to all edges except left (sidebar width) */}
+      <main className="h-screen w-full overflow-y-auto overflow-x-auto pl-0 md:pl-[72px]">
         <UnassignedRoleBanner />
         {children}
       </main>

@@ -76,7 +76,7 @@ export function ConversationItem({
               {conversation.displayName}
             </span>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="font-kosugi text-micro-sm text-[rgba(255,255,255,0.25)]">
+              <span className="font-kosugi text-micro-sm text-text-disabled">
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
@@ -89,26 +89,26 @@ export function ConversationItem({
 
           {/* Project name */}
           {conversation.projectName && (
-            <span className="font-kosugi text-micro-sm text-[rgba(255,255,255,0.2)] uppercase block mt-0.5 truncate">
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase block mt-0.5 truncate">
               {conversation.projectName}
             </span>
           )}
 
           {/* Preview */}
-          <div className="flex items-center gap-1 mt-1">
+          <div className="flex items-center gap-1.5 mt-1">
             <span
               className={cn(
-                "px-1 rounded-[2px] font-kosugi text-micro-sm shrink-0",
+                "px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro-xs shrink-0",
                 channelBadge.accent
-                  ? "bg-[rgba(89,119,148,0.25)] text-[#597794]"
+                  ? "bg-[rgba(89,119,148,0.15)] text-[rgba(89,119,148,0.7)]"
                   : channelBadge.warning
-                    ? "bg-[rgba(255,165,0,0.12)] text-[rgba(255,165,0,0.5)]"
-                    : "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.35)]"
+                    ? "bg-[rgba(255,165,0,0.08)] text-[rgba(255,165,0,0.6)]"
+                    : "bg-[rgba(255,255,255,0.04)] text-text-disabled"
               )}
             >
               {channelBadge.label}
             </span>
-            <span className="font-mohave text-body-sm text-[rgba(255,255,255,0.3)] truncate">
+            <span className="font-mohave text-caption-sm text-text-tertiary truncate">
               {conversation.lastMessagePreview}
             </span>
           </div>

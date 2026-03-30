@@ -232,21 +232,21 @@ export function UnifiedThreadView({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {conversation.type === "unmatched" && (
-            <button className="flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.3)] font-kosugi text-micro-sm uppercase tracking-[0.3px] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
-              <LinkIcon className="w-[10px] h-[10px]" />
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-text-tertiary font-kosugi text-micro-sm uppercase tracking-wider hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+              <LinkIcon className="w-3.5 h-3.5" />
               {t("unmatched.linkToClient")}
             </button>
           )}
           <button
             onClick={onToggleContext}
             className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] font-kosugi text-micro-sm uppercase tracking-[0.3px] transition-colors",
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border font-kosugi text-micro-sm uppercase tracking-wider transition-colors",
               contextOpen
                 ? "bg-[rgba(89,119,148,0.1)] text-[#597794] border-[rgba(89,119,148,0.2)]"
-                : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.3)] hover:bg-[rgba(255,255,255,0.06)]"
+                : "bg-[rgba(255,255,255,0.04)] text-text-tertiary border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.06)]"
             )}
           >
-            <PanelRight className="w-[10px] h-[10px]" />
+            <PanelRight className="w-3.5 h-3.5" />
             {t("context.toggle")}
           </button>
         </div>

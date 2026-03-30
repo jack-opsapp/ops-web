@@ -57,19 +57,19 @@ export function UnifiedReplyBar({
           <button
             onClick={() => setShowChannelPicker((prev) => !prev)}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro-sm uppercase tracking-[0.3px] cursor-pointer transition-colors",
+              "flex items-center gap-1.5 px-2 py-1 rounded-[3px] font-kosugi text-micro-sm uppercase tracking-wider cursor-pointer transition-colors",
               channel === "portal"
-                ? "bg-[rgba(89,119,148,0.08)] text-[rgba(89,119,148,0.6)]"
-                : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.35)]"
+                ? "bg-[rgba(89,119,148,0.1)] text-[rgba(89,119,148,0.7)]"
+                : "bg-[rgba(255,255,255,0.06)] text-text-tertiary"
             )}
           >
             {channel === "portal" ? (
-              <MessageSquareText className="w-[9px] h-[9px]" />
+              <MessageSquareText className="w-3.5 h-3.5" />
             ) : (
-              <Mail className="w-[9px] h-[9px]" />
+              <Mail className="w-3.5 h-3.5" />
             )}
             {channel === "portal" ? t("reply.viaPortal") : t("reply.viaEmail")}
-            <ChevronDown className="w-[8px] h-[8px]" />
+            <ChevronDown className="w-3 h-3" />
           </button>
 
           {showChannelPicker && (
@@ -82,7 +82,7 @@ export function UnifiedReplyBar({
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
-                  <MessageSquareText className="w-[10px] h-[10px] text-[rgba(89,119,148,0.6)]" />
+                  <MessageSquareText className="w-3.5 h-3.5 text-[rgba(89,119,148,0.7)]" />
                   <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
                     {t("reply.viaPortal")}
                   </span>
@@ -96,7 +96,7 @@ export function UnifiedReplyBar({
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
-                  <Mail className="w-[10px] h-[10px] text-[rgba(255,255,255,0.35)]" />
+                  <Mail className="w-3.5 h-3.5 text-text-tertiary" />
                   <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
                     {t("reply.viaEmail")}
                   </span>

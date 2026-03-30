@@ -22,17 +22,17 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
 
   return (
     <div className={cn("flex", isOutbound ? "justify-end" : "justify-start")}>
-      <div className="max-w-[65%]">
+      <div className="max-w-[70%]">
         {/* Bubble */}
         <div
           className={cn(
-            "px-3 py-2.5 border",
+            "px-3.5 py-3 border",
             isOutbound
               ? "bg-[rgba(89,119,148,0.12)] border-[rgba(89,119,148,0.18)] rounded-[3px_3px_1px_3px]"
-              : "bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.06)] rounded-[3px_3px_3px_1px]"
+              : "bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.08)] rounded-[3px_3px_3px_1px]"
           )}
         >
-          <p className="font-mohave text-body-sm text-[rgba(255,255,255,0.8)] leading-relaxed whitespace-pre-wrap break-words">
+          <p className="font-mohave text-body-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
             {message.content || (
               <span className="italic text-text-disabled">No message content available.</span>
             )}
@@ -40,8 +40,8 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
 
           {/* Attachment indicator */}
           {message.hasAttachments && message.attachmentCount > 0 && (
-            <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.04)]">
-              <Paperclip className="w-[10px] h-[10px] text-text-disabled" />
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
+              <Paperclip className="w-3 h-3 text-text-disabled" />
               <span className="font-kosugi text-micro-sm text-text-disabled">
                 {message.attachmentCount} attachment{message.attachmentCount > 1 ? "s" : ""}
               </span>
@@ -53,17 +53,17 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
         {showTimestamp && (
           <div
             className={cn(
-              "flex items-center gap-1 mt-0.5 px-1",
+              "flex items-center gap-1.5 mt-1 px-1",
               isOutbound ? "justify-end" : "justify-start"
             )}
           >
-            <span className="font-kosugi text-micro-sm text-[rgba(255,255,255,0.15)]">
+            <span className="font-kosugi text-micro-sm text-text-disabled">
               {formatTime(message.timestamp)}
             </span>
             {!isOutbound && message.senderEmail && (
               <>
-                <span className="text-[rgba(255,255,255,0.1)] text-micro-sm">&middot;</span>
-                <span className="font-kosugi text-micro-sm text-[rgba(255,255,255,0.15)]">
+                <span className="text-text-disabled text-micro-sm">&middot;</span>
+                <span className="font-mohave text-micro-sm text-text-disabled">
                   {message.senderEmail}
                 </span>
               </>
