@@ -22,7 +22,6 @@ import {
   Settings,
   LogOut,
   Building2,
-  MessageSquareText,
   Globe,
   GraduationCap,
   Smartphone,
@@ -37,7 +36,7 @@ import { useSignOutStore } from "@/stores/signout-store";
 import { useDictionary } from "@/i18n/client";
 import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
 import { useFeatureAccessRequests } from "@/lib/hooks/use-feature-access-requests";
-import { useInboxUnreadCount } from "@/lib/hooks/use-inbox";
+import { useUnifiedUnreadCount } from "@/lib/hooks/use-unified-inbox";
 import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitions";
 import {
   DropdownMenu,
@@ -85,7 +84,6 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
       ? [{ label: t("nav.inventory"), href: "/inventory", icon: Boxes, permission: "inventory.view" } as NavItem]
       : []),
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
-    { label: t("nav.portalInbox"), href: "/portal-inbox", icon: MessageSquareText, permission: "portal.view" },
     "divider",
     { label: t("nav.intel"), href: "/intel", icon: Radar },
     "divider",
@@ -190,7 +188,7 @@ export function Sidebar() {
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
-  const { data: inboxUnreadCount = 0 } = useInboxUnreadCount();
+  const { data: inboxUnreadCount = 0 } = useUnifiedUnreadCount();
 
   // Mobile: detect viewport and derive effective collapsed state
   const [isMobileView, setIsMobileView] = useState(false);
