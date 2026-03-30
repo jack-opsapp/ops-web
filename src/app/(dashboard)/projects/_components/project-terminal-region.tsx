@@ -15,7 +15,6 @@ import {
   CARD_HEIGHT,
   STACK_GAP,
   STACK_HEADER_HEIGHT,
-  TERMINAL_COLS,
 } from "./project-canvas-store";
 
 // ── Types ──
@@ -85,9 +84,6 @@ export function ProjectTerminalRegion({
   const bgAlpha = isOver ? "14" : isRegionHovered ? "0C" : "06";
   const borderAlpha = isOver ? "30" : isRegionHovered ? "20" : "10";
   const glowOpacity = isOver ? "28" : isRegionHovered ? "18" : "08";
-
-  // Grid layout for terminal cards
-  const rows = Math.max(1, Math.ceil(projects.length / TERMINAL_COLS));
 
   return (
     <div
@@ -195,7 +191,7 @@ export function ProjectTerminalRegion({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${TERMINAL_COLS}, ${CARD_WIDTH}px)`,
+          gridTemplateColumns: `repeat(auto-fill, ${CARD_WIDTH}px)`,
           gap: STACK_GAP,
           marginLeft: 20,
           marginTop: 8,

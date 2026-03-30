@@ -371,7 +371,7 @@ export const queryKeys = {
       [...queryKeys.aiDrafting.all, "autoSendSettings", companyId, connectionId] as const,
   },
 
-  // Inbox (Email)
+  // Inbox (Email + Portal — unified)
   inbox: {
     all: ["inbox"] as const,
     pipelineThreads: (companyId: string) =>
@@ -382,6 +382,13 @@ export const queryKeys = {
       [...queryKeys.inbox.all, "thread", companyId, threadId] as const,
     unreadCount: (companyId: string) =>
       [...queryKeys.inbox.all, "unread", companyId] as const,
+    // Portal message keys (unified inbox)
+    portalConversations: (companyId: string) =>
+      [...queryKeys.inbox.all, "portal-conversations", companyId] as const,
+    portalMessages: (companyId: string, clientId: string) =>
+      [...queryKeys.inbox.all, "portal-messages", companyId, clientId] as const,
+    portalUnread: (companyId: string) =>
+      [...queryKeys.inbox.all, "portal-unread", companyId] as const,
   },
 } as const;
 

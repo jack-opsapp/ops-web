@@ -177,9 +177,12 @@ export function calculateProjectCanvasLayout(
   const terminalSort = statusSortOverrides?.get(ProjectStatus.Closed) ?? sortBy;
   const sortedClosed = sortProjects(closedProjects, terminalSort, clientNames, projectValues, projectProgress);
 
+  // Dynamic column count: grow with project count, min 3
+  const terminalCols = Math.max(TERMINAL_COLS, Math.min(sortedClosed.length, Math.ceil(Math.sqrt(sortedClosed.length * 2))));
+
   const cardPositions = sortedClosed.map((project, i) => {
-    const col = i % TERMINAL_COLS;
-    const row = Math.floor(i / TERMINAL_COLS);
+    const col = i % terminalCols;
+    const row = Math.floor(i / terminalCols);
     return {
       projectId: project.id,
       x: terminalStartX + col * (CARD_WIDTH + STACK_GAP),
@@ -187,8 +190,8 @@ export function calculateProjectCanvasLayout(
     };
   });
 
-  const cols = Math.min(sortedClosed.length, TERMINAL_COLS);
-  const rows = Math.max(1, Math.ceil(sortedClosed.length / TERMINAL_COLS));
+  const cols = Math.min(sortedClosed.length, terminalCols);
+  const rows = Math.max(1, Math.ceil(sortedClosed.length / terminalCols));
   const regionWidth = cols * (CARD_WIDTH + STACK_GAP);
   const regionHeight = STACK_HEADER_HEIGHT + rows * (CARD_HEIGHT + STACK_GAP);
 
