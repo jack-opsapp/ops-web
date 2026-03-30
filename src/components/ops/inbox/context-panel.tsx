@@ -114,7 +114,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
           <div className="w-[320px] h-full flex flex-col overflow-y-auto scrollbar-hide">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[rgba(255,255,255,0.06)]">
-              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+              <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider">
                 {t("context.toggle")}
               </span>
               <button onClick={onClose} className="text-text-disabled hover:text-text-secondary transition-colors">
@@ -131,11 +131,11 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                 <div className="space-y-1">
                   <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                     <UserPlus className="w-[12px] h-[12px] text-text-tertiary" />
-                    <span className="font-kosugi text-[9px] text-text-secondary uppercase">{t("unmatched.createClient")}</span>
+                    <span className="font-kosugi text-micro-xs text-text-secondary uppercase">{t("unmatched.createClient")}</span>
                   </button>
                   <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                     <Link className="w-[12px] h-[12px] text-text-tertiary" />
-                    <span className="font-kosugi text-[9px] text-text-secondary uppercase">{t("unmatched.linkToClient")}</span>
+                    <span className="font-kosugi text-micro-xs text-text-secondary uppercase">{t("unmatched.linkToClient")}</span>
                   </button>
                 </div>
               </div>
@@ -177,7 +177,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                     {/* Projects */}
                     {context.projects.length > 0 && (
                       <div>
-                        <p className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider mb-1.5">
+                        <p className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-wider mb-1.5">
                           {t("context.projects")}
                         </p>
                         <div className="space-y-1">
@@ -191,7 +191,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                               <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
                                 {p.title}
                               </span>
-                              <span className="font-kosugi text-[8px] text-text-disabled uppercase">
+                              <span className="font-kosugi text-micro-xs text-text-disabled uppercase">
                                 {p.status}
                               </span>
                             </button>
@@ -203,7 +203,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                     {/* Estimates */}
                     {context.estimates.length > 0 && (
                       <div>
-                        <p className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider mb-1.5">
+                        <p className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-wider mb-1.5">
                           {t("context.estimates")}
                         </p>
                         <div className="space-y-1">
@@ -217,7 +217,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                               <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
                                 {e.title || "Untitled"}
                               </span>
-                              <span className="font-kosugi text-[8px] text-text-disabled uppercase">
+                              <span className="font-kosugi text-micro-xs text-text-disabled uppercase">
                                 {e.status}
                               </span>
                             </button>
@@ -229,7 +229,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                     {/* Invoices */}
                     {context.invoices.length > 0 && (
                       <div>
-                        <p className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider mb-1.5">
+                        <p className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-wider mb-1.5">
                           {t("context.invoices")}
                         </p>
                         <div className="space-y-1">
@@ -243,7 +243,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                               <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
                                 {inv.subject || "Untitled"}
                               </span>
-                              <span className="font-kosugi text-[8px] text-text-disabled uppercase">
+                              <span className="font-kosugi text-micro-xs text-text-disabled uppercase">
                                 {inv.status}
                               </span>
                             </button>
@@ -259,7 +259,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                         className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                       >
                         <ExternalLink className="w-[11px] h-[11px] text-text-tertiary" />
-                        <span className="font-kosugi text-[9px] text-text-secondary uppercase">
+                        <span className="font-kosugi text-micro-xs text-text-secondary uppercase">
                           {t("context.viewClient")}
                         </span>
                       </button>

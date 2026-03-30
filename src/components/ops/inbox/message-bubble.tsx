@@ -42,7 +42,7 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
           {message.hasAttachments && message.attachmentCount > 0 && (
             <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-[rgba(255,255,255,0.04)]">
               <Paperclip className="w-[10px] h-[10px] text-text-disabled" />
-              <span className="font-kosugi text-[9px] text-text-disabled">
+              <span className="font-kosugi text-micro-xs text-text-disabled">
                 {message.attachmentCount} attachment{message.attachmentCount > 1 ? "s" : ""}
               </span>
             </div>
@@ -57,13 +57,13 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
               isOutbound ? "justify-end" : "justify-start"
             )}
           >
-            <span className="font-kosugi text-[9px] text-[rgba(255,255,255,0.15)]">
+            <span className="font-kosugi text-micro-xs text-[rgba(255,255,255,0.15)]">
               {formatTime(message.timestamp)}
             </span>
             {!isOutbound && message.senderEmail && (
               <>
-                <span className="text-[rgba(255,255,255,0.1)] text-[9px]">&middot;</span>
-                <span className="font-kosugi text-[8px] text-[rgba(255,255,255,0.15)]">
+                <span className="text-[rgba(255,255,255,0.1)] text-micro-xs">&middot;</span>
+                <span className="font-kosugi text-micro-xs text-[rgba(255,255,255,0.15)]">
                   {message.senderEmail}
                 </span>
               </>

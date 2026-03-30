@@ -82,7 +82,7 @@ export function ConversationList({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("search.placeholder")}
-            className="flex-1 bg-transparent text-[10px] font-mohave text-text-primary placeholder:text-[rgba(255,255,255,0.25)] placeholder:uppercase outline-none"
+            className="flex-1 bg-transparent text-micro-sm font-mohave text-text-primary placeholder:text-[rgba(255,255,255,0.25)] placeholder:uppercase outline-none"
           />
         </div>
       </div>
@@ -94,7 +94,7 @@ export function ConversationList({
           className="flex items-center justify-center gap-1 w-full py-[5px] rounded-[3px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
         >
           <Plus className="w-[11px] h-[11px] text-[rgba(255,255,255,0.4)]" />
-          <span className="font-kosugi text-[9px] text-[rgba(255,255,255,0.4)] uppercase tracking-[0.5px]">
+          <span className="font-kosugi text-micro-xs text-[rgba(255,255,255,0.4)] uppercase tracking-[0.5px]">
             {t("newMessage")}
           </span>
         </button>
@@ -117,7 +117,7 @@ export function ConversationList({
               {searchQuery ? "No conversations match your search." : t("empty.title")}
             </p>
             {!searchQuery && (
-              <p className="font-kosugi text-[10px] text-text-disabled mt-1">
+              <p className="font-kosugi text-micro-sm text-text-disabled mt-1">
                 {t("empty.description")}
               </p>
             )}

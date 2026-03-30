@@ -34,7 +34,7 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
             key={seg.value}
             onClick={() => onChange(seg.value)}
             className={cn(
-              "px-3.5 py-1 font-kosugi text-[9px] uppercase tracking-[0.5px] border-b-2 transition-colors",
+              "px-3.5 py-1 font-kosugi text-micro-xs uppercase tracking-[0.5px] border-b-2 transition-colors",
               active === seg.value
                 ? "text-white bg-[rgba(89,119,148,0.2)] border-b-[#597794]"
                 : "text-[rgba(255,255,255,0.35)] bg-transparent border-b-transparent hover:text-[rgba(255,255,255,0.5)]"
