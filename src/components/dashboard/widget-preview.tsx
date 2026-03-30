@@ -131,9 +131,9 @@ const PREVIEW_SCALE = 0.6;
 const SIZE_DIMENSIONS: Record<WidgetSize, { width: number; height: number }> = {
   xs: { width: 140, height: 140 },
   sm: { width: 280, height: 140 },
-  md: { width: 560, height: 140 },
-  lg: { width: 560, height: 280 },
-  full: { width: 1120, height: 140 },
+  md: { width: 560, height: 280 },
+  lg: { width: 560, height: 560 },
+  xl: { width: 560, height: 840 },
 };
 
 interface WidgetPreviewProps {

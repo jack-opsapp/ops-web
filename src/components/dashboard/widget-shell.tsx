@@ -20,19 +20,19 @@ import {
 
 // Static Tailwind class maps for purge safety
 export const COL_SPAN_CLASSES: Record<WidgetSize, string> = {
-  xs: "col-span-1 2xl:col-span-2",
-  sm: "col-span-2 2xl:col-span-3",
-  md: "col-span-2 md:col-span-4 2xl:col-span-6",
-  lg: "col-span-2 md:col-span-4 2xl:col-span-6",
-  full: "col-span-2 md:col-span-4 xl:col-span-8 2xl:col-span-12",
+  xs: "col-span-1 md:col-span-1 xl:col-span-2 2xl:col-span-2",
+  sm: "col-span-2 md:col-span-2 xl:col-span-3 2xl:col-span-3",
+  md: "col-span-2 md:col-span-4 xl:col-span-4 2xl:col-span-6",
+  lg: "col-span-2 md:col-span-4 xl:col-span-4 2xl:col-span-6",
+  xl: "col-span-2 md:col-span-4 xl:col-span-4 2xl:col-span-6",
 };
 
 const ROW_SPAN_CLASSES: Record<WidgetSize, string> = {
   xs: "",
   sm: "",
-  md: "",
-  lg: "row-span-2",
-  full: "",
+  md: "row-span-2",
+  lg: "row-span-4",
+  xl: "row-span-6",
 };
 
 interface WidgetShellProps {

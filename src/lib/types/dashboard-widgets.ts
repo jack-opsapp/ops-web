@@ -2,7 +2,7 @@
 // Dashboard Widget System — Type Definitions & Registry (v4 — Consolidated)
 // ---------------------------------------------------------------------------
 
-export type WidgetSize = "xs" | "sm" | "md" | "lg" | "full";
+export type WidgetSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 // ---------------------------------------------------------------------------
 // Categories & Tags
@@ -115,11 +115,11 @@ export const WIDGET_SIZE_GRID_SPANS: Record<
   WidgetSize,
   { colSpan: number; rowSpan: number }
 > = {
-  xs: { colSpan: 1, rowSpan: 1 },
-  sm: { colSpan: 2, rowSpan: 1 },
-  md: { colSpan: 4, rowSpan: 1 },
-  lg: { colSpan: 4, rowSpan: 2 },
-  full: { colSpan: 8, rowSpan: 1 },
+  xs: { colSpan: 2, rowSpan: 1 },
+  sm: { colSpan: 3, rowSpan: 1 },
+  md: { colSpan: 6, rowSpan: 2 },
+  lg: { colSpan: 6, rowSpan: 4 },
+  xl: { colSpan: 6, rowSpan: 6 },
 };
 
 export const WIDGET_SIZE_LABELS: Record<WidgetSize, string> = {
@@ -127,7 +127,7 @@ export const WIDGET_SIZE_LABELS: Record<WidgetSize, string> = {
   sm: "S",
   md: "M",
   lg: "L",
-  full: "XL",
+  xl: "XL",
 };
 
 export const CATEGORY_LABELS: Record<WidgetCategory, string> = {
