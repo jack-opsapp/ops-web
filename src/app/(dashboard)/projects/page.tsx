@@ -616,7 +616,7 @@ export default function ProjectsPage() {
 
   // ── Render ──
   return (
-    <div ref={containerRef} className="flex flex-col h-[calc(100vh-68px)] min-w-0">
+    <div ref={containerRef} className="relative min-w-0 -mt-[68px] -ml-3 -mr-3 md:-ml-[84px] md:-mr-3" style={{ height: "100vh" }}>
       {/* Setup gate */}
       {showSetupModal && (
         <SetupInterceptionModal
@@ -628,13 +628,15 @@ export default function ProjectsPage() {
         />
       )}
 
-      {/* Metrics header */}
-      <div className="shrink-0">
+      {/* ── HUD overlays — float on top of canvas ── */}
+
+      {/* Metrics header — positioned below topbar */}
+      <div className="absolute top-[56px] left-0 md:left-[72px] right-0 z-[2]">
         <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
       </div>
 
-      {/* Toolbar */}
-      <div className="shrink-0 px-3 py-1.5">
+      {/* Toolbar — positioned below metrics */}
+      <div className="absolute top-[100px] left-0 md:left-[72px] right-0 z-[2] px-3 py-1.5">
         <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
           style={{
             background: "rgba(10, 10, 10, 0.50)",
@@ -656,8 +658,8 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Canvas — fills remaining space */}
-      <div className="relative flex-1 min-h-0">
+      {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
+      <div className="absolute inset-0">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
