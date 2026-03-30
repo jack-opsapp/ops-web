@@ -23,7 +23,8 @@ export function NotificationMiniCard({
   const reducedMotion = useReducedMotion();
   const collapse = useNotificationRailStore((s) => s.collapse);
   const variants = reducedMotion ? notifCardVariantsReduced : notifCardVariants;
-  const hasAction = notification.actionUrl && notification.actionLabel;
+  const isDuplicateReview = notification.type === "duplicates_found";
+  const hasAction = isDuplicateReview || (notification.actionUrl && notification.actionLabel);
 
   const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
 
@@ -59,7 +60,7 @@ export function NotificationMiniCard({
       onClick={handleCardClick}
       className="shrink-0 flex items-center gap-[6px] h-[40px] px-[8px] rounded-[4px] snap-start w-max max-w-[240px]"
       style={{
-        cursor: notification.actionUrl ? "pointer" : "default",
+        cursor: notification.actionUrl || isDuplicateReview ? "pointer" : "default",
         background: "rgba(10, 10, 10, 0.70)",
         backdropFilter: "blur(20px) saturate(1.2)",
         WebkitBackdropFilter: "blur(20px) saturate(1.2)",
@@ -77,7 +78,7 @@ export function NotificationMiniCard({
       {/* Action label (visual indicator only — whole card is clickable) */}
       {hasAction && (
         <span className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-ops-accent">
-          {notification.actionLabel}
+          {isDuplicateReview ? "Review" : notification.actionLabel}
         </span>
       )}
 
