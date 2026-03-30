@@ -213,7 +213,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
       <CardContent className="px-3 pb-2 overflow-hidden">
         {/* Segmented bar */}
         <div ref={barRef} className="relative w-full h-[20px] rounded-sm overflow-hidden flex cursor-pointer" onClick={() => onNavigate("/calendar")}>
-          <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchor="above">
+          <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={barRef} anchor="above">
             <TooltipRow
               label={tooltip.segment}
               value={`${tooltip.count}`}

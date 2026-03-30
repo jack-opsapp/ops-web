@@ -204,7 +204,7 @@ export function ExpenseTrackerWidget({
         <span className="font-mono text-[11px] text-text-primary">{formatCurrency(categoryData.total)}</span>
       </CardHeader>
       <CardContent className="px-3 pb-2 overflow-hidden relative">
-        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchor="above">
+        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
           <TooltipRow label={tooltip.category} value={formatCurrency(tooltip.amount)} />
           <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
         </WidgetTooltip>

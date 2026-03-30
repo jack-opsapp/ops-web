@@ -187,7 +187,7 @@ export function ReceivablesAgingWidget({
         </span>
       </CardHeader>
       <CardContent className="px-3 pb-2 overflow-hidden relative">
-        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchor="above">
+        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
           <TooltipRow label={tooltip.bucket} value={formatCurrency(tooltip.amount)} />
           <TooltipRow label="Count" value={`${tooltip.count}`} />
           <TooltipRow label="Of total" value={`${Math.round(tooltip.pct)}%`} />

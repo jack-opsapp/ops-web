@@ -1,55 +1,94 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
+
+// ── WidgetTooltip ──
+// Renders via portal to document.body so it escapes overflow-hidden containers.
+// x/y are element-relative coordinates. anchorRef converts them to viewport position.
 
 interface WidgetTooltipProps {
   visible: boolean;
+  /** X coordinate relative to anchorRef element */
   x: number;
+  /** Y coordinate relative to anchorRef element */
   y: number;
+  /** Container element ref — x/y are offsets within this element */
+  anchorRef?: React.RefObject<HTMLElement | null>;
   anchor?: "above" | "below";
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-export function WidgetTooltip({ visible, x, y, anchor = "above", children }: WidgetTooltipProps) {
+export function WidgetTooltip({
+  visible,
+  x,
+  y,
+  anchorRef,
+  anchor = "above",
+  children,
+}: WidgetTooltipProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [flipped, setFlipped] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [resolvedAnchor, setResolvedAnchor] = useState(anchor);
 
   useEffect(() => {
-    if (!ref.current || !visible) return;
+    setPortalTarget(document.body);
+  }, []);
+
+  // Flip anchor if tooltip would overflow viewport
+  useEffect(() => {
+    if (!visible || !ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    // Flip below if tooltip would overflow top of viewport
-    setFlipped(anchor === "above" && rect.top < 8);
-  }, [visible, y, anchor]);
+    if (anchor === "above" && rect.top < 8) {
+      setResolvedAnchor("below");
+    } else if (anchor === "below" && rect.bottom > window.innerHeight - 8) {
+      setResolvedAnchor("above");
+    } else {
+      setResolvedAnchor(anchor);
+    }
+  }, [visible, x, y, anchor]);
 
-  const resolvedAnchor = flipped ? "below" : anchor;
+  if (!visible || !portalTarget) return null;
 
-  return (
+  // Convert element-relative coords to viewport coords
+  let viewportX = x;
+  let viewportY = y;
+  if (anchorRef?.current) {
+    const rect = anchorRef.current.getBoundingClientRect();
+    viewportX = rect.left + x;
+    viewportY = rect.top + y;
+  }
+
+  const tooltip = (
     <div
       ref={ref}
       className={cn(
-        "absolute z-[1000] pointer-events-none max-w-[200px] px-2 py-1.5 rounded-sm",
-        "bg-[rgba(10,10,10,0.85)] backdrop-blur-[12px] border border-[rgba(255,255,255,0.12)]",
-        "transition-all duration-150",
-        visible
-          ? "opacity-100 translate-y-0"
-          : resolvedAnchor === "above"
-            ? "opacity-0 translate-y-1"
-            : "opacity-0 -translate-y-1"
+        "fixed z-[10000] pointer-events-none max-w-[220px]",
+        "rounded-md px-[10px] py-[6px]",
+        "transition-opacity duration-150",
+        visible ? "opacity-100" : "opacity-0",
       )}
       style={{
-        left: `${x}px`,
-        top: resolvedAnchor === "above" ? `${y - 8}px` : undefined,
-        bottom: resolvedAnchor === "below" ? `calc(100% - ${y}px + 8px)` : undefined,
-        transform: `translateX(-50%)${visible ? "" : ` translateY(${resolvedAnchor === "above" ? "4px" : "-4px"})`}`,
+        left: `${viewportX}px`,
+        top: resolvedAnchor === "above" ? `${viewportY - 8}px` : `${viewportY + 8}px`,
+        transform: "translateX(-50%) translateY(-100%)",
+        background: "rgba(10, 10, 10, 0.90)",
+        backdropFilter: "blur(20px) saturate(1.2)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
       }}
     >
       {children}
     </div>
   );
+
+  return createPortal(tooltip, portalTarget);
 }
 
-/** Standard tooltip content row */
+// ── TooltipRow ──
+// Reusable content row for tooltip label + value alignment.
+
 export function TooltipRow({
   label,
   value,
