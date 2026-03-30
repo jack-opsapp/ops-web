@@ -11,15 +11,16 @@ export function ResizableDivider({ onResize, onResizeEnd }: ResizableDividerProp
   const startXRef = useRef(0);
 
   const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       startXRef.current = e.clientX;
-      const target = e.currentTarget;
+      const target = e.currentTarget as HTMLDivElement;
       target.setPointerCapture(e.pointerId);
 
-      const handleMove = (moveEvent: PointerEvent) => {
-        const delta = moveEvent.clientX - startXRef.current;
-        startXRef.current = moveEvent.clientX;
+      const handleMove = (moveEvent: Event) => {
+        const pe = moveEvent as PointerEvent;
+        const delta = pe.clientX - startXRef.current;
+        startXRef.current = pe.clientX;
         onResize(delta);
       };
 
