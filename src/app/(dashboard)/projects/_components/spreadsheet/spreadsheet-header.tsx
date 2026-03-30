@@ -1,14 +1,9 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   SPREADSHEET_COLUMNS,
   type SpreadsheetSortDirection,
@@ -32,6 +27,19 @@ export function SpreadsheetHeader({
   canViewAccounting,
 }: SpreadsheetHeaderProps) {
   const { t } = useDictionary("projects-canvas");
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showColumnMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowColumnMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showColumnMenu]);
 
   const visibleColumns = SPREADSHEET_COLUMNS.filter((col) => {
     if (col.permission && !canViewAccounting) return false;
@@ -51,32 +59,60 @@ export function SpreadsheetHeader({
           if (col.id === "actions") {
             return (
               <th key={col.id} className="w-[40px] px-1 py-1.5">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex items-center justify-center h-6 w-6 rounded-sm text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
-                      aria-label="Toggle columns"
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowColumnMenu(!showColumnMenu); }}
+                    className="flex items-center justify-center h-6 w-6 rounded-sm text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                    aria-label="Toggle columns"
+                  >
+                    <Columns3 className="h-[13px] w-[13px]" />
+                  </button>
+
+                  {showColumnMenu && (
+                    <div
+                      className="absolute top-full left-0 mt-1 z-[1000] min-w-[180px] max-h-[320px] overflow-y-auto p-1 rounded-[4px]"
+                      style={{
+                        background: "rgba(10,10,10,0.95)",
+                        backdropFilter: "blur(20px) saturate(1.2)",
+                        border: "1px solid rgba(255,255,255,0.10)",
+                      }}
                     >
-                      <Columns3 className="h-[13px] w-[13px]" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="z-[1000]">
-                    {toggleableColumns.map((tc) => (
-                      <DropdownMenuCheckboxItem
-                        key={tc.id}
-                        checked={columnVisibility[tc.id] !== false}
-                        onCheckedChange={(checked) => {
-                          onColumnVisibilityChange({
-                            ...columnVisibility,
-                            [tc.id]: !!checked,
-                          });
-                        }}
-                      >
-                        {t(`spreadsheet.columns.${tc.header}`)}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      {toggleableColumns.map((tc) => {
+                        const isChecked = columnVisibility[tc.id] !== false;
+                        return (
+                          <button
+                            key={tc.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onColumnVisibilityChange({
+                                ...columnVisibility,
+                                [tc.id]: !isChecked,
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors",
+                              isChecked
+                                ? "text-text-primary"
+                                : "text-text-disabled"
+                            )}
+                          >
+                            <span className={cn(
+                              "w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0",
+                              isChecked
+                                ? "border-ops-accent bg-ops-accent-muted/30"
+                                : "border-border-subtle"
+                            )}>
+                              {isChecked && <span className="text-[9px] text-ops-accent">✓</span>}
+                            </span>
+                            <span className="font-mohave text-body-sm">
+                              {t(`spreadsheet.columns.${tc.header}`)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </th>
             );
           }

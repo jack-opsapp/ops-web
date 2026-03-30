@@ -19,7 +19,6 @@ import {
 } from "./spreadsheet/spreadsheet-columns";
 import { SpreadsheetHeader } from "./spreadsheet/spreadsheet-header";
 import { SpreadsheetRow } from "./spreadsheet/spreadsheet-row";
-import { SpreadsheetBulkBar } from "./spreadsheet/spreadsheet-bulk-bar";
 
 interface ProjectSpreadsheetProps {
   projects: Project[];
@@ -37,6 +36,8 @@ interface ProjectSpreadsheetProps {
   canCreateTasks: boolean;
   canRecordPayment: boolean;
   canDelete: boolean;
+  selectedIds: Set<string>;
+  onSelectedIdsChange: (ids: Set<string>) => void;
 }
 
 export function ProjectSpreadsheet({
@@ -53,6 +54,8 @@ export function ProjectSpreadsheet({
   canManage,
   canViewAccounting,
   canDelete,
+  selectedIds,
+  onSelectedIdsChange,
 }: ProjectSpreadsheetProps) {
   const { t } = useDictionary("projects-canvas");
   const updateProjectMutation = useUpdateProject();
@@ -64,8 +67,7 @@ export function ProjectSpreadsheet({
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SpreadsheetSortDirection>(null);
 
-  // ── Selection state ──
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // ── Selection ──
   const lastSelectedRef = useRef<string | null>(null);
 
   // ── Column visibility ──
@@ -170,35 +172,33 @@ export function ProjectSpreadsheet({
 
   // ── Selection handlers ──
   const handleSelect = useCallback((projectId: string, e: React.MouseEvent) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
+    const next = new Set(selectedIds);
 
-      if (e.shiftKey && lastSelectedRef.current) {
-        const allIds = displayProjects.map((p) => p.id);
-        const startIdx = allIds.indexOf(lastSelectedRef.current);
-        const endIdx = allIds.indexOf(projectId);
-        if (startIdx !== -1 && endIdx !== -1) {
-          const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
-          for (let i = from; i <= to; i++) {
-            next.add(allIds[i]);
-          }
-        }
-      } else if (e.metaKey || e.ctrlKey) {
-        if (next.has(projectId)) next.delete(projectId);
-        else next.add(projectId);
-      } else {
-        if (next.size === 1 && next.has(projectId)) {
-          next.clear();
-        } else {
-          next.clear();
-          next.add(projectId);
+    if (e.shiftKey && lastSelectedRef.current) {
+      const allIds = displayProjects.map((p) => p.id);
+      const startIdx = allIds.indexOf(lastSelectedRef.current);
+      const endIdx = allIds.indexOf(projectId);
+      if (startIdx !== -1 && endIdx !== -1) {
+        const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+        for (let i = from; i <= to; i++) {
+          next.add(allIds[i]);
         }
       }
+    } else if (e.metaKey || e.ctrlKey) {
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+    } else {
+      if (next.size === 1 && next.has(projectId)) {
+        next.clear();
+      } else {
+        next.clear();
+        next.add(projectId);
+      }
+    }
 
-      lastSelectedRef.current = projectId;
-      return next;
-    });
-  }, [displayProjects]);
+    lastSelectedRef.current = projectId;
+    onSelectedIdsChange(next);
+  }, [selectedIds, displayProjects, onSelectedIdsChange]);
 
   // ── Field update (uses existing useUpdateProject: { id, data }) ──
   const handleUpdateField = useCallback((projectId: string, field: string, value: unknown) => {
@@ -218,21 +218,21 @@ export function ProjectSpreadsheet({
     for (const id of selectedIds) {
       updateStatusMutation.mutate({ id, status });
     }
-    setSelectedIds(new Set());
+    onSelectedIdsChange(new Set());
   }, [selectedIds, updateStatusMutation]);
 
   const handleBulkArchive = useCallback(() => {
     for (const id of selectedIds) {
       updateStatusMutation.mutate({ id, status: ProjectStatus.Archived });
     }
-    setSelectedIds(new Set());
+    onSelectedIdsChange(new Set());
   }, [selectedIds, updateStatusMutation]);
 
   const handleBulkDelete = useCallback(() => {
     for (const id of selectedIds) {
       deleteProjectMutation.mutate(id);
     }
-    setSelectedIds(new Set());
+    onSelectedIdsChange(new Set());
   }, [selectedIds, deleteProjectMutation]);
 
   // ── Action menu handlers ──
@@ -254,7 +254,7 @@ export function ProjectSpreadsheet({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        setSelectedIds(new Set());
+        onSelectedIdsChange(new Set());
         setActionMenu(null);
       }
     }
@@ -283,20 +283,9 @@ export function ProjectSpreadsheet({
 
   return (
     <div className="flex flex-col gap-1.5 h-full">
-      {/* Bulk action bar */}
-      <SpreadsheetBulkBar
-        selectedCount={selectedIds.size}
-        canManage={canManage}
-        canDelete={canDelete}
-        onChangeStatus={handleBulkChangeStatus}
-        onArchive={handleBulkArchive}
-        onDelete={handleBulkDelete}
-        onClear={() => setSelectedIds(new Set())}
-      />
-
       {/* Table with bottom fade */}
       <div className="relative flex-1 min-h-0">
-        <div className="h-full overflow-auto rounded border border-border">
+        <div className="h-full overflow-auto rounded border-y border-r border-border">
           <table className="w-full border-collapse">
             <SpreadsheetHeader
               columnVisibility={columnVisibility}

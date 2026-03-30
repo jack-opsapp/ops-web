@@ -217,9 +217,15 @@ export default function ProjectsPage() {
     return (localStorage.getItem("ops_projects_view_mode") as "canvas" | "spreadsheet") ?? "canvas";
   });
   const [showArchived, setShowArchived] = useState(false);
+  const [spreadsheetSelectedIds, setSpreadsheetSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     localStorage.setItem("ops_projects_view_mode", viewMode);
+  }, [viewMode]);
+
+  // Clear spreadsheet selection when switching to canvas
+  useEffect(() => {
+    if (viewMode === "canvas") setSpreadsheetSelectedIds(new Set());
   }, [viewMode]);
 
   // ── Local state ──
@@ -598,6 +604,31 @@ export default function ProjectsPage() {
     [executeDrag]
   );
 
+  // ── Spreadsheet bulk actions ──
+  const handleSpreadsheetBulkChangeStatus = useCallback(
+    (status: ProjectStatus) => {
+      for (const id of spreadsheetSelectedIds) {
+        executeDrag(id, status);
+      }
+      setSpreadsheetSelectedIds(new Set());
+    },
+    [spreadsheetSelectedIds, executeDrag]
+  );
+
+  const handleSpreadsheetBulkArchive = useCallback(() => {
+    for (const id of spreadsheetSelectedIds) {
+      executeDrag(id, ProjectStatus.Archived);
+    }
+    setSpreadsheetSelectedIds(new Set());
+  }, [spreadsheetSelectedIds, executeDrag]);
+
+  const handleSpreadsheetBulkDelete = useCallback(() => {
+    for (const id of spreadsheetSelectedIds) {
+      deleteProjectMutation.mutate(id);
+    }
+    setSpreadsheetSelectedIds(new Set());
+  }, [spreadsheetSelectedIds, deleteProjectMutation]);
+
   // ── Render card callback for stacks ──
   const renderCard = useCallback(
     (project: Project) => {
@@ -786,6 +817,8 @@ export default function ProjectsPage() {
             canCreateTasks={canCreateTasks}
             canRecordPayment={canRecordPayment}
             canDelete={canDelete}
+            selectedIds={spreadsheetSelectedIds}
+            onSelectedIdsChange={setSpreadsheetSelectedIds}
           />
         </div>
       )}
@@ -813,6 +846,8 @@ export default function ProjectsPage() {
               selectedClientId={selectedClientId}
               onClientFilterChange={setSelectedClientId}
               canViewAccounting={canViewAccounting}
+              canManage={canManage}
+              canDelete={canDelete}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               onArchivedToggle={viewMode === "canvas"
@@ -823,6 +858,11 @@ export default function ProjectsPage() {
                 ? useProjectCanvasStore.getState().isArchiveTrayOpen
                 : showArchived
               }
+              selectedCount={spreadsheetSelectedIds.size}
+              onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
+              onBulkArchive={handleSpreadsheetBulkArchive}
+              onBulkDelete={handleSpreadsheetBulkDelete}
+              onBulkClear={() => setSpreadsheetSelectedIds(new Set())}
             />
           </div>
         </div>
