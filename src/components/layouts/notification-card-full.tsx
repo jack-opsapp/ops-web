@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notifCardFullVariants } from "@/lib/utils/motion";
 import { useNotificationRailStore } from "@/stores/notification-rail-store";
+import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
 interface NotificationCardFullProps {
@@ -31,8 +32,19 @@ export function NotificationCardFull({
 }: NotificationCardFullProps) {
   const router = useRouter();
   const closeModal = useNotificationRailStore((s) => s.closeModal);
+  const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
+  const isDuplicateReview = notification.type === "duplicates_found";
 
   function handleCardClick() {
+    if (isDuplicateReview) {
+      if (!notification.persistent) {
+        onDismiss(notification.id);
+      }
+      closeModal();
+      openDuplicateSheet();
+      return;
+    }
+
     if (notification.actionUrl) {
       if (!notification.persistent) {
         onDismiss(notification.id);
@@ -52,7 +64,7 @@ export function NotificationCardFull({
       onClick={handleCardClick}
       className="relative px-[12px] py-[10px] border-b border-[rgba(255,255,255,0.06)]"
       style={{
-        cursor: notification.actionUrl ? "pointer" : "default",
+        cursor: notification.actionUrl || isDuplicateReview ? "pointer" : "default",
         borderLeft: notification.persistent
           ? "2px solid var(--ops-accent, #597794)"
           : undefined,
@@ -90,9 +102,9 @@ export function NotificationCardFull({
       )}
 
       {/* Row 3: Action label (visual indicator — whole card is clickable) */}
-      {notification.actionLabel && notification.actionUrl && (
+      {(isDuplicateReview || (notification.actionLabel && notification.actionUrl)) && (
         <span className="font-kosugi text-[10px] uppercase tracking-wider text-ops-accent inline-block mt-[4px]">
-          {notification.actionLabel}
+          {isDuplicateReview ? "REVIEW" : notification.actionLabel}
         </span>
       )}
     </motion.div>
