@@ -43,6 +43,8 @@
 
   "archive.title": "Archived",
   "archive.empty": "No archived projects",
+  "archive.restore": "Restore",
+  "archive.deletePermanently": "Delete permanently",
 
   "tray.dropToArchive": "Drop to archive"
 }

@@ -523,6 +523,20 @@ export default function ProjectsPage() {
     [executeDrag]
   );
 
+  const handleRestoreFromArchive = useCallback(
+    (projectId: string) => {
+      executeDrag(projectId, ProjectStatus.InProgress);
+    },
+    [executeDrag]
+  );
+
+  const handleDeletePermanently = useCallback(
+    (projectId: string) => {
+      deleteProjectMutation.mutate(projectId);
+    },
+    [deleteProjectMutation]
+  );
+
   const handleDeleteBatch = useCallback(
     (projectIds: string[]) => {
       for (const id of projectIds) {
@@ -681,8 +695,8 @@ export default function ProjectsPage() {
                   status={regionLayout.status}
                   projects={closedProjects}
                   layout={regionLayout}
-                  isBirdEye={isBirdEye}
-                  activeId={activeCardId}
+                  projectValues={projectValueMap}
+                  canViewAccounting={canViewAccounting}
                   renderCard={(project) => renderCard(project)}
                 />
               );
@@ -718,7 +732,10 @@ export default function ProjectsPage() {
         <ProjectArchiveTray
           archivedProjects={archivedProjects}
           clientNames={clientNameMap}
-          isDragActive={isDragging}
+          projectValues={projectValueMap}
+          canViewAccounting={canViewAccounting}
+          onRestore={handleRestoreFromArchive}
+          onDeletePermanently={handleDeletePermanently}
         />
       </div>
 
