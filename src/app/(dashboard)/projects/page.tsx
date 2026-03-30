@@ -616,7 +616,7 @@ export default function ProjectsPage() {
 
   // ── Render ──
   return (
-    <div ref={containerRef} className="flex flex-col h-full w-full">
+    <div ref={containerRef} className="flex flex-col h-[calc(100vh-68px)] min-w-0">
       {/* Setup gate */}
       {showSetupModal && (
         <SetupInterceptionModal
@@ -629,7 +629,9 @@ export default function ProjectsPage() {
       )}
 
       {/* Metrics header */}
-      <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+      <div className="shrink-0">
+        <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+      </div>
 
       {/* Toolbar */}
       <div className="shrink-0 px-3 py-1.5">
@@ -654,8 +656,8 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Canvas */}
-      <div className="flex-1 relative">
+      {/* Canvas — fills remaining space */}
+      <div className="relative flex-1 min-h-0">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

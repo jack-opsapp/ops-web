@@ -1,100 +1,81 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { Mail, PenSquare } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary } from "@/i18n/client";
-import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { cn } from "@/lib/utils/cn";
-import { useInboxUnreadCount } from "@/lib/hooks/use-inbox";
-import { useInboxMetrics } from "@/lib/hooks";
-import { MetricsHeader } from "@/components/metrics";
-import { PipelineThreadList } from "@/components/ops/inbox/pipeline-thread-list";
-import { AllMailList } from "@/components/ops/inbox/all-mail-list";
-import { ThreadView } from "@/components/ops/inbox/thread-view";
+import { useUnifiedConversations } from "@/lib/hooks/use-unified-inbox";
+import { usePipelineThreads } from "@/lib/hooks/use-inbox";
+import { ConversationList } from "@/components/ops/inbox/conversation-list";
+import { UnifiedThreadView } from "@/components/ops/inbox/unified-thread-view";
+import { ContextPanel } from "@/components/ops/inbox/context-panel";
+import { ResizableDivider } from "@/components/ops/inbox/resizable-divider";
 import { ComposeEmailModal } from "@/components/ops/compose-email-modal";
-import type { InboxTab } from "@/lib/types/inbox";
-import type { PipelineThread } from "@/lib/types/inbox";
+import type { InboxConversation } from "@/lib/types/unified-inbox";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 
-// ─── Thread Selection State ───────────────────────────────────────────────────
+const LIST_MIN = 240;
+const LIST_MAX = 400;
+const LIST_DEFAULT = 300;
+const STORAGE_KEY = "ops-inbox-list-width";
 
-interface SelectedThread {
-  threadId: string;
-  source: "pipeline" | "all-mail";
-  aiSummary?: string | null;
-  opportunityTitle?: string;
-  subject?: string;
+function getStoredWidth(): number {
+  if (typeof window === "undefined") return LIST_DEFAULT;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    const parsed = parseInt(stored, 10);
+    if (!isNaN(parsed) && parsed >= LIST_MIN && parsed <= LIST_MAX) return parsed;
+  }
+  return LIST_DEFAULT;
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InboxPage() {
   usePageTitle("Inbox");
   const { t } = useDictionary("inbox");
   const can = usePermissionStore((s) => s.can);
 
-  const [activeTab, setActiveTab] = useState<InboxTab>("pipeline");
-  const [selectedThread, setSelectedThread] = useState<SelectedThread | null>(null);
+  const [listWidth, setListWidth] = useState(getStoredWidth);
+  const [selectedConversation, setSelectedConversation] = useState<InboxConversation | null>(null);
+  const [contextOpen, setContextOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState<ComposeEmailData | undefined>(undefined);
 
-  // Unread count for pipeline badge
-  const { data: unreadCount = 0 } = useInboxUnreadCount();
-  const { data: inboxMetrics = [], isLoading: inboxMetricsLoading } = useInboxMetrics();
+  // Data
+  const { data: conversations = [], isLoading } = useUnifiedConversations();
+  const { data: pipelineThreads = [] } = usePipelineThreads();
 
-  // Permission checks
-  const canViewPipeline = can("pipeline.view");
-  const canViewEmail = can("email.view");
+  // Auto-select first conversation
+  useEffect(() => {
+    if (!selectedConversation && conversations.length > 0) {
+      setSelectedConversation(conversations[0]);
+    }
+  }, [conversations, selectedConversation]);
 
-  // Build available tabs
-  const tabs = useMemo(() => {
-    const all: Array<{ value: InboxTab; label: string; show: boolean; badge?: number }> = [
-      {
-        value: "pipeline",
-        label: t("tabs.pipeline"),
-        show: canViewPipeline,
-        badge: unreadCount > 0 ? unreadCount : undefined,
-      },
-      {
-        value: "all-mail",
-        label: t("tabs.allMail"),
-        show: canViewEmail,
-      },
-    ];
-    return all.filter((tab) => tab.show);
-  }, [t, canViewPipeline, canViewEmail, unreadCount]);
-
-  // If current tab became hidden, switch to first available
-  if (tabs.length > 0 && !tabs.some((tab) => tab.value === activeTab)) {
-    setActiveTab(tabs[0].value);
-  }
+  // Get email thread IDs for the selected conversation's client
+  const emailThreadIds = selectedConversation?.clientId
+    ? pipelineThreads
+        .filter((t) => t.clientId === selectedConversation.clientId)
+        .map((t) => t.threadId)
+    : [];
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
-  const handleSelectPipelineThread = useCallback((thread: PipelineThread) => {
-    setSelectedThread({
-      threadId: thread.threadId,
-      source: "pipeline",
-      aiSummary: thread.aiSummary,
-      opportunityTitle: thread.opportunityTitle,
+  const handleResize = useCallback((delta: number) => {
+    setListWidth((prev) => {
+      const next = Math.max(LIST_MIN, Math.min(LIST_MAX, prev + delta));
+      return next;
     });
   }, []);
 
-  const handleSelectAllMailThread = useCallback(
-    (threadId: string, subject: string) => {
-      setSelectedThread({
-        threadId,
-        source: "all-mail",
-        subject,
-      });
-    },
-    []
-  );
+  const handleResizeEnd = useCallback(() => {
+    setListWidth((current) => {
+      localStorage.setItem(STORAGE_KEY, String(current));
+      return current;
+    });
+  }, []);
 
-  const handleBack = useCallback(() => {
-    setSelectedThread(null);
+  const handleSelectConversation = useCallback((conv: InboxConversation) => {
+    setSelectedConversation(conv);
   }, []);
 
   const handleReply = useCallback((data: ComposeEmailData) => {
@@ -102,93 +83,81 @@ export default function InboxPage() {
     setComposeOpen(true);
   }, []);
 
-  const handleNewEmail = useCallback(() => {
+  const handleNewMessage = useCallback(() => {
     setComposeData({ mode: "new" });
     setComposeOpen(true);
   }, []);
 
-  // ─── Render: Thread View ──────────────────────────────────────────────────
+  const handleToggleContext = useCallback(() => {
+    setContextOpen((prev) => !prev);
+  }, []);
 
-  if (selectedThread) {
-    return (
-      <div className="h-[calc(100vh-68px)]">
-        <ThreadView
-          threadId={selectedThread.threadId}
-          source={selectedThread.source}
-          aiSummary={selectedThread.aiSummary}
-          opportunityTitle={selectedThread.opportunityTitle}
-          onBack={handleBack}
-          onReply={handleReply}
-        />
-        <ComposeEmailModal
-          open={composeOpen}
-          onOpenChange={setComposeOpen}
-          composeData={composeData}
-        />
-      </div>
-    );
-  }
+  // Keyboard: Escape to close context panel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (contextOpen) {
+          setContextOpen(false);
+        }
+      }
+      // Cmd+K to focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        const searchInput = document.querySelector<HTMLInputElement>(
+          '[placeholder]'
+        );
+        searchInput?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [contextOpen]);
 
-  // ─── Render: Thread List ──────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-3 pb-6">
-      {/* Metrics Header */}
-      <MetricsHeader variant="compact" tabId="inbox" title="Inbox" metrics={inboxMetrics} isLoading={inboxMetricsLoading} />
-
-      {/* Header with Tab Switcher + New Email */}
-      <div className="flex items-center gap-1">
-        {/* Tabs */}
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
-            className={cn(
-              "px-3 py-1 rounded-[4px] font-mohave text-body-sm uppercase transition-colors flex items-center gap-1.5",
-              activeTab === tab.value
-                ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-                : "text-text-tertiary hover:text-text-secondary"
-            )}
-          >
-            {tab.label}
-            {tab.badge !== undefined && tab.badge > 0 && (
-              <span
-                className={cn(
-                  "inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full",
-                  "font-kosugi text-[10px] leading-none",
-                  activeTab === tab.value
-                    ? "bg-[#597794] text-white"
-                    : "bg-[rgba(255,255,255,0.1)] text-text-tertiary"
-                )}
-              >
-                {tab.badge > 99 ? "99+" : tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-
-        {/* New Email Button */}
-        <button
-          onClick={handleNewEmail}
-          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text-secondary uppercase tracking-wider hover:bg-[rgba(255,255,255,0.1)] hover:text-text-primary transition-colors"
-        >
-          <PenSquare className="w-[12px] h-[12px]" />
-          New Email
-        </button>
+    <div className="h-[calc(100vh-68px)] flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.02)] overflow-hidden">
+      {/* Left: Conversation List */}
+      <div style={{ width: listWidth, minWidth: listWidth }} className="shrink-0">
+        <ConversationList
+          conversations={conversations}
+          isLoading={isLoading}
+          selectedId={selectedConversation?.id ?? null}
+          onSelect={handleSelectConversation}
+          onNewMessage={handleNewMessage}
+        />
       </div>
 
-      {/* Tab Content */}
-      <div className="rounded-[4px] border border-border bg-[rgba(255,255,255,0.02)] overflow-hidden">
-        {activeTab === "pipeline" && (
-          <PipelineThreadList onSelectThread={handleSelectPipelineThread} />
-        )}
+      {/* Resizable Divider */}
+      <ResizableDivider onResize={handleResize} onResizeEnd={handleResizeEnd} />
 
-        {activeTab === "all-mail" && (
-          <AllMailList onSelectThread={handleSelectAllMailThread} />
+      {/* Center: Thread View */}
+      <div className="flex-1 min-w-0">
+        {selectedConversation ? (
+          <UnifiedThreadView
+            conversation={selectedConversation}
+            emailThreadIds={emailThreadIds}
+            onToggleContext={handleToggleContext}
+            contextOpen={contextOpen}
+            onReply={handleReply}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="font-mohave text-body text-text-disabled">
+              {t("empty.title")}
+            </p>
+          </div>
         )}
       </div>
 
-      {/* Compose Modal */}
+      {/* Right: Context Panel */}
+      <ContextPanel
+        open={contextOpen}
+        onClose={() => setContextOpen(false)}
+        conversation={selectedConversation}
+      />
+
+      {/* Compose Email Modal */}
       <ComposeEmailModal
         open={composeOpen}
         onOpenChange={setComposeOpen}
