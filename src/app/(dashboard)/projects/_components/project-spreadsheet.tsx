@@ -294,17 +294,18 @@ export function ProjectSpreadsheet({
         onClear={() => setSelectedIds(new Set())}
       />
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto rounded border border-border">
-        <table className="w-full border-collapse">
-          <SpreadsheetHeader
-            columnVisibility={columnVisibility}
-            onColumnVisibilityChange={handleColumnVisibilityChange}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-            canViewAccounting={canViewAccounting}
-          />
+      {/* Table with bottom fade */}
+      <div className="relative flex-1 min-h-0">
+        <div className="h-full overflow-auto rounded border border-border">
+          <table className="w-full border-collapse">
+            <SpreadsheetHeader
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={handleColumnVisibilityChange}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              canViewAccounting={canViewAccounting}
+            />
           <tbody>
             {displayProjects.map((project) => {
               const members = (project.teamMemberIds ?? [])
@@ -341,8 +342,14 @@ export function ProjectSpreadsheet({
                 />
               );
             })}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+        {/* Bottom fade gradient */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, transparent, #0A0A0A)" }}
+        />
       </div>
 
       {/* Footer */}

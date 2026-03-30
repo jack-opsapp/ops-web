@@ -769,7 +769,7 @@ export default function ProjectsPage() {
 
       {/* ── Spreadsheet — alternative view ── */}
       {viewMode === "spreadsheet" && (
-        <div className="absolute inset-0 top-[130px] px-3 pb-3 overflow-hidden">
+        <div className="absolute inset-0 top-[148px] bottom-0 px-3 overflow-hidden flex flex-col">
           <ProjectSpreadsheet
             projects={filteredProjects.filter((p) => p.status !== ProjectStatus.Archived)}
             archivedProjects={archivedProjects}
