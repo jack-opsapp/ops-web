@@ -8,16 +8,11 @@ import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-const BAR_COLOR = "#C4A868";
-const BAR_COLOR_PAST = "rgba(196, 168, 104, 0.6)";
 const GHOST_OPACITY = 0.2;
 
 // ---------------------------------------------------------------------------
@@ -169,54 +164,65 @@ export function RevenuePulseWidget({
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-2 flex flex-col items-start justify-center h-[calc(100%-28px)]">
-          <DollarSign className="w-6 h-6 text-text-quaternary opacity-20 mb-1" />
+          <DollarSign className="w-6 h-6 text-text-disabled opacity-20 mb-1" />
           <span className="font-mohave text-[13px] text-text-tertiary">{t("revenuePulse.noData") ?? "No paid invoices yet"}</span>
         </CardContent>
       </Card>
     );
   }
 
-  // ── XS: MTD number + trend ──────────────────────────────────────────────
+  // ── XS: Header + Hero (MTD number + trend) ─────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full flex flex-col items-start justify-center px-3">
-        <span className="font-mono text-[28px] font-medium leading-none" style={{ color: BAR_COLOR }}>
-          {formatCurrency(animatedMtd)}
-        </span>
-        <div className="flex items-center gap-1 mt-1">
-          <span className="font-mono text-[11px]" style={{
-            color: monthlyData.trend === "up" ? "#6B8F71" : monthlyData.trend === "down" ? "#B58289" : "var(--text-tertiary)",
-          }}>
-            {monthlyData.trend === "up" ? "↑" : monthlyData.trend === "down" ? "↓" : "→"}
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=paid")}>
+        <div className="h-full flex flex-col justify-center px-3">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
+            {t("revenuePulse.title") ?? "Revenue"}
           </span>
-          <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
-            {t("revenuePulse.mtdRevenue") ?? "MTD Revenue"}
+          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none text-text-primary`}>
+            {formatCurrency(animatedMtd)}
           </span>
+          <div className="flex items-center gap-1 mt-1">
+            <span className="font-mono text-micro" style={{
+              color: monthlyData.trend === "up" ? WT.success : monthlyData.trend === "down" ? WT.error : undefined,
+            }}>
+              {monthlyData.trend === "up" ? "↑" : monthlyData.trend === "down" ? "↓" : "→"}
+            </span>
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              {t("revenuePulse.mtdRevenue") ?? "MTD"}
+            </span>
+          </div>
         </div>
       </Card>
     );
   }
 
-  // ── SM: MTD + sparkline + YTD ───────────────────────────────────────────
+  // ── SM: Header + Hero (MTD + sparkline + YTD) + Footer ──────────────────
   if (size === "sm") {
     const sparkData = monthlyData.months.map((m) => m.amount);
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("revenuePulse.title") ?? "Revenue"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-3 pb-2">
+        <CardContent className="px-3 pb-2 flex flex-col h-[calc(100%-28px)]">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[20px] font-medium" style={{ color: BAR_COLOR }}>
+            <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold text-text-primary`}>
               {formatCurrency(monthlyData.mtd)}
             </span>
-            <Sparkline data={sparkData} width={60} height={24} color={BAR_COLOR} />
+            <Sparkline data={sparkData} width={60} height={24} color={WT.revenue} />
           </div>
-          <p className="font-mono text-[11px] text-text-tertiary mt-0.5">
+          <p className="font-mono text-micro text-text-tertiary mt-0.5">
             {t("revenuePulse.ytd") ?? "YTD"}: {formatCurrency(monthlyData.ytd)}
           </p>
+          <button
+            onClick={() => onNavigate("/invoices?status=paid")}
+            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("revenuePulse.viewAll") ?? "View Invoices"}
+          </button>
         </CardContent>
       </Card>
     );
@@ -229,7 +235,7 @@ export function RevenuePulseWidget({
   return (
     <Card className="h-full cursor-pointer" ref={ref} onClick={() => onNavigate("/invoices?status=paid")}>
       <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
-        <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+        <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
           {t("revenuePulse.title") ?? "Revenue"}
         </CardTitle>
         <span className="font-mono text-[11px] text-text-tertiary">
@@ -238,7 +244,7 @@ export function RevenuePulseWidget({
       </CardHeader>
       <CardContent className="px-3 pb-2 overflow-hidden relative">
         <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
-          <TooltipRow label={tooltip.month} value={formatCurrency(tooltip.amount)} color={BAR_COLOR} />
+          <TooltipRow label={tooltip.month} value={formatCurrency(tooltip.amount)} color={WT.revenue} />
           {showGhosts && tooltip.lastYear > 0 && (
             <TooltipRow
               label={`vs ${new Date().getFullYear() - 1}`}
@@ -286,7 +292,7 @@ export function RevenuePulseWidget({
                     className="absolute bottom-0 w-[70%] rounded-t-sm"
                     style={{
                       height: `${ghostH}px`,
-                      backgroundColor: BAR_COLOR,
+                      backgroundColor: WT.revenue,
                       opacity: isVisible ? GHOST_OPACITY : 0,
                       transition: reducedMotion ? "opacity 200ms ease" : `opacity 400ms ease ${500 + 200}ms`,
                     }}
@@ -297,7 +303,8 @@ export function RevenuePulseWidget({
                   className="w-[70%] rounded-t-sm relative z-10 transition-all"
                   style={{
                     height: isVisible ? `${Math.max(barH, m.amount > 0 ? 2 : 0)}px` : "0px",
-                    backgroundColor: isCurrent ? BAR_COLOR : BAR_COLOR_PAST,
+                    backgroundColor: WT.revenue,
+                    opacity: isCurrent ? 1 : 0.6,
                     transitionDuration: reducedMotion ? "200ms" : "600ms",
                     transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
                     transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -309,20 +316,20 @@ export function RevenuePulseWidget({
         </div>
 
         {/* Bottom summary */}
-        <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border-primary">
+        <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border-subtle">
           <div>
-            <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
               {t("revenuePulse.mtdRevenue") ?? "MTD"}
             </span>
-            <p className="font-mono text-[13px] text-text-primary font-medium">
+            <p className="font-mono text-data-sm text-text-primary font-medium">
               {formatCurrency(monthlyData.mtd)}
             </p>
           </div>
           <div className="text-right">
-            <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
               {t("revenuePulse.ytdTotal") ?? "YTD Total"}
             </span>
-            <p className="font-mono text-[13px] text-text-primary font-medium">
+            <p className="font-mono text-data-sm text-text-primary font-medium">
               {formatCurrency(monthlyData.ytd)}
             </p>
           </div>
