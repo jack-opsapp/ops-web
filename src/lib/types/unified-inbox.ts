@@ -36,6 +36,13 @@ export interface InboxConversation {
 
 // ─── Unified Message (thread view bubble) ───────────────────────────────────
 
+export interface EmailAttachment {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface InboxMessage {
   id: string;
   channel: "email" | "portal";
@@ -48,6 +55,8 @@ export interface InboxMessage {
   isRead: boolean;
   hasAttachments: boolean;
   attachmentCount: number;
+  /** Image attachments with metadata for rendering */
+  attachments: EmailAttachment[];
   // Email-specific (null for portal)
   emailThreadId: string | null;
   emailMessageId: string | null;

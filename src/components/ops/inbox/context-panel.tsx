@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,28 +14,58 @@ import {
   UserPlus,
   Link,
   X,
+  ImageIcon,
+  ArrowRight,
+  Users,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
-import type { InboxConversation } from "@/lib/types/unified-inbox";
+import type { InboxConversation, InboxMessage } from "@/lib/types/unified-inbox";
+
+// ─── Props ─────────────────────────────────────────────────────────────────
 
 interface ContextPanelProps {
   open: boolean;
   onClose: () => void;
   conversation: InboxConversation | null;
+  /** All messages across all threads (for extracting contacts + attachments) */
+  messages?: InboxMessage[];
+  /** Navigate to a specific email thread */
+  onGoToThread?: (threadId: string) => void;
 }
+
+// ─── Data types ────────────────────────────────────────────────────────────
 
 interface ClientContext {
   name: string;
   email: string | null;
   phone: string | null;
+  subClients: Array<{ id: string; name: string; email: string | null; title: string | null }>;
   projects: Array<{ id: string; title: string; status: string }>;
   estimates: Array<{ id: string; title: string | null; status: string; total: number }>;
   invoices: Array<{ id: string; subject: string | null; status: string; total: number }>;
 }
+
+interface ThreadImage {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  messageId: string;
+  threadId: string;
+  threadSubject: string;
+}
+
+interface ThreadContact {
+  email: string;
+  name: string;
+  title: string | null;
+  isSubClient: boolean;
+}
+
+// ─── Data fetching ─────────────────────────────────────────────────────────
 
 async function fetchClientContext(
   companyId: string,
@@ -42,13 +73,20 @@ async function fetchClientContext(
 ): Promise<ClientContext> {
   const supabase = requireSupabase();
 
-  const [clientRes, projectsRes, estimatesRes, invoicesRes] = await Promise.all([
+  const [clientRes, subClientsRes, projectsRes, estimatesRes, invoicesRes] = await Promise.all([
     supabase.from("clients").select("name, email, phone").eq("id", clientId).single(),
+    supabase
+      .from("sub_clients")
+      .select("id, name, email, title")
+      .eq("client_id", clientId)
+      .is("deleted_at", null)
+      .order("name"),
     supabase
       .from("projects")
       .select("id, title, status")
       .eq("company_id", companyId)
       .eq("client_id", clientId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
@@ -71,6 +109,12 @@ async function fetchClientContext(
     name: (clientRes.data?.name as string) ?? "",
     email: (clientRes.data?.email as string) ?? null,
     phone: (clientRes.data?.phone as string) ?? null,
+    subClients: (subClientsRes.data ?? []).map((sc) => ({
+      id: sc.id as string,
+      name: sc.name as string,
+      email: (sc.email as string) ?? null,
+      title: (sc.title as string) ?? null,
+    })),
     projects: (projectsRes.data ?? []).map((p) => ({
       id: p.id as string,
       title: p.title as string,
@@ -91,7 +135,40 @@ async function fetchClientContext(
   };
 }
 
-export function ContextPanel({ open, onClose, conversation }: ContextPanelProps) {
+// ─── Section header ────────────────────────────────────────────────────────
+
+function SectionHeader({ label, count }: { label: string; count?: number }) {
+  return (
+    <div className="flex items-center gap-1.5 mb-1.5">
+      <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
+        {label}
+      </span>
+      {count !== undefined && (
+        <span className="font-kosugi text-micro-sm text-text-disabled/60">
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <p className="font-mohave text-caption-sm text-text-disabled/50 italic px-2 py-1.5">
+      No {label.toLowerCase()}
+    </p>
+  );
+}
+
+// ─── Component ─────────────────────────────────────────────────────────────
+
+export function ContextPanel({
+  open,
+  onClose,
+  conversation,
+  messages = [],
+  onGoToThread,
+}: ContextPanelProps) {
   const { t } = useDictionary("inbox");
   const router = useRouter();
   const companyId = useAuthStore((s) => s.company?.id);
@@ -101,6 +178,70 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
     queryFn: () => fetchClientContext(companyId!, conversation!.clientId!),
     enabled: open && !!companyId && !!conversation?.clientId,
   });
+
+  // ─── Derive contacts from sub-clients + message participants ─────────
+
+  const contacts: ThreadContact[] = useMemo(() => {
+    const seen = new Set<string>();
+    const result: ThreadContact[] = [];
+
+    // Sub-clients first (they have titles/roles)
+    if (context?.subClients) {
+      for (const sc of context.subClients) {
+        const key = sc.email?.toLowerCase() ?? sc.name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          if (sc.email) seen.add(sc.email.toLowerCase());
+          result.push({
+            email: sc.email ?? "",
+            name: sc.name,
+            title: sc.title,
+            isSubClient: true,
+          });
+        }
+      }
+    }
+
+    // Add unique inbound email participants not already in sub-clients
+    for (const msg of messages) {
+      if (msg.channel !== "email" || msg.direction !== "inbound" || !msg.senderEmail) continue;
+      const key = msg.senderEmail.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({
+          email: msg.senderEmail,
+          name: msg.senderName,
+          title: null,
+          isSubClient: false,
+        });
+      }
+    }
+
+    return result;
+  }, [context, messages]);
+
+  // ─── Derive images from all messages ─────────────────────────────────
+
+  const threadImages: ThreadImage[] = useMemo(() => {
+    const images: ThreadImage[] = [];
+
+    for (const msg of messages) {
+      if (!msg.attachments || msg.attachments.length === 0) continue;
+      for (const att of msg.attachments) {
+        if (!att.mimeType.startsWith("image/")) continue;
+        images.push({
+          attachmentId: att.attachmentId,
+          filename: att.filename,
+          mimeType: att.mimeType,
+          messageId: msg.emailMessageId ?? msg.id,
+          threadId: msg.emailThreadId ?? "",
+          threadSubject: msg.subject ?? "Email",
+        });
+      }
+    }
+
+    return images;
+  }, [messages]);
 
   return (
     <AnimatePresence>
@@ -152,7 +293,7 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                   </div>
                 ) : context ? (
                   <>
-                    {/* Name + contact */}
+                    {/* Name + primary contact */}
                     <div>
                       <p className="font-mohave text-body text-text-primary font-semibold">
                         {context.name}
@@ -174,13 +315,70 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                       )}
                     </div>
 
-                    {/* Projects */}
-                    {context.projects.length > 0 && (
-                      <div>
-                        <p className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1.5">
-                          {t("context.projects")}
-                        </p>
-                        <div className="space-y-1">
+                    {/* ─── Contacts ──────────────────────────────────────── */}
+                    <div>
+                      <SectionHeader label="Contacts" count={contacts.length} />
+                      {contacts.length === 0 ? (
+                        <EmptyState label="contacts" />
+                      ) : (
+                        <div className="space-y-0.5">
+                          {contacts.map((c, i) => (
+                            <div
+                              key={c.email || i}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors"
+                            >
+                              <div className="w-[24px] h-[24px] rounded-full bg-background-card border border-border-subtle flex items-center justify-center shrink-0">
+                                <Users className="w-[10px] h-[10px] text-text-disabled" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-mohave text-caption-sm text-text-secondary truncate">
+                                  {c.name}
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  {c.title && (
+                                    <span className="font-kosugi text-micro-sm text-ops-accent uppercase tracking-wider">
+                                      {c.title}
+                                    </span>
+                                  )}
+                                  {c.email && (
+                                    <span className="font-mohave text-micro-sm text-text-disabled truncate">
+                                      {c.title && <>&middot; </>}{c.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ─── Attachments / Images ─────────────────────────── */}
+                    <div>
+                      <SectionHeader label="Photos" count={threadImages.length} />
+                      {threadImages.length === 0 ? (
+                        <EmptyState label="photos" />
+                      ) : (
+                        <div className="grid grid-cols-3 gap-1">
+                          {threadImages.map((img) => (
+                            <ImageThumbnail
+                              key={img.attachmentId}
+                              image={img}
+                              companyId={companyId!}
+                              onGoToThread={onGoToThread}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ─── Projects ──────────────────────────────────────── */}
+                    <div>
+                      <SectionHeader label={t("context.projects")} count={context.projects.length} />
+                      {context.projects.length === 0 ? (
+                        <EmptyState label="projects" />
+                      ) : (
+                        <div className="space-y-0.5">
                           {context.projects.map((p) => (
                             <button
                               key={p.id}
@@ -197,16 +395,16 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                             </button>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    {/* Estimates */}
-                    {context.estimates.length > 0 && (
-                      <div>
-                        <p className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1.5">
-                          {t("context.estimates")}
-                        </p>
-                        <div className="space-y-1">
+                    {/* ─── Estimates ─────────────────────────────────────── */}
+                    <div>
+                      <SectionHeader label={t("context.estimates")} count={context.estimates.length} />
+                      {context.estimates.length === 0 ? (
+                        <EmptyState label="estimates" />
+                      ) : (
+                        <div className="space-y-0.5">
                           {context.estimates.map((e) => (
                             <button
                               key={e.id}
@@ -223,16 +421,16 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                             </button>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    {/* Invoices */}
-                    {context.invoices.length > 0 && (
-                      <div>
-                        <p className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1.5">
-                          {t("context.invoices")}
-                        </p>
-                        <div className="space-y-1">
+                    {/* ─── Invoices ──────────────────────────────────────── */}
+                    <div>
+                      <SectionHeader label={t("context.invoices")} count={context.invoices.length} />
+                      {context.invoices.length === 0 ? (
+                        <EmptyState label="invoices" />
+                      ) : (
+                        <div className="space-y-0.5">
                           {context.invoices.map((inv) => (
                             <button
                               key={inv.id}
@@ -249,10 +447,10 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
                             </button>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    {/* Quick actions */}
+                    {/* ─── Quick actions ─────────────────────────────────── */}
                     <div className="pt-2 border-t border-border-subtle">
                       <button
                         onClick={() => router.push(`/clients/${conversation?.clientId}`)}
@@ -272,5 +470,45 @@ export function ContextPanel({ open, onClose, conversation }: ContextPanelProps)
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ─── Image thumbnail with go-to-thread ─────────────────────────────────────
+
+function ImageThumbnail({
+  image,
+  companyId,
+  onGoToThread,
+}: {
+  image: ThreadImage;
+  companyId: string;
+  onGoToThread?: (threadId: string) => void;
+}) {
+  const src = `/api/integrations/email/attachment?companyId=${companyId}&messageId=${image.messageId}&attachmentId=${encodeURIComponent(image.attachmentId)}&mimeType=${encodeURIComponent(image.mimeType)}`;
+
+  return (
+    <div className="group relative aspect-square rounded-[3px] overflow-hidden border border-border-subtle bg-background-card">
+      <img
+        src={src}
+        alt={image.filename}
+        className="w-full h-full object-cover"
+        loading="lazy"
+      />
+
+      {/* Hover overlay with go-to-thread */}
+      {onGoToThread && image.threadId && (
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-end p-1.5">
+          <button
+            onClick={() => onGoToThread(image.threadId)}
+            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-background-card/90 border border-border-subtle text-text-secondary hover:text-ops-accent transition-colors cursor-pointer"
+          >
+            <ArrowRight className="w-[10px] h-[10px] shrink-0" />
+            <span className="font-kosugi text-[9px] uppercase tracking-wider truncate">
+              Go to thread
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

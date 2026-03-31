@@ -44,28 +44,26 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
   ];
 
   return (
-    <div className="absolute top-3 left-3 z-10">
-      <div className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]">
-        {segments.map((seg, i) => (
-          <div key={seg.value} className="flex items-center gap-[8px]">
-            {i > 0 && <div className="w-[1px] h-[18px] bg-border-subtle" />}
-            <button
-              onClick={() => onChange(seg.value)}
-              className={cn(
-                "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
-                active === seg.value
-                  ? "text-ops-accent bg-ops-accent-muted/20"
-                  : "text-text-tertiary hover:text-text-primary hover:bg-background-input"
-              )}
-            >
-              {seg.icon}
-              <span className="font-kosugi text-micro-sm uppercase tracking-wider">
-                {seg.label}
-              </span>
-            </button>
-          </div>
-        ))}
-      </div>
+    <div className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] shrink-0">
+      {segments.map((seg, i) => (
+        <div key={seg.value} className="flex items-center gap-[8px]">
+          {i > 0 && <div className="w-[1px] h-[18px] bg-border-subtle" />}
+          <button
+            onClick={() => onChange(seg.value)}
+            className={cn(
+              "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
+              active === seg.value
+                ? "text-ops-accent bg-ops-accent-muted/20"
+                : "text-text-tertiary hover:text-text-primary hover:bg-background-input"
+            )}
+          >
+            {seg.icon}
+            <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+              {seg.label}
+            </span>
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

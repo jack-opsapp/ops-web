@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
-import { PanelRight, Link as LinkIcon } from "lucide-react";
+import { PanelRight, Link as LinkIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { queryKeys } from "@/lib/api/query-client";
-import { useUnifiedThread, markPortalMessagesRead } from "@/lib/hooks/use-unified-inbox";
+import { useUnifiedThread, useClientThreads, markPortalMessagesRead } from "@/lib/hooks/use-unified-inbox";
 import { useMarkThreadRead } from "@/lib/hooks/use-inbox";
 import { ChannelFilterBar } from "./channel-filter";
+import { ThreadSelector } from "./thread-selector";
+import type { EmailThread } from "./thread-selector";
 import { MessageBubble } from "./message-bubble";
 import { ChannelDivider, DateDivider } from "./channel-divider";
 import { UnifiedReplyBar } from "./unified-reply-bar";
@@ -23,6 +25,10 @@ interface UnifiedThreadViewProps {
   onToggleContext: () => void;
   contextOpen: boolean;
   onReply: (data: ComposeEmailData) => void;
+  /** Expose loaded messages to parent (for context panel) */
+  onMessagesLoaded?: (messages: InboxMessage[]) => void;
+  /** Expose go-to-thread function to parent (for context panel navigation) */
+  onGoToThreadReady?: (fn: (threadId: string) => void) => void;
 }
 
 // ─── Date formatting helpers ────────────────────────────────────────────────
@@ -58,6 +64,8 @@ export function UnifiedThreadView({
   onToggleContext,
   contextOpen,
   onReply,
+  onMessagesLoaded,
+  onGoToThreadReady,
 }: UnifiedThreadViewProps) {
   const { t } = useDictionary("inbox");
   const companyId = useAuthStore((s) => s.company?.id);
@@ -66,17 +74,102 @@ export function UnifiedThreadView({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [filter, setFilter] = useState<ChannelFilter>("all");
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+
+  // Track previous filter to detect transitions
+  const prevFilterRef = useRef<ChannelFilter>(filter);
+
+  // ─── Discover ALL Gmail threads for this client ──────────────────────
+
+  // For unmatched contacts, extract sender email from conversation ID
+  const unmatchedEmail = conversation.type === "unmatched"
+    ? conversation.id.replace("unmatched-", "")
+    : null;
+
+  const { data: clientThreadData } = useClientThreads(
+    conversation.clientId,
+    unmatchedEmail
+  );
+
+  // Use Gmail-discovered thread IDs, falling back to activities-based IDs
+  const discoveredThreadIds = useMemo(() => {
+    if (clientThreadData?.threads && clientThreadData.threads.length > 0) {
+      return clientThreadData.threads.map((t) => t.threadId);
+    }
+    return emailThreadIds;
+  }, [clientThreadData, emailThreadIds]);
+
+  const connectionEmail = clientThreadData?.connectionEmail ?? null;
 
   const { data: messages = [], isLoading } = useUnifiedThread(
     conversation.id,
     conversation.clientId,
-    emailThreadIds,
-    filter
+    discoveredThreadIds,
+    filter,
+    connectionEmail
   );
 
   const markEmailRead = useMarkThreadRead();
 
-  // Mark as read when conversation changes or thread IDs populate
+  // ─── Build thread list for selector ──────────────────────────────────
+  // Prefer the client-threads API data (has subject + date without needing
+  // to fetch every message). Fall back to deriving from loaded messages.
+
+  const emailThreads: EmailThread[] = useMemo(() => {
+    if (clientThreadData?.threads && clientThreadData.threads.length > 0) {
+      return clientThreadData.threads.map((t) => ({
+        threadId: t.threadId,
+        subject: t.subject,
+        latestTimestamp: new Date(t.latestDate),
+      }));
+    }
+
+    // Fallback: derive from loaded messages
+    const threadMap = new Map<string, EmailThread>();
+
+    for (const msg of messages) {
+      if (msg.channel !== "email" || !msg.emailThreadId) continue;
+      const existing = threadMap.get(msg.emailThreadId);
+      if (!existing || msg.timestamp.getTime() > existing.latestTimestamp.getTime()) {
+        threadMap.set(msg.emailThreadId, {
+          threadId: msg.emailThreadId,
+          subject: msg.subject || "No subject",
+          latestTimestamp: msg.timestamp,
+        });
+      }
+    }
+
+    return Array.from(threadMap.values()).sort(
+      (a, b) => b.latestTimestamp.getTime() - a.latestTimestamp.getTime()
+    );
+  }, [clientThreadData, messages]);
+
+  // ─── Auto-select thread on filter change ─────────────────────────────
+
+  useEffect(() => {
+    if (filter === "email") {
+      // Entering email view — select most recent thread if none selected
+      if (prevFilterRef.current !== "email" || !selectedThreadId) {
+        if (emailThreads.length > 0) {
+          setSelectedThreadId(emailThreads[0].threadId);
+        }
+      }
+    } else {
+      // Leaving email view — clear thread selection
+      setSelectedThreadId(null);
+    }
+    prevFilterRef.current = filter;
+  }, [filter, emailThreads, selectedThreadId]);
+
+  // ─── Filter messages by selected thread ──────────────────────────────
+
+  const visibleMessages = useMemo(() => {
+    if (filter !== "email" || !selectedThreadId) return messages;
+    return messages.filter((m) => m.emailThreadId === selectedThreadId);
+  }, [messages, filter, selectedThreadId]);
+
+  // ─── Mark as read ────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!companyId) return;
 
@@ -101,7 +194,20 @@ export function UnifiedThreadView({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [visibleMessages]);
+
+  // Expose ALL messages (not filtered) to parent for context panel
+  useEffect(() => {
+    onMessagesLoaded?.(messages);
+  }, [messages, onMessagesLoaded]);
+
+  // Expose go-to-thread function to parent
+  useEffect(() => {
+    onGoToThreadReady?.((threadId: string) => {
+      setFilter("email");
+      setSelectedThreadId(threadId);
+    });
+  }, [onGoToThreadReady]);
 
   // Send portal message
   const sendPortalMutation = useMutation({
@@ -127,7 +233,7 @@ export function UnifiedThreadView({
 
   const handleSendEmail = useCallback(() => {
     // Find the last email message to build reply context
-    const lastEmail = [...messages].reverse().find((m) => m.channel === "email");
+    const lastEmail = [...visibleMessages].reverse().find((m) => m.channel === "email");
     onReply({
       mode: "reply",
       to: lastEmail?.senderEmail ?? "",
@@ -136,7 +242,7 @@ export function UnifiedThreadView({
       threadId: lastEmail?.emailThreadId ?? emailThreadIds[0],
       inReplyTo: lastEmail?.emailMessageId ?? undefined,
     });
-  }, [messages, emailThreadIds, onReply]);
+  }, [visibleMessages, emailThreadIds, onReply]);
 
   // Build message list with dividers
   const renderedMessages = useMemo(() => {
@@ -145,9 +251,9 @@ export function UnifiedThreadView({
     let lastChannel = "";
     let lastSubject = "";
 
-    messages.forEach((msg, i) => {
+    visibleMessages.forEach((msg, i) => {
       const dateLabel = getDateLabel(msg.timestamp);
-      const prev = i > 0 ? messages[i - 1] : undefined;
+      const prev = i > 0 ? visibleMessages[i - 1] : undefined;
 
       // Date divider
       if (dateLabel !== lastDateLabel) {
@@ -191,7 +297,10 @@ export function UnifiedThreadView({
     });
 
     return elements;
-  }, [messages, filter]);
+  }, [visibleMessages, filter]);
+
+  // Show thread selector when in email view with 2+ threads
+  const showThreadSelector = filter === "email" && emailThreads.length > 1;
 
   // Loading skeleton
   const MessageSkeleton = () => (
@@ -226,8 +335,8 @@ export function UnifiedThreadView({
             </h2>
             <p className="font-kosugi text-micro-sm text-text-disabled uppercase truncate">
               {conversation.projectName
-                ? `${conversation.projectName} \u00b7 ${emailThreadIds.length + (conversation.hasPortalMessages ? 1 : 0)} threads`
-                : `${emailThreadIds.length + (conversation.hasPortalMessages ? 1 : 0)} threads`}
+                ? `${conversation.projectName} \u00b7 ${emailThreads.length + (conversation.hasPortalMessages ? 1 : 0)} threads`
+                : `${emailThreads.length + (conversation.hasPortalMessages ? 1 : 0)} threads`}
             </p>
           </div>
         </div>
@@ -256,8 +365,39 @@ export function UnifiedThreadView({
 
       {/* Messages area with floating toolbar */}
       <div className="flex-1 min-h-0 relative">
-        {/* Floating channel filter toolbar */}
-        <ChannelFilterBar active={filter} onChange={setFilter} />
+        {/* Floating toolbar row: channel filter + thread selector + create lead */}
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2">
+          {/* Channel filter (always visible) */}
+          <ChannelFilterBar active={filter} onChange={setFilter} />
+
+          {/* Thread selector (email view, 2+ threads) */}
+          {showThreadSelector && selectedThreadId && (
+            <ThreadSelector
+              threads={emailThreads}
+              selectedThreadId={selectedThreadId}
+              onSelect={setSelectedThreadId}
+            />
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Create Lead button for unmatched contacts */}
+          {conversation.type === "unmatched" && (
+            <button
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-[5px] rounded-[3px] border shrink-0",
+                "border-ops-accent/30 bg-ops-accent-muted/20 text-ops-accent",
+                "hover:bg-ops-accent-muted/40 transition-colors duration-150 cursor-pointer"
+              )}
+            >
+              <Plus className="w-3 h-3" />
+              <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+                Create Lead
+              </span>
+            </button>
+          )}
+        </div>
 
         {/* Messages */}
         <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide px-3.5 pt-12 pb-3 space-y-1.5">

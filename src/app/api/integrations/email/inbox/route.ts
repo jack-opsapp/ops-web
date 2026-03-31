@@ -112,11 +112,28 @@ export async function GET(request: NextRequest) {
 
     // 4a. Thread detail mode
     if (threadId) {
-      const messages = await provider.fetchThread(threadId);
+      const [messages, imageAttachments] = await Promise.all([
+        provider.fetchThread(threadId),
+        provider.getImageAttachmentsFromThread(threadId).catch(() => []),
+      ]);
+
+      // Group attachments by messageId for easy lookup
+      const attachmentsByMsg = new Map<string, typeof imageAttachments>();
+      for (const att of imageAttachments) {
+        if (!attachmentsByMsg.has(att.messageId)) attachmentsByMsg.set(att.messageId, []);
+        attachmentsByMsg.get(att.messageId)!.push(att);
+      }
+
       return NextResponse.json({
         messages: messages.map((m) => ({
           ...normalizeToResponse(m),
           bodyText: m.bodyText,
+          attachments: (attachmentsByMsg.get(m.id) || []).map((a) => ({
+            attachmentId: a.attachmentId,
+            filename: a.filename,
+            mimeType: a.mimeType,
+            size: a.size,
+          })),
         })),
       });
     }

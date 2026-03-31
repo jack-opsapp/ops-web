@@ -438,24 +438,70 @@ export class GmailProvider implements EmailProviderInterface {
 
   private extractBody(payload: Record<string, unknown> | undefined): string {
     if (!payload) return "";
-    const body = payload.body as { data?: string } | undefined;
-    if (body?.data) {
-      return Buffer.from(body.data, "base64").toString("utf-8");
-    }
+
+    const mimeType = (payload.mimeType as string) || "";
     const parts = payload.parts as Array<Record<string, unknown>> | undefined;
-    if (parts) {
+
+    // Multipart: search parts for text/plain first, then text/html as fallback
+    if (parts && parts.length > 0) {
+      // Pass 1: look for text/plain at this level
       const textPart = parts.find((p) => p.mimeType === "text/plain");
       const textBody = textPart?.body as { data?: string } | undefined;
       if (textBody?.data) {
         return Buffer.from(textBody.data, "base64").toString("utf-8");
       }
-      // Recurse for nested parts
+
+      // Pass 2: recurse into nested multipart parts (e.g. multipart/alternative inside multipart/mixed)
       for (const part of parts) {
-        const text = this.extractBody(part);
-        if (text) return text;
+        const nested = this.extractBody(part);
+        if (nested) return nested;
       }
+
+      // Pass 3: fall back to text/html at this level, stripped to plain text
+      const htmlPart = parts.find((p) => p.mimeType === "text/html");
+      const htmlBody = htmlPart?.body as { data?: string } | undefined;
+      if (htmlBody?.data) {
+        const html = Buffer.from(htmlBody.data, "base64").toString("utf-8");
+        return this.stripHtml(html);
+      }
+
+      return "";
     }
+
+    // Single-part message: check mimeType before decoding
+    const body = payload.body as { data?: string } | undefined;
+    if (body?.data) {
+      const decoded = Buffer.from(body.data, "base64").toString("utf-8");
+      if (mimeType === "text/html" || decoded.trimStart().startsWith("<")) {
+        return this.stripHtml(decoded);
+      }
+      return decoded;
+    }
+
     return "";
+  }
+
+  /** Convert HTML email body to plain text */
+  private stripHtml(html: string): string {
+    return html
+      // Replace <br>, <br/>, </p>, </div>, </li> with newlines
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+      // Replace <li> with "- " prefix
+      .replace(/<li[^>]*>/gi, "- ")
+      // Remove all remaining HTML tags
+      .replace(/<[^>]+>/g, "")
+      // Decode common HTML entities
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      // Collapse multiple blank lines into at most 2
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   private hasAttachments(payload: Record<string, unknown> | undefined): boolean {

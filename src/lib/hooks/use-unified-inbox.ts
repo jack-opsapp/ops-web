@@ -14,6 +14,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { queryKeys } from "@/lib/api/query-client";
 import { InboxService } from "@/lib/api/services/inbox-service";
 import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
+import { stripQuotedContent, extractEmailAddress, isCommonEmailDomain } from "@/lib/utils/email-parsing";
 import type { PipelineThread, ThreadMessage } from "@/lib/types/inbox";
 import type { PortalMessage, PortalMessageSender } from "@/lib/types/portal";
 import type {
@@ -182,26 +183,36 @@ async function fetchProviderThreadMessages(
     const data = await res.json();
     const messages = data.messages ?? [];
 
-    return messages.map((m: Record<string, unknown>) => ({
-      id: m.id as string,
-      channel: "email" as const,
-      direction: "inbound" as const, // Provider doesn't track this — will refine below
-      senderName: (m.fromName as string) || (m.from as string)?.split("@")[0] || "Unknown",
-      senderEmail: m.from as string,
-      content: (m.bodyText as string) || (m.snippet as string) || "",
-      timestamp: new Date(m.date as string),
-      isRead: (m.isRead as boolean) ?? true,
-      hasAttachments: (m.hasAttachments as boolean) ?? false,
-      attachmentCount: (m.hasAttachments as boolean) ? 1 : 0,
-      emailThreadId: threadId,
-      emailMessageId: m.id as string,
-      subject: m.subject as string,
-      toEmails: (m.to as string[]) ?? [],
-      ccEmails: (m.cc as string[]) ?? [],
-      projectId: null,
-      estimateId: null,
-      invoiceId: null,
-    }));
+    return messages.map((m: Record<string, unknown>) => {
+      const rawBody = (m.bodyText as string) || (m.snippet as string) || "";
+      const rawAttachments = (m.attachments as Array<Record<string, unknown>>) ?? [];
+      return {
+        id: m.id as string,
+        channel: "email" as const,
+        direction: "inbound" as const, // Provider doesn't track this — will refine below
+        senderName: (m.fromName as string) || extractEmailAddress(m.from as string)?.split("@")[0] || "Unknown",
+        senderEmail: extractEmailAddress(m.from as string),
+        content: stripQuotedContent(rawBody),
+        timestamp: new Date(m.date as string),
+        isRead: (m.isRead as boolean) ?? true,
+        hasAttachments: (m.hasAttachments as boolean) ?? false,
+        attachmentCount: rawAttachments.length || ((m.hasAttachments as boolean) ? 1 : 0),
+        attachments: rawAttachments.map((a) => ({
+          attachmentId: a.attachmentId as string,
+          filename: a.filename as string,
+          mimeType: a.mimeType as string,
+          size: a.size as number,
+        })),
+        emailThreadId: threadId,
+        emailMessageId: m.id as string,
+        subject: m.subject as string,
+        toEmails: (m.to as string[]) ?? [],
+        ccEmails: (m.cc as string[]) ?? [],
+        projectId: null,
+        estimateId: null,
+        invoiceId: null,
+      };
+    });
   } catch {
     // Any error — fall back to activities table
     const msgs = await InboxService.getThreadMessages(companyId, threadId);
@@ -310,26 +321,30 @@ function normalizeConversations(
 // ─── Normalization: Messages ────────────────────────────────────────────────
 
 function normalizeEmailMessages(messages: ThreadMessage[], emailThreadId: string): InboxMessage[] {
-  return messages.map((msg) => ({
-    id: msg.id,
-    channel: "email" as const,
-    direction: msg.direction ?? "inbound",
-    senderName: msg.fromEmail?.split("@")[0] ?? "Unknown",
-    senderEmail: msg.fromEmail,
-    content: msg.bodyText || msg.content || "",
-    timestamp: msg.createdAt,
-    isRead: msg.isRead,
-    hasAttachments: msg.hasAttachments,
-    attachmentCount: msg.attachmentCount,
-    emailThreadId,
-    emailMessageId: msg.emailMessageId,
-    subject: msg.subject,
-    toEmails: msg.toEmails,
-    ccEmails: msg.ccEmails,
-    projectId: null,
-    estimateId: null,
-    invoiceId: null,
-  }));
+  return messages.map((msg) => {
+    const rawBody = msg.bodyText || msg.content || "";
+    return {
+      id: msg.id,
+      channel: "email" as const,
+      direction: msg.direction ?? "inbound",
+      senderName: extractEmailAddress(msg.fromEmail)?.split("@")[0] ?? "Unknown",
+      senderEmail: extractEmailAddress(msg.fromEmail),
+      content: stripQuotedContent(rawBody),
+      timestamp: msg.createdAt,
+      isRead: msg.isRead,
+      hasAttachments: msg.hasAttachments,
+      attachmentCount: msg.attachmentCount,
+      attachments: [],
+      emailThreadId,
+      emailMessageId: msg.emailMessageId,
+      subject: msg.subject,
+      toEmails: msg.toEmails,
+      ccEmails: msg.ccEmails,
+      projectId: null,
+      estimateId: null,
+      invoiceId: null,
+    };
+  });
 }
 
 function normalizePortalMessages(messages: PortalMessage[]): InboxMessage[] {
@@ -344,6 +359,7 @@ function normalizePortalMessages(messages: PortalMessage[]): InboxMessage[] {
     isRead: msg.readAt !== null,
     hasAttachments: false,
     attachmentCount: 0,
+    attachments: [],
     emailThreadId: null,
     emailMessageId: null,
     subject: null,
@@ -353,6 +369,97 @@ function normalizePortalMessages(messages: PortalMessage[]): InboxMessage[] {
     estimateId: msg.estimateId,
     invoiceId: msg.invoiceId,
   }));
+}
+
+// ─── Client thread discovery (Gmail search) ───────────────────────────────
+
+export interface ClientThreadSummary {
+  threadId: string;
+  subject: string;
+  snippet: string;
+  from: string;
+  fromName: string;
+  latestDate: string;
+  messageCount: number;
+  isRead: boolean;
+  hasAttachments: boolean;
+}
+
+interface ClientThreadsResult {
+  threads: ClientThreadSummary[];
+  emails: string[];
+  connectionEmail: string | null;
+}
+
+/**
+ * Fetch the client-threads API — searches Gmail for all threads
+ * involving a client's email addresses (primary + sub-clients).
+ */
+async function fetchClientThreads(
+  companyId: string,
+  clientId: string | null,
+  email: string | null
+): Promise<ClientThreadsResult> {
+  const { getIdToken } = await import("@/lib/firebase/auth");
+  const idToken = await getIdToken();
+  if (!idToken) return { threads: [], emails: [], connectionEmail: null };
+
+  const params = new URLSearchParams({ companyId });
+  if (clientId) params.set("clientId", clientId);
+  else if (email) params.set("email", email);
+  else return { threads: [], emails: [], connectionEmail: null };
+
+  const res = await fetch(`/api/integrations/email/client-threads?${params}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+
+  if (!res.ok) return { threads: [], emails: [], connectionEmail: null };
+
+  const data = await res.json();
+  return {
+    threads: data.threads ?? [],
+    emails: data.emails ?? [],
+    connectionEmail: data.connectionEmail ?? null,
+  };
+}
+
+// ─── Direction detection ───────────────────────────────────────────────────
+
+/**
+ * Determine if a message is outbound based on sender email.
+ * Checks against both the Firebase auth email and the email connection address.
+ */
+function detectDirection(
+  senderEmail: string,
+  currentUserEmail: string | null,
+  connectionEmail: string | null
+): "inbound" | "outbound" {
+  const senderLower = senderEmail.toLowerCase();
+
+  // Check exact match against current user email
+  if (currentUserEmail && senderLower === currentUserEmail.toLowerCase()) {
+    return "outbound";
+  }
+
+  // Check exact match against email connection address
+  if (connectionEmail && senderLower === connectionEmail.toLowerCase()) {
+    return "outbound";
+  }
+
+  // Check domain match for custom/business domains (not gmail, outlook, etc.)
+  const senderDomain = senderLower.split("@")[1];
+  if (senderDomain && !isCommonEmailDomain(senderDomain)) {
+    if (currentUserEmail) {
+      const userDomain = currentUserEmail.toLowerCase().split("@")[1];
+      if (senderDomain === userDomain) return "outbound";
+    }
+    if (connectionEmail) {
+      const connDomain = connectionEmail.toLowerCase().split("@")[1];
+      if (senderDomain === connDomain) return "outbound";
+    }
+  }
+
+  return "inbound";
 }
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
@@ -378,14 +485,43 @@ export function useUnifiedConversations() {
 }
 
 /**
+ * Discover ALL email threads for a client by searching Gmail/M365.
+ * Returns thread summaries (subject, date, message count) and the connection email.
+ */
+export function useClientThreads(
+  clientId: string | null,
+  unmatchedEmail: string | null
+) {
+  const companyId = useAuthStore((s) => s.company?.id);
+
+  return useQuery({
+    queryKey: [
+      ...queryKeys.inbox.all,
+      "client-threads",
+      companyId ?? "",
+      clientId ?? "",
+      unmatchedEmail ?? "",
+    ],
+    queryFn: () => fetchClientThreads(companyId!, clientId, unmatchedEmail),
+    enabled: !!companyId && !!(clientId || unmatchedEmail),
+    staleTime: 60_000, // Cache for 1 min — Gmail search is relatively slow
+    refetchInterval: 60_000,
+  });
+}
+
+/**
  * Fetch unified thread messages for a conversation.
  * Merges email thread messages + portal messages, applies channel filter.
+ *
+ * @param emailThreadIds - Thread IDs to fetch (from useClientThreads or fallback)
+ * @param connectionEmail - The connected email address for direction detection
  */
 export function useUnifiedThread(
   conversationId: string | null,
   clientId: string | null,
   emailThreadIds: string[],
-  filter: ChannelFilter
+  filter: ChannelFilter,
+  connectionEmail?: string | null
 ) {
   const companyId = useAuthStore((s) => s.company?.id);
   const currentUserEmail = useAuthStore((s) => s.currentUser?.email);
@@ -408,14 +544,14 @@ export function useUnifiedThread(
           fetchProviderThreadMessages(companyId!, tid)
         );
         const emailResults = await Promise.all(emailPromises);
-        // Detect direction based on sender email
+
         for (const msg of emailResults.flat()) {
-          if (currentUserEmail && msg.senderEmail) {
-            const senderDomain = msg.senderEmail.split("@")[1];
-            const userDomain = currentUserEmail.split("@")[1];
-            if (msg.senderEmail === currentUserEmail || senderDomain === userDomain) {
-              msg.direction = "outbound";
-            }
+          if (msg.senderEmail) {
+            msg.direction = detectDirection(
+              msg.senderEmail,
+              currentUserEmail ?? null,
+              connectionEmail ?? null
+            );
           }
           results.push(msg);
         }

@@ -9,7 +9,7 @@ import { ConversationList } from "@/components/ops/inbox/conversation-list";
 import { UnifiedThreadView } from "@/components/ops/inbox/unified-thread-view";
 import { ContextPanel } from "@/components/ops/inbox/context-panel";
 import { ComposeEmailModal } from "@/components/ops/compose-email-modal";
-import type { InboxConversation } from "@/lib/types/unified-inbox";
+import type { InboxConversation, InboxMessage, ChannelFilter } from "@/lib/types/unified-inbox";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 
 export default function InboxPage() {
@@ -21,6 +21,8 @@ export default function InboxPage() {
   const [contextOpen, setContextOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState<ComposeEmailData | undefined>(undefined);
+  const [threadMessages, setThreadMessages] = useState<InboxMessage[]>([]);
+  const [goToThread, setGoToThread] = useState<((threadId: string) => void) | null>(null);
 
   // Single data source — emailThreadIds live on each conversation
   const { data: conversations = [], isLoading } = useUnifiedConversations();
@@ -76,7 +78,8 @@ export default function InboxPage() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="pt-[56px] h-screen flex bg-background-panel overflow-hidden">
+    <div className="space-y-3">
+      <div className="flex h-[calc(100vh-68px-96px)] overflow-hidden rounded border border-border bg-background-panel">
       {/* Left: Conversation List */}
       <div style={{ width: 320 }} className="shrink-0 border-r border-border-subtle">
         <ConversationList
@@ -97,6 +100,8 @@ export default function InboxPage() {
             onToggleContext={handleToggleContext}
             contextOpen={contextOpen}
             onReply={handleReply}
+            onMessagesLoaded={setThreadMessages}
+            onGoToThreadReady={(fn) => setGoToThread(() => fn)}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -112,7 +117,11 @@ export default function InboxPage() {
         open={contextOpen}
         onClose={() => setContextOpen(false)}
         conversation={selectedConversation}
+        messages={threadMessages}
+        onGoToThread={goToThread ?? undefined}
       />
+
+      </div>
 
       {/* Compose Email Modal */}
       <ComposeEmailModal
