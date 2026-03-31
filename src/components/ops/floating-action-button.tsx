@@ -14,6 +14,7 @@ import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { getSlugForRoute } from "@/lib/feature-flags/feature-flag-definitions";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
+import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
 import {
   SPRING_FAB,
   fabOverlayVariants,
@@ -52,6 +53,7 @@ export function FloatingActionButton() {
   // ── Hide when dashboard is in customize mode or wizard is open ──────
   const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
   const wizardOpen = useDashboardCustomizeStore((s) => s.wizardOpen);
+  const duplicateSheetOpen = useDuplicateReviewStore((s) => s.open);
 
   // ── Active actions from user prefs ──────────────────────────────────────
   const userActionIds = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
@@ -178,8 +180,8 @@ export function FloatingActionButton() {
   // Hide on intel page (full-bleed canvas, overlaps zoom controls)
   if (pathname === "/intel") return null;
 
-  // Hide when dashboard customizing or a wizard is open
-  if (dashboardCustomizing || wizardOpen) return null;
+  // Hide when dashboard customizing, a wizard is open, or duplicate review sheet is open
+  if (dashboardCustomizing || wizardOpen || duplicateSheetOpen) return null;
 
   return (
     <>
