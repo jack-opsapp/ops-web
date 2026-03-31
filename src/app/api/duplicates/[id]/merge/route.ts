@@ -1,8 +1,8 @@
 /**
  * POST /api/duplicates/[id]/merge
- * Smart-merges a duplicate pair: backfills fields, reassigns relationships,
- * soft-deletes the loser.
- * Body: { winnerId: string }
+ * Smart-merges a duplicate cluster: applies user-chosen field values,
+ * reassigns relationships, soft-deletes losers.
+ * Body: { winnerId: string, fieldOverrides?: Record<string, unknown>, additionalReviewIds?: string[] }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -29,7 +29,7 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { winnerId } = body;
+  const { winnerId, fieldOverrides, additionalReviewIds } = body;
 
   if (!winnerId || typeof winnerId !== "string") {
     return NextResponse.json(
@@ -42,11 +42,23 @@ export async function POST(
   setSupabaseOverride(db);
 
   try {
-    await DuplicateDetectionService.mergeEntities(
-      reviewId,
-      winnerId,
-      user.id as string
-    );
+    // If additionalReviewIds are provided, use cluster merge for efficiency
+    if (additionalReviewIds && additionalReviewIds.length > 0) {
+      const allReviewIds = [reviewId, ...additionalReviewIds];
+      await DuplicateDetectionService.mergeCluster(
+        allReviewIds,
+        winnerId,
+        user.id as string,
+        fieldOverrides
+      );
+    } else {
+      await DuplicateDetectionService.mergeEntities(
+        reviewId,
+        winnerId,
+        user.id as string,
+        fieldOverrides
+      );
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

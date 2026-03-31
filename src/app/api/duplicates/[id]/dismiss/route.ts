@@ -1,6 +1,7 @@
 /**
  * POST /api/duplicates/[id]/dismiss
- * Permanently dismisses a duplicate pair — it will never resurface.
+ * Permanently dismisses a duplicate pair (or cluster) — it will never resurface.
+ * Body (optional): { additionalReviewIds?: string[] }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -26,14 +27,37 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 401 });
   }
 
+  // Parse optional body for additionalReviewIds
+  let additionalReviewIds: string[] = [];
+  try {
+    const body = await request.json();
+    if (body.additionalReviewIds && Array.isArray(body.additionalReviewIds)) {
+      additionalReviewIds = body.additionalReviewIds;
+    }
+  } catch {
+    // No body or invalid JSON — dismiss single review only
+  }
+
   const db = getServiceRoleClient();
   setSupabaseOverride(db);
 
   try {
+    // Dismiss the primary review
     await DuplicateDetectionService.dismissPair(
       reviewId,
       user.id as string
     );
+
+    // Dismiss additional reviews in the cluster
+    if (additionalReviewIds.length > 0) {
+      for (const additionalId of additionalReviewIds) {
+        await DuplicateDetectionService.dismissPair(
+          additionalId,
+          user.id as string
+        );
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

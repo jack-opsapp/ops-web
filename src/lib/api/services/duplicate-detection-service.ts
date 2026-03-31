@@ -680,7 +680,9 @@ const RELATIONSHIP_MAP: Record<
 async function mergeEntities(
   reviewId: string,
   winnerId: string,
-  resolvedBy: string
+  resolvedBy: string,
+  fieldOverrides?: Record<string, unknown>,
+  additionalReviewIds?: string[]
 ): Promise<void> {
   const supabase = requireSupabase();
 
@@ -720,22 +722,35 @@ async function mergeEntities(
     );
   }
 
-  // 3. Backfill missing fields on winner
-  const updates = backfillFields(
-    winnerRow as Record<string, unknown>,
-    loserRow as Record<string, unknown>,
-    MERGE_FIELDS[entityType]
-  );
-  if (Object.keys(updates).length > 0) {
+  // 3. Apply field overrides if provided, otherwise backfill missing fields
+  if (fieldOverrides && Object.keys(fieldOverrides).length > 0) {
     const { error: updateErr } = await supabase
       .from(table)
-      .update(updates)
+      .update(fieldOverrides)
       .eq("id", winnerId);
     if (updateErr) {
       console.error(
-        `[DuplicateDetection] Failed to backfill fields:`,
+        `[DuplicateDetection] Failed to apply field overrides:`,
         updateErr.message
       );
+    }
+  } else {
+    const updates = backfillFields(
+      winnerRow as Record<string, unknown>,
+      loserRow as Record<string, unknown>,
+      MERGE_FIELDS[entityType]
+    );
+    if (Object.keys(updates).length > 0) {
+      const { error: updateErr } = await supabase
+        .from(table)
+        .update(updates)
+        .eq("id", winnerId);
+      if (updateErr) {
+        console.error(
+          `[DuplicateDetection] Failed to backfill fields:`,
+          updateErr.message
+        );
+      }
     }
   }
 
@@ -782,6 +797,25 @@ async function mergeEntities(
     );
   }
 
+  // 6b. Also mark additional reviews as merged (cluster merge)
+  if (additionalReviewIds && additionalReviewIds.length > 0) {
+    const { error: additionalErr } = await supabase
+      .from("duplicate_reviews")
+      .update({
+        status: "merged",
+        winner_id: winnerId,
+        resolved_by: resolvedBy,
+        resolved_at: new Date().toISOString(),
+      })
+      .in("id", additionalReviewIds);
+    if (additionalErr) {
+      console.error(
+        `[DuplicateDetection] Failed to mark additional reviews as merged:`,
+        additionalErr.message
+      );
+    }
+  }
+
   // 7. Cascade: replace loser in other pending reviews
   const { data: affectedReviews } = await supabase
     .from("duplicate_reviews")
@@ -811,6 +845,142 @@ async function mergeEntities(
         .from("duplicate_reviews")
         .update({ entity_a_id: newA, entity_b_id: newB })
         .eq("id", affected.id);
+    }
+  }
+}
+
+// ─── Cluster Merge ──────────────────────────────────────────────────────────
+
+async function mergeCluster(
+  reviewIds: string[],
+  winnerId: string,
+  resolvedBy: string,
+  fieldOverrides?: Record<string, unknown>
+): Promise<void> {
+  const supabase = requireSupabase();
+
+  if (reviewIds.length === 0) {
+    throw new Error("No review IDs provided for cluster merge");
+  }
+
+  // 1. Fetch all reviews
+  const { data: reviews, error: fetchErr } = await supabase
+    .from("duplicate_reviews")
+    .select("*")
+    .in("id", reviewIds);
+
+  if (fetchErr || !reviews || reviews.length === 0) {
+    throw new Error("Could not fetch reviews for cluster merge");
+  }
+
+  const entityType = reviews[0].entity_type as DuplicateEntityType;
+  const table = ENTITY_TABLES[entityType];
+
+  // 2. Collect all unique entity IDs — everything that isn't the winner is a loser
+  const allEntityIds = new Set<string>();
+  for (const r of reviews) {
+    allEntityIds.add(r.entity_a_id as string);
+    allEntityIds.add(r.entity_b_id as string);
+  }
+  allEntityIds.delete(winnerId);
+  const loserIds = Array.from(allEntityIds);
+
+  if (loserIds.length === 0) {
+    throw new Error("No losers found in cluster merge — winnerId not in reviews");
+  }
+
+  // 3. Apply field overrides to winner if provided
+  if (fieldOverrides && Object.keys(fieldOverrides).length > 0) {
+    const { error: updateErr } = await supabase
+      .from(table)
+      .update(fieldOverrides)
+      .eq("id", winnerId);
+    if (updateErr) {
+      console.error(
+        `[DuplicateDetection] Cluster merge: failed to apply field overrides:`,
+        updateErr.message
+      );
+    }
+  }
+
+  // 4. For each loser: reassign relationships, then soft-delete
+  for (const loserId of loserIds) {
+    for (const rel of RELATIONSHIP_MAP[entityType]) {
+      const { error: relErr } = await supabase
+        .from(rel.table)
+        .update({ [rel.fkColumn]: winnerId })
+        .eq(rel.fkColumn, loserId);
+      if (relErr) {
+        console.error(
+          `[DuplicateDetection] Cluster merge: failed to reassign ${rel.table}.${rel.fkColumn} for loser ${loserId}:`,
+          relErr.message
+        );
+      }
+    }
+
+    const { error: deleteErr } = await supabase
+      .from(table)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", loserId);
+    if (deleteErr) {
+      console.error(
+        `[DuplicateDetection] Cluster merge: failed to soft-delete loser ${loserId}:`,
+        deleteErr.message
+      );
+    }
+  }
+
+  // 5. Mark all reviews as merged
+  const { error: reviewErr } = await supabase
+    .from("duplicate_reviews")
+    .update({
+      status: "merged",
+      winner_id: winnerId,
+      resolved_by: resolvedBy,
+      resolved_at: new Date().toISOString(),
+    })
+    .in("id", reviewIds);
+  if (reviewErr) {
+    console.error(
+      `[DuplicateDetection] Cluster merge: failed to mark reviews as merged:`,
+      reviewErr.message
+    );
+  }
+
+  // 6. Cascade: clean up any remaining pending reviews referencing losers
+  const companyId = reviews[0].company_id as string;
+  for (const loserId of loserIds) {
+    const { data: affectedReviews } = await supabase
+      .from("duplicate_reviews")
+      .select("id, entity_a_id, entity_b_id")
+      .eq("company_id", companyId)
+      .eq("entity_type", entityType)
+      .eq("status", "pending")
+      .or(`entity_a_id.eq.${loserId},entity_b_id.eq.${loserId}`);
+
+    for (const affected of affectedReviews ?? []) {
+      // Skip reviews we already marked as merged
+      if (reviewIds.includes(affected.id)) continue;
+
+      const otherSide =
+        affected.entity_a_id === loserId
+          ? affected.entity_b_id
+          : affected.entity_a_id;
+
+      if (otherSide === winnerId || loserIds.includes(otherSide)) {
+        // Would become self-reference or reference another loser — delete
+        await supabase
+          .from("duplicate_reviews")
+          .delete()
+          .eq("id", affected.id);
+      } else {
+        // Replace loser with winner, maintaining ordered pair
+        const [newA, newB] = orderedPair(winnerId, otherSide);
+        await supabase
+          .from("duplicate_reviews")
+          .update({ entity_a_id: newA, entity_b_id: newB })
+          .eq("id", affected.id);
+      }
     }
   }
 }
@@ -861,6 +1031,7 @@ export const DuplicateDetectionService = {
   scanCompany,
   getPendingReviews,
   mergeEntities,
+  mergeCluster,
   dismissPair,
 
   // Exposed for unit testing
