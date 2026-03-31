@@ -847,6 +847,9 @@ async function mergeEntities(
         .eq("id", affected.id);
     }
   }
+
+  // 8. Auto-resolve notification if no pending reviews remain
+  await resolveNotificationIfEmpty(review.company_id as string);
 }
 
 // ─── Cluster Merge ──────────────────────────────────────────────────────────
@@ -983,6 +986,9 @@ async function mergeCluster(
       }
     }
   }
+
+  // 7. Auto-resolve notification if no pending reviews remain
+  await resolveNotificationIfEmpty(companyId);
 }
 
 // ─── Dismiss ─────────────────────────────────────────────────────────────────
@@ -992,6 +998,14 @@ async function dismissPair(
   resolvedBy: string
 ): Promise<void> {
   const supabase = requireSupabase();
+
+  // Fetch company_id before updating (needed for notification resolution)
+  const { data: review } = await supabase
+    .from("duplicate_reviews")
+    .select("company_id")
+    .eq("id", reviewId)
+    .single();
+
   const { error } = await supabase
     .from("duplicate_reviews")
     .update({
@@ -1005,6 +1019,34 @@ async function dismissPair(
     throw new Error(
       `Failed to dismiss review ${reviewId}: ${error.message}`
     );
+  }
+
+  // Auto-resolve notification if no pending reviews remain
+  if (review?.company_id) {
+    await resolveNotificationIfEmpty(review.company_id as string);
+  }
+}
+
+// ─── Auto-resolve notification when all duplicates handled ───────────────────
+
+async function resolveNotificationIfEmpty(companyId: string): Promise<void> {
+  const supabase = requireSupabase();
+
+  // Check if any pending reviews remain
+  const { count } = await supabase
+    .from("duplicate_reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("status", "pending");
+
+  if (count === 0) {
+    // Mark all duplicates_found notifications as read for this company
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("company_id", companyId)
+      .eq("type", "duplicates_found")
+      .eq("is_read", false);
   }
 }
 
