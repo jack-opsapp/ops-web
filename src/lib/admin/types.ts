@@ -407,6 +407,54 @@ export interface LearnVanityMetrics {
   display_review_count: number;
 }
 
+// ─── App Analytics Types (analytics_events table) ────────────────────────────
+
+export type AppAnalyticsPlatform = "ios" | "android" | "web" | "all";
+
+export interface ActiveUsersData {
+  dau: number;
+  wau: number;
+  mau: number;
+  dauTrend: number; // % change vs prior period
+  wauTrend: number;
+  mauTrend: number;
+  sparkline: ChartDataPoint[]; // daily distinct users over 13 weeks
+  platformBreakdown: DonutSegment[];
+}
+
+export interface SessionData {
+  avgDurationMs: number;
+  sessionsPerUser: number;
+  totalSessions: number;
+  durationTrend: ChartDataPoint[]; // avg duration per day
+  platformBreakdown: DonutSegment[];
+}
+
+export interface FeatureUsageRow {
+  eventName: string;
+  totalCount: number;
+  companiesUsing: number;
+  adoptionRate: number; // 0–100
+  avgPerUserPerWeek: number;
+  sparkline: ChartDataPoint[]; // weekly trend
+  platformBreakdown: { ios: number; android: number; web: number };
+}
+
+export interface FunnelStepData {
+  step: string;
+  eventName: string;
+  count: number;
+  dropOffRate: number; // 0–100, relative to previous step
+}
+
+export interface ErrorRow {
+  eventName: string;
+  count: number;
+  lastSeen: string;
+  affectedUsers: number;
+  topProperty: string | null; // most common error_type or endpoint
+}
+
 // ─── Analytics Types ─────────────────────────────────────────────────────────
 
 export interface WebsiteOverview {

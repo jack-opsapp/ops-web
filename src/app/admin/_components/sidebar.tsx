@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/admin/onboarding", label: "ONBOARDING" },
   { href: "/admin/companies", label: "COMPANIES" },
   { href: "/admin/engagement", label: "ENGAGEMENT" },
+  { href: "/admin/app-analytics", label: "APP ANALYTICS" },
   { href: "/admin/revenue", label: "REVENUE" },
   { href: "/admin/platform-health", label: "PLATFORM HEALTH" },
   { href: "/admin/feedback", label: "FEEDBACK" },
