@@ -316,6 +316,9 @@ export {
   useDuplicateReviews,
   useMergeDuplicate,
   useDismissDuplicate,
+  type DuplicateCluster,
+  type GroupedClusters,
+  type EnrichedEntity,
 } from "./use-duplicate-reviews";
 
 // Metrics
