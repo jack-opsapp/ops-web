@@ -147,14 +147,14 @@ function FieldPill({
               setEditing(false);
             }
           }}
-          className="w-fit rounded-full border border-[#597794]/40 bg-white/[0.04] px-2.5 py-1 font-mohave text-[12px] text-white/80 outline-none"
+          className="w-fit rounded-full border border-[#597794]/30 bg-[rgba(255,255,255,0.04)] px-[8px] py-[2px] font-mono text-[11px] text-white/80 outline-none"
         />
       </div>
     );
   }
 
   if (!value) {
-    // Empty — show add pill
+    // Empty — dashed add pill
     return (
       <div className="flex flex-col gap-1">
         <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
@@ -165,27 +165,27 @@ function FieldPill({
             setDraft("");
             setEditing(true);
           }}
-          className="inline-flex w-fit items-center gap-1 rounded-full border border-dashed border-white/10 px-2.5 py-1 font-mohave text-[12px] text-white/25 transition-colors duration-150 hover:border-white/20 hover:text-white/40"
+          className="inline-flex w-fit items-center gap-[4px] rounded-full border border-dashed border-[rgba(255,255,255,0.12)] px-[8px] py-[2px] font-mono text-[11px] text-white/20 transition-colors duration-150 hover:border-[#597794]/40 hover:text-white/40"
         >
-          <span className="text-[11px]">+</span> {addLabel}
+          + {addLabel}
         </button>
       </div>
     );
   }
 
-  // Has value — show data pill
+  // Has value — data pill
   return (
     <div className="flex flex-col gap-1">
       <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
         {label}
       </span>
-      <div className="group inline-flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 transition-colors duration-150 hover:border-white/15">
+      <div className="group inline-flex w-fit items-center gap-[4px] rounded-full bg-[rgba(255,255,255,0.05)] px-[8px] py-[2px] transition-colors duration-150 hover:bg-[rgba(255,255,255,0.08)]">
         <button
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
-          className="truncate text-left font-mohave text-[12px] text-white/75 transition-colors duration-150 hover:text-white"
+          className="max-w-[180px] truncate text-left font-mono text-[11px] text-white/70 transition-colors duration-150 hover:text-white/90"
         >
           {value}
         </button>
@@ -194,10 +194,10 @@ function FieldPill({
             e.stopPropagation();
             onRemove();
           }}
-          className="shrink-0 rounded-full p-0.5 text-white/20 opacity-0 transition-all duration-150 hover:bg-white/10 hover:text-white/60 group-hover:opacity-100"
+          className="shrink-0 p-[1px] text-white/15 opacity-0 transition-all duration-150 hover:text-white/50 group-hover:opacity-100"
           aria-label="Remove"
         >
-          <X className="h-2.5 w-2.5" />
+          <X className="h-[10px] w-[10px]" />
         </button>
       </div>
     </div>
