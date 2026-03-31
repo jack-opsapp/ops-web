@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useMemo } from "react";
 import { format } from "date-fns";
 import { X } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
-import type { DuplicateEntityType } from "@/lib/api/services/duplicate-detection-service";
+import { normalizePhone, normalizeCompanyName } from "@/lib/utils/name-normalization";
+import type { DuplicateEntityType, DuplicateSignal } from "@/lib/api/services/duplicate-detection-service";
 import type { EnrichedEntity } from "@/lib/hooks/use-duplicate-reviews";
 
 // ─── Field Configuration ───────────────────────────────────────────────────
@@ -359,6 +361,84 @@ function InteractiveEntityCard({
   );
 }
 
+// ─── Per-entity duplicate status evaluation ────────────────────────────────
+
+/**
+ * Check whether an entity still conflicts with ANY other entity in the cluster
+ * based on the original signals, using effective (post-edit) values.
+ * Returns true if the entity is still a suspected duplicate.
+ */
+function entityStillConflicts(
+  entity: EnrichedEntity,
+  otherEntities: EnrichedEntity[],
+  signals: DuplicateSignal[],
+  edits: Record<string, Record<string, unknown>>
+): boolean {
+  for (const other of otherEntities) {
+    for (const signal of signals) {
+      if (signalMatchesPair(entity, other, signal, edits)) return true;
+    }
+  }
+  return false;
+}
+
+function signalMatchesPair(
+  a: EnrichedEntity,
+  b: EnrichedEntity,
+  signal: DuplicateSignal,
+  edits: Record<string, Record<string, unknown>>
+): boolean {
+  switch (signal.type) {
+    case "same_email": {
+      const emailA = getEffectiveValue(a, "email", edits) ?? getEffectiveValue(a, "contact_email", edits);
+      const emailB = getEffectiveValue(b, "email", edits) ?? getEffectiveValue(b, "contact_email", edits);
+      return !!emailA && !!emailB && emailA.toLowerCase() === emailB.toLowerCase();
+    }
+    case "same_phone": {
+      const phoneA = getEffectiveValue(a, "phone_number", edits) ?? getEffectiveValue(a, "contact_phone", edits);
+      const phoneB = getEffectiveValue(b, "phone_number", edits) ?? getEffectiveValue(b, "contact_phone", edits);
+      if (!phoneA || !phoneB) return false;
+      return normalizePhone(phoneA) === normalizePhone(phoneB);
+    }
+    case "fuzzy_name": {
+      const nameA = getEffectiveValue(a, "name", edits) ?? getEffectiveValue(a, "contact_name", edits);
+      const nameB = getEffectiveValue(b, "name", edits) ?? getEffectiveValue(b, "contact_name", edits);
+      if (!nameA || !nameB) return false;
+      return normalizeCompanyName(nameA) === normalizeCompanyName(nameB);
+    }
+    case "same_address": {
+      const addrA = getEffectiveValue(a, "address", edits);
+      const addrB = getEffectiveValue(b, "address", edits);
+      return !!addrA && !!addrB && addrA.toLowerCase() === addrB.toLowerCase();
+    }
+    case "same_domain": {
+      const emailA = getEffectiveValue(a, "email", edits) ?? getEffectiveValue(a, "contact_email", edits);
+      const emailB = getEffectiveValue(b, "email", edits) ?? getEffectiveValue(b, "contact_email", edits);
+      if (!emailA || !emailB) return false;
+      const domainA = emailA.split("@")[1]?.toLowerCase();
+      const domainB = emailB.split("@")[1]?.toLowerCase();
+      return !!domainA && domainA === domainB;
+    }
+    case "same_title": {
+      const titleA = getEffectiveValue(a, "title", edits) ?? getEffectiveValue(a, "custom_title", edits);
+      const titleB = getEffectiveValue(b, "title", edits) ?? getEffectiveValue(b, "custom_title", edits);
+      return !!titleA && !!titleB && titleA.toLowerCase() === titleB.toLowerCase();
+    }
+    case "same_client": {
+      const clientA = getEffectiveValue(a, "client_id", edits);
+      const clientB = getEffectiveValue(b, "client_id", edits);
+      return !!clientA && clientA === clientB;
+    }
+    case "same_task_type": {
+      const ttA = getEffectiveValue(a, "task_type_id", edits);
+      const ttB = getEffectiveValue(b, "task_type_id", edits);
+      return !!ttA && ttA === ttB;
+    }
+    default:
+      return false;
+  }
+}
+
 // ─── Pick Best Entity ──────────────────────────────────────────────────────
 
 /** Pick the entity with the most non-null fields as the auto-winner */
@@ -425,6 +505,17 @@ export function DuplicateClusterCard({
     []
   );
 
+  // Compute per-entity duplicate status (recalculates when edits change)
+  const entityStatuses = useMemo(() => {
+    const statuses: Record<string, "duplicate" | "unique"> = {};
+    for (const entity of cluster.entities) {
+      const others = cluster.entities.filter((e) => e.id !== entity.id);
+      const stillConflicts = entityStillConflicts(entity, others, cluster.signals, edits);
+      statuses[entity.id] = stillConflicts ? "duplicate" : "unique";
+    }
+    return statuses;
+  }, [cluster.entities, cluster.signals, edits]);
+
   const handleMerge = useCallback(() => {
     const winnerId = pickBestEntity(cluster.entities);
     onMerge(cluster.reviewIds, winnerId, {}, edits, entityType);
@@ -462,19 +553,38 @@ export function DuplicateClusterCard({
         className="grid gap-3"
         style={{ gridTemplateColumns: `repeat(${cluster.entities.length}, 1fr)` }}
       >
-        {cluster.entities.map((entity) => (
-          <div
-            key={entity.id}
-            className="min-w-0 rounded-[3px] border border-white/8 bg-white/[0.03] p-3"
-          >
-            <InteractiveEntityCard
-              entity={entity}
-              entityType={entityType}
-              edits={edits}
-              onFieldEdit={handleFieldEdit}
-            />
-          </div>
-        ))}
+        {cluster.entities.map((entity) => {
+          const status = entityStatuses[entity.id] ?? "duplicate";
+          const isDuplicate = status === "duplicate";
+          return (
+            <div
+              key={entity.id}
+              className={`relative min-w-0 rounded-[3px] border bg-white/[0.03] p-3 transition-colors duration-300 ${
+                isDuplicate
+                  ? "border-[#93321A]/30"
+                  : "border-[#A5B368]/30"
+              }`}
+            >
+              {/* Status badge — top right */}
+              <span
+                className={`absolute right-2 top-2 rounded-[2px] px-[6px] py-[1px] font-kosugi text-[8px] uppercase tracking-wider transition-colors duration-300 ${
+                  isDuplicate
+                    ? "bg-[#93321A]/15 text-[#93321A]"
+                    : "bg-[#A5B368]/15 text-[#A5B368]"
+                }`}
+              >
+                {isDuplicate ? "Duplicate" : "Unique"}
+              </span>
+
+              <InteractiveEntityCard
+                entity={entity}
+                entityType={entityType}
+                edits={edits}
+                onFieldEdit={handleFieldEdit}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Actions */}
