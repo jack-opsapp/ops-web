@@ -101,17 +101,42 @@ function getEffectiveValue(
   return String(raw);
 }
 
+// ─── Signal-to-field mapping ──────────────────────────────────────────────
+
+/** Maps signal types to the field names they conflict on */
+const SIGNAL_CONFLICT_FIELDS: Record<string, string[]> = {
+  same_email: ["email", "contact_email"],
+  same_phone: ["phone_number", "contact_phone"],
+  fuzzy_name: ["name", "contact_name"],
+  same_address: ["address"],
+  same_domain: ["email", "contact_email"],
+  same_title: ["title", "custom_title"],
+  same_client: ["client_id"],
+  same_task_type: ["task_type_id"],
+};
+
+function getConflictFields(signals: { type: string }[]): Set<string> {
+  const fields = new Set<string>();
+  for (const s of signals) {
+    const mapped = SIGNAL_CONFLICT_FIELDS[s.type];
+    if (mapped) mapped.forEach((f) => fields.add(f));
+  }
+  return fields;
+}
+
 // ─── FieldPill Component ───────────────────────────────────────────────────
 
 function FieldPill({
   label,
   value,
   addLabel,
+  isConflict,
   onRemove,
   onEdit,
 }: {
   label: string;
   value: string | null;
+  isConflict?: boolean;
   addLabel: string;
   onRemove: () => void;
   onEdit: (value: string) => void;
@@ -179,13 +204,23 @@ function FieldPill({
       <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
         {label}
       </span>
-      <div className="inline-flex max-w-full items-center gap-[6px] rounded-[2px] border border-white/20 bg-white/[0.02] px-2 py-[3px] transition-colors duration-150 hover:border-white/35">
+      <div
+        className={`flex max-w-full items-center gap-[6px] rounded-[2px] border bg-white/[0.02] px-2 py-[3px] transition-colors duration-150 ${
+          isConflict
+            ? "border-[#93321A]/40 hover:border-[#93321A]/60"
+            : "border-white/20 hover:border-white/35"
+        }`}
+      >
         <button
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
-          className="min-w-0 truncate text-left font-mohave text-[12px] text-white/40 transition-colors duration-150 hover:text-white/60"
+          className={`min-w-0 flex-1 truncate text-left font-mohave text-[12px] transition-colors duration-150 ${
+            isConflict
+              ? "text-[#93321A]/70 hover:text-[#93321A]"
+              : "text-white/40 hover:text-white/60"
+          }`}
         >
           {value}
         </button>
@@ -194,7 +229,11 @@ function FieldPill({
             e.stopPropagation();
             onRemove();
           }}
-          className="shrink-0 text-white/20 transition-colors duration-150 hover:text-white/40"
+          className={`shrink-0 transition-colors duration-150 ${
+            isConflict
+              ? "text-[#93321A]/40 hover:text-[#93321A]/70"
+              : "text-white/20 hover:text-white/40"
+          }`}
           aria-label="Remove"
         >
           <X className="h-[10px] w-[10px]" />
@@ -266,6 +305,7 @@ interface InteractiveEntityCardProps {
   entity: EnrichedEntity;
   entityType: DuplicateEntityType;
   edits: Record<string, Record<string, unknown>>;
+  conflictFields: Set<string>;
   onFieldEdit: (entityId: string, field: string, value: string | null) => void;
 }
 
@@ -273,6 +313,7 @@ function InteractiveEntityCard({
   entity,
   entityType,
   edits,
+  conflictFields,
   onFieldEdit,
 }: InteractiveEntityCardProps) {
   const { t } = useDictionary("duplicates");
@@ -309,6 +350,7 @@ function InteractiveEntityCard({
             label={label}
             value={value}
             addLabel={addLabel}
+            isConflict={conflictFields.has(field) && value !== null}
             onRemove={() => onFieldEdit(entity.id, field, null)}
             onEdit={(val) => onFieldEdit(entity.id, field, val)}
           />
@@ -514,6 +556,45 @@ export function DuplicateClusterCard({
     return statuses;
   }, [cluster.entities, cluster.signals, edits]);
 
+  // Compute live conflict fields per entity — recalculates when edits change
+  const entityConflictFields = useMemo(() => {
+    const result: Record<string, Set<string>> = {};
+    const signalFields = getConflictFields(cluster.signals);
+
+    for (const entity of cluster.entities) {
+      const conflicts = new Set<string>();
+      const others = cluster.entities.filter((e) => e.id !== entity.id);
+
+      for (const field of signalFields) {
+        const myValue = getEffectiveValue(entity, field, edits);
+        if (!myValue) continue;
+
+        // Check if any other entity shares this value
+        for (const other of others) {
+          const otherValue = getEffectiveValue(other, field, edits);
+          if (!otherValue) continue;
+
+          let matches = false;
+          if (field === "phone_number" || field === "contact_phone") {
+            matches = normalizePhone(myValue) === normalizePhone(otherValue);
+          } else if (field === "name" || field === "contact_name") {
+            matches = normalizeCompanyName(myValue) === normalizeCompanyName(otherValue);
+          } else {
+            matches = myValue.toLowerCase() === otherValue.toLowerCase();
+          }
+
+          if (matches) {
+            conflicts.add(field);
+            break;
+          }
+        }
+      }
+
+      result[entity.id] = conflicts;
+    }
+    return result;
+  }, [cluster.entities, cluster.signals, edits]);
+
   const handleMerge = useCallback(() => {
     const winnerId = pickBestEntity(cluster.entities);
     onMerge(cluster.reviewIds, winnerId, {}, edits, entityType);
@@ -578,6 +659,7 @@ export function DuplicateClusterCard({
                 entity={entity}
                 entityType={entityType}
                 edits={edits}
+                conflictFields={entityConflictFields[entity.id] ?? new Set()}
                 onFieldEdit={handleFieldEdit}
               />
             </div>
