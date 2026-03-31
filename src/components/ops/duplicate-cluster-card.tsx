@@ -1,49 +1,58 @@
 "use client";
 
+import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
+import { X } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import type { DuplicateEntityType } from "@/lib/api/services/duplicate-detection-service";
 import type { EnrichedEntity } from "@/lib/hooks/use-duplicate-reviews";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Field Configuration ───────────────────────────────────────────────────
 
-interface EntityCardProps {
-  entity: EnrichedEntity;
-  entityType: DuplicateEntityType;
-}
+/** Fields the user can edit on each entity type */
+const EDITABLE_FIELDS: Record<DuplicateEntityType, string[]> = {
+  client: ["name", "email", "phone_number", "address", "notes"],
+  opportunity: [
+    "title",
+    "contact_name",
+    "contact_email",
+    "contact_phone",
+    "address",
+    "description",
+  ],
+  project: ["title", "address", "notes", "description"],
+  task: ["custom_title", "task_notes"],
+};
 
-// ─── Per-entity-type card renderers ─────────────────────────────────────────
+/** The field used as the card title per entity type */
+const TITLE_FIELD: Record<DuplicateEntityType, string> = {
+  client: "name",
+  opportunity: "title",
+  project: "title",
+  task: "custom_title",
+};
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
-        {label}
-      </span>
-      <span className="font-mohave text-[13px] text-white/80 leading-tight">
-        {value}
-      </span>
-    </div>
-  );
-}
+/** Read-only fields to display per entity type (order matters) */
+const READONLY_FIELDS: Record<DuplicateEntityType, { field: string; label: string; formatter?: "date" | "currency" }[]> = {
+  client: [
+    { field: "created_at", label: "fields.created", formatter: "date" },
+  ],
+  opportunity: [
+    { field: "stage", label: "fields.stage" },
+    { field: "estimated_value", label: "fields.estimated_value", formatter: "currency" },
+    { field: "created_at", label: "fields.created", formatter: "date" },
+  ],
+  project: [
+    { field: "status", label: "fields.status" },
+    { field: "created_at", label: "fields.created", formatter: "date" },
+  ],
+  task: [
+    { field: "status", label: "fields.status" },
+    { field: "start_date", label: "fields.dates", formatter: "date" },
+  ],
+};
 
-function EmptyField({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
-        {label}
-      </span>
-      <span className="font-mohave text-[12px] text-white/15">—</span>
-    </div>
-  );
-}
-
-/** Shows a field, or an empty placeholder if missing — ensures rows align across cards */
-function FieldOrEmpty({ label, value }: { label: string; value: string | null | undefined }) {
-  if (value) return <Field label={label} value={value} />;
-  return <EmptyField label={label} />;
-}
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 function formatDate(val: unknown): string | null {
   if (!val) return null;
@@ -54,100 +63,303 @@ function formatDate(val: unknown): string | null {
   }
 }
 
-function ClientCard({ entity }: EntityCardProps) {
-  const d = entity.data;
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="font-mohave text-[15px] font-medium text-white/90 leading-tight">
-        {(d.name as string) || "Unnamed"}
-      </span>
-      <FieldOrEmpty label="EMAIL" value={d.email as string | null} />
-      <FieldOrEmpty label="PHONE" value={d.phone_number as string | null} />
-      <FieldOrEmpty label="ADDRESS" value={d.address as string | null} />
-      <FieldOrEmpty label="CREATED" value={formatDate(d.created_at)} />
-    </div>
-  );
+function formatCurrency(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
+  const num = Number(val);
+  if (isNaN(num)) return null;
+  return `$${num.toLocaleString()}`;
 }
 
-function OpportunityCard({ entity }: EntityCardProps) {
-  const d = entity.data;
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="font-mohave text-[15px] font-medium text-white/90 leading-tight">
-        {(d.title as string) || "Untitled"}
-      </span>
-      <FieldOrEmpty label="CONTACT" value={d.contact_name as string | null} />
-      <FieldOrEmpty label="EMAIL" value={d.contact_email as string | null} />
-      <FieldOrEmpty label="PHONE" value={d.contact_phone as string | null} />
-      <FieldOrEmpty label="STAGE" value={d.stage as string | null} />
-      <FieldOrEmpty
-        label="VALUE"
-        value={d.estimated_value ? `$${Number(d.estimated_value).toLocaleString()}` : null}
-      />
-    </div>
-  );
+function formatReadonlyValue(val: unknown, formatter?: "date" | "currency"): string | null {
+  if (formatter === "date") return formatDate(val);
+  if (formatter === "currency") return formatCurrency(val);
+  if (val === null || val === undefined || val === "") return null;
+  return String(val);
 }
 
-function ProjectCard({ entity }: EntityCardProps) {
-  const d = entity.data;
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="font-mohave text-[15px] font-medium text-white/90 leading-tight">
-        {(d.title as string) || "Untitled"}
-      </span>
-      <FieldOrEmpty label="STATUS" value={d.status as string | null} />
-      <FieldOrEmpty label="ADDRESS" value={d.address as string | null} />
-      <FieldOrEmpty label="CREATED" value={formatDate(d.created_at)} />
-    </div>
-  );
+/** Get the i18n label key for a field, e.g. "name" -> "fields.name" */
+function fieldLabelKey(field: string): string {
+  return `fields.${field}`;
 }
 
-function TaskCard({ entity }: EntityCardProps) {
-  const d = entity.data;
-  const startDate = d.start_date ? format(new Date(d.start_date as string), "MMM d") : null;
-  const endDate = d.end_date ? format(new Date(d.end_date as string), "MMM d") : null;
-  const dateRange = startDate && endDate ? `${startDate} – ${endDate}` : startDate;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="font-mohave text-[15px] font-medium text-white/90 leading-tight">
-        {(d.custom_title as string | null) || (d.task_type_id as string) || "Task"}
-      </span>
-      <FieldOrEmpty label="STATUS" value={d.status as string | null} />
-      <FieldOrEmpty label="DATES" value={dateRange} />
-    </div>
-  );
-}
-
-// ─── Entity Card Router ─────────────────────────────────────────────────────
-
-function EntityCard({ entity, entityType }: EntityCardProps) {
-  switch (entityType) {
-    case "client":
-      return <ClientCard entity={entity} entityType={entityType} />;
-    case "opportunity":
-      return <OpportunityCard entity={entity} entityType={entityType} />;
-    case "project":
-      return <ProjectCard entity={entity} entityType={entityType} />;
-    case "task":
-      return <TaskCard entity={entity} entityType={entityType} />;
+/** Get the effective value of a field, applying edits */
+function getEffectiveValue(
+  entity: EnrichedEntity,
+  field: string,
+  edits: Record<string, Record<string, unknown>>
+): string | null {
+  const entityEdits = edits[entity.id];
+  if (entityEdits && field in entityEdits) {
+    const edited = entityEdits[field];
+    if (edited === null) return null;
+    return String(edited);
   }
+  const raw = entity.data[field];
+  if (raw === null || raw === undefined || raw === "") return null;
+  return String(raw);
 }
 
-// ─── Exported Cluster Card ──────────────────────────────────────────────────
+// ─── FieldPill Component ───────────────────────────────────────────────────
 
-interface DuplicateClusterCardProps {
-  cluster: {
-    entities: EnrichedEntity[];
-    reviewIds: string[];
-    confidence: "high" | "medium";
-    signals: { type: string; detail: string }[];
-  };
+function FieldPill({
+  label,
+  value,
+  addLabel,
+  onRemove,
+  onEdit,
+}: {
+  label: string;
+  value: string | null;
+  addLabel: string;
+  onRemove: () => void;
+  onEdit: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // When entering edit mode, focus the input
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+          {label}
+        </span>
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            if (draft.trim()) onEdit(draft.trim());
+            else onRemove();
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+            if (e.key === "Escape") {
+              setDraft(value ?? "");
+              setEditing(false);
+            }
+          }}
+          className="w-fit rounded-full border border-[#597794]/40 bg-white/[0.04] px-2.5 py-1 font-mohave text-[12px] text-white/80 outline-none"
+        />
+      </div>
+    );
+  }
+
+  if (!value) {
+    // Empty — show add pill
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+          {label}
+        </span>
+        <button
+          onClick={() => {
+            setDraft("");
+            setEditing(true);
+          }}
+          className="inline-flex w-fit items-center gap-1 rounded-full border border-dashed border-white/10 px-2.5 py-1 font-mohave text-[12px] text-white/25 transition-colors duration-150 hover:border-white/20 hover:text-white/40"
+        >
+          <span className="text-[11px]">+</span> {addLabel}
+        </button>
+      </div>
+    );
+  }
+
+  // Has value — show data pill
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+        {label}
+      </span>
+      <div className="group inline-flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 transition-colors duration-150 hover:border-white/15">
+        <button
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+          className="truncate text-left font-mohave text-[12px] text-white/75 transition-colors duration-150 hover:text-white"
+        >
+          {value}
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="shrink-0 rounded-full p-0.5 text-white/20 opacity-0 transition-all duration-150 hover:bg-white/10 hover:text-white/60 group-hover:opacity-100"
+          aria-label="Remove"
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── EditableTitle Component ───────────────────────────────────────────────
+
+function EditableTitle({
+  value,
+  fallback,
+  onEdit,
+}: {
+  value: string | null;
+  fallback: string;
+  onEdit: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft.trim()) onEdit(draft.trim());
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.currentTarget.blur();
+          }
+          if (e.key === "Escape") {
+            setDraft(value ?? "");
+            setEditing(false);
+          }
+        }}
+        className="w-full rounded-[2px] border border-[#597794]/30 bg-white/[0.04] px-1 py-0.5 font-mohave text-[15px] font-medium text-white/90 outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => {
+        setDraft(value ?? "");
+        setEditing(true);
+      }}
+      className="text-left font-mohave text-[15px] font-medium leading-tight text-white/90 transition-colors duration-150 hover:text-white"
+    >
+      {value || fallback}
+    </button>
+  );
+}
+
+// ─── Entity Card with Field Pills ──────────────────────────────────────────
+
+interface InteractiveEntityCardProps {
+  entity: EnrichedEntity;
   entityType: DuplicateEntityType;
-  onMerge: (reviewIds: string[], winnerId: string, fieldOverrides: Record<string, unknown>) => void;
-  onDismiss: (reviewIds: string[]) => void;
-  isMerging: boolean;
+  edits: Record<string, Record<string, unknown>>;
+  onFieldEdit: (entityId: string, field: string, value: string | null) => void;
 }
+
+function InteractiveEntityCard({
+  entity,
+  entityType,
+  edits,
+  onFieldEdit,
+}: InteractiveEntityCardProps) {
+  const { t } = useDictionary("duplicates");
+  const titleField = TITLE_FIELD[entityType];
+  const editableFields = EDITABLE_FIELDS[entityType];
+  const readonlyFields = READONLY_FIELDS[entityType];
+  const addLabel = t("card.add");
+
+  // Editable fields excluding the title (title is rendered separately)
+  const pillFields = editableFields.filter((f) => f !== titleField);
+
+  const titleValue = getEffectiveValue(entity, titleField, edits);
+  const titleFallback =
+    entityType === "task"
+      ? ((entity.data.task_type_id as string) || "Task")
+      : "Untitled";
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Editable title */}
+      <EditableTitle
+        value={titleValue}
+        fallback={titleFallback}
+        onEdit={(val) => onFieldEdit(entity.id, titleField, val)}
+      />
+
+      {/* Editable field pills */}
+      {pillFields.map((field) => {
+        const value = getEffectiveValue(entity, field, edits);
+        const label = t(fieldLabelKey(field)) || field;
+        return (
+          <FieldPill
+            key={field}
+            label={label}
+            value={value}
+            addLabel={addLabel}
+            onRemove={() => onFieldEdit(entity.id, field, null)}
+            onEdit={(val) => onFieldEdit(entity.id, field, val)}
+          />
+        );
+      })}
+
+      {/* Read-only fields */}
+      {readonlyFields.map((ro) => {
+        // Special handling for task dates — show range
+        if (entityType === "task" && ro.field === "start_date") {
+          const startDate = entity.data.start_date
+            ? formatDate(entity.data.start_date)
+            : null;
+          const endDate = entity.data.end_date
+            ? formatDate(entity.data.end_date)
+            : null;
+          const dateRange =
+            startDate && endDate
+              ? `${startDate} - ${endDate}`
+              : startDate;
+          if (!dateRange) return null;
+          return (
+            <div key={ro.field} className="flex flex-col gap-0.5">
+              <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+                {t(ro.label) || ro.field}
+              </span>
+              <span className="font-mohave text-[13px] leading-tight text-white/50">
+                {dateRange}
+              </span>
+            </div>
+          );
+        }
+
+        const formatted = formatReadonlyValue(entity.data[ro.field], ro.formatter);
+        if (!formatted) return null;
+        return (
+          <div key={ro.field} className="flex flex-col gap-0.5">
+            <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+              {t(ro.label) || ro.field}
+            </span>
+            <span className="font-mohave text-[13px] leading-tight text-white/50">
+              {formatted}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Pick Best Entity ──────────────────────────────────────────────────────
 
 /** Pick the entity with the most non-null fields as the auto-winner */
 function pickBestEntity(entities: EnrichedEntity[]): string {
@@ -165,6 +377,31 @@ function pickBestEntity(entities: EnrichedEntity[]): string {
   return bestId;
 }
 
+// ─── Exported Cluster Card ─────────────────────────────────────────────────
+
+interface DuplicateClusterCardProps {
+  cluster: {
+    entities: EnrichedEntity[];
+    reviewIds: string[];
+    confidence: "high" | "medium";
+    signals: { type: string; detail: string }[];
+  };
+  entityType: DuplicateEntityType;
+  onMerge: (
+    reviewIds: string[],
+    winnerId: string,
+    fieldOverrides: Record<string, unknown>,
+    entityEdits: Record<string, Record<string, unknown>>,
+    entityType: DuplicateEntityType
+  ) => void;
+  onDismiss: (
+    reviewIds: string[],
+    entityEdits: Record<string, Record<string, unknown>>,
+    entityType: DuplicateEntityType
+  ) => void;
+  isMerging: boolean;
+}
+
 export function DuplicateClusterCard({
   cluster,
   entityType,
@@ -174,10 +411,28 @@ export function DuplicateClusterCard({
 }: DuplicateClusterCardProps) {
   const { t } = useDictionary("duplicates");
 
-  const handleMerge = () => {
+  // Track all field edits: entityId -> { field -> value (null = removed) }
+  const [edits, setEdits] = useState<Record<string, Record<string, unknown>>>({});
+
+  const handleFieldEdit = useCallback(
+    (entityId: string, field: string, value: string | null) => {
+      setEdits((prev) => {
+        const entityEdits = { ...prev[entityId] };
+        entityEdits[field] = value;
+        return { ...prev, [entityId]: entityEdits };
+      });
+    },
+    []
+  );
+
+  const handleMerge = useCallback(() => {
     const winnerId = pickBestEntity(cluster.entities);
-    onMerge(cluster.reviewIds, winnerId, {});
-  };
+    onMerge(cluster.reviewIds, winnerId, {}, edits, entityType);
+  }, [cluster.entities, cluster.reviewIds, edits, entityType, onMerge]);
+
+  const handleDismiss = useCallback(() => {
+    onDismiss(cluster.reviewIds, edits, entityType);
+  }, [cluster.reviewIds, edits, entityType, onDismiss]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -212,7 +467,12 @@ export function DuplicateClusterCard({
             key={entity.id}
             className="min-w-0 rounded-[3px] border border-white/8 bg-white/[0.03] p-3"
           >
-            <EntityCard entity={entity} entityType={entityType} />
+            <InteractiveEntityCard
+              entity={entity}
+              entityType={entityType}
+              edits={edits}
+              onFieldEdit={handleFieldEdit}
+            />
           </div>
         ))}
       </div>
@@ -229,7 +489,7 @@ export function DuplicateClusterCard({
         </button>
         <button
           type="button"
-          onClick={() => onDismiss(cluster.reviewIds)}
+          onClick={handleDismiss}
           disabled={isMerging}
           className="rounded-[3px] border border-white/8 bg-white/5 px-4 py-2.5 font-mohave text-[14px] text-white/40 transition-colors duration-150 hover:bg-white/10 hover:text-white/60 disabled:opacity-40"
         >
