@@ -537,6 +537,9 @@
 
   "pipelineFunnel.noProjects": "No active projects",
   "pipelineFunnel.ofPipeline": "Of pipeline",
+  "pipelineFunnel.weighted": "Weighted",
+  "pipelineFunnel.viewPipeline": "View Pipeline",
+  "pipelineFunnel.conversionRate": "Conversion",
 
   "taskPulse.title": "Tasks",
   "taskPulse.overdue": "Overdue",
@@ -562,6 +565,11 @@
   "actionRequired.expiresToday": "Expires today",
   "actionRequired.expiresIn": "Expires in",
 
+  "actionRequired.viewAll": "View All",
+  "actionRequired.sendReminder": "Send Reminder",
+  "actionRequired.viewProject": "View Project",
+  "actionRequired.followUp": "Follow Up",
+
   "revenuePulse.title": "Revenue",
   "revenuePulse.mtdRevenue": "MTD Revenue",
   "revenuePulse.ytdTotal": "YTD Total",
@@ -579,15 +587,28 @@
   "taskPulse.allClear": "All clear",
   "taskPulse.viewCalendar": "View Calendar",
 
+  "receivablesAging.title": "Receivables",
+  "receivablesAging.outstanding": "Outstanding",
+  "receivablesAging.allCurrent": "All invoices current",
+  "receivablesAging.viewInvoices": "View Invoices",
+  "receivablesAging.sendReminder": "Send Reminder",
+  "receivablesAging.count": "Count",
+  "receivablesAging.ofTotal": "Of total",
+  "receivablesAging.current": "Current",
+  "receivablesAging.days": "days",
+
   "profitGauge.title": "Profit",
   "profitGauge.margin": "Margin",
   "profitGauge.revenue": "Revenue",
   "profitGauge.expenses": "Expenses",
   "profitGauge.profit": "Profit",
   "profitGauge.noData": "No data for this period",
+  "profitGauge.viewExpenses": "View Expenses",
 
   "expenseTracker.title": "Expenses",
   "expenseTracker.noExpenses": "No expenses recorded",
+  "expenseTracker.viewAll": "View Expenses",
+  "expenseTracker.delta": "vs last period",
   "expenseTracker.categories": "Categories",
   "expenseTracker.ofTotal": "of total",
 
@@ -625,6 +646,7 @@
   "crewBoard.utilization": "Utilization",
   "crewBoard.tasks": "tasks",
   "crewBoard.noMembers": "No team members",
+  "crewBoard.viewSchedule": "View Schedule",
 
   "topClients.title": "Top Clients",
   "topClients.noData": "No client data yet",

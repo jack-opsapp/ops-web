@@ -22,6 +22,11 @@
   --color-financial-receivables: #D4A574;
   --color-financial-overdue: #93321A;
   --color-ops-accent: rgb(var(--ops-accent-rgb));
+
+  /* RGB splits for opacity-modulated chart fills */
+  --status-error-rgb: 147 50 26;
+  --status-warning-rgb: 196 168 104;
+  --status-success-rgb: 165 179 104;
 }
 
 /* Compact mode spacing overrides */

@@ -537,6 +537,9 @@
 
   "pipelineFunnel.noProjects": "Sin proyectos activos",
   "pipelineFunnel.ofPipeline": "Del pipeline",
+  "pipelineFunnel.weighted": "Ponderado",
+  "pipelineFunnel.viewPipeline": "Ver Pipeline",
+  "pipelineFunnel.conversionRate": "Conversión",
 
   "taskPulse.title": "Tareas",
   "taskPulse.overdue": "Vencidas",
@@ -561,6 +564,10 @@
   "actionRequired.dueIn": "Vence en",
   "actionRequired.expiresToday": "Vence hoy",
   "actionRequired.expiresIn": "Vence en",
+  "actionRequired.viewAll": "Ver Todo",
+  "actionRequired.sendReminder": "Enviar Recordatorio",
+  "actionRequired.viewProject": "Ver Proyecto",
+  "actionRequired.followUp": "Dar Seguimiento",
 
   "revenuePulse.title": "Ingresos",
   "revenuePulse.mtdRevenue": "Ingresos del Mes",
@@ -579,15 +586,28 @@
   "taskPulse.allClear": "Todo al día",
   "taskPulse.viewCalendar": "Ver Calendario",
 
+  "receivablesAging.title": "Cuentas por Cobrar",
+  "receivablesAging.outstanding": "Pendiente",
+  "receivablesAging.allCurrent": "Todas las facturas al día",
+  "receivablesAging.viewInvoices": "Ver Facturas",
+  "receivablesAging.sendReminder": "Enviar Recordatorio",
+  "receivablesAging.count": "Cantidad",
+  "receivablesAging.ofTotal": "Del total",
+  "receivablesAging.current": "Al día",
+  "receivablesAging.days": "días",
+
   "profitGauge.title": "Ganancia",
   "profitGauge.margin": "Margen",
   "profitGauge.revenue": "Ingresos",
   "profitGauge.expenses": "Gastos",
   "profitGauge.profit": "Ganancia",
   "profitGauge.noData": "Sin datos para este período",
+  "profitGauge.viewExpenses": "Ver Gastos",
 
   "expenseTracker.title": "Gastos",
   "expenseTracker.noExpenses": "Sin gastos registrados",
+  "expenseTracker.viewAll": "Ver Gastos",
+  "expenseTracker.delta": "vs periodo anterior",
   "expenseTracker.categories": "Categorías",
   "expenseTracker.ofTotal": "del total",
 
@@ -625,6 +645,7 @@
   "crewBoard.utilization": "Utilización",
   "crewBoard.tasks": "tareas",
   "crewBoard.noMembers": "Sin miembros del equipo",
+  "crewBoard.viewSchedule": "Ver Calendario",
 
   "topClients.title": "Top Clientes",
   "topClients.noData": "Sin datos de clientes",

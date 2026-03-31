@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { AlertCircle, CheckSquare, FileText, FileSpreadsheet, Phone, Check } from "lucide-react";
+import { CheckSquare, FileText, FileSpreadsheet, Phone, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
@@ -10,7 +10,7 @@ import { TaskStatus } from "@/lib/types/models";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
-import { WT, HERO_SIZE_CLASS } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
@@ -19,18 +19,20 @@ import { useDictionary } from "@/i18n/client";
 interface ActionItem {
   id: string;
   type: "overdue-task" | "past-due-invoice" | "expiring-estimate" | "stale-follow-up";
-  priority: number; // 1 = highest
+  priority: number;
   description: string;
   age: string;
   amount?: number;
   navigateTo: string;
+  /** Days overdue — used for LG action button logic (30d+ invoices get "Send Reminder") */
+  daysOverdue?: number;
 }
 
 const TYPE_CONFIG = {
-  "overdue-task": { icon: CheckSquare, color: WT.error, labelKey: "actionRequired.groupOverdueTasks" },
-  "past-due-invoice": { icon: FileText, color: WT.receivables, labelKey: "actionRequired.groupPastDueInvoices" },
-  "expiring-estimate": { icon: FileSpreadsheet, color: WT.warning, labelKey: "actionRequired.groupExpiringEstimates" },
-  "stale-follow-up": { icon: Phone, color: WT.accent, labelKey: "actionRequired.groupStaleFollowUps" },
+  "overdue-task": { icon: CheckSquare, color: WT.error, labelKey: "actionRequired.groupOverdueTasks", actionKey: "actionRequired.viewProject" },
+  "past-due-invoice": { icon: FileText, color: WT.receivables, labelKey: "actionRequired.groupPastDueInvoices", actionKey: "actionRequired.sendReminder" },
+  "expiring-estimate": { icon: FileSpreadsheet, color: WT.warning, labelKey: "actionRequired.groupExpiringEstimates", actionKey: "actionRequired.followUp" },
+  "stale-follow-up": { icon: Phone, color: WT.accent, labelKey: "actionRequired.groupStaleFollowUps", actionKey: "actionRequired.followUp" },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -82,7 +84,13 @@ export function ActionRequiredWidget({
   const { t } = useDictionary("dashboard");
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
+  const compact = isCompact(size);
 
+  const reducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
+  // ── Build action items ────────────────────────────────────────────────
   const items = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -106,6 +114,7 @@ export function ActionRequiredWidget({
         description: task.customTitle || task.taskType?.display || "Task",
         age: formatAge(days, "overdue", t),
         navigateTo: `/projects/${task.projectId}`,
+        daysOverdue: days,
       });
     }
 
@@ -118,11 +127,10 @@ export function ActionRequiredWidget({
       const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
       if (dueDay >= today) continue;
       const days = daysBetween(dueDay, today);
-      // Priority based on age
       let priority: number;
-      if (days > 90) priority = 1;       // Critical — money at risk
-      else if (days >= 30) priority = 3;  // 30-90 days
-      else priority = 6;                  // <30 days
+      if (days > 90) priority = 1;
+      else if (days >= 30) priority = 3;
+      else priority = 6;
       result.push({
         id: `invoice-${inv.id}`,
         type: "past-due-invoice",
@@ -131,6 +139,7 @@ export function ActionRequiredWidget({
         age: formatAge(days, "overdue", t),
         amount: inv.balanceDue,
         navigateTo: `/invoices/${inv.id}`,
+        daysOverdue: days,
       });
     }
 
@@ -173,14 +182,14 @@ export function ActionRequiredWidget({
         age: formatAge(days, "overdue", t),
         amount: opp.estimatedValue ?? undefined,
         navigateTo: `/pipeline/${opp.id}`,
+        daysOverdue: days,
       });
     }
 
-    // Sort by priority (ascending), then by age description (arbitrary tiebreak)
     return result.sort((a, b) => a.priority - b.priority);
   }, [tasks, invoices, estimates, opportunities]);
 
-  // All hooks must be called before any early returns
+  // ── Category counts (for SM dots) ─────────────────────────────────────
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const item of items) {
@@ -189,8 +198,9 @@ export function ActionRequiredWidget({
     return counts;
   }, [items]);
 
+  // ── Grouped items (LG only) ───────────────────────────────────────────
   const grouped = useMemo(() => {
-    if (size !== "lg") return null;
+    if (!showActions(size)) return null;
     const groups = new Map<string, ActionItem[]>();
     for (const item of items) {
       if (!groups.has(item.type)) groups.set(item.type, []);
@@ -204,14 +214,9 @@ export function ActionRequiredWidget({
     return result;
   }, [items, size]);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
-
   const totalColor = items.length > 5 ? WT.error : items.length > 0 ? WT.warning : WT.success;
-  const maxItems = size === "lg" ? undefined : 5;
-  const displayItems = maxItems ? items.slice(0, maxItems) : items;
 
+  // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -227,41 +232,61 @@ export function ActionRequiredWidget({
     );
   }
 
-  // Empty state
+  // ── Empty state ───────────────────────────────────────────────────────
   if (items.length === 0) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="h-full flex flex-col px-3 py-2">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("actionRequired.title") ?? "Action Required"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2 flex flex-col items-start justify-center h-[calc(100%-28px)]">
-          <div className="flex items-center gap-2">
+          </span>
+          <div className="flex-1 flex items-center gap-2">
             <Check className="w-4 h-4 text-status-success" />
             <span className="font-mohave text-caption-sm text-status-success">
               {t("actionRequired.allClear") ?? "All clear — no items need attention"}
             </span>
           </div>
-        </CardContent>
+          {showFooter(size) && (
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+              {t("actionRequired.viewAll") ?? "View All"}
+            </span>
+          )}
+        </div>
       </Card>
     );
   }
 
-  // ── SM ──────────────────────────────────────────────────────────────────
+  // ── XS: Header + Hero (count, colored by severity) ────────────────────
+  if (size === "xs") {
+    return (
+      <Card className="h-full cursor-pointer" onClick={() => items.length > 0 && onNavigate(items[0].navigateTo)}>
+        <div className="h-full flex flex-col justify-center px-3">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
+            {t("actionRequired.title") ?? "Action Required"}
+          </span>
+          <span
+            className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+            style={{ color: totalColor }}
+          >
+            {items.length}
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
+  // ── SM: Hero + category dots + footer ─────────────────────────────────
   if (size === "sm") {
     return (
       <Card
         className="h-full cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors"
         onClick={() => items.length > 0 && onNavigate(items[0].navigateTo)}
       >
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="h-full flex flex-col px-3 py-2">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("actionRequired.title") ?? "Action Required"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
-          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`} style={{ color: totalColor }}>
+          </span>
+          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none mt-1`} style={{ color: totalColor }}>
             {items.length}
           </span>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -275,76 +300,102 @@ export function ActionRequiredWidget({
               );
             })}
           </div>
-        </CardContent>
+          <button
+            onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
+            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("actionRequired.viewAll") ?? "View All"}
+          </button>
+        </div>
       </Card>
     );
   }
 
-  // ── MD / LG ─────────────────────────────────────────────────────────────
+  // ── MD / LG ───────────────────────────────────────────────────────────
+  const maxItems = showActions(size) ? undefined : 5;
+  const displayItems = maxItems ? items.slice(0, maxItems) : items;
+
   return (
     <Card className="h-full" ref={ref}>
-      <CardHeader className="pb-1 pt-2 px-3 flex flex-row items-center justify-between">
-        <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
-          {t("actionRequired.title") ?? "Action Required"}
-        </CardTitle>
-        <span
-          className="font-mono text-micro-sm px-1.5 py-0.5 rounded-sm"
-          style={{ backgroundColor: `${totalColor}20`, color: totalColor }}
-        >
-          {items.length}
-        </span>
-      </CardHeader>
-      <CardContent className="px-3 pb-2 overflow-hidden">
-        {size === "lg" && grouped ? (
-          // Grouped layout
-          <div className="flex flex-col gap-2">
-            {grouped.map((group) => {
-              const config = TYPE_CONFIG[group.type as keyof typeof TYPE_CONFIG];
-              return (
-                <div key={group.type}>
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: config.color }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-                      {t(config.labelKey) ?? group.type} ({categoryCounts[group.type]})
-                    </span>
+      <div className="h-full flex flex-col px-3 py-2">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("actionRequired.title") ?? "Action Required"}
+          </span>
+          <span
+            className="font-mono text-micro-sm px-1.5 py-0.5 rounded-sm"
+            style={{ backgroundColor: `${totalColor}20`, color: totalColor }}
+          >
+            {items.length}
+          </span>
+        </div>
+
+        {/* Detail zone — scrollable */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          {showActions(size) && grouped ? (
+            // LG: Grouped layout with inline actions
+            <div className="flex flex-col gap-2">
+              {grouped.map((group) => {
+                const config = TYPE_CONFIG[group.type as keyof typeof TYPE_CONFIG];
+                return (
+                  <div key={group.type}>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: config.color }} />
+                      <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                        {t(config.labelKey) ?? group.type} ({categoryCounts[group.type]})
+                      </span>
+                    </div>
+                    {group.items.map((item, i) => (
+                      <ActionRow
+                        key={item.id}
+                        item={item}
+                        index={i}
+                        isVisible={isVisible}
+                        reducedMotion={reducedMotion}
+                        onNavigate={onNavigate}
+                        showAction={true}
+                        t={t}
+                      />
+                    ))}
                   </div>
-                  {group.items.map((item, i) => (
-                    <ActionRow
-                      key={item.id}
-                      item={item}
-                      index={i}
-                      isVisible={isVisible}
-                      reducedMotion={reducedMotion}
-                      onNavigate={onNavigate}
-                      isFirst={false}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          // Flat priority list (md)
-          <div className="flex flex-col">
-            {displayItems.map((item, i) => (
-              <ActionRow
-                key={item.id}
-                item={item}
-                index={i}
-                isVisible={isVisible}
-                reducedMotion={reducedMotion}
-                onNavigate={onNavigate}
-                isFirst={i === 0}
-              />
-            ))}
-            {maxItems && items.length > maxItems && (
-              <span className="font-kosugi text-micro-sm text-text-disabled mt-1">
-                +{items.length - maxItems} more
-              </span>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            // MD: Flat priority list
+            <div className="flex flex-col">
+              {displayItems.map((item, i) => (
+                <ActionRow
+                  key={item.id}
+                  item={item}
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
+                  onNavigate={onNavigate}
+                  showAction={false}
+                  t={t}
+                />
+              ))}
+              {maxItems && items.length > maxItems && (
+                <span className="font-kosugi text-micro-sm text-text-disabled mt-1">
+                  +{items.length - maxItems} more
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {showFooter(size) && (
+          <button
+            onClick={() => onNavigate("/calendar")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("actionRequired.viewAll") ?? "View All"}
+          </button>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }
@@ -358,17 +409,31 @@ function ActionRow({
   isVisible,
   reducedMotion,
   onNavigate,
-  isFirst,
+  showAction,
+  t,
 }: {
   item: ActionItem;
   index: number;
   isVisible: boolean;
   reducedMotion: boolean;
   onNavigate: (path: string) => void;
-  isFirst: boolean;
+  showAction: boolean;
+  t: (key: string) => string | undefined;
 }) {
   const config = TYPE_CONFIG[item.type];
   const Icon = config.icon;
+
+  // Determine action button label for LG
+  let actionLabel: string | null = null;
+  if (showAction) {
+    if (item.type === "past-due-invoice" && (item.daysOverdue ?? 0) >= 30) {
+      actionLabel = t("actionRequired.sendReminder") ?? "Send Reminder";
+    } else if (item.type === "overdue-task") {
+      actionLabel = t("actionRequired.viewProject") ?? "View Project";
+    } else if (item.type === "expiring-estimate" || item.type === "stale-follow-up") {
+      actionLabel = t("actionRequired.followUp") ?? "Follow Up";
+    }
+  }
 
   return (
     <div
@@ -379,9 +444,6 @@ function ActionRow({
         transition: reducedMotion
           ? "opacity 200ms ease"
           : `opacity 300ms ease ${index * 50}ms, transform 300ms ease ${index * 50}ms`,
-        animation: isFirst && isVisible && !reducedMotion
-          ? "action-pulse 400ms ease-in-out 1"
-          : undefined,
       }}
       onClick={() => onNavigate(item.navigateTo)}
     >
@@ -395,13 +457,18 @@ function ActionRow({
         )}
         <span className="font-mono text-micro-sm text-text-tertiary whitespace-nowrap">{item.age}</span>
       </div>
-
-      <style jsx>{`
-        @keyframes action-pulse {
-          0% { opacity: 0.7; }
-          100% { opacity: 1; }
-        }
-      `}</style>
+      {actionLabel && (
+        <button
+          className="font-mohave text-button-sm px-2 py-0.5 rounded-sm shrink-0 transition-colors"
+          style={{
+            backgroundColor: `${config.color}15`,
+            color: config.color,
+          }}
+          onClick={(e) => { e.stopPropagation(); onNavigate(item.navigateTo); }}
+        >
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }

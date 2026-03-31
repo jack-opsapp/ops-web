@@ -23,6 +23,10 @@ export const WT = {
   accent: "var(--color-ops-accent)",
   accentMuted: "rgba(var(--ops-accent-rgb) / 0.4)",
   accentSubtle: "rgba(var(--ops-accent-rgb) / 0.15)",
+  // Muted chart fills (70% opacity — for bars/segments, NOT badges)
+  errorMuted: "rgba(var(--status-error-rgb) / 0.7)",
+  warningMuted: "rgba(var(--status-warning-rgb) / 0.7)",
+  successMuted: "rgba(var(--status-success-rgb) / 0.7)",
   // Neutral
   muted: "rgba(255, 255, 255, 0.15)",
   faint: "rgba(255, 255, 255, 0.08)",
