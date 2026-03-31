@@ -55,15 +55,39 @@ export function DuplicateReviewSheet() {
   const total = allClusters.length;
 
   const handleMerge = useCallback(
-    (reviewIds: string[], winnerId: string, fieldOverrides: Record<string, unknown>) => {
-      mergeMutation.mutate({ reviewIds, winnerId, fieldOverrides });
+    (
+      reviewIds: string[],
+      winnerId: string,
+      fieldOverrides: Record<string, unknown>,
+      entityEdits: Record<string, Record<string, unknown>>,
+      entityType: string
+    ) => {
+      mergeMutation.mutate({
+        reviewIds,
+        winnerId,
+        fieldOverrides,
+        entityEdits: Object.keys(entityEdits).length > 0 ? entityEdits : undefined,
+        entityType: Object.keys(entityEdits).length > 0
+          ? (entityType as import("@/lib/api/services/duplicate-detection-service").DuplicateEntityType)
+          : undefined,
+      });
     },
     [mergeMutation]
   );
 
   const handleDismiss = useCallback(
-    (reviewIds: string[]) => {
-      dismissMutation.mutate({ reviewIds });
+    (
+      reviewIds: string[],
+      entityEdits: Record<string, Record<string, unknown>>,
+      entityType: string
+    ) => {
+      dismissMutation.mutate({
+        reviewIds,
+        entityEdits: Object.keys(entityEdits).length > 0 ? entityEdits : undefined,
+        entityType: Object.keys(entityEdits).length > 0
+          ? (entityType as import("@/lib/api/services/duplicate-detection-service").DuplicateEntityType)
+          : undefined,
+      });
     },
     [dismissMutation]
   );
@@ -91,7 +115,7 @@ export function DuplicateReviewSheet() {
           </SheetDescription>
         </SheetHeader>
 
-        <SheetBody className="flex flex-col gap-0 overflow-y-auto scrollbar-hide">
+        <SheetBody className="flex flex-col gap-0 overflow-y-auto overflow-x-hidden scrollbar-hide">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <span className="font-mohave text-[13px] text-white/40">Loading...</span>

@@ -149,14 +149,14 @@ function FieldPill({
               setEditing(false);
             }
           }}
-          className="w-fit rounded-full border border-[#597794]/40 bg-[#597794]/10 px-[10px] py-[3px] font-mono text-[11px] text-white/90 outline-none"
+          className="w-full rounded-[2px] border border-[#597794]/40 bg-[#597794]/10 px-2 py-0.5 font-mono text-[11px] text-white/90 outline-none"
         />
       </div>
     );
   }
 
   if (!value) {
-    // Empty — dashed add pill
+    // Empty — dashed add badge
     return (
       <div className="flex flex-col gap-0.5">
         <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
@@ -167,7 +167,7 @@ function FieldPill({
             setDraft("");
             setEditing(true);
           }}
-          className="inline-flex w-fit items-center gap-[4px] rounded-full border border-dashed border-white/10 bg-transparent px-[10px] py-[3px] font-mono text-[11px] text-white/25 transition-colors duration-150 hover:border-[#597794]/50 hover:text-[#597794]"
+          className="inline-flex w-fit items-center gap-[3px] rounded-[2px] border border-dashed border-white/10 px-2 py-0.5 font-kosugi text-[10px] uppercase tracking-wider text-white/20 transition-colors duration-150 hover:border-[#597794]/40 hover:text-white/40"
         >
           + {addLabel}
         </button>
@@ -175,19 +175,19 @@ function FieldPill({
     );
   }
 
-  // Has value — data pill with visible fill
+  // Has value — status-badge style
   return (
     <div className="flex flex-col gap-0.5">
       <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
         {label}
       </span>
-      <div className="group inline-flex w-fit items-center gap-[4px] rounded-full bg-[#597794]/15 px-[10px] py-[3px] transition-colors duration-150 hover:bg-[#597794]/25">
+      <div className="group inline-flex w-fit items-center gap-[4px] rounded-[2px] bg-white/[0.06] px-2 py-0.5 transition-colors duration-150 hover:bg-white/[0.10]">
         <button
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
-          className="max-w-[180px] truncate text-left font-mono text-[11px] text-[#8BB8D4] transition-colors duration-150 hover:text-white"
+          className="max-w-full truncate text-left font-mohave text-[12px] text-white/75 transition-colors duration-150 hover:text-white"
         >
           {value}
         </button>
@@ -196,7 +196,7 @@ function FieldPill({
             e.stopPropagation();
             onRemove();
           }}
-          className="shrink-0 p-[1px] text-[#8BB8D4]/40 opacity-0 transition-all duration-150 hover:text-[#8BB8D4] group-hover:opacity-100"
+          className="shrink-0 p-[1px] text-white/20 opacity-0 transition-all duration-150 hover:text-white/60 group-hover:opacity-100"
           aria-label="Remove"
         >
           <X className="h-[10px] w-[10px]" />
@@ -550,8 +550,8 @@ export function DuplicateClusterCard({
 
       {/* Side-by-side entity cards — always one row, equal widths */}
       <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: `repeat(${cluster.entities.length}, 1fr)` }}
+        className="grid min-w-0 gap-3 overflow-hidden"
+        style={{ gridTemplateColumns: `repeat(${cluster.entities.length}, minmax(0, 1fr))` }}
       >
         {cluster.entities.map((entity) => {
           const status = entityStatuses[entity.id] ?? "duplicate";
