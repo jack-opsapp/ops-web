@@ -108,34 +108,23 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     [filtered]
   );
 
-  // ── SM: Count + total value ─────────────────────────────────────────────
+  // ── SM: Hero + title + total value ──────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            {isLoading ? "—" : filtered.length}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t(FILTER_LABEL_KEYS[filter])}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center gap-1">
-              <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled">
-                {t("pipelineList.loadingShort")}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-mono text-data-lg text-text-primary">
-                {filtered.length}
-              </span>
-              <span className="font-mono text-[11px] text-text-tertiary">
-                ${totalValue.toLocaleString()}
-              </span>
-            </div>
+          </span>
+          {!isLoading && (
+            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+              ${totalValue.toLocaleString()}
+            </span>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -228,23 +217,18 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
 
   // ── MD: List of up to 3 opportunities ───────────────────────────────────
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <List className="w-[14px] h-[14px] text-text-tertiary" />
-            <CardTitle className="text-card-subtitle">
-              {t(FILTER_LABEL_KEYS[filter])}
-            </CardTitle>
-          </div>
-          <span className="font-mono text-[11px] text-text-tertiary">
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t(FILTER_LABEL_KEYS[filter])}
+          </span>
+          <span className="font-mono text-micro text-text-tertiary">
             {isLoading
               ? "..."
               : `${filtered.length} \u00B7 $${totalValue.toLocaleString()}`}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -268,7 +252,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             )}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

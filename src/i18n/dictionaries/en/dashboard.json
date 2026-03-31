@@ -150,6 +150,7 @@
 
   "activity.title": "Recent Activity",
   "activity.comingSoon": "Activity feed coming soon",
+  "activity.viewAll": "View Activity",
 
   "overdueTasks.title": "Overdue Tasks",
   "overdueTasks.loading": "Loading...",
@@ -617,12 +618,15 @@
   "cashPosition.collected": "Collected",
   "cashPosition.spent": "Spent",
   "cashPosition.noTransactions": "No transactions this period",
+  "cashPosition.viewInvoices": "View Invoices",
 
   "winRate.title": "Win Rate",
   "winRate.sent": "Sent",
   "winRate.won": "Won",
   "winRate.lost": "Lost",
   "winRate.noEstimates": "No estimates in period",
+  "winRate.viewEstimates": "View Estimates",
+  "winRate.avgDealSize": "Avg Deal Size",
 
   "backlogDepth.title": "Backlog",
   "backlogDepth.weeks": "wk",
@@ -631,16 +635,20 @@
   "backlogDepth.healthy": "Healthy",
   "backlogDepth.caution": "Caution",
   "backlogDepth.risk": "Risk",
+  "backlogDepth.viewProjects": "View Projects",
 
   "bookingRate.title": "Bookings",
   "bookingRate.thisMonth": "This month",
   "bookingRate.vsLastMonth": "vs last month",
   "bookingRate.noProjects": "No projects yet",
+  "bookingRate.viewProjects": "View Projects",
 
   "todaysSchedule.title": "Schedule",
   "todaysSchedule.noEvents": "No events today",
   "todaysSchedule.moreToday": "more today",
   "todaysSchedule.tomorrow": "Tomorrow",
+  "todaysSchedule.viewCalendar": "View Calendar",
+  "todaysSchedule.eventsToday": "today",
 
   "crewBoard.title": "Crew",
   "crewBoard.utilization": "Utilization",
@@ -652,7 +660,12 @@
   "topClients.noData": "No client data yet",
   "topClients.projects": "projects",
   "topClients.lastActive": "Last active",
+  "topClients.viewClients": "View Clients",
 
   "leadSources.title": "Lead Sources",
-  "leadSources.ofTotal": "of total"
+  "leadSources.ofTotal": "of total",
+  "leadSources.noSources": "No lead sources yet",
+  "leadSources.viewPipeline": "View Pipeline",
+  "leadSources.pipelineValue": "Pipeline value",
+  "leadSources.more": "more"
 }

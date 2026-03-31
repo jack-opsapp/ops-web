@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { CalendarPlus } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
 import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -19,6 +20,7 @@ interface BookingRateWidgetProps {
   size: WidgetSize;
   projects: Project[];
   isLoading: boolean;
+  onNavigate: (path: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -28,47 +30,55 @@ export function BookingRateWidget({
   size,
   projects,
   isLoading,
+  onNavigate,
 }: BookingRateWidgetProps) {
   const { t } = useDictionary("dashboard");
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
+  const compact = isCompact(size);
+  const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
+
+  const reducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
 
   const bookings = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Count new projects created per month (last 6 months)
-    const monthly: number[] = [];
+    const months: { label: string; count: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(currentYear, currentMonth - i, 1);
       const nextD = new Date(d.getFullYear(), d.getMonth() + 1, 1);
       const count = projects.filter((p) => {
         if (p.deletedAt) return false;
-        // Count projects that moved to Accepted or beyond
         if (p.status === ProjectStatus.RFQ || p.status === ProjectStatus.Estimated) return false;
         const created = p.createdAt ? new Date(p.createdAt) : null;
         if (!created) return false;
         return created >= d && created < nextD;
       }).length;
-      monthly.push(count);
+      months.push({ label: d.toLocaleString("en", { month: "short" }), count });
     }
 
-    const thisMonth = monthly[monthly.length - 1];
-    const lastMonth = monthly[monthly.length - 2];
+    const thisMonth = months[months.length - 1].count;
+    const lastMonth = months[months.length - 2].count;
     const delta = lastMonth > 0 ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : 0;
     const trend: "up" | "down" | "neutral" = thisMonth > lastMonth ? "up" : thisMonth < lastMonth ? "down" : "neutral";
+    const maxCount = Math.max(...months.map((m) => m.count), 1);
 
-    return { monthly, thisMonth, lastMonth, delta, trend };
+    return { months, thisMonth, lastMonth, delta, trend, maxCount };
   }, [projects]);
 
   const animatedCount = useAnimatedValue(isVisible ? bookings.thisMonth : 0, 1000);
+  const sparkData = bookings.months.map((m) => m.count);
 
+  // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("bookingRate.title") ?? "Bookings"}
           </CardTitle>
         </CardHeader>
@@ -79,47 +89,188 @@ export function BookingRateWidget({
     );
   }
 
-  // ── XS ──────────────────────────────────────────────────────────────────
-  if (size === "xs") {
+  // ── Empty state ────────────────────────────────────────────────────────
+  if (bookings.thisMonth === 0 && bookings.lastMonth === 0) {
     return (
-      <Card className="h-full flex flex-col items-start justify-center px-3" ref={ref}>
-        <span className="font-mono text-[28px] font-medium leading-none text-text-primary">
-          {animatedCount}
-        </span>
-        <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider mt-1">
-          {t("bookingRate.thisMonth") ?? "This month"}
-        </span>
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+        <div className="h-full flex flex-col px-3 py-2">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+            {t("bookingRate.title") ?? "Bookings"}
+          </span>
+          <div className="flex-1 flex flex-col justify-center">
+            <span className={`font-mono ${heroClass} font-bold text-text-disabled leading-none`}>
+              0
+            </span>
+            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+              {t("bookingRate.noProjects") ?? "No projects yet"}
+            </span>
+          </div>
+          {showFooter(size) && (
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
+              {t("bookingRate.viewProjects") ?? "View Projects"}
+            </span>
+          )}
+        </div>
       </Card>
     );
   }
 
-  // ── SM ──────────────────────────────────────────────────────────────────
-  const trendColor = bookings.trend === "up" ? "#6B8F71" : bookings.trend === "down" ? "#B58289" : "var(--text-tertiary)";
+  const trendColor = bookings.trend === "up" ? WT.success : bookings.trend === "down" ? WT.error : undefined;
+
+  // ── XS: Hero count + trend ────────────────────────────────────────────
+  if (size === "xs") {
+    return (
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+        <div className="h-full flex flex-col pt-3" ref={ref}>
+          <span className="font-mono text-display font-bold leading-none text-text-primary">
+            {animatedCount}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("bookingRate.title") ?? "Bookings"}
+          </span>
+          <div className="flex items-center gap-0.5">
+            {bookings.trend === "up" ? (
+              <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
+            ) : bookings.trend === "down" ? (
+              <ChevronDown className="w-3 h-3" style={{ color: WT.error }} />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-text-disabled" />
+            )}
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              {t("bookingRate.thisMonth") ?? "This month"}
+            </span>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // ── SM: Hero + title + sparkline + trend ────────────────────────────────
+  if (size === "sm") {
+    return (
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {animatedCount}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
+          </div>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("bookingRate.title") ?? "Bookings"}
+          </span>
+          {/* Row 3: Sparkline + trend */}
+          <div className="flex items-center gap-2 mt-1">
+            <Sparkline data={sparkData} width={60} height={20} color={WT.accent} />
+            <div className="flex items-center gap-0.5">
+              {bookings.trend === "up" ? (
+                <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
+              ) : bookings.trend === "down" ? (
+                <ChevronDown className="w-3 h-3" style={{ color: WT.error }} />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-text-disabled" />
+              )}
+              <span className="font-mono text-micro-sm" style={{ color: trendColor }}>
+                {bookings.delta !== 0 && `${Math.abs(bookings.delta)}%`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // ── MD: Hero + bar chart (monthly bookings) + footer ───────────────────
+  const chartHeight = 80;
 
   return (
     <Card className="h-full" ref={ref}>
-      <CardHeader className="pb-1 pt-2 px-3">
-        <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
-          {t("bookingRate.title") ?? "Bookings"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-3 pb-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[20px] font-medium text-text-primary">
+      <div className="h-full flex flex-col px-3 py-2">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("bookingRate.title") ?? "Bookings"}
+          </span>
+        </div>
+
+        {/* HERO */}
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
             {animatedCount}
           </span>
-          <Sparkline data={bookings.monthly} width={60} height={24} color="#597794" />
+          {bookings.trend === "up" ? (
+            <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
+          ) : bookings.trend === "down" ? (
+            <ChevronDown className="w-4 h-4" style={{ color: WT.error }} />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-text-disabled" />
+          )}
+          {bookings.delta !== 0 && (
+            <span className="font-mono text-micro" style={{ color: trendColor }}>
+              {Math.abs(bookings.delta)}%
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-1 mt-0.5">
-          <span className="font-mono text-[11px]" style={{ color: trendColor }}>
-            {bookings.trend === "up" ? "↑" : bookings.trend === "down" ? "↓" : "→"}
-            {bookings.delta !== 0 && ` ${Math.abs(bookings.delta)}%`}
-          </span>
-          <span className="font-kosugi text-[9px] text-text-tertiary">
-            {t("bookingRate.vsLastMonth") ?? "vs last month"}
-          </span>
-        </div>
-      </CardContent>
+
+        {/* DETAIL ZONE */}
+        {showDetail(size) && (
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            {/* Bar chart */}
+            <div className="flex items-end gap-[4px]" style={{ height: `${chartHeight}px` }}>
+              {bookings.months.map((m, i) => {
+                const barH = (m.count / bookings.maxCount) * chartHeight;
+                const isCurrent = i === bookings.months.length - 1;
+
+                return (
+                  <div
+                    key={i}
+                    className="flex-1 flex flex-col items-center justify-end"
+                    style={{ height: `${chartHeight}px` }}
+                  >
+                    <div
+                      className="w-[70%] rounded-t-sm"
+                      style={{
+                        height: isVisible ? `${Math.max(barH, m.count > 0 ? 2 : 0)}px` : "0px",
+                        backgroundColor: WT.accent,
+                        opacity: isCurrent ? 1 : 0.5,
+                        transitionProperty: "height, opacity",
+                        transitionDuration: reducedMotion ? "200ms" : "600ms",
+                        transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
+                        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {/* Month labels */}
+            <div className="flex gap-[4px] mt-1">
+              {bookings.months.map((m, i) => (
+                <span key={i} className="flex-1 text-center font-kosugi text-micro-sm text-text-disabled uppercase">
+                  {m.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* FOOTER */}
+        {showFooter(size) && (
+          <button
+            onClick={() => onNavigate("/projects")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("bookingRate.viewProjects") ?? "View Projects"}
+          </button>
+        )}
+      </div>
     </Card>
   );
 }

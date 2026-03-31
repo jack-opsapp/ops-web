@@ -1,7 +1,7 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 
@@ -24,46 +24,42 @@ export function SiteVisitsWidget({ size, config }: SiteVisitsWidgetProps) {
 
   const filterLabel = filter === "recent" ? t("siteVisits.filterRecent") : t("siteVisits.filterUpcoming");
 
-  // ── SM: Placeholder count ─────────────────────────────────────────────
+  // ── SM: Hero + title + status ───────────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">{t("siteVisits.title")}</CardTitle>
-            <span className="font-mono text-[11px] text-text-disabled">
-              {filterLabel}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          <p className="font-mohave text-body-sm text-text-disabled">
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <span className="font-mono text-data-lg font-bold leading-none text-text-disabled">
+            0
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("siteVisits.title")}
+          </span>
+          <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-0.5">
             {filter === "recent" ? t("siteVisits.noRecent") : t("siteVisits.noUpcoming")}
-          </p>
-        </CardContent>
+          </span>
+        </div>
       </Card>
     );
   }
 
   // ── MD: Placeholder message ───────────────────────────────────────────
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">{t("siteVisits.title")}</CardTitle>
-          <span className="font-mono text-[11px] text-text-disabled">
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">{t("siteVisits.title")}</span>
+          <span className="font-mono text-micro text-text-tertiary">
             {filterLabel}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <MapPin className="w-[20px] h-[20px] text-text-disabled" />
           <p className="font-mohave text-body-sm text-text-disabled text-center">
             {t("siteVisits.comingSoon")}
           </p>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { CheckSquare, FileText, FileSpreadsheet, Phone, Check } from "lucide-react";
+import { CheckSquare, FileText, FileSpreadsheet, Phone, Check, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
@@ -187,7 +187,7 @@ export function ActionRequiredWidget({
     }
 
     return result.sort((a, b) => a.priority - b.priority);
-  }, [tasks, invoices, estimates, opportunities]);
+  }, [tasks, invoices, estimates, opportunities, t]);
 
   // ── Category counts (for SM dots) ─────────────────────────────────────
   const categoryCounts = useMemo(() => {
@@ -260,35 +260,43 @@ export function ActionRequiredWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => items.length > 0 && onNavigate(items[0].navigateTo)}>
-        <div className="h-full flex flex-col justify-center px-3">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
-            {t("actionRequired.title") ?? "Action Required"}
-          </span>
+        <div className="h-full flex flex-col pt-3">
           <span
-            className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+            className="font-mono text-display font-bold leading-none"
             style={{ color: totalColor }}
           >
             {items.length}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("actionRequired.title") ?? "Action Required"}
           </span>
         </div>
       </Card>
     );
   }
 
-  // ── SM: Hero + category dots + footer ─────────────────────────────────
+  // ── SM: Hero + title + category dots ────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card
-        className="h-full cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-        onClick={() => items.length > 0 && onNavigate(items[0].navigateTo)}
-      >
-        <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none" style={{ color: totalColor }}>
+              {items.length}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); if (items.length > 0) onNavigate(items[0].navigateTo); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
+          </div>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
-          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none mt-1`} style={{ color: totalColor }}>
-            {items.length}
-          </span>
+          {/* Row 3: Category dots */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {Object.entries(categoryCounts).map(([type, count]) => {
               const config = TYPE_CONFIG[type as keyof typeof TYPE_CONFIG];
@@ -300,12 +308,6 @@ export function ActionRequiredWidget({
               );
             })}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
-            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("actionRequired.viewAll") ?? "View All"}
-          </button>
         </div>
       </Card>
     );

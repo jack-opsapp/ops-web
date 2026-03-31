@@ -115,8 +115,8 @@ export const WIDGET_SIZE_GRID_SPANS: Record<
   WidgetSize,
   { colSpan: number; rowSpan: number }
 > = {
-  xs: { colSpan: 2, rowSpan: 1 },
-  sm: { colSpan: 3, rowSpan: 1 },
+  xs: { colSpan: 1, rowSpan: 1 },
+  sm: { colSpan: 2, rowSpan: 1 },
   md: { colSpan: 6, rowSpan: 2 },
   lg: { colSpan: 6, rowSpan: 4 },
   xl: { colSpan: 6, rowSpan: 6 },
@@ -260,7 +260,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "money",
     tags: ["finance"],
     icon: "ArrowUpDown",
-    supportedSizes: ["sm", "md"],
+    supportedSizes: ["xs", "sm", "md"],
     defaultSize: "sm",
     configSchema: [
       {
@@ -335,7 +335,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "pipeline",
     tags: ["pipeline", "estimates"],
     icon: "Target",
-    supportedSizes: ["xs", "sm"],
+    supportedSizes: ["xs", "sm", "md"],
     defaultSize: "sm",
     configSchema: [
       {
@@ -371,7 +371,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "pipeline",
     tags: ["pipeline"],
     icon: "CalendarPlus",
-    supportedSizes: ["xs", "sm"],
+    supportedSizes: ["xs", "sm", "md"],
     defaultSize: "sm",
     configSchema: [],
     allowMultiple: false,
@@ -424,7 +424,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "operations",
     tags: ["essential", "scheduling"],
     icon: "Calendar",
-    supportedSizes: ["sm", "md", "lg"],
+    supportedSizes: ["xs", "sm", "md", "lg"],
     defaultSize: "md",
     configSchema: [
       {
@@ -681,7 +681,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     category: "pipeline",
     tags: ["pipeline"],
     icon: "Radio",
-    supportedSizes: ["md"],
+    supportedSizes: ["xs", "sm", "md", "lg"],
     defaultSize: "md",
     configSchema: [],
     allowMultiple: false,

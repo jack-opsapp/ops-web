@@ -63,7 +63,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     case "expense-tracker":
       return <ExpenseTrackerWidget size={size} config={config} expenses={[]} isLoading={false} onNavigate={noop} />;
     case "cash-position":
-      return <CashPositionWidget size={size} config={config} invoices={[]} expenses={[]} isLoading={false} />;
+      return <CashPositionWidget size={size} config={config} invoices={[]} expenses={[]} isLoading={false} onNavigate={noop} />;
     case "invoice-list":
       return <InvoiceListWidget size={size} config={config} />;
     case "payments-recent":
@@ -73,17 +73,17 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     case "pipeline-funnel":
       return <PipelineFunnelWidget size={size} projects={[]} isLoading={false} onNavigate={noop} />;
     case "win-rate":
-      return <WinRateWidget size={size} config={config} estimates={[]} isLoading={false} />;
+      return <WinRateWidget size={size} config={config} estimates={[]} isLoading={false} onNavigate={noop} />;
     case "backlog-depth":
-      return <BacklogDepthWidget size={size} projects={[]} isLoading={false} />;
+      return <BacklogDepthWidget size={size} projects={[]} isLoading={false} onNavigate={noop} />;
     case "booking-rate":
-      return <BookingRateWidget size={size} projects={[]} isLoading={false} />;
+      return <BookingRateWidget size={size} projects={[]} isLoading={false} onNavigate={noop} />;
     case "estimates-overview":
       return <EstimatesOverviewWidget size={size} config={config} />;
     case "pipeline-list":
       return <PipelineListWidget size={size} config={config} />;
     case "lead-sources":
-      return <LeadSourcesWidget size={size} />;
+      return <LeadSourcesWidget size={size} opportunities={[]} isLoading={false} onNavigate={noop} />;
 
     // ── OPERATIONS ──
     case "task-pulse":

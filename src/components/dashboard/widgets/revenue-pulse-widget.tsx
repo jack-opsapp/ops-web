@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -202,19 +203,21 @@ export function RevenuePulseWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=paid")}>
-        <div className="h-full flex flex-col justify-center px-3">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
-            {t("revenuePulse.title") ?? "Revenue"}
-          </span>
-          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none text-text-primary`}>
+        <div className="h-full flex flex-col pt-3">
+          <span className={`font-mono ${formatCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
             {formatCurrency(animatedMtd)}
           </span>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="font-mono text-micro" style={{
-              color: monthlyData.trend === "up" ? WT.success : monthlyData.trend === "down" ? WT.error : undefined,
-            }}>
-              {monthlyData.trend === "up" ? "↑" : monthlyData.trend === "down" ? "↓" : "→"}
-            </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("revenuePulse.title") ?? "Revenue"}
+          </span>
+          <div className="flex items-center gap-0.5">
+            {monthlyData.trend === "up" ? (
+              <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
+            ) : monthlyData.trend === "down" ? (
+              <ChevronDown className="w-3 h-3" style={{ color: WT.error }} />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-text-disabled" />
+            )}
             <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
               {t("revenuePulse.mtdRevenue") ?? "MTD"}
             </span>
@@ -224,30 +227,35 @@ export function RevenuePulseWidget({
     );
   }
 
-  // ── SM: Header + Hero (MTD + sparkline + YTD) + Footer ────────────────
+  // ── SM: Hero + title + sparkline/YTD ───────────────────────────────────
   if (size === "sm") {
     const sparkData = monthlyData.months.map((m) => m.amount);
     return (
-      <Card className="h-full" ref={ref}>
-        <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
-            {t("revenuePulse.title") ?? "Revenue"}
-          </span>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold text-text-primary`}>
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
               {formatCurrency(animatedMtd)}
             </span>
-            <Sparkline data={sparkData} width={60} height={24} color={WT.revenue} />
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=paid"); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
           </div>
-          <p className="font-mono text-micro text-text-tertiary mt-0.5">
-            {t("revenuePulse.ytd") ?? "YTD"}: {formatCurrency(monthlyData.ytd)}
-          </p>
-          <button
-            onClick={() => onNavigate("/invoices?status=paid")}
-            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("revenuePulse.viewAll") ?? "View Invoices"}
-          </button>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("revenuePulse.title") ?? "Revenue"}
+          </span>
+          {/* Row 3: Sparkline + YTD */}
+          <div className="flex items-center gap-2 mt-1">
+            <Sparkline data={sparkData} width={60} height={20} color={WT.revenue} />
+            <span className="font-mono text-micro-sm text-text-tertiary">
+              {t("revenuePulse.ytd") ?? "YTD"}: {formatCurrency(monthlyData.ytd)}
+            </span>
+          </div>
         </div>
       </Card>
     );
@@ -275,11 +283,13 @@ export function RevenuePulseWidget({
           <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
             {formatCurrency(animatedMtd)}
           </span>
-          <span className="font-mono text-micro" style={{
-            color: monthlyData.trend === "up" ? WT.success : monthlyData.trend === "down" ? WT.error : undefined,
-          }}>
-            {monthlyData.trend === "up" ? "↑" : monthlyData.trend === "down" ? "↓" : "→"}
-          </span>
+          {monthlyData.trend === "up" ? (
+            <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
+          ) : monthlyData.trend === "down" ? (
+            <ChevronDown className="w-4 h-4" style={{ color: WT.error }} />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-text-disabled" />
+          )}
         </div>
 
         {/* DETAIL ZONE — MD+ */}

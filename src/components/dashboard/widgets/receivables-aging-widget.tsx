@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -165,17 +166,17 @@ export function ReceivablesAgingWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=past_due")}>
-        <div className="h-full flex flex-col justify-center px-3">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
+        <div className="h-full flex flex-col pt-3">
           <span
-            className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+            className={`font-mono ${formatCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`}
             style={{ color: heroColor }}
           >
             {formatCurrency(animatedTotal)}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-1">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("receivablesAging.title") ?? "Receivables"}
+          </span>
+          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
             {t("receivablesAging.outstanding") ?? "Outstanding"}
           </span>
         </div>
@@ -183,51 +184,38 @@ export function ReceivablesAgingWidget({
     );
   }
 
-  // ── SM: Hero + stacked bar + footer ───────────────────────────────────
+  // ── SM: Hero + title + stacked aging bar ───────────────────────────────
   if (size === "sm") {
-    const nonEmptyBuckets = aging.buckets.filter((b) => b.amount > 0);
     return (
-      <Card className="h-full" ref={ref}>
-        <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
-          <div className="flex items-center gap-2 mt-1">
-            <span
-              className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
-              style={{ color: heroColor }}
-            >
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none" style={{ color: heroColor }}>
               {formatCurrency(animatedTotal)}
             </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=past_due"); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
           </div>
-
-          {/* Stacked bar */}
-          <div className="w-full h-[14px] rounded-sm overflow-hidden flex mt-2">
-            {nonEmptyBuckets.map((bucket, i) => {
-              const pct = aging.totalAmount > 0 ? (bucket.amount / aging.totalAmount) * 100 : 0;
-              return (
-                <div
-                  key={bucket.key}
-                  className="h-full"
-                  style={{
-                    width: isVisible ? `${pct}%` : "0%",
-                    backgroundColor: bucket.color,
-                    transitionProperty: "width",
-                    transitionDuration: reducedMotion ? "200ms" : "500ms",
-                    transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                    transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                  }}
-                />
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => onNavigate("/invoices?status=past_due")}
-            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("receivablesAging.viewInvoices") ?? "View Invoices"}
-          </button>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("receivablesAging.title") ?? "Receivables"}
+          </span>
+          {/* Row 3: Stacked aging bar */}
+          {aging.totalAmount > 0 && (
+            <div className="w-full rounded-sm overflow-hidden flex mt-1.5" style={{ height: "6px" }}>
+              {aging.buckets.filter(b => b.amount > 0).map((bucket, i) => (
+                <div key={bucket.key} className="h-full" style={{
+                  width: `${(bucket.amount / aging.totalAmount) * 100}%`,
+                  backgroundColor: bucket.color,
+                }} />
+              ))}
+            </div>
+          )}
         </div>
       </Card>
     );

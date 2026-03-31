@@ -533,11 +533,11 @@ export default function DashboardPage() {
       case "receivables-aging":
         return <ReceivablesAgingWidget size={size} invoices={invoices} isLoading={invoicesLoading} onNavigate={navigate} />;
       case "profit-gauge":
-        return <ProfitGaugeWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} />;
+        return <ProfitGaugeWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} onNavigate={navigate} />;
       case "expense-tracker":
         return <ExpenseTrackerWidget size={size} config={config} expenses={expenses} isLoading={expensesLoading} onNavigate={navigate} />;
       case "cash-position":
-        return <CashPositionWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} />;
+        return <CashPositionWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} onNavigate={navigate} />;
       case "invoice-list":
         return <InvoiceListWidget size={size} config={config} />;
       case "payments-recent":
@@ -547,17 +547,17 @@ export default function DashboardPage() {
       case "pipeline-funnel":
         return <PipelineFunnelWidget size={size} projects={projects} isLoading={projectsLoading} onNavigate={navigate} />;
       case "win-rate":
-        return <WinRateWidget size={size} config={config} estimates={estimates} isLoading={estimatesLoading} />;
+        return <WinRateWidget size={size} config={config} estimates={estimates} isLoading={estimatesLoading} onNavigate={navigate} />;
       case "backlog-depth":
-        return <BacklogDepthWidget size={size} projects={projects} isLoading={projectsLoading} />;
+        return <BacklogDepthWidget size={size} projects={projects} isLoading={projectsLoading} onNavigate={navigate} />;
       case "booking-rate":
-        return <BookingRateWidget size={size} projects={projects} isLoading={projectsLoading} />;
+        return <BookingRateWidget size={size} projects={projects} isLoading={projectsLoading} onNavigate={navigate} />;
       case "estimates-overview":
         return <EstimatesOverviewWidget size={size} config={config} />;
       case "pipeline-list":
         return <PipelineListWidget size={size} config={config} />;
       case "lead-sources":
-        return <LeadSourcesWidget size={size} />;
+        return <LeadSourcesWidget size={size} opportunities={opportunities} isLoading={opportunitiesLoading} onNavigate={navigate} />;
 
       // ── OPERATIONS ──
       case "task-pulse":
@@ -595,7 +595,7 @@ export default function DashboardPage() {
       case "action-required":
         return <ActionRequiredWidget size={size} tasks={tasks} invoices={invoices} opportunities={opportunities} estimates={estimates} isLoading={tasksLoading || invoicesLoading} onNavigate={navigate} />;
       case "activity-feed":
-        return <ActivityWidget />;
+        return <ActivityWidget size={size} config={config} onNavigate={navigate} />;
       case "notifications":
         return <NotificationsWidget size={size} config={config} />;
 
@@ -684,7 +684,7 @@ export default function DashboardPage() {
     <MotionConfig reducedMotion="user">
       <div
         className={cn(
-          "space-y-3 pb-8 transition-opacity duration-500",
+          "space-y-3 transition-opacity duration-500",
           mounted ? "opacity-100" : "opacity-0",
           trayOpen && "pb-[340px]"
         )}

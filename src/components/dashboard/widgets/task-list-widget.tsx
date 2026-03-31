@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Check, ChevronRight, Loader2, MapPin } from "lucide-react";
+import { Clock, Check, ChevronRight, Loader2, MapPin, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
@@ -68,26 +68,35 @@ export function TaskListWidget({
     return groups;
   }, [size, visibleTasks, today]);
 
-  // sm: next task only
+  // sm: hero + title + next task name
   if (size === "sm") {
     const nextTask = visibleTasks[0];
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">{t("taskList.nextTask")}</CardTitle>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center gap-1">
-              <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled">{t("taskList.loadingShort")}</span>
-            </div>
-          ) : !nextTask ? (
-            <p className="font-mohave text-body-sm text-text-disabled">{t("taskList.empty")}</p>
-          ) : (
-            <TaskRow task={nextTask} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} projectMap={projectMap} clientMap={clientMap} compact />
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {isLoading ? "—" : visibleTasks.length}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
+          </div>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("taskList.title") ?? "Tasks"}
+          </span>
+          {/* Row 3: Next task name */}
+          {!isLoading && nextTask && (
+            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+              {t("taskList.next") ?? "Next"}: {nextTask.customTitle || nextTask.taskType?.display || "Task"}
+            </span>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -140,14 +149,12 @@ export function TaskListWidget({
 
   // md: flat list
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">{t("taskList.title")}</CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">{t("taskList.todayPlus7days")}</span>
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">{t("taskList.title")}</span>
+          <span className="font-mono text-micro text-text-tertiary">{t("taskList.todayPlus7days")}</span>
         </div>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -169,7 +176,7 @@ export function TaskListWidget({
             )}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

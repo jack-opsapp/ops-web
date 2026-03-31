@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -169,14 +170,14 @@ export function PipelineFunnelWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
-        <div className="h-full flex flex-col justify-center px-3">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
-            {t("pipelineFunnel.title") ?? "Pipeline"}
-          </span>
-          <span className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none text-text-primary`}>
+        <div className="h-full flex flex-col pt-3">
+          <span className="font-mono text-display font-bold leading-none text-text-primary">
             {totalProjects}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-1">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("pipelineFunnel.title") ?? "Pipeline"}
+          </span>
+          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
             {t("pipelineFunnel.active") ?? "active"}
           </span>
         </div>
@@ -184,20 +185,22 @@ export function PipelineFunnelWidget({
     );
   }
 
-  // ── SM: Mini funnel + count + footer ──────────────────────────────────
+  // ── SM: Hero + title + mini funnel bars ─────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="h-full" ref={ref}>
-        <div className="h-full flex flex-col px-3 py-2">
-          <div className="flex items-center justify-between">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex p-3">
+          {/* Left: Hero + Title */}
+          <div className="flex flex-col shrink-0">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {totalProjects}
+            </span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
               {t("pipelineFunnel.title") ?? "Pipeline"}
             </span>
-            <span className="font-mono text-micro text-text-tertiary">{totalProjects}</span>
           </div>
-
-          {/* Mini funnel bars */}
-          <div className="flex flex-col items-center gap-[3px] mt-2 cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+          {/* Center: Mini funnel bars */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-[3px] px-3">
             {stages.map((stage, i) => (
               <div key={i} className="w-full flex justify-center" style={{ maxWidth: `${stage.maxWidth}%` }}>
                 <div
@@ -215,13 +218,12 @@ export function PipelineFunnelWidget({
               </div>
             ))}
           </div>
-
-          {/* Footer */}
+          {/* Right: Nav icon */}
           <button
-            onClick={() => onNavigate("/pipeline")}
-            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+            onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
+            className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors self-start shrink-0"
           >
-            {t("pipelineFunnel.viewPipeline") ?? "View Pipeline"}
+            <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
           </button>
         </div>
       </Card>
@@ -249,18 +251,18 @@ export function PipelineFunnelWidget({
             <TooltipRow label={t("pipelineFunnel.ofPipeline") ?? "Of pipeline"} value={`${tooltip.pct}%`} />
           </WidgetTooltip>
 
-          {/* Funnel bars */}
-          <div className="flex flex-col gap-[3px] cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+          {/* Funnel bars — centered like a funnel */}
+          <div className="flex flex-col items-center gap-[6px] cursor-pointer" onClick={() => onNavigate("/pipeline")}>
             {stages.map((stage, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="flex-1" style={{ maxWidth: `${stage.maxWidth}%` }}>
+              <div key={i} className="w-full flex justify-center" style={{ maxWidth: `${stage.maxWidth}%` }}>
+                <div className="relative w-full">
                   <div
-                    className="rounded-sm"
+                    className="rounded-sm w-full"
                     style={{
                       height: `${barHeight}px`,
-                      width: isVisible ? `${Math.max(stage.fillPct, stage.count > 0 ? 8 : 0)}%` : "0%",
                       backgroundColor: stage.color,
-                      transitionProperty: "width",
+                      opacity: isVisible ? 1 : 0,
+                      transitionProperty: "opacity",
                       transitionDuration: reducedMotion ? "200ms" : "500ms",
                       transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
                       transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -268,10 +270,11 @@ export function PipelineFunnelWidget({
                     onMouseEnter={(e) => handleBarHover(e, stage)}
                     onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
                   />
-                </div>
-                <div className="flex items-center gap-1 shrink-0 min-w-[80px]">
-                  <span className="font-mohave text-micro text-text-secondary">{stage.label}</span>
-                  <span className="font-mono text-micro text-text-primary font-medium">{stage.count}</span>
+                  {/* Label to the right of the bar */}
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center gap-1 ml-2 whitespace-nowrap">
+                    <span className="font-mohave text-micro text-text-secondary">{stage.label}</span>
+                    <span className="font-mono text-micro text-text-primary font-medium">{stage.count}</span>
+                  </div>
                 </div>
               </div>
             ))}

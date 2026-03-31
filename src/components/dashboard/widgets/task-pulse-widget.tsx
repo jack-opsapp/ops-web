@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -203,18 +204,18 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
-        <div className="h-full flex flex-col justify-center px-3">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mb-1">
-            {t("taskPulse.title") ?? "Tasks"}
-          </span>
+        <div className="h-full flex flex-col pt-3">
           <span
-            className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+            className="font-mono text-display font-bold leading-none"
             style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : WT.accent }}
           >
             {hasOverdue ? segments.overdue : segments.total}
           </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("taskPulse.title") ?? "Tasks"}
+          </span>
           <span
-            className="font-kosugi text-micro-sm uppercase mt-1"
+            className="font-kosugi text-micro-sm uppercase"
             style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : undefined }}
           >
             {hasOverdue ? (t("taskPulse.overdue") ?? "Overdue") : (t("taskPulse.openTasks") ?? "Open Tasks")}
@@ -224,26 +225,31 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
     );
   }
 
-  // ── SM: Hero + segmented bar + legend + footer ────────────────────────
+  // ── SM: Hero + title + segmented bar + legend ──────────────────────────
   if (size === "sm") {
     return (
-      <Card className="h-full" ref={barRef}>
-        <div className="h-full flex flex-col px-3 py-2">
-          {/* Header row: title + hero count */}
+      <Card className="h-full p-0" ref={barRef}>
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
           <div className="flex items-baseline justify-between">
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
-              {t("taskPulse.title") ?? "Tasks"}
-            </span>
-            <span
-              className={`font-mono ${HERO_SIZE_CLASS.compact} font-bold leading-none`}
+            <span className="font-mono text-data-lg font-bold leading-none"
               style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : WT.accent }}
             >
               {segments.total}
             </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
           </div>
-
-          {/* Segmented bar */}
-          <div className="relative w-full rounded-sm overflow-hidden flex mt-2 cursor-pointer" style={{ height: `${barHeight}px` }} onClick={() => onNavigate("/calendar")}>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("taskPulse.title") ?? "Tasks"}
+          </span>
+          {/* Row 3: Segmented bar */}
+          <div className="relative w-full rounded-sm overflow-hidden flex mt-1.5" style={{ height: `${barHeight}px` }}>
             <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={barRef} anchor="above">
               <TooltipRow label={tooltip.segment} value={`${tooltip.count}`} delta={{ value: `${tooltip.pct}%`, direction: "neutral" }} />
             </WidgetTooltip>
@@ -268,8 +274,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
               );
             })}
           </div>
-
-          {/* Segment summary */}
+          {/* Segment legend */}
           <div className="flex items-center gap-1 mt-1 flex-wrap">
             {segmentEntries.map((seg) => {
               if (seg.count === 0) return null;
@@ -281,14 +286,6 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
               );
             })}
           </div>
-
-          {/* Footer */}
-          <button
-            onClick={() => onNavigate("/calendar")}
-            className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("taskPulse.viewCalendar") ?? "View Calendar"}
-          </button>
         </div>
       </Card>
     );

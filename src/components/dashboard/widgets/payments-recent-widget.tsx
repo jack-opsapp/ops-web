@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { CreditCard, Loader2, User } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, User } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
@@ -83,44 +83,25 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
       });
   }, [invoices]);
 
-  // ── SM: Last payment amount + client info ───────────────────────────────
+  // ── SM: Hero + title + client info ──────────────────────────────────────
   if (size === "sm") {
     const lastPayment = paidInvoices[0] ?? null;
 
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <div className="flex items-center gap-1">
-            <CreditCard className="w-[12px] h-[12px] text-text-tertiary" />
-            <CardTitle className="text-card-subtitle">{t("payments.lastPayment")}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center gap-1">
-              <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled">
-                {t("payments.loading")}
-              </span>
-            </div>
-          ) : !lastPayment ? (
-            <p className="font-mohave text-body-sm text-text-disabled">
-              {t("payments.noPayments")}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-mohave text-[24px] leading-none text-status-success font-medium">
-                {formatCurrency(lastPayment.total, locale)}
-              </span>
-              <span className="font-mohave text-body-sm text-text-primary truncate">
-                {lastPayment.client?.name ?? t("payments.unknownClient")}
-              </span>
-              <span className="font-mono text-[11px] text-text-tertiary">
-                {formatRelativeDate(lastPayment.paidAt, locale, t)}
-              </span>
-            </div>
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <span className={`font-mono text-data-lg font-bold leading-none ${isLoading ? "text-text-disabled" : lastPayment ? "text-status-success" : "text-text-disabled"}`}>
+            {isLoading ? "—" : lastPayment ? formatCurrency(lastPayment.total, locale) : "$0"}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("payments.lastPayment")}
+          </span>
+          {!isLoading && lastPayment && (
+            <span className="font-mohave text-caption-sm text-text-secondary truncate mt-0.5">
+              {lastPayment.client?.name ?? t("payments.unknownClient")}
+            </span>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -129,21 +110,16 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
 
   // ── MD / LG: List of recent payments ──────────────────────────────────
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <CreditCard className="w-[12px] h-[12px] text-text-tertiary" />
-            <CardTitle className="text-card-subtitle">
-              {t("payments.title")}
-            </CardTitle>
-          </div>
-          <span className="font-mono text-[11px] text-text-tertiary">
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("payments.title")}
+          </span>
+          <span className="font-mono text-micro text-text-tertiary">
             {isLoading ? "..." : t("payments.total").replace("{count}", String(paidInvoices.length))}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -167,7 +143,7 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
             )}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

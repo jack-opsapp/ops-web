@@ -66,16 +66,14 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
   // ── MD: Name + location status ────────────────────────────────────────
   if (size === "md") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1.5 shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">{t("crewLocations.title")}</CardTitle>
-            <span className="font-mono text-[11px] text-text-tertiary">
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">{t("crewLocations.title")}</span>
+            <span className="font-mono text-micro text-text-tertiary">
               {isLoading ? "..." : `${members.length} ${t("crewLocations.members")}`}
             </span>
           </div>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-3">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -99,7 +97,7 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
               )}
             </div>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }

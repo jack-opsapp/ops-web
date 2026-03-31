@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { Loader2, Send, Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
@@ -56,18 +56,18 @@ function matchesFilter(invoice: Invoice, filter: StatusFilter): boolean {
 function statusBadgeClasses(status: InvoiceStatus): string {
   switch (status) {
     case InvoiceStatus.Draft:
-      return "text-text-disabled bg-text-disabled/15";
+      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
     case InvoiceStatus.Sent:
     case InvoiceStatus.AwaitingPayment:
-      return "text-ops-accent bg-ops-accent/15";
+      return "text-ops-accent bg-ops-accent/15 border-ops-accent/30";
     case InvoiceStatus.PastDue:
-      return "text-ops-error bg-ops-error/15";
+      return "text-ops-error bg-ops-error/15 border-ops-error/30";
     case InvoiceStatus.PartiallyPaid:
-      return "text-ops-amber bg-ops-amber/15";
+      return "text-ops-amber bg-ops-amber/15 border-ops-amber/30";
     case InvoiceStatus.Paid:
-      return "text-status-success bg-status-success/15";
+      return "text-status-success bg-status-success/15 border-status-success/30";
     default:
-      return "text-text-disabled bg-text-disabled/15";
+      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
   }
 }
 
@@ -130,52 +130,39 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
 
   const maxItems = size === "lg" ? 7 : size === "md" ? 3 : 0;
 
-  // ── SM: Count + total amount ────────────────────────────────────────────
+  // ── SM: Hero + title + total amount ─────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            {isLoading ? "—" : filtered.length}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center gap-1">
-              <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled">
-                {t("invoiceList.loadingShort")}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-mohave text-[24px] leading-none text-text-primary font-medium">
-                {filtered.length}
-              </span>
-              <span className="font-mono text-[11px] text-text-tertiary">
-                {formatCurrency(totalAmount, locale)}
-              </span>
-            </div>
+          </span>
+          {!isLoading && (
+            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+              {formatCurrency(totalAmount, locale)}
+            </span>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }
 
   // ── MD / LG: List with send button ──────────────────────────────────────
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
-          </CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">
+          </span>
+          <span className="font-mono text-micro text-text-tertiary">
             {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrency(totalAmount, locale)}`}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -199,7 +186,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             )}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }
@@ -256,7 +243,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
       {/* Status badge */}
       <span
         className={cn(
-          "font-mohave text-status px-1.5 py-[1px] rounded-full shrink-0",
+          "font-mohave text-status px-1.5 py-[2px] rounded-sm uppercase tracking-wider shrink-0 border",
           statusBadgeClasses(invoice.status)
         )}
       >

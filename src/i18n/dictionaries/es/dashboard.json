@@ -616,12 +616,15 @@
   "cashPosition.collected": "Cobrado",
   "cashPosition.spent": "Gastado",
   "cashPosition.noTransactions": "Sin transacciones este período",
+  "cashPosition.viewInvoices": "Ver Facturas",
 
   "winRate.title": "Tasa de Cierre",
   "winRate.sent": "Enviados",
   "winRate.won": "Ganados",
   "winRate.lost": "Perdidos",
   "winRate.noEstimates": "Sin presupuestos en el período",
+  "winRate.viewEstimates": "Ver Presupuestos",
+  "winRate.avgDealSize": "Tamaño Promedio",
 
   "backlogDepth.title": "Cartera",
   "backlogDepth.weeks": "sem",
@@ -630,16 +633,20 @@
   "backlogDepth.healthy": "Saludable",
   "backlogDepth.caution": "Precaución",
   "backlogDepth.risk": "Riesgo",
+  "backlogDepth.viewProjects": "Ver Proyectos",
 
   "bookingRate.title": "Reservas",
   "bookingRate.thisMonth": "Este mes",
   "bookingRate.vsLastMonth": "vs mes anterior",
   "bookingRate.noProjects": "Sin proyectos aún",
+  "bookingRate.viewProjects": "Ver Proyectos",
 
   "todaysSchedule.title": "Agenda",
   "todaysSchedule.noEvents": "Sin eventos hoy",
   "todaysSchedule.moreToday": "más hoy",
   "todaysSchedule.tomorrow": "Mañana",
+  "todaysSchedule.viewCalendar": "Ver Calendario",
+  "todaysSchedule.eventsToday": "hoy",
 
   "crewBoard.title": "Equipo",
   "crewBoard.utilization": "Utilización",
@@ -651,7 +658,12 @@
   "topClients.noData": "Sin datos de clientes",
   "topClients.projects": "proyectos",
   "topClients.lastActive": "Última actividad",
+  "topClients.viewClients": "Ver Clientes",
 
   "leadSources.title": "Fuentes de Prospectos",
-  "leadSources.ofTotal": "del total"
+  "leadSources.ofTotal": "del total",
+  "leadSources.noSources": "Sin fuentes de prospectos",
+  "leadSources.viewPipeline": "Ver Pipeline",
+  "leadSources.pipelineValue": "Valor del pipeline",
+  "leadSources.more": "más"
 }

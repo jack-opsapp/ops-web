@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { Award } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { WT, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Client, Project } from "@/lib/types/models";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
@@ -40,10 +41,10 @@ function daysSince(date: Date | null): number | null {
 }
 
 function activityDotColor(days: number | null): string {
-  if (days === null) return "rgba(255,255,255,0.15)";
-  if (days <= 7) return "#6B8F71";
-  if (days <= 30) return "#C4A868";
-  return "#B58289";
+  if (days === null) return WT.muted;
+  if (days <= 7) return WT.success;
+  if (days <= 30) return WT.warning;
+  return WT.error;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,11 +66,14 @@ export function TopClientsWidget({
   const metric = (config.metric as string) ?? "revenue";
   const period = (config.period as string) ?? "ytd";
 
+  const reducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
   const rankedClients = useMemo(() => {
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
 
-    // Build per-client aggregations
     const clientMap = new Map<string, {
       client: Client;
       revenue: number;
@@ -89,7 +93,6 @@ export function TopClientsWidget({
       });
     }
 
-    // Aggregate invoices
     for (const inv of invoices) {
       if (inv.deletedAt) continue;
       const entry = clientMap.get(inv.clientId);
@@ -110,21 +113,18 @@ export function TopClientsWidget({
         entry.outstanding += inv.balanceDue;
       }
 
-      // Track last activity
       const invDate = inv.updatedAt ? new Date(inv.updatedAt) : null;
       if (invDate && (!entry.lastActivityAt || invDate > entry.lastActivityAt)) {
         entry.lastActivityAt = invDate;
       }
     }
 
-    // Count projects per client
     for (const proj of projects) {
       if (proj.deletedAt || !proj.clientId) continue;
       const entry = clientMap.get(proj.clientId);
       if (entry) entry.projectCount++;
     }
 
-    // Sort by chosen metric
     const entries = Array.from(clientMap.values()).filter((e) => {
       if (metric === "revenue") return e.revenue > 0;
       if (metric === "outstanding") return e.outstanding > 0;
@@ -140,15 +140,12 @@ export function TopClientsWidget({
     return entries;
   }, [clients, invoices, projects, metric, period]);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
-
+  // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("topClients.title") ?? "Top Clients"}
           </CardTitle>
         </CardHeader>
@@ -159,24 +156,63 @@ export function TopClientsWidget({
     );
   }
 
+  // ── Empty state ────────────────────────────────────────────────────────
   if (rankedClients.length === 0) {
     return (
-      <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/clients")}>
+        <div className="h-full flex flex-col px-3 py-2">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("topClients.title") ?? "Top Clients"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2 flex items-center justify-center h-[calc(100%-28px)]">
-          <span className="font-mohave text-[13px] text-text-tertiary">
-            {t("topClients.noData") ?? "No client data yet"}
           </span>
-        </CardContent>
+          <div className="flex-1 flex flex-col justify-center">
+            <span className="font-mohave text-caption-sm text-text-disabled">
+              {t("topClients.noData") ?? "No client data yet"}
+            </span>
+          </div>
+          {showFooter(size) && (
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
+              {t("topClients.viewClients") ?? "View Clients"}
+            </span>
+          )}
+        </div>
       </Card>
     );
   }
 
-  const maxItems = size === "sm" ? 3 : size === "md" ? 5 : 8;
+  // ── SM: Hero + title + top client name ──────────────────────────────────
+  if (size === "sm") {
+    const topClient = rankedClients[0];
+    return (
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          {/* Row 1: Hero number + tiny nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {rankedClients.length}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/clients"); }}
+              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            </button>
+          </div>
+          {/* Row 2: Title */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("topClients.title") ?? "Top Clients"}
+          </span>
+          {/* Row 3: Top client name */}
+          {topClient && (
+            <span className="font-mohave text-caption-sm text-text-secondary truncate mt-0.5">
+              #1: {topClient.client.name}
+            </span>
+          )}
+        </div>
+      </Card>
+    );
+  }
+
+  const maxItems = size === "md" ? 5 : 8;
   const displayClients = rankedClients.slice(0, maxItems);
   const maxValue = displayClients[0]
     ? metric === "revenue" ? displayClients[0].revenue
@@ -197,90 +233,105 @@ export function TopClientsWidget({
 
   return (
     <Card className="h-full" ref={ref}>
-      <CardHeader className="pb-1 pt-2 px-3">
-        <CardTitle className="text-[11px] font-kosugi uppercase tracking-wider text-text-tertiary">
-          {t("topClients.title") ?? "Top Clients"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-3 pb-2 overflow-hidden">
-        <div className="flex flex-col gap-[4px]">
-          {displayClients.map((entry, i) => {
-            const val = getMetricValue(entry);
-            const barPct = maxValue > 0 ? (val / maxValue) * 100 : 0;
-            const days = daysSince(entry.lastActivityAt);
-            const dotColor = activityDotColor(days);
+      <div className="h-full flex flex-col px-3 py-2">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("topClients.title") ?? "Top Clients"}
+          </span>
+        </div>
 
-            return (
-              <div
-                key={entry.client.id}
-                className="flex items-center gap-1.5 py-[3px] px-1 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors relative"
-                style={{
-                  opacity: isVisible ? 1 : 0,
-                  transform: isVisible ? "translateX(0)" : "translateX(-8px)",
-                  transition: reducedMotion
-                    ? "opacity 200ms ease"
-                    : `opacity 300ms ease ${i * 50}ms, transform 300ms ease ${i * 50}ms`,
-                }}
-                onClick={() => onNavigate(`/clients/${entry.client.id}`)}
-              >
-                {/* Rank number */}
-                <span className="font-mono text-[11px] text-text-tertiary w-[14px] shrink-0">{i + 1}</span>
+        {/* CLIENT LIST */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="flex flex-col gap-[4px]">
+            {displayClients.map((entry, i) => {
+              const val = getMetricValue(entry);
+              const barPct = maxValue > 0 ? (val / maxValue) * 100 : 0;
+              const days = daysSince(entry.lastActivityAt);
+              const dotColor = activityDotColor(days);
 
-                {/* Name + bar container */}
-                <div className="flex-1 min-w-0 relative">
-                  <div className="flex items-center justify-between relative z-10">
-                    <span className="font-mohave text-[12px] text-text-primary truncate">
-                      {entry.client.name}
-                    </span>
-                    <span className="font-mono text-[11px] text-text-primary font-medium ml-2 shrink-0">
-                      {formatMetric(entry)}
-                    </span>
+              return (
+                <div
+                  key={entry.client.id}
+                  className="flex items-center gap-1.5 py-[3px] px-1 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors relative"
+                  style={{
+                    opacity: isVisible ? 1 : 0,
+                    transform: isVisible ? "translateX(0)" : "translateX(-8px)",
+                    transition: reducedMotion
+                      ? "opacity 200ms ease"
+                      : `opacity 300ms ease ${i * 50}ms, transform 300ms ease ${i * 50}ms`,
+                  }}
+                  onClick={() => onNavigate(`/clients/${entry.client.id}`)}
+                >
+                  {/* Rank number */}
+                  <span className="font-mono text-micro text-text-tertiary w-[14px] shrink-0">{i + 1}</span>
+
+                  {/* Name + bar container */}
+                  <div className="flex-1 min-w-0 relative">
+                    <div className="flex items-center justify-between relative z-10">
+                      <span className="font-mohave text-caption-sm text-text-primary truncate">
+                        {entry.client.name}
+                      </span>
+                      <span className="font-mono text-micro text-text-primary font-medium ml-2 shrink-0">
+                        {formatMetric(entry)}
+                      </span>
+                    </div>
+
+                    {/* Proportional bar behind */}
+                    <div
+                      className="absolute bottom-0 left-0 rounded-sm transition-all"
+                      style={{
+                        height: isCompact(size) ? "4px" : "8px",
+                        width: isVisible ? `${barPct}%` : "0%",
+                        backgroundColor: WT.accentSubtle,
+                        transitionDuration: reducedMotion ? "200ms" : "500ms",
+                        transitionDelay: reducedMotion ? "0ms" : `${i * 50 + 100}ms`,
+                        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                      }}
+                    />
+
+                    {/* Secondary line for lg */}
+                    {showActions(size) && (
+                      <div className="flex items-center gap-1 mt-[1px]">
+                        <span className="font-mono text-micro-sm text-text-tertiary">
+                          {entry.projectCount} {t("topClients.projects") ?? "projects"}
+                        </span>
+                        {days !== null && (
+                          <>
+                            <span className="text-text-disabled text-micro-sm">·</span>
+                            <span className="font-mono text-micro-sm text-text-tertiary">
+                              {t("topClients.lastActive") ?? "Last active"} {days}d ago
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Proportional bar behind */}
-                  <div
-                    className="absolute bottom-0 left-0 rounded-sm transition-all"
-                    style={{
-                      height: size === "sm" ? "4px" : "8px",
-                      width: isVisible ? `${barPct}%` : "0%",
-                      backgroundColor: "rgba(89, 119, 148, 0.15)",
-                      transitionDuration: reducedMotion ? "200ms" : "500ms",
-                      transitionDelay: reducedMotion ? "0ms" : `${i * 50 + 100}ms`,
-                      transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                    }}
-                  />
-
-                  {/* Secondary line for lg */}
-                  {size === "lg" && (
-                    <div className="flex items-center gap-1 mt-[1px]">
-                      <span className="font-mono text-[10px] text-text-tertiary">
-                        {entry.projectCount} {t("topClients.projects") ?? "projects"}
-                      </span>
-                      {days !== null && (
-                        <>
-                          <span className="text-text-quaternary text-[10px]">·</span>
-                          <span className="font-mono text-[10px] text-text-tertiary">
-                            {t("topClients.lastActive") ?? "Last active"} {days}d ago
-                          </span>
-                        </>
-                      )}
-                    </div>
+                  {/* Activity dot (md only) */}
+                  {showDetail(size) && !showActions(size) && (
+                    <span
+                      className="w-[6px] h-[6px] rounded-full shrink-0"
+                      style={{ backgroundColor: dotColor }}
+                      title={days !== null ? `${days}d since last activity` : "No activity recorded"}
+                    />
                   )}
                 </div>
-
-                {/* Activity dot (md only) */}
-                {size === "md" && (
-                  <span
-                    className="w-[6px] h-[6px] rounded-full shrink-0"
-                    style={{ backgroundColor: dotColor }}
-                    title={days !== null ? `${days}d since last activity` : "No activity recorded"}
-                  />
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </CardContent>
+
+        {/* FOOTER */}
+        {showFooter(size) && (
+          <button
+            onClick={() => onNavigate("/clients")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("topClients.viewClients") ?? "View Clients"}
+          </button>
+        )}
+      </div>
     </Card>
   );
 }

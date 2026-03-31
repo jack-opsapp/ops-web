@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Client } from "@/lib/types/models";
 import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
@@ -47,9 +47,9 @@ function reasonLabel(reason: AttentionReason, t: (key: string) => string): strin
 function reasonBadgeClasses(reason: AttentionReason): string {
   switch (reason) {
     case "past-due-invoice":
-      return "text-ops-error bg-ops-error/10";
+      return "text-ops-error bg-ops-error/10 border-ops-error/30";
     case "estimate-expiring":
-      return "text-ops-amber bg-ops-amber/10";
+      return "text-ops-amber bg-ops-amber/10 border-ops-amber/30";
   }
 }
 
@@ -144,37 +144,28 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
 
   const count = attentionClients.length;
 
-  // ── SM: Count with red accent if > 0 ─────────────────────────────────────
+  // ── SM: Hero + title + count label ──────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">{t("clientAttention.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center gap-1">
-              <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled">
-                {t("clientAttention.loading")}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span
-                className={cn(
-                  "font-mono text-data-lg",
-                  count > 0 ? "text-ops-error" : "text-text-primary"
-                )}
-              >
-                {count}
-              </span>
-              <span className="font-mono text-[11px] text-text-tertiary">
-                {count === 1 ? t("clientAttention.client") : t("clientAttention.clients")}
-              </span>
-            </div>
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <span
+            className={cn(
+              "font-mono text-data-lg font-bold leading-none",
+              isLoading ? "text-text-disabled" : count > 0 ? "text-ops-error" : "text-text-primary"
+            )}
+          >
+            {isLoading ? "—" : count}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("clientAttention.title")}
+          </span>
+          {!isLoading && (
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-0.5">
+              {count === 1 ? t("clientAttention.client") : t("clientAttention.clients")}
+            </span>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -183,21 +174,19 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
   const maxItems = size === "lg" ? 7 : 3;
 
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">{t("clientAttention.title")}</CardTitle>
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">{t("clientAttention.title")}</span>
           <span
             className={cn(
-              "font-mono text-[11px]",
+              "font-mono text-micro",
               count > 0 ? "text-ops-error" : "text-text-tertiary"
             )}
           >
             {isLoading ? "..." : `${count} ${count === 1 ? t("clientAttention.client") : t("clientAttention.clients")}`}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -232,7 +221,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                     <span
                       key={reason}
                       className={cn(
-                        "font-mohave text-[11px] px-1.5 py-[1px] rounded-full whitespace-nowrap",
+                        "font-mohave text-status px-1.5 py-[2px] rounded-sm uppercase tracking-wider whitespace-nowrap border",
                         reasonBadgeClasses(reason)
                       )}
                     >
@@ -249,7 +238,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
             )}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

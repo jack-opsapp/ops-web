@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Client } from "@/lib/types/models";
 import { useClients, useProjects } from "@/lib/hooks";
@@ -95,34 +95,23 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
     return byRecent[0] ?? null;
   }, [clients]);
 
-  // ── SM: Total client count + most recent client ──────────────────────────
+  // ── SM: Hero + title + latest client ────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1 shrink-0">
-          <CardTitle className="text-card-subtitle">{t("clientList.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center gap-1">
-              <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled">
-                {t("clientList.loadingShort")}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              <span className="font-mono text-data-lg text-text-primary">
-                {clients.length}
-              </span>
-              {mostRecent && (
-                <span className="font-mono text-[11px] text-text-tertiary truncate">
-                  {t("clientList.latest")}: {mostRecent.name}
-                </span>
-              )}
-            </div>
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            {isLoading ? "—" : clients.length}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("clientList.title")}
+          </span>
+          {!isLoading && mostRecent && (
+            <span className="font-mohave text-caption-sm text-text-tertiary truncate mt-0.5">
+              {t("clientList.latest")}: {mostRecent.name}
+            </span>
           )}
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -131,16 +120,14 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
   const maxItems = size === "lg" ? 7 : 3;
 
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">{t("clientList.title")}</CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">{t("clientList.title")}</span>
+          <span className="font-mono text-micro text-text-tertiary">
             {isLoading ? "..." : `${clients.length} ${t("clientList.total")}`}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -169,7 +156,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
             )}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }
@@ -230,10 +217,10 @@ function ClientRow({
       {/* Project count badge */}
       <span
         className={cn(
-          "font-mono text-[11px] px-1.5 py-[1px] rounded-full shrink-0",
+          "font-mohave text-status px-1.5 py-[2px] rounded-sm uppercase tracking-wider shrink-0 border",
           projectCount > 0
-            ? "text-ops-accent bg-ops-accent/10"
-            : "text-text-disabled bg-text-disabled/10"
+            ? "text-ops-accent bg-ops-accent/10 border-ops-accent/30"
+            : "text-text-disabled bg-text-disabled/10 border-text-disabled/30"
         )}
       >
         {projectCount} {projectCount === 1 ? t("clientList.proj") : t("clientList.projs")}
