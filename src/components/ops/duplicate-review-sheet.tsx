@@ -83,7 +83,7 @@ export function DuplicateReviewSheet() {
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && closeSheet()}>
-      <SheetContent side="right" className="w-full max-w-[600px]">
+      <SheetContent side="right" className="w-full max-w-[min(90vw,960px)]">
         <SheetHeader>
           <SheetTitle>{t("title")}</SheetTitle>
           <SheetDescription className="sr-only">

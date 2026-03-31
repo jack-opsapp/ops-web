@@ -202,15 +202,15 @@ export function DuplicateClusterCard({
         ))}
       </div>
 
-      {/* Side-by-side entity cards */}
+      {/* Side-by-side entity cards — always one row, equal widths */}
       <div
         className="grid gap-3"
-        style={{ gridTemplateColumns: `repeat(${Math.min(cluster.entities.length, 3)}, 1fr)` }}
+        style={{ gridTemplateColumns: `repeat(${cluster.entities.length}, 1fr)` }}
       >
         {cluster.entities.map((entity) => (
           <div
             key={entity.id}
-            className="rounded-[3px] border border-white/8 bg-white/[0.03] p-3"
+            className="min-w-0 rounded-[3px] border border-white/8 bg-white/[0.03] p-3"
           >
             <EntityCard entity={entity} entityType={entityType} />
           </div>
