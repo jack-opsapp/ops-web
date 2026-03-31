@@ -16,7 +16,7 @@ import {
   useDismissDuplicate,
 } from "@/lib/hooks";
 import { useDictionary } from "@/i18n/client";
-import { DuplicatePairCard } from "./duplicate-pair-card";
+import { DuplicateClusterCard } from "./duplicate-cluster-card";
 import type { DuplicateEntityType } from "@/lib/api/services/duplicate-detection-service";
 
 const ENTITY_TABS: DuplicateEntityType[] = [
@@ -41,12 +41,16 @@ export function DuplicateReviewSheet() {
   const { t } = useDictionary("duplicates");
   const [activeTab, setActiveTab] = useState<DuplicateEntityType>("client");
 
-  const handleMerge = (reviewId: string, winnerId: string) => {
-    mergeMutation.mutate({ reviewId, winnerId });
+  const handleMerge = (
+    reviewIds: string[],
+    winnerId: string,
+    fieldOverrides: Record<string, unknown>
+  ) => {
+    mergeMutation.mutate({ reviewIds, winnerId, fieldOverrides });
   };
 
-  const handleDismiss = (reviewId: string) => {
-    dismissMutation.mutate({ reviewId });
+  const handleDismiss = (reviewIds: string[]) => {
+    dismissMutation.mutate({ reviewIds });
   };
 
   // Find first tab with items when current tab is empty
@@ -58,7 +62,7 @@ export function DuplicateReviewSheet() {
       ? firstNonEmptyTab
       : activeTab;
 
-  const reviews = data?.[effectiveTab] ?? [];
+  const clusters = data?.[effectiveTab] ?? [];
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && closeSheet()}>
@@ -101,7 +105,7 @@ export function DuplicateReviewSheet() {
                 Loading...
               </span>
             </div>
-          ) : reviews.length === 0 ? (
+          ) : clusters.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <span className="font-mohave text-[13px] text-white/40">
                 {t("empty")}
@@ -109,15 +113,11 @@ export function DuplicateReviewSheet() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {reviews.map((review) => (
-                <DuplicatePairCard
-                  key={review.id}
-                  reviewId={review.id}
-                  entityType={review.entityType}
-                  confidence={review.confidence}
-                  signals={review.signals}
-                  entityA={review.entityA}
-                  entityB={review.entityB}
+              {clusters.map((cluster) => (
+                <DuplicateClusterCard
+                  key={cluster.id}
+                  cluster={cluster}
+                  entityType={cluster.entityType}
                   onMerge={handleMerge}
                   onDismiss={handleDismiss}
                   isMerging={
