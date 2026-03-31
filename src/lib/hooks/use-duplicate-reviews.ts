@@ -229,10 +229,14 @@ export function useMergeDuplicate() {
       reviewIds,
       winnerId,
       fieldOverrides,
+      entityEdits,
+      entityType,
     }: {
       reviewIds: string[];
       winnerId: string;
       fieldOverrides?: Record<string, unknown>;
+      entityEdits?: Record<string, Record<string, unknown>>;
+      entityType?: DuplicateEntityType;
     }) => {
       const primaryReviewId = reviewIds[0];
       const additionalReviewIds = reviewIds.slice(1);
@@ -245,6 +249,11 @@ export function useMergeDuplicate() {
           fieldOverrides,
           additionalReviewIds:
             additionalReviewIds.length > 0 ? additionalReviewIds : undefined,
+          entityEdits:
+            entityEdits && Object.keys(entityEdits).length > 0
+              ? entityEdits
+              : undefined,
+          entityType: entityEdits && Object.keys(entityEdits).length > 0 ? entityType : undefined,
         }),
       });
       if (!res.ok) {
@@ -272,18 +281,31 @@ export function useDismissDuplicate() {
   const { company } = useAuthStore();
 
   return useMutation({
-    mutationFn: async ({ reviewIds }: { reviewIds: string[] }) => {
+    mutationFn: async ({
+      reviewIds,
+      entityEdits,
+      entityType,
+    }: {
+      reviewIds: string[];
+      entityEdits?: Record<string, Record<string, unknown>>;
+      entityType?: DuplicateEntityType;
+    }) => {
       const primaryReviewId = reviewIds[0];
       const additionalReviewIds = reviewIds.slice(1);
+
+      const bodyPayload: Record<string, unknown> = {};
+      if (additionalReviewIds.length > 0) {
+        bodyPayload.additionalReviewIds = additionalReviewIds;
+      }
+      if (entityEdits && Object.keys(entityEdits).length > 0) {
+        bodyPayload.entityEdits = entityEdits;
+        bodyPayload.entityType = entityType;
+      }
 
       const res = await fetch(`/api/duplicates/${primaryReviewId}/dismiss`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          additionalReviewIds.length > 0
-            ? { additionalReviewIds }
-            : {}
-        ),
+        body: JSON.stringify(bodyPayload),
       });
       if (!res.ok) {
         const err = await res.json();

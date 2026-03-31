@@ -1067,6 +1067,29 @@ async function getPendingReviews(
   return (data ?? []).map(mapReviewFromDb);
 }
 
+// ─── Apply Entity Edits ─────────────────────────────────────────────────────
+
+/**
+ * Apply field edits to individual entities.
+ * Used when the user edits/removes fields on entity cards before merging or dismissing.
+ * entityEdits is a map of entityId -> { field: value } updates (null = remove field).
+ */
+async function applyEntityEdits(
+  entityEdits: Record<string, Record<string, unknown>>,
+  entityType: DuplicateEntityType
+): Promise<void> {
+  const supabase = requireSupabase();
+  const table = ENTITY_TABLES[entityType];
+
+  for (const [entityId, updates] of Object.entries(entityEdits)) {
+    if (Object.keys(updates).length === 0) continue;
+    const { error } = await supabase.from(table).update(updates).eq("id", entityId);
+    if (error) {
+      console.error(`[DuplicateDetection] Failed to apply edits to ${entityId}:`, error.message);
+    }
+  }
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export const DuplicateDetectionService = {
@@ -1075,6 +1098,7 @@ export const DuplicateDetectionService = {
   mergeEntities,
   mergeCluster,
   dismissPair,
+  applyEntityEdits,
 
   // Exposed for unit testing
   _scanClients: scanClients,

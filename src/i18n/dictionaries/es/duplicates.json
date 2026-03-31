@@ -53,6 +53,7 @@
   "fields.longitude": "Longitud",
   "fields.task_notes": "Notas de Tarea",
   "fields.custom_title": "Título Personalizado",
+  "card.add": "Agregar",
   "merging": "Fusionando...",
   "merged": "Fusionado exitosamente",
   "dismissed": "Descartado"

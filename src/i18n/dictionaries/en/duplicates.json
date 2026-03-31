@@ -53,6 +53,7 @@
   "fields.longitude": "Longitude",
   "fields.task_notes": "Task Notes",
   "fields.custom_title": "Custom Title",
+  "card.add": "Add",
   "merging": "Merging...",
   "merged": "Merged successfully",
   "dismissed": "Dismissed"
