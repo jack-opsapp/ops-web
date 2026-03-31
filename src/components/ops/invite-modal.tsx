@@ -235,7 +235,7 @@ export function InviteModal({
               {entries.map((entry) => (
                 <span
                   key={entry}
-                  className="inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-full bg-ops-accent-muted text-ops-accent font-mono text-[11px]"
+                  className="inline-flex items-center gap-[6px] px-2 py-[3px] rounded-[2px] border border-white/15 bg-white/[0.02] font-mohave text-[12px] text-white/15"
                 >
                   {entry}
                   <button

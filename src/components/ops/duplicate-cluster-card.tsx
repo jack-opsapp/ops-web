@@ -149,14 +149,13 @@ function FieldPill({
               setEditing(false);
             }
           }}
-          className="w-full rounded-full border border-ops-accent bg-ops-accent-muted px-[8px] py-[2px] font-mono text-[11px] text-ops-accent outline-none"
+          className="w-full rounded-[2px] border border-white/25 bg-white/[0.02] px-2 py-[3px] font-mohave text-[12px] text-white/25 outline-none focus:border-white/40 focus:text-white/40"
         />
       </div>
     );
   }
 
   if (!value) {
-    // Empty — dashed add chip
     return (
       <div className="flex flex-col gap-0.5">
         <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
@@ -167,7 +166,7 @@ function FieldPill({
             setDraft("");
             setEditing(true);
           }}
-          className="inline-flex w-fit items-center gap-[4px] rounded-full border border-dashed border-[#444] px-[8px] py-[2px] font-mono text-[11px] text-white/25 transition-colors duration-150 hover:border-ops-accent hover:text-ops-accent"
+          className="inline-flex w-fit items-center gap-[4px] rounded-[2px] border border-dashed border-white/15 bg-white/[0.02] px-2 py-[3px] font-mohave text-[12px] text-white/15 transition-colors duration-150 hover:border-white/25 hover:text-white/25"
         >
           + {addLabel}
         </button>
@@ -175,19 +174,18 @@ function FieldPill({
     );
   }
 
-  // Has value — chip matching invite-modal pattern
   return (
     <div className="flex flex-col gap-0.5">
       <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
         {label}
       </span>
-      <span className="inline-flex w-fit items-center gap-[4px] rounded-full bg-ops-accent-muted px-[8px] py-[2px]">
+      <div className="inline-flex w-fit items-center gap-[6px] rounded-[2px] border border-white/15 bg-white/[0.02] px-2 py-[3px] transition-colors duration-150 hover:border-white/25">
         <button
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
-          className="max-w-full truncate text-left font-mono text-[11px] text-ops-accent transition-colors duration-150 hover:text-white"
+          className="max-w-full truncate text-left font-mohave text-[12px] text-white/15 transition-colors duration-150 hover:text-white/25"
         >
           {value}
         </button>
@@ -196,12 +194,12 @@ function FieldPill({
             e.stopPropagation();
             onRemove();
           }}
-          className="shrink-0 text-ops-accent transition-colors duration-150 hover:text-white"
+          className="shrink-0 text-white/15 transition-colors duration-150 hover:text-white/25"
           aria-label="Remove"
         >
           <X className="h-[10px] w-[10px]" />
         </button>
-      </span>
+      </div>
     </div>
   );
 }
