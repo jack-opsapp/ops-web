@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flags-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { LockoutOverlay } from "@/components/ops/lockout-overlay";
 import { useDictionary } from "@/i18n/client";
@@ -122,7 +123,9 @@ export default function DashboardGroupLayout({
 }) {
   return (
     <AuthProvider>
-      <DashboardAuthGate>{children}</DashboardAuthGate>
+      <AnalyticsProvider>
+        <DashboardAuthGate>{children}</DashboardAuthGate>
+      </AnalyticsProvider>
     </AuthProvider>
   );
 }

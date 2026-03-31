@@ -128,17 +128,13 @@ function NavItemButton({
       }}
       title={tooltipText}
       className={cn(
-        "group relative flex items-center w-full h-[36px] rounded transition-all duration-150",
+        "group relative flex items-center w-full h-[36px] rounded-[2px] transition-colors duration-150",
         isCollapsed ? "justify-center px-0" : "gap-1.5 px-1.5",
         item.gated
           ? "text-text-disabled opacity-50 cursor-pointer hover:opacity-70"
           : [
               "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
-              isActive && [
-                "text-ops-accent bg-[rgba(89,119,148,0.12)]",
-                "border-l-2 border-l-ops-accent",
-              ],
-              !isActive && "border-l-2 border-l-transparent",
+              isActive && "text-ops-accent bg-[rgba(89,119,148,0.10)]",
             ]
       )}
     >
@@ -355,11 +351,14 @@ export function Sidebar() {
             height={6}
             className="select-none shrink-0 opacity-40"
           />
-          {!effectiveCollapsed && (
-            <span className="font-mono text-[10px] text-text-disabled select-none">
-              VERSION 02/16/2026
-            </span>
-          )}
+          <span
+            className={cn(
+              "font-mono text-[10px] text-text-disabled select-none transition-opacity duration-200",
+              effectiveCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 delay-150"
+            )}
+          >
+            VERSION 02/16/2026
+          </span>
         </div>
 
         {/* User section — avatar dropdown */}

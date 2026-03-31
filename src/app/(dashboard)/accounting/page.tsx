@@ -471,7 +471,7 @@ export default function AccountingPage() {
   }, [t, can]);
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <p className="font-mohave text-body-sm text-text-tertiary">

@@ -93,7 +93,7 @@ export default function ProductsPage() {
   }, [products]);
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="space-y-3">
       {/* Metrics Header */}
       <MetricsHeader
         variant="compact"
