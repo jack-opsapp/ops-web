@@ -11,6 +11,7 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -212,7 +213,7 @@ export function TopClientsWidget({
     );
   }
 
-  const maxItems = size === "md" ? 5 : 8;
+  const maxItems = size === "md" ? 5 : 15;
   const displayClients = rankedClients.slice(0, maxItems);
   const maxValue = displayClients[0]
     ? metric === "revenue" ? displayClients[0].revenue
@@ -232,8 +233,8 @@ export function TopClientsWidget({
   }
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -242,7 +243,7 @@ export function TopClientsWidget({
         </div>
 
         {/* CLIENT LIST */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           <div className="flex flex-col gap-[4px]">
             {displayClients.map((entry, i) => {
               const val = getMetricValue(entry);
@@ -320,7 +321,7 @@ export function TopClientsWidget({
               );
             })}
           </div>
-        </div>
+        </ScrollFade>
 
         {/* FOOTER */}
         {showFooter(size) && (

@@ -11,6 +11,7 @@ import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -222,7 +223,7 @@ export function BacklogDepthWidget({
 
         {/* DETAIL ZONE */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade>
             {/* Gauge */}
             <div className="relative w-full rounded-sm overflow-hidden" style={{ height: `${gaugeHeight}px` }}>
               <div className="absolute inset-0 flex">
@@ -246,7 +247,7 @@ export function BacklogDepthWidget({
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase">0</span>
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase">10+ {t("backlogDepth.weeks") ?? "wk"}</span>
             </div>
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER */}

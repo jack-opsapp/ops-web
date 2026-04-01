@@ -66,36 +66,24 @@ export interface CreateNotificationParams {
 export const NotificationService = {
   /**
    * General-purpose notification creation. Use this for all new notification types.
-   * Deduplicates by (userId, type, title) — won't insert if an unread notification
-   * with the same type + title already exists for this user.
+   * Deduplication is enforced at the DB level by a partial unique index on
+   * (user_id, company_id, type, title) WHERE is_read = false.
+   * Uses an RPC (INSERT ... ON CONFLICT DO NOTHING) so duplicates are silently
+   * ignored server-side — no 409 in the console, no client-side error handling.
    */
   async create(params: CreateNotificationParams): Promise<void> {
     const supabase = requireSupabase();
 
-    // Deduplicate: skip if an unread notification with same type+title exists
-    const { data: existing } = await supabase
-      .from("notifications")
-      .select("id")
-      .eq("user_id", params.userId)
-      .eq("company_id", params.companyId)
-      .eq("type", params.type)
-      .eq("title", params.title)
-      .eq("is_read", false)
-      .limit(1);
-
-    if (existing && existing.length > 0) return;
-
-    const { error } = await supabase.from("notifications").insert({
-      user_id: params.userId,
-      company_id: params.companyId,
-      type: params.type,
-      title: params.title,
-      body: params.body,
-      is_read: false,
-      persistent: params.persistent ?? false,
-      action_url: params.actionUrl ?? null,
-      action_label: params.actionLabel ?? null,
-      project_id: params.projectId ?? null,
+    const { error } = await supabase.rpc("create_notification_if_new", {
+      p_user_id: params.userId,
+      p_company_id: params.companyId,
+      p_type: params.type,
+      p_title: params.title,
+      p_body: params.body,
+      p_persistent: params.persistent ?? false,
+      p_action_url: params.actionUrl ?? null,
+      p_action_label: params.actionLabel ?? null,
+      p_project_id: params.projectId ?? null,
     });
 
     if (error) {

@@ -12,6 +12,7 @@ import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -221,7 +222,7 @@ export function BookingRateWidget({
 
         {/* DETAIL ZONE */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade>
             {/* Bar chart */}
             <div className="flex items-end gap-[4px]" style={{ height: `${chartHeight}px` }}>
               {bookings.months.map((m, i) => {
@@ -258,7 +259,7 @@ export function BookingRateWidget({
                 </span>
               ))}
             </div>
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER */}

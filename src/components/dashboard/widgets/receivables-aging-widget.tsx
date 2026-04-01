@@ -12,6 +12,7 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Aging buckets — colors from WT tokens per severity tier
@@ -225,8 +226,8 @@ export function ReceivablesAgingWidget({
   const nonEmptyBuckets = aging.buckets.filter((b) => b.amount > 0);
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -238,7 +239,7 @@ export function ReceivablesAgingWidget({
         </div>
 
         {/* Detail zone */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
             <TooltipRow label={tooltip.bucket} value={formatCurrency(tooltip.amount)} />
             <TooltipRow label={t("receivablesAging.count") ?? "Count"} value={`${tooltip.count}`} />
@@ -246,7 +247,7 @@ export function ReceivablesAgingWidget({
           </WidgetTooltip>
 
           {/* Stacked horizontal bar */}
-          <div className="w-full h-[20px] rounded-sm overflow-hidden flex">
+          <div className="w-full h-[28px] rounded-sm overflow-hidden flex">
             {nonEmptyBuckets.map((bucket, i) => {
               const pct = aging.totalAmount > 0 ? (bucket.amount / aging.totalAmount) * 100 : 0;
               return (
@@ -314,7 +315,7 @@ export function ReceivablesAgingWidget({
           {/* LG: Top overdue invoices from worst bucket + action buttons */}
           {showActions(size) && aging.worstBucket && aging.worstBucket.key !== "current" && (
             <div className="mt-2 pt-2 border-t border-border-subtle">
-              {aging.worstBucket.invoices.slice(0, 3).map((inv, i) => {
+              {aging.worstBucket.invoices.slice(0, 7).map((inv, i) => {
                 const due = new Date(inv.dueDate);
                 const days = Math.floor((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
                 return (
@@ -351,7 +352,7 @@ export function ReceivablesAgingWidget({
               })}
             </div>
           )}
-        </div>
+        </ScrollFade>
 
         {/* Footer */}
         {showFooter(size) && (

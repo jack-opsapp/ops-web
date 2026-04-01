@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { queryKeys } from "../api/query-client";
 import {
   NotificationService,
@@ -22,8 +22,9 @@ export function useNotifications() {
     queryKey: queryKeys.notifications.unread(userId, companyId),
     queryFn: () => NotificationService.fetchUnread(userId, companyId),
     enabled: !!userId && !!companyId,
-    staleTime: 30_000,
+    staleTime: 60_000,
     refetchOnWindowFocus: true,
+    retry: 1,
   });
 }
 
@@ -41,17 +42,25 @@ export function useCreateNotification() {
   const mutation = useMutation({
     mutationFn: (params: Omit<CreateNotificationParams, "userId" | "companyId">) =>
       NotificationService.create({ ...params, userId, companyId }),
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
     },
+    retry: 0,
   });
+
+  // Use a ref so `notify` is referentially stable across renders.
+  // Without this, mutation state changes (idle→pending→success) create a new
+  // mutation object, which recreates `notify`, which re-triggers any useEffect
+  // that lists `notify` as a dependency — causing an infinite loop.
+  const mutateRef = useRef(mutation.mutate);
+  mutateRef.current = mutation.mutate;
 
   const notify = useCallback(
     (params: Omit<CreateNotificationParams, "userId" | "companyId">) => {
       if (!userId || !companyId) return;
-      mutation.mutate(params);
+      mutateRef.current(params);
     },
-    [userId, companyId, mutation]
+    [userId, companyId]
   );
 
   return notify;

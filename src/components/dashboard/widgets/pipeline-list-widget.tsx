@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Loader2, List } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import {
   OpportunityStage,
@@ -14,6 +14,7 @@ import type { Opportunity } from "@/lib/types/pipeline";
 import { useOpportunities } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -144,73 +145,70 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     let remainingSlots = 7;
 
     return (
-      <Card className="p-2 h-full flex flex-col">
-        <CardHeader className="pb-1.5 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <List className="w-[14px] h-[14px] text-text-tertiary" />
-              <CardTitle className="text-card-subtitle">
-                {t(FILTER_LABEL_KEYS[filter])}
-              </CardTitle>
-            </div>
-            <span className="font-mono text-[11px] text-text-tertiary">
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+              {t(FILTER_LABEL_KEYS[filter])}
+            </span>
+            <span className="font-mono text-micro text-text-tertiary">
               {isLoading
                 ? "..."
                 : `${filtered.length} \u00B7 $${totalValue.toLocaleString()}`}
             </span>
           </div>
-        </CardHeader>
-        <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">
-                {t("pipelineList.loading")}
-              </span>
-            </div>
-          ) : filtered.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-disabled py-2">
-              {t("pipelineList.empty")}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {grouped.map((group) => {
-                if (remainingSlots <= 0) return null;
-                const visibleItems = group.items.slice(0, remainingSlots);
-                remainingSlots -= visibleItems.length;
+          <ScrollFade>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+                <span className="font-mono text-[11px] text-text-disabled ml-1">
+                  {t("pipelineList.loading")}
+                </span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <p className="font-mohave text-body-sm text-text-disabled py-2">
+                {t("pipelineList.empty")}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {grouped.map((group) => {
+                  if (remainingSlots <= 0) return null;
+                  const visibleItems = group.items.slice(0, remainingSlots);
+                  remainingSlots -= visibleItems.length;
 
-                return (
-                  <div key={group.stage}>
-                    {/* Stage header */}
-                    <div className="flex items-center gap-1 mb-0.5 px-1">
-                      <span
-                        className="w-[8px] h-[8px] rounded-sm shrink-0"
-                        style={{ backgroundColor: group.color }}
-                      />
-                      <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary">
-                        {group.label}
-                      </span>
-                      <span className="font-mono text-[11px] text-text-disabled ml-auto">
-                        {group.items.length}
-                      </span>
-                    </div>
-                    {/* Items */}
-                    <div className="space-y-[6px]">
-                      {visibleItems.map((opp) => (
-                        <OpportunityRow key={opp.id} opportunity={opp} />
-                      ))}
-                      {group.items.length > visibleItems.length && (
-                        <span className="font-mono text-[11px] text-text-disabled block px-1">
-                          +{group.items.length - visibleItems.length} {t("pipelineList.more")}
+                  return (
+                    <div key={group.stage}>
+                      {/* Stage header */}
+                      <div className="flex items-center gap-1 mb-0.5 px-1">
+                        <span
+                          className="w-[8px] h-[8px] rounded-sm shrink-0"
+                          style={{ backgroundColor: group.color }}
+                        />
+                        <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary">
+                          {group.label}
                         </span>
-                      )}
+                        <span className="font-mono text-[11px] text-text-disabled ml-auto">
+                          {group.items.length}
+                        </span>
+                      </div>
+                      {/* Items */}
+                      <div className="space-y-[6px]">
+                        {visibleItems.map((opp) => (
+                          <OpportunityRow key={opp.id} opportunity={opp} />
+                        ))}
+                        {group.items.length > visibleItems.length && (
+                          <span className="font-mono text-[11px] text-text-disabled block px-1">
+                            +{group.items.length - visibleItems.length} {t("pipelineList.more")}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollFade>
+        </div>
       </Card>
     );
   }

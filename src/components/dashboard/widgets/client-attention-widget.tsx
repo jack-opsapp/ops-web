@@ -10,6 +10,7 @@ import type { Invoice, Estimate } from "@/lib/types/pipeline";
 import { useClients, useInvoices, useEstimates } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -187,57 +188,59 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
             {isLoading ? "..." : `${count} ${count === 1 ? t("clientAttention.client") : t("clientAttention.clients")}`}
           </span>
         </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
-              {t("clientAttention.loading")}
-            </span>
-          </div>
-        ) : count === 0 ? (
-          <div className="flex flex-col items-center gap-1 py-3">
-            <AlertCircle className="w-[16px] h-[16px] text-status-success" />
-            <p className="font-mohave text-body-sm text-text-disabled">
-              {t("clientAttention.allGood")}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-[6px]">
-            {attentionClients.slice(0, maxItems).map((client) => (
-              <div
-                key={client.clientId}
-                className="flex items-center gap-1.5 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors"
-              >
-                {/* Client name */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-mohave text-body-sm text-text-primary truncate">
-                    {client.clientName}
-                  </p>
-                </div>
-
-                {/* Reason badges */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {client.reasons.map((reason) => (
-                    <span
-                      key={reason}
-                      className={cn(
-                        "font-mohave text-status px-1.5 py-[2px] rounded-sm uppercase tracking-wider whitespace-nowrap border",
-                        reasonBadgeClasses(reason)
-                      )}
-                    >
-                      {reasonLabel(reason, t)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-            {count > maxItems && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                {t("clientAttention.more").replace("{count}", String(count - maxItems))}
+        <ScrollFade>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+              <span className="font-mono text-[11px] text-text-disabled ml-1">
+                {t("clientAttention.loading")}
               </span>
-            )}
-          </div>
-        )}
+            </div>
+          ) : count === 0 ? (
+            <div className="flex flex-col items-center gap-1 py-3">
+              <AlertCircle className="w-[16px] h-[16px] text-status-success" />
+              <p className="font-mohave text-body-sm text-text-disabled">
+                {t("clientAttention.allGood")}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-[6px]">
+              {attentionClients.slice(0, maxItems).map((client) => (
+                <div
+                  key={client.clientId}
+                  className="flex items-center gap-1.5 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors"
+                >
+                  {/* Client name */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mohave text-body-sm text-text-primary truncate">
+                      {client.clientName}
+                    </p>
+                  </div>
+
+                  {/* Reason badges */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {client.reasons.map((reason) => (
+                      <span
+                        key={reason}
+                        className={cn(
+                          "font-mohave text-[10px] px-1 py-[1px] rounded-sm uppercase tracking-wider whitespace-nowrap border",
+                          reasonBadgeClasses(reason)
+                        )}
+                      >
+                        {reasonLabel(reason, t)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {count > maxItems && (
+                <span className="font-mono text-[11px] text-text-disabled block px-1">
+                  {t("clientAttention.more").replace("{count}", String(count - maxItems))}
+                </span>
+              )}
+            </div>
+          )}
+        </ScrollFade>
       </div>
     </Card>
   );

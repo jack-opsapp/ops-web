@@ -10,6 +10,7 @@ import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } f
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Token-based bar colors (cycled per source)
@@ -205,8 +206,8 @@ export function LeadSourcesWidget({
   const barHeight = compact ? 6 : showActions(size) ? 10 : 8;
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -219,7 +220,7 @@ export function LeadSourcesWidget({
 
         {/* DETAIL ZONE */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide relative">
+          <ScrollFade className="relative">
             <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
               <TooltipRow label={tooltip.source} value={`${tooltip.count}`} />
               <TooltipRow label={t("leadSources.ofTotal") ?? "of total"} value={`${tooltip.pct}%`} />
@@ -277,7 +278,7 @@ export function LeadSourcesWidget({
                 </span>
               )}
             </div>
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER */}

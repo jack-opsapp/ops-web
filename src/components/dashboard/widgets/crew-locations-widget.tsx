@@ -1,13 +1,14 @@
 "use client";
 
 import { MapPin, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { getUserFullName, UserRole } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { useTeamMembers } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -61,7 +62,7 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
   const { data, isLoading } = useTeamMembers();
   const members = data?.users ?? [];
 
-  const maxItems = size === "lg" ? 7 : 3;
+  const maxItems = size === "lg" ? 20 : 3;
 
   // ── MD: Name + location status ────────────────────────────────────────
   if (size === "md") {
@@ -104,40 +105,42 @@ export function CrewLocationsWidget({ size }: CrewLocationsWidgetProps) {
 
   // ── LG: Name + location + role badge ──────────────────────────────────
   return (
-    <Card className="p-2 h-full flex flex-col">
-      <CardHeader className="pb-1.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-card-subtitle">{t("crewLocations.title")}</CardTitle>
-          <span className="font-mono text-[11px] text-text-tertiary">
+    <Card className="h-full p-0">
+      <div className="h-full flex flex-col p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("crewLocations.title") ?? "Crew Locations"}
+          </span>
+          <span className="font-mono text-micro text-text-tertiary">
             {isLoading ? "..." : `${members.length} ${t("crewLocations.members")}`}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="py-0 flex-1 overflow-hidden min-h-0">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-3">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
-              {t("crewLocations.loading")}
-            </span>
-          </div>
-        ) : members.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-disabled py-2">
-            {t("crewLocations.empty")}
-          </p>
-        ) : (
-          <div className="space-y-[6px]">
-            {members.slice(0, maxItems).map((member) => (
-              <MemberLocationRowLg key={member.id} member={member} />
-            ))}
-            {members.length > maxItems && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{members.length - maxItems} {t("crewLocations.more")}
+        <ScrollFade>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+              <span className="font-mono text-[11px] text-text-disabled ml-1">
+                {t("crewLocations.loading")}
               </span>
-            )}
-          </div>
-        )}
-      </CardContent>
+            </div>
+          ) : members.length === 0 ? (
+            <p className="font-mohave text-body-sm text-text-disabled py-2">
+              {t("crewLocations.empty")}
+            </p>
+          ) : (
+            <div className="space-y-[6px]">
+              {members.slice(0, maxItems).map((member) => (
+                <MemberLocationRowLg key={member.id} member={member} />
+              ))}
+              {members.length > maxItems && (
+                <span className="font-mono text-[11px] text-text-disabled block px-1">
+                  +{members.length - maxItems} {t("crewLocations.more")}
+                </span>
+              )}
+            </div>
+          )}
+        </ScrollFade>
+      </div>
     </Card>
   );
 }
@@ -188,7 +191,7 @@ function MemberLocationRowLg({ member }: { member: User }) {
           </span>
           <span
             className={cn(
-              "font-mono text-[9px] px-[5px] py-[1px] rounded-sm uppercase tracking-wider shrink-0",
+              "font-mono text-[9px] px-[5px] py-[1px] rounded-sm uppercase tracking-wider shrink-0 border",
               roleBadgeClasses(member.role)
             )}
           >

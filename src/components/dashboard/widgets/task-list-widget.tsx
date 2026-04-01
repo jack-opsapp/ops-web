@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Check, ChevronRight, Loader2, MapPin, ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
 import type { ProjectTask, TaskType, Project, Client } from "@/lib/types/models";
@@ -11,6 +11,7 @@ import { useUpdateTaskStatus, useTaskTypes } from "@/lib/hooks";
 import { format, isSameDay } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 interface TaskListWidgetProps {
   size: WidgetSize;
@@ -104,45 +105,55 @@ export function TaskListWidget({
   // lg: grouped by day
   if (size === "lg" && groupedTasks) {
     return (
-      <Card className="h-full flex flex-col">
-        <CardHeader className="shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-card-subtitle">{t("taskList.title")}</CardTitle>
-            <span className="font-mono text-[11px] text-text-tertiary">{t("taskList.next7days")}</span>
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+              {t("taskList.title") ?? "Tasks"}
+            </span>
+            <span className="font-mono text-micro text-text-tertiary">
+              {t("taskList.next7days")}
+            </span>
           </div>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden min-h-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">{t("taskList.loading")}</span>
-            </div>
-          ) : visibleTasks.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-disabled py-2">{t("taskList.empty")}</p>
-          ) : (
-            <div className="space-y-1.5">
-              {Object.entries(groupedTasks).map(([day, dayTasks]) => (
-                <div key={day}>
-                  <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                    {day}
-                  </span>
-                  <div className="space-y-[4px] mt-[4px]">
-                    <AnimatePresence>
-                      {dayTasks.map((task) => (
-                        <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} projectMap={projectMap} clientMap={clientMap} />
-                      ))}
-                    </AnimatePresence>
+          <ScrollFade>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+                <span className="font-mono text-[11px] text-text-disabled ml-1">{t("taskList.loading")}</span>
+              </div>
+            ) : visibleTasks.length === 0 ? (
+              <p className="font-mohave text-body-sm text-text-disabled py-2">{t("taskList.empty")}</p>
+            ) : (
+              <div className="space-y-1.5">
+                {Object.entries(groupedTasks).map(([day, dayTasks]) => (
+                  <div key={day}>
+                    <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
+                      {day}
+                    </span>
+                    <div className="space-y-[4px] mt-[4px]">
+                      <AnimatePresence>
+                        {dayTasks.map((task) => (
+                          <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} projectMap={projectMap} clientMap={clientMap} />
+                        ))}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {tasks.length > maxTasks && (
-                <span className="font-mono text-[11px] text-text-disabled block px-1">
-                  +{tasks.length - maxTasks} {t("taskList.more")}
-                </span>
-              )}
-            </div>
-          )}
-        </CardContent>
+                ))}
+                {tasks.length > maxTasks && (
+                  <span className="font-mono text-[11px] text-text-disabled block px-1">
+                    +{tasks.length - maxTasks} {t("taskList.more")}
+                  </span>
+                )}
+              </div>
+            )}
+          </ScrollFade>
+          <button
+            onClick={() => onNavigate("/calendar")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          >
+            {t("taskList.viewCalendar") ?? "View Calendar"}
+          </button>
+        </div>
       </Card>
     );
   }

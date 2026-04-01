@@ -12,6 +12,7 @@ import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -318,8 +319,8 @@ export function ActionRequiredWidget({
   const displayItems = maxItems ? items.slice(0, maxItems) : items;
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -334,7 +335,7 @@ export function ActionRequiredWidget({
         </div>
 
         {/* Detail zone — scrollable */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           {showActions(size) && grouped ? (
             // LG: Grouped layout with inline actions
             <div className="flex flex-col gap-2">
@@ -386,7 +387,7 @@ export function ActionRequiredWidget({
               )}
             </div>
           )}
-        </div>
+        </ScrollFade>
 
         {/* Footer */}
         {showFooter(size) && (

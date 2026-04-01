@@ -10,7 +10,9 @@ import { useAnimatedValue } from "./shared/use-animated-value";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
+import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Chart palette — ranked by spend, from WT tokens (no hardcoded hex)
@@ -272,8 +274,8 @@ export function ExpenseTrackerWidget({
   const maxAmount = displayCats[0]?.amount ?? 1;
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -283,13 +285,13 @@ export function ExpenseTrackerWidget({
         </div>
 
         {/* Detail zone */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
             <TooltipRow label={tooltip.category} value={formatCurrency(tooltip.amount)} />
             <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
           </WidgetTooltip>
 
-          <div className="flex flex-col gap-[6px]">
+          <div className={cn("flex flex-col", showActions(size) ? "gap-3" : "gap-[6px]")}>
             {displayCats.map((cat, i) => {
               const barPct = (cat.amount / maxAmount) * 100;
               return (
@@ -336,7 +338,7 @@ export function ExpenseTrackerWidget({
               );
             })}
           </div>
-        </div>
+        </ScrollFade>
 
         {/* Footer */}
         {showFooter(size) && (

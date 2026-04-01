@@ -15,6 +15,7 @@ import {
 } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Funnel stage definitions
@@ -164,7 +165,7 @@ export function PipelineFunnelWidget({
     });
   };
 
-  const barHeight = compact ? 12 : 16;
+  const barHeight = compact ? 12 : showActions(size) ? 20 : 16;
 
   // ── XS: Header + Hero (active count) ─────────────────────────────────
   if (size === "xs") {
@@ -232,8 +233,8 @@ export function PipelineFunnelWidget({
 
   // ── MD / LG: Funnel bars with labels + detail ─────────────────────────
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -245,7 +246,7 @@ export function PipelineFunnelWidget({
         </div>
 
         {/* Detail zone */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
             <TooltipRow label={tooltip.stage} value={`${tooltip.count}`} />
             <TooltipRow label={t("pipelineFunnel.ofPipeline") ?? "Of pipeline"} value={`${tooltip.pct}%`} />
@@ -335,7 +336,7 @@ export function PipelineFunnelWidget({
               })}
             </div>
           )}
-        </div>
+        </ScrollFade>
 
         {/* Footer — SM+ */}
         {showFooter(size) && (

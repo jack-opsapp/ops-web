@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -128,34 +129,36 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
             {isLoading ? "..." : `${clients.length} ${t("clientList.total")}`}
           </span>
         </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
-              {t("clientList.loading")}
-            </span>
-          </div>
-        ) : sorted.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-disabled py-2">
-            {t("clientList.empty")}
-          </p>
-        ) : (
-          <div className="space-y-[6px]">
-            {sorted.slice(0, maxItems).map((client) => (
-              <ClientRow
-                key={client.id}
-                client={client}
-                projectCount={projectCountMap[client.id] ?? 0}
-                showExtended={size === "lg"}
-              />
-            ))}
-            {sorted.length > maxItems && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{sorted.length - maxItems} {t("clientList.more")}
+        <ScrollFade>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+              <span className="font-mono text-[11px] text-text-disabled ml-1">
+                {t("clientList.loading")}
               </span>
-            )}
-          </div>
-        )}
+            </div>
+          ) : sorted.length === 0 ? (
+            <p className="font-mohave text-body-sm text-text-disabled py-2">
+              {t("clientList.empty")}
+            </p>
+          ) : (
+            <div className="space-y-[6px]">
+              {sorted.slice(0, maxItems).map((client) => (
+                <ClientRow
+                  key={client.id}
+                  client={client}
+                  projectCount={projectCountMap[client.id] ?? 0}
+                  showExtended={size === "lg"}
+                />
+              ))}
+              {sorted.length > maxItems && (
+                <span className="font-mono text-[11px] text-text-disabled block px-1">
+                  +{sorted.length - maxItems} {t("clientList.more")}
+                </span>
+              )}
+            </div>
+          )}
+        </ScrollFade>
       </div>
     </Card>
   );
@@ -217,7 +220,7 @@ function ClientRow({
       {/* Project count badge */}
       <span
         className={cn(
-          "font-mohave text-status px-1.5 py-[2px] rounded-sm uppercase tracking-wider shrink-0 border",
+          "font-mohave text-[10px] px-1 py-[1px] rounded-sm uppercase tracking-wider shrink-0 border",
           projectCount > 0
             ? "text-ops-accent bg-ops-accent/10 border-ops-accent/30"
             : "text-text-disabled bg-text-disabled/10 border-text-disabled/30"

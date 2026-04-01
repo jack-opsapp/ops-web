@@ -11,6 +11,7 @@ import type { Estimate } from "@/lib/types/pipeline";
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -254,7 +255,7 @@ export function WinRateWidget({
 
         {/* DETAIL ZONE */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade>
             {/* Stat grid */}
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div>
@@ -282,7 +283,7 @@ export function WinRateWidget({
                 </p>
               </div>
             )}
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER */}

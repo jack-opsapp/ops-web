@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
@@ -10,11 +10,16 @@ import { useCreateNotification } from "@/lib/hooks/use-notifications";
  * Evaluates conditions and creates setup-prompt notifications in the rail.
  * Deduplication is handled by NotificationService.create (same type+title = skip).
  * Mount once in the dashboard layout via a wrapper component.
+ *
+ * IMPORTANT: This effect fires exactly once after data loads. The `hasRun` ref
+ * prevents re-execution even if dependencies change identity, which previously
+ * caused an infinite loop (tens of thousands of Supabase calls).
  */
 export function useActionPrompts() {
   const isAdmin = useAuthStore(selectIsAdmin);
   const company = useAuthStore((s) => s.company);
   const notify = useCreateNotification();
+  const hasRun = useRef(false);
 
   const { data: gmailData, isLoading: gmailLoading } = useGmailConnections();
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
@@ -22,6 +27,10 @@ export function useActionPrompts() {
   useEffect(() => {
     // Wait for data to load
     if (gmailLoading || teamLoading) return;
+    // Only evaluate once per mount — server-side dedup is a safety net,
+    // not the primary guard against repeated calls.
+    if (hasRun.current) return;
+    hasRun.current = true;
 
     // ── Connect Gmail ──────────────────────────────────────────────────
     if (

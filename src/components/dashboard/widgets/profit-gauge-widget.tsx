@@ -12,6 +12,7 @@ import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Margin color — WT tokens, thresholds per widget reference spec
@@ -203,7 +204,7 @@ export function ProfitGaugeWidget({
         </div>
 
         {/* Detail zone */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           {!hasData ? (
             <div className="flex flex-col justify-center h-full">
               <span className={`font-mono ${HERO_SIZE_CLASS.expanded} font-bold text-text-disabled leading-none`}>
@@ -286,7 +287,7 @@ export function ProfitGaugeWidget({
               </div>
             </div>
           )}
-        </div>
+        </ScrollFade>
 
         {/* Footer */}
         {showFooter(size) && (

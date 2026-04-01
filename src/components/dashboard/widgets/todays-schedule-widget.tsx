@@ -8,6 +8,7 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Minimal event shape
@@ -208,12 +209,12 @@ export function TodaysScheduleWidget({
   }
 
   // ── MD / LG: Vertical timeline + footer ────────────────────────────────
-  const maxEvents = showActions(size) ? 6 : 4;
+  const maxEvents = showActions(size) ? 10 : 4;
   const displayEvents = schedule.todayEvents.slice(0, maxEvents);
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -224,7 +225,7 @@ export function TodaysScheduleWidget({
 
         {/* DETAIL ZONE */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade>
             <div className="flex flex-col">
               {displayEvents.map((event, i) => {
                 const startDate = new Date(event.startDate!);
@@ -290,7 +291,7 @@ export function TodaysScheduleWidget({
                   {t("todaysSchedule.tomorrow") ?? "Tomorrow"}
                 </span>
                 <div className="flex flex-col mt-1">
-                  {schedule.tomorrowEvents.slice(0, 2).map((event) => (
+                  {schedule.tomorrowEvents.slice(0, 5).map((event) => (
                     <div key={event.id} className="flex items-center gap-2 py-[2px]">
                       <span className="font-mono text-micro-sm text-text-tertiary w-[52px] shrink-0">
                         {formatTime(new Date(event.startDate!))}
@@ -302,7 +303,7 @@ export function TodaysScheduleWidget({
                 </div>
               </div>
             )}
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER */}

@@ -12,6 +12,7 @@ import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -200,7 +201,7 @@ export function CashPositionWidget({
 
   // ── MD: Hero + dual bars (collected vs spent) + net summary + footer ───
   const maxBar = Math.max(cashFlow.collected, cashFlow.spent, 1);
-  const barHeight = isCompact(size) ? 14 : 20;
+  const barHeight = isCompact(size) ? 14 : showActions(size) ? 24 : 20;
 
   return (
     <Card className="h-full" ref={ref}>
@@ -226,7 +227,7 @@ export function CashPositionWidget({
 
         {/* DETAIL ZONE — MD+ */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade>
             <div className="flex flex-col gap-2">
               {/* Collected bar */}
               <div>
@@ -279,7 +280,7 @@ export function CashPositionWidget({
                 </span>
               </div>
             </div>
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER — SM+ */}

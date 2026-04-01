@@ -11,6 +11,7 @@ import type { User, ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Utilization color — from WT tokens, thresholds per widget reference spec
@@ -192,12 +193,12 @@ export function CrewBoardWidget({
   }
 
   // ── MD / LG: Utilization bars ─────────────────────────────────────────
-  const maxMembers = showActions(size) ? 7 : 4;
+  const maxMembers = showActions(size) ? 12 : 4;
   const displayMembers = crewData.members.slice(0, maxMembers);
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -209,7 +210,7 @@ export function CrewBoardWidget({
         </div>
 
         {/* Detail zone */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <ScrollFade>
           <div className="flex flex-col gap-[6px]">
             {displayMembers.map((m, i) => (
               <div
@@ -266,7 +267,7 @@ export function CrewBoardWidget({
               +{crewData.members.length - maxMembers} more
             </span>
           )}
-        </div>
+        </ScrollFade>
 
         {/* Footer */}
         {showFooter(size) && (

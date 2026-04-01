@@ -11,6 +11,7 @@ import type { ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Segment colors — muted for chart fills, raw for badges/hero
@@ -198,7 +199,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
   }
 
   const hasOverdue = segments.overdue > 0;
-  const barHeight = compact ? 14 : 20;
+  const barHeight = compact ? 14 : showActions(size) ? 24 : 20;
 
   // ── XS: Header + Hero ────────────────────────────────────────────────
   if (size === "xs") {
@@ -353,7 +354,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
 
         {/* Detail zone: Actionable task rows */}
         {showDetail(size) && actionableTasks.length > 0 && (
-          <div className="mt-3 pt-2 border-t border-border-subtle flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade className="mt-3 pt-2 border-t border-border-subtle">
             <div className="flex flex-col gap-[2px]">
               {actionableTasks.map(({ task, isOverdue, isDueToday }, i) => (
                 <div
@@ -392,7 +393,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
                 </div>
               ))}
             </div>
-          </div>
+          </ScrollFade>
         )}
 
         {/* Footer */}

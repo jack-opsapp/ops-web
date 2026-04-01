@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
+import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -163,29 +164,31 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrency(totalAmount, locale)}`}
           </span>
         </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
-              {t("invoiceList.loading")}
-            </span>
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-disabled py-2">
-            {t("invoiceList.noInvoicesPrefix")} {t(STATUS_FILTER_LABEL_KEYS[filter]).toLowerCase()} {t("invoiceList.invoicesLower")}
-          </p>
-        ) : (
-          <div className="space-y-[6px]">
-            {filtered.slice(0, maxItems).map((invoice) => (
-              <InvoiceRow key={invoice.id} invoice={invoice} />
-            ))}
-            {filtered.length > maxItems && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{filtered.length - maxItems} {t("invoiceList.more")}
+        <ScrollFade>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+              <span className="font-mono text-[11px] text-text-disabled ml-1">
+                {t("invoiceList.loading")}
               </span>
-            )}
-          </div>
-        )}
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="font-mohave text-body-sm text-text-disabled py-2">
+              {t("invoiceList.noInvoicesPrefix")} {t(STATUS_FILTER_LABEL_KEYS[filter]).toLowerCase()} {t("invoiceList.invoicesLower")}
+            </p>
+          ) : (
+            <div className="space-y-[6px]">
+              {filtered.slice(0, maxItems).map((invoice) => (
+                <InvoiceRow key={invoice.id} invoice={invoice} />
+              ))}
+              {filtered.length > maxItems && (
+                <span className="font-mono text-[11px] text-text-disabled block px-1">
+                  +{filtered.length - maxItems} {t("invoiceList.more")}
+                </span>
+              )}
+            </div>
+          )}
+        </ScrollFade>
       </div>
     </Card>
   );
@@ -243,7 +246,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
       {/* Status badge */}
       <span
         className={cn(
-          "font-mohave text-status px-1.5 py-[2px] rounded-sm uppercase tracking-wider shrink-0 border",
+          "font-mohave text-[10px] px-1 py-[1px] rounded-sm uppercase tracking-wider shrink-0 border",
           statusBadgeClasses(invoice.status)
         )}
       >

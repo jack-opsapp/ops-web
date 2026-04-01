@@ -13,6 +13,7 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { ScrollFade } from "./shared/scroll-fade";
 
 const GHOST_OPACITY = 0.2;
 
@@ -142,7 +143,7 @@ export function RevenuePulseWidget({
     }
     return Array.from(clientMap.values())
       .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
+      .slice(0, 10);
   }, [invoices, size]);
 
   const animatedMtd = useAnimatedValue(isVisible ? Math.round(monthlyData.mtd) : 0, 1000);
@@ -263,11 +264,11 @@ export function RevenuePulseWidget({
 
   // ── MD / LG: Bar chart + detail ───────────────────────────────────────
   const showGhosts = showActions(size);
-  const chartHeight = compact ? 80 : showActions(size) ? 100 : 80;
+  const chartHeight = compact ? 80 : showActions(size) ? 160 : 80;
 
   return (
-    <Card className="h-full" ref={ref}>
-      <div className="h-full flex flex-col px-3 py-2">
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -294,7 +295,7 @@ export function RevenuePulseWidget({
 
         {/* DETAIL ZONE — MD+ */}
         {showDetail(size) && (
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <ScrollFade>
             {/* Bar chart */}
             <div className="relative">
               <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
@@ -416,7 +417,7 @@ export function RevenuePulseWidget({
                 ))}
               </div>
             )}
-          </div>
+          </ScrollFade>
         )}
 
         {/* FOOTER — SM+ */}
