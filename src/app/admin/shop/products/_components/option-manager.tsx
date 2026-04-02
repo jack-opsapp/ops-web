@@ -2,6 +2,21 @@
 
 import { useState } from "react";
 import { Plus, X, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export interface EditorOption {
   id?: string;
@@ -14,9 +29,100 @@ interface OptionManagerProps {
   onChange: (options: EditorOption[]) => void;
 }
 
+/** Stable ID for dnd-kit — uses existing DB id or a generated key */
+function optionKey(opt: EditorOption, index: number): string {
+  return opt.id ?? `new-${index}`;
+}
+
+function SortableOptionCard({
+  opt,
+  index,
+  onUpdateName,
+  onRemove,
+  onAddValue,
+  onRemoveValue,
+}: {
+  opt: EditorOption;
+  index: number;
+  onUpdateName: (index: number, name: string) => void;
+  onRemove: (index: number) => void;
+  onAddValue: (optionIndex: number, value: string) => void;
+  onRemoveValue: (optionIndex: number, valueIndex: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: optionKey(opt, index),
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="mb-4 border border-white/[0.08] rounded-sm p-4"
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <button
+          {...attributes}
+          {...listeners}
+          className="text-[#6B6B6B] cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical size={14} />
+        </button>
+        <input
+          type="text"
+          value={opt.name}
+          onChange={(e) => onUpdateName(index, e.target.value)}
+          className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+          placeholder="Option name (e.g., Size)"
+        />
+        <button
+          onClick={() => onRemove(index)}
+          className="p-1.5 rounded-sm text-[#6B6B6B] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 ml-7">
+        {opt.values.map((val, vi) => (
+          <span
+            key={vi}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.04] border border-white/[0.08] rounded-sm font-mohave text-[12px] text-[#E5E5E5]"
+          >
+            {val.value}
+            <button
+              onClick={() => onRemoveValue(index, vi)}
+              className="text-[#6B6B6B] hover:text-red-400 transition-colors"
+            >
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        <ValueInput onAdd={(v) => onAddValue(index, v)} />
+      </div>
+    </div>
+  );
+}
+
 export function OptionManager({ options, onChange }: OptionManagerProps) {
   const [addingOption, setAddingOption] = useState(false);
   const [newOptionName, setNewOptionName] = useState("");
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = options.findIndex((o, i) => optionKey(o, i) === active.id);
+    const newIndex = options.findIndex((o, i) => optionKey(o, i) === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onChange(arrayMove(options, oldIndex, newIndex));
+  }
 
   function addOption() {
     if (!newOptionName.trim()) return;
@@ -54,50 +160,29 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
     onChange(updated);
   }
 
+  const sortableIds = options.map((o, i) => optionKey(o, i));
+
   return (
     <div>
       <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
         Options
       </p>
 
-      {options.map((opt, oi) => (
-        <div key={oi} className="mb-4 border border-white/[0.08] rounded-sm p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <GripVertical size={14} className="text-[#6B6B6B] cursor-grab" />
-            <input
-              type="text"
-              value={opt.name}
-              onChange={(e) => updateOptionName(oi, e.target.value)}
-              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
-              placeholder="Option name (e.g., Size)"
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+          {options.map((opt, oi) => (
+            <SortableOptionCard
+              key={optionKey(opt, oi)}
+              opt={opt}
+              index={oi}
+              onUpdateName={updateOptionName}
+              onRemove={removeOption}
+              onAddValue={addValue}
+              onRemoveValue={removeValue}
             />
-            <button
-              onClick={() => removeOption(oi)}
-              className="p-1.5 rounded-sm text-[#6B6B6B] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-            >
-              <X size={14} />
-            </button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 ml-7">
-            {opt.values.map((val, vi) => (
-              <span
-                key={vi}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.04] border border-white/[0.08] rounded-sm font-mohave text-[12px] text-[#E5E5E5]"
-              >
-                {val.value}
-                <button
-                  onClick={() => removeValue(oi, vi)}
-                  className="text-[#6B6B6B] hover:text-red-400 transition-colors"
-                >
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
-            <ValueInput onAdd={(v) => addValue(oi, v)} />
-          </div>
-        </div>
-      ))}
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {addingOption ? (
         <div className="flex items-center gap-2">
