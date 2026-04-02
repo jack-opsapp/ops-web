@@ -1,11 +1,36 @@
 "use client";
 
+import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Loader2 } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import {
+  StickyNote,
+  Mail,
+  Phone,
+  MessageSquare,
+  Video,
+  Send,
+  CheckCircle,
+  XCircle,
+  Receipt,
+  DollarSign,
+  ArrowRightLeft,
+  PlusCircle,
+  Trophy,
+  XOctagon,
+  Settings,
+  MapPin,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { isCompact, showFooter } from "@/lib/widget-tokens";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
+import { isCompact, showFooter, showActions } from "@/lib/widget-tokens";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useTeamMembers, useProjects } from "@/lib/hooks";
 import {
   ActivityType,
   ACTIVITY_TYPE_COLORS,
@@ -19,7 +44,6 @@ import { ScrollFade } from "./shared/scroll-fade";
 // ---------------------------------------------------------------------------
 // Inline hook — company-wide recent activities
 // ---------------------------------------------------------------------------
-
 function useRecentActivities(companyId: string | undefined) {
   return useQuery<Activity[]>({
     queryKey: ["activities", "company-feed", companyId],
@@ -68,24 +92,40 @@ function useRecentActivities(companyId: string | undefined) {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const ACTIVITY_TYPE_ICONS: Record<ActivityType, LucideIcon> = {
+  [ActivityType.Note]: StickyNote,
+  [ActivityType.Email]: Mail,
+  [ActivityType.Call]: Phone,
+  [ActivityType.TextMessage]: MessageSquare,
+  [ActivityType.Meeting]: Video,
+  [ActivityType.EstimateSent]: Send,
+  [ActivityType.EstimateAccepted]: CheckCircle,
+  [ActivityType.EstimateDeclined]: XCircle,
+  [ActivityType.InvoiceSent]: Receipt,
+  [ActivityType.PaymentReceived]: DollarSign,
+  [ActivityType.StageChange]: ArrowRightLeft,
+  [ActivityType.Created]: PlusCircle,
+  [ActivityType.Won]: Trophy,
+  [ActivityType.Lost]: XOctagon,
+  [ActivityType.System]: Settings,
+  [ActivityType.SiteVisitScheduled]: MapPin,
+  [ActivityType.SiteVisit]: MapPin,
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
 function activityColor(type: ActivityType): string {
   return ACTIVITY_TYPE_COLORS[type] ?? "#6B7280";
 }
 
-function activityTypeLabel(
-  type: ActivityType,
-  t: (key: string) => string
-): string {
+function activityTypeLabel(type: ActivityType, t: (key: string) => string): string {
   return t(`activity.type.${type}`) ?? type;
 }
 
-function timeAgo(
-  date: Date,
-  t: (key: string) => string
-): string {
+function timeAgo(date: Date, t: (key: string) => string): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -93,18 +133,45 @@ function timeAgo(
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffMinutes < 1) return t("activity.justNow");
-  if (diffMinutes < 60)
-    return t("activity.minutesAgo").replace("{count}", String(diffMinutes));
-  if (diffHours < 24)
-    return t("activity.hoursAgo").replace("{count}", String(diffHours));
+  if (diffMinutes < 60) return t("activity.minutesAgo").replace("{count}", String(diffMinutes));
+  if (diffHours < 24) return t("activity.hoursAgo").replace("{count}", String(diffHours));
   if (diffDays === 0) return t("activity.today");
   return t("activity.daysAgo").replace("{count}", String(diffDays));
+}
+
+function getActivityPath(activity: Activity): string | null {
+  if (activity.projectId) return `/projects/${activity.projectId}`;
+  if (activity.opportunityId) return `/pipeline/${activity.opportunityId}`;
+  if (activity.invoiceId) return `/invoices/${activity.invoiceId}`;
+  if (activity.estimateId) return `/estimates/${activity.estimateId}`;
+  if (activity.siteVisitId) return `/site-visits/${activity.siteVisitId}`;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Hook: attach scroll listener to ScrollFade's internal scrollable div
+// ---------------------------------------------------------------------------
+function useScrollFadeScroll(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean,
+  onScroll: (scrollTop: number) => void
+) {
+  useEffect(() => {
+    if (!enabled) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const scrollEl = container.querySelector(".overflow-y-auto");
+    if (!scrollEl) return;
+
+    const handler = () => onScroll(scrollEl.scrollTop);
+    scrollEl.addEventListener("scroll", handler, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", handler);
+  }, [containerRef, enabled, onScroll]);
 }
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
-
 interface ActivityWidgetProps {
   size: WidgetSize;
   config: Record<string, unknown>;
@@ -114,7 +181,6 @@ interface ActivityWidgetProps {
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
 export function ActivityWidget({
   size,
   config,
@@ -124,15 +190,81 @@ export function ActivityWidget({
   const { company } = useAuthStore();
   const companyId = company?.id;
   const { data: activities, isLoading } = useRecentActivities(companyId);
+  const { data: teamData } = useTeamMembers();
+  const { data: projectsData } = useProjects();
+
+  const ref = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+  const reducedMotion = useReducedMotion();
+  const [heroCollapsed, setHeroCollapsed] = useState(false);
 
   const count = activities?.length ?? 0;
+
+  // Hero collapse via scroll listener
+  const handleScrollTop = useCallback((scrollTop: number) => {
+    setHeroCollapsed(scrollTop > 20);
+  }, []);
+
+  useScrollFadeScroll(scrollContainerRef, showActions(size), handleScrollTop);
+
+  // Author name lookup
+  const authorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!teamData?.users) return map;
+    for (const u of teamData.users) {
+      map[u.id] = `${u.firstName} ${u.lastName}`.trim() || u.email || "Unknown";
+    }
+    return map;
+  }, [teamData]);
+
+  // Project name lookup
+  const projectNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!projectsData?.projects) return map;
+    for (const p of projectsData.projects) {
+      if (p.title) map[p.id] = p.title;
+    }
+    return map;
+  }, [projectsData]);
+
+  // LG metrics
+  const lgMetrics = useMemo(() => {
+    if (!activities || !showActions(size)) return null;
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const todayActivities = activities.filter((a) => a.createdAt >= todayStart);
+    const todayCount = todayActivities.length;
+    const activeUsers = new Set(
+      todayActivities.map((a) => a.createdBy).filter(Boolean)
+    ).size;
+
+    // Most active project
+    const projectCounts: Record<string, number> = {};
+    for (const a of activities) {
+      if (a.projectId) {
+        projectCounts[a.projectId] = (projectCounts[a.projectId] ?? 0) + 1;
+      }
+    }
+    let mostActiveProjectName: string | null = null;
+    let maxCount = 0;
+    for (const [pid, cnt] of Object.entries(projectCounts)) {
+      if (cnt > maxCount) {
+        maxCount = cnt;
+        mostActiveProjectName = projectNameMap[pid] ?? null;
+      }
+    }
+
+    return { todayCount, activeUsers, mostActiveProjectName };
+  }, [activities, size, projectNameMap]);
 
   // ── XS / SM: Hero-first compact card ─────────────────────────────────────
   if (isCompact(size)) {
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero count + tiny nav icon (SM only) */}
           <div className="flex items-baseline justify-between">
             <span
               className={`font-mono text-data-lg font-bold leading-none ${
@@ -147,21 +279,16 @@ export function ActivityWidget({
             </span>
             {showFooter(size) && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onNavigate("/activity");
-                }}
+                onClick={(e) => { e.stopPropagation(); onNavigate("/activity"); }}
                 className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
               </button>
             )}
           </div>
-          {/* Row 2: Title */}
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("activity.title")}
           </span>
-          {/* Row 3: Subtitle — latest activity type or empty state */}
           <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-0.5 truncate">
             {isLoading
               ? "..."
@@ -178,7 +305,7 @@ export function ActivityWidget({
   const maxItems = size === "lg" || size === "xl" ? 12 : 6;
 
   return (
-    <Card className="h-full p-0">
+    <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
@@ -186,56 +313,95 @@ export function ActivityWidget({
             {t("activity.title")}
           </span>
           <span className="font-mono text-micro text-text-tertiary">
-            {isLoading
-              ? "..."
-              : `${count} ${t("activity.events")}`}
+            {isLoading ? "..." : `${count} ${t("activity.events")}`}
           </span>
         </div>
 
-        {/* Feed list */}
-        <ScrollFade>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">
-                {t("activity.loading")}
-              </span>
-            </div>
-          ) : !activities || activities.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-disabled py-2">
-              {t("activity.empty")}
-            </p>
-          ) : (
-            <div className="space-y-[2px]">
-              {activities.slice(0, maxItems).map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-2 px-1 py-2 rounded hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                >
-                  {/* Color dot */}
-                  <span
-                    className="w-[6px] h-[6px] rounded-full shrink-0 mt-[6px]"
-                    style={{ backgroundColor: activityColor(activity.type) }}
-                  />
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-mohave text-body-sm text-text-primary truncate">
-                      {activity.subject || activityTypeLabel(activity.type, t)}
-                    </p>
-                    <span className="font-mono text-[10px] text-text-disabled">
-                      {activityTypeLabel(activity.type, t)} · {timeAgo(activity.createdAt, t)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {activities.length > maxItems && (
-                <span className="font-mono text-[11px] text-text-disabled block px-1 pt-1">
-                  +{activities.length - maxItems} more
+        {/* LG Hero Metrics */}
+        {lgMetrics && showActions(size) && (
+          <WidgetHeroCollapse collapsed={heroCollapsed} collapsedHeight="0px" expandedHeight="50px">
+            <div className="flex items-start gap-4 mb-2">
+              <div>
+                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                  {lgMetrics.todayCount}
                 </span>
+                <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                  {t("activity.todayCount")}
+                </span>
+              </div>
+              <div>
+                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                  {lgMetrics.activeUsers}
+                </span>
+                <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                  {t("activity.activeUsers")}
+                </span>
+              </div>
+              {lgMetrics.mostActiveProjectName && (
+                <div className="min-w-0">
+                  <span className="font-mohave text-caption-sm text-text-primary block truncate leading-none">
+                    {lgMetrics.mostActiveProjectName}
+                  </span>
+                  <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                    {t("activity.mostActive")}
+                  </span>
+                </div>
               )}
             </div>
-          )}
-        </ScrollFade>
+          </WidgetHeroCollapse>
+        )}
+
+        {/* Feed list */}
+        <div ref={scrollContainerRef}>
+          <ScrollFade>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <span className="font-mono text-[11px] text-text-disabled">
+                  {t("activity.loading")}
+                </span>
+              </div>
+            ) : !activities || activities.length === 0 ? (
+              <p className="font-mohave text-body-sm text-text-disabled py-2">
+                {t("activity.empty")}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-[2px]">
+                {activities.slice(0, maxItems).map((activity, i) => {
+                  const IconComp = ACTIVITY_TYPE_ICONS[activity.type] ?? Settings;
+                  const author = activity.createdBy ? authorMap[activity.createdBy] : null;
+                  const preview = activity.content
+                    ? activity.content.slice(0, 40) + (activity.content.length > 40 ? "..." : "")
+                    : null;
+                  const secondary = [author, preview].filter(Boolean).join(" · ") || undefined;
+                  const path = getActivityPath(activity);
+
+                  return (
+                    <WidgetLineItem
+                      key={activity.id}
+                      indicator={{
+                        type: "icon",
+                        icon: IconComp,
+                        color: activityColor(activity.type),
+                      }}
+                      primary={activity.subject || activityTypeLabel(activity.type, t)}
+                      secondary={secondary}
+                      metric={timeAgo(activity.createdAt, t)}
+                      onClick={path ? () => onNavigate(path) : undefined}
+                      index={i}
+                      isVisible={isVisible}
+                      reducedMotion={reducedMotion}
+                    />
+                  );
+                })}
+                {activities.length > maxItems && (
+                  <span className="font-mono text-[11px] text-text-disabled block px-1 pt-1">
+                    +{activities.length - maxItems} more
+                  </span>
+                )}
+              </div>
+            )}
+          </ScrollFade>
+        </div>
 
         {/* Footer nav */}
         <button
