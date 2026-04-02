@@ -1,17 +1,44 @@
 "use client";
 
-import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, ChevronRight, Mail } from "lucide-react";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetInlineAction } from "./shared/widget-inline-action";
+import { showWidgetActionToast } from "./shared/widget-action-toast";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WIDGET_EASE_CSS } from "./shared/widget-motion";
+import { formatCompactCurrency } from "./shared/widget-utils";
+import { showActions } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import {
   OpportunityStage,
   getStageDisplayName,
   getActiveStages,
+  nextOpportunityStage,
+  isTerminalStage,
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
 import type { Opportunity } from "@/lib/types/pipeline";
-import { useOpportunities } from "@/lib/hooks";
+import { resolveMergeFields } from "@/lib/types/email-template";
+import {
+  useOpportunities,
+  useClientMap,
+  useMoveOpportunityStage,
+  useCreateActivity,
+} from "@/lib/hooks";
+import { useEmailConnections } from "@/lib/hooks/use-email-connections";
+import { useEmailTemplates } from "@/lib/hooks/use-email-templates";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
@@ -46,7 +73,6 @@ const FILTER_LABEL_KEYS: Record<StageFilter, string> = {
   negotiation: "pipelineList.filterNegotiation",
 };
 
-/** Map config filter values to actual OpportunityStage enum values */
 function mapFilterToStage(filter: StageFilter): OpportunityStage | null {
   switch (filter) {
     case "new_lead":
@@ -89,30 +115,298 @@ function daysInStage(stageEnteredAt: Date | string): number {
   return Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function getOpportunityDisplayName(opportunity: Opportunity): string {
+  const clientName = opportunity.client?.name ?? opportunity.contactName;
+  if (!clientName) return opportunity.title || "Unknown";
+  if (opportunity.title && opportunity.title !== clientName) {
+    return `${clientName} - ${opportunity.title}`;
+  }
+  return clientName;
+}
+
+// ---------------------------------------------------------------------------
+// Stage Distribution Bar
+// ---------------------------------------------------------------------------
+
+function StageDistributionBar({
+  opportunities,
+  isVisible,
+  reducedMotion,
+}: {
+  opportunities: Opportunity[];
+  isVisible: boolean;
+  reducedMotion: boolean | null;
+}) {
+  const activeStageList = getActiveStages();
+  const active = opportunities.filter(
+    (o) => !o.deletedAt && !isTerminalStage(o.stage)
+  );
+  const total = active.length;
+  if (total === 0) return null;
+
+  const segments = activeStageList
+    .map((stage) => ({
+      stage,
+      count: active.filter((o) => o.stage === stage).length,
+      color: OPPORTUNITY_STAGE_COLORS[stage],
+    }))
+    .filter((s) => s.count > 0);
+
+  return (
+    <div className="flex h-[6px] rounded-sm overflow-hidden mb-2">
+      {segments.map((seg) => (
+        <div
+          key={seg.stage}
+          style={{
+            width: isVisible ? `${(seg.count / total) * 100}%` : "0%",
+            backgroundColor: seg.color,
+            transitionProperty: "width",
+            transitionDuration: reducedMotion ? "200ms" : "500ms",
+            transitionTimingFunction: WIDGET_EASE_CSS,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline Actions (Advance + Follow Up)
+// ---------------------------------------------------------------------------
+
+function PipelineInlineActions({
+  opportunity,
+  navigate,
+}: {
+  opportunity: Opportunity;
+  navigate: (path: string) => void;
+}) {
+  const { t } = useDictionary("dashboard");
+  const { currentUser: user, company } = useAuthStore();
+  const moveStage = useMoveOpportunityStage();
+  const createActivity = useCreateActivity();
+  const { data: connections } = useEmailConnections();
+  const { data: templates } = useEmailTemplates();
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeText, setComposeText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const activeConnection = connections?.find((c) => c.status === "active");
+  const followUpTemplate = templates?.find(
+    (tmpl) => tmpl.category === "follow_up" && tmpl.isActive
+  );
+
+  const nextStage = nextOpportunityStage(opportunity.stage);
+  const canAdvance = nextStage && !isTerminalStage(nextStage);
+  const hasEmail = !!opportunity.contactEmail;
+
+  const handleAdvance = useCallback(() => {
+    if (!nextStage || !canAdvance) return;
+    const previousStage = opportunity.stage;
+    moveStage.mutate({
+      id: opportunity.id,
+      stage: nextStage,
+      userId: user?.id,
+    });
+    showWidgetActionToast({
+      label: `${t("pipelineList.advancedTo") ?? "Advanced to"} ${getStageDisplayName(nextStage)}`,
+      onUndo: () => {
+        moveStage.mutate({
+          id: opportunity.id,
+          stage: previousStage,
+          userId: user?.id,
+        });
+      },
+    });
+  }, [opportunity, nextStage, canAdvance, moveStage, user, t]);
+
+  const sendFollowUp = useCallback(
+    async (body: string, subject: string) => {
+      if (!activeConnection || !opportunity.contactEmail || !company) return;
+      setSending(true);
+      try {
+        const res = await fetch("/api/integrations/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user?.id,
+            companyId: company.id,
+            connectionId: activeConnection.id,
+            to: [opportunity.contactEmail],
+            subject,
+            body,
+            format: "markdown",
+            opportunityId: opportunity.id,
+          }),
+        });
+        if (!res.ok) throw new Error("Send failed");
+
+        const recipientName =
+          opportunity.contactName ?? opportunity.client?.name ?? opportunity.contactEmail;
+        showWidgetActionToast({
+          label: `${t("pipelineList.followUpSent") ?? "Follow-up sent to"} ${recipientName}`,
+          onUndo: () => {
+            createActivity.mutate({
+              opportunityId: opportunity.id,
+              companyId: company.id,
+              type: "note",
+              body:
+                t("pipelineList.sentInError") ??
+                "Follow-up sent in error (undone from dashboard)",
+              createdBy: user?.id,
+            });
+          },
+        });
+      } catch {
+        toast.error("Failed to send follow-up");
+      } finally {
+        setSending(false);
+        setComposeOpen(false);
+        setComposeText("");
+      }
+    },
+    [activeConnection, opportunity, company, user, createActivity, t]
+  );
+
+  const handleFollowUp = useCallback(() => {
+    if (!activeConnection) {
+      toast(
+        t("pipelineList.noConnection") ??
+          "Connect your email in Settings to send follow-ups",
+        {
+          action: {
+            label: t("pipelineList.settings") ?? "Settings",
+            onClick: () => navigate("/settings/email"),
+          },
+        }
+      );
+      return;
+    }
+    if (followUpTemplate) {
+      const ctx = {
+        clientName: opportunity.contactName ?? opportunity.client?.name,
+        projectTitle: opportunity.title,
+        companyName: company?.name,
+      };
+      const resolvedBody = resolveMergeFields(followUpTemplate.body, ctx);
+      const resolvedSubject = resolveMergeFields(followUpTemplate.subject, ctx);
+      sendFollowUp(resolvedBody, resolvedSubject);
+    }
+    // Path B (no template) handled by the Popover below
+  }, [activeConnection, followUpTemplate, opportunity, company, sendFollowUp, navigate, t]);
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {canAdvance && (
+        <WidgetInlineAction
+          icon={ChevronRight}
+          label={t("pipelineList.advance") ?? "Advance"}
+          onAction={handleAdvance}
+        />
+      )}
+      {hasEmail && activeConnection && !followUpTemplate ? (
+        // Path B: inline compose popover (no template available)
+        <Popover open={composeOpen} onOpenChange={setComposeOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+              title={t("pipelineList.followUp") ?? "Follow Up"}
+            >
+              <Mail className="w-[14px] h-[14px]" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[260px] p-2">
+            <textarea
+              className="w-full bg-transparent border border-border-subtle rounded-sm p-1.5 font-mohave text-caption-sm text-text-primary resize-none focus:outline-none focus:border-ops-accent/50"
+              rows={3}
+              placeholder={
+                t("pipelineList.composePlaceholder") ??
+                "Quick follow-up message..."
+              }
+              value={composeText}
+              onChange={(e) => setComposeText(e.target.value)}
+            />
+            <div className="flex items-center justify-between mt-1">
+              <span className="font-kosugi text-micro-sm text-text-disabled">
+                {t("pipelineList.mergeHint") ??
+                  "Use {{client_name}}, {{project_title}}"}
+              </span>
+              <button
+                onClick={() => {
+                  if (!composeText.trim()) return;
+                  const ctx = {
+                    clientName:
+                      opportunity.contactName ?? opportunity.client?.name,
+                    projectTitle: opportunity.title,
+                    companyName: company?.name,
+                  };
+                  sendFollowUp(
+                    resolveMergeFields(composeText, ctx),
+                    `Follow up: ${opportunity.title || "Your project"}`
+                  );
+                }}
+                disabled={!composeText.trim() || sending}
+                className={cn(
+                  "font-kosugi text-micro uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
+                  composeText.trim() && !sending
+                    ? "text-ops-accent hover:bg-ops-accent/15"
+                    : "text-text-disabled cursor-not-allowed"
+                )}
+              >
+                {sending ? "..." : (t("pipelineList.send") ?? "Send")}
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      ) : hasEmail ? (
+        // Path A (template exists) or Path C (no connection) — single action
+        <WidgetInlineAction
+          icon={Mail}
+          label={t("pipelineList.followUp") ?? "Follow Up"}
+          onAction={handleFollowUp}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const router = useRouter();
+  const navigate = (path: string) => router.push(path);
+  const ref = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+  const reducedMotion = useReducedMotion();
+
   const filter = (config.stageFilter as StageFilter) ?? "all-active";
-  const { data: opportunities, isLoading } = useOpportunities();
+  const { data: rawOpportunities, isLoading } = useOpportunities();
+  const clientMap = useClientMap();
 
   const filtered = useMemo(() => {
-    if (!opportunities) return [];
-    return filterOpportunities(opportunities, filter);
-  }, [opportunities, filter]);
+    if (!rawOpportunities) return [];
+    const enriched = rawOpportunities.map((opp) => {
+      if (opp.client?.name) return opp;
+      const c = opp.clientId ? clientMap.get(opp.clientId) : undefined;
+      return c ? { ...opp, client: c as Opportunity["client"] } : opp;
+    });
+    return filterOpportunities(enriched, filter);
+  }, [rawOpportunities, filter, clientMap]);
 
   const totalValue = useMemo(
-    () =>
-      filtered.reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0),
+    () => filtered.reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0),
     [filtered]
   );
 
-  // ── SM: Hero + title + total value ──────────────────────────────────────
+  const [showAllItems, setShowAllItems] = useState(false);
+
+  // ── SM: Hero + distribution bar + value ─────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="h-full p-0">
+      <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
             {isLoading ? "—" : filtered.length}
@@ -120,9 +414,16 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
+          {!isLoading && rawOpportunities && (
+            <StageDistributionBar
+              opportunities={rawOpportunities}
+              isVisible={isVisible}
+              reducedMotion={reducedMotion}
+            />
+          )}
           {!isLoading && (
             <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
-              ${totalValue.toLocaleString()}
+              {formatCompactCurrency(totalValue)}
             </span>
           )}
         </div>
@@ -130,10 +431,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     );
   }
 
-  // ── LG: Grouped by stage, up to 7 visible ──────────────────────────────
+  // ── LG: Grouped by stage ───────────────────────────────────────────────
   if (size === "lg") {
-    const activeStages = getActiveStages();
-    const grouped = activeStages
+    const activeStageList = getActiveStages();
+    const grouped = activeStageList
       .map((stage) => ({
         stage,
         label: getStageDisplayName(stage),
@@ -142,21 +443,29 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       }))
       .filter((g) => g.items.length > 0);
 
-    let remainingSlots = 7;
+    const MAX_VISIBLE = 10;
+    let remainingSlots = showAllItems ? Infinity : MAX_VISIBLE;
 
     return (
-      <Card className="h-full p-0">
+      <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
               {t(FILTER_LABEL_KEYS[filter])}
             </span>
             <span className="font-mono text-micro text-text-tertiary">
               {isLoading
                 ? "..."
-                : `${filtered.length} \u00B7 $${totalValue.toLocaleString()}`}
+                : `${filtered.length} · ${formatCompactCurrency(totalValue)}`}
             </span>
           </div>
+          {!isLoading && rawOpportunities && (
+            <StageDistributionBar
+              opportunities={rawOpportunities}
+              isVisible={isVisible}
+              reducedMotion={reducedMotion}
+            />
+          )}
           <ScrollFade>
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
@@ -192,19 +501,45 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                         </span>
                       </div>
                       {/* Items */}
-                      <div className="space-y-[6px]">
-                        {visibleItems.map((opp) => (
-                          <OpportunityRow key={opp.id} opportunity={opp} />
-                        ))}
-                        {group.items.length > visibleItems.length && (
-                          <span className="font-mono text-[11px] text-text-disabled block px-1">
-                            +{group.items.length - visibleItems.length} {t("pipelineList.more")}
-                          </span>
-                        )}
-                      </div>
+                      {visibleItems.map((opp, i) => (
+                        <WidgetLineItem
+                          key={opp.id}
+                          indicator={{ type: "bar", color: group.color }}
+                          primary={getOpportunityDisplayName(opp)}
+                          secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
+                          metric={
+                            opp.estimatedValue != null
+                              ? formatCompactCurrency(opp.estimatedValue)
+                              : undefined
+                          }
+                          action={
+                            <PipelineInlineActions
+                              opportunity={opp}
+                              navigate={navigate}
+                            />
+                          }
+                          index={i}
+                          isVisible={isVisible}
+                          reducedMotion={reducedMotion}
+                          onClick={() => navigate(`/pipeline/${opp.id}`)}
+                        />
+                      ))}
+                      {group.items.length > visibleItems.length && (
+                        <span className="font-mono text-[11px] text-text-disabled block px-1">
+                          +{group.items.length - visibleItems.length}{" "}
+                          {t("pipelineList.more")}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
+                {filtered.length > MAX_VISIBLE && (
+                  <WidgetMoreButton
+                    remaining={filtered.length - MAX_VISIBLE}
+                    expanded={showAllItems}
+                    onToggle={() => setShowAllItems((prev) => !prev)}
+                  />
+                )}
               </div>
             )}
           </ScrollFade>
@@ -213,20 +548,28 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     );
   }
 
-  // ── MD: List of up to 3 opportunities ───────────────────────────────────
+  // ── MD: List of opportunities ──────────────────────────────────────────
+  const MAX_MD_ITEMS = 5;
   return (
-    <Card className="h-full p-0">
+    <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
           <span className="font-mono text-micro text-text-tertiary">
             {isLoading
               ? "..."
-              : `${filtered.length} \u00B7 $${totalValue.toLocaleString()}`}
+              : `${filtered.length} · ${formatCompactCurrency(totalValue)}`}
           </span>
         </div>
+        {!isLoading && rawOpportunities && (
+          <StageDistributionBar
+            opportunities={rawOpportunities}
+            isVisible={isVisible}
+            reducedMotion={reducedMotion}
+          />
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -239,48 +582,45 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             {t("pipelineList.empty")}
           </p>
         ) : (
-          <div className="space-y-[6px]">
-            {filtered.slice(0, 3).map((opp) => (
-              <OpportunityRow key={opp.id} opportunity={opp} />
+          <>
+            {filtered.slice(0, MAX_MD_ITEMS).map((opp, i) => (
+              <WidgetLineItem
+                key={opp.id}
+                indicator={{
+                  type: "bar",
+                  color: OPPORTUNITY_STAGE_COLORS[opp.stage],
+                }}
+                primary={getOpportunityDisplayName(opp)}
+                secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
+                metric={
+                  opp.estimatedValue != null
+                    ? formatCompactCurrency(opp.estimatedValue)
+                    : undefined
+                }
+                action={
+                  showActions(size) ? (
+                    <PipelineInlineActions
+                      opportunity={opp}
+                      navigate={navigate}
+                    />
+                  ) : undefined
+                }
+                index={i}
+                isVisible={isVisible}
+                reducedMotion={reducedMotion}
+                onClick={() => navigate(`/pipeline/${opp.id}`)}
+              />
             ))}
-            {filtered.length > 3 && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{filtered.length - 3} {t("pipelineList.more")}
-              </span>
+            {filtered.length > MAX_MD_ITEMS && (
+              <WidgetMoreButton
+                remaining={filtered.length - MAX_MD_ITEMS}
+                expanded={false}
+                onToggle={() => navigate("/pipeline")}
+              />
             )}
-          </div>
+          </>
         )}
       </div>
     </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Opportunity row
-// ---------------------------------------------------------------------------
-
-function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
-  const { t } = useDictionary("dashboard");
-  const days = daysInStage(opportunity.stageEnteredAt);
-
-  return (
-    <div className="flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
-      <div className="flex-1 min-w-0">
-        <p className="font-mohave text-body-sm text-text-primary truncate">
-          {opportunity.title}
-        </p>
-        <span className="font-mono text-[11px] text-text-tertiary">
-          {opportunity.contactName ?? t("pipelineList.unknown")}
-        </span>
-      </div>
-      <span className="font-mono text-[11px] text-text-secondary shrink-0">
-        {opportunity.estimatedValue != null
-          ? `$${opportunity.estimatedValue.toLocaleString()}`
-          : "\u2014"}
-      </span>
-      <span className="font-mono text-[11px] text-text-disabled shrink-0">
-        {days}d
-      </span>
-    </div>
   );
 }
