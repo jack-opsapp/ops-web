@@ -5,6 +5,7 @@ import { CheckSquare, FileText, FileSpreadsheet, Phone, Check, ArrowUpRight } fr
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import type { ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
@@ -25,15 +26,13 @@ interface ActionItem {
   age: string;
   amount?: number;
   navigateTo: string;
-  /** Days overdue — used for LG action button logic (30d+ invoices get "Send Reminder") */
-  daysOverdue?: number;
 }
 
 const TYPE_CONFIG = {
-  "overdue-task": { icon: CheckSquare, color: WT.error, labelKey: "actionRequired.groupOverdueTasks", actionKey: "actionRequired.viewProject" },
-  "past-due-invoice": { icon: FileText, color: WT.receivables, labelKey: "actionRequired.groupPastDueInvoices", actionKey: "actionRequired.sendReminder" },
-  "expiring-estimate": { icon: FileSpreadsheet, color: WT.warning, labelKey: "actionRequired.groupExpiringEstimates", actionKey: "actionRequired.followUp" },
-  "stale-follow-up": { icon: Phone, color: WT.accent, labelKey: "actionRequired.groupStaleFollowUps", actionKey: "actionRequired.followUp" },
+  "overdue-task": { icon: CheckSquare, color: WT.error, labelKey: "actionRequired.groupOverdueTasks" },
+  "past-due-invoice": { icon: FileText, color: WT.receivables, labelKey: "actionRequired.groupPastDueInvoices" },
+  "expiring-estimate": { icon: FileSpreadsheet, color: WT.warning, labelKey: "actionRequired.groupExpiringEstimates" },
+  "stale-follow-up": { icon: Phone, color: WT.accent, labelKey: "actionRequired.groupStaleFollowUps" },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -87,9 +86,7 @@ export function ActionRequiredWidget({
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion() ?? false;
 
   // ── Build action items ────────────────────────────────────────────────
   const items = useMemo(() => {
@@ -115,7 +112,6 @@ export function ActionRequiredWidget({
         description: task.customTitle || task.taskType?.display || "Task",
         age: formatAge(days, "overdue", t),
         navigateTo: `/projects/${task.projectId}`,
-        daysOverdue: days,
       });
     }
 
@@ -140,7 +136,6 @@ export function ActionRequiredWidget({
         age: formatAge(days, "overdue", t),
         amount: inv.balanceDue,
         navigateTo: `/invoices/${inv.id}`,
-        daysOverdue: days,
       });
     }
 
@@ -183,7 +178,6 @@ export function ActionRequiredWidget({
         age: formatAge(days, "overdue", t),
         amount: opp.estimatedValue ?? undefined,
         navigateTo: `/pipeline/${opp.id}`,
-        daysOverdue: days,
       });
     }
 
@@ -261,7 +255,7 @@ export function ActionRequiredWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => items.length > 0 && onNavigate(items[0].navigateTo)}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
             className="font-mono text-display font-bold leading-none"
             style={{ color: totalColor }}
@@ -279,7 +273,7 @@ export function ActionRequiredWidget({
   // ── SM: Hero + title + category dots ────────────────────────────────────
   if (size === "sm") {
     return (
-      <Card className="h-full p-0">
+      <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number + tiny nav icon */}
           <div className="flex items-baseline justify-between">
@@ -357,8 +351,6 @@ export function ActionRequiredWidget({
                         isVisible={isVisible}
                         reducedMotion={reducedMotion}
                         onNavigate={onNavigate}
-                        showAction={true}
-                        t={t}
                       />
                     ))}
                   </div>
@@ -376,8 +368,6 @@ export function ActionRequiredWidget({
                   isVisible={isVisible}
                   reducedMotion={reducedMotion}
                   onNavigate={onNavigate}
-                  showAction={false}
-                  t={t}
                 />
               ))}
               {maxItems && items.length > maxItems && (
@@ -412,31 +402,15 @@ function ActionRow({
   isVisible,
   reducedMotion,
   onNavigate,
-  showAction,
-  t,
 }: {
   item: ActionItem;
   index: number;
   isVisible: boolean;
   reducedMotion: boolean;
   onNavigate: (path: string) => void;
-  showAction: boolean;
-  t: (key: string) => string | undefined;
 }) {
   const config = TYPE_CONFIG[item.type];
   const Icon = config.icon;
-
-  // Determine action button label for LG
-  let actionLabel: string | null = null;
-  if (showAction) {
-    if (item.type === "past-due-invoice" && (item.daysOverdue ?? 0) >= 30) {
-      actionLabel = t("actionRequired.sendReminder") ?? "Send Reminder";
-    } else if (item.type === "overdue-task") {
-      actionLabel = t("actionRequired.viewProject") ?? "View Project";
-    } else if (item.type === "expiring-estimate" || item.type === "stale-follow-up") {
-      actionLabel = t("actionRequired.followUp") ?? "Follow Up";
-    }
-  }
 
   return (
     <div
@@ -460,18 +434,6 @@ function ActionRow({
         )}
         <span className="font-mono text-micro-sm text-text-tertiary whitespace-nowrap">{item.age}</span>
       </div>
-      {actionLabel && (
-        <button
-          className="font-mohave text-button-sm px-2 py-0.5 rounded-sm shrink-0 transition-colors"
-          style={{
-            backgroundColor: `${config.color}15`,
-            color: config.color,
-          }}
-          onClick={(e) => { e.stopPropagation(); onNavigate(item.navigateTo); }}
-        >
-          {actionLabel}
-        </button>
-      )}
     </div>
   );
 }

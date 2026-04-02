@@ -8,6 +8,7 @@ import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
@@ -54,9 +55,7 @@ export function RevenuePulseWidget({
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
   const period = (config.period as string) ?? "ytd";
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   // ── Compute monthly revenue data ──────────────────────────────────────
   const monthlyData = useMemo(() => {
@@ -204,7 +203,7 @@ export function RevenuePulseWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=paid")}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className={`font-mono ${formatCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
             {formatCurrency(animatedMtd)}
           </span>

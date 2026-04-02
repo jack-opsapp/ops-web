@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
+import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -50,9 +51,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
   const isVisible = useWidgetIntersection(barRef);
   const compact = isCompact(size);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   // ── Tooltip state ─────────────────────────────────────────────────────
   const [tooltip, setTooltip] = useState<{
@@ -205,7 +204,7 @@ export function TaskPulseWidget({ size, tasks, isLoading, onNavigate }: TaskPuls
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={barRef}>
           <span
             className="font-mono text-display font-bold leading-none"
             style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : WT.accent }}

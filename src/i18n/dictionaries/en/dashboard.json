@@ -697,5 +697,15 @@
   "leadSources.noSources": "No lead sources yet",
   "leadSources.viewPipeline": "View Pipeline",
   "leadSources.pipelineValue": "Pipeline value",
-  "leadSources.more": "more"
+  "leadSources.more": "more",
+
+  "widgets.more": "more",
+  "widgets.showLess": "Show less",
+
+  "widgetAge.today": "today",
+  "widgetAge.overdueShort": "overdue",
+  "widgetAge.dueIn": "Due in",
+
+  "widgetDate.today": "Today",
+  "widgetDate.yesterday": "Yesterday"
 }

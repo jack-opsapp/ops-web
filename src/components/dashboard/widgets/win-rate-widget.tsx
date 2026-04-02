@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
 import type { Estimate } from "@/lib/types/pipeline";
 import { EstimateStatus } from "@/lib/types/pipeline";
@@ -69,9 +70,7 @@ export function WinRateWidget({
   const period = (config.period as string) ?? "90d";
   const periodStart = getPeriodStart(period);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const stats = useMemo(() => {
     const countableStatuses = new Set([

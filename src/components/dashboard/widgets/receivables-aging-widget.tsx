@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -64,9 +65,7 @@ export function ReceivablesAgingWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -167,7 +166,7 @@ export function ReceivablesAgingWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=past_due")}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
             className={`font-mono ${formatCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`}
             style={{ color: heroColor }}
@@ -337,15 +336,6 @@ export function ReceivablesAgingWidget({
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="font-mono text-micro text-text-primary">{formatCurrency(inv.balanceDue)}</span>
                       <span className="font-mono text-micro-sm text-text-tertiary">{days}d</span>
-                      {days >= 30 && (
-                        <button
-                          className="font-mohave text-button-sm px-2 py-0.5 rounded-sm transition-colors"
-                          style={{ backgroundColor: `${WT.receivables}15`, color: WT.receivables }}
-                          onClick={(e) => { e.stopPropagation(); onNavigate(`/invoices/${inv.id}`); }}
-                        >
-                          {t("receivablesAging.sendReminder") ?? "Send Reminder"}
-                        </button>
-                      )}
                     </div>
                   </div>
                 );

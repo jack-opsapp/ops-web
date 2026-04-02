@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Project } from "@/lib/types/models";
 import {
@@ -51,9 +52,7 @@ export function PipelineFunnelWidget({
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -171,7 +170,7 @@ export function PipelineFunnelWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none text-text-primary">
             {totalProjects}
           </span>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
@@ -84,9 +85,7 @@ export function ExpenseTrackerWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const period = (config.period as string) ?? "this-month";
   const { start, end } = getPeriodRange(period);
@@ -211,7 +210,7 @@ export function ExpenseTrackerWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/expenses")}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className={`font-mono ${formatCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
             {formatCurrency(animatedTotal)}
           </span>

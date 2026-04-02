@@ -693,5 +693,15 @@
   "leadSources.noSources": "Sin fuentes de prospectos",
   "leadSources.viewPipeline": "Ver Pipeline",
   "leadSources.pipelineValue": "Valor del pipeline",
-  "leadSources.more": "más"
+  "leadSources.more": "más",
+
+  "widgets.more": "más",
+  "widgets.showLess": "Mostrar menos",
+
+  "widgetAge.today": "hoy",
+  "widgetAge.overdueShort": "vencido",
+  "widgetAge.dueIn": "Vence en",
+
+  "widgetDate.today": "Hoy",
+  "widgetDate.yesterday": "Ayer"
 }

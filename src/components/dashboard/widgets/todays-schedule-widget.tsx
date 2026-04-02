@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
@@ -60,9 +61,7 @@ export function TodaysScheduleWidget({
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const schedule = useMemo(() => {
     const now = new Date();
@@ -107,7 +106,7 @@ export function TodaysScheduleWidget({
     if (size === "xs") {
       return (
         <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
-          <div className="h-full flex flex-col pt-3">
+          <div className="h-full flex flex-col pt-3" ref={ref}>
             <span className="font-mono text-display font-bold text-text-disabled leading-none">
               0
             </span>

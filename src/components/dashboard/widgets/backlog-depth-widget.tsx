@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
 import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
@@ -53,9 +54,7 @@ export function BacklogDepthWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const backlog = useMemo(() => {
     const signedProjects = projects.filter(

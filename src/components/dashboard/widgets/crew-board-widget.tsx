@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { User, ProjectTask } from "@/lib/types/models";
@@ -54,9 +55,7 @@ export function CrewBoardWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   // ── Compute crew data ─────────────────────────────────────────────────
   const crewData = useMemo(() => {
@@ -144,7 +143,7 @@ export function CrewBoardWidget({
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
-        <div className="h-full flex flex-col pt-3">
+        <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
             className="font-mono text-display font-bold leading-none"
             style={{ color: avgColor }}

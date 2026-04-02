@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WT, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Client, Project } from "@/lib/types/models";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -67,9 +68,7 @@ export function TopClientsWidget({
   const metric = (config.metric as string) ?? "revenue";
   const period = (config.period as string) ?? "ytd";
 
-  const reducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const reducedMotion = useReducedMotion();
 
   const rankedClients = useMemo(() => {
     const now = new Date();
