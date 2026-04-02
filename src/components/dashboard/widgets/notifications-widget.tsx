@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { useNotifications, useDismissNotification } from "@/lib/hooks/use-notifications";
@@ -13,7 +17,6 @@ import { ScrollFade } from "./shared/scroll-fade";
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
-
 interface NotificationsWidgetProps {
   size: WidgetSize;
   config: Record<string, unknown>;
@@ -22,7 +25,6 @@ interface NotificationsWidgetProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
 function getTypeColor(type: NotificationType): string {
   switch (type) {
     case "task_assigned":
@@ -56,22 +58,17 @@ function sortNotifications(
   sortBy: string
 ): AppNotification[] {
   const copy = [...notifications];
-
   switch (sortBy) {
     case "priority":
       return copy.sort((a, b) => {
-        // Persistent first, then by createdAt descending
         if (a.persistent !== b.persistent) return a.persistent ? -1 : 1;
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
-
     case "type":
       return copy.sort((a, b) => {
-        // Group by type alphabetically, then by createdAt descending within group
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
-
     case "recent":
     default:
       return copy.sort(
@@ -83,12 +80,18 @@ function sortNotifications(
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
 export function NotificationsWidget({ size, config }: NotificationsWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const router = useRouter();
+  const navigate = useCallback((path: string) => router.push(path), [router]);
+
   const { data: notifications, isLoading } = useNotifications();
   const dismissMutation = useDismissNotification();
   const sortBy = (config.sortBy as string) ?? "recent";
+
+  const ref = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+  const reducedMotion = useReducedMotion();
 
   const sortLabel =
     sortBy === "priority"
@@ -122,7 +125,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
 
   // ── Expanded rendering (MD / LG) ─────────────────────────────────────────
   return (
-    <Card className="h-full p-0">
+    <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
@@ -156,43 +159,41 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
         {/* Notification list */}
         {!isLoading && sorted.length > 0 && (
           <ScrollFade>
-            {sorted.map((notification) => (
-              <div
-                key={notification.id}
-                className="flex items-start gap-2 px-1 py-2 rounded hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-              >
-                {/* Type indicator dot */}
-                <span
-                  className="w-[6px] h-[6px] rounded-full shrink-0 mt-[6px]"
-                  style={{ backgroundColor: getTypeColor(notification.type) }}
+            <div className="flex flex-col gap-[2px]">
+              {sorted.map((notification, i) => (
+                <WidgetLineItem
+                  key={notification.id}
+                  indicator={{
+                    type: "dot",
+                    color: getTypeColor(notification.type),
+                  }}
+                  primary={notification.title}
+                  secondary={notification.body ?? undefined}
+                  metric={formatTimeAgo(notification.createdAt)}
+                  onClick={
+                    notification.actionUrl
+                      ? () => navigate(notification.actionUrl!)
+                      : undefined
+                  }
+                  action={
+                    !notification.persistent ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismissMutation.mutate(notification.id);
+                        }}
+                        className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    ) : undefined
+                  }
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
                 />
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-mohave text-body-sm text-text-primary truncate">
-                    {notification.title}
-                  </p>
-                  {notification.body && (
-                    <p className="font-mohave text-caption-sm text-text-tertiary truncate">
-                      {notification.body}
-                    </p>
-                  )}
-                  <span className="font-mono text-[10px] text-text-disabled">
-                    {formatTimeAgo(notification.createdAt)}
-                  </span>
-                </div>
-
-                {/* Dismiss button (non-persistent only) */}
-                {!notification.persistent && (
-                  <button
-                    onClick={() => dismissMutation.mutate(notification.id)}
-                    className="p-0.5 text-text-disabled hover:text-text-secondary transition-colors shrink-0"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </ScrollFade>
         )}
       </div>
