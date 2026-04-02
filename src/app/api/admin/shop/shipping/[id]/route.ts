@@ -4,7 +4,8 @@ import { getAdminSupabase } from "@/lib/supabase/admin-client";
 
 export const PUT = withAdmin(async (req: NextRequest) => {
   await requireAdmin(req);
-  const id = req.nextUrl.pathname.split("/").pop()!;
+  const segments = req.nextUrl.pathname.split("/");
+  const id = segments[segments.indexOf("shipping") + 1];
   const body = await req.json();
   const db = getAdminSupabase();
 
@@ -22,7 +23,8 @@ export const PUT = withAdmin(async (req: NextRequest) => {
 
 export const DELETE = withAdmin(async (req: NextRequest) => {
   await requireAdmin(req);
-  const id = req.nextUrl.pathname.split("/").pop()!;
+  const segments = req.nextUrl.pathname.split("/");
+  const id = segments[segments.indexOf("shipping") + 1];
   const db = getAdminSupabase();
 
   const { count } = await db.from("shop_orders").select("*", { count: "exact", head: true }).eq("shipping_method_id", id);

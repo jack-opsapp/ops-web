@@ -21,12 +21,17 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
   async function action(endpoint: string, body?: Record<string, unknown>) {
     setSaving(true);
-    await fetch(`/api/admin/shop/orders/${order.id}/${endpoint}`, {
+    const res = await fetch(`/api/admin/shop/orders/${order.id}/${endpoint}`, {
       method: endpoint === "notes" ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body ?? {}),
     });
     setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "Request failed" }));
+      alert(data.error || "Action failed");
+      return;
+    }
     router.refresh();
   }
 

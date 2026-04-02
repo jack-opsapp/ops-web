@@ -24,6 +24,10 @@ export const POST = withAdmin(async (req: NextRequest) => {
     return NextResponse.json({ error: `Cannot cancel: order status is "${order?.status}"` }, { status: 409 });
   }
 
+  // Update status first to avoid inconsistent state if Stripe/inventory ops fail
+  const { error } = await db.from("shop_orders").update({ status: "cancelled" }).eq("id", orderId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
   // Release inventory reservations
   const { data: reservations } = await db
     .from("shop_inventory_reservations")
@@ -31,7 +35,6 @@ export const POST = withAdmin(async (req: NextRequest) => {
     .eq("stripe_payment_intent_id", order.stripe_payment_intent_id);
 
   for (const res of reservations ?? []) {
-    // Decrement reserved_quantity on variant
     const { data: variant } = await db
       .from("shop_variants")
       .select("reserved_quantity")
@@ -44,20 +47,24 @@ export const POST = withAdmin(async (req: NextRequest) => {
     }
   }
 
-  // Delete reservations
-  await db
-    .from("shop_inventory_reservations")
-    .delete()
-    .eq("stripe_payment_intent_id", order.stripe_payment_intent_id);
-
-  // If paid, issue refund
-  if (order.status === "paid") {
-    const stripe = getStripe();
-    await stripe.refunds.create({ payment_intent: order.stripe_payment_intent_id });
+  if (reservations?.length) {
+    await db
+      .from("shop_inventory_reservations")
+      .delete()
+      .eq("stripe_payment_intent_id", order.stripe_payment_intent_id);
   }
 
-  const { error } = await db.from("shop_orders").update({ status: "cancelled" }).eq("id", orderId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // If paid, issue Stripe refund
+  if (order.status === "paid") {
+    try {
+      const stripe = getStripe();
+      await stripe.refunds.create({ payment_intent: order.stripe_payment_intent_id });
+    } catch (stripeErr) {
+      console.error(`[shop-cancel] Stripe refund failed for order ${orderId}:`, stripeErr);
+      await db.from("shop_orders").update({ notes: `⚠ Stripe refund failed — requires manual resolution. ${(stripeErr as Error).message}` }).eq("id", orderId);
+      return NextResponse.json({ error: "Order cancelled but Stripe refund failed. Check Stripe dashboard." }, { status: 207 });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 });

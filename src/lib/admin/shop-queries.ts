@@ -95,7 +95,7 @@ export async function getShopProducts(): Promise<ShopProductListItem[]> {
       is_featured, is_active, archived_at, tax_code,
       sort_order, created_at, updated_at,
       category_id,
-      shop_categories!inner ( name )
+      shop_categories ( name )
     `)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });

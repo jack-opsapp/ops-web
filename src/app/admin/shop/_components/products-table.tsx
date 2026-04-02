@@ -69,21 +69,23 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
   async function bulkAction(action: "archive" | "activate" | "feature" | "unfeature") {
     const ids = Array.from(selected);
     if (!ids.length) return;
-    await fetch("/api/admin/shop/products/bulk", {
+    const res = await fetch("/api/admin/shop/products/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, productIds: ids }),
     });
+    if (!res.ok) return;
     setSelected(new Set());
     router.refresh();
   }
 
   async function toggleFeatured(id: string, current: boolean) {
-    await fetch(`/api/admin/shop/products/${id}`, {
+    const res = await fetch(`/api/admin/shop/products/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isFeatured: !current }),
     });
+    if (!res.ok) return;
     router.refresh();
   }
 

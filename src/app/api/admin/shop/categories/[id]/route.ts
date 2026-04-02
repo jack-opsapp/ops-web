@@ -4,7 +4,8 @@ import { updateShopCategory, deleteShopCategory } from "@/lib/admin/shop-queries
 
 export const PUT = withAdmin(async (req: NextRequest) => {
   await requireAdmin(req);
-  const id = req.nextUrl.pathname.split("/").pop()!;
+  const segments = req.nextUrl.pathname.split("/");
+  const id = segments[segments.indexOf("categories") + 1];
   const body = await req.json();
 
   try {
@@ -17,7 +18,8 @@ export const PUT = withAdmin(async (req: NextRequest) => {
 
 export const DELETE = withAdmin(async (req: NextRequest) => {
   await requireAdmin(req);
-  const id = req.nextUrl.pathname.split("/").pop()!;
+  const segments = req.nextUrl.pathname.split("/");
+  const id = segments[segments.indexOf("categories") + 1];
 
   try {
     await deleteShopCategory(id);
