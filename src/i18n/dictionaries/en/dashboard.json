@@ -730,6 +730,8 @@
   "leadSources.viewPipeline": "View Pipeline",
   "leadSources.pipelineValue": "Pipeline value",
   "leadSources.more": "more",
+  "leadSources.trend": "Trend",
+  "leadSources.other": "Other",
 
   "widgets.more": "more",
   "widgets.showLess": "Show less",

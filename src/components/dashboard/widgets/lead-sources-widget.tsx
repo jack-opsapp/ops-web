@@ -5,9 +5,15 @@ import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetBackgroundChart } from "./shared/widget-background-chart";
+import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
+import { Sparkline } from "./shared/sparkline";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WIDGET_EASE_CSS } from "./shared/widget-motion";
+import { widgetLineItemStyle } from "./shared/widget-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { formatCompactCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useDictionary } from "@/i18n/client";
@@ -34,10 +40,60 @@ function formatSourceLabel(source: string): string {
     .join(" ");
 }
 
-function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
-  return `$${amount.toFixed(0)}`;
+// ---------------------------------------------------------------------------
+// Donut Chart (SVG)
+// ---------------------------------------------------------------------------
+function DonutChart({
+  segments,
+  size: diameter,
+  strokeWidth = 8,
+  isVisible,
+  reducedMotion,
+}: {
+  segments: { value: number; color: string }[];
+  size: number;
+  strokeWidth?: number;
+  isVisible: boolean;
+  reducedMotion: boolean | null;
+}) {
+  const radius = (diameter - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (total === 0) return null;
+
+  let accumulated = 0;
+
+  return (
+    <svg width={diameter} height={diameter} viewBox={`0 0 ${diameter} ${diameter}`}>
+      {segments.map((seg, i) => {
+        const pct = seg.value / total;
+        const dashLen = circumference * pct;
+        const dashGap = circumference - dashLen;
+        const offset = -circumference * accumulated;
+        accumulated += pct;
+
+        return (
+          <circle
+            key={i}
+            cx={diameter / 2}
+            cy={diameter / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            strokeLinecap="butt"
+            style={{
+              stroke: seg.color,
+              strokeDasharray: `${dashLen} ${dashGap}`,
+              strokeDashoffset: isVisible || reducedMotion ? offset : circumference,
+              transition: reducedMotion ? "none" : `stroke-dashoffset 600ms ${WIDGET_EASE_CSS} ${i * 60}ms`,
+              transform: "rotate(-90deg)",
+              transformOrigin: "center",
+            }}
+          />
+        );
+      })}
+    </svg>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +161,30 @@ export function LeadSourcesWidget({
 
   const maxCount = sourceData.sources[0]?.count ?? 1;
 
+  // ── Per-source monthly trends (LG only) ─────────────────────────────
+  const sourceTrends = useMemo(() => {
+    if (!showActions(size)) return new Map<string, number[]>();
+    const now = new Date();
+    const trends = new Map<string, number[]>();
+    for (const src of sourceData.sources) {
+      const points: number[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        const count = opportunities.filter((o) => {
+          if (o.deletedAt) return false;
+          const source = o.source ?? "other";
+          if (source !== src.source) return false;
+          const created = new Date(o.createdAt);
+          return created >= monthStart && created < monthEnd;
+        }).length;
+        points.push(count);
+      }
+      trends.set(src.source, points);
+    }
+    return trends;
+  }, [opportunities, sourceData.sources, size]);
+
   // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -167,40 +247,58 @@ export function LeadSourcesWidget({
     );
   }
 
-  // ── SM: Hero + title + top source ────────────────────────────────────────
+  // ── SM: Hero + background donut ──────────────────────────────────────
   if (size === "sm") {
     const top = sourceData.sources[0];
+    const donutSegments = sourceData.sources.slice(0, 4).map((s, i) => ({
+      value: s.count,
+      color: BAR_COLORS[i % BAR_COLORS.length],
+    }));
+    const otherCount = sourceData.sources.slice(4).reduce((sum, s) => sum + s.count, 0);
+    if (otherCount > 0) donutSegments.push({ value: otherCount, color: WT.muted });
+
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-              {sourceData.total}
+        <WidgetBackgroundChart
+          chart={
+            <div className="h-full w-full flex items-center justify-end pr-2">
+              <DonutChart
+                segments={donutSegments}
+                size={80}
+                isVisible={isVisible}
+                reducedMotion={reducedMotion}
+              />
+            </div>
+          }
+          opacity={0.35}
+        >
+          <div className="h-full flex flex-col p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+                {sourceData.total}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
+                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              >
+                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              </button>
+            </div>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("leadSources.title") ?? "Lead Sources"}
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-            >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-            </button>
+            {top && (
+              <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+                #1: {top.label} ({top.count})
+              </span>
+            )}
           </div>
-          {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
-            {t("leadSources.title") ?? "Lead Sources"}
-          </span>
-          {/* Row 3: Top source */}
-          {top && (
-            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
-              #1: {top.label} ({top.count})
-            </span>
-          )}
-        </div>
+        </WidgetBackgroundChart>
       </Card>
     );
   }
 
-  // ── MD / LG: Horizontal bar chart + tooltip + footer ───────────────────
+  // ── MD / LG: Horizontal bar chart + tooltip + LG trendlines + footer ──
   const maxBars = showActions(size) ? 8 : 5;
   const barHeight = compact ? 6 : showActions(size) ? 10 : 8;
 
@@ -224,59 +322,92 @@ export function LeadSourcesWidget({
               <TooltipRow label={tooltip.source} value={`${tooltip.count}`} />
               <TooltipRow label={t("leadSources.ofTotal") ?? "of total"} value={`${tooltip.pct}%`} />
               {tooltip.value > 0 && (
-                <TooltipRow label={t("leadSources.pipelineValue") ?? "Pipeline value"} value={formatCurrency(tooltip.value)} />
+                <TooltipRow label={t("leadSources.pipelineValue") ?? "Pipeline value"} value={formatCompactCurrency(tooltip.value)} />
               )}
             </WidgetTooltip>
 
-            <div className="flex flex-col gap-[6px]">
-              {sourceData.sources.slice(0, maxBars).map((s, i) => {
-                const barWidth = Math.max((s.count / maxCount) * 100, 4);
-                const color = BAR_COLORS[i % BAR_COLORS.length];
+            {/* Bar chart — compressed in LG when trends visible */}
+            <WidgetHeroCollapse collapsed={showActions(size)} collapsedHeight="80px">
+              <div className="flex flex-col gap-[6px]">
+                {sourceData.sources.slice(0, maxBars).map((s, i) => {
+                  const barWidth = Math.max((s.count / maxCount) * 100, 4);
+                  const barColor = BAR_COLORS[i % BAR_COLORS.length];
 
-                return (
-                  <div
-                    key={s.source}
-                    onMouseEnter={(e) => {
-                      const parentRect = ref.current?.getBoundingClientRect();
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      if (!parentRect) return;
-                      setTooltip({
-                        visible: true,
-                        x: rect.left - parentRect.left + rect.width / 2,
-                        y: rect.top - parentRect.top,
-                        source: s.label,
-                        count: s.count,
-                        pct: s.pct,
-                        value: s.value,
-                      });
-                    }}
-                    onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
-                  >
-                    <div className="flex items-center justify-between mb-[2px]">
-                      <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
-                      <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
+                  return (
+                    <div
+                      key={s.source}
+                      onMouseEnter={(e) => {
+                        const parentRect = ref.current?.getBoundingClientRect();
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        if (!parentRect) return;
+                        setTooltip({
+                          visible: true,
+                          x: rect.left - parentRect.left + rect.width / 2,
+                          y: rect.top - parentRect.top,
+                          source: s.label,
+                          count: s.count,
+                          pct: s.pct,
+                          value: s.value,
+                        });
+                      }}
+                      onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+                    >
+                      <div className="flex items-center justify-between mb-[2px]">
+                        <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
+                        <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
+                      </div>
+                      <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
+                        <div
+                          className="h-full rounded-sm"
+                          style={{
+                            width: isVisible ? `${barWidth}%` : "0%",
+                            backgroundColor: barColor,
+                            transitionProperty: "width",
+                            transitionDuration: reducedMotion ? "200ms" : "500ms",
+                            transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
+                            transitionTimingFunction: WIDGET_EASE_CSS,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
-                      <div
-                        className="h-full rounded-sm transition-all"
-                        style={{
-                          width: isVisible ? `${barWidth}%` : "0%",
-                          backgroundColor: color,
-                          transitionDuration: reducedMotion ? "200ms" : "500ms",
-                          transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                          transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                        }}
+                  );
+                })}
+                {sourceData.sources.length > maxBars && !showActions(size) && (
+                  <span className="font-mono text-micro-sm text-text-tertiary">
+                    +{sourceData.sources.length - maxBars} {t("leadSources.more") ?? "more"}
+                  </span>
+                )}
+              </div>
+            </WidgetHeroCollapse>
+
+            {/* LG: Per-source trendlines */}
+            {showActions(size) && (
+              <div className="mt-2 pt-2 border-t border-border-subtle flex flex-col gap-[6px]">
+                {sourceData.sources.map((s, i) => {
+                  const trend = sourceTrends.get(s.source) ?? [];
+                  const barColor = BAR_COLORS[i % BAR_COLORS.length];
+                  return (
+                    <div
+                      key={s.source}
+                      className="flex items-center gap-2"
+                      style={widgetLineItemStyle(i, isVisible, reducedMotion)}
+                    >
+                      <span
+                        className="w-[6px] h-[6px] rounded-full shrink-0"
+                        style={{ backgroundColor: barColor }}
                       />
+                      <span className="font-mohave text-caption-sm text-text-secondary truncate min-w-0 flex-1">
+                        {s.label}
+                      </span>
+                      <Sparkline data={trend} width={80} height={20} color={barColor} />
+                      <span className="font-mono text-micro text-text-primary shrink-0 w-[24px] text-right">
+                        {s.count}
+                      </span>
                     </div>
-                  </div>
-                );
-              })}
-              {sourceData.sources.length > maxBars && (
-                <span className="font-mono text-micro-sm text-text-tertiary">
-                  +{sourceData.sources.length - maxBars} {t("leadSources.more") ?? "more"}
-                </span>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </ScrollFade>
         )}
 
