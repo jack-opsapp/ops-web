@@ -311,7 +311,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               </div>
             ) : sorted.length === 0 ? (
               <WidgetEmptyState
-                message={searchQuery ? `No clients match "${searchQuery}"` : (t("clientList.empty") ?? "No clients yet")}
+                message={searchQuery ? (t("clientList.noMatch") ?? "No clients match your search") : (t("clientList.empty") ?? "No clients yet")}
               />
             ) : (
               <div className="flex flex-col gap-[2px]">

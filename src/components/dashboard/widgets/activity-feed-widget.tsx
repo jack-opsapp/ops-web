@@ -395,7 +395,7 @@ export function ActivityWidget({
                 })}
                 {activities.length > maxItems && (
                   <span className="font-mono text-[11px] text-text-disabled block px-1 pt-1">
-                    +{activities.length - maxItems} more
+                    +{activities.length - maxItems} {t("activity.more") ?? "more"}
                   </span>
                 )}
               </div>
