@@ -137,12 +137,12 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
     const reordered = arrayMove(categories, oldIndex, newIndex);
     setCategories(reordered);
 
-    await fetch("/api/admin/shop/categories", {
+    // Fire-and-forget — optimistic state is already applied via setCategories above
+    fetch("/api/admin/shop/categories", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderedIds: reordered.map((c) => c.id) }),
     });
-    router.refresh();
   }
 
   async function handleUpdate(id: string, fields: { name?: string; slug?: string }) {
