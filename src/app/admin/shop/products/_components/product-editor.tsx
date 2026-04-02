@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ImageUploader } from "./image-uploader";
 import { OptionManager, type EditorOption } from "./option-manager";
 import { VariantMatrix, type EditorVariant } from "./variant-matrix";
+import { Toggle } from "../../_components/toggle";
 import type {
   ShopProduct,
   ShopCategory,
@@ -286,28 +287,8 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           </div>
 
           <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <button
-                onClick={() => setIsFeatured(!isFeatured)}
-                className={`w-8 h-4 rounded-full transition-colors relative ${
-                  isFeatured ? "bg-[#597794]" : "bg-white/[0.08]"
-                }`}
-              >
-                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${isFeatured ? "left-[18px]" : "left-0.5"}`} />
-              </button>
-              <span className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">Featured</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <button
-                onClick={() => setIsActive(!isActive)}
-                className={`w-8 h-4 rounded-full transition-colors relative ${
-                  isActive ? "bg-[#597794]" : "bg-white/[0.08]"
-                }`}
-              >
-                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${isActive ? "left-[18px]" : "left-0.5"}`} />
-              </button>
-              <span className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">Active</span>
-            </label>
+            <Toggle checked={isFeatured} onChange={setIsFeatured} label="Featured" />
+            <Toggle checked={isActive} onChange={setIsActive} label="Active" />
           </div>
         </div>
 

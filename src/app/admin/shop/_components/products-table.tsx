@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Archive, Star, StarOff, Eye } from "lucide-react";
 import { StockBadge } from "./stock-badge";
+import { Toggle } from "./toggle";
 import type { ShopProductListItem } from "@/lib/admin/shop-types";
 
 type SortKey = "name" | "categoryName" | "priceCents" | "variantCount" | "totalStock" | "createdAt";
@@ -249,18 +250,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                   <StockBadge available={available} total={p.totalStock} />
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => toggleFeatured(p.id, p.isFeatured)}
-                    className={`w-8 h-4 rounded-full transition-colors relative ${
-                      p.isFeatured ? "bg-[#597794]" : "bg-white/[0.08]"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                        p.isFeatured ? "left-[18px]" : "left-0.5"
-                      }`}
-                    />
-                  </button>
+                  <Toggle checked={p.isFeatured} onChange={() => toggleFeatured(p.id, p.isFeatured)} />
                 </td>
                 <td className="px-4 py-3">
                   {p.archivedAt ? (

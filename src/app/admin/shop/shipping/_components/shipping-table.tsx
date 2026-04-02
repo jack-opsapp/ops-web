@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
+import { Toggle } from "../../_components/toggle";
 import type { ShopShippingMethod } from "@/lib/admin/shop-types";
 
 interface ShippingTableProps {
@@ -154,18 +155,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
                 />
               </td>
               <td className="px-4 py-3">
-                <button
-                  onClick={() => toggleActive(m.id, m.isActive)}
-                  className={`w-8 h-4 rounded-full transition-colors relative ${
-                    m.isActive ? "bg-[#597794]" : "bg-white/[0.08]"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                      m.isActive ? "left-[18px]" : "left-0.5"
-                    }`}
-                  />
-                </button>
+                <Toggle checked={m.isActive} onChange={() => toggleActive(m.id, m.isActive)} />
               </td>
               <td className="px-4 py-3">
                 <button

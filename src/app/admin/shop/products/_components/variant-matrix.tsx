@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { EditorOption } from "./option-manager";
+import { Toggle } from "../../_components/toggle";
 
 export interface EditorVariant {
   id?: string;
@@ -190,18 +191,7 @@ export function VariantMatrix({
                     {available}
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={() => updateVariant(i, "isActive", !v.isActive)}
-                      className={`w-8 h-4 rounded-full transition-colors relative ${
-                        v.isActive ? "bg-[#597794]" : "bg-white/[0.08]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                          v.isActive ? "left-[18px]" : "left-0.5"
-                        }`}
-                      />
-                    </button>
+                    <Toggle checked={v.isActive} onChange={(val) => updateVariant(i, "isActive", val)} />
                   </td>
                 </tr>
               );
