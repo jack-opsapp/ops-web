@@ -126,7 +126,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
     }
     if (projectsData?.projects) {
       for (const p of projectsData.projects) {
-        if (!p.deletedAt && p.clientId) updateMap(p.clientId, p.updatedAt);
+        if (!p.deletedAt && p.clientId) updateMap(p.clientId, p.lastSyncedAt ?? p.createdAt);
       }
     }
 
