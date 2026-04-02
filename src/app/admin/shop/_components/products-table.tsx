@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Plus, Archive, Star, StarOff, Eye } from "lucide-react";
 import { StockBadge } from "./stock-badge";
 import { Toggle } from "./toggle";
@@ -219,11 +220,9 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                 </td>
                 <td className="px-2 py-3">
                   {p.images[0] ? (
-                    <img
-                      src={p.images[0]}
-                      alt=""
-                      className="w-10 h-10 object-cover rounded-sm border border-white/[0.08]"
-                    />
+                    <div className="relative w-10 h-10 rounded-sm border border-white/[0.08] overflow-hidden">
+                      <Image src={p.images[0]} alt="" fill className="object-cover" sizes="40px" />
+                    </div>
                   ) : (
                     <div className="w-10 h-10 rounded-sm bg-white/[0.04] border border-white/[0.08]" />
                   )}

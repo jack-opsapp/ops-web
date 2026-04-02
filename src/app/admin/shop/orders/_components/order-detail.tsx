@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, Truck, CheckCircle, XCircle, RotateCcw, ExternalLink } from "lucide-react";
 import { OrderStatusBadge } from "./order-status-badge";
 import { formatCents } from "../../_components/format-cents";
@@ -87,7 +88,9 @@ export function OrderDetail({ order }: OrderDetailProps) {
             {order.items.map((item) => (
               <div key={item.id} className="flex items-center gap-3 border border-white/[0.06] rounded-sm p-3">
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt="" className="w-12 h-12 rounded-sm object-cover" />
+                  <div className="relative w-12 h-12 rounded-sm overflow-hidden">
+                    <Image src={item.imageUrl} alt="" fill className="object-cover" sizes="48px" />
+                  </div>
                 ) : (
                   <div className="w-12 h-12 rounded-sm bg-white/[0.04]" />
                 )}

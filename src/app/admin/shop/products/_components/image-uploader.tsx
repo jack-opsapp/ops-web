@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Image from "next/image";
 import { Upload, X, GripVertical } from "lucide-react";
 import {
   DndContext,
@@ -48,7 +49,7 @@ function SortableImage({
       style={style}
       className="relative group w-24 h-24 flex-shrink-0 rounded-sm border border-white/[0.08] overflow-hidden"
     >
-      <img src={url} alt="" className="w-full h-full object-cover" />
+      <Image src={url} alt="" fill className="object-cover" sizes="96px" />
       {index === 0 && (
         <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#597794]/80 rounded-sm font-kosugi text-[8px] uppercase tracking-widest text-white">
           Primary
