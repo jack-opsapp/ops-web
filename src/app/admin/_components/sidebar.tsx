@@ -19,6 +19,11 @@ const NAV_ITEMS = [
   { href: "/admin/system", label: "SYSTEM" },
   { href: "/admin/feature-releases", label: "FEATURE RELEASES" },
   { href: "/admin/learn", label: "OPS LEARN" },
+  // ── Shop ───────────────────────────────
+  { href: "/admin/shop", label: "SHOP: PRODUCTS" },
+  { href: "/admin/shop/orders", label: "SHOP: ORDERS" },
+  { href: "/admin/shop/shipping", label: "SHOP: SHIPPING" },
+  { href: "/admin/shop/categories", label: "SHOP: CATEGORIES" },
 ];
 
 export function AdminSidebar() {
