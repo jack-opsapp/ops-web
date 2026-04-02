@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Truck, CheckCircle, XCircle, RotateCcw, ExternalLink } from "lucide-react";
 import { OrderStatusBadge } from "./order-status-badge";
+import { formatCents } from "../../_components/format-cents";
 import type { ShopOrderWithItems } from "@/lib/admin/shop-types";
 
 interface OrderDetailProps {
@@ -42,7 +43,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
   }
 
   async function handleRefund() {
-    if (!confirm(`Refund $${(order.totalCents / 100).toFixed(2)} to ${order.email}? This will call Stripe to reverse the charge.`)) return;
+    if (!confirm(`Refund ${formatCents(order.totalCents)} to ${order.email}? This will call Stripe to reverse the charge.`)) return;
     await action("refund");
   }
 
@@ -96,7 +97,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
                 </div>
                 <p className="font-mohave text-[12px] text-[#6B6B6B]">x{item.quantity}</p>
                 <p className="font-mohave text-[13px] text-[#E5E5E5]">
-                  ${((item.unitPriceCents * item.quantity) / 100).toFixed(2)}
+                  {formatCents(item.unitPriceCents * item.quantity)}
                 </p>
               </div>
             ))}
@@ -105,19 +106,19 @@ export function OrderDetail({ order }: OrderDetailProps) {
           <div className="space-y-1 border-t border-white/[0.08] pt-4">
             <div className="flex justify-between font-mohave text-[13px]">
               <span className="text-[#6B6B6B]">Subtotal</span>
-              <span className="text-[#E5E5E5]">${(order.subtotalCents / 100).toFixed(2)}</span>
+              <span className="text-[#E5E5E5]">{formatCents(order.subtotalCents)}</span>
             </div>
             <div className="flex justify-between font-mohave text-[13px]">
               <span className="text-[#6B6B6B]">Shipping{order.shippingMethodName ? ` (${order.shippingMethodName})` : ""}</span>
-              <span className="text-[#E5E5E5]">${(order.shippingCents / 100).toFixed(2)}</span>
+              <span className="text-[#E5E5E5]">{formatCents(order.shippingCents)}</span>
             </div>
             <div className="flex justify-between font-mohave text-[13px]">
               <span className="text-[#6B6B6B]">Tax</span>
-              <span className="text-[#E5E5E5]">${(order.taxCents / 100).toFixed(2)}</span>
+              <span className="text-[#E5E5E5]">{formatCents(order.taxCents)}</span>
             </div>
             <div className="flex justify-between font-mohave text-[15px] font-semibold border-t border-white/[0.08] pt-2 mt-2">
               <span className="text-[#E5E5E5]">Total</span>
-              <span className="text-[#E5E5E5]">${(order.totalCents / 100).toFixed(2)}</span>
+              <span className="text-[#E5E5E5]">{formatCents(order.totalCents)}</span>
             </div>
           </div>
         </div>

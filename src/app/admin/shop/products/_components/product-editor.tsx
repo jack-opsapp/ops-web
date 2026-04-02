@@ -8,6 +8,7 @@ import { ImageUploader } from "./image-uploader";
 import { OptionManager, type EditorOption } from "./option-manager";
 import { VariantMatrix, type EditorVariant } from "./variant-matrix";
 import { Toggle } from "../../_components/toggle";
+import { centsToDecimal } from "../../_components/format-cents";
 import type {
   ShopProduct,
   ShopCategory,
@@ -268,7 +269,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               <input
                 type="number"
                 step="0.01"
-                value={(priceCents / 100).toFixed(2)}
+                value={centsToDecimal(priceCents)}
                 onChange={(e) => setPriceCents(Math.round(parseFloat(e.target.value || "0") * 100))}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
               />

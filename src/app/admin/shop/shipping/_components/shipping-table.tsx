@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Toggle } from "../../_components/toggle";
+import { centsToDecimal } from "../../_components/format-cents";
 import type { ShopShippingMethod } from "@/lib/admin/shop-types";
 
 interface ShippingTableProps {
@@ -140,7 +141,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               </td>
               <td className="px-4 py-3">
                 <InlineEdit
-                  value={(m.priceCents / 100).toFixed(2)}
+                  value={centsToDecimal(m.priceCents)}
                   onSave={(v) => updateField(m.id, "priceCents", Math.round(parseFloat(v || "0") * 100))}
                   type="number"
                   prefix="$"
@@ -148,7 +149,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               </td>
               <td className="px-4 py-3">
                 <InlineEdit
-                  value={m.minOrderCents ? (m.minOrderCents / 100).toFixed(2) : ""}
+                  value={m.minOrderCents ? centsToDecimal(m.minOrderCents) : ""}
                   onSave={(v) => updateField(m.id, "minOrderCents", v ? Math.round(parseFloat(v) * 100) : null)}
                   type="number"
                   prefix="$"

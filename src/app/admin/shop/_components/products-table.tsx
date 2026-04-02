@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Plus, Archive, Star, StarOff, Eye } from "lucide-react";
 import { StockBadge } from "./stock-badge";
 import { Toggle } from "./toggle";
+import { formatCents } from "./format-cents";
 import type { ShopProductListItem } from "@/lib/admin/shop-types";
 
 type SortKey = "name" | "categoryName" | "priceCents" | "variantCount" | "totalStock" | "createdAt";
@@ -241,7 +242,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                   </span>
                 </td>
                 <td className="px-4 py-3 font-mohave text-[13px] text-[#E5E5E5]">
-                  ${(p.priceCents / 100).toFixed(2)}
+                  {formatCents(p.priceCents)}
                 </td>
                 <td className="px-4 py-3 font-mohave text-[13px] text-[#6B6B6B]">
                   {p.variantCount}

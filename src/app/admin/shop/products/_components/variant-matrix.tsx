@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import type { EditorOption } from "./option-manager";
 import { Toggle } from "../../_components/toggle";
+import { centsToDecimal } from "../../_components/format-cents";
 
 export interface EditorVariant {
   id?: string;
@@ -170,7 +171,7 @@ export function VariantMatrix({
                       <input
                         type="number"
                         step="0.01"
-                        value={(v.priceCents / 100).toFixed(2)}
+                        value={centsToDecimal(v.priceCents)}
                         onChange={(e) => updateVariant(i, "priceCents", Math.round(parseFloat(e.target.value || "0") * 100))}
                         className="w-16 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1 text-right"
                       />

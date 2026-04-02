@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { OrderStatusBadge } from "./order-status-badge";
+import { formatCents } from "../../_components/format-cents";
 import type { ShopOrder } from "@/lib/admin/shop-types";
 
 type SortKey = "orderNumber" | "createdAt" | "email" | "totalCents" | "status";
@@ -127,7 +128,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
                   {itemInfo ? `${itemInfo.count} item${itemInfo.count !== 1 ? "s" : ""} — ${itemInfo.firstItem}` : "—"}
                 </td>
                 <td className="px-4 py-3 font-mohave text-[13px] text-[#E5E5E5]">
-                  ${(o.totalCents / 100).toFixed(2)}
+                  {formatCents(o.totalCents)}
                 </td>
                 <td className="px-4 py-3">
                   <OrderStatusBadge status={o.status} />
