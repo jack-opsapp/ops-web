@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetBackgroundChart } from "./shared/widget-background-chart";
 import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
 import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
@@ -72,6 +75,14 @@ export function BookingRateWidget({
 
   const animatedCount = useAnimatedValue(isVisible ? bookings.thisMonth : 0, 1000);
   const sparkData = bookings.months.map((m) => m.count);
+
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    month: string;
+    count: number;
+  }>({ visible: false, x: 0, y: 0, month: "", count: 0 });
 
   // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -145,31 +156,33 @@ export function BookingRateWidget({
     );
   }
 
-  // ── SM: Hero + title + sparkline + trend ────────────────────────────────
+  // ── SM: Hero + background sparkline + trend ────────────────────────────
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-              {animatedCount}
+        <WidgetBackgroundChart
+          chart={<Sparkline data={sparkData} width={200} height={100} color={WT.accent} />}
+          opacity={0.25}
+        >
+          <div className="h-full flex flex-col p-3">
+            {/* Row 1: Hero number + tiny nav icon */}
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+                {animatedCount}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
+                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              >
+                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              </button>
+            </div>
+            {/* Row 2: Title */}
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("bookingRate.title") ?? "Bookings"}
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-            >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-            </button>
-          </div>
-          {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
-            {t("bookingRate.title") ?? "Bookings"}
-          </span>
-          {/* Row 3: Sparkline + trend */}
-          <div className="flex items-center gap-2 mt-1">
-            <Sparkline data={sparkData} width={60} height={20} color={WT.accent} />
-            <div className="flex items-center gap-0.5">
+            {/* Row 3: Trend indicator */}
+            <div className="flex items-center gap-0.5 mt-1">
               {bookings.trend === "up" ? (
                 <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
               ) : bookings.trend === "down" ? (
@@ -182,12 +195,12 @@ export function BookingRateWidget({
               </span>
             </div>
           </div>
-        </div>
+        </WidgetBackgroundChart>
       </Card>
     );
   }
 
-  // ── MD: Hero + bar chart (monthly bookings) + footer ───────────────────
+  // ── MD: Hero + bar chart with tooltips + footer ────────────────────────
   const chartHeight = 80;
 
   return (
@@ -221,7 +234,11 @@ export function BookingRateWidget({
 
         {/* DETAIL ZONE */}
         {showDetail(size) && (
-          <ScrollFade>
+          <ScrollFade className="relative">
+            <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
+              <TooltipRow label={tooltip.month} value={`${tooltip.count}`} />
+            </WidgetTooltip>
+
             {/* Bar chart */}
             <div className="flex items-end gap-[4px]" style={{ height: `${chartHeight}px` }}>
               {bookings.months.map((m, i) => {
@@ -233,6 +250,19 @@ export function BookingRateWidget({
                     key={i}
                     className="flex-1 flex flex-col items-center justify-end"
                     style={{ height: `${chartHeight}px` }}
+                    onMouseEnter={(e) => {
+                      const parentRect = ref.current?.getBoundingClientRect();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      if (!parentRect) return;
+                      setTooltip({
+                        visible: true,
+                        x: rect.left - parentRect.left + rect.width / 2,
+                        y: rect.top - parentRect.top,
+                        month: m.label,
+                        count: m.count,
+                      });
+                    }}
+                    onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
                   >
                     <div
                       className="w-[70%] rounded-t-sm"
@@ -243,7 +273,7 @@ export function BookingRateWidget({
                         transitionProperty: "height, opacity",
                         transitionDuration: reducedMotion ? "200ms" : "600ms",
                         transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
-                        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                        transitionTimingFunction: WIDGET_EASE_CSS,
                       }}
                     />
                   </div>
