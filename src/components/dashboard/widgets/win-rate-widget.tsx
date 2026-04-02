@@ -1,13 +1,18 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetBackgroundChart } from "./shared/widget-background-chart";
+import { WidgetPeriodPicker } from "./shared/widget-period-picker";
+import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
+import { formatCompactCurrency } from "./shared/widget-utils";
 import type { Estimate } from "@/lib/types/pipeline";
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -34,11 +39,11 @@ function getPeriodStart(period: string): Date | null {
   return null; // "all" — no filter
 }
 
-function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
-  return `$${amount.toFixed(0)}`;
-}
+const PERIOD_OPTIONS = [
+  { value: "90d", label: "90D" },
+  { value: "ytd", label: "YTD" },
+  { value: "all", label: "ALL" },
+];
 
 // ---------------------------------------------------------------------------
 // Props
@@ -67,12 +72,15 @@ export function WinRateWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
-  const period = (config.period as string) ?? "90d";
-  const periodStart = getPeriodStart(period);
+  const [activePeriod, setActivePeriod] = useState(
+    (config.period as string) ?? "90d"
+  );
 
   const reducedMotion = useReducedMotion();
 
+  // ── Core stats (filtered by period) ───────────────────────────────────
   const stats = useMemo(() => {
+    const periodStart = getPeriodStart(activePeriod);
     const countableStatuses = new Set([
       EstimateStatus.Sent, EstimateStatus.Viewed, EstimateStatus.Approved, EstimateStatus.Declined,
     ]);
@@ -99,7 +107,27 @@ export function WinRateWidget({
     const avgDealSize = wonEstimates.length > 0 ? totalWonValue / wonEstimates.length : 0;
 
     return { sent, won, lost, winRate, avgDealSize };
-  }, [estimates, periodStart]);
+  }, [estimates, activePeriod]);
+
+  // ── Monthly win rate trend (last 6 months) ────────────────────────────
+  const trendData = useMemo(() => {
+    const now = new Date();
+    const points: number[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const monthEstimates = estimates.filter((e) => {
+        if (e.deletedAt) return false;
+        const created = new Date(e.createdAt);
+        return created >= monthStart && created < monthEnd;
+      });
+      const won = monthEstimates.filter((e) => e.status === EstimateStatus.Approved).length;
+      const lost = monthEstimates.filter((e) => e.status === EstimateStatus.Declined).length;
+      const decided = won + lost;
+      points.push(decided > 0 ? Math.round((won / decided) * 100) : 0);
+    }
+    return points;
+  }, [estimates]);
 
   const animatedRate = useAnimatedValue(isVisible ? stats.winRate : 0, 1000);
   const color = winRateColor(stats.winRate);
@@ -166,56 +194,64 @@ export function WinRateWidget({
     );
   }
 
-  // ── SM: Hero + title + won/lost counts ──────────────────────────────────
+  // ── SM: Hero + background sparkline ──────────────────────────────────
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none" style={{ color }}>
-              {animatedRate}%
+        <WidgetBackgroundChart
+          chart={<Sparkline data={trendData} width={200} height={100} color={color} />}
+          opacity={0.25}
+        >
+          <div className="h-full flex flex-col p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-data-lg font-bold leading-none" style={{ color }}>
+                {animatedRate}%
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("/estimates"); }}
+                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              >
+                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              </button>
+            </div>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("winRate.title") ?? "Win Rate"}
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/estimates"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-            >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-            </button>
+            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+              {stats.won}/{stats.sent} {t("winRate.won") ?? "won"} · {stats.lost} {t("winRate.lost") ?? "lost"}
+            </span>
           </div>
-          {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
-            {t("winRate.title") ?? "Win Rate"}
-          </span>
-          {/* Row 3: Won/lost counts */}
-          <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
-            {stats.won}/{stats.sent} {t("winRate.won") ?? "won"} · {stats.lost} {t("winRate.lost") ?? "lost"}
-          </span>
-        </div>
+        </WidgetBackgroundChart>
       </Card>
     );
   }
 
-  // ── Ring SVG (MD only now) ────────────────────────────────────────────
-  const ringSize = compact ? 50 : 64;
-  const strokeWidth = compact ? 5 : 6;
+  // ── Ring SVG ────────────────────────────────────────────────────────────
+  const ringSize = 64;
+  const strokeWidth = 6;
   const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - stats.winRate / 100);
-  const fontSize = compact ? 14 : 18;
+  const fontSize = 18;
 
-  // ── MD: Larger ring + avg deal size + stat grid + footer ───────────────
+  // ── MD/LG: Ring + trend sparkline + period picker + stat grid ──────────
   return (
     <Card className="h-full" ref={ref}>
       <div className="h-full flex flex-col px-3 py-2">
-        {/* HEADER */}
+        {/* HEADER — title + period picker */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("winRate.title") ?? "Win Rate"}
           </span>
+          <WidgetPeriodPicker
+            options={PERIOD_OPTIONS}
+            value={activePeriod}
+            onChange={setActivePeriod}
+            size={size}
+          />
         </div>
 
-        {/* HERO — ring + percentage */}
+        {/* HERO — ring gauge + trend sparkline */}
         <div className="flex items-center gap-4 mb-3">
           <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`} className="shrink-0">
             <circle
@@ -230,7 +266,7 @@ export function WinRateWidget({
               strokeDashoffset={isVisible && !reducedMotion ? dashOffset : circumference}
               style={{
                 stroke: color,
-                transition: reducedMotion ? "none" : "stroke-dashoffset 800ms cubic-bezier(0.16, 1, 0.3, 1)",
+                transition: reducedMotion ? "none" : `stroke-dashoffset 800ms ${WIDGET_EASE_CSS}`,
                 transform: "rotate(-90deg)", transformOrigin: "center",
               }}
             />
@@ -242,13 +278,10 @@ export function WinRateWidget({
               {animatedRate}%
             </text>
           </svg>
-          <div className="flex flex-col gap-1">
-            <span className={`font-mono ${heroClass} font-bold leading-none`} style={{ color }}>
-              {animatedRate}%
-            </span>
-            <span className="font-mohave text-caption-sm text-text-secondary">
-              {t("winRate.title") ?? "Win Rate"}
-            </span>
+
+          {/* Trend sparkline — fills remaining space */}
+          <div className="flex-1 min-w-0">
+            <Sparkline data={trendData} width={120} height={ringSize} color={color} />
           </div>
         </div>
 
@@ -278,7 +311,7 @@ export function WinRateWidget({
                   {t("winRate.avgDealSize") ?? "Avg Deal Size"}
                 </span>
                 <p className="font-mono text-data-sm text-text-primary font-medium">
-                  {formatCurrency(stats.avgDealSize)}
+                  {formatCompactCurrency(stats.avgDealSize)}
                 </p>
               </div>
             )}

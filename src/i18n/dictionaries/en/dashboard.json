@@ -677,6 +677,9 @@
   "winRate.noEstimates": "No estimates in period",
   "winRate.viewEstimates": "View Estimates",
   "winRate.avgDealSize": "Avg Deal Size",
+  "winRate.period90d": "90D",
+  "winRate.periodYtd": "YTD",
+  "winRate.periodAll": "ALL",
 
   "backlogDepth.title": "Backlog",
   "backlogDepth.weeks": "wk",
