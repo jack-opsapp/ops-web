@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Archive, Star, StarOff, Eye } from "lucide-react";
 import { StockBadge } from "./stock-badge";
-import type { ShopProductListItem, ShopCategory } from "@/lib/admin/shop-types";
+import type { ShopProductListItem } from "@/lib/admin/shop-types";
 
 type SortKey = "name" | "categoryName" | "priceCents" | "variantCount" | "totalStock" | "createdAt";
 type SortDir = "asc" | "desc";

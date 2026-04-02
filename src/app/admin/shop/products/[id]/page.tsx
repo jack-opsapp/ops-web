@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AdminPageHeader } from "../../../../_components/admin-page-header";
+import { AdminPageHeader } from "../../../_components/admin-page-header";
 import {
   getShopProductById,
   getShopCategories,
