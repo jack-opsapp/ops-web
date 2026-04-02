@@ -568,6 +568,8 @@
   "pipelineFunnel.weighted": "Weighted",
   "pipelineFunnel.viewPipeline": "View Pipeline",
   "pipelineFunnel.conversionRate": "Conversion",
+  "pipelineFunnel.stageTab": "Stage",
+  "pipelineFunnel.deals": "deals",
 
   "actionRequired.title": "Action Required",
   "actionRequired.allClear": "All clear — no items need attention",
