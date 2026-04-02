@@ -29,6 +29,7 @@ import {
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
 import type { Opportunity } from "@/lib/types/pipeline";
+import { ActivityType } from "@/lib/types/pipeline";
 import { resolveMergeFields } from "@/lib/types/email-template";
 import {
   useOpportunities,
@@ -247,18 +248,25 @@ function PipelineInlineActions({
           label: `${t("pipelineList.followUpSent") ?? "Follow-up sent to"} ${recipientName}`,
           onUndo: () => {
             createActivity.mutate({
-              opportunityId: opportunity.id,
               companyId: company.id,
-              type: "note",
-              body:
+              opportunityId: opportunity.id,
+              clientId: opportunity.clientId,
+              estimateId: null,
+              invoiceId: null,
+              type: ActivityType.Note,
+              subject: t("pipelineList.followUpUndoSubject") ?? "Follow-up undo",
+              content:
                 t("pipelineList.sentInError") ??
                 "Follow-up sent in error (undone from dashboard)",
-              createdBy: user?.id,
+              outcome: null,
+              direction: null,
+              durationMinutes: null,
+              createdBy: user?.id ?? null,
             });
           },
         });
       } catch {
-        toast.error("Failed to send follow-up");
+        toast.error(t("pipelineList.sendFailed") ?? "Failed to send follow-up");
       } finally {
         setSending(false);
         setComposeOpen(false);
@@ -311,6 +319,7 @@ function PipelineInlineActions({
             <button
               className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
               title={t("pipelineList.followUp") ?? "Follow Up"}
+              aria-label={t("pipelineList.followUp") ?? "Follow Up"}
             >
               <Mail className="w-[14px] h-[14px]" />
             </button>
@@ -342,7 +351,7 @@ function PipelineInlineActions({
                   };
                   sendFollowUp(
                     resolveMergeFields(composeText, ctx),
-                    `Follow up: ${opportunity.title || "Your project"}`
+                    `${t("pipelineList.followUpSubjectPrefix") ?? "Follow up"}: ${opportunity.title || (t("pipelineList.defaultProjectTitle") ?? "Your project")}`
                   );
                 }}
                 disabled={!composeText.trim() || sending}
@@ -444,7 +453,16 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       .filter((g) => g.items.length > 0);
 
     const MAX_VISIBLE = 10;
-    let remainingSlots = showAllItems ? Infinity : MAX_VISIBLE;
+
+    // Pre-compute slot allocation per group (safe under concurrent mode)
+    const groupSlotAllocation = (() => {
+      let remaining = showAllItems ? Infinity : MAX_VISIBLE;
+      return grouped.map((group) => {
+        const slots = Math.min(group.items.length, remaining);
+        remaining -= slots;
+        return slots;
+      });
+    })();
 
     return (
       <Card className="h-full p-0" ref={ref}>
@@ -470,7 +488,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-                <span className="font-mono text-[11px] text-text-disabled ml-1">
+                <span className="font-mono text-micro-sm text-text-disabled ml-1">
                   {t("pipelineList.loading")}
                 </span>
               </div>
@@ -480,10 +498,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
               </p>
             ) : (
               <div className="space-y-2">
-                {grouped.map((group) => {
-                  if (remainingSlots <= 0) return null;
-                  const visibleItems = group.items.slice(0, remainingSlots);
-                  remainingSlots -= visibleItems.length;
+                {grouped.map((group, gi) => {
+                  const slots = groupSlotAllocation[gi];
+                  if (slots <= 0) return null;
+                  const visibleItems = group.items.slice(0, slots);
 
                   return (
                     <div key={group.stage}>
@@ -493,10 +511,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           className="w-[8px] h-[8px] rounded-sm shrink-0"
                           style={{ backgroundColor: group.color }}
                         />
-                        <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-secondary">
+                        <span className="font-kosugi text-micro-sm uppercase tracking-widest text-text-secondary">
                           {group.label}
                         </span>
-                        <span className="font-mono text-[11px] text-text-disabled ml-auto">
+                        <span className="font-mono text-micro-sm text-text-disabled ml-auto">
                           {group.items.length}
                         </span>
                       </div>
@@ -525,7 +543,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                         />
                       ))}
                       {group.items.length > visibleItems.length && (
-                        <span className="font-mono text-[11px] text-text-disabled block px-1">
+                        <span className="font-mono text-micro-sm text-text-disabled block px-1">
                           +{group.items.length - visibleItems.length}{" "}
                           {t("pipelineList.more")}
                         </span>
@@ -573,7 +591,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
+            <span className="font-mono text-micro-sm text-text-disabled ml-1">
               {t("pipelineList.loading")}
             </span>
           </div>

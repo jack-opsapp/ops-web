@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate } from "@/lib/types/pipeline";
-import { useEstimates, useSendEstimate } from "@/lib/hooks";
+import { useEstimates, useSendEstimate, useClientMap } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
@@ -144,7 +144,18 @@ export function EstimatesOverviewWidget({
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
   const filter = (config.statusFilter as StatusFilter) ?? "all";
-  const { data: estimates, isLoading } = useEstimates();
+  const { data: rawEstimates, isLoading } = useEstimates();
+  const clientMap = useClientMap();
+
+  const estimates = useMemo(() => {
+    if (!rawEstimates) return [] as Estimate[];
+    if (clientMap.size === 0) return rawEstimates;
+    return rawEstimates.map((est) => {
+      if (est.client?.name) return est;
+      const c = clientMap.get(est.clientId);
+      return c ? { ...est, client: c as Estimate["client"] } : est;
+    });
+  }, [rawEstimates, clientMap]);
 
   const statusFilterLabel: Record<StatusFilter, string> = {
     all: t("estimatesOverview.filterAll"),

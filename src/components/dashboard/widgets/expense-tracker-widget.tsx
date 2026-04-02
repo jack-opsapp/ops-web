@@ -2,22 +2,23 @@
 
 import { useMemo, useState, useRef } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetLineItem } from "./shared/widget-line-item";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
+import { formatCompactCurrency } from "./shared/widget-utils";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
-import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { useTeamMembers } from "@/lib/hooks";
 
 // ---------------------------------------------------------------------------
 // Chart palette — ranked by spend, from WT tokens (no hardcoded hex)
-// Categories don't have semantic meaning → palette assigned by rank
 // ---------------------------------------------------------------------------
 const CHART_PALETTE = [
   WT.accent,       // Top category
@@ -47,12 +48,6 @@ interface ExpenseTrackerWidgetProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
-  return `$${amount.toFixed(0)}`;
-}
-
 function getPeriodRange(period: string): { start: Date; end: Date } {
   const now = new Date();
   switch (period) {
@@ -100,18 +95,21 @@ export function ExpenseTrackerWidget({
     count: number;
   }>({ visible: false, x: 0, y: 0, category: "", amount: 0, pct: 0, count: 0 });
 
-  // ── Compute categories ────────────────────────────────────────────────
-  const categoryData = useMemo(() => {
-    const filtered = expenses.filter((e) => {
+  // ── Filter expenses in period ─────────────────────────────────────────
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e) => {
       if (e.deletedAt) return false;
       if (e.status !== "approved") return false;
       if (!e.expenseDate) return false;
       const d = new Date(e.expenseDate);
       return d >= start && d <= end;
     });
+  }, [expenses, start, end]);
 
+  // ── Compute categories ────────────────────────────────────────────────
+  const categoryData = useMemo(() => {
     const catMap = new Map<string, { amount: number; count: number }>();
-    for (const e of filtered) {
+    for (const e of filteredExpenses) {
       const cat = e.categoryName ?? "Other";
       const existing = catMap.get(cat) ?? { amount: 0, count: 0 };
       existing.amount += e.amount;
@@ -121,7 +119,6 @@ export function ExpenseTrackerWidget({
 
     const total = Array.from(catMap.values()).reduce((s, c) => s + c.amount, 0);
 
-    // Sort descending — palette color assigned by rank
     const entries = Array.from(catMap.entries())
       .map(([name, data]) => ({
         name,
@@ -133,12 +130,42 @@ export function ExpenseTrackerWidget({
       .map((entry, i) => ({ ...entry, color: getPaletteColor(i) }));
 
     return { categories: entries, total };
-  }, [expenses, start, end]);
+  }, [filteredExpenses]);
+
+  // ── Team member breakdown (LG only) ───────────────────────────────────
+  const { data: teamMembersData } = useTeamMembers(undefined, { enabled: showActions(size) });
+  const userNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (teamMembersData?.users) {
+      for (const u of teamMembersData.users) {
+        const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id;
+        map.set(u.id, name);
+      }
+    }
+    return map;
+  }, [teamMembersData]);
+
+  const teamData = useMemo(() => {
+    if (!showActions(size)) return [];
+    const memberMap = new Map<string, { name: string; amount: number; count: number }>();
+    for (const e of filteredExpenses) {
+      const id = e.submittedBy ?? "unknown";
+      const name = userNameMap.get(id) ?? t("expenseTracker.unknownMember") ?? "Unassigned";
+      const existing = memberMap.get(id) ?? { name, amount: 0, count: 0 };
+      existing.amount += e.amount;
+      existing.count++;
+      memberMap.set(id, existing);
+    }
+
+    const entries = Array.from(memberMap.values())
+      .sort((a, b) => b.amount - a.amount);
+
+    return entries;
+  }, [filteredExpenses, size, t, userNameMap]);
 
   // ── Prior period for delta (XS) ───────────────────────────────────────
   const priorTotal = useMemo(() => {
     if (size !== "xs") return 0;
-    // Compute prior period total for delta
     const now = new Date();
     let priorStart: Date;
     let priorEnd: Date;
@@ -168,19 +195,19 @@ export function ExpenseTrackerWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="px-3 pt-2 pb-1">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("expenseTracker.title") ?? "Expenses"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+          </span>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="horizontal-bars" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
 
-  // ── Empty state — $0 hero, no floating icon ───────────────────────────
+  // ── Empty state ───────────────────────────────────────────────────────
   if (categoryData.total === 0) {
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/expenses")}>
@@ -211,8 +238,8 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/expenses")}>
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className={`font-mono ${formatCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
-            {formatCurrency(animatedTotal)}
+          <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
+            {formatCompactCurrency(animatedTotal)}
           </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
@@ -240,10 +267,9 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-              {formatCurrency(animatedTotal)}
+              {formatCompactCurrency(animatedTotal)}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/expenses"); }}
@@ -252,14 +278,12 @@ export function ExpenseTrackerWidget({
               <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
             </button>
           </div>
-          {/* Row 2: Title */}
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
-          {/* Row 3: Top category */}
           {topCat && (
             <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
-              {topCat.name}: {formatCurrency(topCat.amount)}
+              {topCat.name}: {formatCompactCurrency(topCat.amount)}
             </span>
           )}
         </div>
@@ -267,7 +291,7 @@ export function ExpenseTrackerWidget({
     );
   }
 
-  // ── MD / LG: Category bars + footer ───────────────────────────────────
+  // ── MD / LG: Category bars + team breakdown (LG) ─────────────────────
   const maxBars = showActions(size) ? 7 : 5;
   const displayCats = categoryData.categories.slice(0, maxBars);
   const maxAmount = displayCats[0]?.amount ?? 1;
@@ -280,17 +304,18 @@ export function ExpenseTrackerWidget({
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
-          <span className="font-mono text-micro text-text-primary">{formatCurrency(categoryData.total)}</span>
+          <span className="font-mono text-micro text-text-primary">{formatCompactCurrency(categoryData.total)}</span>
         </div>
 
-        {/* Detail zone */}
+        {/* Detail zone — fills available space */}
         <ScrollFade>
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
-            <TooltipRow label={tooltip.category} value={formatCurrency(tooltip.amount)} />
+            <TooltipRow label={tooltip.category} value={formatCompactCurrency(tooltip.amount)} />
             <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
           </WidgetTooltip>
 
-          <div className={cn("flex flex-col", showActions(size) ? "gap-3" : "gap-[6px]")}>
+          {/* Category bars — flex-1 to fill available vertical space */}
+          <div className="flex flex-col justify-between flex-1 min-h-0" style={{ gap: showActions(size) ? "8px" : "4px" }}>
             {displayCats.map((cat, i) => {
               const barPct = (cat.amount / maxAmount) * 100;
               return (
@@ -326,24 +351,60 @@ export function ExpenseTrackerWidget({
                         transitionProperty: "width",
                         transitionDuration: reducedMotion ? "200ms" : "500ms",
                         transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                       }}
                     />
                   </div>
-                  <span className="font-mono text-micro text-text-primary shrink-0 w-[50px] text-right">
-                    {formatCurrency(cat.amount)}
-                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="font-mono text-micro text-text-primary w-[50px] text-right">
+                      {formatCompactCurrency(cat.amount)}
+                    </span>
+                    {/* Show % of total on LG */}
+                    {showActions(size) && (
+                      <span className="font-mono text-micro-sm text-text-disabled w-[32px] text-right">
+                        {Math.round(cat.pct)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
+
+          {/* LG: Team member breakdown */}
+          {showActions(size) && teamData.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-border-subtle">
+              <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
+                {t("expenseTracker.byTeamMember") ?? "By Team Member"}
+              </span>
+              {teamData.slice(0, 5).map((member, i) => {
+                const memberPct = categoryData.total > 0 ? Math.round((member.amount / categoryData.total) * 100) : 0;
+                return (
+                  <WidgetLineItem
+                    key={i}
+                    indicator={{ type: "avatar", color: WT.accent, initials: member.name.slice(0, 2) }}
+                    primary={member.name}
+                    metric={
+                      <span className="flex items-center gap-1">
+                        <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(member.amount)}</span>
+                        <span className="font-mono text-micro-sm text-text-disabled">{memberPct}%</span>
+                      </span>
+                    }
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
+                );
+              })}
+            </div>
+          )}
         </ScrollFade>
 
         {/* Footer */}
         {showFooter(size) && (
           <button
             onClick={() => onNavigate("/expenses")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
           >
             {t("expenseTracker.viewAll") ?? "View Expenses"}
           </button>

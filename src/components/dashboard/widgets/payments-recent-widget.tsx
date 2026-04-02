@@ -1,16 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
-import { Loader2, User } from "lucide-react";
+import { useMemo, useState, useRef } from "react";
+import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { formatCompactCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
-import { useInvoices } from "@/lib/hooks";
-import { cn } from "@/lib/utils/cn";
+import { useInvoices, useClientMap } from "@/lib/hooks";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
+import { useReducedMotion } from "./shared/use-reduced-motion";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -18,13 +22,14 @@ import type { Locale } from "@/i18n/types";
 
 interface PaymentsRecentWidgetProps {
   size: WidgetSize;
+  onNavigate?: (path: string) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatCurrency(amount: number, locale: Locale): string {
+function formatCurrencyLocale(amount: number, locale: Locale): string {
   return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
@@ -33,9 +38,6 @@ function formatCurrency(amount: number, locale: Locale): string {
   });
 }
 
-/**
- * Format a date as relative time if within 7 days, otherwise short date.
- */
 function formatRelativeDate(date: Date | string, locale: Locale, t?: (key: string, params?: Record<string, unknown>) => string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
@@ -57,15 +59,26 @@ function formatShortDate(date: Date, locale: Locale): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
+export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetProps) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
-  const { data: invoices, isLoading } = useInvoices();
+  const { data: rawInvoices, isLoading } = useInvoices();
+  const clientMap = useClientMap();
+  const reducedMotion = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+
+  const [expanded, setExpanded] = useState(false);
 
   /** Invoices that have been paid, sorted by paidAt descending */
   const paidInvoices = useMemo(() => {
-    if (!invoices) return [];
-    return invoices
+    if (!rawInvoices) return [];
+    return rawInvoices
+      .map((inv) => {
+        if (inv.client?.name) return inv;
+        const c = clientMap.get(inv.clientId);
+        return c ? { ...inv, client: c as Invoice["client"] } : inv;
+      })
       .filter(
         (inv): inv is Invoice & { paidAt: Date | string } =>
           inv.status === InvoiceStatus.Paid && inv.paidAt != null
@@ -81,7 +94,7 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
             : b.paidAt.getTime();
         return bDate - aDate;
       });
-  }, [invoices]);
+  }, [rawInvoices, clientMap]);
 
   // ── SM: Hero + title + client info ──────────────────────────────────────
   if (size === "sm") {
@@ -91,7 +104,7 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <span className={`font-mono text-data-lg font-bold leading-none ${isLoading ? "text-text-disabled" : lastPayment ? "text-status-success" : "text-text-disabled"}`}>
-            {isLoading ? "—" : lastPayment ? formatCurrency(lastPayment.total, locale) : "$0"}
+            {isLoading ? "—" : lastPayment ? formatCurrencyLocale(lastPayment.total, locale) : "$0"}
           </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("payments.lastPayment")}
@@ -106,11 +119,13 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
     );
   }
 
-  const maxItems = size === "lg" ? 7 : 3;
+  const defaultMaxItems = size === "lg" ? 7 : 3;
+  const maxItems = expanded ? paidInvoices.length : defaultMaxItems;
+  const remaining = paidInvoices.length - defaultMaxItems;
 
-  // ── MD / LG: List of recent payments ──────────────────────────────────
+  // ── MD / LG: List of recent payments with WidgetLineItem ──────────────
   return (
-    <Card className="h-full p-0">
+    <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -132,56 +147,75 @@ export function PaymentsRecentWidget({ size }: PaymentsRecentWidgetProps) {
             {t("payments.noPaymentsReceived")}
           </p>
         ) : (
-          <div className="space-y-[6px]">
-            {paidInvoices.slice(0, maxItems).map((invoice) => (
-              <PaymentRow key={invoice.id} invoice={invoice} />
-            ))}
-            {paidInvoices.length > maxItems && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                {t("payments.more").replace("{count}", String(paidInvoices.length - maxItems))}
-              </span>
+          <div className={expanded ? "flex-1 min-h-0 overflow-y-auto scrollbar-hide" : undefined}>
+            <div className="space-y-[2px]">
+              {paidInvoices.slice(0, maxItems).map((invoice, i) => {
+                const clientName = invoice.client?.name ?? t("payments.unknownClient");
+                const pctPaid = invoice.total > 0 ? Math.round((invoice.amountPaid / invoice.total) * 100) : 100;
+
+                return (
+                  <WidgetLineItem
+                    key={invoice.id}
+                    indicator={{
+                      type: "avatar",
+                      color: "transparent",
+                      initials: clientName.slice(0, 2),
+                    }}
+                    primary={clientName}
+                    secondary={`${invoice.invoiceNumber} · ${formatRelativeDate(invoice.paidAt, locale, t)}`}
+                    metric={
+                      <span className="flex items-center gap-1">
+                        <span className="font-mono text-micro-sm text-status-success font-medium">
+                          {formatCurrencyLocale(invoice.amountPaid, locale)}
+                        </span>
+                        {pctPaid < 100 && (
+                          <span className="font-mono text-micro-sm text-text-disabled">
+                            {t("payments.ofInvoice") ?? "of"} {formatCompactCurrency(invoice.total)} ({pctPaid}%)
+                          </span>
+                        )}
+                      </span>
+                    }
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
+                );
+              })}
+            </div>
+
+            {/* +N more / Show less + View All Payments */}
+            {remaining > 0 && (
+              <div className="flex items-center justify-between mt-1 px-1">
+                <WidgetMoreButton
+                  remaining={remaining}
+                  expanded={expanded}
+                  onToggle={() => setExpanded(!expanded)}
+                />
+                {onNavigate && (
+                  <button
+                    onClick={() => onNavigate("/accounting")}
+                    className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors"
+                  >
+                    {t("payments.viewAllPayments") ?? "View All Payments"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* If no remaining but has navigate, show view all at bottom */}
+            {remaining <= 0 && onNavigate && (
+              <div className="mt-1 px-1">
+                <button
+                  onClick={() => onNavigate("/accounting")}
+                  className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors"
+                >
+                  {t("payments.viewAllPayments") ?? "View All Payments"}
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
     </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Payment row
-// ---------------------------------------------------------------------------
-
-function PaymentRow({
-  invoice,
-}: {
-  invoice: Invoice & { paidAt: Date | string };
-}) {
-  const { t } = useDictionary("dashboard");
-  const { locale } = useLocale();
-  const clientName = invoice.client?.name ?? t("payments.unknownClient");
-
-  return (
-    <div className="flex items-center gap-1.5 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
-      {/* Avatar placeholder */}
-      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-        <User className="w-[12px] h-[12px] text-text-disabled" />
-      </div>
-
-      {/* Client name + invoice number */}
-      <div className="flex-1 min-w-0">
-        <p className="font-mohave text-body-sm text-text-primary truncate">
-          {clientName}
-        </p>
-        <span className="font-mono text-[11px] text-text-tertiary">
-          {invoice.invoiceNumber} · {formatRelativeDate(invoice.paidAt, locale, t)}
-        </span>
-      </div>
-
-      {/* Amount in green */}
-      <span className="font-mono text-[11px] text-status-success shrink-0 font-medium">
-        {formatCurrency(invoice.total, locale)}
-      </span>
-    </div>
   );
 }

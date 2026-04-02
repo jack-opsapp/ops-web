@@ -311,7 +311,7 @@ export function LeadSourcesWidget({
             {t("leadSources.title") ?? "Lead Sources"}
           </span>
           <span className="font-mono text-micro text-text-tertiary">
-            {sourceData.total} total
+            {sourceData.total} {t("leadSources.total") ?? "total"}
           </span>
         </div>
 
@@ -383,7 +383,7 @@ export function LeadSourcesWidget({
             {/* LG: Per-source trendlines */}
             {showActions(size) && (
               <div className="mt-2 pt-2 border-t border-border-subtle flex flex-col gap-[6px]">
-                {sourceData.sources.map((s, i) => {
+                {sourceData.sources.slice(0, maxBars).map((s, i) => {
                   const trend = sourceTrends.get(s.source) ?? [];
                   const barColor = BAR_COLORS[i % BAR_COLORS.length];
                   return (

@@ -61,7 +61,7 @@ export function BookingRateWidget({
         if (!created) return false;
         return created >= d && created < nextD;
       }).length;
-      months.push({ label: d.toLocaleString("en", { month: "short" }), count });
+      months.push({ label: d.toLocaleString("default", { month: "short" }), count });
     }
 
     const thisMonth = months[months.length - 1].count;
@@ -70,11 +70,11 @@ export function BookingRateWidget({
     const trend: "up" | "down" | "neutral" = thisMonth > lastMonth ? "up" : thisMonth < lastMonth ? "down" : "neutral";
     const maxCount = Math.max(...months.map((m) => m.count), 1);
 
-    return { months, thisMonth, lastMonth, delta, trend, maxCount };
+    const sparkData = months.map((m) => m.count);
+    return { months, thisMonth, lastMonth, delta, trend, maxCount, sparkData };
   }, [projects]);
 
   const animatedCount = useAnimatedValue(isVisible ? bookings.thisMonth : 0, 1000);
-  const sparkData = bookings.months.map((m) => m.count);
 
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -161,7 +161,7 @@ export function BookingRateWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <WidgetBackgroundChart
-          chart={<Sparkline data={sparkData} width={200} height={100} color={WT.accent} />}
+          chart={<Sparkline data={bookings.sparkData} width={200} height={100} color={WT.accent} />}
           opacity={0.25}
         >
           <div className="h-full flex flex-col p-3">

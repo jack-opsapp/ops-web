@@ -2,17 +2,21 @@
 
 import { useMemo, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { ScrollFade } from "./shared/scroll-fade";
+import { widgetLineItemStyle } from "./shared/widget-motion";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
-import type { Project } from "@/lib/types/models";
-import { ProjectStatus } from "@/lib/types/models";
+import type { Project, ProjectTask } from "@/lib/types/models";
+import { ProjectStatus, TaskStatus } from "@/lib/types/models";
+import type { Estimate } from "@/lib/types/pipeline";
+import { EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
-import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,12 +33,27 @@ function backlogLabel(weeks: number, t: (key: string) => string | undefined): st
   return t("backlogDepth.risk") ?? "Risk";
 }
 
+interface MetricRow {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+function metricColor(count: number, warnAt: number, errorAt: number): string {
+  if (count >= errorAt) return WT.error;
+  if (count >= warnAt) return WT.warning;
+  return WT.success;
+}
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 interface BacklogDepthWidgetProps {
   size: WidgetSize;
   projects: Project[];
+  tasks?: ProjectTask[];
+  estimates?: Estimate[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
 }
@@ -45,6 +64,8 @@ interface BacklogDepthWidgetProps {
 export function BacklogDepthWidget({
   size,
   projects,
+  tasks,
+  estimates,
   isLoading,
   onNavigate,
 }: BacklogDepthWidgetProps) {
@@ -53,9 +74,9 @@ export function BacklogDepthWidget({
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
-
   const reducedMotion = useReducedMotion();
 
+  // ── Core backlog calculation (weeks of work) ──────────────────────────
   const backlog = useMemo(() => {
     const signedProjects = projects.filter(
       (p) => !p.deletedAt && (p.status === ProjectStatus.Accepted || p.status === ProjectStatus.InProgress)
@@ -68,13 +89,82 @@ export function BacklogDepthWidget({
       if (p.duration && p.duration > 0) {
         totalDays += p.duration;
       } else {
-        totalDays += 5; // Fallback: 5 days per project
+        totalDays += 5;
       }
     }
 
     const weeks = Math.round((totalDays / 5) * 10) / 10;
     return { weeks, projectCount: signedProjects.length };
   }, [projects]);
+
+  // ── MD breakdown metrics ──────────────────────────────────────────────
+  const breakdownMetrics = useMemo((): MetricRow[] => {
+    if (!showDetail(size)) return [];
+
+    const rows: MetricRow[] = [];
+
+    // 1. Signed, Not Started — projects with status Accepted that have no in-progress or completed tasks
+    const acceptedProjects = projects.filter(
+      (p) => !p.deletedAt && p.status === ProjectStatus.Accepted
+    );
+    // If we have tasks data, check which accepted projects have started work
+    let signedNotStarted = acceptedProjects.length;
+    if (tasks) {
+      const projectsWithWork = new Set<string>();
+      for (const task of tasks) {
+        if (task.deletedAt) continue;
+        if (task.status === TaskStatus.InProgress || task.status === TaskStatus.Completed) {
+          projectsWithWork.add(task.projectId);
+        }
+      }
+      signedNotStarted = acceptedProjects.filter((p) => !projectsWithWork.has(p.id)).length;
+    }
+    rows.push({
+      key: "signedNotStarted",
+      label: t("backlogDepth.signedNotStarted") ?? "Signed, Not Started",
+      count: signedNotStarted,
+      color: metricColor(signedNotStarted, 1, 4),
+    });
+
+    // 2. Unscheduled Tasks — active tasks with no startDate
+    if (tasks) {
+      const unscheduledCount = tasks.filter(
+        (task) =>
+          !task.deletedAt &&
+          task.status !== TaskStatus.Completed &&
+          task.status !== TaskStatus.Cancelled &&
+          !task.startDate
+      ).length;
+      rows.push({
+        key: "unscheduledTasks",
+        label: t("backlogDepth.unscheduledTasks") ?? "Unscheduled Tasks",
+        count: unscheduledCount,
+        color: metricColor(unscheduledCount, 3, 6),
+      });
+    }
+
+    // 3. Pending Estimates — estimates in Sent/Viewed status
+    if (estimates) {
+      const pendingStatuses = new Set([EstimateStatus.Sent, EstimateStatus.Viewed]);
+      const pendingCount = estimates.filter(
+        (est) => !est.deletedAt && pendingStatuses.has(est.status)
+      ).length;
+      rows.push({
+        key: "pendingEstimates",
+        label: t("backlogDepth.pendingEstimates") ?? "Pending Estimates",
+        count: pendingCount,
+        color: metricColor(pendingCount, 2, 4),
+      });
+    }
+
+    return rows;
+  }, [projects, tasks, estimates, size, t]);
+
+  // Find max count for proportion bars
+  const maxCount = useMemo(() => {
+    if (breakdownMetrics.length === 0) return 1;
+    return Math.max(...breakdownMetrics.map((m) => m.count), 1);
+  }, [breakdownMetrics]);
 
   const animatedWeeks = useAnimatedValue(isVisible ? Math.round(backlog.weeks * 10) : 0, 1000);
   const displayWeeks = (animatedWeeks / 10).toFixed(1);
@@ -84,14 +174,12 @@ export function BacklogDepthWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="h-full flex flex-col px-3 py-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("backlogDepth.title") ?? "Backlog"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+          </span>
           <WidgetSkeleton variant="stat" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -104,19 +192,11 @@ export function BacklogDepthWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
-          <div className="flex-1 flex flex-col justify-center">
-            <span className={`font-mono ${heroClass} font-bold text-text-disabled leading-none`}>
-              0
-            </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
-              {t("backlogDepth.noPending") ?? "No signed projects pending"}
-            </span>
-          </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("backlogDepth.viewProjects") ?? "View Projects"}
-            </span>
-          )}
+          <WidgetEmptyState
+            message={t("backlogDepth.noPending") ?? "No signed projects pending"}
+            cta={{ label: t("backlogDepth.viewProjects") ?? "View Projects", onClick: () => onNavigate("/projects") }}
+            className="flex-1"
+          />
         </div>
       </Card>
     );
@@ -182,7 +262,7 @@ export function BacklogDepthWidget({
                 left: isVisible ? `${gaugePct}%` : "0%",
                 backgroundColor: color,
                 transitionDuration: reducedMotion ? "200ms" : "600ms",
-                transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
               }}
             />
           </div>
@@ -194,7 +274,7 @@ export function BacklogDepthWidget({
     );
   }
 
-  // ── MD: Hero + gauge + detail + footer ─────────────────────────────────
+  // ── MD+: Hero + gauge + breakdown metrics + footer ─────────────────────
   const gaugeHeight = 10;
   return (
     <Card className="h-full" ref={ref}>
@@ -220,7 +300,7 @@ export function BacklogDepthWidget({
           </div>
         </div>
 
-        {/* DETAIL ZONE */}
+        {/* DETAIL ZONE: Breakdown metrics */}
         {showDetail(size) && (
           <ScrollFade>
             {/* Gauge */}
@@ -238,14 +318,53 @@ export function BacklogDepthWidget({
                   left: isVisible ? `${gaugePct}%` : "0%",
                   backgroundColor: color,
                   transitionDuration: reducedMotion ? "200ms" : "600ms",
-                  transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                  transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
               />
             </div>
-            <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center justify-between mt-1 mb-3">
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase">0</span>
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase">10+ {t("backlogDepth.weeks") ?? "wk"}</span>
             </div>
+
+            {/* Breakdown metric rows */}
+            {breakdownMetrics.length > 0 && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-border-subtle">
+                {breakdownMetrics.map((metric, i) => {
+                  const barPct = maxCount > 0 ? Math.max((metric.count / maxCount) * 100, metric.count > 0 ? 8 : 0) : 0;
+                  return (
+                    <div
+                      key={metric.key}
+                      className="flex items-center gap-2"
+                      style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
+                    >
+                      {/* Label */}
+                      <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider w-[100px] shrink-0 truncate">
+                        {metric.label}
+                      </span>
+                      {/* Proportion bar */}
+                      <div className="flex-1 h-[6px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
+                        <div
+                          className="h-full rounded-sm"
+                          style={{
+                            width: isVisible ? `${barPct}%` : "0%",
+                            backgroundColor: metric.color,
+                            transitionProperty: "width",
+                            transitionDuration: reducedMotion ? "200ms" : "500ms",
+                            transitionDelay: reducedMotion ? "0ms" : `${i * 80 + 200}ms`,
+                            transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                          }}
+                        />
+                      </div>
+                      {/* Count */}
+                      <span className="font-mono text-micro-sm font-bold shrink-0 w-[24px] text-right" style={{ color: metric.color }}>
+                        {metric.count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </ScrollFade>
         )}
 

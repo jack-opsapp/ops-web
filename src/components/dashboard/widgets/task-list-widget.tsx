@@ -2,8 +2,13 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Check, ChevronRight, Loader2, MapPin, ArrowUpRight } from "lucide-react";
+import { Check, ChevronRight, Loader2, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
+import { WidgetEmptyState } from "./shared/widget-empty-state";
+import { ScrollFade } from "./shared/scroll-fade";
+import { useReducedMotion } from "./shared/use-reduced-motion";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
 import type { ProjectTask, TaskType, Project, Client } from "@/lib/types/models";
@@ -11,7 +16,9 @@ import { useUpdateTaskStatus, useTaskTypes } from "@/lib/hooks";
 import { format, isSameDay } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
-import { ScrollFade } from "./shared/scroll-fade";
+import { WT, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 interface TaskListWidgetProps {
   size: WidgetSize;
@@ -34,10 +41,13 @@ export function TaskListWidget({
 }: TaskListWidgetProps) {
   const { t } = useDictionary("dashboard");
   const { data: taskTypes = [] } = useTaskTypes();
-  const maxTasks = size === "sm" ? 1 : size === "lg" ? 6 : 3;
-  const visibleTasks = tasks.slice(0, maxTasks);
+  const reducedMotion = useReducedMotion();
+  const canViewAll = usePermissionStore((s) => s.can("tasks.view", "all"));
+  const currentUserId = useAuthStore((s) => s.currentUser?.id);
+  const [viewMode, setViewMode] = useState<"mine" | "all">("mine");
+  const [heroCollapsed, setHeroCollapsed] = useState(false);
 
-  // Build lookup maps for project and client enrichment
+  // Build lookup maps
   const projectMap = useMemo(() => {
     const map = new Map<string, Project>();
     for (const p of projects) map.set(p.id, p);
@@ -50,48 +60,75 @@ export function TaskListWidget({
     return map;
   }, [clients]);
 
-  // lg: group by day
-  const groupedTasks = useMemo(() => {
-    if (size !== "lg") return null;
-    const groups: Record<string, ProjectTask[]> = {};
-    for (const task of visibleTasks) {
-      const eventDate = task.startDate
-        ? new Date(task.startDate)
-        : null;
-      const key = eventDate
-        ? isSameDay(eventDate, today)
-          ? t("taskList.today")
-          : format(eventDate, "EEE, MMM d")
-        : t("taskList.unscheduled");
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(task);
-    }
-    return groups;
-  }, [size, visibleTasks, today]);
+  // ── Filter tasks by view mode ─────────────────────────────────────────
+  const filteredTasks = useMemo(() => {
+    if (viewMode === "all" || !currentUserId) return tasks;
+    return tasks.filter((task) => task.teamMemberIds.includes(currentUserId));
+  }, [tasks, viewMode, currentUserId]);
 
-  // sm: hero + title + next task name
+  // ── Categorize: today, completed, overdue, unscheduled ────────────────
+  const { todayTasks, completedTasks, overdueTasks, unscheduledTasks, heroCounts } = useMemo(() => {
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    const todayArr: ProjectTask[] = [];
+    const completedArr: ProjectTask[] = [];
+    const overdueArr: ProjectTask[] = [];
+    const unscheduledArr: ProjectTask[] = [];
+
+    for (const task of filteredTasks) {
+      if (task.deletedAt) continue;
+
+      // Completed tasks (show in MD/LG)
+      if (task.status === TaskStatus.Completed) {
+        const start = task.startDate ? new Date(task.startDate) : null;
+        if (start && isSameDay(start, today)) {
+          completedArr.push(task);
+        }
+        continue;
+      }
+      if (task.status === TaskStatus.Cancelled) continue;
+
+      const start = task.startDate ? new Date(task.startDate) : null;
+      if (!start) {
+        unscheduledArr.push(task);
+        continue;
+      }
+
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      if (startDay < todayStart) {
+        overdueArr.push(task);
+      } else if (startDay.getTime() === todayStart.getTime()) {
+        todayArr.push(task);
+      }
+    }
+
+    return {
+      todayTasks: todayArr,
+      completedTasks: completedArr,
+      overdueTasks: overdueArr,
+      unscheduledTasks: unscheduledArr,
+      heroCounts: {
+        today: todayArr.length,
+        overdue: overdueArr.length,
+        unscheduled: unscheduledArr.length,
+      },
+    };
+  }, [filteredTasks, today]);
+
+  // ── SM: hero + title + next task ──────────────────────────────────────
   if (size === "sm") {
-    const nextTask = visibleTasks[0];
+    const nextTask = todayTasks[0];
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-              {isLoading ? "—" : visibleTasks.length}
-            </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-            >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-            </button>
-          </div>
-          {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
-            {t("taskList.title") ?? "Tasks"}
+          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            {isLoading ? "—" : todayTasks.length}
           </span>
-          {/* Row 3: Next task name */}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("taskList.title") ?? "Task List"}
+          </span>
           {!isLoading && nextTask && (
             <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
               {t("taskList.next") ?? "Next"}: {nextTask.customTitle || nextTask.taskType?.display || "Task"}
@@ -102,98 +139,202 @@ export function TaskListWidget({
     );
   }
 
-  // lg: grouped by day
-  if (size === "lg" && groupedTasks) {
+  // ── Visibility toggle (MD+) ───────────────────────────────────────────
+  const viewToggle = canViewAll ? (
+    <div className="flex items-center gap-[3px]">
+      {([
+        { value: "all" as const, label: t("taskList.all") ?? "All" },
+        { value: "mine" as const, label: t("taskList.mine") ?? "Mine" },
+      ]).map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => setViewMode(opt.value)}
+          className={cn(
+            "font-kosugi text-micro-sm uppercase tracking-wider px-1.5 py-[1px] rounded-sm transition-colors",
+            viewMode === opt.value
+              ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
+              : "text-text-tertiary hover:text-text-secondary border border-transparent"
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  // ── LG: Hero metric boxes ─────────────────────────────────────────────
+  const heroSection = showActions(size) ? (
+    <WidgetHeroCollapse collapsed={heroCollapsed} collapsedHeight="0px" expandedHeight="80px" className="mb-2">
+      <div className="flex items-center gap-3 pb-2 border-b border-border-subtle">
+        {/* Unscheduled */}
+        <div className="flex-1 flex flex-col items-center py-1">
+          <span className="font-mono text-data-sm font-bold text-text-secondary">
+            {heroCounts.unscheduled}
+          </span>
+          <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider">
+            {t("taskList.unscheduledCount") ?? "Unscheduled"}
+          </span>
+        </div>
+        {/* Today */}
+        <div className="flex-1 flex flex-col items-center py-1">
+          <span className="font-mono text-data-sm font-bold" style={{ color: WT.accent }}>
+            {heroCounts.today}
+          </span>
+          <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider">
+            {t("taskList.todayCount") ?? "Today"}
+          </span>
+        </div>
+        {/* Overdue */}
+        <div className="flex-1 flex flex-col items-center py-1">
+          <span className="font-mono text-data-sm font-bold" style={{ color: heroCounts.overdue > 0 ? WT.error : "var(--text-disabled)" }}>
+            {heroCounts.overdue}
+          </span>
+          <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider">
+            {t("taskList.overdueCount") ?? "Overdue"}
+          </span>
+        </div>
+      </div>
+    </WidgetHeroCollapse>
+  ) : null;
+
+  // ── Loading ───────────────────────────────────────────────────────────
+  if (isLoading) {
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
-              {t("taskList.title") ?? "Tasks"}
+              {t("taskList.title") ?? "Task List"}
             </span>
-            <span className="font-mono text-micro text-text-tertiary">
-              {t("taskList.next7days")}
-            </span>
+            {viewToggle}
           </div>
-          <ScrollFade>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-                <span className="font-mono text-[11px] text-text-disabled ml-1">{t("taskList.loading")}</span>
-              </div>
-            ) : visibleTasks.length === 0 ? (
-              <p className="font-mohave text-body-sm text-text-disabled py-2">{t("taskList.empty")}</p>
-            ) : (
-              <div className="space-y-1.5">
-                {Object.entries(groupedTasks).map(([day, dayTasks]) => (
-                  <div key={day}>
-                    <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
-                      {day}
-                    </span>
-                    <div className="space-y-[4px] mt-[4px]">
-                      <AnimatePresence>
-                        {dayTasks.map((task) => (
-                          <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} projectMap={projectMap} clientMap={clientMap} />
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                ))}
-                {tasks.length > maxTasks && (
-                  <span className="font-mono text-[11px] text-text-disabled block px-1">
-                    +{tasks.length - maxTasks} {t("taskList.more")}
-                  </span>
-                )}
-              </div>
-            )}
-          </ScrollFade>
-          <button
-            onClick={() => onNavigate("/calendar")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("taskList.viewCalendar") ?? "View Calendar"}
-          </button>
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("taskList.loading")}</span>
+          </div>
         </div>
       </Card>
     );
   }
 
-  // md: flat list
+  // ── Empty state ───────────────────────────────────────────────────────
+  const allEmpty = todayTasks.length === 0 && completedTasks.length === 0 && overdueTasks.length === 0;
+  if (allEmpty) {
+    return (
+      <Card className="h-full p-0">
+        <div className="h-full flex flex-col p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+              {t("taskList.title") ?? "Task List"}
+            </span>
+            {viewToggle}
+          </div>
+          {heroSection}
+          <WidgetEmptyState
+            message={t("taskList.emptyToday") ?? "No tasks scheduled today"}
+            cta={{ label: t("taskList.viewCalendar") ?? "View Calendar", onClick: () => onNavigate("/calendar") }}
+            className="flex-1"
+          />
+        </div>
+      </Card>
+    );
+  }
+
+  // ── MD / LG: Full task list ───────────────────────────────────────────
   return (
     <Card className="h-full p-0">
       <div className="h-full flex flex-col p-3">
+        {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">{t("taskList.title")}</span>
-          <span className="font-mono text-micro text-text-tertiary">{t("taskList.todayPlus7days")}</span>
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("taskList.title") ?? "Task List"}
+          </span>
+          {viewToggle}
         </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("taskList.loading")}</span>
-          </div>
-        ) : visibleTasks.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-disabled py-2">{t("taskList.empty")}</p>
-        ) : (
-          <div className="space-y-[4px]">
+
+        {/* LG: Hero counts */}
+        {heroSection}
+
+        {/* Task list */}
+        <ScrollFade>
+          {/* Today's tasks */}
+          <AnimatePresence>
+            {todayTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                today={today}
+                onNavigate={onNavigate}
+                showCheckbox
+                taskTypes={taskTypes}
+                projectMap={projectMap}
+                clientMap={clientMap}
+                isCompleted={false}
+                reducedMotion={reducedMotion}
+              />
+            ))}
+          </AnimatePresence>
+
+          {/* Completed tasks (strikethrough) */}
+          {showDetail(size) && completedTasks.length > 0 && (
             <AnimatePresence>
-              {visibleTasks.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} onNavigate={onNavigate} showCheckbox taskTypes={taskTypes} projectMap={projectMap} clientMap={clientMap} />
+              {completedTasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  today={today}
+                  onNavigate={onNavigate}
+                  showCheckbox={false}
+                  taskTypes={taskTypes}
+                  projectMap={projectMap}
+                  clientMap={clientMap}
+                  isCompleted
+                  reducedMotion={reducedMotion}
+                />
               ))}
             </AnimatePresence>
-            {tasks.length > maxTasks && (
-              <span className="font-mono text-[11px] text-text-disabled block px-1">
-                +{tasks.length - maxTasks} {t("taskList.more")}
+          )}
+
+          {/* Overdue section */}
+          {showDetail(size) && overdueTasks.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-border-subtle">
+              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest block mb-1" style={{ color: WT.error }}>
+                {t("taskList.overdue") ?? "Overdue"}
               </span>
-            )}
-          </div>
-        )}
+              <AnimatePresence>
+                {overdueTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    today={today}
+                    onNavigate={onNavigate}
+                    showCheckbox
+                    taskTypes={taskTypes}
+                    projectMap={projectMap}
+                    clientMap={clientMap}
+                    isCompleted={false}
+                    isOverdue
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </ScrollFade>
+
+        {/* Footer */}
+        <button
+          onClick={() => onNavigate("/calendar")}
+          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+        >
+          {t("taskList.viewCalendar") ?? "View Calendar"}
+        </button>
       </div>
     </Card>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Task row with one-click complete checkbox + project/client/address enrichment
+// Task row with checkbox + enrichment
 // ---------------------------------------------------------------------------
 function TaskRow({
   task,
@@ -203,34 +344,34 @@ function TaskRow({
   taskTypes,
   projectMap,
   clientMap,
-  compact,
+  isCompleted,
+  isOverdue,
+  reducedMotion,
 }: {
   task: ProjectTask;
   today: Date;
   onNavigate: (path: string) => void;
-  showCheckbox?: boolean;
+  showCheckbox: boolean;
   taskTypes: TaskType[];
   projectMap: Map<string, Project>;
   clientMap: Map<string, Client>;
-  compact?: boolean;
+  isCompleted: boolean;
+  isOverdue?: boolean;
+  reducedMotion?: boolean | null;
 }) {
   const { t } = useDictionary("dashboard");
   const [completing, setCompleting] = useState(false);
   const updateStatus = useUpdateTaskStatus();
 
-  const isInProgress = task.status === TaskStatus.InProgress;
   const resolvedTaskType = task.taskType ?? taskTypes.find((tt) => tt.id === task.taskTypeId) ?? null;
   const displayTitle = getTaskDisplayTitle(task, resolvedTaskType);
-  const eventDate = task.startDate
-    ? new Date(task.startDate)
-    : null;
+  const eventDate = task.startDate ? new Date(task.startDate) : null;
   const timeDisplay = eventDate
     ? isSameDay(eventDate, today)
-      ? `${t("taskList.today")} ${format(eventDate, "h:mm a")}`
+      ? format(eventDate, "h:mm a")
       : format(eventDate, "EEE h:mm a")
     : t("taskList.unscheduled");
 
-  // Enrichment: project name, client name, address
   const project = task.projectId ? projectMap.get(task.projectId) : null;
   const client = project?.clientId ? clientMap.get(project.clientId) : null;
   const projectName = project?.title || null;
@@ -240,28 +381,30 @@ function TaskRow({
   const handleComplete = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (completing) return;
+      if (completing || isCompleted) return;
       setCompleting(true);
       updateStatus.mutate(
         { id: task.id, status: TaskStatus.Completed },
         { onError: () => setCompleting(false) }
       );
     },
-    [task.id, completing, updateStatus]
+    [task.id, completing, isCompleted, updateStatus]
   );
+
+  const isDone = isCompleted || completing;
 
   return (
     <motion.div
-      layout
-      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      transition={{ duration: 0.25 }}
+      layout={!reducedMotion}
+      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0, marginBottom: 0 }}
+      transition={{ duration: reducedMotion ? 0.15 : 0.25, ease: [0.22, 1, 0.36, 1] }}
       onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/calendar")}
       className={cn(
         "flex items-start gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
-        completing && "opacity-50"
+        isDone && "opacity-40"
       )}
     >
-      {/* One-click complete checkbox */}
+      {/* Checkbox */}
       {showCheckbox && (
         <button
           onClick={handleComplete}
@@ -269,40 +412,41 @@ function TaskRow({
             "w-[18px] h-[18px] rounded border flex items-center justify-center shrink-0 transition-all duration-200 mt-[1px]",
             completing
               ? "bg-status-success border-status-success"
-              : "border-border-medium hover:border-ops-accent hover:bg-ops-accent/10"
+              : isCompleted
+                ? "bg-status-success/30 border-status-success/50"
+                : "border-border-medium hover:border-ops-accent hover:bg-ops-accent/10"
           )}
           title={t("taskList.completeTask")}
         >
-          {completing && <Check className="w-[12px] h-[12px] text-white" />}
+          {(completing || isCompleted) && <Check className="w-[12px] h-[12px] text-white" />}
         </button>
       )}
 
-      {!showCheckbox && (
-        <div className="mt-[1px]">
-          {isInProgress ? (
-            <Clock className="w-[16px] h-[16px] text-text-secondary shrink-0" />
-          ) : (
-            <div className="w-[16px] h-[16px] rounded-full border border-border-medium shrink-0" />
-          )}
+      {/* Status indicator for completed (no checkbox) */}
+      {!showCheckbox && isCompleted && (
+        <div className="w-[18px] h-[18px] rounded-full bg-status-success/30 flex items-center justify-center shrink-0 mt-[1px]">
+          <Check className="w-[12px] h-[12px] text-status-success" />
         </div>
       )}
 
+      {/* Color bar */}
       <div
         className="w-[3px] rounded-full shrink-0 mt-[2px]"
         style={{
-          backgroundColor: task.taskColor || "#5C6070",
-          height: compact ? "16px" : (projectName || clientName || address) ? "32px" : "16px",
+          backgroundColor: isOverdue ? WT.error : (task.taskColor || "#5C6070"),
+          height: (projectName || clientName || address) ? "32px" : "16px",
         }}
       />
+
+      {/* Content */}
       <div className="flex-1 min-w-0">
         <p className={cn(
           "font-mohave text-body-sm text-text-primary truncate transition-all duration-200",
-          completing && "line-through text-text-disabled"
+          isDone && "line-through text-text-disabled"
         )}>
           {displayTitle}
         </p>
-        {/* Enrichment line: project · client · address */}
-        {!compact && (projectName || clientName || address) && (
+        {(projectName || clientName || address) && (
           <div className="flex items-center gap-[3px] mt-[1px] min-w-0">
             {projectName && (
               <span className="font-mono text-[10px] text-text-tertiary truncate shrink min-w-0">
@@ -331,7 +475,11 @@ function TaskRow({
           </div>
         )}
       </div>
-      <span className="font-mono text-[11px] text-text-tertiary shrink-0 mt-[1px]">
+
+      <span className={cn(
+        "font-mono text-[11px] text-text-tertiary shrink-0 mt-[1px]",
+        isDone && "text-text-disabled"
+      )}>
         {timeDisplay}
       </span>
       <ChevronRight className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-[2px]" />

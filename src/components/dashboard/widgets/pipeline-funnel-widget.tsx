@@ -36,9 +36,7 @@ const PIPELINE_STAGES = [
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function daysInStatus(project: Project): number {
-  // Use createdAt as a proxy for when status was entered
-  // (projects don't have a stageEnteredAt field)
+function projectAgeDays(project: Project): number {
   const created = project.createdAt ? new Date(project.createdAt) : new Date();
   const now = new Date();
   return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
@@ -264,15 +262,11 @@ export function PipelineFunnelWidget({
         return (
           <div
             key={i}
-            className={cn(
-              "relative w-full rounded-sm cursor-pointer",
-              showActions(size) && activeTab && activeTab !== stage.status && "opacity-40",
-              "transition-opacity"
-            )}
+            className="relative w-full rounded-sm cursor-pointer"
             style={{
               height: `${heightPx}px`,
               backgroundColor: stage.color,
-              opacity: isVisible ? undefined : 0,
+              opacity: !isVisible ? 0 : (showActions(size) && activeTab && activeTab !== stage.status) ? 0.4 : 1,
               transitionProperty: "opacity",
               transitionDuration: reducedMotion ? "200ms" : "500ms",
               transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
@@ -377,7 +371,7 @@ export function PipelineFunnelWidget({
                   indicator={{ type: "bar", color: activeStageData.color }}
                   primary={p.title || (t("pipelineFunnel.untitled") ?? "Untitled")}
                   secondary={p.client?.name}
-                  metric={`${daysInStatus(p)}d`}
+                  metric={`${projectAgeDays(p)}d`}
                   onClick={() => onNavigate(`/projects/${p.id}`)}
                   index={i}
                   isVisible={isVisible}

@@ -1,22 +1,34 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
-import { Sparkline } from "./shared/sparkline";
+import { WidgetBackgroundChart } from "./shared/widget-background-chart";
+import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
+import { WidgetPeriodPicker } from "./shared/widget-period-picker";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetLineItem } from "./shared/widget-line-item";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { formatCompactCurrency } from "./shared/widget-utils";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
-import { ScrollFade } from "./shared/scroll-fade";
 
 const GHOST_OPACITY = 0.2;
+const CLIENT_VISIBLE_COUNT = 5;
+
+const PERIOD_OPTIONS = [
+  { value: "7d", label: "7D" },
+  { value: "30d", label: "30D" },
+  { value: "90d", label: "90D" },
+  { value: "ytd", label: "YTD" },
+];
 
 // ---------------------------------------------------------------------------
 // Props
@@ -27,15 +39,6 @@ interface RevenuePulseWidgetProps {
   invoices: Invoice[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
-  return `$${amount.toFixed(0)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,9 +56,11 @@ export function RevenuePulseWidget({
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
-  const period = (config.period as string) ?? "ytd";
-
   const reducedMotion = useReducedMotion();
+
+  const [period, setPeriod] = useState((config.period as string) ?? "ytd");
+  const [clientsExpanded, setClientsExpanded] = useState(false);
+  const [heroCollapsed, setHeroCollapsed] = useState(false);
 
   // ── Compute monthly revenue data ──────────────────────────────────────
   const monthlyData = useMemo(() => {
@@ -67,7 +72,26 @@ export function RevenuePulseWidget({
     let startMonth: number;
     let startYear: number;
 
-    if (period === "6mo") {
+    if (period === "7d" || period === "30d" || period === "90d") {
+      // For day-based periods, still show monthly bars for the relevant span
+      const daysMap: Record<string, number> = { "7d": 1, "30d": 1, "90d": 3 };
+      monthCount = daysMap[period] ?? 1;
+      if (period === "7d") {
+        // Show just current month
+        monthCount = 1;
+        startMonth = currentMonth;
+        startYear = currentYear;
+      } else if (period === "30d") {
+        monthCount = 1;
+        startMonth = currentMonth;
+        startYear = currentYear;
+      } else {
+        monthCount = 3;
+        const s = new Date(currentYear, currentMonth - 2, 1);
+        startMonth = s.getMonth();
+        startYear = s.getFullYear();
+      }
+    } else if (period === "6mo") {
       monthCount = 6;
       const s = new Date(currentYear, currentMonth - 5, 1);
       startMonth = s.getMonth();
@@ -78,6 +102,7 @@ export function RevenuePulseWidget({
       startMonth = s.getMonth();
       startYear = s.getFullYear();
     } else {
+      // ytd
       monthCount = currentMonth + 1;
       startMonth = 0;
       startYear = currentYear;
@@ -156,18 +181,84 @@ export function RevenuePulseWidget({
     lastYear: number;
   }>({ visible: false, x: 0, y: 0, month: "", amount: 0, lastYear: 0 });
 
+  // ── Scroll handler for LG hero collapse ───────────────────────────────
+  const handleListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = (e.target as HTMLElement).scrollTop;
+    setHeroCollapsed(scrollTop > 8);
+  }, []);
+
+  // ── Bar chart renderer (reused by SM/MD/LG) ──────────────────────────
+  const renderBarChart = useCallback(
+    (chartHeight: number, showGhosts: boolean) => (
+      <div className="flex items-end gap-[4px] h-full w-full" style={{ minHeight: `${chartHeight}px` }}>
+        {monthlyData.months.map((m, i) => {
+          const barH = (m.amount / monthlyData.maxAmount) * chartHeight;
+          const ghostH = showGhosts ? (m.lastYearAmount / monthlyData.maxAmount) * chartHeight : 0;
+          const isCurrent = i === monthlyData.months.length - 1;
+
+          return (
+            <div
+              key={`${m.year}-${m.month}`}
+              className="flex-1 flex flex-col items-center justify-end relative"
+              style={{ height: `${chartHeight}px` }}
+              onMouseEnter={(e) => {
+                const parentRect = ref.current?.getBoundingClientRect();
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                if (!parentRect) return;
+                setTooltip({
+                  visible: true,
+                  x: rect.left - parentRect.left + rect.width / 2,
+                  y: rect.top - parentRect.top,
+                  month: `${m.label} ${m.year}`,
+                  amount: m.amount,
+                  lastYear: m.lastYearAmount,
+                });
+              }}
+              onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+            >
+              {showGhosts && ghostH > 0 && (
+                <div
+                  className="absolute bottom-0 w-[70%] rounded-t-sm"
+                  style={{
+                    height: `${ghostH}px`,
+                    backgroundColor: WT.revenue,
+                    opacity: isVisible ? GHOST_OPACITY : 0,
+                    transition: reducedMotion ? "opacity 200ms ease" : `opacity 400ms cubic-bezier(0.22, 1, 0.36, 1) ${500 + 200}ms`,
+                  }}
+                />
+              )}
+              <div
+                className="w-[70%] rounded-t-sm relative z-10"
+                style={{
+                  height: isVisible ? `${Math.max(barH, m.amount > 0 ? 2 : 0)}px` : "0px",
+                  backgroundColor: WT.revenue,
+                  opacity: isCurrent ? 1 : 0.6,
+                  transitionProperty: "height, opacity",
+                  transitionDuration: reducedMotion ? "200ms" : "600ms",
+                  transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
+                  transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    ),
+    [monthlyData, isVisible, reducedMotion]
+  );
+
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="px-3 pt-2 pb-1">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("revenuePulse.title") ?? "Revenue"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+          </span>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="bar-chart" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -204,8 +295,8 @@ export function RevenuePulseWidget({
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=paid")}>
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className={`font-mono ${formatCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
-            {formatCurrency(animatedMtd)}
+          <span className={`font-mono ${formatCompactCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
+            {formatCompactCurrency(animatedMtd)}
           </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("revenuePulse.title") ?? "Revenue"}
@@ -227,61 +318,125 @@ export function RevenuePulseWidget({
     );
   }
 
-  // ── SM: Hero + title + sparkline/YTD ───────────────────────────────────
+  // ── SM: WidgetBackgroundChart with bar chart behind text ──────────────
   if (size === "sm") {
-    const sparkData = monthlyData.months.map((m) => m.amount);
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-              {formatCurrency(animatedMtd)}
+        <WidgetBackgroundChart
+          chart={renderBarChart(80, false)}
+          opacity={0.3}
+        >
+          <div className="h-full flex flex-col p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+                {formatCompactCurrency(animatedMtd)}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=paid"); }}
+                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              >
+                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              </button>
+            </div>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("revenuePulse.title") ?? "Revenue"}
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=paid"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-            >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-            </button>
-          </div>
-          {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
-            {t("revenuePulse.title") ?? "Revenue"}
-          </span>
-          {/* Row 3: Sparkline + YTD */}
-          <div className="flex items-center gap-2 mt-1">
-            <Sparkline data={sparkData} width={60} height={20} color={WT.revenue} />
-            <span className="font-mono text-micro-sm text-text-tertiary">
-              {t("revenuePulse.ytd") ?? "YTD"}: {formatCurrency(monthlyData.ytd)}
+            <span className="font-mono text-micro-sm text-text-tertiary mt-auto">
+              {t("revenuePulse.ytd") ?? "YTD"}: {formatCompactCurrency(monthlyData.ytd)}
             </span>
           </div>
-        </div>
+        </WidgetBackgroundChart>
       </Card>
     );
   }
 
-  // ── MD / LG: Bar chart + detail ───────────────────────────────────────
-  const showGhosts = showActions(size);
-  const chartHeight = compact ? 80 : showActions(size) ? 160 : 80;
+  // ── MD: WidgetBackgroundChart + WidgetPeriodPicker ────────────────────
+  if (size === "md") {
+    return (
+      <Card className="h-full p-0" ref={ref}>
+        <WidgetBackgroundChart
+          chart={renderBarChart(120, false)}
+          opacity={0.25}
+        >
+          <div className="h-full flex flex-col p-3">
+            {/* Header with period picker */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+                {t("revenuePulse.title") ?? "Revenue"}
+              </span>
+              <WidgetPeriodPicker
+                options={PERIOD_OPTIONS}
+                value={period}
+                onChange={setPeriod}
+                size={size}
+              />
+            </div>
+
+            {/* Hero — animated MTD */}
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
+                {formatCompactCurrency(animatedMtd)}
+              </span>
+              {monthlyData.trend === "up" ? (
+                <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
+              ) : monthlyData.trend === "down" ? (
+                <ChevronDown className="w-4 h-4" style={{ color: WT.error }} />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-text-disabled" />
+              )}
+            </div>
+
+            {/* Bottom summary: MTD vs YTD */}
+            <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-border-subtle">
+              <div>
+                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                  {t("revenuePulse.mtdRevenue") ?? "MTD"}
+                </span>
+                <p className="font-mono text-data-sm text-text-primary font-medium">
+                  {formatCompactCurrency(monthlyData.mtd)}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                  {t("revenuePulse.ytdTotal") ?? "YTD Total"}
+                </span>
+                <p className="font-mono text-data-sm text-text-primary font-medium">
+                  {formatCompactCurrency(monthlyData.ytd)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </WidgetBackgroundChart>
+      </Card>
+    );
+  }
+
+  // ── LG: Period picker + HeroCollapse + client list with WidgetMoreButton
+  const showGhosts = true;
+  const chartHeight = 160;
+  const visibleClients = clientsExpanded ? topClients : topClients.slice(0, CLIENT_VISIBLE_COUNT);
+  const remainingClients = topClients.length - CLIENT_VISIBLE_COUNT;
 
   return (
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
-        {/* HEADER */}
+        {/* HEADER with period picker */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
-            {new Date().getFullYear()}
-          </span>
+          <WidgetPeriodPicker
+            options={PERIOD_OPTIONS}
+            value={period}
+            onChange={setPeriod}
+            size={size}
+          />
         </div>
 
         {/* HERO — animated MTD */}
         <div className="flex items-baseline gap-2 mb-2">
           <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
-            {formatCurrency(animatedMtd)}
+            {formatCompactCurrency(animatedMtd)}
           </span>
           {monthlyData.trend === "up" ? (
             <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
@@ -292,142 +447,85 @@ export function RevenuePulseWidget({
           )}
         </div>
 
-        {/* DETAIL ZONE — MD+ */}
-        {showDetail(size) && (
-          <ScrollFade>
-            {/* Bar chart */}
-            <div className="relative">
-              <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
-                <TooltipRow label={tooltip.month} value={formatCurrency(tooltip.amount)} color={WT.revenue} />
-                {showGhosts && tooltip.lastYear > 0 && (
-                  <TooltipRow
-                    label={`vs ${new Date().getFullYear() - 1}`}
-                    value={formatCurrency(tooltip.lastYear)}
-                    delta={{
-                      value: tooltip.lastYear > 0
-                        ? `${Math.round(((tooltip.amount - tooltip.lastYear) / tooltip.lastYear) * 100)}%`
-                        : "--",
-                      direction: tooltip.amount >= tooltip.lastYear ? "up" : "down",
-                    }}
-                  />
-                )}
-              </WidgetTooltip>
-
-              <div className="flex items-end gap-[4px]" style={{ height: `${chartHeight}px` }}>
-                {monthlyData.months.map((m, i) => {
-                  const barH = (m.amount / monthlyData.maxAmount) * chartHeight;
-                  const ghostH = showGhosts ? (m.lastYearAmount / monthlyData.maxAmount) * chartHeight : 0;
-                  const isCurrent = i === monthlyData.months.length - 1;
-
-                  return (
-                    <div
-                      key={`${m.year}-${m.month}`}
-                      className="flex-1 flex flex-col items-center justify-end relative"
-                      style={{ height: `${chartHeight}px` }}
-                      onMouseEnter={(e) => {
-                        const parentRect = ref.current?.getBoundingClientRect();
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        if (!parentRect) return;
-                        setTooltip({
-                          visible: true,
-                          x: rect.left - parentRect.left + rect.width / 2,
-                          y: rect.top - parentRect.top,
-                          month: `${m.label} ${m.year}`,
-                          amount: m.amount,
-                          lastYear: m.lastYearAmount,
-                        });
-                      }}
-                      onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
-                    >
-                      {/* Ghost bar (last year) */}
-                      {showGhosts && ghostH > 0 && (
-                        <div
-                          className="absolute bottom-0 w-[70%] rounded-t-sm"
-                          style={{
-                            height: `${ghostH}px`,
-                            backgroundColor: WT.revenue,
-                            opacity: isVisible ? GHOST_OPACITY : 0,
-                            transition: reducedMotion ? "opacity 200ms ease" : `opacity 400ms ease ${500 + 200}ms`,
-                          }}
-                        />
-                      )}
-                      {/* Primary bar */}
-                      <div
-                        className="w-[70%] rounded-t-sm relative z-10"
-                        style={{
-                          height: isVisible ? `${Math.max(barH, m.amount > 0 ? 2 : 0)}px` : "0px",
-                          backgroundColor: WT.revenue,
-                          opacity: isCurrent ? 1 : 0.6,
-                          transitionProperty: "height, opacity",
-                          transitionDuration: reducedMotion ? "200ms" : "600ms",
-                          transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
-                          transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom summary: MTD vs YTD */}
-            <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border-subtle">
-              <div>
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-                  {t("revenuePulse.mtdRevenue") ?? "MTD"}
-                </span>
-                <p className="font-mono text-data-sm text-text-primary font-medium">
-                  {formatCurrency(monthlyData.mtd)}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-                  {t("revenuePulse.ytdTotal") ?? "YTD Total"}
-                </span>
-                <p className="font-mono text-data-sm text-text-primary font-medium">
-                  {formatCurrency(monthlyData.ytd)}
-                </p>
-              </div>
-            </div>
-
-            {/* Top clients (LG only) */}
-            {showActions(size) && topClients.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-border-subtle">
-                {topClients.map((client, i) => (
-                  <div
-                    key={client.clientId}
-                    className="flex items-center justify-between py-1 px-1 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                    style={{
-                      opacity: isVisible ? 1 : 0,
-                      transform: isVisible ? "translateY(0)" : "translateY(4px)",
-                      transition: reducedMotion
-                        ? "opacity 200ms ease"
-                        : `opacity 300ms ease ${600 + i * 50}ms, transform 300ms ease ${600 + i * 50}ms`,
-                    }}
-                    onClick={() => onNavigate(`/clients/${client.clientId}`)}
-                  >
-                    <span className="font-mohave text-caption-sm text-text-primary truncate flex-1 min-w-0">
-                      {client.name}
-                    </span>
-                    <span className="font-mono text-micro-sm text-text-secondary shrink-0 ml-2">
-                      {formatCurrency(client.total)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+        {/* COLLAPSIBLE BAR CHART */}
+        <WidgetHeroCollapse
+          collapsed={heroCollapsed}
+          collapsedHeight="80px"
+          expandedHeight="200px"
+        >
+          <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
+            <TooltipRow label={tooltip.month} value={formatCompactCurrency(tooltip.amount)} color={WT.revenue} />
+            {showGhosts && tooltip.lastYear > 0 && (
+              <TooltipRow
+                label={`vs ${new Date().getFullYear() - 1}`}
+                value={formatCompactCurrency(tooltip.lastYear)}
+                delta={{
+                  value: tooltip.lastYear > 0
+                    ? `${Math.round(((tooltip.amount - tooltip.lastYear) / tooltip.lastYear) * 100)}%`
+                    : "--",
+                  direction: tooltip.amount >= tooltip.lastYear ? "up" : "down",
+                }}
+              />
             )}
-          </ScrollFade>
+          </WidgetTooltip>
+
+          {renderBarChart(chartHeight, showGhosts)}
+        </WidgetHeroCollapse>
+
+        {/* Bottom summary: MTD vs YTD */}
+        <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border-subtle">
+          <div>
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              {t("revenuePulse.mtdRevenue") ?? "MTD"}
+            </span>
+            <p className="font-mono text-data-sm text-text-primary font-medium">
+              {formatCompactCurrency(monthlyData.mtd)}
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              {t("revenuePulse.ytdTotal") ?? "YTD Total"}
+            </span>
+            <p className="font-mono text-data-sm text-text-primary font-medium">
+              {formatCompactCurrency(monthlyData.ytd)}
+            </p>
+          </div>
+        </div>
+
+        {/* Top clients — scrollable list that triggers hero collapse */}
+        {topClients.length > 0 && (
+          <div
+            className="mt-2 pt-2 border-t border-border-subtle flex-1 min-h-0 overflow-y-auto scrollbar-hide"
+            onScroll={handleListScroll}
+          >
+            {visibleClients.map((client, i) => (
+              <WidgetLineItem
+                key={client.clientId}
+                primary={client.name}
+                metric={formatCompactCurrency(client.total)}
+                onClick={() => onNavigate(`/clients/${client.clientId}`)}
+                index={i}
+                isVisible={isVisible}
+                reducedMotion={reducedMotion}
+              />
+            ))}
+            {remainingClients > 0 && (
+              <WidgetMoreButton
+                remaining={remainingClients}
+                expanded={clientsExpanded}
+                onToggle={() => setClientsExpanded(!clientsExpanded)}
+              />
+            )}
+          </div>
         )}
 
-        {/* FOOTER — SM+ */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/invoices?status=paid")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("revenuePulse.viewAll") ?? "View Invoices"}
-          </button>
-        )}
+        {/* FOOTER */}
+        <button
+          onClick={() => onNavigate("/invoices?status=paid")}
+          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
+        >
+          {t("revenuePulse.viewAll") ?? "View Invoices"}
+        </button>
       </div>
     </Card>
   );

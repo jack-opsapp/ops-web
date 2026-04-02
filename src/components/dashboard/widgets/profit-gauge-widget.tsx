@@ -1,19 +1,20 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
+import { formatCompactCurrency } from "./shared/widget-utils";
+import { WT, HERO_SIZE_CLASS, isCompact, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
-import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Margin color — WT tokens, thresholds per widget reference spec
@@ -23,6 +24,12 @@ function marginColor(pct: number): string {
   if (pct >= 30) return WT.warning;    // Watch
   return WT.error;                      // Low
 }
+
+const PERIOD_OPTIONS = [
+  { value: "mtd", label: "MTD" },
+  { value: "qtd", label: "QTD" },
+  { value: "ytd", label: "YTD" },
+];
 
 // ---------------------------------------------------------------------------
 // Props
@@ -39,12 +46,6 @@ interface ProfitGaugeWidgetProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
-  return `$${amount.toFixed(0)}`;
-}
-
 function getPeriodRange(period: string): { start: Date; end: Date } {
   const now = new Date();
   const end = now;
@@ -86,7 +87,7 @@ export function ProfitGaugeWidget({
 
   const reducedMotion = useReducedMotion();
 
-  const period = (config.period as string) ?? "mtd";
+  const [period, setPeriod] = useState((config.period as string) ?? "mtd");
   const { start, end } = getPeriodRange(period);
 
   // ── Compute financials ────────────────────────────────────────────────
@@ -124,19 +125,19 @@ export function ProfitGaugeWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="px-3 pt-2 pb-1">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("profitGauge.title") ?? "Profit"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+          </span>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="ring" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
 
-  // ── XS: Hero percentage (no ring — fits 1-col cell) ────────────────────
+  // ── XS: Hero percentage ───────────────────────────────────────────────
   if (size === "xs") {
     return (
       <Card className="h-full cursor-pointer" ref={ref} onClick={() => onNavigate?.("/expenses")}>
@@ -155,57 +156,102 @@ export function ProfitGaugeWidget({
     );
   }
 
-  // ── SM: Hero + title + rev/exp one-liner ──────────────────────────────
+  // ── SM: Hero + stacked breakdown bar + period picker ──────────────────
   if (size === "sm") {
+    const revPct = financials.revenue > 0 ? 100 : 0;
+    const expPct = financials.revenue > 0 ? Math.min((financials.expenses / financials.revenue) * 100, 100) : 0;
+
     return (
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + tiny nav icon */}
+          {/* Row 1: Hero number + period picker (icon-only at SM) */}
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-data-lg font-bold leading-none" style={{ color }}>
               {hasData ? `${animatedMargin}%` : "0%"}
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate?.("/expenses"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-            >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-            </button>
+            <WidgetPeriodPicker
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={setPeriod}
+              size={size}
+            />
           </div>
           {/* Row 2: Title */}
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("profitGauge.title") ?? "Profit"}
           </span>
-          {/* Row 3: Rev/Exp one-liner */}
-          <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
-            {t("profitGauge.revenue") ?? "Rev"}: {formatCurrency(financials.revenue)} · {t("profitGauge.expenses") ?? "Exp"}: {formatCurrency(financials.expenses)}
-          </span>
+          {/* Row 3: Visual breakdown — stacked bar showing revenue vs expense proportion */}
+          {hasData && (
+            <div className="mt-1.5">
+              <div className="w-full h-[8px] rounded-sm overflow-hidden flex" style={{ backgroundColor: WT.faint }}>
+                {/* Revenue fills full width as the base */}
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${expPct}%`,
+                    backgroundColor: WT.cost,
+                    transitionProperty: "width",
+                    transitionDuration: reducedMotion ? "200ms" : "400ms",
+                    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                />
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${revPct - expPct}%`,
+                    backgroundColor: color,
+                    transitionProperty: "width",
+                    transitionDuration: reducedMotion ? "200ms" : "400ms",
+                    transitionDelay: reducedMotion ? "0ms" : "80ms",
+                    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="font-mono text-micro-sm text-text-tertiary">
+                  {t("profitGauge.expenses") ?? "Exp"}: {formatCompactCurrency(financials.expenses)}
+                </span>
+                <span className="font-mono text-micro-sm" style={{ color }}>
+                  {formatCompactCurrency(financials.profit)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     );
   }
 
-  // ── MD: Waterfall chart + footer ──────────────────────────────────────
+  // ── MD+: Waterfall chart — revenue → expenses → profit ────────────────
+  // The waterfall reads: Revenue (full bar) minus Expenses = Profit
   const expensePct = financials.revenue > 0 ? (financials.expenses / financials.revenue) * 100 : 0;
   const profitPct = financials.revenue > 0 ? Math.max(0, (financials.profit / financials.revenue) * 100) : 0;
 
   return (
     <Card className="h-full" ref={ref}>
       <div className="h-full flex flex-col px-3 py-2">
-        {/* Header */}
+        {/* Header with period picker */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("profitGauge.title") ?? "Profit"}
           </span>
-          <span className="font-mono text-micro font-medium" style={{ color }}>
-            {hasData ? `${financials.marginPct}%` : "0%"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-micro font-medium" style={{ color }}>
+              {hasData ? `${financials.marginPct}%` : "0%"}
+            </span>
+            <WidgetPeriodPicker
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={setPeriod}
+              size={size}
+            />
+          </div>
         </div>
 
         {/* Detail zone */}
-        <ScrollFade>
+        <div className="flex-1 min-h-0 flex flex-col">
           {!hasData ? (
-            <div className="flex flex-col justify-center h-full">
+            <div className="flex flex-col justify-center flex-1">
               <span className={`font-mono ${HERO_SIZE_CLASS.expanded} font-bold text-text-disabled leading-none`}>
                 0%
               </span>
@@ -214,14 +260,14 @@ export function ProfitGaugeWidget({
               </span>
             </div>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {/* Revenue bar */}
-              <div>
+            <div className="flex flex-col gap-1.5 flex-1">
+              {/* Revenue bar — full width baseline */}
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
                     {t("profitGauge.revenue") ?? "Revenue"}
                   </span>
-                  <span className="font-mono text-micro text-text-primary">{formatCurrency(financials.revenue)}</span>
+                  <span className="font-mono text-micro text-text-primary">{formatCompactCurrency(financials.revenue)}</span>
                 </div>
                 <div className="h-[14px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
                   <div
@@ -231,19 +277,19 @@ export function ProfitGaugeWidget({
                       backgroundColor: WT.accent,
                       transitionProperty: "width",
                       transitionDuration: reducedMotion ? "200ms" : "600ms",
-                      transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                      transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                     }}
                   />
                 </div>
               </div>
 
-              {/* Expenses bar */}
-              <div>
+              {/* Expenses bar — shows what's subtracted */}
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
                     {t("profitGauge.expenses") ?? "Expenses"}
                   </span>
-                  <span className="font-mono text-micro text-text-tertiary">{formatCurrency(financials.expenses)}</span>
+                  <span className="font-mono text-micro text-text-tertiary">{formatCompactCurrency(financials.expenses)}</span>
                 </div>
                 <div className="h-[14px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
                   <div
@@ -254,20 +300,20 @@ export function ProfitGaugeWidget({
                       transitionProperty: "width",
                       transitionDuration: reducedMotion ? "200ms" : "600ms",
                       transitionDelay: reducedMotion ? "0ms" : "100ms",
-                      transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                      transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                     }}
                   />
                 </div>
               </div>
 
-              {/* Profit bar */}
-              <div>
+              {/* Profit bar — the result (revenue - expenses) */}
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
                     {t("profitGauge.profit") ?? "Profit"}
                   </span>
                   <span className="font-mono text-micro font-medium" style={{ color }}>
-                    {formatCurrency(financials.profit)}
+                    {formatCompactCurrency(financials.profit)}
                   </span>
                 </div>
                 <div className="h-[14px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
@@ -279,20 +325,20 @@ export function ProfitGaugeWidget({
                       transitionProperty: "width",
                       transitionDuration: reducedMotion ? "200ms" : "600ms",
                       transitionDelay: reducedMotion ? "0ms" : "200ms",
-                      transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+                      transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                     }}
                   />
                 </div>
               </div>
             </div>
           )}
-        </ScrollFade>
+        </div>
 
         {/* Footer */}
         {showFooter(size) && (
           <button
             onClick={() => onNavigate?.("/expenses")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
           >
             {t("profitGauge.viewExpenses") ?? "View Expenses"}
           </button>

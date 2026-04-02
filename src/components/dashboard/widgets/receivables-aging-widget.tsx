@@ -2,34 +2,31 @@
 
 import { useMemo, useState, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
+import { WidgetLineItem } from "./shared/widget-line-item";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
+import { formatCompactCurrency } from "./shared/widget-utils";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
-import { ScrollFade } from "./shared/scroll-fade";
 
 // ---------------------------------------------------------------------------
 // Aging buckets — colors from WT tokens per severity tier
+// 31-60 uses WT.cost (muted rose #B58289) for contrast against 1-30 WT.warning
 // ---------------------------------------------------------------------------
 const BUCKETS = [
   { key: "current", labelKey: "receivablesAging.current", fallback: "Current", min: -Infinity, max: 0, color: WT.accent },
   { key: "1-30", labelKey: "invoiceAging.bucket1to30", fallback: "1-30", min: 1, max: 30, color: WT.warning },
-  { key: "31-60", labelKey: "invoiceAging.bucket31to60", fallback: "31-60", min: 31, max: 60, color: WT.receivables },
+  { key: "31-60", labelKey: "invoiceAging.bucket31to60", fallback: "31-60", min: 31, max: 60, color: WT.cost },
   { key: "61-90", labelKey: "invoiceAging.bucket61to90", fallback: "61-90", min: 61, max: 90, color: WT.errorMuted },
   { key: "90+", labelKey: "invoiceAging.bucket90plus", fallback: "90+", min: 91, max: Infinity, color: WT.error },
 ] as const;
-
-// Severity rank for hero color — higher = worse
-const SEVERITY_BY_KEY: Record<string, number> = {
-  current: 0, "1-30": 1, "31-60": 2, "61-90": 3, "90+": 4,
-};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -39,15 +36,6 @@ interface ReceivablesAgingWidgetProps {
   invoices: Invoice[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
-  return `$${amount.toFixed(0)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +105,19 @@ export function ReceivablesAgingWidget({
     return { buckets: bucketData, totalAmount, totalCount, worstBucket };
   }, [invoices]);
 
+  // ── Collected receivables for LG dual graphic ─────────────────────────
+  const collectedAmount = useMemo(() => {
+    if (!showActions(size)) return 0;
+    let total = 0;
+    for (const inv of invoices) {
+      if (inv.deletedAt) continue;
+      if (inv.status === InvoiceStatus.Paid && inv.paidAt) {
+        total += inv.amountPaid;
+      }
+    }
+    return total;
+  }, [invoices, size]);
+
   const animatedTotal = useAnimatedValue(isVisible ? Math.round(aging.totalAmount) : 0, 1000);
   const heroColor = aging.worstBucket?.color ?? WT.accent;
 
@@ -124,14 +125,14 @@ export function ReceivablesAgingWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <div className="px-3 pt-2 pb-1">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("receivablesAging.title") ?? "Receivables"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+          </span>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="horizontal-bars" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -168,10 +169,10 @@ export function ReceivablesAgingWidget({
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=past_due")}>
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
-            className={`font-mono ${formatCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`}
+            className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`}
             style={{ color: heroColor }}
           >
-            {formatCurrency(animatedTotal)}
+            {formatCompactCurrency(animatedTotal)}
           </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("receivablesAging.title") ?? "Receivables"}
@@ -184,7 +185,7 @@ export function ReceivablesAgingWidget({
     );
   }
 
-  // ── SM: Hero + title + stacked aging bar ───────────────────────────────
+  // ── SM: Hero + title + stacked aging bar with hover tooltips ──────────
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
@@ -192,7 +193,7 @@ export function ReceivablesAgingWidget({
           {/* Row 1: Hero number + tiny nav icon */}
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-data-lg font-bold leading-none" style={{ color: heroColor }}>
-              {formatCurrency(animatedTotal)}
+              {formatCompactCurrency(animatedTotal)}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=past_due"); }}
@@ -205,15 +206,44 @@ export function ReceivablesAgingWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
-          {/* Row 3: Stacked aging bar */}
+          {/* Row 3: Stacked aging bar with hover tooltips */}
           {aging.totalAmount > 0 && (
-            <div className="w-full rounded-sm overflow-hidden flex mt-1.5" style={{ height: "6px" }}>
-              {aging.buckets.filter(b => b.amount > 0).map((bucket, i) => (
-                <div key={bucket.key} className="h-full" style={{
-                  width: `${(bucket.amount / aging.totalAmount) * 100}%`,
-                  backgroundColor: bucket.color,
-                }} />
-              ))}
+            <div className="relative mt-1.5">
+              <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
+                <TooltipRow label={tooltip.bucket} value={formatCompactCurrency(tooltip.amount)} />
+                <TooltipRow label={t("receivablesAging.count") ?? "Count"} value={`${tooltip.count}`} />
+                <TooltipRow label={t("receivablesAging.ofTotal") ?? "Of total"} value={`${Math.round(tooltip.pct)}%`} />
+              </WidgetTooltip>
+              <div className="w-full rounded-sm overflow-hidden flex" style={{ height: "6px" }}>
+                {aging.buckets.filter(b => b.amount > 0).map((bucket) => {
+                  const pct = (bucket.amount / aging.totalAmount) * 100;
+                  return (
+                    <div
+                      key={bucket.key}
+                      className="h-full cursor-pointer"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: bucket.color,
+                      }}
+                      onMouseEnter={(e) => {
+                        const parentRect = ref.current?.getBoundingClientRect();
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        if (!parentRect) return;
+                        setTooltip({
+                          visible: true,
+                          x: rect.left - parentRect.left + rect.width / 2,
+                          y: rect.top - parentRect.top,
+                          bucket: t(bucket.labelKey) ?? bucket.fallback,
+                          count: bucket.count,
+                          amount: bucket.amount,
+                          pct,
+                        });
+                      }}
+                      onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -223,6 +253,12 @@ export function ReceivablesAgingWidget({
 
   // ── MD / LG ───────────────────────────────────────────────────────────
   const nonEmptyBuckets = aging.buckets.filter((b) => b.amount > 0);
+  const maxBucketAmount = Math.max(...nonEmptyBuckets.map(b => b.amount), 1);
+
+  // LG: compute collected+outstanding ratio for dual graphic
+  const totalCombined = collectedAmount + aging.totalAmount;
+  const collectedPct = totalCombined > 0 ? (collectedAmount / totalCombined) * 100 : 0;
+  const outstandingPct = totalCombined > 0 ? (aging.totalAmount / totalCombined) * 100 : 0;
 
   return (
     <Card className="h-full p-0" ref={ref}>
@@ -233,34 +269,27 @@ export function ReceivablesAgingWidget({
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
           <span className="font-mono text-micro text-text-tertiary">
-            {aging.totalCount} · {formatCurrency(aging.totalAmount)}
+            {aging.totalCount} · {formatCompactCurrency(aging.totalAmount)}
           </span>
         </div>
 
         {/* Detail zone */}
-        <ScrollFade>
+        <div className="flex-1 min-h-0 flex flex-col">
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
-            <TooltipRow label={tooltip.bucket} value={formatCurrency(tooltip.amount)} />
+            <TooltipRow label={tooltip.bucket} value={formatCompactCurrency(tooltip.amount)} />
             <TooltipRow label={t("receivablesAging.count") ?? "Count"} value={`${tooltip.count}`} />
             <TooltipRow label={t("receivablesAging.ofTotal") ?? "Of total"} value={`${Math.round(tooltip.pct)}%`} />
           </WidgetTooltip>
 
-          {/* Stacked horizontal bar */}
-          <div className="w-full h-[28px] rounded-sm overflow-hidden flex">
+          {/* Vertical bars — fill available height */}
+          <div className="flex items-end gap-[6px] flex-1 min-h-[60px]">
             {nonEmptyBuckets.map((bucket, i) => {
-              const pct = aging.totalAmount > 0 ? (bucket.amount / aging.totalAmount) * 100 : 0;
+              const pct = (bucket.amount / maxBucketAmount) * 100;
+              const bucketPctOfTotal = aging.totalAmount > 0 ? (bucket.amount / aging.totalAmount) * 100 : 0;
               return (
                 <div
                   key={bucket.key}
-                  className="h-full"
-                  style={{
-                    width: isVisible ? `${pct}%` : "0%",
-                    backgroundColor: bucket.color,
-                    transitionProperty: "width",
-                    transitionDuration: reducedMotion ? "200ms" : "500ms",
-                    transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                    transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-                  }}
+                  className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
                   onMouseEnter={(e) => {
                     const parentRect = ref.current?.getBoundingClientRect();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -268,87 +297,107 @@ export function ReceivablesAgingWidget({
                     setTooltip({
                       visible: true,
                       x: rect.left - parentRect.left + rect.width / 2,
-                      y: 0,
+                      y: rect.top - parentRect.top,
                       bucket: t(bucket.labelKey) ?? bucket.fallback,
                       count: bucket.count,
                       amount: bucket.amount,
-                      pct,
+                      pct: bucketPctOfTotal,
                     });
                   }}
                   onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
-                />
-              );
-            })}
-          </div>
-
-          {/* Bucket list */}
-          <div className="flex flex-col gap-[4px] mt-2">
-            {aging.buckets.map((bucket, i) => {
-              if (bucket.count === 0) return null;
-              return (
-                <div
-                  key={bucket.key}
-                  className="flex items-center justify-between"
-                  style={{
-                    opacity: isVisible ? 1 : 0,
-                    transition: reducedMotion
-                      ? "opacity 200ms ease"
-                      : `opacity 300ms ease ${nonEmptyBuckets.length * 60 + 100 + i * 40}ms`,
-                  }}
                 >
-                  <div className="flex items-center gap-1">
-                    <span className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: bucket.color }} />
-                    <span className="font-mohave text-micro text-text-secondary">
-                      {t(bucket.labelKey) ?? bucket.fallback} {bucket.key !== "current" && (t("receivablesAging.days") ?? "days")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-micro text-text-tertiary">{bucket.count}</span>
-                    <span className="font-mono text-micro text-text-primary">{formatCurrency(bucket.amount)}</span>
-                  </div>
+                  <div
+                    className="w-full rounded-t-sm"
+                    style={{
+                      height: isVisible ? `${pct}%` : "0%",
+                      minHeight: bucket.amount > 0 ? "4px" : "0px",
+                      backgroundColor: bucket.color,
+                      transitionProperty: "height",
+                      transitionDuration: reducedMotion ? "200ms" : "500ms",
+                      transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
+                      transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                    }}
+                  />
+                  <span className="font-kosugi text-micro-sm text-text-disabled mt-1 uppercase">
+                    {t(bucket.labelKey) ?? bucket.fallback}
+                  </span>
                 </div>
               );
             })}
           </div>
 
-          {/* LG: Top overdue invoices from worst bucket + action buttons */}
+          {/* LG: Collected vs Outstanding dual bar */}
+          {showActions(size) && totalCombined > 0 && (
+            <div className="mt-3 pt-2 border-t border-border-subtle">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                  {t("receivablesAging.collected") ?? "Collected"} {t("receivablesAging.vsOutstanding") ?? "vs Outstanding"}
+                </span>
+              </div>
+              <div className="flex items-center gap-[2px] w-full h-[12px] rounded-sm overflow-hidden">
+                <div
+                  className="h-full rounded-l-sm"
+                  style={{
+                    width: isVisible ? `${collectedPct}%` : "0%",
+                    backgroundColor: WT.success,
+                    transitionProperty: "width",
+                    transitionDuration: reducedMotion ? "200ms" : "500ms",
+                    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                />
+                <div
+                  className="h-full rounded-r-sm"
+                  style={{
+                    width: isVisible ? `${outstandingPct}%` : "0%",
+                    backgroundColor: heroColor,
+                    transitionProperty: "width",
+                    transitionDuration: reducedMotion ? "200ms" : "500ms",
+                    transitionDelay: reducedMotion ? "0ms" : "80ms",
+                    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: WT.success }} />
+                  <span className="font-mono text-micro text-text-secondary">{formatCompactCurrency(collectedAmount)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: heroColor }} />
+                  <span className="font-mono text-micro text-text-secondary">{formatCompactCurrency(aging.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* LG: Top overdue invoices from worst bucket */}
           {showActions(size) && aging.worstBucket && aging.worstBucket.key !== "current" && (
             <div className="mt-2 pt-2 border-t border-border-subtle">
-              {aging.worstBucket.invoices.slice(0, 7).map((inv, i) => {
+              {aging.worstBucket.invoices.slice(0, 5).map((inv, i) => {
                 const due = new Date(inv.dueDate);
                 const days = Math.floor((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
                 return (
-                  <div
+                  <WidgetLineItem
                     key={inv.id}
-                    className="flex items-center justify-between py-1 px-1 rounded-sm cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                    style={{
-                      opacity: isVisible ? 1 : 0,
-                      transform: isVisible ? "translateY(0)" : "translateY(4px)",
-                      transition: reducedMotion
-                        ? "opacity 200ms ease"
-                        : `opacity 300ms ease ${600 + i * 50}ms, transform 300ms ease ${600 + i * 50}ms`,
-                    }}
+                    primary={inv.client?.name ?? `#${inv.invoiceNumber}`}
+                    metric={formatCompactCurrency(inv.balanceDue)}
+                    secondary={`${days}d`}
                     onClick={() => onNavigate(`/invoices/${inv.id}`)}
-                  >
-                    <span className="font-mohave text-caption-sm text-text-secondary truncate flex-1 min-w-0">
-                      {inv.client?.name ?? `#${inv.invoiceNumber}`}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="font-mono text-micro text-text-primary">{formatCurrency(inv.balanceDue)}</span>
-                      <span className="font-mono text-micro-sm text-text-tertiary">{days}d</span>
-                    </div>
-                  </div>
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
                 );
               })}
             </div>
           )}
-        </ScrollFade>
+        </div>
 
         {/* Footer */}
         {showFooter(size) && (
           <button
             onClick={() => onNavigate("/invoices?status=past_due")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
           >
             {t("receivablesAging.viewInvoices") ?? "View Invoices"}
           </button>

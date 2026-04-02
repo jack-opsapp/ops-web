@@ -218,7 +218,7 @@ export function WinRateWidget({
               {t("winRate.title") ?? "Win Rate"}
             </span>
             <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
-              {stats.won}/{stats.sent} {t("winRate.won") ?? "won"} · {stats.lost} {t("winRate.lost") ?? "lost"}
+              {stats.won}/{stats.won + stats.lost} {t("winRate.won") ?? "won"} · {stats.lost} {t("winRate.lost") ?? "lost"}
             </span>
           </div>
         </WidgetBackgroundChart>

@@ -1,17 +1,28 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
-import { Loader2, Send, Check } from "lucide-react";
+import { useMemo, useState, useCallback, useRef } from "react";
+import { Loader2, Send, Check, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetStatusBadge } from "./shared/widget-status-badge";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { formatCompactCurrency } from "./shared/widget-utils";
+import { useReducedMotion } from "./shared/use-reduced-motion";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
-import { useInvoices, useSendInvoice } from "@/lib/hooks";
+import { useInvoices, useSendInvoice, useClientMap } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import { ScrollFade } from "./shared/scroll-fade";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -27,6 +38,7 @@ interface InvoiceListWidgetProps {
 // ---------------------------------------------------------------------------
 
 type StatusFilter = "all-open" | "draft" | "sent" | "viewed" | "past_due";
+type SortField = "due" | "amount" | "client";
 
 const STATUS_FILTER_LABEL_KEYS: Record<StatusFilter, string> = {
   "all-open": "invoiceList.filterOpen",
@@ -36,7 +48,12 @@ const STATUS_FILTER_LABEL_KEYS: Record<StatusFilter, string> = {
   past_due: "invoiceList.filterPastDue",
 };
 
-/** Map config filter value to the InvoiceStatus enum values it matches */
+const SORT_OPTIONS: { value: SortField; labelKey: string; fallback: string }[] = [
+  { value: "due", labelKey: "invoiceList.sortByDue", fallback: "Due Date" },
+  { value: "amount", labelKey: "invoiceList.sortByAmount", fallback: "Amount" },
+  { value: "client", labelKey: "invoiceList.sortByClient", fallback: "Client" },
+];
+
 function matchesFilter(invoice: Invoice, filter: StatusFilter): boolean {
   if (filter === "all-open") {
     return (
@@ -54,48 +71,7 @@ function matchesFilter(invoice: Invoice, filter: StatusFilter): boolean {
   return invoice.status === map[filter];
 }
 
-function statusBadgeClasses(status: InvoiceStatus): string {
-  switch (status) {
-    case InvoiceStatus.Draft:
-      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
-    case InvoiceStatus.Sent:
-    case InvoiceStatus.AwaitingPayment:
-      return "text-ops-accent bg-ops-accent/15 border-ops-accent/30";
-    case InvoiceStatus.PastDue:
-      return "text-ops-error bg-ops-error/15 border-ops-error/30";
-    case InvoiceStatus.PartiallyPaid:
-      return "text-ops-amber bg-ops-amber/15 border-ops-amber/30";
-    case InvoiceStatus.Paid:
-      return "text-status-success bg-status-success/15 border-status-success/30";
-    default:
-      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
-  }
-}
-
-function statusLabel(status: InvoiceStatus, t: (key: string) => string): string {
-  switch (status) {
-    case InvoiceStatus.Draft:
-      return t("invoiceList.statusDraft");
-    case InvoiceStatus.Sent:
-      return t("invoiceList.statusSent");
-    case InvoiceStatus.AwaitingPayment:
-      return t("invoiceList.statusAwaiting");
-    case InvoiceStatus.PartiallyPaid:
-      return t("invoiceList.statusPartial");
-    case InvoiceStatus.PastDue:
-      return t("invoiceList.statusPastDue");
-    case InvoiceStatus.Paid:
-      return t("invoiceList.statusPaid");
-    case InvoiceStatus.Void:
-      return t("invoiceList.statusVoid");
-    case InvoiceStatus.WrittenOff:
-      return t("invoiceList.statusWrittenOff");
-    default:
-      return status;
-  }
-}
-
-function formatCurrency(amount: number, locale: Locale): string {
+function formatCurrencyLocale(amount: number, locale: Locale): string {
   return amount.toLocaleString(getDateLocale(locale), {
     style: "currency",
     currency: "USD",
@@ -109,6 +85,21 @@ function formatDate(date: Date | string, locale: Locale): string {
   return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
 }
 
+function sortInvoices(invoices: Invoice[], field: SortField): Invoice[] {
+  return [...invoices].sort((a, b) => {
+    switch (field) {
+      case "due":
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      case "amount":
+        return b.balanceDue - a.balanceDue;
+      case "client":
+        return (a.client?.name ?? "").localeCompare(b.client?.name ?? "");
+      default:
+        return 0;
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -117,19 +108,34 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
   const filter = (config.statusFilter as StatusFilter) ?? "all-open";
-  const { data: invoices, isLoading } = useInvoices();
+  const { data: rawInvoices, isLoading } = useInvoices();
+  const clientMap = useClientMap();
+  const [sortField, setSortField] = useState<SortField>("due");
+  const [listExpanded, setListExpanded] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+  const reducedMotion = useReducedMotion();
 
   const filtered = useMemo(() => {
-    if (!invoices) return [];
-    return invoices.filter((inv) => matchesFilter(inv, filter));
-  }, [invoices, filter]);
+    if (!rawInvoices) return [];
+    const mapped = rawInvoices
+      .filter((inv) => matchesFilter(inv, filter))
+      .map((inv) => {
+        if (inv.client?.name) return inv;
+        const c = clientMap.get(inv.clientId);
+        return c ? { ...inv, client: c as Invoice["client"] } : inv;
+      });
+    return sortInvoices(mapped, sortField);
+  }, [rawInvoices, filter, clientMap, sortField]);
 
   const totalAmount = useMemo(
     () => filtered.reduce((sum, inv) => sum + inv.balanceDue, 0),
     [filtered]
   );
 
-  const maxItems = size === "lg" ? 7 : size === "md" ? 3 : 0;
+  const defaultMaxItems = size === "lg" ? 7 : size === "md" ? 3 : 0;
+  const maxItems = listExpanded ? filtered.length : defaultMaxItems;
+  const remaining = filtered.length - defaultMaxItems;
 
   // ── SM: Hero + title + total amount ─────────────────────────────────────
   if (size === "sm") {
@@ -144,7 +150,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
           </span>
           {!isLoading && (
             <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
-              {formatCurrency(totalAmount, locale)}
+              {formatCurrencyLocale(totalAmount, locale)}
             </span>
           )}
         </div>
@@ -152,17 +158,45 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
     );
   }
 
-  // ── MD / LG: List with send button ──────────────────────────────────────
+  // ── MD / LG: List with sort + WidgetLineItem + WidgetStatusBadge ──────
   return (
-    <Card className="h-full p-0">
+    <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
-            {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrency(totalAmount, locale)}`}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-micro text-text-tertiary">
+              {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrencyLocale(totalAmount, locale)}`}
+            </span>
+            {/* Sort dropdown */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+                  <ArrowUpDown className="w-[14px] h-[14px] text-text-disabled" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-1 min-w-[100px]">
+                <div className="flex flex-col">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSortField(opt.value)}
+                      className={cn(
+                        "font-kosugi text-micro-sm uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                        sortField === opt.value
+                          ? "text-ops-accent bg-ops-accent/15"
+                          : "text-text-tertiary hover:text-text-secondary"
+                      )}
+                    >
+                      {t(opt.labelKey) ?? opt.fallback}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
         <ScrollFade>
           {isLoading ? (
@@ -177,14 +211,22 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
               {t("invoiceList.noInvoicesPrefix")} {t(STATUS_FILTER_LABEL_KEYS[filter]).toLowerCase()} {t("invoiceList.invoicesLower")}
             </p>
           ) : (
-            <div className="space-y-[6px]">
-              {filtered.slice(0, maxItems).map((invoice) => (
-                <InvoiceRow key={invoice.id} invoice={invoice} />
+            <div className="space-y-[2px]">
+              {filtered.slice(0, maxItems).map((invoice, i) => (
+                <InvoiceRow
+                  key={invoice.id}
+                  invoice={invoice}
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
+                />
               ))}
-              {filtered.length > maxItems && (
-                <span className="font-mono text-[11px] text-text-disabled block px-1">
-                  +{filtered.length - maxItems} {t("invoiceList.more")}
-                </span>
+              {remaining > 0 && (
+                <WidgetMoreButton
+                  remaining={remaining}
+                  expanded={listExpanded}
+                  onToggle={() => setListExpanded(!listExpanded)}
+                />
               )}
             </div>
           )}
@@ -195,10 +237,21 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Invoice row with one-click send
+// Invoice row — uses WidgetLineItem + WidgetStatusBadge
+// For PartiallyPaid: shows % paid instead of status text
 // ---------------------------------------------------------------------------
 
-function InvoiceRow({ invoice }: { invoice: Invoice }) {
+function InvoiceRow({
+  invoice,
+  index,
+  isVisible,
+  reducedMotion,
+}: {
+  invoice: Invoice;
+  index?: number;
+  isVisible?: boolean;
+  reducedMotion?: boolean | null;
+}) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
   const sendInvoice = useSendInvoice();
@@ -225,58 +278,62 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
   const clientName = invoice.client?.name ?? t("invoiceList.unknownClient");
   const dueDisplay = formatDate(invoice.dueDate, locale);
   const isDraft = invoice.status === InvoiceStatus.Draft;
+  const isPartial = invoice.status === InvoiceStatus.PartiallyPaid;
+
+  // Compute % paid for partial invoices
+  const pctPaid = isPartial && invoice.total > 0
+    ? Math.round((invoice.amountPaid / invoice.total) * 100)
+    : null;
+
+  // Build the badge/metric slot
+  const badgeSlot = isPartial && pctPaid !== null ? (
+    <span className="font-mono text-micro-sm px-1.5 py-[1px] rounded-sm uppercase tracking-wider border shrink-0 whitespace-nowrap text-financial-receivables bg-financial-receivables/15 border-financial-receivables/30">
+      {pctPaid}% {t("invoiceList.pctPaid") ?? "paid"}
+    </span>
+  ) : (
+    <WidgetStatusBadge status={invoice.status} entity="invoice" />
+  );
+
+  // Build the action slot for draft send button
+  const actionSlot = isDraft ? (
+    <button
+      onClick={handleSend}
+      disabled={sendState !== "idle"}
+      className={cn(
+        "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
+        "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
+        sendState === "sent" && "text-status-success"
+      )}
+      title={t("invoiceList.sendInvoice")}
+    >
+      {sendState === "sending" ? (
+        <Loader2 className="w-[12px] h-[12px] animate-spin" />
+      ) : sendState === "sent" ? (
+        <Check className="w-[12px] h-[12px]" />
+      ) : (
+        <>
+          <Send className="w-[12px] h-[12px]" />
+          <span className="font-mohave text-[12px]">{t("invoiceList.send")}</span>
+        </>
+      )}
+    </button>
+  ) : undefined;
 
   return (
-    <div className="flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group">
-      {/* Client name */}
-      <div className="flex-1 min-w-0">
-        <p className="font-mohave text-body-sm text-text-primary truncate">
-          {clientName}
-        </p>
-        <span className="font-mono text-[11px] text-text-tertiary">
-          {t("invoiceList.due")} {dueDisplay}
-        </span>
-      </div>
-
-      {/* Amount */}
-      <span className="font-mono text-[11px] text-text-secondary shrink-0">
-        {formatCurrency(invoice.balanceDue, locale)}
-      </span>
-
-      {/* Status badge */}
-      <span
-        className={cn(
-          "font-mohave text-[10px] px-1 py-[1px] rounded-sm uppercase tracking-wider shrink-0 border",
-          statusBadgeClasses(invoice.status)
-        )}
-      >
-        {statusLabel(invoice.status, t)}
-      </span>
-
-      {/* One-click Send (draft only) */}
-      {isDraft && (
-        <button
-          onClick={handleSend}
-          disabled={sendState !== "idle"}
-          className={cn(
-            "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-            "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
-            sendState === "sent" && "text-status-success"
-          )}
-          title={t("invoiceList.sendInvoice")}
-        >
-          {sendState === "sending" ? (
-            <Loader2 className="w-[12px] h-[12px] animate-spin" />
-          ) : sendState === "sent" ? (
-            <Check className="w-[12px] h-[12px]" />
-          ) : (
-            <>
-              <Send className="w-[12px] h-[12px]" />
-              <span className="font-mohave text-[12px]">{t("invoiceList.send")}</span>
-            </>
-          )}
-        </button>
-      )}
-    </div>
+    <WidgetLineItem
+      primary={clientName}
+      secondary={`${t("invoiceList.due")} ${dueDisplay}`}
+      metric={formatCurrencyLocale(invoice.balanceDue, locale)}
+      badge={undefined}
+      action={
+        <div className="flex items-center gap-1">
+          {badgeSlot}
+          {actionSlot}
+        </div>
+      }
+      index={index}
+      isVisible={isVisible}
+      reducedMotion={reducedMotion}
+    />
   );
 }

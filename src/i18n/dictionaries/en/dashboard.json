@@ -329,6 +329,10 @@
   "pipelineList.send": "Send",
   "pipelineList.mergeHint": "Use {{client_name}}, {{project_title}}",
   "pipelineList.sentInError": "Follow-up sent in error (undone from dashboard)",
+  "pipelineList.followUpUndoSubject": "Follow-up undo",
+  "pipelineList.followUpSubjectPrefix": "Follow up",
+  "pipelineList.defaultProjectTitle": "Your project",
+  "pipelineList.sendFailed": "Failed to send follow-up",
 
   "taskList.title": "Task List",
   "taskList.nextTask": "Next Task",
@@ -747,6 +751,7 @@
   "leadSources.more": "more",
   "leadSources.trend": "Trend",
   "leadSources.other": "Other",
+  "leadSources.total": "total",
 
   "widgets.more": "more",
   "widgets.showLess": "Show less",
