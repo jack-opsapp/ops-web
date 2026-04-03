@@ -816,5 +816,24 @@
   "activity.by": "By",
   "activity.todayCount": "today",
   "activity.activeUsers": "users",
-  "activity.mostActive": "most active"
+  "activity.mostActive": "most active",
+
+  "widgetStatus.invoice.draft": "Draft",
+  "widgetStatus.invoice.sent": "Sent",
+  "widgetStatus.invoice.awaiting_payment": "Awaiting",
+  "widgetStatus.invoice.partially_paid": "Partial",
+  "widgetStatus.invoice.past_due": "Past Due",
+  "widgetStatus.invoice.paid": "Paid",
+  "widgetStatus.invoice.void": "Void",
+  "widgetStatus.invoice.written_off": "Written Off",
+
+  "widgetStatus.estimate.draft": "Draft",
+  "widgetStatus.estimate.sent": "Sent",
+  "widgetStatus.estimate.viewed": "Viewed",
+  "widgetStatus.estimate.approved": "Approved",
+  "widgetStatus.estimate.changes_requested": "Changes",
+  "widgetStatus.estimate.declined": "Declined",
+  "widgetStatus.estimate.converted": "Converted",
+  "widgetStatus.estimate.expired": "Expired",
+  "widgetStatus.estimate.superseded": "Superseded"
 }

@@ -297,9 +297,15 @@ function InvoiceRow({
     ? Math.round((invoice.amountPaid / invoice.total) * 100)
     : null;
 
-  // Partial-paid: custom metric badge (same sizing as WidgetStatusBadge)
+  // Partial-paid: dynamic color badge — red for low %, green for high %
+  const pctColor = pctPaid !== null
+    ? pctPaid >= 75 ? "text-status-success bg-status-success/15 border-status-success/30"
+    : pctPaid >= 40 ? "text-ops-amber bg-ops-amber/15 border-ops-amber/30"
+    : "text-ops-error bg-ops-error/15 border-ops-error/30"
+    : "";
+
   const metricSlot = isPartial && pctPaid !== null ? (
-    <span className="font-mono text-micro-sm px-1.5 py-[1px] rounded-sm uppercase tracking-wider border shrink-0 whitespace-nowrap text-financial-receivables bg-financial-receivables/15 border-financial-receivables/30">
+    <span className={cn("font-mono text-micro-sm px-1.5 py-[1px] rounded-sm uppercase tracking-wider border shrink-0 whitespace-nowrap", pctColor)}>
       {pctPaid}% {t("invoiceList.pctPaid") ?? "paid"}
     </span>
   ) : (
