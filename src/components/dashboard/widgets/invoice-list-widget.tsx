@@ -305,7 +305,7 @@ function InvoiceRow({
     : "";
 
   const metricSlot = isPartial && pctPaid !== null ? (
-    <span className={cn("font-mono text-micro-sm px-1.5 py-[1px] rounded-sm uppercase tracking-wider border shrink-0 whitespace-nowrap", pctColor)}>
+    <span className={cn("font-mono text-micro-xs px-1 py-[1px] rounded-sm uppercase tracking-wide border shrink-0 whitespace-nowrap", pctColor)}>
       {pctPaid}% {t("invoiceList.pctPaid") ?? "paid"}
     </span>
   ) : (

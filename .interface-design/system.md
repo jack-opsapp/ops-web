@@ -290,8 +290,8 @@ When a row has BOTH navigation AND inline actions, structurally separate them:
 
 ## Status Badges (WidgetStatusBadge)
 
-- Font: `font-mono text-micro-sm uppercase tracking-wider`
-- Padding: `px-1.5 py-[1px]`
+- Font: `font-mono text-micro-xs uppercase tracking-wide`
+- Padding: `px-1 py-[1px]`
 - Radius: `rounded-sm`
 - Border: `border`
 - Color pattern: `text-{color} bg-{color}/15 border-{color}/30`

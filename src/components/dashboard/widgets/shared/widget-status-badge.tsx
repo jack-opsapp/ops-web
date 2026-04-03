@@ -22,7 +22,7 @@ export function WidgetStatusBadge({
   return (
     <span
       className={cn(
-        "font-mono text-micro-sm px-1.5 py-[1px] rounded-sm uppercase tracking-wider border shrink-0 whitespace-nowrap",
+        "font-mono text-micro-xs px-1 py-[1px] rounded-sm uppercase tracking-wide border shrink-0 whitespace-nowrap",
         colors.text,
         colors.bg,
         colors.border,
