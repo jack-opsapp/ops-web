@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { WidgetCardFlip } from "./widgets/shared/widget-card-flip";
 import type { WidgetSize, WidgetTypeId } from "@/lib/types/dashboard-widgets";
 import { WIDGET_TYPE_REGISTRY, WIDGET_SIZE_LABELS } from "@/lib/types/dashboard-widgets";
 import {
@@ -75,6 +76,7 @@ export function WidgetShell({
 
   const entry = WIDGET_TYPE_REGISTRY[typeId];
   const isSpacer = typeId === "spacer";
+  const [isFlipped, setIsFlipped] = useState(false);
   const hasMultipleSizes = !isSpacer && entry && entry.supportedSizes.length > 1;
 
   // Spacer uses custom grid spans from config instead of preset size classes
@@ -143,10 +145,33 @@ export function WidgetShell({
           }}
         />
       )}
-      {/* Wrap children so widget content is non-interactive during edit mode */}
+      {/* Widget content — wrapped in card flip for info reveal */}
       <div className={cn("h-full relative", isCustomizing && "pointer-events-none")}>
-        {children}
+        {isSpacer ? (
+          children
+        ) : (
+          <WidgetCardFlip
+            front={<div className="h-full">{children}</div>}
+            backContent={{
+              title: entry?.label ?? typeId,
+              description: entry?.description ?? "",
+              dataSource: entry?.dataSource ?? "",
+            }}
+            isFlipped={isFlipped}
+            onFlip={() => setIsFlipped((f) => !f)}
+          />
+        )}
       </div>
+
+      {/* Info button — click to flip card (hidden during edit mode + on spacers) */}
+      {!isSpacer && !isCustomizing && !isFlipped && (
+        <button
+          onClick={() => setIsFlipped(true)}
+          className="absolute top-[6px] left-[6px] z-10 w-[18px] h-[18px] flex items-center justify-center rounded-sm opacity-0 group-hover/widget:opacity-100 transition-opacity text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)]"
+        >
+          <Info className="w-[12px] h-[12px]" />
+        </button>
+      )}
 
       {/* Dark overlay during edit mode */}
       <AnimatePresence>

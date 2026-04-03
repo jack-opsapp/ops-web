@@ -83,6 +83,8 @@ export interface WidgetConfigField {
 export interface WidgetTypeEntry {
   label: string;
   description: string;
+  /** What data feeds this widget — shown on card flip info */
+  dataSource: string;
   category: WidgetCategory;
   tags: WidgetTag[];
   icon: string;
@@ -158,6 +160,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   spacer: {
     label: "Spacer",
     description: "Empty space between widgets",
+    dataSource: "",
     category: "layout",
     tags: [],
     icon: "Maximize2",
@@ -171,6 +174,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "revenue-pulse": {
     label: "Revenue",
     description: "Monthly revenue collected with trend",
+    dataSource: "Invoices marked Paid — amountPaid by paidAt date",
     category: "money",
     tags: ["essential", "finance"],
     icon: "DollarSign",
@@ -195,6 +199,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "receivables-aging": {
     label: "Receivables",
     description: "Outstanding invoices by aging bucket",
+    dataSource: "Unpaid invoices — balanceDue grouped by days past dueDate",
     category: "money",
     tags: ["essential", "finance"],
     icon: "Clock",
@@ -207,6 +212,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "profit-gauge": {
     label: "Profit",
     description: "Gross margin — revenue vs expenses",
+    dataSource: "Paid invoices (revenue) vs approved expenses",
     category: "money",
     tags: ["finance"],
     icon: "TrendingUp",
@@ -231,6 +237,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "expense-tracker": {
     label: "Expenses",
     description: "Expense breakdown by category",
+    dataSource: "Approved expense line items grouped by category",
     category: "money",
     tags: ["finance"],
     icon: "Receipt",
@@ -255,6 +262,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "cash-position": {
     label: "Cash Flow",
     description: "Net cash flow — collected vs spent",
+    dataSource: "Paid invoice amounts vs approved expenses in period",
     category: "money",
     tags: ["finance"],
     icon: "ArrowUpDown",
@@ -278,6 +286,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "invoice-list": {
     label: "Invoice List",
     description: "Invoices with one-click send",
+    dataSource: "All invoices — filtered by status",
     category: "money",
     tags: ["finance"],
     icon: "FileText",
@@ -304,6 +313,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "payments-recent": {
     label: "Recent Payments",
     description: "Recently received payments",
+    dataSource: "Payment records linked to invoices",
     category: "money",
     tags: ["finance"],
     icon: "CreditCard",
@@ -318,6 +328,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "pipeline-funnel": {
     label: "Pipeline",
     description: "Project pipeline by stage",
+    dataSource: "Active projects grouped by status (RFQ through In Progress)",
     category: "pipeline",
     tags: ["essential", "pipeline"],
     icon: "Filter",
@@ -330,6 +341,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "win-rate": {
     label: "Win Rate",
     description: "Estimate conversion rate",
+    dataSource: "Estimates — approved vs declined ratio",
     category: "pipeline",
     tags: ["pipeline", "estimates"],
     icon: "Target",
@@ -354,6 +366,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "backlog-depth": {
     label: "Backlog",
     description: "Weeks of signed work ahead",
+    dataSource: "Accepted + In Progress projects — sum of durations",
     category: "pipeline",
     tags: ["essential", "pipeline"],
     icon: "Layers",
@@ -366,6 +379,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "booking-rate": {
     label: "Bookings",
     description: "New projects per month",
+    dataSource: "Projects created per month (excludes RFQ and Estimated)",
     category: "pipeline",
     tags: ["pipeline"],
     icon: "CalendarPlus",
@@ -378,6 +392,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "estimates-overview": {
     label: "Estimates Overview",
     description: "Estimates list with one-click send",
+    dataSource: "All estimates — filtered by status",
     category: "pipeline",
     tags: ["estimates", "office"],
     icon: "Calculator",
@@ -407,6 +422,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "task-pulse": {
     label: "Tasks",
     description: "Task status overview with urgency",
+    dataSource: "Active tasks — categorized by start date vs today",
     category: "operations",
     tags: ["essential", "scheduling"],
     icon: "CheckSquare",
@@ -419,6 +435,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "todays-schedule": {
     label: "Schedule",
     description: "Today's timeline",
+    dataSource: "Tasks scheduled for today and tomorrow",
     category: "operations",
     tags: ["essential", "scheduling"],
     icon: "Calendar",
@@ -442,6 +459,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "task-list": {
     label: "Task List",
     description: "Tasks with one-click complete",
+    dataSource: "Tasks assigned to current user for today",
     category: "operations",
     tags: ["essential", "scheduling"],
     icon: "ListTodo",
@@ -467,6 +485,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "crew-board": {
     label: "Crew",
     description: "Team status and workload",
+    dataSource: "Team members — active tasks and today assignments",
     category: "operations",
     tags: ["essential", "field-ops"],
     icon: "Users",
@@ -481,6 +500,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "top-clients": {
     label: "Top Clients",
     description: "Clients ranked by revenue",
+    dataSource: "Clients — paid invoice totals and project counts",
     category: "clients",
     tags: ["clients"],
     icon: "Award",
@@ -515,6 +535,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "client-attention": {
     label: "Clients Needing Attention",
     description: "Clients with overdue items",
+    dataSource: "Clients with unassigned tasks, unscheduled work, stale quotes, or overdue invoices",
     category: "clients",
     tags: ["clients", "office"],
     icon: "AlertCircle",
@@ -527,6 +548,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "client-list": {
     label: "Client Directory",
     description: "Client list with search",
+    dataSource: "All clients — revenue from paid invoices, outstanding balances",
     category: "clients",
     tags: ["clients", "office"],
     icon: "Contact",
@@ -553,6 +575,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "action-required": {
     label: "Action Required",
     description: "Unified priority alerts",
+    dataSource: "Overdue tasks, past-due invoices, expiring estimates, stale follow-ups",
     category: "alerts",
     tags: ["essential"],
     icon: "AlertCircle",
@@ -565,6 +588,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "activity-feed": {
     label: "Activity Feed",
     description: "Recent activity across entities",
+    dataSource: "Activity timeline — notes, emails, calls, stage changes",
     category: "alerts",
     tags: ["office"],
     icon: "Activity",
@@ -589,6 +613,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   notifications: {
     label: "Notifications",
     description: "System event notifications",
+    dataSource: "Notification records for current user",
     category: "alerts",
     tags: ["essential"],
     icon: "Bell",
@@ -614,6 +639,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "pipeline-list": {
     label: "Pipeline List",
     description: "Opportunities list by stage",
+    dataSource: "Pipeline opportunities — filtered by active stage",
     category: "pipeline",
     tags: ["pipeline"],
     icon: "List",
@@ -641,6 +667,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
   "lead-sources": {
     label: "Lead Sources",
     description: "Lead source distribution",
+    dataSource: "Opportunities grouped by source field",
     category: "pipeline",
     tags: ["pipeline"],
     icon: "Radio",
