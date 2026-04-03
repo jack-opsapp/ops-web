@@ -10,10 +10,7 @@ interface SidebarNavItemProps {
 
 export function SidebarNavItem({ href, label }: SidebarNavItemProps) {
   const pathname = usePathname();
-  const isActive =
-    pathname === href ||
-    (href !== "/admin" && href !== "/admin/shop" && pathname.startsWith(href)) ||
-    (href === "/admin/shop" && (pathname === "/admin/shop" || pathname.startsWith("/admin/shop/products")));
+  const isActive = pathname === href || (href !== "/admin" && pathname.startsWith(href));
 
   return (
     <Link

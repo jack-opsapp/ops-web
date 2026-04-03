@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Plus, Archive, Star, StarOff, Eye } from "lucide-react";
 import { StockBadge } from "./stock-badge";
-import { Toggle } from "./toggle";
+import { Switch } from "@/components/ui/switch";
 import { formatCents } from "./format-cents";
 import type { ShopProductListItem } from "@/lib/admin/shop-types";
 
@@ -250,7 +250,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                   <StockBadge available={available} total={p.totalStock} />
                 </td>
                 <td className="px-4 py-3">
-                  <Toggle checked={p.isFeatured} onChange={() => toggleFeatured(p.id, p.isFeatured)} />
+                  <Switch checked={p.isFeatured} onCheckedChange={() => toggleFeatured(p.id, p.isFeatured)} />
                 </td>
                 <td className="px-4 py-3">
                   {p.archivedAt ? (

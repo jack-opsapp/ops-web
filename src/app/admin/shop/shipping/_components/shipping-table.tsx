@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
-import { Toggle } from "../../_components/toggle";
+import { Switch } from "@/components/ui/switch";
 import { centsToDecimal } from "../../_components/format-cents";
 import type { ShopShippingMethod } from "@/lib/admin/shop-types";
 
@@ -156,7 +156,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
                 />
               </td>
               <td className="px-4 py-3">
-                <Toggle checked={m.isActive} onChange={() => toggleActive(m.id, m.isActive)} />
+                <Switch checked={m.isActive} onCheckedChange={() => toggleActive(m.id, m.isActive)} />
               </td>
               <td className="px-4 py-3">
                 <button
@@ -251,4 +251,5 @@ export function ShippingTable({ methods }: ShippingTableProps) {
       )}
     </div>
   );
+}
 }

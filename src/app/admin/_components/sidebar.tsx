@@ -1,4 +1,5 @@
 import { SidebarNavItem } from "./sidebar-nav-item";
+import { SidebarNavGroup } from "./sidebar-nav-group";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "OVERVIEW" },
@@ -19,11 +20,13 @@ const NAV_ITEMS = [
   { href: "/admin/system", label: "SYSTEM" },
   { href: "/admin/feature-releases", label: "FEATURE RELEASES" },
   { href: "/admin/learn", label: "OPS LEARN" },
-  // ── Shop ───────────────────────────────
-  { href: "/admin/shop", label: "SHOP: PRODUCTS" },
-  { href: "/admin/shop/orders", label: "SHOP: ORDERS" },
-  { href: "/admin/shop/shipping", label: "SHOP: SHIPPING" },
-  { href: "/admin/shop/categories", label: "SHOP: CATEGORIES" },
+];
+
+const SHOP_ITEMS = [
+  { href: "/admin/shop", label: "PRODUCTS" },
+  { href: "/admin/shop/orders", label: "ORDERS" },
+  { href: "/admin/shop/shipping", label: "SHIPPING" },
+  { href: "/admin/shop/categories", label: "CATEGORIES" },
 ];
 
 export function AdminSidebar() {
@@ -38,6 +41,7 @@ export function AdminSidebar() {
         {NAV_ITEMS.map((item) => (
           <SidebarNavItem key={item.href} href={item.href} label={item.label} />
         ))}
+        <SidebarNavGroup label="SHOP" prefix="/admin/shop" items={SHOP_ITEMS} />
       </nav>
     </aside>
   );

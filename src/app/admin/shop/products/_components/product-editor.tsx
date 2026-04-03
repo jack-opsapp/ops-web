@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ImageUploader } from "./image-uploader";
 import { OptionManager, type EditorOption } from "./option-manager";
 import { VariantMatrix, type EditorVariant } from "./variant-matrix";
-import { Toggle } from "../../_components/toggle";
+import { Switch } from "@/components/ui/switch";
 import { centsToDecimal } from "../../_components/format-cents";
 import type {
   ShopProduct,
@@ -288,8 +288,14 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           </div>
 
           <div className="flex items-center gap-6">
-            <Toggle checked={isFeatured} onChange={setIsFeatured} label="Featured" />
-            <Toggle checked={isActive} onChange={setIsActive} label="Active" />
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch checked={isFeatured} onCheckedChange={setIsFeatured} />
+              <span className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">Featured</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch checked={isActive} onCheckedChange={setIsActive} />
+              <span className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">Active</span>
+            </label>
           </div>
         </div>
 
@@ -312,4 +318,5 @@ export function ProductEditor({ product, categories, options: initialOptions, va
       </div>
     </div>
   );
+}
 }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { EditorOption } from "./option-manager";
-import { Toggle } from "../../_components/toggle";
+import { Switch } from "@/components/ui/switch";
 import { centsToDecimal } from "../../_components/format-cents";
 
 export interface EditorVariant {
@@ -192,7 +192,7 @@ export function VariantMatrix({
                     {available}
                   </td>
                   <td className="px-3 py-2">
-                    <Toggle checked={v.isActive} onChange={(val) => updateVariant(i, "isActive", val)} />
+                    <Switch checked={v.isActive} onCheckedChange={(val) => updateVariant(i, "isActive", val)} />
                   </td>
                 </tr>
               );
@@ -252,4 +252,5 @@ function BulkSetButton({
       {label}
     </button>
   );
+}
 }
