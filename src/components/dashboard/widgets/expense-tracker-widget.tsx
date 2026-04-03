@@ -421,12 +421,32 @@ export function ExpenseTrackerWidget({
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <span className="font-mono text-micro text-text-primary w-[50px] text-right">
-                      {formatCompactCurrency(cat.amount)}
+                    <span
+                      className="font-mono text-micro w-[50px] text-right"
+                      style={{
+                        color: hoveredMemberId
+                          ? (memberContribution > 0 ? undefined : "var(--color-text-disabled)")
+                          : undefined,
+                        transition: reducedMotion ? "none" : "color 200ms ease",
+                      }}
+                    >
+                      {hoveredMemberId
+                        ? formatCompactCurrency(memberContribution)
+                        : formatCompactCurrency(cat.amount)}
                     </span>
                     {showActions(size) && (
-                      <span className="font-mono text-micro-sm text-text-disabled w-[32px] text-right">
-                        {Math.round(cat.pct)}%
+                      <span
+                        className="font-mono text-micro-sm w-[32px] text-right"
+                        style={{
+                          color: hoveredMemberId
+                            ? (memberContribution > 0 ? "var(--color-text-secondary)" : "var(--color-text-disabled)")
+                            : "var(--color-text-disabled)",
+                          transition: reducedMotion ? "none" : "color 200ms ease",
+                        }}
+                      >
+                        {hoveredMemberId
+                          ? (categoryData.total > 0 ? `${Math.round((memberContribution / categoryData.total) * 100)}%` : "0%")
+                          : `${Math.round(cat.pct)}%`}
                       </span>
                     )}
                   </div>
@@ -450,6 +470,12 @@ export function ExpenseTrackerWidget({
                 return (
                   <div
                     key={i}
+                    className="rounded-sm transition-colors"
+                    style={{
+                      backgroundColor: hoveredMemberId === memberId ? "rgba(255,255,255,0.06)" : "transparent",
+                      borderLeft: hoveredMemberId === memberId ? `2px solid ${WT.accent}` : "2px solid transparent",
+                      transition: reducedMotion ? "none" : "background-color 200ms ease, border-color 200ms ease",
+                    }}
                     onMouseEnter={() => setHoveredMemberId(memberId)}
                     onMouseLeave={() => setHoveredMemberId(null)}
                   >
