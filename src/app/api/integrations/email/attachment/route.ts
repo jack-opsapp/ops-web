@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     const buffer = await provider.fetchAttachment(messageId, attachmentId);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": mimeType,

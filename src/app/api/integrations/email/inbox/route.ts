@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
       ]);
 
       // Group attachments by messageId for easy lookup
-      const attachmentsByMsg = new Map<string, typeof imageAttachments>();
+      const attachmentsByMsg = new Map<string, (typeof imageAttachments)[number][]>();
       for (const att of imageAttachments) {
         if (!attachmentsByMsg.has(att.messageId)) attachmentsByMsg.set(att.messageId, []);
         attachmentsByMsg.get(att.messageId)!.push(att);

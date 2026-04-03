@@ -363,6 +363,21 @@ export function LeadSourcesWidget({
     return labels;
   }, [numTrendMonths]);
 
+  const handleChartHover = useCallback(
+    (x: number, monthIndex: number, mouseX: number, mouseY: number) => {
+      const parentRect = ref.current?.getBoundingClientRect();
+      if (!parentRect) return;
+      setCrosshair({
+        visible: true,
+        x,
+        viewportX: mouseX - parentRect.left,
+        viewportY: mouseY - parentRect.top,
+        monthIndex,
+      });
+    },
+    []
+  );
+
   // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -631,21 +646,6 @@ export function LeadSourcesWidget({
     { value: "90d", label: t("leadSources.period90d") ?? "90D" },
     { value: "ytd", label: t("leadSources.periodYtd") ?? "YTD" },
   ];
-
-  const handleChartHover = useCallback(
-    (x: number, monthIndex: number, mouseX: number, mouseY: number) => {
-      const parentRect = ref.current?.getBoundingClientRect();
-      if (!parentRect) return;
-      setCrosshair({
-        visible: true,
-        x,
-        viewportX: mouseX - parentRect.left,
-        viewportY: mouseY - parentRect.top,
-        monthIndex,
-      });
-    },
-    []
-  );
 
   return (
     <Card className="h-full p-0" ref={ref}>

@@ -35,11 +35,6 @@ export function ThreadSelector({
   const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Don't render for 0-1 threads
-  if (threads.length <= 1) return null;
-
-  const selectedThread = threads.find((t) => t.threadId === selectedThreadId);
-
   // ─── Overflow detection ────────────────────────────────────────────────
 
   const checkOverflow = useCallback(() => {
@@ -70,6 +65,11 @@ export function ThreadSelector({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [dropdownOpen]);
+
+  // Don't render for 0-1 threads
+  if (threads.length <= 1) return null;
+
+  const selectedThread = threads.find((t) => t.threadId === selectedThreadId);
 
   // ─── Truncate subject ──────────────────────────────────────────────────
 
