@@ -394,7 +394,7 @@ export function ExpenseTrackerWidget({
                   <span className="font-mohave text-micro text-text-secondary w-[80px] shrink-0 truncate">
                     {cat.name}
                   </span>
-                  <div className="flex-1 h-full rounded-sm overflow-hidden relative" style={{ backgroundColor: WT.faint }}>
+                  <div className="flex-1 h-[10px] rounded-sm overflow-hidden relative" style={{ backgroundColor: WT.faint }}>
                     {/* Full category bar */}
                     <div
                       className="absolute inset-y-0 left-0 rounded-sm"
