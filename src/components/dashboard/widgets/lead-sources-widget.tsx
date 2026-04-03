@@ -410,9 +410,14 @@ export function LeadSourcesWidget({
     }
     if (size === "sm") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+        <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
-            <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">0</span>
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">0</span>
+              <button onClick={() => onNavigate("/pipeline")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+                <ArrowUpRight className="w-[14px] h-[14px]" />
+              </button>
+            </div>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
