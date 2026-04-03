@@ -27,10 +27,10 @@ import { cn } from "@/lib/utils/cn";
 // Pipeline stage definitions (data-driven — no hardcoded widths)
 // ---------------------------------------------------------------------------
 const PIPELINE_STAGES = [
-  { status: ProjectStatus.RFQ, label: "RFQ" },
-  { status: ProjectStatus.Estimated, label: "Estimated" },
-  { status: ProjectStatus.Accepted, label: "Accepted" },
-  { status: ProjectStatus.InProgress, label: "In Progress" },
+  { status: ProjectStatus.RFQ, i18nKey: "stat.statusRfq" },
+  { status: ProjectStatus.Estimated, i18nKey: "stat.statusEstimated" },
+  { status: ProjectStatus.Accepted, i18nKey: "stat.statusAccepted" },
+  { status: ProjectStatus.InProgress, i18nKey: "stat.statusInProgress" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -110,20 +110,12 @@ export function PipelineFunnelWidget({
 
   const totalProjects = stages.reduce((sum, s) => sum + s.count, 0);
 
-  // ── Conversion rates (LG only) ────────────────────────────────────────
-  const conversionRates = useMemo(() => {
+  // ── Distribution (LG only — replaces conversion rates) ─────────────────
+  const distribution = useMemo(() => {
     if (!showActions(size)) return [];
-    const rates: { from: string; to: string; rate: number }[] = [];
-    for (let i = 0; i < stages.length - 1; i++) {
-      const fromCount = stages[i].count;
-      const toCount = stages[i + 1].count;
-      rates.push({
-        from: stages[i].label,
-        to: stages[i + 1].label,
-        rate: fromCount > 0 ? Math.round((toCount / fromCount) * 100) : 0,
-      });
-    }
-    return rates;
+    return stages
+      .filter((s) => s.count > 0)
+      .map((s) => ({ label: t(s.i18nKey), count: s.count, pct: s.pct, color: s.color }));
   }, [stages, size]);
 
   // ── Loading ───────────────────────────────────────────────────────────
@@ -176,7 +168,7 @@ export function PipelineFunnelWidget({
       visible: true,
       x: barRect.left - parentRect.left + barRect.width / 2,
       y: barRect.top - parentRect.top,
-      stage: stage.label,
+      stage: t(stage.i18nKey),
       count: stage.count,
       pct: stage.pct,
     });
@@ -248,51 +240,60 @@ export function PipelineFunnelWidget({
     );
   }
 
-  // ── Vertical funnel bars (shared by MD and LG) ────────────────────────
+  // ── Horizontal funnel bars (shared by MD and LG) ───────────────────────
   const nonEmptyStages = stages.filter((s) => s.count > 0);
-  const availableHeight = showActions(size) ? 120 : 160;
+  const funnelBarHeight = showActions(size) ? 24 : 20;
 
-  const renderVerticalFunnel = () => (
-    <div className="flex flex-col gap-[2px]" style={{ minHeight: `${Math.min(availableHeight, nonEmptyStages.length * 28)}px` }}>
+  const renderHorizontalFunnel = () => (
+    <div className="flex flex-col gap-[3px]">
       {stages.map((stage, i) => {
         if (stage.count === 0) return null;
-        const heightPx = totalProjects > 0 ? Math.max((stage.count / totalProjects) * availableHeight, 20) : 20;
-        const isWide = heightPx >= 28;
+        const isWide = stage.widthPct >= 35;
 
         return (
           <div
             key={i}
-            className="relative w-full rounded-sm cursor-pointer"
+            className="flex items-center"
             style={{
-              height: `${heightPx}px`,
-              backgroundColor: stage.color,
               opacity: !isVisible ? 0 : (showActions(size) && activeTab && activeTab !== stage.status) ? 0.4 : 1,
               transitionProperty: "opacity",
               transitionDuration: reducedMotion ? "200ms" : "500ms",
-              transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
               transitionTimingFunction: WIDGET_EASE_CSS,
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (showActions(size)) {
-                setActiveTab((prev) => prev === stage.status ? null : stage.status);
-                setShowAllItems(false);
-              } else {
-                onNavigate("/pipeline");
-              }
-            }}
-            onMouseEnter={(e) => handleBarHover(e, stage)}
-            onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
           >
-            {isWide ? (
-              <div className="absolute inset-0 flex items-center justify-between px-2">
-                <span className="font-mohave text-caption-sm text-text-primary">
-                  {stage.label} · {stage.count}
+            <div
+              className="rounded-sm cursor-pointer relative flex items-center shrink-0"
+              style={{
+                height: `${funnelBarHeight}px`,
+                width: isVisible ? `${stage.widthPct}%` : "0%",
+                minWidth: isVisible && stage.count > 0 ? "8px" : undefined,
+                backgroundColor: stage.color,
+                transitionProperty: "width, min-width",
+                transitionDuration: reducedMotion ? "200ms" : "500ms",
+                transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
+                transitionTimingFunction: WIDGET_EASE_CSS,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (showActions(size)) {
+                  setActiveTab((prev) => prev === stage.status ? null : stage.status);
+                  setShowAllItems(false);
+                } else {
+                  onNavigate("/pipeline");
+                }
+              }}
+              onMouseEnter={(e) => handleBarHover(e, stage)}
+              onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+            >
+              {isWide && (
+                <span className="font-mohave text-caption-sm text-text-primary truncate px-2">
+                  {t(stage.i18nKey)} · {stage.count}
                 </span>
-              </div>
-            ) : (
-              <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center gap-1 ml-2 whitespace-nowrap">
-                <span className="font-mohave text-micro text-text-secondary">{stage.label}</span>
+              )}
+            </div>
+            {!isWide && (
+              <div className="flex items-center gap-1 ml-2 whitespace-nowrap shrink-0">
+                <span className="font-mohave text-micro text-text-secondary">{t(stage.i18nKey)}</span>
                 <span className="font-mono text-micro text-text-primary font-medium">{stage.count}</span>
               </div>
             )}
@@ -308,7 +309,7 @@ export function PipelineFunnelWidget({
     : null;
   const MAX_VISIBLE_ITEMS = 5;
 
-  // ── MD / LG: Vertical funnel + optional tab detail ──────────────────────
+  // ── MD / LG: Horizontal funnel + optional tab detail ─────────────────────
   return (
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
@@ -332,15 +333,15 @@ export function PipelineFunnelWidget({
           {/* Vertical funnel — collapses in LG when tab active */}
           {showActions(size) ? (
             <WidgetHeroCollapse collapsed={!!activeTab} collapsedHeight="60px">
-              {renderVerticalFunnel()}
+              {renderHorizontalFunnel()}
             </WidgetHeroCollapse>
           ) : (
-            renderVerticalFunnel()
+            renderHorizontalFunnel()
           )}
 
           {/* LG: Tab strip */}
           {showActions(size) && (
-            <div className="flex items-center gap-[3px] mt-2 flex-wrap">
+            <div className="flex items-center gap-1 mt-2 flex-wrap">
               {nonEmptyStages.map((stage) => (
                 <button
                   key={stage.status}
@@ -349,13 +350,13 @@ export function PipelineFunnelWidget({
                     setShowAllItems(false);
                   }}
                   className={cn(
-                    "font-kosugi text-micro-sm uppercase tracking-wider px-1.5 py-[1px] rounded-sm transition-colors",
+                    "font-kosugi text-micro-sm uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
                     activeTab === stage.status
-                      ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
-                      : "text-text-tertiary hover:text-text-secondary border border-transparent"
+                      ? "bg-ops-accent/15 text-ops-accent"
+                      : "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)]"
                   )}
                 >
-                  {stage.label}
+                  {t(stage.i18nKey)}
                   <span className="font-mono ml-0.5">{stage.count}</span>
                 </button>
               ))}
@@ -388,19 +389,28 @@ export function PipelineFunnelWidget({
             </div>
           )}
 
-          {/* LG: Conversion rates (shown when no tab active) */}
-          {showActions(size) && !activeTab && conversionRates.length > 0 && (
+          {/* LG: Distribution (shown when no tab active) */}
+          {showActions(size) && !activeTab && distribution.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border-subtle">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-                {t("pipelineFunnel.conversionRate") ?? "Conversion"}
+              <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
+                {t("pipelineFunnel.distribution") ?? "Distribution"}
               </span>
               <div className="flex flex-col gap-1 mt-1">
-                {conversionRates.map((cr, i) => (
+                {distribution.map((d, i) => (
                   <div key={i} className="flex items-center justify-between">
-                    <span className="font-mohave text-caption-sm text-text-secondary">
-                      {cr.from} → {cr.to}
-                    </span>
-                    <span className="font-mono text-micro-sm text-text-primary">{cr.rate}%</span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="w-[6px] h-[6px] rounded-full shrink-0"
+                        style={{ backgroundColor: d.color }}
+                      />
+                      <span className="font-mohave text-caption-sm text-text-secondary">
+                        {d.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-micro-sm text-text-primary font-medium">{d.count}</span>
+                      <span className="font-mono text-micro-sm text-text-disabled">{d.pct}%</span>
+                    </div>
                   </div>
                 ))}
               </div>

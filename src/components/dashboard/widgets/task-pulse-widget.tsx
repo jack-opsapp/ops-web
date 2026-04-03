@@ -360,46 +360,49 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
 
         {/* Overdue task list */}
         {overdueTasks.length > 0 && (
-          <ScrollFade className={expanded ? "mt-1" : "mt-3 pt-2 border-t border-border-subtle"}>
-            <div className="flex flex-col">
-              {visibleOverdue.map(({ task, daysOverdue, isBlocking, projectValue }, i) => {
-                const clientName = task.project?.client?.name;
-                const projectName = task.project?.title;
-                const secondaryParts = [clientName, projectName].filter(Boolean);
-                const metricParts: string[] = [`${daysOverdue}${t("taskPulse.dOverdue") ?? "d overdue"}`];
-                if (projectValue !== undefined) {
-                  metricParts.push(formatCompactCurrency(projectValue));
-                }
+          <>
+            {!expanded && <div className="mt-2 border-t border-border-subtle" />}
+            <ScrollFade className={!expanded ? "pt-1" : undefined}>
+              <div className="flex flex-col">
+                {visibleOverdue.map(({ task, daysOverdue, isBlocking, projectValue }, i) => {
+                  const clientName = task.project?.client?.name;
+                  const projectName = task.project?.title;
+                  const secondaryParts = [clientName, projectName].filter(Boolean);
+                  const metricParts: string[] = [`${daysOverdue}${t("taskPulse.dOverdue") ?? "d overdue"}`];
+                  if (projectValue !== undefined) {
+                    metricParts.push(formatCompactCurrency(projectValue));
+                  }
 
-                return (
-                  <WidgetLineItem
-                    key={task.id}
-                    indicator={{
-                      type: "bar",
-                      color: isBlocking ? WT.error : (task.taskColor || WT.accent),
-                    }}
-                    primary={task.customTitle || task.taskType?.display || "Task"}
-                    secondary={secondaryParts.join(" · ") || undefined}
-                    metric={metricParts.join(" · ")}
-                    onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
-                    index={i}
-                    isVisible={isVisible}
-                    reducedMotion={reducedMotion}
-                  />
-                );
-              })}
-            </div>
-          </ScrollFade>
+                  return (
+                    <WidgetLineItem
+                      key={task.id}
+                      indicator={{
+                        type: "bar",
+                        color: isBlocking ? WT.error : (task.taskColor || WT.accent),
+                      }}
+                      primary={task.customTitle || task.taskType?.display || "Task"}
+                      secondary={secondaryParts.join(" · ") || undefined}
+                      metric={metricParts.join(" · ")}
+                      onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
+                      index={i}
+                      isVisible={isVisible}
+                      reducedMotion={reducedMotion}
+                    />
+                  );
+                })}
+              </div>
+            </ScrollFade>
+          </>
         )}
 
-        {/* More button */}
+        {/* More button — outside scroll area, never overlaps */}
         {remaining > 0 && (
           <WidgetMoreButton
             remaining={remaining}
             expanded={expanded}
             onToggle={() => setExpanded(!expanded)}
             label={t("taskPulse.moreOverdue") ?? "more overdue"}
-            className="mt-1"
+            className="mt-1 shrink-0"
           />
         )}
 

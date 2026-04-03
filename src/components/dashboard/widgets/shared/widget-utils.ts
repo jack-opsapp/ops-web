@@ -12,13 +12,13 @@ export function formatCompactCurrency(amount: number): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
-/** Locale-aware currency: $12,345 — used by invoice/estimate list detail views */
-export function formatLocaleCurrency(amount: number, locale = "en-US"): string {
+/** Locale-aware currency: $12,345 or $12,345.00 — used by invoice/estimate list detail views */
+export function formatLocaleCurrency(amount: number, locale = "en-US", decimals = 0): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(amount);
 }
 

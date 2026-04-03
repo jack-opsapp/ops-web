@@ -13,6 +13,7 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WIDGET_EASE_CSS, WIDGET_COLLAPSE_DURATION } from "./shared/widget-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -23,12 +24,12 @@ import { useDictionary } from "@/i18n/client";
 const GHOST_OPACITY = 0.2;
 const CLIENT_VISIBLE_COUNT = 5;
 
-const PERIOD_OPTIONS = [
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-  { value: "90d", label: "90D" },
-  { value: "ytd", label: "YTD" },
-];
+const PERIOD_KEYS = [
+  { value: "7d", i18nKey: "period.7d" },
+  { value: "30d", i18nKey: "period.30d" },
+  { value: "90d", i18nKey: "period.90d" },
+  { value: "ytd", i18nKey: "period.ytd" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -58,6 +59,7 @@ export function RevenuePulseWidget({
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
   const reducedMotion = useReducedMotion();
 
+  const periodOptions = useMemo(() => PERIOD_KEYS.map((p) => ({ value: p.value, label: t(p.i18nKey) })), [t]);
   const [period, setPeriod] = useState((config.period as string) ?? "ytd");
   const [clientsExpanded, setClientsExpanded] = useState(false);
   const [heroCollapsed, setHeroCollapsed] = useState(false);
@@ -114,7 +116,7 @@ export function RevenuePulseWidget({
       months.push({
         year: d.getFullYear(),
         month: d.getMonth(),
-        label: d.toLocaleString("en", { month: "short" }),
+        label: d.toLocaleString("default", { month: "short" }),
         amount: 0,
         lastYearAmount: 0,
       });
@@ -184,7 +186,12 @@ export function RevenuePulseWidget({
   // ── Scroll handler for LG hero collapse ───────────────────────────────
   const handleListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = (e.target as HTMLElement).scrollTop;
-    setHeroCollapsed(scrollTop > 8);
+    // Hysteresis: collapse at 20px, expand at 10px — prevents rapid toggling
+    setHeroCollapsed((prev) => {
+      if (!prev && scrollTop > 20) return true;
+      if (prev && scrollTop < 10) return false;
+      return prev;
+    });
   }, []);
 
   // ── Bar chart renderer (reused by SM/MD/LG) ──────────────────────────
@@ -223,7 +230,7 @@ export function RevenuePulseWidget({
                     height: `${ghostH}px`,
                     backgroundColor: WT.revenue,
                     opacity: isVisible ? GHOST_OPACITY : 0,
-                    transition: reducedMotion ? "opacity 200ms ease" : `opacity 400ms cubic-bezier(0.22, 1, 0.36, 1) ${500 + 200}ms`,
+                    transition: reducedMotion ? "opacity 200ms ease" : `opacity 400ms ${WIDGET_EASE_CSS} ${500 + 200}ms`,
                   }}
                 />
               )}
@@ -236,7 +243,7 @@ export function RevenuePulseWidget({
                   transitionProperty: "height, opacity",
                   transitionDuration: reducedMotion ? "200ms" : "600ms",
                   transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
-                  transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  transitionTimingFunction: WIDGET_EASE_CSS,
                 }}
               />
             </div>
@@ -333,9 +340,9 @@ export function RevenuePulseWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=paid"); }}
-                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
-                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+                <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -365,7 +372,7 @@ export function RevenuePulseWidget({
                 {t("revenuePulse.title") ?? "Revenue"}
               </span>
               <WidgetPeriodPicker
-                options={PERIOD_OPTIONS}
+                options={periodOptions}
                 value={period}
                 onChange={setPeriod}
                 size={size}
@@ -426,7 +433,7 @@ export function RevenuePulseWidget({
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
           <WidgetPeriodPicker
-            options={PERIOD_OPTIONS}
+            options={periodOptions}
             value={period}
             onChange={setPeriod}
             size={size}
@@ -469,7 +476,15 @@ export function RevenuePulseWidget({
             )}
           </WidgetTooltip>
 
-          {renderBarChart(chartHeight, showGhosts)}
+          <div
+            style={{
+              transform: heroCollapsed ? "scaleY(0.5)" : "scaleY(1)",
+              transformOrigin: "top",
+              transition: reducedMotion ? "none" : `transform ${WIDGET_COLLAPSE_DURATION}ms ${WIDGET_EASE_CSS}`,
+            }}
+          >
+            {renderBarChart(chartHeight, showGhosts)}
+          </div>
         </WidgetHeroCollapse>
 
         {/* Bottom summary: MTD vs YTD */}

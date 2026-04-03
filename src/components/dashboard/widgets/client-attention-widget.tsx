@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -19,6 +19,7 @@ import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { useScrollFadeScroll } from "./shared/use-scroll-fade-scroll";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { WT, isCompact, showActions } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -97,27 +98,6 @@ const REASON_ICONS: Record<AttentionReason, typeof Users> = {
   "past-due-invoice": ExternalLink,
   "estimate-expiring": ExternalLink,
 };
-
-// ---------------------------------------------------------------------------
-// Hook: attach scroll listener to ScrollFade's internal scrollable div
-// ---------------------------------------------------------------------------
-function useScrollFadeScroll(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean,
-  onScroll: (scrollTop: number) => void
-) {
-  useEffect(() => {
-    if (!enabled) return;
-    const container = containerRef.current;
-    if (!container) return;
-    const scrollEl = container.querySelector(".overflow-y-auto");
-    if (!scrollEl) return;
-
-    const handler = () => onScroll(scrollEl.scrollTop);
-    scrollEl.addEventListener("scroll", handler, { passive: true });
-    return () => scrollEl.removeEventListener("scroll", handler);
-  }, [containerRef, enabled, onScroll]);
-}
 
 // ---------------------------------------------------------------------------
 // SVG Ring Chart (SM)
@@ -460,10 +440,10 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           });
           break;
         case "past-due-invoice":
-          navigate(`/invoices/${item.entityId}`);
+          navigate("/invoices");
           break;
         case "estimate-expiring":
-          navigate(`/estimates/${item.entityId}`);
+          navigate("/estimates");
           break;
       }
     };

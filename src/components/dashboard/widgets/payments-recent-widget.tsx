@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
-import { formatCompactCurrency } from "./shared/widget-utils";
+import { formatCompactCurrency, formatLocaleCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
@@ -28,15 +28,6 @@ interface PaymentsRecentWidgetProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatCurrencyLocale(amount: number, locale: Locale): string {
-  return amount.toLocaleString(getDateLocale(locale), {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 function formatRelativeDate(date: Date | string, locale: Locale, t?: (key: string, params?: Record<string, unknown>) => string): string {
   const d = typeof date === "string" ? new Date(date) : date;
@@ -103,9 +94,19 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <span className={`font-mono text-data-lg font-bold leading-none ${isLoading ? "text-text-disabled" : lastPayment ? "text-status-success" : "text-text-disabled"}`}>
-            {isLoading ? "—" : lastPayment ? formatCurrencyLocale(lastPayment.total, locale) : "$0"}
-          </span>
+          <div className="flex items-baseline justify-between">
+            <span className={`font-mono text-data-lg font-bold leading-none ${isLoading ? "text-text-disabled" : lastPayment ? "text-status-success" : "text-text-disabled"}`}>
+              {isLoading ? "—" : lastPayment ? formatLocaleCurrency(lastPayment.total, getDateLocale(locale), 2) : "$0"}
+            </span>
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate("/accounting")}
+                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              >
+                <ArrowUpRight className="w-[14px] h-[14px]" />
+              </button>
+            )}
+          </div>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("payments.lastPayment")}
           </span>
@@ -166,7 +167,7 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
                     metric={
                       <span className="flex items-center gap-1">
                         <span className="font-mono text-micro-sm text-status-success font-medium">
-                          {formatCurrencyLocale(invoice.amountPaid, locale)}
+                          {formatLocaleCurrency(invoice.amountPaid, getDateLocale(locale), 2)}
                         </span>
                         {pctPaid < 100 && (
                           <span className="font-mono text-micro-sm text-text-disabled">

@@ -23,8 +23,18 @@ export function WidgetBackgroundChart({
   return (
     <div className={cn("relative h-full", className)}>
       <div
-        className="absolute inset-0 pointer-events-none overflow-hidden"
-        style={{ opacity }}
+        className="absolute inset-0 pointer-events-none overflow-hidden p-2"
+        style={{
+          opacity,
+          maskImage:
+            "linear-gradient(to right, transparent, black 15%, black 85%, transparent), " +
+            "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)",
+          maskComposite: "intersect",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent, black 15%, black 85%, transparent), " +
+            "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)",
+          WebkitMaskComposite: "source-in",
+        }}
       >
         {chart}
       </div>

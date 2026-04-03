@@ -4,6 +4,7 @@
  * TanStack Query hooks for client and sub-client data.
  */
 
+import { useMemo } from "react";
 import {
   useQuery,
   useMutation,
@@ -36,6 +37,23 @@ export function useClients(
     enabled: !!companyId,
     ...queryOptions,
   });
+}
+
+/**
+ * Returns a Map<clientId, {id, name}> for quick client name lookups.
+ * Shares the same TanStack Query cache as useClients().
+ */
+export function useClientMap(): Map<string, { id: string; name: string }> {
+  const { data } = useClients(undefined, { staleTime: 5 * 60 * 1000 });
+  return useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    if (data?.clients) {
+      for (const c of data.clients) {
+        map.set(c.id, { id: c.id, name: c.name });
+      }
+    }
+    return map;
+  }, [data]);
 }
 
 /**

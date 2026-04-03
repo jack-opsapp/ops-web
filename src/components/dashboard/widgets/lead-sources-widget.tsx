@@ -1,18 +1,16 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
-import { WidgetBackgroundChart } from "./shared/widget-background-chart";
-import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
-import { Sparkline } from "./shared/sparkline";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
-import { widgetLineItemStyle } from "./shared/widget-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showActions, showFooter } from "@/lib/widget-tokens";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Opportunity } from "@/lib/types/pipeline";
@@ -41,20 +39,33 @@ function formatSourceLabel(source: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Donut Chart (SVG)
+// Donut Chart (SVG) — supports interactive hover per segment
 // ---------------------------------------------------------------------------
+interface DonutSegment {
+  value: number;
+  color: string;
+  label?: string;
+  count?: number;
+  pct?: number;
+  pipelineValue?: number;
+}
+
 function DonutChart({
   segments,
   size: diameter,
   strokeWidth = 8,
   isVisible,
   reducedMotion,
+  onSegmentHover,
+  onSegmentLeave,
 }: {
-  segments: { value: number; color: string }[];
+  segments: DonutSegment[];
   size: number;
   strokeWidth?: number;
   isVisible: boolean;
   reducedMotion: boolean | null;
+  onSegmentHover?: (segment: DonutSegment, event: React.MouseEvent) => void;
+  onSegmentLeave?: () => void;
 }) {
   const radius = (diameter - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -88,10 +99,136 @@ function DonutChart({
               transition: reducedMotion ? "none" : `stroke-dashoffset 600ms ${WIDGET_EASE_CSS} ${i * 60}ms`,
               transform: "rotate(-90deg)",
               transformOrigin: "center",
+              cursor: onSegmentHover ? "pointer" : undefined,
             }}
+            onMouseEnter={onSegmentHover ? (e) => onSegmentHover(seg, e) : undefined}
+            onMouseLeave={onSegmentLeave}
           />
         );
       })}
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Multi-line trend chart (LG) — all sources superimposed on one SVG
+// ---------------------------------------------------------------------------
+function MultiLineTrendChart({
+  sources,
+  trendData,
+  width,
+  height,
+  isVisible,
+  reducedMotion,
+  onHover,
+  onLeave,
+}: {
+  sources: { source: string; label: string; count: number; pct: number; value: number }[];
+  trendData: Map<string, number[]>;
+  width: number;
+  height: number;
+  isVisible: boolean;
+  reducedMotion: boolean | null;
+  onHover?: (x: number, monthIndex: number, mouseX: number, mouseY: number) => void;
+  onLeave?: () => void;
+}) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const padding = { top: 4, right: 4, bottom: 4, left: 4 };
+  const usableW = width - padding.left - padding.right;
+  const usableH = height - padding.top - padding.bottom;
+
+  // Find global max across all sources for consistent Y scale
+  const allValues = Array.from(trendData.values()).flat();
+  const globalMax = Math.max(...allValues, 1);
+
+  // Number of data points (months)
+  const numPoints = Array.from(trendData.values())[0]?.length ?? 6;
+  const stepX = usableW / Math.max(numPoints - 1, 1);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!svgRef.current || !onHover) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const localX = e.clientX - rect.left - padding.left;
+      const monthIndex = Math.round(localX / stepX);
+      const clampedIndex = Math.max(0, Math.min(numPoints - 1, monthIndex));
+      const crosshairX = padding.left + clampedIndex * stepX;
+      onHover(crosshairX, clampedIndex, e.clientX, e.clientY);
+    },
+    [onHover, stepX, numPoints, padding.left]
+  );
+
+  // Build paths for each source
+  const paths = useMemo(() => {
+    return sources.slice(0, 5).map((src, colorIdx) => {
+      const data = trendData.get(src.source) ?? [];
+      if (data.length < 2) return null;
+
+      const points = data.map((val, i) => ({
+        x: padding.left + i * stepX,
+        y: padding.top + usableH - (val / globalMax) * usableH,
+      }));
+
+      // Build SVG path with smooth curves
+      let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const cpx = (prev.x + curr.x) / 2;
+        d += ` C${cpx.toFixed(1)},${prev.y.toFixed(1)} ${cpx.toFixed(1)},${curr.y.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+      }
+
+      const color = BAR_COLORS[colorIdx % BAR_COLORS.length];
+      const totalLength = width * 2;
+
+      return (
+        <path
+          key={src.source}
+          d={d}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          style={{
+            strokeDasharray: totalLength,
+            strokeDashoffset: isVisible || reducedMotion ? 0 : totalLength,
+            transition: reducedMotion
+              ? "none"
+              : `stroke-dashoffset 600ms ${WIDGET_EASE_CSS} ${colorIdx * 80}ms`,
+          }}
+        />
+      );
+    });
+  }, [sources, trendData, stepX, usableH, globalMax, isVisible, reducedMotion, width, padding.left, padding.top]);
+
+  return (
+    <svg
+      ref={svgRef}
+      width="100%"
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={onLeave}
+      className="cursor-crosshair"
+      role="img"
+      aria-label="Lead source trends"
+    >
+      {/* Faint gridlines */}
+      {[0.25, 0.5, 0.75].map((pct) => (
+        <line
+          key={pct}
+          x1={padding.left}
+          y1={padding.top + usableH * (1 - pct)}
+          x2={width - padding.right}
+          y2={padding.top + usableH * (1 - pct)}
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth={1}
+        />
+      ))}
+      {paths}
     </svg>
   );
 }
@@ -104,6 +241,22 @@ interface LeadSourcesWidgetProps {
   opportunities: Opportunity[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Period filter type
+// ---------------------------------------------------------------------------
+type TrendPeriod = "30d" | "90d" | "ytd";
+
+function getPeriodMonths(period: TrendPeriod): number {
+  switch (period) {
+    case "30d": return 1;
+    case "90d": return 3;
+    case "ytd": {
+      const now = new Date();
+      return now.getMonth() + 1;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +286,17 @@ export function LeadSourcesWidget({
     value: number;
   }>({ visible: false, x: 0, y: 0, source: "", count: 0, pct: 0, value: 0 });
 
+  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("90d");
+
+  // Crosshair tooltip for LG chart
+  const [crosshair, setCrosshair] = useState<{
+    visible: boolean;
+    x: number;
+    viewportX: number;
+    viewportY: number;
+    monthIndex: number;
+  }>({ visible: false, x: 0, viewportX: 0, viewportY: 0, monthIndex: 0 });
+
   const sourceData = useMemo(() => {
     const activeOpps = opportunities.filter((o) => !o.deletedAt);
 
@@ -161,14 +325,16 @@ export function LeadSourcesWidget({
 
   const maxCount = sourceData.sources[0]?.count ?? 1;
 
-  // ── Per-source monthly trends (LG only) ─────────────────────────────
+  // ── Per-source trends — period-aware (LG only) ─────────────────────────
+  const numTrendMonths = getPeriodMonths(trendPeriod);
   const sourceTrends = useMemo(() => {
     if (!showActions(size)) return new Map<string, number[]>();
     const now = new Date();
+    const months = Math.max(numTrendMonths, 2); // Need at least 2 points for a line
     const trends = new Map<string, number[]>();
     for (const src of sourceData.sources) {
       const points: number[] = [];
-      for (let i = 5; i >= 0; i--) {
+      for (let i = months - 1; i >= 0; i--) {
         const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
         const count = opportunities.filter((o) => {
@@ -183,7 +349,19 @@ export function LeadSourcesWidget({
       trends.set(src.source, points);
     }
     return trends;
-  }, [opportunities, sourceData.sources, size]);
+  }, [opportunities, sourceData.sources, size, numTrendMonths]);
+
+  // Month labels for crosshair tooltip
+  const monthLabels = useMemo(() => {
+    const now = new Date();
+    const months = Math.max(numTrendMonths, 2);
+    const labels: string[] = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(m.toLocaleString("default", { month: "short" }));
+    }
+    return labels;
+  }, [numTrendMonths]);
 
   // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -247,76 +425,130 @@ export function LeadSourcesWidget({
     );
   }
 
-  // ── SM: Hero + background donut ──────────────────────────────────────
+  // ── SM: Interactive donut + top 3 sources with color dots ──────────────
   if (size === "sm") {
-    const top = sourceData.sources[0];
-    const donutSegments = sourceData.sources.slice(0, 4).map((s, i) => ({
+    const top3 = sourceData.sources.slice(0, 3);
+    const donutSegments: DonutSegment[] = sourceData.sources.slice(0, 4).map((s, i) => ({
       value: s.count,
       color: BAR_COLORS[i % BAR_COLORS.length],
+      label: s.label,
+      count: s.count,
+      pct: s.pct,
+      pipelineValue: s.value,
     }));
     const otherCount = sourceData.sources.slice(4).reduce((sum, s) => sum + s.count, 0);
-    if (otherCount > 0) donutSegments.push({ value: otherCount, color: WT.muted });
+    const otherValue = sourceData.sources.slice(4).reduce((sum, s) => sum + s.value, 0);
+    if (otherCount > 0) {
+      donutSegments.push({
+        value: otherCount,
+        color: WT.muted,
+        label: t("leadSources.other") ?? "Other",
+        count: otherCount,
+        pct: sourceData.total > 0 ? Math.round((otherCount / sourceData.total) * 100) : 0,
+        pipelineValue: otherValue,
+      });
+    }
+
+    const handleSegmentHover = (seg: DonutSegment, event: React.MouseEvent) => {
+      const parentRect = ref.current?.getBoundingClientRect();
+      if (!parentRect) return;
+      setTooltip({
+        visible: true,
+        x: event.clientX - parentRect.left,
+        y: event.clientY - parentRect.top,
+        source: seg.label ?? "",
+        count: seg.count ?? 0,
+        pct: seg.pct ?? 0,
+        value: seg.pipelineValue ?? 0,
+      });
+    };
 
     return (
       <Card className="h-full p-0" ref={ref}>
-        <WidgetBackgroundChart
-          chart={
-            <div className="h-full w-full flex items-center justify-end pr-2">
-              <DonutChart
-                segments={donutSegments}
-                size={80}
-                isVisible={isVisible}
-                reducedMotion={reducedMotion}
-              />
-            </div>
-          }
-          opacity={0.35}
+        <WidgetTooltip
+          visible={tooltip.visible}
+          x={tooltip.x}
+          y={tooltip.y}
+          anchorRef={ref}
+          anchor="above"
         >
-          <div className="h-full flex flex-col p-3">
+          <TooltipRow label={tooltip.source} value={`${tooltip.count}`} />
+          <TooltipRow label={t("leadSources.ofTotal") ?? "of total"} value={`${tooltip.pct}%`} />
+          {tooltip.value > 0 && (
+            <TooltipRow label={t("leadSources.pipelineValue") ?? "Pipeline value"} value={formatCompactCurrency(tooltip.value)} />
+          )}
+        </WidgetTooltip>
+
+        <div className="h-full flex p-3">
+          {/* Text content */}
+          <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
                 {sourceData.total}
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
-                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
-                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+                <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
-            {top && (
-              <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
-                #1: {top.label} ({top.count})
-              </span>
-            )}
+            {/* Top 3 sources with color dots */}
+            <div className="flex flex-col gap-0.5 mt-1.5">
+              {top3.map((s, i) => (
+                <div key={s.source} className="flex items-center gap-1 min-w-0">
+                  <span
+                    className="w-[5px] h-[5px] rounded-full shrink-0"
+                    style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
+                  />
+                  <span className="font-mohave text-[10px] text-text-secondary truncate">
+                    {s.label}
+                  </span>
+                  <span className="font-mono text-[9px] text-text-tertiary shrink-0">
+                    {s.count}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </WidgetBackgroundChart>
+          {/* Interactive donut */}
+          <div className="shrink-0 ml-1 flex items-center">
+            <DonutChart
+              segments={donutSegments}
+              size={72}
+              isVisible={isVisible}
+              reducedMotion={reducedMotion}
+              onSegmentHover={handleSegmentHover}
+              onSegmentLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+            />
+          </div>
+        </div>
       </Card>
     );
   }
 
-  // ── MD / LG: Horizontal bar chart + tooltip + LG trendlines + footer ──
-  const maxBars = showActions(size) ? 8 : 5;
-  const barHeight = compact ? 6 : showActions(size) ? 10 : 8;
+  // ── MD: Horizontal bar chart with tooltip ─────────────────────────────
+  if (!showActions(size)) {
+    const maxBars = 5;
+    const barHeight = 8;
 
-  return (
-    <Card className="h-full p-0" ref={ref}>
-      <div className="h-full flex flex-col p-3">
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
-            {t("leadSources.title") ?? "Lead Sources"}
-          </span>
-          <span className="font-mono text-micro text-text-tertiary">
-            {sourceData.total} {t("leadSources.total") ?? "total"}
-          </span>
-        </div>
+    return (
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          {/* HEADER */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+              {t("leadSources.title") ?? "Lead Sources"}
+            </span>
+            <span className="font-mono text-micro text-text-tertiary">
+              {sourceData.total} {t("leadSources.total") ?? "total"}
+            </span>
+          </div>
 
-        {/* DETAIL ZONE */}
-        {showDetail(size) && (
+          {/* DETAIL ZONE */}
           <ScrollFade className="relative">
             <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
               <TooltipRow label={tooltip.source} value={`${tooltip.count}`} />
@@ -326,100 +558,182 @@ export function LeadSourcesWidget({
               )}
             </WidgetTooltip>
 
-            {/* Bar chart — compressed in LG when trends visible */}
-            <WidgetHeroCollapse collapsed={showActions(size)} collapsedHeight="80px">
-              <div className="flex flex-col gap-[6px]">
-                {sourceData.sources.slice(0, maxBars).map((s, i) => {
-                  const barWidth = Math.max((s.count / maxCount) * 100, 4);
-                  const barColor = BAR_COLORS[i % BAR_COLORS.length];
+            <div className="flex flex-col gap-[6px]">
+              {sourceData.sources.slice(0, maxBars).map((s, i) => {
+                const barWidth = Math.max((s.count / maxCount) * 100, 4);
+                const barColor = BAR_COLORS[i % BAR_COLORS.length];
 
-                  return (
-                    <div
-                      key={s.source}
-                      onMouseEnter={(e) => {
-                        const parentRect = ref.current?.getBoundingClientRect();
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        if (!parentRect) return;
-                        setTooltip({
-                          visible: true,
-                          x: rect.left - parentRect.left + rect.width / 2,
-                          y: rect.top - parentRect.top,
-                          source: s.label,
-                          count: s.count,
-                          pct: s.pct,
-                          value: s.value,
-                        });
-                      }}
-                      onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
-                    >
-                      <div className="flex items-center justify-between mb-[2px]">
-                        <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
-                        <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
-                      </div>
-                      <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
-                        <div
-                          className="h-full rounded-sm"
-                          style={{
-                            width: isVisible ? `${barWidth}%` : "0%",
-                            backgroundColor: barColor,
-                            transitionProperty: "width",
-                            transitionDuration: reducedMotion ? "200ms" : "500ms",
-                            transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                            transitionTimingFunction: WIDGET_EASE_CSS,
-                          }}
-                        />
-                      </div>
+                return (
+                  <div
+                    key={s.source}
+                    onMouseEnter={(e) => {
+                      const parentRect = ref.current?.getBoundingClientRect();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      if (!parentRect) return;
+                      setTooltip({
+                        visible: true,
+                        x: rect.left - parentRect.left + rect.width / 2,
+                        y: rect.top - parentRect.top,
+                        source: s.label,
+                        count: s.count,
+                        pct: s.pct,
+                        value: s.value,
+                      });
+                    }}
+                    onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+                  >
+                    <div className="flex items-center justify-between mb-[2px]">
+                      <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
+                      <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
                     </div>
-                  );
-                })}
-                {sourceData.sources.length > maxBars && !showActions(size) && (
-                  <span className="font-mono text-micro-sm text-text-tertiary">
-                    +{sourceData.sources.length - maxBars} {t("leadSources.more") ?? "more"}
-                  </span>
-                )}
-              </div>
-            </WidgetHeroCollapse>
-
-            {/* LG: Per-source trendlines */}
-            {showActions(size) && (
-              <div className="mt-2 pt-2 border-t border-border-subtle flex flex-col gap-[6px]">
-                {sourceData.sources.slice(0, maxBars).map((s, i) => {
-                  const trend = sourceTrends.get(s.source) ?? [];
-                  const barColor = BAR_COLORS[i % BAR_COLORS.length];
-                  return (
-                    <div
-                      key={s.source}
-                      className="flex items-center gap-2"
-                      style={widgetLineItemStyle(i, isVisible, reducedMotion)}
-                    >
-                      <span
-                        className="w-[6px] h-[6px] rounded-full shrink-0"
-                        style={{ backgroundColor: barColor }}
+                    <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
+                      <div
+                        className="h-full rounded-sm"
+                        style={{
+                          width: isVisible ? `${barWidth}%` : "0%",
+                          backgroundColor: barColor,
+                          transitionProperty: "width",
+                          transitionDuration: reducedMotion ? "200ms" : "500ms",
+                          transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
+                          transitionTimingFunction: WIDGET_EASE_CSS,
+                        }}
                       />
-                      <span className="font-mohave text-caption-sm text-text-secondary truncate min-w-0 flex-1">
-                        {s.label}
-                      </span>
-                      <Sparkline data={trend} width={80} height={20} color={barColor} />
-                      <span className="font-mono text-micro text-text-primary shrink-0 w-[24px] text-right">
-                        {s.count}
-                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                );
+              })}
+              {sourceData.sources.length > maxBars && (
+                <span className="font-mono text-micro-sm text-text-tertiary">
+                  +{sourceData.sources.length - maxBars} {t("leadSources.more") ?? "more"}
+                </span>
+              )}
+            </div>
           </ScrollFade>
-        )}
+
+          {/* FOOTER */}
+          {showFooter(size) && (
+            <button
+              onClick={() => onNavigate("/pipeline")}
+              className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+            >
+              {t("leadSources.viewPipeline") ?? "View Pipeline"}
+            </button>
+          )}
+        </div>
+      </Card>
+    );
+  }
+
+  // ── LG: Superimposed multi-line trend chart + source list ─────────────
+  const maxSources = 8;
+  const periodOptions = [
+    { value: "30d", label: t("leadSources.period30d") ?? "30D" },
+    { value: "90d", label: t("leadSources.period90d") ?? "90D" },
+    { value: "ytd", label: t("leadSources.periodYtd") ?? "YTD" },
+  ];
+
+  const handleChartHover = useCallback(
+    (x: number, monthIndex: number, mouseX: number, mouseY: number) => {
+      const parentRect = ref.current?.getBoundingClientRect();
+      if (!parentRect) return;
+      setCrosshair({
+        visible: true,
+        x,
+        viewportX: mouseX - parentRect.left,
+        viewportY: mouseY - parentRect.top,
+        monthIndex,
+      });
+    },
+    []
+  );
+
+  return (
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("leadSources.title") ?? "Lead Sources"}
+          </span>
+          <div className="flex items-center gap-1">
+            <WidgetPeriodPicker
+              options={periodOptions}
+              value={trendPeriod}
+              onChange={(v) => setTrendPeriod(v as TrendPeriod)}
+              size={size}
+            />
+          </div>
+        </div>
+
+        {/* MULTI-LINE TREND CHART */}
+        <div className="relative mb-2">
+          <MultiLineTrendChart
+            sources={sourceData.sources}
+            trendData={sourceTrends}
+            width={320}
+            height={100}
+            isVisible={isVisible}
+            reducedMotion={reducedMotion}
+            onHover={handleChartHover}
+            onLeave={() => setCrosshair((prev) => ({ ...prev, visible: false }))}
+          />
+
+          {/* Crosshair tooltip */}
+          <WidgetTooltip
+            visible={crosshair.visible}
+            x={crosshair.viewportX}
+            y={crosshair.viewportY}
+            anchorRef={ref}
+            anchor="above"
+          >
+            <div className="mb-1">
+              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                {monthLabels[crosshair.monthIndex] ?? ""}
+              </span>
+            </div>
+            {sourceData.sources.slice(0, 5).map((s, i) => {
+              const trend = sourceTrends.get(s.source) ?? [];
+              const val = trend[crosshair.monthIndex] ?? 0;
+              return (
+                <TooltipRow
+                  key={s.source}
+                  label={s.label}
+                  value={`${val}`}
+                  color={BAR_COLORS[i % BAR_COLORS.length]}
+                />
+              );
+            })}
+          </WidgetTooltip>
+        </div>
+
+        {/* SOURCE LIST */}
+        <ScrollFade>
+          <div className="flex flex-col gap-[2px]">
+            {sourceData.sources.slice(0, maxSources).map((s, i) => {
+              const barColor = BAR_COLORS[i % BAR_COLORS.length];
+              return (
+                <WidgetLineItem
+                  key={s.source}
+                  indicator={{ type: "dot", color: barColor }}
+                  primary={s.label}
+                  secondary={`${s.pct}% ${t("leadSources.ofTotal") ?? "of total"}`}
+                  metric={`${s.count}`}
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
+                />
+              );
+            })}
+          </div>
+        </ScrollFade>
 
         {/* FOOTER */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/pipeline")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("leadSources.viewPipeline") ?? "View Pipeline"}
-          </button>
-        )}
+        <button
+          onClick={() => onNavigate("/pipeline")}
+          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+        >
+          {t("leadSources.viewPipeline") ?? "View Pipeline"}
+        </button>
       </div>
     </Card>
   );

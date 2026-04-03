@@ -339,7 +339,7 @@ export function BacklogDepthWidget({
                       style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
                     >
                       {/* Label */}
-                      <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider w-[100px] shrink-0 truncate">
+                      <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider w-[110px] shrink-0">
                         {metric.label}
                       </span>
                       {/* Proportion bar */}

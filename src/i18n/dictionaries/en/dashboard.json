@@ -4,6 +4,14 @@
   "greeting.evening": "Good evening",
   "greeting.subtitle": "Here's your operational overview for today.",
 
+  "period.7d": "7D",
+  "period.30d": "30D",
+  "period.90d": "90D",
+  "period.ytd": "YTD",
+  "period.mtd": "MTD",
+  "period.qtd": "QTD",
+  "period.all": "ALL",
+
   "widgets.done": "Done",
   "widgets.customize": "Customize",
   "widgets.comingSoon": "Coming soon",
@@ -333,6 +341,7 @@
   "pipelineList.followUpSubjectPrefix": "Follow up",
   "pipelineList.defaultProjectTitle": "Your project",
   "pipelineList.sendFailed": "Failed to send follow-up",
+  "pipelineList.viewPipeline": "View Pipeline",
 
   "taskList.title": "Task List",
   "taskList.nextTask": "Next Task",
@@ -384,6 +393,7 @@
   "invoiceList.sortByAmount": "Amount",
   "invoiceList.sortByClient": "Client",
   "invoiceList.pctPaid": "paid",
+  "invoiceList.viewAll": "View Invoices",
 
   "clientList.title": "Clients",
   "clientList.loadingShort": "Loading...",
@@ -584,7 +594,7 @@
   "pipelineFunnel.ofPipeline": "Of pipeline",
   "pipelineFunnel.weighted": "Weighted",
   "pipelineFunnel.viewPipeline": "View Pipeline",
-  "pipelineFunnel.conversionRate": "Conversion",
+  "pipelineFunnel.distribution": "Distribution",
   "pipelineFunnel.stageTab": "Stage",
   "pipelineFunnel.deals": "deals",
 
@@ -622,6 +632,9 @@
   "actionRequired.lastContact": "Last contact",
   "actionRequired.noContact": "No contact recorded",
   "actionRequired.pastDue": "past due",
+  "actionRequired.viewTasks": "View Tasks",
+  "actionRequired.taskFallback": "Task",
+  "actionRequired.followUpFallback": "Follow-up",
 
   "revenuePulse.title": "Revenue",
   "revenuePulse.mtdRevenue": "MTD Revenue",
@@ -708,7 +721,7 @@
   "backlogDepth.caution": "Caution",
   "backlogDepth.risk": "Risk",
   "backlogDepth.viewProjects": "View Projects",
-  "backlogDepth.signedNotStarted": "Signed, Not Started",
+  "backlogDepth.signedNotStarted": "Not Started",
   "backlogDepth.unscheduledTasks": "Unscheduled Tasks",
   "backlogDepth.pendingEstimates": "Pending Estimates",
 
@@ -752,6 +765,9 @@
   "leadSources.trend": "Trend",
   "leadSources.other": "Other",
   "leadSources.total": "total",
+  "leadSources.period30d": "30D",
+  "leadSources.period90d": "90D",
+  "leadSources.periodYtd": "YTD",
 
   "widgets.more": "more",
   "widgets.showLess": "Show less",
@@ -776,6 +792,10 @@
   "clientList.createInvoice": "Create Invoice",
   "clientList.createEstimate": "Create Estimate",
   "clientList.createTask": "Create Task",
+  "clientList.deleteClient": "Delete Client",
+  "clientList.deleted": "deleted",
+  "clientList.due": "due",
+  "clientList.viewAll": "View All Clients",
 
   "clientAttention.unassignedTasks": "{count} unassigned tasks",
   "clientAttention.unscheduledTasks": "{count} unscheduled tasks",

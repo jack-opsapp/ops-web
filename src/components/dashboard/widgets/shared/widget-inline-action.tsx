@@ -28,9 +28,19 @@ export function WidgetInlineAction(props: WidgetInlineActionProps) {
   const Icon = props.icon;
   const isMulti = "actions" in props;
 
+  const handleSingleClick = !isMulti
+    ? (e: React.MouseEvent) => {
+        e.stopPropagation();
+        (props as SingleAction).onAction();
+      }
+    : (e: React.MouseEvent) => {
+        // Multi-action: stop propagation so parent row onClick doesn't fire
+        e.stopPropagation();
+      };
+
   const triggerButton = (
     <button
-      onClick={!isMulti ? (props as SingleAction).onAction : undefined}
+      onClick={handleSingleClick}
       className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
       title={!isMulti ? (props as SingleAction).label : undefined}
     >
@@ -52,7 +62,10 @@ export function WidgetInlineAction(props: WidgetInlineActionProps) {
             return (
               <button
                 key={i}
-                onClick={action.onAction}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  action.onAction();
+                }}
                 className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-[rgba(255,255,255,0.04)] transition-colors rounded-sm text-left"
               >
                 <ActionIcon className="w-[14px] h-[14px] text-text-tertiary shrink-0" />

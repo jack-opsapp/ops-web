@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ChevronRight, Mail } from "lucide-react";
+import { Loader2, ChevronRight, Mail, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import {
@@ -13,12 +13,13 @@ import {
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
+import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { showWidgetActionToast } from "./shared/widget-action-toast";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { showActions } from "@/lib/widget-tokens";
+import { showActions, showFooter } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import {
   OpportunityStage,
@@ -116,9 +117,9 @@ function daysInStage(stageEnteredAt: Date | string): number {
   return Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function getOpportunityDisplayName(opportunity: Opportunity): string {
+function getOpportunityDisplayName(opportunity: Opportunity, unknownLabel: string): string {
   const clientName = opportunity.client?.name ?? opportunity.contactName;
-  if (!clientName) return opportunity.title || "Unknown";
+  if (!clientName) return opportunity.title || unknownLabel;
   if (opportunity.title && opportunity.title !== clientName) {
     return `${clientName} - ${opportunity.title}`;
   }
@@ -133,11 +134,23 @@ function StageDistributionBar({
   opportunities,
   isVisible,
   reducedMotion,
+  enableTooltip = false,
 }: {
   opportunities: Opportunity[];
   isVisible: boolean;
   reducedMotion: boolean | null;
+  enableTooltip?: boolean;
 }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    label: string;
+    count: number;
+    value: number;
+  }>({ visible: false, x: 0, y: 0, label: "", count: 0, value: 0 });
+
   const activeStageList = getActiveStages();
   const active = opportunities.filter(
     (o) => !o.deletedAt && !isTerminalStage(o.stage)
@@ -146,27 +159,56 @@ function StageDistributionBar({
   if (total === 0) return null;
 
   const segments = activeStageList
-    .map((stage) => ({
-      stage,
-      count: active.filter((o) => o.stage === stage).length,
-      color: OPPORTUNITY_STAGE_COLORS[stage],
-    }))
+    .map((stage) => {
+      const stageOpps = active.filter((o) => o.stage === stage);
+      return {
+        stage,
+        count: stageOpps.length,
+        value: stageOpps.reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0),
+        color: OPPORTUNITY_STAGE_COLORS[stage],
+      };
+    })
     .filter((s) => s.count > 0);
 
+  const handleSegmentHover = (e: React.MouseEvent, seg: typeof segments[number]) => {
+    if (!enableTooltip || !barRef.current) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const parentRect = barRef.current.getBoundingClientRect();
+    setTip({
+      visible: true,
+      x: rect.left - parentRect.left + rect.width / 2,
+      y: 0,
+      label: getStageDisplayName(seg.stage),
+      count: seg.count,
+      value: seg.value,
+    });
+  };
+
   return (
-    <div className="flex h-[6px] rounded-sm overflow-hidden mb-2">
-      {segments.map((seg) => (
-        <div
-          key={seg.stage}
-          style={{
-            width: isVisible ? `${(seg.count / total) * 100}%` : "0%",
-            backgroundColor: seg.color,
-            transitionProperty: "width",
-            transitionDuration: reducedMotion ? "200ms" : "500ms",
-            transitionTimingFunction: WIDGET_EASE_CSS,
-          }}
-        />
-      ))}
+    <div ref={barRef} className="relative mb-2">
+      {enableTooltip && (
+        <WidgetTooltip visible={tip.visible} x={tip.x} y={tip.y} anchorRef={barRef} anchor="above">
+          <TooltipRow label={tip.label} value={`${tip.count}`} />
+          <TooltipRow label="Value" value={formatCompactCurrency(tip.value)} />
+        </WidgetTooltip>
+      )}
+      <div className="flex h-[6px] rounded-sm overflow-hidden">
+        {segments.map((seg) => (
+          <div
+            key={seg.stage}
+            className={enableTooltip ? "cursor-pointer" : undefined}
+            style={{
+              width: isVisible ? `${(seg.count / total) * 100}%` : "0%",
+              backgroundColor: seg.color,
+              transitionProperty: "width",
+              transitionDuration: reducedMotion ? "200ms" : "500ms",
+              transitionTimingFunction: WIDGET_EASE_CSS,
+            }}
+            onMouseEnter={(e) => handleSegmentHover(e, seg)}
+            onMouseLeave={() => setTip((prev) => ({ ...prev, visible: false }))}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -317,6 +359,7 @@ function PipelineInlineActions({
         <Popover open={composeOpen} onOpenChange={setComposeOpen}>
           <PopoverTrigger asChild>
             <button
+              onClick={(e) => e.stopPropagation()}
               className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
               title={t("pipelineList.followUp") ?? "Follow Up"}
               aria-label={t("pipelineList.followUp") ?? "Follow Up"}
@@ -417,9 +460,17 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     return (
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-            {isLoading ? "—" : filtered.length}
-          </span>
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {isLoading ? "—" : filtered.length}
+            </span>
+            <button
+              onClick={() => navigate("/pipeline")}
+              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-[14px] h-[14px]" />
+            </button>
+          </div>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
@@ -482,6 +533,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
               opportunities={rawOpportunities}
               isVisible={isVisible}
               reducedMotion={reducedMotion}
+              enableTooltip
             />
           )}
           <ScrollFade>
@@ -523,7 +575,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                         <WidgetLineItem
                           key={opp.id}
                           indicator={{ type: "bar", color: group.color }}
-                          primary={getOpportunityDisplayName(opp)}
+                          primary={getOpportunityDisplayName(opp, t("pipelineList.unknown"))}
                           secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
                           metric={
                             opp.estimatedValue != null
@@ -539,7 +591,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           index={i}
                           isVisible={isVisible}
                           reducedMotion={reducedMotion}
-                          onClick={() => navigate(`/pipeline/${opp.id}`)}
+                          onClick={() => navigate("/pipeline")}
                         />
                       ))}
                       {group.items.length > visibleItems.length && (
@@ -561,6 +613,16 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
               </div>
             )}
           </ScrollFade>
+
+          {/* Footer */}
+          {showFooter(size) && (
+            <button
+              onClick={() => navigate("/pipeline")}
+              className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
+            >
+              {t("pipelineList.viewPipeline") ?? "View Pipeline"}
+            </button>
+          )}
         </div>
       </Card>
     );
@@ -586,6 +648,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             opportunities={rawOpportunities}
             isVisible={isVisible}
             reducedMotion={reducedMotion}
+            enableTooltip
           />
         )}
         {isLoading ? (
@@ -601,42 +664,55 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           </p>
         ) : (
           <>
-            {filtered.slice(0, MAX_MD_ITEMS).map((opp, i) => (
-              <WidgetLineItem
-                key={opp.id}
-                indicator={{
-                  type: "bar",
-                  color: OPPORTUNITY_STAGE_COLORS[opp.stage],
-                }}
-                primary={getOpportunityDisplayName(opp)}
-                secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
-                metric={
-                  opp.estimatedValue != null
-                    ? formatCompactCurrency(opp.estimatedValue)
-                    : undefined
-                }
-                action={
-                  showActions(size) ? (
-                    <PipelineInlineActions
-                      opportunity={opp}
-                      navigate={navigate}
-                    />
-                  ) : undefined
-                }
-                index={i}
-                isVisible={isVisible}
-                reducedMotion={reducedMotion}
-                onClick={() => navigate(`/pipeline/${opp.id}`)}
-              />
-            ))}
+            <ScrollFade>
+              {(showAllItems ? filtered : filtered.slice(0, MAX_MD_ITEMS)).map((opp, i) => (
+                <WidgetLineItem
+                  key={opp.id}
+                  indicator={{
+                    type: "bar",
+                    color: OPPORTUNITY_STAGE_COLORS[opp.stage],
+                  }}
+                  primary={getOpportunityDisplayName(opp, t("pipelineList.unknown"))}
+                  secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
+                  metric={
+                    opp.estimatedValue != null
+                      ? formatCompactCurrency(opp.estimatedValue)
+                      : undefined
+                  }
+                  action={
+                    showActions(size) ? (
+                      <PipelineInlineActions
+                        opportunity={opp}
+                        navigate={navigate}
+                      />
+                    ) : undefined
+                  }
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
+                  onClick={() => navigate(`/pipeline/${opp.id}`)}
+                />
+              ))}
+            </ScrollFade>
             {filtered.length > MAX_MD_ITEMS && (
               <WidgetMoreButton
                 remaining={filtered.length - MAX_MD_ITEMS}
-                expanded={false}
-                onToggle={() => navigate("/pipeline")}
+                expanded={showAllItems}
+                onToggle={() => setShowAllItems((prev) => !prev)}
+                className="shrink-0"
               />
             )}
           </>
+        )}
+
+        {/* Footer */}
+        {showFooter(size) && (
+          <button
+            onClick={() => navigate("/pipeline")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
+          >
+            {t("pipelineList.viewPipeline") ?? "View Pipeline"}
+          </button>
         )}
       </div>
     </Card>

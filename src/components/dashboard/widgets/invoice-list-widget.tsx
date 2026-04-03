@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState, useCallback, useRef } from "react";
-import { Loader2, Send, Check, ArrowUpDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Send, Check, ArrowUpDown, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
-import { WidgetStatusBadge } from "./shared/widget-status-badge";
 import { WidgetMoreButton } from "./shared/widget-more-button";
-import { formatCompactCurrency } from "./shared/widget-utils";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -14,9 +13,11 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useInvoices, useSendInvoice, useClientMap } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
+import { showFooter } from "@/lib/widget-tokens";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
+import { formatLocaleCurrency } from "./shared/widget-utils";
 import { ScrollFade } from "./shared/scroll-fade";
 import {
   Popover,
@@ -71,15 +72,6 @@ function matchesFilter(invoice: Invoice, filter: StatusFilter): boolean {
   return invoice.status === map[filter];
 }
 
-function formatCurrencyLocale(amount: number, locale: Locale): string {
-  return amount.toLocaleString(getDateLocale(locale), {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function formatDate(date: Date | string, locale: Locale): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
@@ -107,6 +99,8 @@ function sortInvoices(invoices: Invoice[], field: SortField): Invoice[] {
 export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
+  const router = useRouter();
+  const navigate = useCallback((path: string) => router.push(path), [router]);
   const filter = (config.statusFilter as StatusFilter) ?? "all-open";
   const { data: rawInvoices, isLoading } = useInvoices();
   const clientMap = useClientMap();
@@ -142,15 +136,23 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-            {isLoading ? "—" : filtered.length}
-          </span>
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {isLoading ? "—" : filtered.length}
+            </span>
+            <button
+              onClick={() => navigate("/accounting")}
+              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-[14px] h-[14px]" />
+            </button>
+          </div>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
           {!isLoading && (
             <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
-              {formatCurrencyLocale(totalAmount, locale)}
+              {formatLocaleCurrency(totalAmount, getDateLocale(locale), 2)}
             </span>
           )}
         </div>
@@ -168,7 +170,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
           </span>
           <div className="flex items-center gap-1.5">
             <span className="font-mono text-micro text-text-tertiary">
-              {isLoading ? "..." : `${filtered.length} \u00B7 ${formatCurrencyLocale(totalAmount, locale)}`}
+              {isLoading ? "..." : `${filtered.length} \u00B7 ${formatLocaleCurrency(totalAmount, getDateLocale(locale), 2)}`}
             </span>
             {/* Sort dropdown */}
             <Popover>
@@ -202,7 +204,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">
+              <span className="font-mono text-micro-sm text-text-disabled ml-1">
                 {t("invoiceList.loading")}
               </span>
             </div>
@@ -231,6 +233,16 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             </div>
           )}
         </ScrollFade>
+
+        {/* Footer */}
+        {showFooter(size) && (
+          <button
+            onClick={() => navigate("/accounting")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
+          >
+            {t("invoiceList.viewAll") ?? "View Invoices"}
+          </button>
+        )}
       </div>
     </Card>
   );
@@ -285,16 +297,16 @@ function InvoiceRow({
     ? Math.round((invoice.amountPaid / invoice.total) * 100)
     : null;
 
-  // Build the badge/metric slot
-  const badgeSlot = isPartial && pctPaid !== null ? (
+  // Partial-paid: custom metric badge (same sizing as WidgetStatusBadge)
+  const metricSlot = isPartial && pctPaid !== null ? (
     <span className="font-mono text-micro-sm px-1.5 py-[1px] rounded-sm uppercase tracking-wider border shrink-0 whitespace-nowrap text-financial-receivables bg-financial-receivables/15 border-financial-receivables/30">
       {pctPaid}% {t("invoiceList.pctPaid") ?? "paid"}
     </span>
   ) : (
-    <WidgetStatusBadge status={invoice.status} entity="invoice" />
+    formatLocaleCurrency(invoice.balanceDue, getDateLocale(locale), 2)
   );
 
-  // Build the action slot for draft send button
+  // Send button — drafts only, goes through the action slot
   const actionSlot = isDraft ? (
     <button
       onClick={handleSend}
@@ -305,6 +317,7 @@ function InvoiceRow({
         sendState === "sent" && "text-status-success"
       )}
       title={t("invoiceList.sendInvoice")}
+      aria-label={t("invoiceList.sendInvoice")}
     >
       {sendState === "sending" ? (
         <Loader2 className="w-[12px] h-[12px] animate-spin" />
@@ -313,7 +326,7 @@ function InvoiceRow({
       ) : (
         <>
           <Send className="w-[12px] h-[12px]" />
-          <span className="font-mohave text-[12px]">{t("invoiceList.send")}</span>
+          <span className="font-mohave text-micro-sm">{t("invoiceList.send")}</span>
         </>
       )}
     </button>
@@ -323,14 +336,9 @@ function InvoiceRow({
     <WidgetLineItem
       primary={clientName}
       secondary={`${t("invoiceList.due")} ${dueDisplay}`}
-      metric={formatCurrencyLocale(invoice.balanceDue, locale)}
-      badge={undefined}
-      action={
-        <div className="flex items-center gap-1">
-          {badgeSlot}
-          {actionSlot}
-        </div>
-      }
+      metric={metricSlot}
+      badge={isPartial ? undefined : { status: invoice.status, entity: "invoice" }}
+      action={actionSlot}
       index={index}
       isVisible={isVisible}
       reducedMotion={reducedMotion}

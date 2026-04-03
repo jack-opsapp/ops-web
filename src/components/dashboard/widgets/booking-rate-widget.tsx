@@ -172,9 +172,9 @@ export function BookingRateWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
-                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
-                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+                <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             {/* Row 2: Title */}

@@ -31,6 +31,7 @@ export {
 // Clients
 export {
   useClients,
+  useClientMap,
   useClient,
   useSubClients,
   useCreateClient,

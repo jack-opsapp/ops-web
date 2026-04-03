@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useCallback, useEffect } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
 import {
@@ -27,7 +27,8 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
-import { isCompact, showFooter, showActions } from "@/lib/widget-tokens";
+import { useScrollFadeScroll } from "./shared/use-scroll-fade-scroll";
+import { WT, isCompact, showFooter, showActions } from "@/lib/widget-tokens";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useTeamMembers, useProjects } from "@/lib/hooks";
@@ -118,7 +119,7 @@ const ACTIVITY_TYPE_ICONS: Record<ActivityType, LucideIcon> = {
 // Helpers
 // ---------------------------------------------------------------------------
 function activityColor(type: ActivityType): string {
-  return ACTIVITY_TYPE_COLORS[type] ?? "#6B7280";
+  return ACTIVITY_TYPE_COLORS[type] ?? WT.muted;
 }
 
 function activityTypeLabel(type: ActivityType, t: (key: string) => string): string {
@@ -141,32 +142,10 @@ function timeAgo(date: Date, t: (key: string) => string): string {
 
 function getActivityPath(activity: Activity): string | null {
   if (activity.projectId) return `/projects/${activity.projectId}`;
-  if (activity.opportunityId) return `/pipeline/${activity.opportunityId}`;
-  if (activity.invoiceId) return `/invoices/${activity.invoiceId}`;
-  if (activity.estimateId) return `/estimates/${activity.estimateId}`;
-  if (activity.siteVisitId) return `/site-visits/${activity.siteVisitId}`;
+  if (activity.opportunityId) return "/pipeline";
+  if (activity.invoiceId) return "/invoices";
+  if (activity.estimateId) return "/estimates";
   return null;
-}
-
-// ---------------------------------------------------------------------------
-// Hook: attach scroll listener to ScrollFade's internal scrollable div
-// ---------------------------------------------------------------------------
-function useScrollFadeScroll(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean,
-  onScroll: (scrollTop: number) => void
-) {
-  useEffect(() => {
-    if (!enabled) return;
-    const container = containerRef.current;
-    if (!container) return;
-    const scrollEl = container.querySelector(".overflow-y-auto");
-    if (!scrollEl) return;
-
-    const handler = () => onScroll(scrollEl.scrollTop);
-    scrollEl.addEventListener("scroll", handler, { passive: true });
-    return () => scrollEl.removeEventListener("scroll", handler);
-  }, [containerRef, enabled, onScroll]);
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +258,7 @@ export function ActivityWidget({
             </span>
             {showFooter(size) && (
               <button
-                onClick={(e) => { e.stopPropagation(); onNavigate("/activity"); }}
+                onClick={(e) => { e.stopPropagation(); onNavigate("/inbox"); }}
                 className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
@@ -405,7 +384,7 @@ export function ActivityWidget({
 
         {/* Footer nav */}
         <button
-          onClick={() => onNavigate("/activity")}
+          onClick={() => onNavigate("/inbox")}
           className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
         >
           {t("activity.viewAll")}

@@ -39,11 +39,11 @@ function getPeriodStart(period: string): Date | null {
   return null; // "all" — no filter
 }
 
-const PERIOD_OPTIONS = [
-  { value: "90d", label: "90D" },
-  { value: "ytd", label: "YTD" },
-  { value: "all", label: "ALL" },
-];
+const PERIOD_KEYS = [
+  { value: "90d", i18nKey: "period.90d" },
+  { value: "ytd", i18nKey: "period.ytd" },
+  { value: "all", i18nKey: "period.all" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -72,6 +72,7 @@ export function WinRateWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
+  const periodOptions = useMemo(() => PERIOD_KEYS.map((p) => ({ value: p.value, label: t(p.i18nKey) })), [t]);
   const [activePeriod, setActivePeriod] = useState(
     (config.period as string) ?? "90d"
   );
@@ -209,9 +210,9 @@ export function WinRateWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/estimates"); }}
-                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
-                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+                <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -244,7 +245,7 @@ export function WinRateWidget({
             {t("winRate.title") ?? "Win Rate"}
           </span>
           <WidgetPeriodPicker
-            options={PERIOD_OPTIONS}
+            options={periodOptions}
             value={activePeriod}
             onChange={setActivePeriod}
             size={size}
@@ -291,16 +292,16 @@ export function WinRateWidget({
             {/* Stat grid */}
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div>
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">{t("winRate.sent") ?? "Sent"}</span>
-                <p className="font-mono text-data-sm text-text-primary font-medium">{stats.sent}</p>
+                <span className="font-kosugi text-micro text-text-disabled uppercase tracking-wider">{t("winRate.sent") ?? "Sent"}</span>
+                <p className="font-mono text-data text-text-primary font-medium">{stats.sent}</p>
               </div>
               <div>
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">{t("winRate.won") ?? "Won"}</span>
-                <p className="font-mono text-data-sm text-status-success font-medium">{stats.won}</p>
+                <span className="font-kosugi text-micro text-text-disabled uppercase tracking-wider">{t("winRate.won") ?? "Won"}</span>
+                <p className="font-mono text-data text-status-success font-medium">{stats.won}</p>
               </div>
               <div>
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">{t("winRate.lost") ?? "Lost"}</span>
-                <p className="font-mono text-data-sm text-status-error font-medium">{stats.lost}</p>
+                <span className="font-kosugi text-micro text-text-disabled uppercase tracking-wider">{t("winRate.lost") ?? "Lost"}</span>
+                <p className="font-mono text-data text-status-error font-medium">{stats.lost}</p>
               </div>
             </div>
 

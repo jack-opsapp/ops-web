@@ -45,9 +45,7 @@ const OPERATOR_DEFAULT: WidgetInstance[] = [
   createWidgetInstance("task-pulse", {}, "sm"),
   createWidgetInstance("crew-board", {}, "md"),
   createWidgetInstance("todays-schedule", { scope: "team" }, "lg"),
-  createWidgetInstance("crew-locations", {}, "md"),
   createWidgetInstance("action-required", {}, "sm"),
-  createWidgetInstance("site-visits", {}, "sm"),
   createWidgetInstance("activity-feed", { entityFilter: "all" }, "sm"),
 ];
 
@@ -55,7 +53,6 @@ const CREW_DEFAULT: WidgetInstance[] = [
   createWidgetInstance("task-pulse", {}, "xs"),
   createWidgetInstance("todays-schedule", { scope: "personal" }, "sm"),
   createWidgetInstance("task-list", { filter: "due-today" }, "md"),
-  createWidgetInstance("site-visits", { filter: "upcoming" }, "sm"),
 ];
 
 /** Get default widget layout based on user role */

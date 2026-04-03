@@ -433,7 +433,7 @@ function TaskRow({
       <div
         className="w-[3px] rounded-full shrink-0 mt-[2px]"
         style={{
-          backgroundColor: isOverdue ? WT.error : (task.taskColor || "#5C6070"),
+          backgroundColor: isOverdue ? WT.error : (task.taskColor || WT.muted),
           height: (projectName || clientName || address) ? "32px" : "16px",
         }}
       />

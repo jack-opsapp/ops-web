@@ -93,8 +93,7 @@ import { ClientListWidget } from "@/components/dashboard/widgets/client-list-wid
 import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
-import { SiteVisitsWidget } from "@/components/dashboard/widgets/site-visits-widget";
-import { CrewLocationsWidget } from "@/components/dashboard/widgets/crew-locations-widget";
+import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 
 // ---------------------------------------------------------------------------
 // Greeting helper
@@ -233,10 +232,46 @@ export default function DashboardPage() {
   const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
   const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData]);
   const teamMembers = teamData?.users ?? [];
-  const invoices = invoicesData ?? [];
-  const estimates = estimatesData ?? [];
-  const opportunities = opportunitiesData ?? [];
   const clients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
+
+  // Build client lookup and enrich invoices/estimates/opportunities with client names
+  const clientMap = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const c of clients) {
+      map.set(c.id, { id: c.id, name: c.name });
+    }
+    return map;
+  }, [clients]);
+
+  const invoices = useMemo(() => {
+    const raw = invoicesData ?? [];
+    if (clientMap.size === 0) return raw;
+    return raw.map((inv) => {
+      if (inv.client?.name) return inv;
+      const c = clientMap.get(inv.clientId);
+      return c ? { ...inv, client: c as Invoice["client"] } : inv;
+    });
+  }, [invoicesData, clientMap]);
+
+  const estimates = useMemo(() => {
+    const raw = estimatesData ?? [];
+    if (clientMap.size === 0) return raw;
+    return raw.map((est) => {
+      if (est.client?.name) return est;
+      const c = clientMap.get(est.clientId);
+      return c ? { ...est, client: c as Estimate["client"] } : est;
+    });
+  }, [estimatesData, clientMap]);
+
+  const opportunities = useMemo(() => {
+    const raw = opportunitiesData ?? [];
+    if (clientMap.size === 0) return raw;
+    return raw.map((opp) => {
+      if (opp.client?.name) return opp;
+      const c = opp.clientId ? clientMap.get(opp.clientId) : undefined;
+      return c ? { ...opp, client: c as Opportunity["client"] } : opp;
+    });
+  }, [opportunitiesData, clientMap]);
   const expenses = expensesData ?? [];
   const weekEvents: InternalCalendarEvent[] = useMemo(() => {
     if (!scheduledTasks) return [];
@@ -578,10 +613,6 @@ export default function DashboardPage() {
         );
       case "crew-board":
         return <CrewBoardWidget size={size} teamMembers={teamMembers} tasks={tasks} isLoading={teamLoading || tasksLoading} onNavigate={navigate} />;
-      case "crew-locations":
-        return <CrewLocationsWidget size={size} />;
-      case "site-visits":
-        return <SiteVisitsWidget size={size} config={config} />;
 
       // ── CLIENTS ──
       case "top-clients":

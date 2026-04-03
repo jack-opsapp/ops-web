@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
-import { Loader2, Send, Check, AlertTriangle } from "lucide-react";
+import { useMemo, useState, useCallback, useRef } from "react";
+import { Loader2, Send, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { WidgetLineItem } from "./shared/widget-line-item";
+import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WT } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate } from "@/lib/types/pipeline";
@@ -28,15 +32,6 @@ interface EstimatesOverviewWidgetProps {
 
 type StatusFilter = "all" | "draft" | "sent" | "viewed" | "approved" | "expired";
 
-const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
-  all: "All",
-  draft: "Draft",
-  sent: "Sent",
-  viewed: "Viewed",
-  approved: "Approved",
-  expired: "Expired",
-};
-
 function matchesFilter(estimate: Estimate, filter: StatusFilter): boolean {
   if (filter === "all") return true;
   const map: Record<string, EstimateStatus> = {
@@ -47,56 +42,6 @@ function matchesFilter(estimate: Estimate, filter: StatusFilter): boolean {
     expired: EstimateStatus.Expired,
   };
   return estimate.status === map[filter];
-}
-
-function statusBadgeClasses(status: EstimateStatus): string {
-  switch (status) {
-    case EstimateStatus.Draft:
-      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
-    case EstimateStatus.Sent:
-      return "text-ops-accent bg-ops-accent/15 border-ops-accent/30";
-    case EstimateStatus.Viewed:
-      return "text-ops-amber bg-ops-amber/15 border-ops-amber/30";
-    case EstimateStatus.Approved:
-      return "text-status-success bg-status-success/15 border-status-success/30";
-    case EstimateStatus.Expired:
-      return "text-ops-error bg-ops-error/15 border-ops-error/30";
-    case EstimateStatus.ChangesRequested:
-      return "text-ops-amber bg-ops-amber/15 border-ops-amber/30";
-    case EstimateStatus.Declined:
-      return "text-ops-error bg-ops-error/15 border-ops-error/30";
-    case EstimateStatus.Converted:
-      return "text-status-success bg-status-success/15 border-status-success/30";
-    case EstimateStatus.Superseded:
-      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
-    default:
-      return "text-text-disabled bg-text-disabled/15";
-  }
-}
-
-function statusLabel(status: EstimateStatus, t: (key: string) => string): string {
-  switch (status) {
-    case EstimateStatus.Draft:
-      return t("estimatesOverview.statusDraft");
-    case EstimateStatus.Sent:
-      return t("estimatesOverview.statusSent");
-    case EstimateStatus.Viewed:
-      return t("estimatesOverview.statusViewed");
-    case EstimateStatus.Approved:
-      return t("estimatesOverview.statusApproved");
-    case EstimateStatus.Expired:
-      return t("estimatesOverview.statusExpired");
-    case EstimateStatus.ChangesRequested:
-      return t("estimatesOverview.statusChanges");
-    case EstimateStatus.Declined:
-      return t("estimatesOverview.statusDeclined");
-    case EstimateStatus.Converted:
-      return t("estimatesOverview.statusConverted");
-    case EstimateStatus.Superseded:
-      return t("estimatesOverview.statusSuperseded");
-    default:
-      return status;
-  }
 }
 
 function formatCurrency(amount: number, locale: Locale): string {
@@ -143,6 +88,9 @@ export function EstimatesOverviewWidget({
 }: EstimatesOverviewWidgetProps) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
+  const ref = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(ref);
+  const reducedMotion = useReducedMotion();
   const filter = (config.statusFilter as StatusFilter) ?? "all";
   const { data: rawEstimates, isLoading } = useEstimates();
   const clientMap = useClientMap();
@@ -207,7 +155,7 @@ export function EstimatesOverviewWidget({
   const maxItems = size === "lg" ? 7 : 3;
 
   return (
-    <Card className="h-full p-0">
+    <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
@@ -223,7 +171,7 @@ export function EstimatesOverviewWidget({
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-[11px] text-text-disabled ml-1">
+              <span className="font-mono text-micro-sm text-text-disabled ml-1">
                 {t("estimatesOverview.loadingEstimates")}
               </span>
             </div>
@@ -232,16 +180,19 @@ export function EstimatesOverviewWidget({
               {t("estimatesOverview.noEstimates").replace("{filter}", statusFilterLabel[filter].toLowerCase())}
             </p>
           ) : (
-            <div className="space-y-[6px]">
-              {filtered.slice(0, maxItems).map((estimate) => (
+            <div className="space-y-[2px]">
+              {filtered.slice(0, maxItems).map((estimate, i) => (
                 <EstimateRow
                   key={estimate.id}
                   estimate={estimate}
                   showExpiration={size === "lg"}
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
                 />
               ))}
               {filtered.length > maxItems && (
-                <span className="font-mono text-[11px] text-text-disabled block px-1">
+                <span className="font-mono text-micro-sm text-text-disabled block px-1">
                   {t("estimatesOverview.more").replace("{count}", String(filtered.length - maxItems))}
                 </span>
               )}
@@ -260,9 +211,15 @@ export function EstimatesOverviewWidget({
 function EstimateRow({
   estimate,
   showExpiration,
+  index,
+  isVisible,
+  reducedMotion,
 }: {
   estimate: Estimate;
   showExpiration: boolean;
+  index: number;
+  isVisible: boolean;
+  reducedMotion: boolean | null;
 }) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
@@ -293,72 +250,48 @@ function EstimateRow({
   const isDraft = estimate.status === EstimateStatus.Draft;
   const expiring = showExpiration && isExpiringWithin7Days(estimate);
 
-  return (
-    <div
+  // Expiring: amber bar indicator on left + expiring text in secondary
+  const secondary = expiring
+    ? `${formatDate(estimate.issueDate, locale)} · ${t("estimatesOverview.expiringSoon")}`
+    : formatDate(estimate.issueDate, locale);
+
+  // Send button — drafts only
+  const actionSlot = isDraft ? (
+    <button
+      onClick={handleSend}
+      disabled={sendState !== "idle"}
       className={cn(
-        "flex items-center gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
-        expiring && "ring-1 ring-ops-amber/30"
+        "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
+        "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
+        sendState === "sent" && "text-status-success"
       )}
+      title={t("estimatesOverview.sendEstimate")}
+      aria-label={t("estimatesOverview.sendEstimate")}
     >
-      {/* Title / client info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-mohave text-body-sm text-text-primary truncate">
-          {displayName}
-        </p>
-        <div className="flex items-center gap-1">
-          <span className="font-mono text-[11px] text-text-tertiary">
-            {formatDate(estimate.issueDate, locale)}
-          </span>
-          {expiring && (
-            <span className="flex items-center gap-0.5">
-              <AlertTriangle className="w-[10px] h-[10px] text-ops-amber" />
-              <span className="font-mono text-[10px] text-ops-amber">
-                {t("estimatesOverview.expiringSoon")}
-              </span>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Amount */}
-      <span className="font-mono text-[11px] text-text-secondary shrink-0">
-        {formatCurrency(estimate.total, locale)}
-      </span>
-
-      {/* Status badge */}
-      <span
-        className={cn(
-          "font-mohave text-[10px] px-1 py-[1px] rounded-sm uppercase tracking-wider shrink-0 border",
-          statusBadgeClasses(estimate.status)
-        )}
-      >
-        {statusLabel(estimate.status, t)}
-      </span>
-
-      {/* One-click Send (draft only) */}
-      {isDraft && (
-        <button
-          onClick={handleSend}
-          disabled={sendState !== "idle"}
-          className={cn(
-            "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-            "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
-            sendState === "sent" && "text-status-success"
-          )}
-          title={t("estimatesOverview.sendEstimate")}
-        >
-          {sendState === "sending" ? (
-            <Loader2 className="w-[12px] h-[12px] animate-spin" />
-          ) : sendState === "sent" ? (
-            <Check className="w-[12px] h-[12px]" />
-          ) : (
-            <>
-              <Send className="w-[12px] h-[12px]" />
-              <span className="font-mohave text-[12px]">{t("estimatesOverview.send")}</span>
-            </>
-          )}
-        </button>
+      {sendState === "sending" ? (
+        <Loader2 className="w-[12px] h-[12px] animate-spin" />
+      ) : sendState === "sent" ? (
+        <Check className="w-[12px] h-[12px]" />
+      ) : (
+        <>
+          <Send className="w-[12px] h-[12px]" />
+          <span className="font-mohave text-micro-sm">{t("estimatesOverview.send")}</span>
+        </>
       )}
-    </div>
+    </button>
+  ) : undefined;
+
+  return (
+    <WidgetLineItem
+      indicator={expiring ? { type: "bar", color: WT.warning } : undefined}
+      primary={displayName}
+      secondary={secondary}
+      metric={formatCurrency(estimate.total, locale)}
+      badge={{ status: estimate.status, entity: "estimate" }}
+      action={actionSlot}
+      index={index}
+      isVisible={isVisible}
+      reducedMotion={reducedMotion}
+    />
   );
 }

@@ -210,7 +210,7 @@ export function ExpenseTrackerWidget({
   // ── Empty state ───────────────────────────────────────────────────────
   if (categoryData.total === 0) {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/expenses")}>
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("expenseTracker.title") ?? "Expenses"}
@@ -236,7 +236,7 @@ export function ExpenseTrackerWidget({
   // ── XS: Hero = total expenses + delta ─────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/expenses")}>
+      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
             {formatCompactCurrency(animatedTotal)}
@@ -272,10 +272,10 @@ export function ExpenseTrackerWidget({
               {formatCompactCurrency(animatedTotal)}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/expenses"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              onClick={(e) => { e.stopPropagation(); onNavigate("/accounting"); }}
+              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -322,7 +322,7 @@ export function ExpenseTrackerWidget({
                 <div
                   key={cat.name}
                   className="flex items-center gap-2 cursor-pointer"
-                  onClick={() => onNavigate(`/expenses?category=${encodeURIComponent(cat.name)}`)}
+                  onClick={() => onNavigate("/accounting")}
                   onMouseEnter={(e) => {
                     const parentRect = ref.current?.getBoundingClientRect();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -403,7 +403,7 @@ export function ExpenseTrackerWidget({
         {/* Footer */}
         {showFooter(size) && (
           <button
-            onClick={() => onNavigate("/expenses")}
+            onClick={() => onNavigate("/accounting")}
             className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
           >
             {t("expenseTracker.viewAll") ?? "View Expenses"}

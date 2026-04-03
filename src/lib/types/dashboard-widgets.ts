@@ -47,13 +47,11 @@ export type WidgetTypeId =
   | "backlog-depth"
   | "booking-rate"
   | "estimates-overview"
-  // Operations (6)
+  // Operations (4)
   | "task-pulse"
   | "todays-schedule"
   | "task-list"
   | "crew-board"
-  | "crew-locations"
-  | "site-visits"
   // Clients (3)
   | "top-clients"
   | "client-attention"
@@ -152,7 +150,7 @@ export const CATEGORY_ORDER: WidgetCategory[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Full Widget Type Registry — 27 widget types
+// Full Widget Type Registry — 25 widget types
 // ---------------------------------------------------------------------------
 
 export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
@@ -405,7 +403,7 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     requiredPermission: "estimates.view",
   },
 
-  // ── OPERATIONS (6) ────────────────────────────────────────────────────
+  // ── OPERATIONS (4) ────────────────────────────────────────────────────
   "task-pulse": {
     label: "Tasks",
     description: "Task status overview with urgency",
@@ -477,41 +475,6 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     configSchema: [],
     allowMultiple: false,
     requiredPermission: "team.view",
-  },
-  "crew-locations": {
-    label: "Crew Locations",
-    description: "Team member locations and assignments",
-    category: "operations",
-    tags: ["field-ops"],
-    icon: "MapPin",
-    supportedSizes: ["md", "lg"],
-    defaultSize: "md",
-    allowMultiple: false,
-    configSchema: [],
-    requiredPermission: "map.view_crew_locations",
-  },
-  "site-visits": {
-    label: "Site Visits",
-    description: "Upcoming and recent site visits",
-    category: "operations",
-    tags: ["scheduling", "field-ops"],
-    icon: "MapPin",
-    supportedSizes: ["sm", "md"],
-    defaultSize: "md",
-    allowMultiple: false,
-    configSchema: [
-      {
-        key: "filter",
-        label: "Filter",
-        type: "select",
-        options: [
-          { value: "upcoming", label: "Upcoming" },
-          { value: "recent", label: "Recent" },
-        ],
-        defaultValue: "upcoming",
-      },
-    ],
-    requiredPermission: "projects.view",
   },
 
   // ── CLIENTS (3) ───────────────────────────────────────────────────────

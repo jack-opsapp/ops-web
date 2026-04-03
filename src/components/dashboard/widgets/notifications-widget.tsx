@@ -44,12 +44,12 @@ function getTypeColor(type: NotificationType): string {
   }
 }
 
-function formatTimeAgo(date: Date): string {
+function formatTimeAgo(date: Date, t: (key: string) => string): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 60) return t("activity.justNow");
+  if (seconds < 3600) return (t("activity.minutesAgo") ?? "{count}m ago").replace("{count}", String(Math.floor(seconds / 60)));
+  if (seconds < 86400) return (t("activity.hoursAgo") ?? "{count}h ago").replace("{count}", String(Math.floor(seconds / 3600)));
+  if (seconds < 604800) return (t("activity.daysAgo") ?? "{count}d ago").replace("{count}", String(Math.floor(seconds / 86400)));
   return date.toLocaleDateString();
 }
 
@@ -169,7 +169,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
                   }}
                   primary={notification.title}
                   secondary={notification.body ?? undefined}
-                  metric={formatTimeAgo(notification.createdAt)}
+                  metric={formatTimeAgo(notification.createdAt, t)}
                   onClick={
                     notification.actionUrl
                       ? () => navigate(notification.actionUrl!)

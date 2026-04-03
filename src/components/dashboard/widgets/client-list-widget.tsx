@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, FolderPlus, Receipt, FileText, ClipboardList } from "lucide-react";
+import { Loader2, Plus, FolderPlus, Receipt, FileText, ClipboardList, ArrowUpRight, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
@@ -11,13 +11,19 @@ import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
-import { WT, showActions } from "@/lib/widget-tokens";
+import { useScrollFadeScroll } from "./shared/use-scroll-fade-scroll";
+import { widgetLineItemStyle } from "./shared/widget-motion";
+import { formatCompactCurrency } from "./shared/widget-utils";
+import { WT, showActions, showFooter } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useClients, useProjects, useInvoices } from "@/lib/hooks";
 import { InvoiceStatus } from "@/lib/types/pipeline";
-import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { useWidgetActionQueue } from "@/stores/widget-action-queue";
+import { ClientService } from "@/lib/api/services";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/query-client";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -32,26 +38,6 @@ interface ClientListWidgetProps {
 // ---------------------------------------------------------------------------
 type SortBy = "recent" | "name" | "revenue";
 
-// ---------------------------------------------------------------------------
-// Hook: attach scroll listener to ScrollFade's internal scrollable div
-// ---------------------------------------------------------------------------
-function useScrollFadeScroll(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean,
-  onScroll: (scrollTop: number) => void
-) {
-  useEffect(() => {
-    if (!enabled) return;
-    const container = containerRef.current;
-    if (!container) return;
-    const scrollEl = container.querySelector(".overflow-y-auto");
-    if (!scrollEl) return;
-
-    const handler = () => onScroll(scrollEl.scrollTop);
-    scrollEl.addEventListener("scroll", handler, { passive: true });
-    return () => scrollEl.removeEventListener("scroll", handler);
-  }, [containerRef, enabled, onScroll]);
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -60,6 +46,8 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
   const { t } = useDictionary("dashboard");
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
+  const queryClient = useQueryClient();
+  const { queueAction } = useWidgetActionQueue();
 
   const ref = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +91,21 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
       if (inv.deletedAt) continue;
       if (inv.status === InvoiceStatus.Paid) {
         map[inv.clientId] = (map[inv.clientId] ?? 0) + inv.amountPaid;
+      }
+    }
+    return map;
+  }, [invoicesData]);
+
+  // Build outstanding balance map (sum of balanceDue on unpaid invoices)
+  const outstandingMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    const invoices = Array.isArray(invoicesData) ? invoicesData : [];
+    const skipStatuses = new Set([InvoiceStatus.Paid, InvoiceStatus.Void, InvoiceStatus.WrittenOff, InvoiceStatus.Draft]);
+    for (const inv of invoices) {
+      if (inv.deletedAt) continue;
+      if (skipStatuses.has(inv.status)) continue;
+      if (inv.balanceDue > 0) {
+        map[inv.clientId] = (map[inv.clientId] ?? 0) + inv.balanceDue;
       }
     }
     return map;
@@ -205,14 +208,41 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
 
   useScrollFadeScroll(scrollContainerRef, showActions(size), handleScrollTop);
 
+  // Delete client with undo window
+  const handleDeleteClient = useCallback(
+    (clientId: string, clientName: string) => {
+      queueAction(
+        {
+          type: "delete-client",
+          label: `${clientName} ${t("clientList.deleted") ?? "deleted"}`,
+          entityId: clientId,
+          executeFn: async () => {
+            await ClientService.softDeleteClient(clientId);
+            queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
+          },
+        },
+        5_000
+      );
+    },
+    [queueAction, queryClient, t]
+  );
+
   // ── SM: Hero + title + latest client ────────────────────────────────────
   if (size === "sm") {
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-            {isLoading ? "—" : clients.length}
-          </span>
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {isLoading ? "—" : clients.length}
+            </span>
+            <button
+              onClick={() => navigate("/clients")}
+              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-[14px] h-[14px]" />
+            </button>
+          </div>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("clientList.title")}
           </span>
@@ -317,31 +347,56 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               <div className="flex flex-col gap-[2px]">
                 {sorted.map((client, i) => {
                   const contact = client.email ?? client.phoneNumber ?? undefined;
+                  const revenue = revenueMap[client.id] ?? 0;
+                  const outstanding = outstandingMap[client.id] ?? 0;
                   const projCount = projectCountMap[client.id] ?? 0;
 
-                  return (
-                    <WidgetLineItem
-                      key={client.id}
-                      indicator={{
-                        type: "avatar",
-                        initials: client.name ? client.name[0].toUpperCase() : "?",
-                        color: WT.accent,
-                      }}
-                      primary={client.name}
-                      secondary={contact}
-                      metric={
-                        <span
-                          className={cn(
-                            "font-mohave text-[10px] px-1 py-[1px] rounded-sm uppercase tracking-wider shrink-0 border",
-                            projCount > 0
-                              ? "text-ops-accent bg-ops-accent/10 border-ops-accent/30"
-                              : "text-text-disabled bg-text-disabled/10 border-text-disabled/30"
-                          )}
-                        >
-                          {projCount} {projCount === 1 ? t("clientList.proj") : t("clientList.projs")}
+                  // Financial metric: outstanding (warning) > revenue (accent) > project count badge
+                  const financialMetric = outstanding > 0 ? (
+                    <div className="flex flex-col items-end">
+                      {revenue > 0 && (
+                        <span className="font-mono text-micro-sm text-text-secondary">
+                          {formatCompactCurrency(revenue)}
                         </span>
-                      }
-                      action={
+                      )}
+                      <span className="font-mono text-[9px] text-status-warning">
+                        {formatCompactCurrency(outstanding)} {t("clientList.due") ?? "due"}
+                      </span>
+                    </div>
+                  ) : revenue > 0 ? (
+                    <span className="font-mono text-micro-sm text-text-secondary">
+                      {formatCompactCurrency(revenue)}
+                    </span>
+                  ) : (
+                    <span className="font-mono text-micro-sm text-text-disabled">
+                      {projCount} {projCount === 1 ? t("clientList.proj") : t("clientList.projs")}
+                    </span>
+                  );
+
+                  return (
+                    <div
+                      key={client.id}
+                      className="flex items-center"
+                      style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
+                    >
+                      {/* Navigation zone — clicking here navigates to client */}
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer rounded-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                        onClick={() => navigate(`/clients/${client.id}`)}
+                      >
+                        <WidgetLineItem
+                          indicator={{
+                            type: "avatar",
+                            initials: client.name ? client.name[0].toUpperCase() : "?",
+                            color: WT.accent,
+                          }}
+                          primary={client.name}
+                          secondary={contact}
+                          metric={financialMetric}
+                        />
+                      </div>
+                      {/* Action zone — structurally separate from navigation */}
+                      <div className="shrink-0 ml-0.5">
                         <WidgetInlineAction
                           icon={Plus}
                           actions={[
@@ -349,20 +404,27 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                             { icon: Receipt, label: t("clientList.createInvoice") ?? "Create Invoice", onAction: () => navigate(`/invoices/new?clientId=${client.id}`) },
                             { icon: FileText, label: t("clientList.createEstimate") ?? "Create Estimate", onAction: () => navigate(`/estimates/new?clientId=${client.id}`) },
                             { icon: ClipboardList, label: t("clientList.createTask") ?? "Create Task", onAction: () => navigate(`/tasks/new?clientId=${client.id}`) },
+                            { icon: Trash2, label: t("clientList.deleteClient") ?? "Delete Client", onAction: () => handleDeleteClient(client.id, client.name) },
                           ]}
                         />
-                      }
-                      onClick={() => navigate(`/clients/${client.id}`)}
-                      index={i}
-                      isVisible={isVisible}
-                      reducedMotion={reducedMotion}
-                    />
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             )}
           </ScrollFade>
         </div>
+
+        {/* Footer */}
+        {showFooter(size) && (
+          <button
+            onClick={() => navigate("/clients")}
+            className="mt-auto pt-2 px-3 pb-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
+          >
+            {t("clientList.viewAll") ?? "View All Clients"}
+          </button>
+        )}
       </div>
     </Card>
   );

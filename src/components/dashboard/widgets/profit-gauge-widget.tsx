@@ -25,11 +25,11 @@ function marginColor(pct: number): string {
   return WT.error;                      // Low
 }
 
-const PERIOD_OPTIONS = [
-  { value: "mtd", label: "MTD" },
-  { value: "qtd", label: "QTD" },
-  { value: "ytd", label: "YTD" },
-];
+const PERIOD_KEYS = [
+  { value: "mtd", i18nKey: "period.mtd" },
+  { value: "qtd", i18nKey: "period.qtd" },
+  { value: "ytd", i18nKey: "period.ytd" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -87,6 +87,7 @@ export function ProfitGaugeWidget({
 
   const reducedMotion = useReducedMotion();
 
+  const periodOptions = useMemo(() => PERIOD_KEYS.map((p) => ({ value: p.value, label: t(p.i18nKey) })), [t]);
   const [period, setPeriod] = useState((config.period as string) ?? "mtd");
   const { start, end } = getPeriodRange(period);
 
@@ -140,7 +141,7 @@ export function ProfitGaugeWidget({
   // ── XS: Hero percentage ───────────────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" ref={ref} onClick={() => onNavigate?.("/expenses")}>
+      <Card className="h-full cursor-pointer" ref={ref} onClick={() => onNavigate?.("/accounting")}>
         <div className="h-full flex flex-col pt-3">
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {hasData ? `${animatedMargin}%` : "0%"}
@@ -164,17 +165,25 @@ export function ProfitGaugeWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number + period picker (icon-only at SM) */}
+          {/* Row 1: Hero number + period picker + nav icon */}
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-data-lg font-bold leading-none" style={{ color }}>
               {hasData ? `${animatedMargin}%` : "0%"}
             </span>
-            <WidgetPeriodPicker
-              options={PERIOD_OPTIONS}
-              value={period}
-              onChange={setPeriod}
-              size={size}
-            />
+            <div className="flex items-center gap-1">
+              <WidgetPeriodPicker
+                options={periodOptions}
+                value={period}
+                onChange={setPeriod}
+                size={size}
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate?.("/accounting"); }}
+                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              >
+                <ArrowUpRight className="w-[14px] h-[14px]" />
+              </button>
+            </div>
           </div>
           {/* Row 2: Title */}
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -240,7 +249,7 @@ export function ProfitGaugeWidget({
               {hasData ? `${financials.marginPct}%` : "0%"}
             </span>
             <WidgetPeriodPicker
-              options={PERIOD_OPTIONS}
+              options={periodOptions}
               value={period}
               onChange={setPeriod}
               size={size}
@@ -337,7 +346,7 @@ export function ProfitGaugeWidget({
         {/* Footer */}
         {showFooter(size) && (
           <button
-            onClick={() => onNavigate?.("/expenses")}
+            onClick={() => onNavigate?.("/accounting")}
             className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
           >
             {t("profitGauge.viewExpenses") ?? "View Expenses"}

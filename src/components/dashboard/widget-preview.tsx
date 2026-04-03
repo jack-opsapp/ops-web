@@ -35,8 +35,6 @@ import { ClientListWidget } from "@/components/dashboard/widgets/client-list-wid
 import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
-import { SiteVisitsWidget } from "@/components/dashboard/widgets/site-visits-widget";
-import { CrewLocationsWidget } from "@/components/dashboard/widgets/crew-locations-widget";
 
 // No-op navigate for preview
 const noop = () => {};
@@ -94,10 +92,6 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
       return <TaskListWidget size={size} tasks={[]} isLoading={false} today={PREVIEW_TODAY} onNavigate={noop} />;
     case "crew-board":
       return <CrewBoardWidget size={size} teamMembers={[]} tasks={[]} isLoading={false} onNavigate={noop} />;
-    case "crew-locations":
-      return <CrewLocationsWidget size={size} />;
-    case "site-visits":
-      return <SiteVisitsWidget size={size} config={config} />;
 
     // ── CLIENTS ──
     case "top-clients":
@@ -111,7 +105,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     case "action-required":
       return <ActionRequiredWidget size={size} tasks={[]} invoices={[]} opportunities={[]} estimates={[]} isLoading={false} onNavigate={noop} />;
     case "activity-feed":
-      return <ActivityWidget />;
+      return <ActivityWidget size={size} config={config} onNavigate={noop} />;
     case "notifications":
       return <NotificationsWidget size={size} config={config} />;
 

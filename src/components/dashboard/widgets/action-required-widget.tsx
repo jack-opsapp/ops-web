@@ -25,7 +25,7 @@ import { TaskStatus } from "@/lib/types/models";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
-import { WT, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
+import { WT, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ export function ActionRequiredWidget({
         id: `task-${task.id}`,
         type: "overdue-task",
         priority: 2,
-        description: task.customTitle || task.taskType?.display || "Task",
+        description: task.customTitle || task.taskType?.display || t("actionRequired.taskFallback"),
         reason: `${t(reasonKey) ?? "Past start date"}, ${days}d ${t("actionRequired.overdueShort") ?? "overdue"}`,
         age: formatAgeDays(days, "overdue", t),
         navigateTo: `/projects/${task.projectId}`,
@@ -150,7 +150,7 @@ export function ActionRequiredWidget({
         reason: `${reasonLabel}, ${days}d ${t("actionRequired.pastDue") ?? "past due"}`,
         age: formatAgeDays(days, "overdue", t),
         amount: inv.balanceDue,
-        navigateTo: `/invoices/${inv.id}`,
+        navigateTo: "/invoices",
       });
     }
 
@@ -179,7 +179,7 @@ export function ActionRequiredWidget({
         reason: `${reasonLabel}, ${expiresText}`,
         age: expiresText,
         amount: est.total,
-        navigateTo: `/estimates/${est.id}`,
+        navigateTo: "/estimates",
       });
     }
 
@@ -206,11 +206,11 @@ export function ActionRequiredWidget({
         id: `followup-${opp.id}`,
         type: "stale-follow-up",
         priority: 5,
-        description: opp.title || "Follow-up",
+        description: opp.title || t("actionRequired.followUpFallback"),
         reason,
         age: formatAgeDays(days, "overdue", t),
         amount: opp.estimatedValue ?? undefined,
-        navigateTo: `/pipeline/${opp.id}`,
+        navigateTo: "/pipeline",
       });
     }
 
@@ -277,7 +277,7 @@ export function ActionRequiredWidget({
                 </span>
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-1 min-w-[200px] max-w-[280px]">
+            <PopoverContent align="start" side="bottom" collisionPadding={8} className="w-auto p-1 min-w-[200px] max-w-[280px]">
               <div className="flex flex-col">
                 {previewItems.map((item) => {
                   const config = TYPE_CONFIG[item.type];
@@ -312,10 +312,18 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          {/* Row 1: Hero number */}
-          <span className="font-mono text-data-lg font-bold leading-none" style={{ color: totalColor }}>
-            {items.length}
-          </span>
+          {/* Row 1: Hero number + nav icon */}
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none" style={{ color: totalColor }}>
+              {items.length}
+            </span>
+            <button
+              onClick={() => onNavigate("/calendar")}
+              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-[14px] h-[14px]" />
+            </button>
+          </div>
           {/* Row 2: Title */}
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
@@ -333,7 +341,7 @@ export function ActionRequiredWidget({
                       <span className="font-mono text-micro-sm text-text-tertiary">{count}</span>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent align="start" className="w-auto p-1 min-w-[200px] max-w-[280px]">
+                  <PopoverContent align="start" side="bottom" collisionPadding={8} className="w-auto p-1 min-w-[200px] max-w-[280px]">
                     <div className="px-2 py-1 border-b border-border-subtle mb-1">
                       <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
                         {t(config.labelKey) ?? type}
@@ -488,6 +496,16 @@ export function ActionRequiredWidget({
             })}
           </div>
         </ScrollFade>
+
+        {/* Footer */}
+        {showFooter(size) && (
+          <button
+            onClick={() => onNavigate("/calendar")}
+            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
+          >
+            {t("actionRequired.viewTasks") ?? "View Tasks"}
+          </button>
+        )}
       </div>
     </Card>
   );
