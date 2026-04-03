@@ -320,8 +320,8 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
-          {/* Row 3: Segmented bar + legend */}
-          <div className="mt-1.5">
+          {/* Row 3: Segmented bar (no tooltip at SM — bar too small) */}
+          <div className="mt-1.5 pointer-events-none">
             {segmentedBar}
           </div>
         </div>

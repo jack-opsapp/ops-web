@@ -270,7 +270,7 @@ export function CashPositionWidget({
 
   // ── MD+: Hero + dual bars (collected vs spent) + hover breakdown ──────
   const maxBar = Math.max(cashFlow.collected, cashFlow.spent, 1);
-  const barHeight = 14; // Shorter bars for MD — no overflow
+  const barHeight = 10; // Compact bars — all content fits within MD bounds
 
   return (
     <Card className="h-full" ref={ref}>
