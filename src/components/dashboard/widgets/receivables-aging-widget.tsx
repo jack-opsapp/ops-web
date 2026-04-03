@@ -309,7 +309,7 @@ export function ReceivablesAgingWidget({
             <TooltipRow label={t("receivablesAging.ofTotal") ?? "Of total"} value={`${Math.round(tooltip.pct)}%`} />
           </WidgetTooltip>
 
-          {/* Vertical bars — border + low-opacity fill, value inside */}
+          {/* Vertical bars — fill available height */}
           <div className="flex items-end gap-[6px] flex-1 min-h-[60px]">
             {nonEmptyBuckets.map((bucket, i) => {
               const pct = (bucket.amount / maxBucketAmount) * 100;
@@ -335,23 +335,17 @@ export function ReceivablesAgingWidget({
                   onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
                 >
                   <div
-                    className="w-full rounded-sm flex items-end justify-center pb-1"
+                    className="w-full rounded-t-sm"
                     style={{
                       height: isVisible ? `${pct}%` : "0%",
-                      minHeight: bucket.amount > 0 ? "24px" : "0px",
-                      border: `1px solid ${bucket.color}`,
-                      backgroundColor: `color-mix(in srgb, ${bucket.color} 15%, transparent)`,
+                      minHeight: bucket.amount > 0 ? "4px" : "0px",
+                      backgroundColor: bucket.color,
                       transitionProperty: "height",
                       transitionDuration: reducedMotion ? "200ms" : "500ms",
                       transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
                       transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-                      overflow: "hidden",
                     }}
-                  >
-                    <span className="font-mono text-micro-sm font-medium" style={{ color: bucket.color }}>
-                      {formatCompactCurrency(bucket.amount)}
-                    </span>
-                  </div>
+                  />
                   <span className="font-kosugi text-micro-sm text-text-disabled mt-1 uppercase">
                     {t(bucket.labelKey) ?? bucket.fallback}
                   </span>

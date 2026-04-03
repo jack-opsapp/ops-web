@@ -324,22 +324,6 @@ export function ExpenseTrackerWidget({
   const displayCats = categoryData.categories.slice(0, maxBars);
   const maxAmount = displayCats[0]?.amount ?? 1;
 
-  // LG: per-member category breakdown for hover highlight
-  const memberCategoryMap = useMemo(() => {
-    if (!showActions(size)) return new Map<string, Map<string, number>>();
-    const map = new Map<string, Map<string, number>>();
-    for (const e of filteredExpenses) {
-      const id = e.submittedBy ?? "unknown";
-      const cat = e.categoryName ?? "Other";
-      if (!map.has(id)) map.set(id, new Map());
-      const catMap = map.get(id)!;
-      catMap.set(cat, (catMap.get(cat) ?? 0) + e.amount);
-    }
-    return map;
-  }, [filteredExpenses, size]);
-
-  const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
-
   return (
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
@@ -358,22 +342,15 @@ export function ExpenseTrackerWidget({
             <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
           </WidgetTooltip>
 
-          {/* Category bars — flexible height to fill vertical space */}
-          <div className="flex items-end gap-[6px] flex-1 min-h-[60px]">
+          {/* Category bars — flex-1 to fill available vertical space */}
+          <div className="flex flex-col justify-between flex-1 min-h-0" style={{ gap: showActions(size) ? "8px" : "4px" }}>
             {displayCats.map((cat, i) => {
               const barPct = (cat.amount / maxAmount) * 100;
-              // When a team member is hovered, show their contribution as full-opacity overlay
-              const memberContribution = hoveredMemberId
-                ? memberCategoryMap.get(hoveredMemberId)?.get(cat.name) ?? 0
-                : 0;
-              const memberBarPct = hoveredMemberId && maxAmount > 0
-                ? (memberContribution / maxAmount) * 100
-                : 0;
-
               return (
                 <div
                   key={cat.name}
-                  className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
+                  className="flex items-center gap-2 cursor-pointer"
+                  onClick={() => onNavigate("/accounting")}
                   onMouseEnter={(e) => {
                     const parentRect = ref.current?.getBoundingClientRect();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -390,43 +367,39 @@ export function ExpenseTrackerWidget({
                   }}
                   onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
                 >
-                  <div
-                    className="w-full rounded-sm relative overflow-hidden"
-                    style={{
-                      height: isVisible ? `${barPct}%` : "0%",
-                      minHeight: cat.amount > 0 ? "4px" : "0px",
-                      backgroundColor: cat.color,
-                      opacity: hoveredMemberId ? 0.25 : 1,
-                      transitionProperty: "height, opacity",
-                      transitionDuration: reducedMotion ? "200ms" : "500ms",
-                      transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                      transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-                    }}
-                  />
-                  {/* Member contribution overlay — shown when hovering a team member */}
-                  {hoveredMemberId && memberContribution > 0 && (
-                    <div
-                      className="w-full rounded-sm absolute bottom-0 left-0"
-                      style={{
-                        height: `${memberBarPct}%`,
-                        backgroundColor: cat.color,
-                        transition: reducedMotion ? "none" : "height 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      }}
-                    />
-                  )}
-                  {/* Label + value beneath bar */}
-                  <span className="font-kosugi text-micro-sm text-text-disabled mt-1 uppercase truncate w-full text-center">
+                  <span className="font-mohave text-micro text-text-secondary w-[80px] shrink-0 truncate">
                     {cat.name}
                   </span>
-                  <span className="font-mono text-micro-sm text-text-tertiary">
-                    {formatCompactCurrency(cat.amount)}
-                  </span>
+                  <div className="flex-1 h-[8px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
+                    <div
+                      className="h-full rounded-sm"
+                      style={{
+                        width: isVisible ? `${barPct}%` : "0%",
+                        backgroundColor: cat.color,
+                        transitionProperty: "width",
+                        transitionDuration: reducedMotion ? "200ms" : "500ms",
+                        transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
+                        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="font-mono text-micro text-text-primary w-[50px] text-right">
+                      {formatCompactCurrency(cat.amount)}
+                    </span>
+                    {/* Show % of total on LG */}
+                    {showActions(size) && (
+                      <span className="font-mono text-micro-sm text-text-disabled w-[32px] text-right">
+                        {Math.round(cat.pct)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {/* LG: Team member breakdown — hover highlights category bars */}
+          {/* LG: Team member breakdown */}
           {showActions(size) && teamData.length > 0 && (
             <div className="mt-3 pt-2 border-t border-border-subtle">
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
@@ -434,30 +407,21 @@ export function ExpenseTrackerWidget({
               </span>
               {teamData.slice(0, 5).map((member, i) => {
                 const memberPct = categoryData.total > 0 ? Math.round((member.amount / categoryData.total) * 100) : 0;
-                const memberId = filteredExpenses.find((e) => {
-                  const name = userNameMap.get(e.submittedBy ?? "") ?? "";
-                  return name === member.name;
-                })?.submittedBy ?? `member-${i}`;
                 return (
-                  <div
+                  <WidgetLineItem
                     key={i}
-                    onMouseEnter={() => setHoveredMemberId(memberId)}
-                    onMouseLeave={() => setHoveredMemberId(null)}
-                  >
-                    <WidgetLineItem
-                      indicator={{ type: "avatar", color: WT.accent, initials: member.name.slice(0, 2) }}
-                      primary={member.name}
-                      metric={
-                        <span className="flex items-center gap-1">
-                          <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(member.amount)}</span>
-                          <span className="font-mono text-micro-sm text-text-disabled">{memberPct}%</span>
-                        </span>
-                      }
-                      index={i}
-                      isVisible={isVisible}
-                      reducedMotion={reducedMotion}
-                    />
-                  </div>
+                    indicator={{ type: "avatar", color: WT.accent, initials: member.name.slice(0, 2) }}
+                    primary={member.name}
+                    metric={
+                      <span className="flex items-center gap-1">
+                        <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(member.amount)}</span>
+                        <span className="font-mono text-micro-sm text-text-disabled">{memberPct}%</span>
+                      </span>
+                    }
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
                 );
               })}
             </div>
