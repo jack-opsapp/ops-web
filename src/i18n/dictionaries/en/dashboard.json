@@ -703,7 +703,7 @@
   "cashPosition.expensesOut": "Expenses Out",
 
   "winRate.title": "Win Rate",
-  "winRate.sent": "Sent",
+  "winRate.sent": "Total",
   "winRate.won": "Won",
   "winRate.lost": "Lost",
   "winRate.noEstimates": "No estimates in period",

@@ -300,9 +300,9 @@ export function BacklogDepthWidget({
           </div>
         </div>
 
-        {/* DETAIL ZONE: Breakdown metrics */}
+        {/* DETAIL ZONE: Gauge + breakdown metrics — directly in flex column */}
         {showDetail(size) && (
-          <ScrollFade>
+          <>
             {/* Gauge */}
             <div className="relative w-full rounded-sm overflow-hidden" style={{ height: `${gaugeHeight}px` }}>
               <div className="absolute inset-0 flex">
@@ -322,28 +322,24 @@ export function BacklogDepthWidget({
                 }}
               />
             </div>
-            <div className="flex items-center justify-between mt-1 mb-3">
+            <div className="flex items-center justify-between mt-1 mb-2">
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase">0</span>
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase">10+ {t("backlogDepth.weeks") ?? "wk"}</span>
             </div>
 
-            {/* Breakdown metric rows */}
+            {/* Breakdown metric rows — flex-1 to fill vertical space */}
             {breakdownMetrics.length > 0 && (
-              <div className="flex flex-col gap-2 pt-2 border-t border-border-subtle">
+              <div className="flex flex-col flex-1 min-h-0 pt-2 border-t border-border-subtle" style={{ gap: "2px" }}>
                 {breakdownMetrics.map((metric, i) => {
                   const barPct = maxCount > 0 ? Math.max((metric.count / maxCount) * 100, metric.count > 0 ? 8 : 0) : 0;
                   return (
                     <div
                       key={metric.key}
-                      className="flex items-center gap-2"
+                      className="flex-1 flex flex-col justify-center min-h-[24px]"
                       style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
                     >
-                      {/* Label */}
-                      <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider w-[110px] shrink-0">
-                        {metric.label}
-                      </span>
-                      {/* Proportion bar */}
-                      <div className="flex-1 h-[6px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
+                      {/* Bar full width */}
+                      <div className="w-full h-[6px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
                         <div
                           className="h-full rounded-sm"
                           style={{
@@ -356,16 +352,21 @@ export function BacklogDepthWidget({
                           }}
                         />
                       </div>
-                      {/* Count */}
-                      <span className="font-mono text-micro-sm font-bold shrink-0 w-[24px] text-right" style={{ color: metric.color }}>
-                        {metric.count}
-                      </span>
+                      {/* Label + count beneath */}
+                      <div className="flex items-center justify-between mt-[2px]">
+                        <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider">
+                          {metric.label}
+                        </span>
+                        <span className="font-mono text-micro-sm font-bold" style={{ color: metric.color }}>
+                          {metric.count}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </ScrollFade>
+          </>
         )}
 
         {/* FOOTER */}

@@ -227,8 +227,8 @@ export function CrewBoardWidget({
           </span>
         </div>
 
-        {/* Detail zone */}
-        <ScrollFade>
+        {/* Detail zone — flex-1 so ScrollFade fills remaining vertical space */}
+        <ScrollFade className="flex-1 min-h-0">
           <div className="flex flex-col gap-[6px]">
             {displayMembers.map((m, i) => {
               // Availability text and color

@@ -238,8 +238,8 @@ export function TopClientsWidget({
           </span>
         </div>
 
-        {/* CLIENT LIST */}
-        <ScrollFade>
+        {/* CLIENT LIST — flex-1 so list fills remaining vertical space */}
+        <ScrollFade className="flex-1 min-h-0">
           <div className="flex flex-col gap-[4px]">
             {displayClients.map((entry, i) => {
               const val = getMetricValue(entry);
