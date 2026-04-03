@@ -444,7 +444,7 @@ export function ExpenseTrackerWidget({
 
         {/* LG: Team member breakdown */}
         {showActions(size) && teamData.length > 0 && (
-          <ScrollFade className="mt-2 pt-2 border-t border-border-subtle shrink-0">
+          <ScrollFade className="mt-2 pt-2 border-t border-border-subtle shrink-0 max-h-[140px]">
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
                 {t("expenseTracker.byTeamMember") ?? "By Team Member"}
               </span>
