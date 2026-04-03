@@ -191,6 +191,22 @@ export function ExpenseTrackerWidget({
   const animatedTotal = useAnimatedValue(isVisible ? Math.round(categoryData.total) : 0, 1000);
   const trend: "up" | "down" | "neutral" = categoryData.total > priorTotal ? "up" : categoryData.total < priorTotal ? "down" : "neutral";
 
+  // LG: per-member category breakdown for hover highlight (must be before early returns)
+  const memberCategoryMap = useMemo(() => {
+    if (!showActions(size)) return new Map<string, Map<string, number>>();
+    const map = new Map<string, Map<string, number>>();
+    for (const e of filteredExpenses) {
+      const id = e.submittedBy ?? "unknown";
+      const cat = e.categoryName ?? "Other";
+      if (!map.has(id)) map.set(id, new Map());
+      const catMap = map.get(id)!;
+      catMap.set(cat, (catMap.get(cat) ?? 0) + e.amount);
+    }
+    return map;
+  }, [filteredExpenses, size]);
+
+  const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
+
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -323,22 +339,6 @@ export function ExpenseTrackerWidget({
   const maxBars = showActions(size) ? 7 : 5;
   const displayCats = categoryData.categories.slice(0, maxBars);
   const maxAmount = displayCats[0]?.amount ?? 1;
-
-  // LG: per-member category breakdown for hover highlight
-  const memberCategoryMap = useMemo(() => {
-    if (!showActions(size)) return new Map<string, Map<string, number>>();
-    const map = new Map<string, Map<string, number>>();
-    for (const e of filteredExpenses) {
-      const id = e.submittedBy ?? "unknown";
-      const cat = e.categoryName ?? "Other";
-      if (!map.has(id)) map.set(id, new Map());
-      const catMap = map.get(id)!;
-      catMap.set(cat, (catMap.get(cat) ?? 0) + e.amount);
-    }
-    return map;
-  }, [filteredExpenses, size]);
-
-  const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
 
   return (
     <Card className="h-full p-0" ref={ref}>
