@@ -152,6 +152,33 @@ export function WinRateWidget({
 
   // ── Empty state ────────────────────────────────────────────────────────
   if (!hasData) {
+    if (size === "xs") {
+      return (
+        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/estimates")}>
+          <div className="h-full flex flex-col pt-3">
+            <span className="font-mono text-display font-bold text-text-disabled leading-none">--%</span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("winRate.title") ?? "Win Rate"}
+            </span>
+          </div>
+        </Card>
+      );
+    }
+    if (size === "sm") {
+      return (
+        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/estimates")}>
+          <div className="h-full flex flex-col p-3">
+            <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">--%</span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("winRate.title") ?? "Win Rate"}
+            </span>
+            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+              {t("winRate.noEstimates") ?? "No estimates"}
+            </span>
+          </div>
+        </Card>
+      );
+    }
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/estimates")}>
         <div className="h-full flex flex-col px-3 py-2">
@@ -159,18 +186,14 @@ export function WinRateWidget({
             {t("winRate.title") ?? "Win Rate"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className={`font-mono ${heroClass} font-bold text-text-disabled leading-none`}>
-              --%
-            </span>
+            <span className="font-mono text-display font-bold text-text-disabled leading-none">--%</span>
             <span className="font-mohave text-caption-sm text-text-disabled mt-1">
               {t("winRate.noEstimates") ?? "No estimates in period"}
             </span>
           </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("winRate.viewEstimates") ?? "View Estimates"}
-            </span>
-          )}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
+            {t("winRate.viewEstimates") ?? "View Estimates"}
+          </span>
         </div>
       </Card>
     );

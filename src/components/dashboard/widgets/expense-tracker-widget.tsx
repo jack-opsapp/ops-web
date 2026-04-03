@@ -209,6 +209,33 @@ export function ExpenseTrackerWidget({
 
   // ── Empty state ───────────────────────────────────────────────────────
   if (categoryData.total === 0) {
+    if (size === "xs") {
+      return (
+        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
+          <div className="h-full flex flex-col pt-3">
+            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("expenseTracker.title") ?? "Expenses"}
+            </span>
+          </div>
+        </Card>
+      );
+    }
+    if (size === "sm") {
+      return (
+        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
+          <div className="h-full flex flex-col p-3">
+            <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">$0</span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("expenseTracker.title") ?? "Expenses"}
+            </span>
+            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+              {t("expenseTracker.noExpenses") ?? "No expenses recorded"}
+            </span>
+          </div>
+        </Card>
+      );
+    }
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
         <div className="h-full flex flex-col px-3 py-2">
@@ -216,18 +243,14 @@ export function ExpenseTrackerWidget({
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className={`font-mono ${heroClass} font-bold text-text-disabled leading-none`}>
-              $0
-            </span>
+            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
             <span className="font-mohave text-caption-sm text-text-disabled mt-1">
               {t("expenseTracker.noExpenses") ?? "No expenses recorded"}
             </span>
           </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("expenseTracker.viewAll") ?? "View Expenses"}
-            </span>
-          )}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
+            {t("expenseTracker.viewAll") ?? "View Expenses"}
+          </span>
         </div>
       </Card>
     );

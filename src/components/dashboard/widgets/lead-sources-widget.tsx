@@ -396,6 +396,33 @@ export function LeadSourcesWidget({
 
   // ── Empty state ────────────────────────────────────────────────────────
   if (sourceData.sources.length === 0) {
+    if (size === "xs") {
+      return (
+        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+          <div className="h-full flex flex-col pt-3">
+            <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("leadSources.title") ?? "Lead Sources"}
+            </span>
+          </div>
+        </Card>
+      );
+    }
+    if (size === "sm") {
+      return (
+        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+          <div className="h-full flex flex-col p-3">
+            <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">0</span>
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+              {t("leadSources.title") ?? "Lead Sources"}
+            </span>
+            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+              {t("leadSources.noSources") ?? "No lead sources yet"}
+            </span>
+          </div>
+        </Card>
+      );
+    }
     return (
       <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
         <div className="h-full flex flex-col px-3 py-2">
@@ -403,18 +430,14 @@ export function LeadSourcesWidget({
             {t("leadSources.title") ?? "Lead Sources"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className={`font-mono ${heroClass} font-bold text-text-disabled leading-none`}>
-              0
-            </span>
+            <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
             <span className="font-mohave text-caption-sm text-text-disabled mt-1">
               {t("leadSources.noSources") ?? "No lead sources yet"}
             </span>
           </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("leadSources.viewPipeline") ?? "View Pipeline"}
-            </span>
-          )}
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
+            {t("leadSources.viewPipeline") ?? "View Pipeline"}
+          </span>
         </div>
       </Card>
     );
