@@ -351,15 +351,13 @@ export function ExpenseTrackerWidget({
           <span className="font-mono text-micro text-text-primary">{formatCompactCurrency(categoryData.total)}</span>
         </div>
 
-        {/* Detail zone — fills available space */}
-        <ScrollFade>
-          <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
-            <TooltipRow label={tooltip.category} value={formatCompactCurrency(tooltip.amount)} />
-            <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
-          </WidgetTooltip>
+        {/* Category bars — directly in the flex column so flex-1 works */}
+        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
+          <TooltipRow label={tooltip.category} value={formatCompactCurrency(tooltip.amount)} />
+          <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
+        </WidgetTooltip>
 
-          {/* Category bars — stacked vertically, flex to fill space */}
-          <div className="flex flex-col flex-1 min-h-0" style={{ gap: "2px" }}>
+        <div className="flex flex-col flex-1 min-h-0" style={{ gap: "2px" }}>
             {displayCats.map((cat, i) => {
               const barPct = (cat.amount / maxAmount) * 100;
               const memberContribution = hoveredMemberId
@@ -442,11 +440,11 @@ export function ExpenseTrackerWidget({
                 </div>
               );
             })}
-          </div>
+        </div>
 
-          {/* LG: Team member breakdown */}
-          {showActions(size) && teamData.length > 0 && (
-            <div className="mt-3 pt-2 border-t border-border-subtle">
+        {/* LG: Team member breakdown */}
+        {showActions(size) && teamData.length > 0 && (
+          <ScrollFade className="mt-2 pt-2 border-t border-border-subtle shrink-0">
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
                 {t("expenseTracker.byTeamMember") ?? "By Team Member"}
               </span>
@@ -484,9 +482,8 @@ export function ExpenseTrackerWidget({
                   </div>
                 );
               })}
-            </div>
-          )}
-        </ScrollFade>
+          </ScrollFade>
+        )}
 
         {/* Footer */}
         {showFooter(size) && (
