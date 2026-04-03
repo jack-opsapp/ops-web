@@ -358,11 +358,10 @@ export function ExpenseTrackerWidget({
             <TooltipRow label={t("expenseTracker.ofTotal") ?? "of total"} value={`${Math.round(tooltip.pct)}%`} />
           </WidgetTooltip>
 
-          {/* Category bars — flex rows fill available vertical space */}
-          <div className="flex flex-col justify-between flex-1 min-h-0" style={{ gap: "2px" }}>
+          {/* Category bars — stacked vertically, flex to fill space */}
+          <div className="flex flex-col flex-1 min-h-0" style={{ gap: "2px" }}>
             {displayCats.map((cat, i) => {
               const barPct = (cat.amount / maxAmount) * 100;
-              // When a team member is hovered at LG, compute their contribution
               const memberContribution = hoveredMemberId
                 ? memberCategoryMap.get(hoveredMemberId)?.get(cat.name) ?? 0
                 : 0;
@@ -370,10 +369,16 @@ export function ExpenseTrackerWidget({
                 ? (memberContribution / maxAmount) * 100
                 : 0;
 
+              const displayAmount = hoveredMemberId ? memberContribution : cat.amount;
+              const displayPct = hoveredMemberId
+                ? (categoryData.total > 0 ? Math.round((memberContribution / categoryData.total) * 100) : 0)
+                : Math.round(cat.pct);
+              const dimmed = hoveredMemberId && memberContribution === 0;
+
               return (
                 <div
                   key={cat.name}
-                  className="flex-1 flex items-center gap-2 cursor-pointer min-h-[18px]"
+                  className="flex-1 flex flex-col justify-center cursor-pointer min-h-[28px]"
                   onClick={() => onNavigate("/accounting")}
                   onMouseEnter={(e) => {
                     const parentRect = ref.current?.getBoundingClientRect();
@@ -391,11 +396,8 @@ export function ExpenseTrackerWidget({
                   }}
                   onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
                 >
-                  <span className="font-mohave text-micro text-text-secondary w-[80px] shrink-0 truncate">
-                    {cat.name}
-                  </span>
-                  <div className="flex-1 h-[10px] rounded-sm overflow-hidden relative" style={{ backgroundColor: WT.faint }}>
-                    {/* Full category bar */}
+                  {/* Bar — full width */}
+                  <div className="w-full h-[8px] rounded-sm overflow-hidden relative" style={{ backgroundColor: WT.faint }}>
                     <div
                       className="absolute inset-y-0 left-0 rounded-sm"
                       style={{
@@ -408,7 +410,6 @@ export function ExpenseTrackerWidget({
                         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                       }}
                     />
-                    {/* Member contribution overlay — visible when hovering a team member */}
                     {hoveredMemberId && memberContribution > 0 && (
                       <div
                         className="absolute inset-y-0 left-0 rounded-sm"
@@ -420,35 +421,23 @@ export function ExpenseTrackerWidget({
                       />
                     )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* Label + value beneath bar */}
+                  <div className="flex items-center justify-between mt-[2px]">
+                    <span className="font-mohave text-micro-sm text-text-tertiary truncate">
+                      {cat.name}
+                    </span>
                     <span
-                      className="font-mono text-micro w-[50px] text-right"
+                      className="font-mono text-micro-sm shrink-0"
                       style={{
-                        color: hoveredMemberId
-                          ? (memberContribution > 0 ? undefined : "var(--color-text-disabled)")
-                          : undefined,
+                        color: dimmed ? "var(--color-text-disabled)" : "var(--color-text-secondary)",
                         transition: reducedMotion ? "none" : "color 200ms ease",
                       }}
                     >
-                      {hoveredMemberId
-                        ? formatCompactCurrency(memberContribution)
-                        : formatCompactCurrency(cat.amount)}
+                      {formatCompactCurrency(displayAmount)}
+                      {showActions(size) && (
+                        <span className="text-text-disabled ml-1">{displayPct}%</span>
+                      )}
                     </span>
-                    {showActions(size) && (
-                      <span
-                        className="font-mono text-micro-sm w-[32px] text-right"
-                        style={{
-                          color: hoveredMemberId
-                            ? (memberContribution > 0 ? "var(--color-text-secondary)" : "var(--color-text-disabled)")
-                            : "var(--color-text-disabled)",
-                          transition: reducedMotion ? "none" : "color 200ms ease",
-                        }}
-                      >
-                        {hoveredMemberId
-                          ? (categoryData.total > 0 ? `${Math.round((memberContribution / categoryData.total) * 100)}%` : "0%")
-                          : `${Math.round(cat.pct)}%`}
-                      </span>
-                    )}
                   </div>
                 </div>
               );
