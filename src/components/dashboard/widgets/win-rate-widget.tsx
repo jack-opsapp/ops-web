@@ -154,7 +154,7 @@ export function WinRateWidget({
   if (!hasData) {
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/estimates")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-disabled leading-none">--%</span>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -185,7 +185,7 @@ export function WinRateWidget({
       );
     }
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/estimates")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("winRate.title") ?? "Win Rate"}
@@ -207,7 +207,7 @@ export function WinRateWidget({
   // ── XS: Hero % + color ────────────────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/estimates")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {animatedRate}%

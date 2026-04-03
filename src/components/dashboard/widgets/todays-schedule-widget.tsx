@@ -105,7 +105,7 @@ export function TodaysScheduleWidget({
     // XS empty: match standard XS pattern
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3" ref={ref}>
             <span className="font-mono text-display font-bold text-text-disabled leading-none">
               0
@@ -122,7 +122,7 @@ export function TodaysScheduleWidget({
     }
     // SM+ empty
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("todaysSchedule.title") ?? "Schedule"}
@@ -148,7 +148,7 @@ export function TodaysScheduleWidget({
   // ── XS: Hero count ────────────────────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none text-text-primary">
             {schedule.todayEvents.length}

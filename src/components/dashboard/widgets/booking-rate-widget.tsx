@@ -104,7 +104,7 @@ export function BookingRateWidget({
   if (bookings.thisMonth === 0 && bookings.lastMonth === 0) {
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -135,7 +135,7 @@ export function BookingRateWidget({
       );
     }
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("bookingRate.title") ?? "Bookings"}
@@ -159,7 +159,7 @@ export function BookingRateWidget({
   // ── XS: Hero count + trend ────────────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none text-text-primary">
             {animatedCount}

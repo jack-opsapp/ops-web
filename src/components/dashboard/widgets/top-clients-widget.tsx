@@ -153,7 +153,7 @@ export function TopClientsWidget({
   // ── Empty state ────────────────────────────────────────────────────────
   if (rankedClients.length === 0) {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/clients")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("topClients.title") ?? "Top Clients"}

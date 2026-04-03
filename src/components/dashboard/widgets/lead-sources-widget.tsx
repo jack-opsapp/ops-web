@@ -398,7 +398,7 @@ export function LeadSourcesWidget({
   if (sourceData.sources.length === 0) {
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -429,7 +429,7 @@ export function LeadSourcesWidget({
       );
     }
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("leadSources.title") ?? "Lead Sources"}
@@ -452,7 +452,7 @@ export function LeadSourcesWidget({
   if (size === "xs") {
     const top = sourceData.sources[0];
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none text-text-primary">
             {top.count}

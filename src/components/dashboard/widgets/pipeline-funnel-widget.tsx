@@ -137,7 +137,7 @@ export function PipelineFunnelWidget({
   // ── Empty state ───────────────────────────────────────────────────────
   if (totalProjects === 0) {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("pipelineFunnel.title") ?? "Pipeline"}
@@ -179,7 +179,7 @@ export function PipelineFunnelWidget({
   // ── XS: Header + Hero (active count) ─────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/pipeline")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none text-text-primary">
             {totalProjects}

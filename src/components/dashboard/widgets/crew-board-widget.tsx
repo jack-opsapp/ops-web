@@ -162,7 +162,7 @@ export function CrewBoardWidget({
   // ── XS: Hero = team utilization % ─────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/calendar")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
             className="font-mono text-display font-bold leading-none"

@@ -275,7 +275,7 @@ export function RevenuePulseWidget({
   if (!hasData) {
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -306,7 +306,7 @@ export function RevenuePulseWidget({
       );
     }
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("revenuePulse.title") ?? "Revenue"}
@@ -328,7 +328,7 @@ export function RevenuePulseWidget({
   // ── XS: Header + Hero (MTD number + trend) ────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices?status=paid")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className={`font-mono ${formatCompactCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
             {formatCompactCurrency(animatedMtd)}

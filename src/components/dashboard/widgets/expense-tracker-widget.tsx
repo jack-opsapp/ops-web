@@ -227,7 +227,7 @@ export function ExpenseTrackerWidget({
   if (categoryData.total === 0) {
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -258,7 +258,7 @@ export function ExpenseTrackerWidget({
       );
     }
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("expenseTracker.title") ?? "Expenses"}
@@ -280,7 +280,7 @@ export function ExpenseTrackerWidget({
   // ── XS: Hero = total expenses + delta ─────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/accounting")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
             {formatCompactCurrency(animatedTotal)}

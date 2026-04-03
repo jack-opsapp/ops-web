@@ -141,7 +141,7 @@ export function ProfitGaugeWidget({
   // ── XS: Hero percentage ───────────────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" ref={ref} onClick={() => onNavigate?.("/accounting")}>
+      <Card className="h-full" ref={ref}>
         <div className="h-full flex flex-col pt-3">
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {hasData ? `${animatedMargin}%` : "0%"}

@@ -151,7 +151,7 @@ export function CashPositionWidget({
   if (!hasData) {
     if (size === "xs") {
       return (
-        <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices")}>
+        <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
@@ -182,7 +182,7 @@ export function CashPositionWidget({
       );
     }
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("cashPosition.title") ?? "Cash Flow"}
@@ -204,7 +204,7 @@ export function CashPositionWidget({
   // ── XS: Hero net amount + direction ────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/invoices")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className={`font-mono ${formatCompactCurrency(animatedNet).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`} style={{ color: netColor }}>
             {netPrefix}{formatCompactCurrency(animatedNet)}

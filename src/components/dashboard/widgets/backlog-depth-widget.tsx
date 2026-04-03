@@ -187,7 +187,7 @@ export function BacklogDepthWidget({
   // ── Empty state ────────────────────────────────────────────────────────
   if (backlog.projectCount === 0) {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
             {t("backlogDepth.title") ?? "Backlog"}
@@ -209,7 +209,7 @@ export function BacklogDepthWidget({
   // ── XS: Hero weeks + color ────────────────────────────────────────────
   if (size === "xs") {
     return (
-      <Card className="h-full cursor-pointer" onClick={() => onNavigate("/projects")}>
+      <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {displayWeeks}
