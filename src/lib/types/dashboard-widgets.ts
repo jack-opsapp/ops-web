@@ -41,6 +41,7 @@ export type WidgetTypeId =
   | "cash-position"
   | "invoice-list"
   | "payments-recent"
+  | "my-expenses"
   // Pipeline (5)
   | "pipeline-funnel"
   | "win-rate"
@@ -60,6 +61,7 @@ export type WidgetTypeId =
   | "action-required"
   | "activity-feed"
   | "notifications"
+  | "expense-review"
   // Pipeline Detail (2)
   | "pipeline-list"
   | "lead-sources";
@@ -322,6 +324,31 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     allowMultiple: false,
     configSchema: [],
     requiredPermission: "invoices.record_payment",
+  },
+  "my-expenses": {
+    label: "My Expenses",
+    description: "Your submitted expense batches and their status",
+    dataSource: "Expense batches filtered to current user",
+    category: "money",
+    tags: ["essential", "finance"],
+    icon: "Receipt",
+    supportedSizes: ["xs", "sm", "md", "lg"] as WidgetSize[],
+    defaultSize: "sm",
+    configSchema: [
+      {
+        key: "period",
+        label: "Period",
+        type: "select",
+        options: [
+          { value: "this-month", label: "This Month" },
+          { value: "last-month", label: "Last Month" },
+          { value: "ytd", label: "Year to Date" },
+        ],
+        defaultValue: "this-month",
+      },
+    ],
+    allowMultiple: false,
+    requiredPermission: "expenses.view",
   },
 
   // ── PIPELINE (5) ──────────────────────────────────────────────────────
@@ -633,6 +660,19 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
         defaultValue: "recent",
       },
     ],
+  },
+  "expense-review": {
+    label: "Expense Review",
+    description: "Batches pending your approval",
+    dataSource: "Expense batches with pending_review or submitted status",
+    category: "alerts",
+    tags: ["essential", "finance", "office"],
+    icon: "ClipboardCheck",
+    supportedSizes: ["xs", "sm", "md", "lg"] as WidgetSize[],
+    defaultSize: "md",
+    configSchema: [],
+    allowMultiple: false,
+    requiredPermission: "expenses.approve",
   },
 
   // ── PIPELINE DETAIL (2) ───────────────────────────────────────────────
