@@ -39,6 +39,7 @@ import {
   useEstimates,
   useOpportunities,
   useAllExpenses,
+  useExpenseBatches,
 } from "@/lib/hooks";
 import {
   type ProjectTask,
@@ -93,6 +94,8 @@ import { ClientListWidget } from "@/components/dashboard/widgets/client-list-wid
 import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
+import { ExpenseReviewWidget } from "@/components/dashboard/widgets/expense-review-widget";
+import { MyExpensesWidget } from "@/components/dashboard/widgets/my-expenses-widget";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 
 // ---------------------------------------------------------------------------
@@ -228,6 +231,7 @@ export default function DashboardPage() {
   const { data: estimatesData, isLoading: estimatesLoading } = useEstimates();
   const { data: opportunitiesData, isLoading: opportunitiesLoading } = useOpportunities();
   const { data: expensesData, isLoading: expensesLoading } = useAllExpenses();
+  const { data: batchesData, isLoading: batchesLoading } = useExpenseBatches();
 
   const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
   const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData]);
@@ -571,6 +575,8 @@ export default function DashboardPage() {
         return <ProfitGaugeWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} onNavigate={navigate} />;
       case "expense-tracker":
         return <ExpenseTrackerWidget size={size} config={config} expenses={expenses} isLoading={expensesLoading} onNavigate={navigate} />;
+      case "my-expenses":
+        return <MyExpensesWidget size={size} config={config} isLoading={batchesLoading} onNavigate={navigate} />;
       case "cash-position":
         return <CashPositionWidget size={size} config={config} invoices={invoices} expenses={expenses} isLoading={invoicesLoading || expensesLoading} onNavigate={navigate} />;
       case "invoice-list":
@@ -596,7 +602,7 @@ export default function DashboardPage() {
 
       // ── OPERATIONS ──
       case "task-pulse":
-        return <TaskPulseWidget size={size} tasks={tasks} isLoading={tasksLoading} onNavigate={navigate} />;
+        return <TaskPulseWidget size={size} tasks={tasks} projects={projects} clients={clients} isLoading={tasksLoading} onNavigate={navigate} />;
       case "todays-schedule":
         return <TodaysScheduleWidget size={size} config={config} events={weekEvents} isLoading={calendarLoading} onNavigate={navigate} />;
       case "task-list":
@@ -624,11 +630,13 @@ export default function DashboardPage() {
 
       // ── ALERTS & ACTIVITY ──
       case "action-required":
-        return <ActionRequiredWidget size={size} tasks={tasks} invoices={invoices} opportunities={opportunities} estimates={estimates} isLoading={tasksLoading || invoicesLoading} onNavigate={navigate} />;
+        return <ActionRequiredWidget size={size} tasks={tasks} invoices={invoices} opportunities={opportunities} estimates={estimates} projects={projects} clients={clients} isLoading={tasksLoading || invoicesLoading} onNavigate={navigate} />;
       case "activity-feed":
         return <ActivityWidget size={size} config={config} onNavigate={navigate} />;
       case "notifications":
         return <NotificationsWidget size={size} config={config} />;
+      case "expense-review":
+        return <ExpenseReviewWidget size={size} isLoading={batchesLoading} onNavigate={navigate} />;
 
       // ── PLACEHOLDER — not yet implemented ──
       default:
