@@ -35,6 +35,8 @@ import { ClientListWidget } from "@/components/dashboard/widgets/client-list-wid
 import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
+import { ExpenseReviewWidget } from "@/components/dashboard/widgets/expense-review-widget";
+import { MyExpensesWidget } from "@/components/dashboard/widgets/my-expenses-widget";
 
 // No-op navigate for preview
 const noop = () => {};
@@ -66,6 +68,8 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
       return <InvoiceListWidget size={size} config={config} />;
     case "payments-recent":
       return <PaymentsRecentWidget size={size} />;
+    case "my-expenses":
+      return <MyExpensesWidget size={size} config={config} isLoading={false} onNavigate={noop} />;
 
     // ── PIPELINE ──
     case "pipeline-funnel":
@@ -108,6 +112,8 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
       return <ActivityWidget size={size} config={config} onNavigate={noop} />;
     case "notifications":
       return <NotificationsWidget size={size} config={config} />;
+    case "expense-review":
+      return <ExpenseReviewWidget size={size} isLoading={false} onNavigate={noop} />;
 
     default:
       return (
