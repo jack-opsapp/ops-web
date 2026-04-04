@@ -24,6 +24,11 @@ import { ComposeEmailForm } from "@/components/ops/compose-email-form";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
+import { ClientDetailPopover } from "@/components/ops/client-detail-popover";
+import { InvoiceDetailPopover } from "@/components/ops/invoice-detail-popover";
+import { EstimateDetailPopover } from "@/components/ops/estimate-detail-popover";
+import { MemberExpensesPopover } from "@/components/ops/member-expenses-popover";
+import { ExpenseBatchPopover } from "@/components/ops/expense-batch-popover";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { useRouter } from "next/navigation";
@@ -188,6 +193,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <NotificationModal />
       <DuplicateReviewSheet />
       <WindowDock />
+
+      {/* Entity detail popovers — accessible from any page via widget clicks */}
+      <ClientDetailPopover />
+      <InvoiceDetailPopover />
+      <EstimateDetailPopover />
+      <MemberExpensesPopover />
+      <ExpenseBatchPopover />
     </div>
   );
 }
