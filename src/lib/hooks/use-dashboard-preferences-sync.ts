@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import {
@@ -30,7 +30,7 @@ export function useDashboardPreferencesSync() {
   const queryClient = useQueryClient();
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hydratedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
   const savingRef = useRef(false);
 
   // ── Fetch server preferences ──────────────────────────────────────────
@@ -46,8 +46,8 @@ export function useDashboardPreferencesSync() {
 
   // ── Hydrate Zustand from server (once per session) ────────────────────
   useEffect(() => {
-    if (!serverPrefs || hydratedRef.current) return;
-    hydratedRef.current = true;
+    if (!serverPrefs || hydrated) return;
+    setHydrated(true);
 
     const store = usePreferencesStore.getState();
 
@@ -65,6 +65,7 @@ export function useDashboardPreferencesSync() {
       // New server row — seed it with current local state
       saveToServer(userId, companyId);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrated is intentionally excluded to prevent re-running after setHydrated
   }, [serverPrefs, userId, companyId]);
 
   // ── Save helper ───────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ export function useDashboardPreferencesSync() {
     if (!userId || !companyId) return;
 
     // Wait until hydration is complete before listening for changes
-    if (!hydratedRef.current) return;
+    if (!hydrated) return;
 
     const unsub = usePreferencesStore.subscribe(
       (state, prevState) => {
@@ -129,5 +130,5 @@ export function useDashboardPreferencesSync() {
       unsub();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [userId, companyId, saveToServer]);
+  }, [userId, companyId, hydrated, saveToServer]);
 }
