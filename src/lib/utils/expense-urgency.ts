@@ -119,6 +119,20 @@ export function computeAllBatchCompliance(
   return result;
 }
 
+/**
+ * Get the color token for receipt compliance.
+ * All missing = error (red), some missing = warning (amber), none missing = success (green).
+ */
+export function receiptComplianceColor(
+  missing: number,
+  total: number,
+): "error" | "warning" | "success" {
+  if (total === 0) return "success";
+  if (missing === total) return "error";
+  if (missing > 0) return "warning";
+  return "success";
+}
+
 // ── Display helpers ─────────────────────────────────────────────────
 
 /**

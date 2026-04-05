@@ -28,6 +28,7 @@ import {
   computeSubmitterUrgency,
   computeAllBatchCompliance,
   type BatchCompliance,
+  receiptComplianceColor,
 } from "@/lib/utils/expense-urgency";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
@@ -274,16 +275,28 @@ export function MyExpensesWidget({
                 const missingReceipts = compliance?.receiptsMissing ?? 0;
                 const totalExpenses = compliance?.receiptsTotal ?? 0;
 
-                // Build secondary text
-                let secondary = periodDisplay;
+                // Build secondary — ReactNode when compliance color needed
+                const hasComplianceIssue = requireReceipt && missingReceipts > 0;
+                const complianceColorKey = hasComplianceIssue ? receiptComplianceColor(missingReceipts, totalExpenses) : null;
+                const complianceColor = complianceColorKey === "error" ? WT.error : complianceColorKey === "warning" ? WT.warning : null;
+
+                let secondaryParts = periodDisplay;
                 if (isRevision && showActions(size) && batch.reviewNotes) {
-                  secondary += ` · ${batch.reviewNotes}`;
-                } else if (requireReceipt && missingReceipts > 0) {
-                  secondary += ` · ${missingReceipts}/${totalExpenses} ${t("expenseReview.missingReceipts") ?? "missing receipts"}`;
+                  secondaryParts += ` · ${batch.reviewNotes}`;
                 }
                 if (overdueReview) {
-                  secondary += ` · ${t("myExpenses.overdueReview") ?? "overdue review"}`;
+                  secondaryParts += ` · ${t("myExpenses.overdueReview") ?? "overdue review"}`;
                 }
+
+                const secondary = hasComplianceIssue ? (
+                  <span className="font-kosugi text-micro-sm text-text-disabled truncate">
+                    {secondaryParts} · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span>
+                  </span>
+                ) : (overdueReview ? (
+                  <span className="font-kosugi text-micro-sm text-text-disabled truncate">
+                    {secondaryParts}
+                  </span>
+                ) : secondaryParts);
 
                 return (
                   <WidgetLineItem

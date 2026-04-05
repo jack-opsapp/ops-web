@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { WidgetStatusBadge } from "./widget-status-badge";
 import { widgetLineItemStyle } from "./widget-motion";
+import { useReducedMotion } from "./use-reduced-motion";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -14,6 +16,8 @@ interface LineItemIndicator {
   color: string;
   icon?: LucideIcon;
   initials?: string;
+  /** Label shown when bar expands on hover (e.g., "In Progress", "90+") */
+  label?: string;
 }
 
 interface WidgetLineItemProps {
@@ -21,8 +25,8 @@ interface WidgetLineItemProps {
   indicator?: LineItemIndicator;
   /** Primary text (truncated) */
   primary: string;
-  /** Secondary text below primary (truncated) */
-  secondary?: string;
+  /** Secondary text below primary — string renders as truncated kosugi text, ReactNode renders as-is */
+  secondary?: string | ReactNode;
   /** Right-side metric — string renders as mono text, ReactNode renders as-is */
   metric?: string | ReactNode;
   /** Slot for WidgetInlineAction or custom action buttons */
@@ -33,12 +37,12 @@ interface WidgetLineItemProps {
     entity: "invoice" | "estimate" | "opportunity" | "task" | "project";
   };
   /** Click handler — adds cursor-pointer and hover state when present */
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
   /** Item index for staggered entrance animation */
   index?: number;
   /** Intersection-based visibility for entrance animation */
   isVisible?: boolean;
-  /** Reduced motion preference */
+  /** Reduced motion preference (deprecated — component now reads its own) */
   reducedMotion?: boolean | null;
   className?: string;
 }
@@ -55,10 +59,12 @@ export function WidgetLineItem({
   onClick,
   index,
   isVisible,
-  reducedMotion,
+  reducedMotion: reducedMotionProp,
   className,
 }: WidgetLineItemProps) {
   const hasAnimation = index !== undefined && isVisible !== undefined;
+  const [isHovered, setIsHovered] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   return (
     <div
@@ -69,13 +75,21 @@ export function WidgetLineItem({
       )}
       style={
         hasAnimation
-          ? widgetLineItemStyle(index, isVisible, reducedMotion ?? null)
+          ? widgetLineItemStyle(index, isVisible, reducedMotionProp ?? reducedMotion ?? null)
           : undefined
       }
-      onClick={onClick}
+      onClick={(e: React.MouseEvent) => onClick?.(e)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Indicator */}
-      {indicator && <LineItemIndicatorEl indicator={indicator} />}
+      {indicator && (
+        <LineItemIndicatorEl
+          indicator={indicator}
+          isHovered={isHovered}
+          reducedMotion={reducedMotion}
+        />
+      )}
 
       {/* Text content */}
       <div className="flex-1 min-w-0">
@@ -83,9 +97,13 @@ export function WidgetLineItem({
           {primary}
         </p>
         {secondary && (
-          <span className="font-kosugi text-micro-sm text-text-disabled truncate block">
-            {secondary}
-          </span>
+          typeof secondary === "string" ? (
+            <span className="font-kosugi text-micro-sm text-text-disabled truncate block">
+              {secondary}
+            </span>
+          ) : (
+            <div className="truncate block">{secondary}</div>
+          )
         )}
       </div>
 
@@ -114,24 +132,57 @@ export function WidgetLineItem({
 
 function LineItemIndicatorEl({
   indicator,
+  isHovered,
+  reducedMotion,
 }: {
   indicator: LineItemIndicator;
+  isHovered: boolean;
+  reducedMotion: boolean | null;
 }) {
   const Icon = indicator.icon;
+  const hasLabel = indicator.type === "bar" && !!indicator.label;
+  const showLabel = hasLabel && isHovered;
 
   switch (indicator.type) {
     case "bar":
       return (
         <div
-          className="w-[3px] rounded-full shrink-0"
-          style={{ backgroundColor: indicator.color, height: "16px" }}
-        />
+          className="shrink-0 flex items-center self-stretch overflow-hidden rounded-sm"
+          style={{
+            transition: reducedMotion
+              ? "none"
+              : "max-width 250ms cubic-bezier(0.22, 1, 0.36, 1), background-color 250ms cubic-bezier(0.22, 1, 0.36, 1), border-color 250ms cubic-bezier(0.22, 1, 0.36, 1)",
+            maxWidth: showLabel ? "100px" : "3px",
+            minWidth: "3px",
+            width: showLabel ? "auto" : "3px",
+            backgroundColor: showLabel
+              ? `color-mix(in srgb, ${indicator.color} 15%, transparent)`
+              : indicator.color,
+            border: showLabel
+              ? `1px solid color-mix(in srgb, ${indicator.color} 30%, transparent)`
+              : `1px solid transparent`,
+          }}
+        >
+          <span
+            className="font-mono uppercase tracking-normal whitespace-nowrap px-1 py-[1px]"
+            style={{
+              fontSize: "9px",
+              lineHeight: "1.3",
+              color: indicator.color,
+              opacity: showLabel ? 1 : 0,
+              transition: reducedMotion ? "none" : "opacity 150ms ease 100ms",
+            }}
+          >
+            {indicator.label}
+          </span>
+        </div>
       );
     case "dot":
+      // Dot is deprecated — render as a thin bar for consistency
       return (
-        <span
-          className="w-[6px] h-[6px] rounded-full shrink-0"
-          style={{ backgroundColor: indicator.color }}
+        <div
+          className="w-[3px] rounded-full shrink-0 self-stretch"
+          style={{ backgroundColor: indicator.color, minHeight: "16px" }}
         />
       );
     case "icon":

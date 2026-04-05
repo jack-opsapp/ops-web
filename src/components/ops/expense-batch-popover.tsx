@@ -34,6 +34,7 @@ import { formatCompactCurrency } from "@/components/dashboard/widgets/shared/wid
 import {
   computeBatchUrgency,
   computeBatchCompliance,
+  receiptComplianceColor,
   formatPeriodRange,
   type BatchUrgency,
   type BatchCompliance,
@@ -276,35 +277,35 @@ function SummaryTab({
       </div>
 
       {/* Receipt coverage */}
-      {requireReceipt && (
-        <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
-            {t("batchPopover.receiptCoverage") ?? "Receipt coverage"}
-          </span>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-              <div
-                className="h-full rounded-sm"
-                style={{
-                  width: categoryData.expenseCount > 0
-                    ? `${(categoryData.receiptCount / categoryData.expenseCount) * 100}%`
-                    : "0%",
-                  backgroundColor: categoryData.receiptCount < categoryData.expenseCount ? WT.warning : WT.success,
-                  transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
-            </div>
-            <span
-              className="font-mono text-[11px] shrink-0"
-              style={{
-                color: categoryData.receiptCount < categoryData.expenseCount ? WT.warning : WT.success,
-              }}
-            >
-              {categoryData.receiptCount}/{categoryData.expenseCount}
+      {requireReceipt && (() => {
+        const missing = categoryData.expenseCount - categoryData.receiptCount;
+        const rcColor = receiptComplianceColor(missing, categoryData.expenseCount);
+        const colorToken = rcColor === "error" ? WT.error : rcColor === "warning" ? WT.warning : WT.success;
+        return (
+          <div>
+            <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+              {t("batchPopover.receiptCoverage") ?? "Receipt coverage"}
             </span>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                <div
+                  className="h-full rounded-sm"
+                  style={{
+                    width: categoryData.expenseCount > 0
+                      ? `${(categoryData.receiptCount / categoryData.expenseCount) * 100}%`
+                      : "0%",
+                    backgroundColor: colorToken,
+                    transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                />
+              </div>
+              <span className="font-mono text-[11px] shrink-0" style={{ color: colorToken }}>
+                {categoryData.receiptCount}/{categoryData.expenseCount}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -597,28 +598,29 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         </div>
 
         {/* Row 3: Receipt compliance bar — only when requireReceiptPhoto */}
-        {requireReceipt && compliance && (
-          <div className="flex items-center gap-1.5">
-            <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-              <div
-                className="h-full rounded-sm"
-                style={{
-                  width: compliance.receiptsTotal > 0
-                    ? `${((compliance.receiptsTotal - compliance.receiptsMissing) / compliance.receiptsTotal) * 100}%`
-                    : "0%",
-                  backgroundColor: compliance.receiptsMissing > 0 ? WT.warning : WT.success,
-                  transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
+        {requireReceipt && compliance && (() => {
+          const rcColor = receiptComplianceColor(compliance.receiptsMissing, compliance.receiptsTotal);
+          const colorToken = rcColor === "error" ? WT.error : rcColor === "warning" ? WT.warning : WT.success;
+          return (
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                <div
+                  className="h-full rounded-sm"
+                  style={{
+                    width: compliance.receiptsTotal > 0
+                      ? `${((compliance.receiptsTotal - compliance.receiptsMissing) / compliance.receiptsTotal) * 100}%`
+                      : "0%",
+                    backgroundColor: colorToken,
+                    transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                />
+              </div>
+              <span className="font-kosugi text-[10px] shrink-0" style={{ color: colorToken }}>
+                {compliance.receiptsTotal - compliance.receiptsMissing}/{compliance.receiptsTotal} {t("batchPopover.haveReceipts") ?? "have receipts"}
+              </span>
             </div>
-            <span
-              className="font-kosugi text-[10px] shrink-0"
-              style={{ color: compliance.receiptsMissing > 0 ? WT.warning : WT.success }}
-            >
-              {compliance.receiptsTotal - compliance.receiptsMissing}/{compliance.receiptsTotal} {t("batchPopover.haveReceipts") ?? "have receipts"}
-            </span>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* ── Tab bar ── */}

@@ -30,6 +30,7 @@ import {
   computeAllBatchCompliance,
   type BatchUrgency,
   type BatchCompliance,
+  receiptComplianceColor,
 } from "@/lib/utils/expense-urgency";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
@@ -273,11 +274,17 @@ export function ExpenseReviewWidget({
                 const missingReceipts = compliance?.receiptsMissing ?? 0;
                 const totalExpenses = compliance?.receiptsTotal ?? 0;
 
-                // Build secondary text
-                let secondary = batch.batchNumber;
-                if (requireReceipt && missingReceipts > 0) {
-                  secondary += ` · ${missingReceipts}/${totalExpenses} ${t("expenseReview.missingReceipts") ?? "missing receipts"}`;
-                }
+                // Build secondary — ReactNode when compliance needed for color
+                const complianceColorToken = requireReceipt && missingReceipts > 0
+                  ? receiptComplianceColor(missingReceipts, totalExpenses)
+                  : null;
+                const complianceColor = complianceColorToken === "error" ? WT.error : complianceColorToken === "warning" ? WT.warning : null;
+
+                const secondary = requireReceipt && missingReceipts > 0 ? (
+                  <span className="font-kosugi text-micro-sm text-text-disabled truncate">
+                    {batch.batchNumber} · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span>
+                  </span>
+                ) : batch.batchNumber;
 
                 return (
                   <div key={batch.id}>
