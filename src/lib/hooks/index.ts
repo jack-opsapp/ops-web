@@ -212,6 +212,7 @@ export {
   useUnflagExpense,
   useApproveBatch,
   useRejectWithRevisions,
+  useQuickRejectBatch,
   useAutoApproveRules,
   useCreateAutoApproveRule,
   useToggleAutoApproveRule,

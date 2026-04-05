@@ -441,6 +441,32 @@ export const ExpenseApprovalService = {
     }
   },
 
+  /**
+   * Quick-reject a batch with a blanket review note.
+   * Sets status to rejected, records reviewer and note.
+   * Does NOT create amendment batches or flag individual expenses.
+   * Used by the dashboard widget for fast "return with a note" flow.
+   */
+  async quickRejectBatch(
+    batchId: string,
+    reviewedBy: string,
+    reviewNotes: string,
+  ): Promise<void> {
+    const supabase = requireSupabase();
+
+    const { error } = await supabase
+      .from("expense_batches")
+      .update({
+        status: ExpenseBatchStatus.Rejected,
+        reviewed_by: reviewedBy,
+        reviewed_at: new Date().toISOString(),
+        review_notes: reviewNotes,
+      })
+      .eq("id", batchId);
+
+    if (error) throw new Error(`Failed to reject batch: ${error.message}`);
+  },
+
   // ── Auto-Approve Rules ────────────────────────────────────────────────────
 
   /**

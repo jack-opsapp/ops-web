@@ -165,6 +165,25 @@ export function useRejectWithRevisions() {
   });
 }
 
+export function useQuickRejectBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      batchId,
+      reviewedBy,
+      reviewNotes,
+    }: {
+      batchId: string;
+      reviewedBy: string;
+      reviewNotes: string;
+    }) => ExpenseApprovalService.quickRejectBatch(batchId, reviewedBy, reviewNotes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
+    },
+  });
+}
+
 // ─── Auto-Approve Rules ───────────────────────────────────────────────────────
 
 export function useAutoApproveRules() {
