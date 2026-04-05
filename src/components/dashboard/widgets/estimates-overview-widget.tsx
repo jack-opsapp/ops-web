@@ -10,12 +10,15 @@ import { WT } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate } from "@/lib/types/pipeline";
+import { getStatusLabel } from "./shared/widget-utils";
 import { useEstimates, useSendEstimate, useClientMap } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -56,6 +59,27 @@ function formatCurrency(amount: number, locale: Locale): string {
 function formatDate(date: Date | string, locale: Locale): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" });
+}
+
+function getEstimateBarColor(status: EstimateStatus): string {
+  switch (status) {
+    case EstimateStatus.Draft:
+    case EstimateStatus.Expired:
+    case EstimateStatus.Superseded:
+      return WT.muted;
+    case EstimateStatus.Sent:
+      return WT.accent;
+    case EstimateStatus.Viewed:
+    case EstimateStatus.ChangesRequested:
+      return WT.warning;
+    case EstimateStatus.Approved:
+    case EstimateStatus.Converted:
+      return WT.success;
+    case EstimateStatus.Declined:
+      return WT.error;
+    default:
+      return WT.muted;
+  }
 }
 
 function isExpiringWithin7Days(estimate: Estimate): boolean {
@@ -141,6 +165,7 @@ export function EstimatesOverviewWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.pending") ?? "Pending"} />
           {!isLoading && (
             <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
               {formatCurrency(totalValue, locale)}
@@ -152,7 +177,10 @@ export function EstimatesOverviewWidget({
   }
 
   // ── MD / LG: List with send button ───────────────────────────────────────
-  const maxItems = size === "lg" ? 7 : 3;
+  const [listExpanded, setListExpanded] = useState(false);
+  const defaultMax = size === "lg" ? 15 : 5;
+  const maxItems = listExpanded ? filtered.length : defaultMax;
+  const remaining = filtered.length - defaultMax;
 
   return (
     <Card className="h-full p-0" ref={ref}>
@@ -167,7 +195,7 @@ export function EstimatesOverviewWidget({
               : `${filtered.length} \u00B7 ${formatCurrency(totalValue, locale)}`}
           </span>
         </div>
-        <ScrollFade>
+        <div className="flex-1 min-h-0 flex flex-col">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
@@ -179,26 +207,42 @@ export function EstimatesOverviewWidget({
             <p className="font-mohave text-body-sm text-text-disabled py-2">
               {t("estimatesOverview.noEstimates").replace("{filter}", statusFilterLabel[filter].toLowerCase())}
             </p>
+          ) : listExpanded ? (
+            <ScrollFade>
+              <div className="space-y-[2px]">
+                {filtered.map((estimate, i) => (
+                  <EstimateRow
+                    key={estimate.id}
+                    estimate={estimate}
+                    showExpiration={size === "lg"}
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
+                ))}
+              </div>
+              <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+            </ScrollFade>
           ) : (
-            <div className="space-y-[2px]">
-              {filtered.slice(0, maxItems).map((estimate, i) => (
-                <EstimateRow
-                  key={estimate.id}
-                  estimate={estimate}
-                  showExpiration={size === "lg"}
-                  index={i}
-                  isVisible={isVisible}
-                  reducedMotion={reducedMotion}
-                />
-              ))}
-              {filtered.length > maxItems && (
-                <span className="font-mono text-micro-sm text-text-disabled block px-1">
-                  {t("estimatesOverview.more").replace("{count}", String(filtered.length - maxItems))}
-                </span>
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="space-y-[2px]">
+                {filtered.slice(0, maxItems).map((estimate, i) => (
+                  <EstimateRow
+                    key={estimate.id}
+                    estimate={estimate}
+                    showExpiration={size === "lg"}
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
+                ))}
+              </div>
+              {remaining > 0 && (
+                <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-auto pt-1" />
               )}
             </div>
           )}
-        </ScrollFade>
+        </div>
       </div>
     </Card>
   );
@@ -250,10 +294,17 @@ function EstimateRow({
   const isDraft = estimate.status === EstimateStatus.Draft;
   const expiring = showExpiration && isExpiringWithin7Days(estimate);
 
-  // Expiring: amber bar indicator on left + expiring text in secondary
-  const secondary = expiring
-    ? `${formatDate(estimate.issueDate, locale)} · ${t("estimatesOverview.expiringSoon")}`
-    : formatDate(estimate.issueDate, locale);
+  // Client name + date in secondary line
+  const clientName = estimate.client?.name;
+  const dateStr = formatDate(estimate.issueDate, locale);
+  const expiringStr = expiring ? ` · ${t("estimatesOverview.expiringSoon")}` : "";
+  const secondary = clientName
+    ? `${clientName} · ${dateStr}${expiringStr}`
+    : `${dateStr}${expiringStr}`;
+
+  // Bar indicator — always shown, color + label from status
+  const barColor = expiring ? WT.warning : getEstimateBarColor(estimate.status);
+  const statusLabel = getStatusLabel(estimate.status, "estimate", t);
 
   // Send button — drafts only
   const actionSlot = isDraft ? (
@@ -283,7 +334,7 @@ function EstimateRow({
 
   return (
     <WidgetLineItem
-      indicator={expiring ? { type: "bar", color: WT.warning } : undefined}
+      indicator={{ type: "bar", color: barColor, label: statusLabel }}
       primary={displayName}
       secondary={secondary}
       metric={formatCurrency(estimate.total, locale)}

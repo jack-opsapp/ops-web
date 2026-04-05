@@ -38,6 +38,7 @@ import {
   useProjects,
 } from "@/lib/hooks";
 import { useWidgetActionQueue } from "@/stores/widget-action-queue";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
@@ -97,6 +98,15 @@ const REASON_ICONS: Record<AttentionReason, typeof Users> = {
   "estimate-no-response": Send,
   "past-due-invoice": ExternalLink,
   "estimate-expiring": ExternalLink,
+};
+
+const REASON_LABELS: Record<AttentionReason, string> = {
+  "past-due-invoice": "Past Due",
+  "unassigned-tasks": "Unassigned",
+  "unscheduled-tasks": "Unscheduled",
+  "stale-quoting": "Stale Quote",
+  "estimate-no-response": "No Response",
+  "estimate-expiring": "Expiring",
 };
 
 // ---------------------------------------------------------------------------
@@ -161,6 +171,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
   const { t } = useDictionary("dashboard");
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
+  const openEntity = useWidgetEntityOpen();
   const queueAction = useWidgetActionQueue((s) => s.queueAction);
 
   const ref = useRef<HTMLDivElement>(null);
@@ -539,7 +550,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           </span>
           <span
             className={cn(
-              "font-mono text-micro",
+              "font-mono text-micro uppercase",
               isLoading ? "text-text-tertiary" : count > 0 ? "text-ops-error" : "text-text-tertiary"
             )}
           >
@@ -590,7 +601,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
         )}
 
         {/* LIST */}
-        <div ref={scrollContainerRef}>
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 flex flex-col">
           <ScrollFade>
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
@@ -608,10 +619,18 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {displayItems.map((item, i) => (
                   <WidgetLineItem
                     key={`${item.clientId}-${item.reason}-${item.entityId}`}
-                    indicator={{ type: "dot", color: REASON_COLORS[item.reason] }}
+                    indicator={{ type: "bar", color: REASON_COLORS[item.reason], label: REASON_LABELS[item.reason] }}
                     primary={item.clientName}
                     secondary={item.detail}
                     action={getActionForItem(item)}
+                    onClick={(e) => openEntity({
+                      entityType: "client",
+                      entityId: item.clientId,
+                      title: item.clientName,
+                      color: REASON_COLORS[item.reason],
+                      event: e,
+                      fallbackPath: `/clients/${item.clientId}`,
+                    })}
                     index={i}
                     isVisible={isVisible}
                     reducedMotion={reducedMotion}

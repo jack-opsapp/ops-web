@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
@@ -10,12 +10,14 @@ import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showActions, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showActions } from "@/lib/widget-tokens";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 
 // ---------------------------------------------------------------------------
 // Token-based bar colors (cycled per source)
@@ -111,125 +113,208 @@ function DonutChart({
 }
 
 // ---------------------------------------------------------------------------
-// Multi-line trend chart (LG) — all sources superimposed on one SVG
+// Multi-line trend chart (LG) — HTML labels + SVG lines + hover crosshair
 // ---------------------------------------------------------------------------
 function MultiLineTrendChart({
   sources,
   trendData,
-  width,
+  monthLabels: labels,
   height,
   isVisible,
   reducedMotion,
+  hoveredIndex,
   onHover,
   onLeave,
 }: {
   sources: { source: string; label: string; count: number; pct: number; value: number }[];
   trendData: Map<string, number[]>;
-  width: number;
+  monthLabels: string[];
   height: number;
   isVisible: boolean;
   reducedMotion: boolean | null;
-  onHover?: (x: number, monthIndex: number, mouseX: number, mouseY: number) => void;
+  hoveredIndex: number | null;
+  onHover?: (monthIndex: number, mouseX: number, mouseY: number) => void;
   onLeave?: () => void;
 }) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const padding = { top: 4, right: 4, bottom: 4, left: 4 };
-  const usableW = width - padding.left - padding.right;
-  const usableH = height - padding.top - padding.bottom;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(320);
 
-  // Find global max across all sources for consistent Y scale
+  // Measure container width for responsive SVG
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const chartHeight = height - 20; // reserve 20px for X labels
+  const yLabelWidth = 24;
+  const chartWidth = containerWidth - yLabelWidth;
+
   const allValues = Array.from(trendData.values()).flat();
   const globalMax = Math.max(...allValues, 1);
-
-  // Number of data points (months)
   const numPoints = Array.from(trendData.values())[0]?.length ?? 6;
-  const stepX = usableW / Math.max(numPoints - 1, 1);
+  const stepX = chartWidth / Math.max(numPoints - 1, 1);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
-      if (!svgRef.current || !onHover) return;
-      const rect = svgRef.current.getBoundingClientRect();
-      const localX = e.clientX - rect.left - padding.left;
+      if (!onHover) return;
+      const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+      const localX = e.clientX - rect.left;
       const monthIndex = Math.round(localX / stepX);
       const clampedIndex = Math.max(0, Math.min(numPoints - 1, monthIndex));
-      const crosshairX = padding.left + clampedIndex * stepX;
-      onHover(crosshairX, clampedIndex, e.clientX, e.clientY);
+      onHover(clampedIndex, e.clientX, e.clientY);
     },
-    [onHover, stepX, numPoints, padding.left]
+    [onHover, stepX, numPoints]
   );
 
-  // Build paths for each source
-  const paths = useMemo(() => {
+  // Build line paths + data point positions
+  const lineData = useMemo(() => {
     return sources.slice(0, 5).map((src, colorIdx) => {
       const data = trendData.get(src.source) ?? [];
       if (data.length < 2) return null;
 
       const points = data.map((val, i) => ({
-        x: padding.left + i * stepX,
-        y: padding.top + usableH - (val / globalMax) * usableH,
+        x: i * stepX,
+        y: chartHeight - (Math.max(val, 0) / globalMax) * chartHeight,
+        value: val,
       }));
 
-      // Build SVG path with smooth curves
+      // Build path — use straight lines for ≤4 points, curves for more
       let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
-      for (let i = 1; i < points.length; i++) {
-        const prev = points[i - 1];
-        const curr = points[i];
-        const cpx = (prev.x + curr.x) / 2;
-        d += ` C${cpx.toFixed(1)},${prev.y.toFixed(1)} ${cpx.toFixed(1)},${curr.y.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+      if (points.length <= 4) {
+        for (let i = 1; i < points.length; i++) {
+          d += ` L${points[i].x.toFixed(1)},${points[i].y.toFixed(1)}`;
+        }
+      } else {
+        for (let i = 1; i < points.length; i++) {
+          const prev = points[i - 1];
+          const curr = points[i];
+          const cpx = (prev.x + curr.x) / 2;
+          d += ` C${cpx.toFixed(1)},${prev.y.toFixed(1)} ${cpx.toFixed(1)},${curr.y.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+        }
       }
 
       const color = BAR_COLORS[colorIdx % BAR_COLORS.length];
-      const totalLength = width * 2;
+      return { key: src.source, d, color, points, colorIdx };
+    }).filter(Boolean) as { key: string; d: string; color: string; points: { x: number; y: number; value: number }[]; colorIdx: number }[];
+  }, [sources, trendData, stepX, chartHeight, globalMax]);
 
-      return (
-        <path
-          key={src.source}
-          d={d}
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-          style={{
-            strokeDasharray: totalLength,
-            strokeDashoffset: isVisible || reducedMotion ? 0 : totalLength,
-            transition: reducedMotion
-              ? "none"
-              : `stroke-dashoffset 600ms ${WIDGET_EASE_CSS} ${colorIdx * 80}ms`,
-          }}
-        />
-      );
-    });
-  }, [sources, trendData, stepX, usableH, globalMax, isVisible, reducedMotion, width, padding.left, padding.top]);
+  // Y-axis labels
+  const yLabels = [0, Math.round(globalMax / 2), globalMax];
 
   return (
-    <svg
-      ref={svgRef}
-      width="100%"
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={onLeave}
-      className="cursor-crosshair"
-      role="img"
-      aria-label="Lead source trends"
-    >
-      {/* Faint gridlines */}
-      {[0.25, 0.5, 0.75].map((pct) => (
-        <line
-          key={pct}
-          x1={padding.left}
-          y1={padding.top + usableH * (1 - pct)}
-          x2={width - padding.right}
-          y2={padding.top + usableH * (1 - pct)}
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth={1}
-        />
-      ))}
-      {paths}
-    </svg>
+    <div ref={containerRef} className="w-full" style={{ height: `${height}px` }}>
+      <div className="flex h-full">
+        {/* Y-axis labels (HTML — not stretched) */}
+        <div className="flex flex-col justify-between shrink-0 pr-1" style={{ width: `${yLabelWidth}px`, height: `${chartHeight}px` }}>
+          {yLabels.slice().reverse().map((val) => (
+            <span key={val} className="font-mono text-[9px] text-text-disabled text-right leading-none">
+              {val}
+            </span>
+          ))}
+        </div>
+
+        {/* Chart area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* SVG lines — no preserveAspectRatio distortion */}
+          <svg
+            width={chartWidth}
+            height={chartHeight}
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            className="cursor-crosshair"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={onLeave}
+            role="img"
+            aria-label="Lead source trends"
+          >
+            {/* Gridlines */}
+            {[0.25, 0.5, 0.75].map((pct) => (
+              <line
+                key={pct}
+                x1={0}
+                y1={chartHeight * (1 - pct)}
+                x2={chartWidth}
+                y2={chartHeight * (1 - pct)}
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth={1}
+              />
+            ))}
+            {/* Baseline */}
+            <line x1={0} y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+
+            {/* Lines */}
+            {lineData.map(({ key, d, color, colorIdx }) => (
+              <path
+                key={key}
+                d={d}
+                fill="none"
+                stroke={color}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  opacity: isVisible ? 1 : 0,
+                  transition: reducedMotion
+                    ? "none"
+                    : `opacity 600ms cubic-bezier(0.16, 1, 0.3, 1) ${colorIdx * 80}ms`,
+                }}
+              />
+            ))}
+
+            {/* Data point dots — always visible for overlapping line differentiation */}
+            {lineData.map(({ key, color, points }) =>
+              points.map((pt, i) => (
+                <circle
+                  key={`${key}-dot-${i}`}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={hoveredIndex === i ? 4 : 2.5}
+                  fill={hoveredIndex === i ? color : "transparent"}
+                  stroke={color}
+                  strokeWidth={hoveredIndex === i ? 2 : 1.5}
+                  style={{
+                    opacity: isVisible ? 1 : 0,
+                    transition: reducedMotion ? "none" : "r 150ms ease, fill 150ms ease, opacity 400ms ease",
+                  }}
+                />
+              ))
+            )}
+
+            {/* Hover crosshair line */}
+            {hoveredIndex !== null && (
+              <line
+                x1={hoveredIndex * stepX}
+                y1={0}
+                x2={hoveredIndex * stepX}
+                y2={chartHeight}
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
+            )}
+          </svg>
+
+          {/* X-axis labels (HTML — not stretched) */}
+          <div className="flex justify-between" style={{ paddingTop: "4px" }}>
+            {labels.map((label, i) => (
+              <span
+                key={i}
+                className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider"
+                style={{ width: i === 0 ? "auto" : i === labels.length - 1 ? "auto" : undefined, textAlign: i === 0 ? "left" : i === labels.length - 1 ? "right" : "center", flex: i === 0 || i === labels.length - 1 ? "0 0 auto" : "1" }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -287,15 +372,16 @@ export function LeadSourcesWidget({
   }>({ visible: false, x: 0, y: 0, source: "", count: 0, pct: 0, value: 0 });
 
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("90d");
+  const [mdBarExpanded, setMdBarExpanded] = useState(false);
+  const [lgSourceExpanded, setLgSourceExpanded] = useState(false);
 
   // Crosshair tooltip for LG chart
   const [crosshair, setCrosshair] = useState<{
     visible: boolean;
-    x: number;
     viewportX: number;
     viewportY: number;
     monthIndex: number;
-  }>({ visible: false, x: 0, viewportX: 0, viewportY: 0, monthIndex: 0 });
+  }>({ visible: false, viewportX: 0, viewportY: 0, monthIndex: 0 });
 
   const sourceData = useMemo(() => {
     const activeOpps = opportunities.filter((o) => !o.deletedAt);
@@ -364,12 +450,11 @@ export function LeadSourcesWidget({
   }, [numTrendMonths]);
 
   const handleChartHover = useCallback(
-    (x: number, monthIndex: number, mouseX: number, mouseY: number) => {
+    (monthIndex: number, mouseX: number, mouseY: number) => {
       const parentRect = ref.current?.getBoundingClientRect();
       if (!parentRect) return;
       setCrosshair({
         visible: true,
-        x,
         viewportX: mouseX - parentRect.left,
         viewportY: mouseY - parentRect.top,
         monthIndex,
@@ -440,9 +525,6 @@ export function LeadSourcesWidget({
               {t("leadSources.noSources") ?? "No lead sources yet"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("leadSources.viewPipeline") ?? "View Pipeline"}
-          </span>
         </div>
       </Card>
     );
@@ -463,6 +545,7 @@ export function LeadSourcesWidget({
           <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
             {top.label}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.allTime") ?? "All Time"} />
         </div>
       </Card>
     );
@@ -522,20 +605,22 @@ export function LeadSourcesWidget({
           )}
         </WidgetTooltip>
 
-        <div className="h-full flex p-3">
+        <div className="h-full flex flex-col p-3">
+          {/* Hero row with arrow at top-right */}
+          <div className="flex items-start justify-between">
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              {sourceData.total}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
+              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+            >
+              <ArrowUpRight className="w-[14px] h-[14px]" />
+            </button>
+          </div>
+          <div className="flex-1 flex min-w-0">
           {/* Text content */}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
-                {sourceData.total}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
-                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-              >
-                <ArrowUpRight className="w-[14px] h-[14px]" />
-              </button>
-            </div>
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
@@ -568,15 +653,64 @@ export function LeadSourcesWidget({
               onSegmentLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
             />
           </div>
+          </div>
         </div>
       </Card>
     );
   }
 
   // ── MD: Horizontal bar chart with tooltip ─────────────────────────────
+
   if (!showActions(size)) {
-    const maxBars = 5;
+    const defaultMaxBars = 5;
+    const maxBars = mdBarExpanded ? sourceData.sources.length : defaultMaxBars;
+    const barRemaining = sourceData.sources.length - defaultMaxBars;
     const barHeight = 8;
+
+    const renderBarRows = (sources: typeof sourceData.sources) =>
+      sources.map((s, i) => {
+        const barWidth = Math.max((s.count / maxCount) * 100, 4);
+        const barColor = BAR_COLORS[i % BAR_COLORS.length];
+
+        return (
+          <div
+            key={s.source}
+            onMouseEnter={(e) => {
+              const parentRect = ref.current?.getBoundingClientRect();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              if (!parentRect) return;
+              setTooltip({
+                visible: true,
+                x: rect.left - parentRect.left + rect.width / 2,
+                y: rect.top - parentRect.top,
+                source: s.label,
+                count: s.count,
+                pct: s.pct,
+                value: s.value,
+              });
+            }}
+            onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
+          >
+            <div className="flex items-center justify-between mb-[2px]">
+              <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
+              <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
+            </div>
+            <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
+              <div
+                className="h-full rounded-sm"
+                style={{
+                  width: isVisible ? `${barWidth}%` : "0%",
+                  backgroundColor: barColor,
+                  transitionProperty: "width",
+                  transitionDuration: reducedMotion ? "200ms" : "500ms",
+                  transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
+                  transitionTimingFunction: WIDGET_EASE_CSS,
+                }}
+              />
+            </div>
+          </div>
+        );
+      });
 
     return (
       <Card className="h-full p-0" ref={ref}>
@@ -592,7 +726,7 @@ export function LeadSourcesWidget({
           </div>
 
           {/* DETAIL ZONE */}
-          <ScrollFade className="relative">
+          <div className="flex-1 min-h-0 flex flex-col relative">
             <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
               <TooltipRow label={tooltip.source} value={`${tooltip.count}`} />
               <TooltipRow label={t("leadSources.ofTotal") ?? "of total"} value={`${tooltip.pct}%`} />
@@ -601,67 +735,25 @@ export function LeadSourcesWidget({
               )}
             </WidgetTooltip>
 
-            <div className="flex flex-col gap-[6px]">
-              {sourceData.sources.slice(0, maxBars).map((s, i) => {
-                const barWidth = Math.max((s.count / maxCount) * 100, 4);
-                const barColor = BAR_COLORS[i % BAR_COLORS.length];
+            {mdBarExpanded ? (
+              <ScrollFade>
+                <div className="flex flex-col gap-[6px]">
+                  {renderBarRows(sourceData.sources)}
+                </div>
+                <WidgetMoreButton remaining={barRemaining} expanded={mdBarExpanded} onToggle={() => setMdBarExpanded((v) => !v)} className="mt-1" />
+              </ScrollFade>
+            ) : (
+              <>
+                <div className="flex flex-col gap-[6px]">
+                  {renderBarRows(sourceData.sources.slice(0, maxBars))}
+                </div>
+                {barRemaining > 0 && (
+                  <WidgetMoreButton remaining={barRemaining} expanded={mdBarExpanded} onToggle={() => setMdBarExpanded((v) => !v)} className="mt-1" />
+                )}
+              </>
+            )}
+          </div>
 
-                return (
-                  <div
-                    key={s.source}
-                    onMouseEnter={(e) => {
-                      const parentRect = ref.current?.getBoundingClientRect();
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      if (!parentRect) return;
-                      setTooltip({
-                        visible: true,
-                        x: rect.left - parentRect.left + rect.width / 2,
-                        y: rect.top - parentRect.top,
-                        source: s.label,
-                        count: s.count,
-                        pct: s.pct,
-                        value: s.value,
-                      });
-                    }}
-                    onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
-                  >
-                    <div className="flex items-center justify-between mb-[2px]">
-                      <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
-                      <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
-                    </div>
-                    <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
-                      <div
-                        className="h-full rounded-sm"
-                        style={{
-                          width: isVisible ? `${barWidth}%` : "0%",
-                          backgroundColor: barColor,
-                          transitionProperty: "width",
-                          transitionDuration: reducedMotion ? "200ms" : "500ms",
-                          transitionDelay: reducedMotion ? "0ms" : `${i * 60}ms`,
-                          transitionTimingFunction: WIDGET_EASE_CSS,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-              {sourceData.sources.length > maxBars && (
-                <span className="font-mono text-micro-sm text-text-tertiary">
-                  +{sourceData.sources.length - maxBars} {t("leadSources.more") ?? "more"}
-                </span>
-              )}
-            </div>
-          </ScrollFade>
-
-          {/* FOOTER */}
-          {showFooter(size) && (
-            <button
-              onClick={() => onNavigate("/pipeline")}
-              className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-            >
-              {t("leadSources.viewPipeline") ?? "View Pipeline"}
-            </button>
-          )}
         </div>
       </Card>
     );
@@ -698,10 +790,11 @@ export function LeadSourcesWidget({
           <MultiLineTrendChart
             sources={sourceData.sources}
             trendData={sourceTrends}
-            width={320}
-            height={100}
+            monthLabels={monthLabels}
+            height={120}
             isVisible={isVisible}
             reducedMotion={reducedMotion}
+            hoveredIndex={crosshair.visible ? crosshair.monthIndex : null}
             onHover={handleChartHover}
             onLeave={() => setCrosshair((prev) => ({ ...prev, visible: false }))}
           />
@@ -735,14 +828,19 @@ export function LeadSourcesWidget({
         </div>
 
         {/* SOURCE LIST */}
-        <ScrollFade>
-          <div className="flex flex-col gap-[2px]">
-            {sourceData.sources.slice(0, maxSources).map((s, i) => {
+        {(() => {
+          const defaultMaxSrc = maxSources;
+          const maxSrc = lgSourceExpanded ? sourceData.sources.length : defaultMaxSrc;
+          const srcRemaining = sourceData.sources.length - defaultMaxSrc;
+          const displaySources = sourceData.sources.slice(0, maxSrc);
+
+          const renderSourceRows = (sources: typeof sourceData.sources) =>
+            sources.map((s, i) => {
               const barColor = BAR_COLORS[i % BAR_COLORS.length];
               return (
                 <WidgetLineItem
                   key={s.source}
-                  indicator={{ type: "dot", color: barColor }}
+                  indicator={{ type: "bar", color: barColor, label: s.label }}
                   primary={s.label}
                   secondary={`${s.pct}% ${t("leadSources.ofTotal") ?? "of total"}`}
                   metric={`${s.count}`}
@@ -751,17 +849,31 @@ export function LeadSourcesWidget({
                   reducedMotion={reducedMotion}
                 />
               );
-            })}
-          </div>
-        </ScrollFade>
+            });
 
-        {/* FOOTER */}
-        <button
-          onClick={() => onNavigate("/pipeline")}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-        >
-          {t("leadSources.viewPipeline") ?? "View Pipeline"}
-        </button>
+          return (
+            <div className="flex-1 min-h-0 flex flex-col">
+              {lgSourceExpanded ? (
+                <ScrollFade>
+                  <div className="flex flex-col gap-[2px]">
+                    {renderSourceRows(displaySources)}
+                  </div>
+                  <WidgetMoreButton remaining={srcRemaining} expanded={lgSourceExpanded} onToggle={() => setLgSourceExpanded((v) => !v)} className="mt-1" />
+                </ScrollFade>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-[2px]">
+                    {renderSourceRows(displaySources)}
+                  </div>
+                  {srcRemaining > 0 && (
+                    <WidgetMoreButton remaining={srcRemaining} expanded={lgSourceExpanded} onToggle={() => setLgSourceExpanded((v) => !v)} className="mt-1" />
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
+
       </div>
     </Card>
   );
