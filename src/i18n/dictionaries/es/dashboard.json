@@ -806,6 +806,14 @@
   "expenseReview.allCaughtUp": "Todo al día",
   "expenseReview.noBatches": "Sin lotes pendientes",
   "expenseReview.viewAll": "Ver Todos",
+  "expenseReview.overdue": "vencido",
+  "expenseReview.due": "pendiente",
+  "expenseReview.returnedForRevision": "Devuelto para revisión",
+  "expenseReview.missingReceipts": "recibos faltantes",
+  "expenseReview.receiptsComplete": "recibos completos",
+  "expenseReview.unassigned": "sin asignar",
+  "expenseReview.rejectNote": "¿Qué necesita corrección?",
+  "expenseReview.batchesPendingCount": "lotes",
 
   "myExpenses.title": "Mis Gastos",
   "myExpenses.noExpenses": "Sin gastos enviados",
@@ -814,6 +822,7 @@
   "myExpenses.approved": "aprobados",
   "myExpenses.pending": "pendientes",
   "myExpenses.viewAll": "Ver Todos",
+  "myExpenses.overdueReview": "revisión vencida",
 
   "batchPopover.expenses": "Gastos",
   "batchPopover.summary": "Resumen",
@@ -826,6 +835,10 @@
   "batchPopover.receiptCoverage": "Cobertura de recibos",
   "batchPopover.viewInAccounting": "Ver en Contabilidad",
   "batchPopover.untitled": "Sin título",
+  "batchPopover.haveReceipts": "tienen recibos",
+  "batchPopover.missingReceipts": "recibos faltantes",
+  "batchPopover.due": "PENDIENTE",
+  "batchPopover.overdue": "VENCIDO",
 
   "invoiceList.pctPaid": "pagado",
   "invoiceList.sortByAmount": "Monto",

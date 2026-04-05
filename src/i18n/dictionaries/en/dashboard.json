@@ -727,6 +727,14 @@
   "expenseReview.allCaughtUp": "All caught up",
   "expenseReview.noBatches": "No batches pending review",
   "expenseReview.viewAll": "View All",
+  "expenseReview.overdue": "overdue",
+  "expenseReview.due": "due",
+  "expenseReview.returnedForRevision": "Returned for revision",
+  "expenseReview.missingReceipts": "missing receipts",
+  "expenseReview.receiptsComplete": "receipts complete",
+  "expenseReview.unassigned": "unassigned",
+  "expenseReview.rejectNote": "What needs fixing?",
+  "expenseReview.batchesPendingCount": "batches",
 
   "myExpenses.title": "My Expenses",
   "myExpenses.noExpenses": "No expenses submitted",
@@ -735,6 +743,7 @@
   "myExpenses.approved": "approved",
   "myExpenses.pending": "pending",
   "myExpenses.viewAll": "View All",
+  "myExpenses.overdueReview": "overdue review",
 
   "batchPopover.expenses": "Expenses",
   "batchPopover.summary": "Summary",
@@ -747,6 +756,10 @@
   "batchPopover.receiptCoverage": "Receipt coverage",
   "batchPopover.viewInAccounting": "View in Accounting",
   "batchPopover.untitled": "Untitled",
+  "batchPopover.haveReceipts": "have receipts",
+  "batchPopover.missingReceipts": "missing receipts",
+  "batchPopover.due": "DUE",
+  "batchPopover.overdue": "OVERDUE",
 
   "cashPosition.title": "Cash Flow",
   "cashPosition.netCashFlow": "Net Cash Flow",
