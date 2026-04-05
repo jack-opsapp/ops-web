@@ -24,6 +24,7 @@ import { useExpenseSettings } from "@/lib/hooks/use-expense-settings";
 import { useTeamMembers } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useExpenseBatchPopoverStore } from "@/stores/expense-batch-popover-store";
+import { useExpenseReviewListPopoverStore } from "@/stores/expense-review-list-popover-store";
 import { isBatchNeedsReview, isBatchApproved, ExpenseBatchStatus, type ExpenseBatch } from "@/lib/types/expense-approval";
 import {
   computeBatchUrgency,
@@ -67,6 +68,7 @@ export function ExpenseReviewWidget({
   const { data: allExpensesData } = useAllExpenses();
   const { data: settings } = useExpenseSettings();
   const openBatchPopover = useExpenseBatchPopoverStore((s) => s.openPopover);
+  const openReviewList = useExpenseReviewListPopoverStore((s) => s.open);
   const approveBatch = useApproveBatch();
   const quickReject = useQuickRejectBatch();
   const { currentUser, company } = useAuthStore();
@@ -196,7 +198,7 @@ export function ExpenseReviewWidget({
       <Card className="h-full" ref={ref}>
         <div
           className="h-full flex flex-col pt-3 cursor-pointer"
-          onClick={() => onNavigate("/accounting")}
+          onClick={() => openReviewList()}
         >
           <span className={`font-mono ${count.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${count > 0 ? "text-text-primary" : "text-text-disabled"}`}>
             {count}
@@ -222,14 +224,14 @@ export function ExpenseReviewWidget({
       <Card className="h-full p-0" ref={ref}>
         <div
           className="h-full flex flex-col p-3 cursor-pointer"
-          onClick={() => onNavigate("/accounting")}
+          onClick={() => openReviewList()}
         >
           <div className="flex items-baseline justify-between">
             <span className={`font-mono text-data-lg font-bold leading-none ${count > 0 ? "text-text-primary" : "text-text-disabled"}`}>
               {formatCompactCurrency(totalPending)}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/accounting"); }}
+              onClick={(e) => { e.stopPropagation(); openReviewList(); }}
               className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
@@ -440,7 +442,7 @@ export function ExpenseReviewWidget({
 
         {/* Footer */}
         <button
-          onClick={() => onNavigate("/accounting")}
+          onClick={() => openReviewList()}
           className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
         >
           {t("expenseReview.viewAll") ?? "View All"}

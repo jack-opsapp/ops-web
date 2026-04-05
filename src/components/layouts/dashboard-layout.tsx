@@ -29,6 +29,7 @@ import { InvoiceDetailPopover } from "@/components/ops/invoice-detail-popover";
 import { EstimateDetailPopover } from "@/components/ops/estimate-detail-popover";
 import { MemberExpensesPopover } from "@/components/ops/member-expenses-popover";
 import { ExpenseBatchPopover } from "@/components/ops/expense-batch-popover";
+import { ExpenseReviewListPopover } from "@/components/ops/expense-review-list-popover";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { useRouter } from "next/navigation";
@@ -200,6 +201,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <EstimateDetailPopover />
       <MemberExpensesPopover />
       <ExpenseBatchPopover />
+      <ExpenseReviewListPopover />
     </div>
   );
 }
