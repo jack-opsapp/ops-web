@@ -24,7 +24,7 @@ import { useExpenseSettings } from "@/lib/hooks/use-expense-settings";
 import { useTeamMembers } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useExpenseBatchPopoverStore } from "@/stores/expense-batch-popover-store";
-import { isBatchNeedsReview, type ExpenseBatch } from "@/lib/types/expense-approval";
+import { isBatchNeedsReview, isBatchApproved, ExpenseBatchStatus, type ExpenseBatch } from "@/lib/types/expense-approval";
 import {
   computeBatchUrgency,
   computeAllBatchCompliance,
@@ -94,6 +94,23 @@ export function ExpenseReviewWidget({
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
   }, [batchesData, reviewFrequency]);
+
+  // Approved + rejected batches (LG only)
+  const approvedBatches = useMemo(() => {
+    if (!batchesData) return [];
+    return batchesData
+      .filter((b) => isBatchApproved(b.status))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+  }, [batchesData]);
+
+  const rejectedBatches = useMemo(() => {
+    if (!batchesData) return [];
+    return batchesData
+      .filter((b) => b.status === ExpenseBatchStatus.Rejected)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+  }, [batchesData]);
 
   // Compliance map
   const complianceMap = useMemo(() => {
@@ -356,6 +373,60 @@ export function ExpenseReviewWidget({
                   </div>
                 );
               })}
+
+              {/* Approved section — LG only */}
+              {showActions(size) && approvedBatches.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border-subtle">
+                  <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
+                    Approved
+                  </span>
+                  {approvedBatches.map((batch, i) => {
+                    const submitterName = userNameMap.get(batch.submittedBy ?? "") ?? "";
+                    return (
+                      <WidgetLineItem
+                        key={batch.id}
+                        indicator={{ type: "bar", color: WT.success, label: "APPROVED" }}
+                        primary={submitterName || batch.batchNumber}
+                        secondary={batch.batchNumber}
+                        metric={formatCompactCurrency(batch.totalAmount ?? 0)}
+                        onClick={(e) => {
+                          if (e) openBatchPopover(batch.id, { x: e.clientX, y: e.clientY }, batch.batchNumber, WT.success);
+                        }}
+                        index={i}
+                        isVisible={isVisible}
+                        reducedMotion={reducedMotion}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Rejected section — LG only */}
+              {showActions(size) && rejectedBatches.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border-subtle">
+                  <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
+                    Rejected
+                  </span>
+                  {rejectedBatches.map((batch, i) => {
+                    const submitterName = userNameMap.get(batch.submittedBy ?? "") ?? "";
+                    return (
+                      <WidgetLineItem
+                        key={batch.id}
+                        indicator={{ type: "bar", color: WT.error, label: "REJECTED" }}
+                        primary={submitterName || batch.batchNumber}
+                        secondary={batch.reviewNotes ?? batch.batchNumber}
+                        metric={formatCompactCurrency(batch.totalAmount ?? 0)}
+                        onClick={(e) => {
+                          if (e) openBatchPopover(batch.id, { x: e.clientX, y: e.clientY }, batch.batchNumber, WT.error);
+                        }}
+                        index={i}
+                        isVisible={isVisible}
+                        reducedMotion={reducedMotion}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </ScrollFade>
           ) : (
             <div className="flex-1 flex items-center justify-center">
