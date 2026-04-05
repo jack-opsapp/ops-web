@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { ArrowUpRight, Check } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Check, X, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetLineItem } from "./shared/widget-line-item";
@@ -14,26 +14,38 @@ import { useReducedMotion } from "./shared/use-reduced-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import { showWidgetActionToast } from "./shared/widget-action-toast";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
-import { useExpenseBatches, useApproveBatch, useAllExpenses } from "@/lib/hooks/use-expense-approval";
+import {
+  useExpenseBatches,
+  useApproveBatch,
+  useAllExpenses,
+  useQuickRejectBatch,
+} from "@/lib/hooks/use-expense-approval";
+import { useExpenseSettings } from "@/lib/hooks/use-expense-settings";
 import { useTeamMembers } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useExpenseBatchPopoverStore } from "@/stores/expense-batch-popover-store";
 import { isBatchNeedsReview, type ExpenseBatch } from "@/lib/types/expense-approval";
+import {
+  computeBatchUrgency,
+  computeAllBatchCompliance,
+  type BatchUrgency,
+  type BatchCompliance,
+} from "@/lib/utils/expense-urgency";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+
+// ── Urgency color helpers ──
+function urgencyDotColor(urgency: BatchUrgency): string | null {
+  if (urgency === "due") return WT.warning;
+  if (urgency === "overdue") return WT.error;
+  return null;
+}
 
 // ── Props ──
 interface ExpenseReviewWidgetProps {
   size: WidgetSize;
   isLoading: boolean;
   onNavigate: (path: string) => void;
-}
-
-// ── Helpers ──
-function getBatchAge(createdAt: string): string {
-  const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
-  if (days === 0) return "today";
-  return `${days}d`;
 }
 
 // ── Component ──
@@ -47,23 +59,46 @@ export function ExpenseReviewWidget({
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
   const compact = isCompact(size);
-  const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
   // Data
   const { data: batchesData } = useExpenseBatches();
   const { data: teamData } = useTeamMembers();
   const { data: allExpensesData } = useAllExpenses();
+  const { data: settings } = useExpenseSettings();
   const openBatchPopover = useExpenseBatchPopoverStore((s) => s.openPopover);
   const approveBatch = useApproveBatch();
+  const quickReject = useQuickRejectBatch();
   const { currentUser, company } = useAuthStore();
 
-  // Filter to pending batches, sorted oldest first
+  // Reject UI state
+  const [rejectingBatchId, setRejectingBatchId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+
+  const reviewFrequency = settings?.reviewFrequency ?? "weekly";
+  const requireReceipt = settings?.requireReceiptPhoto ?? false;
+
+  // Filter to pending batches with urgency
   const pendingBatches = useMemo(() => {
     if (!batchesData) return [];
     return batchesData
       .filter((b) => isBatchNeedsReview(b.status))
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [batchesData]);
+      .map((b) => ({
+        ...b,
+        urgency: computeBatchUrgency(b, reviewFrequency),
+      }))
+      .sort((a, b) => {
+        const urgencyOrder: Record<BatchUrgency, number> = { overdue: 0, due: 1, fresh: 2 };
+        const diff = urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
+        if (diff !== 0) return diff;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+  }, [batchesData, reviewFrequency]);
+
+  // Compliance map
+  const complianceMap = useMemo(() => {
+    if (!allExpensesData) return new Map<string, BatchCompliance>();
+    return computeAllBatchCompliance(allExpensesData);
+  }, [allExpensesData]);
 
   // Resolve submitter names
   const userNameMap = useMemo(() => {
@@ -77,13 +112,16 @@ export function ExpenseReviewWidget({
   }, [teamData]);
 
   // Totals
-  const totalPending = useMemo(() => {
-    return pendingBatches.reduce((s, b) => s + (b.totalAmount ?? 0), 0);
-  }, [pendingBatches]);
+  const totalPending = useMemo(
+    () => pendingBatches.reduce((s, b) => s + (b.totalAmount ?? 0), 0),
+    [pendingBatches],
+  );
+  const overdueCount = useMemo(
+    () => pendingBatches.filter((b) => b.urgency === "overdue").length,
+    [pendingBatches],
+  );
 
-  const oldestAge = pendingBatches.length > 0 ? getBatchAge(pendingBatches[0].createdAt) : null;
-
-  // Inline approve handler (LG)
+  // ── Actions ──
   const handleInlineApprove = async (batch: ExpenseBatch) => {
     if (!allExpensesData) return;
     const expenseIds = allExpensesData
@@ -106,6 +144,21 @@ export function ExpenseReviewWidget({
     });
   };
 
+  const handleQuickReject = async (batchId: string) => {
+    if (!rejectNote.trim()) return;
+    await quickReject.mutateAsync({
+      batchId,
+      reviewedBy: currentUser?.id ?? "",
+      reviewNotes: rejectNote.trim(),
+    });
+    showWidgetActionToast({
+      label: t("expenseReview.returnedForRevision") ?? "Returned for revision",
+      onUndo: () => {},
+    });
+    setRejectingBatchId(null);
+    setRejectNote("");
+  };
+
   // ── Loading ──
   if (isLoading) {
     return (
@@ -119,7 +172,7 @@ export function ExpenseReviewWidget({
 
   const count = pendingBatches.length;
 
-  // ── XS: Hero-first ──
+  // ── XS: Awareness signal ──
   if (size === "xs") {
     return (
       <Card className="h-full" ref={ref}>
@@ -133,10 +186,11 @@ export function ExpenseReviewWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("expenseReview.pendingReview") ?? "Pending Review"}
           </span>
-          {count > 0 && (
+          {overdueCount > 0 && (
             <WidgetTrendContext
-              variant="snapshot"
-              label={`${count} ${t("expenseReview.batchesPending") ?? "batches pending"} · ${formatCompactCurrency(totalPending)}`}
+              variant="health"
+              color={WT.error}
+              label={`${overdueCount} ${t("expenseReview.overdue") ?? "overdue"}`}
             />
           )}
         </div>
@@ -144,7 +198,7 @@ export function ExpenseReviewWidget({
     );
   }
 
-  // ── SM: Hero-first ──
+  // ── SM: Awareness signal ──
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
@@ -167,16 +221,12 @@ export function ExpenseReviewWidget({
             {t("expenseReview.title") ?? "Expense Review"}
           </span>
           {count > 0 ? (
-            <>
-              <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
-                {count} {t("expenseReview.batchesPending") ?? "batches pending"}
-              </span>
-              {oldestAge && (
-                <span className="font-mono text-micro-sm text-text-disabled">
-                  {t("expenseReview.oldest") ?? "oldest"}: {oldestAge}
-                </span>
+            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+              {count} {t("expenseReview.batchesPendingCount") ?? "batches"}
+              {overdueCount > 0 && (
+                <span style={{ color: WT.error }}> · {overdueCount} {t("expenseReview.overdue") ?? "overdue"}</span>
               )}
-            </>
+            </span>
           ) : (
             <span className="font-mohave text-caption-sm text-text-disabled mt-0.5 truncate">
               {t("expenseReview.noBatches") ?? "No batches pending"}
@@ -187,7 +237,7 @@ export function ExpenseReviewWidget({
     );
   }
 
-  // ── MD / LG: Standard zones ──
+  // ── MD / LG: Triage queue + quick actions ──
   return (
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
@@ -206,7 +256,7 @@ export function ExpenseReviewWidget({
             </span>
             {count > 0 && (
               <span className="font-mono text-micro-sm text-text-disabled">
-                {count} {t("expenseReview.batchesPending") ?? "batches pending"}
+                {count} {t("expenseReview.batchesPendingCount") ?? "batches"}
               </span>
             )}
           </div>
@@ -218,42 +268,85 @@ export function ExpenseReviewWidget({
             <ScrollFade className="mt-1">
               {pendingBatches.map((batch, i) => {
                 const submitterName = userNameMap.get(batch.submittedBy ?? "") ?? "";
-                const age = getBatchAge(batch.createdAt);
+                const dotColor = urgencyDotColor(batch.urgency);
+                const compliance = complianceMap.get(batch.id);
+                const missingReceipts = compliance?.receiptsMissing ?? 0;
+                const totalExpenses = compliance?.receiptsTotal ?? 0;
+
+                // Build secondary text
+                let secondary = batch.batchNumber;
+                if (requireReceipt && missingReceipts > 0) {
+                  secondary += ` · ${missingReceipts}/${totalExpenses} ${t("expenseReview.missingReceipts") ?? "missing receipts"}`;
+                }
 
                 return (
-                  <WidgetLineItem
-                    key={batch.id}
-                    indicator={{
-                      type: "avatar",
-                      color: WT.accent,
-                      initials: submitterName.slice(0, 2).toUpperCase(),
-                    }}
-                    primary={submitterName || batch.batchNumber}
-                    secondary={`${batch.batchNumber} · ${age}`}
-                    metric={formatCompactCurrency(batch.totalAmount ?? 0)}
-                    onClick={(e) => {
-                      if (e) {
-                        openBatchPopover(
-                          batch.id,
-                          { x: e.clientX, y: e.clientY },
-                          batch.batchNumber,
-                          WT.accent,
-                        );
+                  <div key={batch.id}>
+                    <WidgetLineItem
+                      indicator={
+                        dotColor
+                          ? { type: "dot", color: dotColor }
+                          : { type: "avatar", color: WT.accent, initials: submitterName.slice(0, 2).toUpperCase() }
                       }
-                    }}
-                    action={
-                      showActions(size) ? (
-                        <WidgetInlineAction
-                          icon={Check}
-                          label={t("expenseReview.approve") ?? "Approve"}
-                          onAction={() => handleInlineApprove(batch)}
+                      primary={submitterName || batch.batchNumber}
+                      secondary={secondary}
+                      metric={formatCompactCurrency(batch.totalAmount ?? 0)}
+                      onClick={(e) => {
+                        if (e) {
+                          openBatchPopover(
+                            batch.id,
+                            { x: e.clientX, y: e.clientY },
+                            batch.batchNumber,
+                            dotColor ?? WT.accent,
+                          );
+                        }
+                      }}
+                      action={
+                        <div className="flex items-center gap-0.5">
+                          <WidgetInlineAction
+                            icon={Check}
+                            label={t("expenseReview.approve") ?? "Approve"}
+                            onAction={() => handleInlineApprove(batch)}
+                          />
+                          <WidgetInlineAction
+                            icon={X}
+                            label="Reject"
+                            onAction={() => {
+                              setRejectingBatchId(rejectingBatchId === batch.id ? null : batch.id);
+                              setRejectNote("");
+                            }}
+                          />
+                        </div>
+                      }
+                      index={i}
+                      isVisible={isVisible}
+                      reducedMotion={reducedMotion}
+                    />
+
+                    {/* Inline reject note input */}
+                    {rejectingBatchId === batch.id && (
+                      <div className="flex items-center gap-1 px-1 py-1 ml-6">
+                        <input
+                          type="text"
+                          value={rejectNote}
+                          onChange={(e) => setRejectNote(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && rejectNote.trim()) handleQuickReject(batch.id);
+                            if (e.key === "Escape") { setRejectingBatchId(null); setRejectNote(""); }
+                          }}
+                          placeholder={t("expenseReview.rejectNote") ?? "What needs fixing?"}
+                          className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text-primary placeholder:text-text-disabled outline-none focus:border-ops-accent transition-colors"
+                          autoFocus
                         />
-                      ) : undefined
-                    }
-                    index={i}
-                    isVisible={isVisible}
-                    reducedMotion={reducedMotion}
-                  />
+                        <button
+                          onClick={() => handleQuickReject(batch.id)}
+                          disabled={!rejectNote.trim() || quickReject.isPending}
+                          className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-disabled hover:text-ops-accent disabled:opacity-30 transition-colors"
+                        >
+                          <Send className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </ScrollFade>
