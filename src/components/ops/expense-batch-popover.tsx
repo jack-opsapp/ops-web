@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, memo, useMemo, type MouseEvent } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Minus, X, Flag, Check, Send, ArrowUpRight } from "lucide-react";
+import { Minus, X, Flag, Check, Send, ArrowUpRight, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -18,6 +18,7 @@ import {
   useFlagExpense,
   useUnflagExpense,
 } from "@/lib/hooks/use-expense-approval";
+import { useExpenseSettings } from "@/lib/hooks/use-expense-settings";
 import { useTeamMembers } from "@/lib/hooks";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -28,11 +29,18 @@ import {
   type ExpenseBatch,
   type ExpenseLineItem,
   ExpenseBatchStatus,
-  formatPeriodDisplay,
-  periodKeyFromBatch,
 } from "@/lib/types/expense-approval";
 import { formatCompactCurrency } from "@/components/dashboard/widgets/shared/widget-utils";
+import {
+  computeBatchUrgency,
+  computeBatchCompliance,
+  formatPeriodRange,
+  type BatchUrgency,
+  type BatchCompliance,
+} from "@/lib/utils/expense-urgency";
+import { ReceiptLightbox } from "@/components/expenses/receipt-lightbox";
 import { useDictionary } from "@/i18n/client";
+import { WT } from "@/lib/widget-tokens";
 
 // ── Easing ──
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -58,12 +66,14 @@ interface ExpenseRowProps {
   expense: ExpenseLineItem;
   canApprove: boolean;
   isReviewable: boolean;
+  requireReceipt: boolean;
   flaggingId: string | null;
   flagComment: string;
   onFlagToggle: (expenseId: string) => void;
   onFlagCommentChange: (comment: string) => void;
   onFlagSubmit: (expenseId: string, comment: string) => void;
   onUnflag: (expenseId: string) => void;
+  onReceiptClick: (url: string) => void;
   t: (key: string) => string | undefined;
 }
 
@@ -71,20 +81,53 @@ function ExpenseRow({
   expense,
   canApprove,
   isReviewable,
+  requireReceipt,
   flaggingId,
   flagComment,
   onFlagToggle,
   onFlagCommentChange,
   onFlagSubmit,
   onUnflag,
+  onReceiptClick,
   t,
 }: ExpenseRowProps) {
   const isFlagged = !!expense.flaggedBy;
   const isFlaggingThis = flaggingId === expense.id;
+  const hasReceipt = !!expense.receiptImageUrl;
 
   return (
     <div className="py-1.5 border-b border-[rgba(255,255,255,0.04)] last:border-b-0">
       <div className="flex items-start gap-2">
+        {/* Receipt thumbnail */}
+        {(hasReceipt || requireReceipt) && (
+          <div
+            className={cn(
+              "shrink-0 w-[40px] h-[50px] rounded-[2px] overflow-hidden",
+              hasReceipt && "cursor-pointer",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (expense.receiptImageUrl) onReceiptClick(expense.receiptImageUrl);
+            }}
+          >
+            {hasReceipt ? (
+              <img
+                src={expense.receiptImageUrl!}
+                alt="Receipt"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center border border-dashed rounded-[2px]"
+                style={{ borderColor: WT.warning }}
+              >
+                <Camera className="w-4 h-4" style={{ color: WT.warning }} />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 min-w-0">
           <span className="font-mohave text-body-sm text-text-primary truncate block">
@@ -125,7 +168,7 @@ function ExpenseRow({
         )}
       </div>
 
-      {/* Flag comment input — shown when flagging this expense */}
+      {/* Flag comment input */}
       {canApprove && isReviewable && isFlaggingThis && !isFlagged && (
         <div className="mt-1.5 flex items-center gap-1">
           <input
@@ -156,11 +199,11 @@ function ExpenseRow({
         </div>
       )}
 
-      {/* Flag comment display — shown when already flagged (read-only) */}
+      {/* Flag comment display */}
       {isFlagged && expense.flagComment && (
         <div className="mt-1 flex items-center gap-1">
-          <Flag className="w-3 h-3 shrink-0" style={{ color: "var(--color-status-warning)" }} />
-          <span className="font-mohave text-[11px] truncate" style={{ color: "var(--color-status-warning)" }}>
+          <Flag className="w-3 h-3 shrink-0" style={{ color: WT.warning }} />
+          <span className="font-mohave text-[11px] truncate" style={{ color: WT.warning }}>
             {expense.flagComment}
           </span>
         </div>
@@ -173,9 +216,11 @@ function ExpenseRow({
 
 function SummaryTab({
   expenses,
+  requireReceipt,
   t,
 }: {
   expenses: ExpenseLineItem[];
+  requireReceipt: boolean;
   t: (key: string) => string | undefined;
 }) {
   const categoryData = useMemo(() => {
@@ -220,7 +265,7 @@ function SummaryTab({
                   className="h-full rounded-sm"
                   style={{
                     width: `${(cat.amount / maxAmount) * 100}%`,
-                    backgroundColor: "var(--color-ops-accent)",
+                    backgroundColor: WT.accent,
                     transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
                   }}
                 />
@@ -231,28 +276,35 @@ function SummaryTab({
       </div>
 
       {/* Receipt coverage */}
-      <div>
-        <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
-          {t("batchPopover.receiptCoverage") ?? "Receipt coverage"}
-        </span>
-        <div className="flex items-center gap-2 mt-1">
-          <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-            <div
-              className="h-full rounded-sm"
-              style={{
-                width: categoryData.expenseCount > 0
-                  ? `${(categoryData.receiptCount / categoryData.expenseCount) * 100}%`
-                  : "0%",
-                backgroundColor: "var(--color-status-success)",
-                transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
-              }}
-            />
-          </div>
-          <span className="font-mono text-[11px] text-text-secondary shrink-0">
-            {categoryData.receiptCount}/{categoryData.expenseCount}
+      {requireReceipt && (
+        <div>
+          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+            {t("batchPopover.receiptCoverage") ?? "Receipt coverage"}
           </span>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+              <div
+                className="h-full rounded-sm"
+                style={{
+                  width: categoryData.expenseCount > 0
+                    ? `${(categoryData.receiptCount / categoryData.expenseCount) * 100}%`
+                    : "0%",
+                  backgroundColor: categoryData.receiptCount < categoryData.expenseCount ? WT.warning : WT.success,
+                  transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              />
+            </div>
+            <span
+              className="font-mono text-[11px] shrink-0"
+              style={{
+                color: categoryData.receiptCount < categoryData.expenseCount ? WT.warning : WT.success,
+              }}
+            >
+              {categoryData.receiptCount}/{categoryData.expenseCount}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -283,6 +335,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
   const batch = batchesData?.find((b) => b.id === state.id);
   const { data: batchExpenses } = useBatchExpenses(state.id);
   const { data: teamData } = useTeamMembers();
+  const { data: settings } = useExpenseSettings();
   const canApprove = usePermissionStore((s) => s.can("expenses.approve"));
   const { currentUser } = useAuthStore();
 
@@ -297,8 +350,13 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
   const [isResizing, setIsResizing] = useState(false);
   const [flaggingId, setFlaggingId] = useState<string | null>(null);
   const [flagComment, setFlagComment] = useState("");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
+
+  // Settings
+  const reviewFrequency = settings?.reviewFrequency ?? "weekly";
+  const requireReceipt = settings?.requireReceiptPhoto ?? false;
 
   // Derived
   const statusColor = batch
@@ -309,6 +367,17 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
   const expenses = batchExpenses ?? [];
   const flaggedExpenses = expenses.filter((e) => !!e.flaggedBy);
   const flaggedCount = flaggedExpenses.length;
+
+  // Urgency
+  const urgency: BatchUrgency = batch
+    ? computeBatchUrgency(batch, reviewFrequency)
+    : "fresh";
+
+  // Compliance
+  const compliance: BatchCompliance | null = useMemo(() => {
+    if (expenses.length === 0) return null;
+    return computeBatchCompliance(expenses);
+  }, [expenses]);
 
   // Resolve submitter name
   const submitterName = useMemo(() => {
@@ -331,20 +400,8 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
       };
 
       const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-        const newX = Math.max(
-          0,
-          Math.min(
-            moveEvent.clientX - dragOffset.current.x,
-            globalThis.innerWidth - state.size.width
-          )
-        );
-        const newY = Math.max(
-          0,
-          Math.min(
-            moveEvent.clientY - dragOffset.current.y,
-            globalThis.innerHeight - state.size.height
-          )
-        );
+        const newX = Math.max(0, Math.min(moveEvent.clientX - dragOffset.current.x, globalThis.innerWidth - state.size.width));
+        const newY = Math.max(0, Math.min(moveEvent.clientY - dragOffset.current.y, globalThis.innerHeight - state.size.height));
         updatePosition(state.id, { x: newX, y: newY });
       };
 
@@ -367,20 +424,12 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
       e.stopPropagation();
       focusPopover(state.id);
       setIsResizing(true);
-      resizeStart.current = {
-        x: e.clientX,
-        y: e.clientY,
-        w: state.size.width,
-        h: state.size.height,
-      };
+      resizeStart.current = { x: e.clientX, y: e.clientY, w: state.size.width, h: state.size.height };
 
       const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
         const dw = moveEvent.clientX - resizeStart.current.x;
         const dh = moveEvent.clientY - resizeStart.current.y;
-        updateSize(state.id, {
-          width: resizeStart.current.w + dw,
-          height: resizeStart.current.h + dh,
-        });
+        updateSize(state.id, { width: resizeStart.current.w + dw, height: resizeStart.current.h + dh });
       };
 
       const handleMouseUp = () => {
@@ -484,6 +533,22 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
             {state.title}
           </span>
+          {/* Urgency badge */}
+          {urgency !== "fresh" && (
+            <span
+              className={cn(
+                "font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap",
+                urgency === "overdue"
+                  ? "text-ops-error bg-ops-error/15 border-ops-error/30"
+                  : "text-ops-amber bg-ops-amber/15 border-ops-amber/30"
+              )}
+              style={{ fontSize: "9px", lineHeight: "1.3" }}
+            >
+              {urgency === "overdue"
+                ? (t("batchPopover.overdue") ?? "OVERDUE")
+                : (t("batchPopover.due") ?? "DUE")}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
@@ -510,24 +575,19 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
               {submitterName}
             </span>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-disabled">
-              —
-            </span>
+            <span className="font-kosugi text-[10px] text-text-disabled">—</span>
           )}
         </div>
 
-        {/* Row 2: Status badge + period + item count + total */}
+        {/* Row 2: Status + period range + items + total */}
         <div className="flex items-center gap-1.5">
-          <span
-            className="font-kosugi text-[9px] uppercase tracking-wide"
-            style={{ color: statusColor }}
-          >
+          <span className="font-kosugi text-[9px] uppercase tracking-wide" style={{ color: statusColor }}>
             {batch ? BATCH_STATUS_DISPLAY[batch.status] : ""}
           </span>
           {batch && (
             <>
               <span className="font-kosugi text-[9px] text-text-disabled">
-                · {formatPeriodDisplay(periodKeyFromBatch(batch))}
+                · {formatPeriodRange(batch.periodStart, batch.periodEnd)}
               </span>
               <span className="font-kosugi text-[9px] text-text-disabled">
                 · {expenses.length} {expenses.length === 1 ? "item" : "items"} · {formatCompactCurrency(batch.totalAmount ?? 0)}
@@ -535,6 +595,30 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
             </>
           )}
         </div>
+
+        {/* Row 3: Receipt compliance bar — only when requireReceiptPhoto */}
+        {requireReceipt && compliance && (
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 h-[4px] rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+              <div
+                className="h-full rounded-sm"
+                style={{
+                  width: compliance.receiptsTotal > 0
+                    ? `${((compliance.receiptsTotal - compliance.receiptsMissing) / compliance.receiptsTotal) * 100}%`
+                    : "0%",
+                  backgroundColor: compliance.receiptsMissing > 0 ? WT.warning : WT.success,
+                  transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              />
+            </div>
+            <span
+              className="font-kosugi text-[10px] shrink-0"
+              style={{ color: compliance.receiptsMissing > 0 ? WT.warning : WT.success }}
+            >
+              {compliance.receiptsTotal - compliance.receiptsMissing}/{compliance.receiptsTotal} {t("batchPopover.haveReceipts") ?? "have receipts"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Tab bar ── */}
@@ -569,6 +653,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
                   expense={expense}
                   canApprove={canApprove}
                   isReviewable={isReviewable}
+                  requireReceipt={requireReceipt}
                   flaggingId={flaggingId}
                   flagComment={flagComment}
                   onFlagToggle={(id) => {
@@ -578,6 +663,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
                   onFlagCommentChange={setFlagComment}
                   onFlagSubmit={handleFlag}
                   onUnflag={handleUnflag}
+                  onReceiptClick={setLightboxUrl}
                   t={t}
                 />
               ))}
@@ -591,7 +677,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           )
         )}
         {state.activeTab === "summary" && (
-          <SummaryTab expenses={expenses} t={t} />
+          <SummaryTab expenses={expenses} requireReceipt={requireReceipt} t={t} />
         )}
       </div>
 
@@ -614,13 +700,13 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
             <Send className="w-3 h-3" />
             {t("batchPopover.sendRevisions") ?? "Send Revisions"}
             {flaggedCount > 0 && (
-              <span className="font-mono text-[10px] text-status-warning">({flaggedCount})</span>
+              <span className="font-mono text-[10px]" style={{ color: WT.warning }}>({flaggedCount})</span>
             )}
           </button>
         </div>
       )}
 
-      {/* ── Submitter mode footer — link to accounting ── */}
+      {/* ── Submitter mode footer ── */}
       {!canApprove && (
         <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.06)] shrink-0">
           <button
@@ -634,20 +720,19 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
       )}
 
       {/* ── Resize handle ── */}
-      <div
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-        onMouseDown={handleResizeStart}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          className="opacity-15 hover:opacity-30 transition-opacity absolute bottom-[2px] right-[2px]"
-        >
+      <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize" onMouseDown={handleResizeStart}>
+        <svg width="14" height="14" viewBox="0 0 14 14" className="opacity-15 hover:opacity-30 transition-opacity absolute bottom-[2px] right-[2px]">
           <line x1="12" y1="4" x2="4" y2="12" stroke="white" strokeWidth="1" />
           <line x1="12" y1="8" x2="8" y2="12" stroke="white" strokeWidth="1" />
         </svg>
       </div>
+
+      {/* ── Receipt lightbox ── */}
+      <AnimatePresence>
+        {lightboxUrl && (
+          <ReceiptLightbox imageUrl={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 });
