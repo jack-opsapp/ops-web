@@ -19,6 +19,7 @@ const protectedPrefixes = [
   "/inventory",
   "/invoices",
   "/accounting",
+  "/deck-builder",
   "/settings",
   "/admin",
   "/testing-grounds",

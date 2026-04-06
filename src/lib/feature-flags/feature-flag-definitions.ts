@@ -16,6 +16,7 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   portal: ["/inbox"],
   ai_email_review: ["/settings/integrations"],
   phase_c: ["/settings/integrations"],
+  deck_builder: ["/deck-builder"],
 };
 
 // ─── Permission Mapping ──────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   portal: ["portal.view", "portal.manage_branding"],
   ai_email_review: ["email.configure_ai"],
   phase_c: ["email.configure_ai"],
+  deck_builder: ["deck_builder.view", "deck_builder.create", "deck_builder.edit"],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

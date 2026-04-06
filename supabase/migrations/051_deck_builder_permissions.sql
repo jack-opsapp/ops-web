@@ -15,8 +15,11 @@ ALTER TYPE app_permission ADD VALUE IF NOT EXISTS 'deck_builder.edit';
 
 -- ── Add feature flag (OFF by default) ───────────────────────────
 
-INSERT INTO feature_flags (slug, label, enabled, description) VALUES
-  ('deck_builder', 'Deck Builder', false, 'In-app deck drawing and estimation tool for deck & railing contractors')
+INSERT INTO feature_flags (slug, label, enabled, description, routes, permissions) VALUES
+  ('deck_builder', 'Deck Builder', false,
+   'In-app deck drawing and estimation tool for deck & railing contractors',
+   ARRAY['/deck-builder'],
+   ARRAY['deck_builder.view', 'deck_builder.create', 'deck_builder.edit'])
 ON CONFLICT (slug) DO NOTHING;
 
 -- ── Grant permissions to preset roles ───────────────────────────
