@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
 import { WidgetPeriodPicker } from "./shared/widget-period-picker";
+import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail } from "@/lib/widget-tokens";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import type { Estimate } from "@/lib/types/pipeline";
 import { EstimateStatus } from "@/lib/types/pipeline";
@@ -134,6 +135,25 @@ export function WinRateWidget({
   const color = winRateColor(stats.winRate);
   const hasData = stats.sent > 0;
 
+  // ── Sparkline month labels (last 6 months) ────────────────────────────
+  const monthLabels = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      return d.toLocaleString("default", { month: "short" });
+    });
+  }, []);
+
+  // ── Sparkline hover state ─────────────────────────────────────────────
+  const sparklineAreaRef = useRef<HTMLDivElement>(null);
+  const [sparkTooltip, setSparkTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    month: string;
+    rate: number;
+  }>({ visible: false, x: 0, y: 0, month: "", rate: 0 });
+
   // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -196,9 +216,6 @@ export function WinRateWidget({
               {t("winRate.noEstimates") ?? "No estimates in period"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("winRate.viewEstimates") ?? "View Estimates"}
-          </span>
         </div>
       </Card>
     );
@@ -228,7 +245,7 @@ export function WinRateWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <WidgetBackgroundChart
-          chart={<Sparkline data={trendData} width={200} height={100} color={color} />}
+          chart={<Sparkline data={trendData} width={200} height={100} color={color} showDots={false} />}
           opacity={0.25}
         >
           <div className="h-full flex flex-col p-3">
@@ -281,7 +298,7 @@ export function WinRateWidget({
         </div>
 
         {/* HERO — ring gauge + trend sparkline */}
-        <div className="flex items-center gap-4 mb-3">
+        <div className="flex items-center gap-4 mb-1">
           <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`} className="shrink-0">
             <circle
               cx={ringSize / 2} cy={ringSize / 2} r={radius}
@@ -308,10 +325,47 @@ export function WinRateWidget({
             </text>
           </svg>
 
-          {/* Trend sparkline — fills remaining space */}
-          <div className="flex-1 min-w-0">
-            <Sparkline data={trendData} width={120} height={ringSize} color={color} />
+          {/* Trend sparkline — fills remaining space with hover zones */}
+          <div className="flex-1 min-w-0 h-[64px] relative" ref={sparklineAreaRef}>
+            <Sparkline data={trendData} width={200} height={ringSize} color={color} />
+
+            {/* Invisible hover zones — one per data point */}
+            <div className="absolute inset-0 flex">
+              {trendData.map((rate, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-full cursor-crosshair"
+                  onMouseEnter={(e) => {
+                    const parentRect = ref.current?.getBoundingClientRect();
+                    const zoneRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    if (!parentRect) return;
+                    setSparkTooltip({
+                      visible: true,
+                      x: zoneRect.left - parentRect.left + zoneRect.width / 2,
+                      y: zoneRect.top - parentRect.top,
+                      month: monthLabels[i],
+                      rate,
+                    });
+                  }}
+                  onMouseLeave={() => setSparkTooltip((prev) => ({ ...prev, visible: false }))}
+                />
+              ))}
+            </div>
+
+            {/* Sparkline tooltip */}
+            <WidgetTooltip visible={sparkTooltip.visible} x={sparkTooltip.x} y={sparkTooltip.y} anchorRef={ref} anchor="above">
+              <TooltipRow label={sparkTooltip.month} value={`${sparkTooltip.rate}%`} color={color} />
+            </WidgetTooltip>
           </div>
+        </div>
+
+        {/* X-axis month labels for sparkline */}
+        <div className="flex justify-between mb-3" style={{ marginLeft: `${ringSize + 16}px` }}>
+          {monthLabels.map((label, i) => (
+            <span key={i} className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              {label}
+            </span>
+          ))}
         </div>
 
         {/* DETAIL ZONE */}
@@ -347,15 +401,6 @@ export function WinRateWidget({
           </ScrollFade>
         )}
 
-        {/* FOOTER */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/estimates")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("winRate.viewEstimates") ?? "View Estimates"}
-          </button>
-        )}
       </div>
     </Card>
   );

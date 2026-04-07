@@ -11,7 +11,10 @@ import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
-import { HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { useWeightedPipelineValue } from "@/lib/hooks/use-forecast";
+import { formatCompactCurrency } from "./shared/widget-utils";
+import { HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { Project } from "@/lib/types/models";
 import {
   ProjectStatus,
@@ -21,7 +24,9 @@ import {
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { cn } from "@/lib/utils/cn";
+import { SegmentedPicker, type SegmentedPickerOption } from "@/components/ops/segmented-picker";
 
 // ---------------------------------------------------------------------------
 // Pipeline stage definitions (data-driven — no hardcoded widths)
@@ -62,6 +67,7 @@ export function PipelineFunnelWidget({
   onNavigate,
 }: PipelineFunnelWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const openEntity = useWidgetEntityOpen();
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
@@ -77,7 +83,8 @@ export function PipelineFunnelWidget({
     pct: number;
   }>({ visible: false, x: 0, y: 0, stage: "", count: 0, pct: 0 });
 
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const { data: weightedPipeline } = useWeightedPipelineValue();
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [showAllItems, setShowAllItems] = useState(false);
 
   // ── Compute stage data (data-proportional) ────────────────────────────
@@ -110,13 +117,24 @@ export function PipelineFunnelWidget({
 
   const totalProjects = stages.reduce((sum, s) => sum + s.count, 0);
 
-  // ── Distribution (LG only — replaces conversion rates) ─────────────────
+  // ── Distribution (LG only) ─────────────────────────────────────────────
   const distribution = useMemo(() => {
     if (!showActions(size)) return [];
     return stages
       .filter((s) => s.count > 0)
       .map((s) => ({ label: t(s.i18nKey), count: s.count, pct: s.pct, color: s.color }));
   }, [stages, size]);
+
+  // ── SegmentedPicker options for LG stage filter ───────────────────────
+  const stagePickerOptions = useMemo<SegmentedPickerOption[]>(() => {
+    const opts: SegmentedPickerOption[] = [{ value: "all", label: t("trend.all") ?? "All" }];
+    for (const stage of stages) {
+      if (stage.count > 0) {
+        opts.push({ value: stage.status, label: `${t(stage.i18nKey)} (${stage.count})` });
+      }
+    }
+    return opts;
+  }, [stages, t]);
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {
@@ -150,11 +168,6 @@ export function PipelineFunnelWidget({
               {t("pipelineFunnel.noProjects") ?? "No active projects"}
             </span>
           </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("pipelineFunnel.viewPipeline") ?? "View Pipeline"}
-            </span>
-          )}
         </div>
       </Card>
     );
@@ -187,9 +200,11 @@ export function PipelineFunnelWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-            {t("pipelineFunnel.active") ?? "active"}
-          </span>
+          {weightedPipeline ? (
+            <WidgetTrendContext variant="snapshot" label={`${t("pipelineFunnel.weighted") ?? "Weighted"}: ${formatCompactCurrency(weightedPipeline.totalWeighted)}`} />
+          ) : (
+            <WidgetTrendContext variant="snapshot" label={t("trend.active") ?? "Active"} />
+          )}
         </div>
       </Card>
     );
@@ -208,6 +223,11 @@ export function PipelineFunnelWidget({
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
               {t("pipelineFunnel.title") ?? "Pipeline"}
             </span>
+            {weightedPipeline && (
+              <span className="font-mono text-micro-sm text-text-disabled mt-0.5">
+                {formatCompactCurrency(weightedPipeline.totalWeighted)}
+              </span>
+            )}
           </div>
           {/* Center: Mini funnel bars — data-proportional widths */}
           <div className="flex-1 flex flex-col items-center justify-center gap-[3px] px-3">
@@ -245,7 +265,7 @@ export function PipelineFunnelWidget({
   const funnelBarHeight = showActions(size) ? 24 : 20;
 
   const renderHorizontalFunnel = () => (
-    <div className="flex flex-col gap-[3px]">
+    <div className="flex flex-col gap-[3px] flex-1">
       {stages.map((stage, i) => {
         if (stage.count === 0) return null;
         const isWide = stage.widthPct >= 35;
@@ -253,9 +273,9 @@ export function PipelineFunnelWidget({
         return (
           <div
             key={i}
-            className="flex items-center"
+            className="flex items-center justify-center flex-1"
             style={{
-              opacity: !isVisible ? 0 : (showActions(size) && activeTab && activeTab !== stage.status) ? 0.4 : 1,
+              opacity: !isVisible ? 0 : (showActions(size) && stageFilter !== "all" && stageFilter !== stage.status) ? 0.4 : 1,
               transitionProperty: "opacity",
               transitionDuration: reducedMotion ? "200ms" : "500ms",
               transitionTimingFunction: WIDGET_EASE_CSS,
@@ -265,9 +285,11 @@ export function PipelineFunnelWidget({
               className="rounded-sm cursor-pointer relative flex items-center shrink-0"
               style={{
                 height: `${funnelBarHeight}px`,
+                minHeight: stage.count > 0 ? "20px" : undefined,
                 width: isVisible ? `${stage.widthPct}%` : "0%",
                 minWidth: isVisible && stage.count > 0 ? "8px" : undefined,
-                backgroundColor: stage.color,
+                border: `1px solid ${stage.color}`,
+                backgroundColor: `color-mix(in srgb, ${stage.color} 15%, transparent)`,
                 transitionProperty: "width, min-width",
                 transitionDuration: reducedMotion ? "200ms" : "500ms",
                 transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
@@ -276,7 +298,7 @@ export function PipelineFunnelWidget({
               onClick={(e) => {
                 e.stopPropagation();
                 if (showActions(size)) {
-                  setActiveTab((prev) => prev === stage.status ? null : stage.status);
+                  setStageFilter((prev) => prev === stage.status ? "all" : stage.status);
                   setShowAllItems(false);
                 } else {
                   onNavigate("/pipeline");
@@ -286,7 +308,7 @@ export function PipelineFunnelWidget({
               onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
             >
               {isWide && (
-                <span className="font-mohave text-caption-sm text-text-primary truncate px-2">
+                <span className="font-mohave text-caption-sm truncate px-2" style={{ color: stage.color }}>
                   {t(stage.i18nKey)} · {stage.count}
                 </span>
               )}
@@ -294,7 +316,7 @@ export function PipelineFunnelWidget({
             {!isWide && (
               <div className="flex items-center gap-1 ml-2 whitespace-nowrap shrink-0">
                 <span className="font-mohave text-micro text-text-secondary">{t(stage.i18nKey)}</span>
-                <span className="font-mono text-micro text-text-primary font-medium">{stage.count}</span>
+                <span className="font-mono text-micro font-medium" style={{ color: stage.color }}>{stage.count}</span>
               </div>
             )}
           </div>
@@ -303,130 +325,161 @@ export function PipelineFunnelWidget({
     </div>
   );
 
-  // ── Active tab content (LG) ─────────────────────────────────────────────
-  const activeStageData = showActions(size) && activeTab
-    ? stages.find((s) => s.status === activeTab)
+  // ── Filtered stage data (LG) ────────────────────────────────────────────
+  const filteredStageData = showActions(size) && stageFilter !== "all"
+    ? stages.find((s) => s.status === stageFilter)
     : null;
-  const MAX_VISIBLE_ITEMS = 5;
+  const MAX_VISIBLE_ITEMS = 10;
 
-  // ── MD / LG: Horizontal funnel + optional tab detail ─────────────────────
-  return (
-    <Card className="h-full p-0" ref={ref}>
-      <div className="h-full flex flex-col p-3">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
-            {t("pipelineFunnel.title") ?? "Pipeline"}
-          </span>
-          <span className="font-mono text-micro text-text-tertiary">
-            {totalProjects}
-          </span>
-        </div>
+  // ── MD: Horizontal funnel only ────────────────────────────────────────
+  if (size === "md") {
+    return (
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+              {t("pipelineFunnel.title") ?? "Pipeline"}
+            </span>
+          </div>
 
-        {/* Detail zone */}
-        <ScrollFade>
+          {/* Hero */}
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="font-mono text-display font-bold text-text-primary leading-none">
+              {totalProjects}
+            </span>
+            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              {t("trend.active") ?? "Active"}
+            </span>
+            {weightedPipeline && (
+              <>
+                <span className="text-[rgba(255,255,255,0.12)]">·</span>
+                <span className="font-mono text-micro-sm text-text-disabled">
+                  {formatCompactCurrency(weightedPipeline.totalWeighted)}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Funnel bars */}
           <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
             <TooltipRow label={tooltip.stage} value={`${tooltip.count}`} />
             <TooltipRow label={t("pipelineFunnel.ofPipeline") ?? "Of pipeline"} value={`${tooltip.pct}%`} />
           </WidgetTooltip>
 
-          {/* Vertical funnel — collapses in LG when tab active */}
-          {showActions(size) ? (
-            <WidgetHeroCollapse collapsed={!!activeTab} collapsedHeight="60px">
-              {renderHorizontalFunnel()}
-            </WidgetHeroCollapse>
-          ) : (
-            renderHorizontalFunnel()
-          )}
+          {renderHorizontalFunnel()}
+        </div>
+      </Card>
+    );
+  }
 
-          {/* LG: Tab strip */}
-          {showActions(size) && (
-            <div className="flex items-center gap-1 mt-2 flex-wrap">
-              {nonEmptyStages.map((stage) => (
-                <button
-                  key={stage.status}
-                  onClick={() => {
-                    setActiveTab((prev) => prev === stage.status ? null : stage.status);
-                    setShowAllItems(false);
-                  }}
-                  className={cn(
-                    "font-kosugi text-micro-sm uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
-                    activeTab === stage.status
-                      ? "bg-ops-accent/15 text-ops-accent"
-                      : "text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.04)]"
-                  )}
+  // ── LG: Full operational view with stage filter ─────────────────────────
+  return (
+    <Card className="h-full p-0" ref={ref}>
+      <div className="h-full flex flex-col p-3">
+        {/* Header row: title + weighted value */}
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            {t("pipelineFunnel.title") ?? "Pipeline"}
+          </span>
+          {weightedPipeline && (
+            <span className="font-mono text-micro-sm text-text-disabled">
+              {t("pipelineFunnel.weighted") ?? "Weighted"}: {formatCompactCurrency(weightedPipeline.totalWeighted)}
+            </span>
+          )}
+        </div>
+
+        {/* Hero */}
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="font-mono text-display font-bold text-text-primary leading-none">
+            {totalProjects}
+          </span>
+          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            {t("trend.active") ?? "Active"}
+          </span>
+        </div>
+
+        {/* Funnel bars — always visible */}
+        <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
+          <TooltipRow label={tooltip.stage} value={`${tooltip.count}`} />
+          <TooltipRow label={t("pipelineFunnel.ofPipeline") ?? "Of pipeline"} value={`${tooltip.pct}%`} />
+        </WidgetTooltip>
+
+        <div className="mb-3">
+          {renderHorizontalFunnel()}
+        </div>
+
+        {/* Stage filter — SegmentedPicker */}
+        <div className="mb-2">
+          <SegmentedPicker
+            options={stagePickerOptions}
+            value={stageFilter}
+            onChange={(val) => { setStageFilter(val); setShowAllItems(false); }}
+          />
+        </div>
+
+        {/* Content area */}
+        <ScrollFade className="flex-1 min-h-0">
+          {/* "All" view — distribution breakdown */}
+          {stageFilter === "all" && distribution.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              {distribution.map((d, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-[rgba(255,255,255,0.03)] rounded-sm px-1 -mx-1 transition-colors"
+                  onClick={() => { setStageFilter(stages.find(s => t(s.i18nKey) === d.label)?.status ?? "all"); setShowAllItems(false); }}
                 >
-                  {t(stage.i18nKey)}
-                  <span className="font-mono ml-0.5">{stage.count}</span>
-                </button>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-[6px] h-[6px] rounded-[1px] shrink-0"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    <span className="font-mohave text-caption-sm text-text-secondary">
+                      {d.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-micro-sm text-text-primary font-medium">{d.count}</span>
+                    <span className="font-mono text-micro-sm text-text-disabled w-[32px] text-right">{d.pct}%</span>
+                  </div>
+                </div>
               ))}
             </div>
           )}
 
-          {/* LG: Tab content — WidgetLineItem rows */}
-          {activeStageData && (
-            <div className="mt-2 pt-2 border-t border-border-subtle">
-              {(showAllItems ? activeStageData.projects : activeStageData.projects.slice(0, MAX_VISIBLE_ITEMS)).map((p, i) => (
+          {/* Filtered stage view — project list */}
+          {filteredStageData && (
+            <div className="flex flex-col">
+              {(showAllItems ? filteredStageData.projects : filteredStageData.projects.slice(0, MAX_VISIBLE_ITEMS)).map((p, i) => (
                 <WidgetLineItem
                   key={p.id}
-                  indicator={{ type: "bar", color: activeStageData.color }}
+                  indicator={{ type: "bar", color: filteredStageData.color }}
                   primary={p.title || (t("pipelineFunnel.untitled") ?? "Untitled")}
-                  secondary={p.client?.name}
+                  secondary={[p.client?.name, p.address].filter(Boolean).join(" · ")}
                   metric={`${projectAgeDays(p)}d`}
-                  onClick={() => onNavigate(`/projects/${p.id}`)}
+                  onClick={(e) => openEntity({
+                    entityType: "project",
+                    entityId: p.id,
+                    title: p.title || (t("pipelineFunnel.untitled") ?? "Untitled"),
+                    color: filteredStageData.color,
+                    event: e,
+                    fallbackPath: `/projects/${p.id}`,
+                  })}
                   index={i}
                   isVisible={isVisible}
                   reducedMotion={reducedMotion}
                 />
               ))}
-              {activeStageData.projects.length > MAX_VISIBLE_ITEMS && (
+              {filteredStageData.projects.length > MAX_VISIBLE_ITEMS && (
                 <WidgetMoreButton
-                  remaining={activeStageData.projects.length - MAX_VISIBLE_ITEMS}
+                  remaining={filteredStageData.projects.length - MAX_VISIBLE_ITEMS}
                   expanded={showAllItems}
                   onToggle={() => setShowAllItems((prev) => !prev)}
                 />
               )}
             </div>
           )}
-
-          {/* LG: Distribution (shown when no tab active) */}
-          {showActions(size) && !activeTab && distribution.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border-subtle">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
-                {t("pipelineFunnel.distribution") ?? "Distribution"}
-              </span>
-              <div className="flex flex-col gap-1 mt-1">
-                {distribution.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="w-[6px] h-[6px] rounded-full shrink-0"
-                        style={{ backgroundColor: d.color }}
-                      />
-                      <span className="font-mohave text-caption-sm text-text-secondary">
-                        {d.label}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-micro-sm text-text-primary font-medium">{d.count}</span>
-                      <span className="font-mono text-micro-sm text-text-disabled">{d.pct}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </ScrollFade>
-
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/pipeline")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("pipelineFunnel.viewPipeline") ?? "View Pipeline"}
-          </button>
-        )}
       </div>
     </Card>
   );

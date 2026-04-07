@@ -10,7 +10,7 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { ScrollFade } from "./shared/scroll-fade";
 import { widgetLineItemStyle } from "./shared/widget-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail } from "@/lib/widget-tokens";
 import type { Project, ProjectTask } from "@/lib/types/models";
 import { ProjectStatus, TaskStatus } from "@/lib/types/models";
 import type { Estimate } from "@/lib/types/pipeline";
@@ -284,7 +284,7 @@ export function BacklogDepthWidget({
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
+          <span className="font-mono text-caption-sm text-text-secondary">
             {backlog.projectCount} {t("backlogDepth.projects") ?? "projects"}
           </span>
         </div>
@@ -369,15 +369,6 @@ export function BacklogDepthWidget({
           </>
         )}
 
-        {/* FOOTER */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/projects")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("backlogDepth.viewProjects") ?? "View Projects"}
-          </button>
-        )}
       </div>
     </Card>
   );

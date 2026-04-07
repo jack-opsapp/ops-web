@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -11,7 +11,8 @@ import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail } from "@/lib/widget-tokens";
 import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -146,15 +147,10 @@ export function BookingRateWidget({
               {t("bookingRate.noProjects") ?? "No projects yet"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("bookingRate.viewProjects") ?? "View Projects"}
-          </span>
         </div>
       </Card>
     );
   }
-
-  const trendColor = bookings.trend === "up" ? WT.success : bookings.trend === "down" ? WT.error : undefined;
 
   // ── XS: Hero count + trend ────────────────────────────────────────────
   if (size === "xs") {
@@ -167,18 +163,12 @@ export function BookingRateWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("bookingRate.title") ?? "Bookings"}
           </span>
-          <div className="flex items-center gap-0.5">
-            {bookings.trend === "up" ? (
-              <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
-            ) : bookings.trend === "down" ? (
-              <ChevronDown className="w-3 h-3" style={{ color: WT.error }} />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-text-disabled" />
-            )}
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-              {t("bookingRate.thisMonth") ?? "This month"}
-            </span>
-          </div>
+          <WidgetTrendContext
+            variant="trend"
+            direction={bookings.trend}
+            delta={`${Math.abs(bookings.delta)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+          />
         </div>
       </Card>
     );
@@ -189,7 +179,7 @@ export function BookingRateWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <WidgetBackgroundChart
-          chart={<Sparkline data={bookings.sparkData} width={200} height={100} color={WT.accent} />}
+          chart={<Sparkline data={bookings.sparkData} width={200} height={100} color={WT.accent} showDots={false} />}
           opacity={0.25}
         >
           <div className="h-full flex flex-col p-3">
@@ -210,17 +200,13 @@ export function BookingRateWidget({
               {t("bookingRate.title") ?? "Bookings"}
             </span>
             {/* Row 3: Trend indicator */}
-            <div className="flex items-center gap-0.5 mt-1">
-              {bookings.trend === "up" ? (
-                <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
-              ) : bookings.trend === "down" ? (
-                <ChevronDown className="w-3 h-3" style={{ color: WT.error }} />
-              ) : (
-                <ChevronRight className="w-3 h-3 text-text-disabled" />
-              )}
-              <span className="font-mono text-micro-sm" style={{ color: trendColor }}>
-                {bookings.delta !== 0 && `${Math.abs(bookings.delta)}%`}
-              </span>
+            <div className="mt-1">
+              <WidgetTrendContext
+                variant="trend"
+                direction={bookings.trend}
+                delta={`${Math.abs(bookings.delta)}%`}
+                comparison={t("trend.vsLastMonth") ?? "vs last month"}
+              />
             </div>
           </div>
         </WidgetBackgroundChart>
@@ -242,22 +228,18 @@ export function BookingRateWidget({
         </div>
 
         {/* HERO */}
-        <div className="flex items-baseline gap-2 mb-2">
+        <div className="flex items-baseline gap-2 mb-1">
           <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
             {animatedCount}
           </span>
-          {bookings.trend === "up" ? (
-            <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
-          ) : bookings.trend === "down" ? (
-            <ChevronDown className="w-4 h-4" style={{ color: WT.error }} />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-text-disabled" />
-          )}
-          {bookings.delta !== 0 && (
-            <span className="font-mono text-micro" style={{ color: trendColor }}>
-              {Math.abs(bookings.delta)}%
-            </span>
-          )}
+        </div>
+        <div className="mb-2">
+          <WidgetTrendContext
+            variant="trend"
+            direction={bookings.trend}
+            delta={`${Math.abs(bookings.delta)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+          />
         </div>
 
         {/* DETAIL ZONE */}
@@ -293,17 +275,23 @@ export function BookingRateWidget({
                     onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
                   >
                     <div
-                      className="w-[70%] rounded-t-sm"
+                      className="w-[70%] rounded-sm flex items-end justify-center pb-0.5 overflow-hidden"
                       style={{
-                        height: isVisible ? `${Math.max(barH, m.count > 0 ? 2 : 0)}px` : "0px",
-                        backgroundColor: WT.accent,
-                        opacity: isCurrent ? 1 : 0.5,
-                        transitionProperty: "height, opacity",
+                        height: isVisible ? `${Math.max(barH, m.count > 0 ? 24 : 0)}px` : "0px",
+                        border: `1px solid ${isCurrent ? WT.accent : `color-mix(in srgb, ${WT.accent} 50%, transparent)`}`,
+                        backgroundColor: `color-mix(in srgb, ${WT.accent} ${isCurrent ? '25%' : '12%'}, transparent)`,
+                        transitionProperty: "height",
                         transitionDuration: reducedMotion ? "200ms" : "600ms",
                         transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
                         transitionTimingFunction: WIDGET_EASE_CSS,
                       }}
-                    />
+                    >
+                      {barH >= 24 && (
+                        <span className="font-mono text-micro-sm font-medium" style={{ color: WT.accent }}>
+                          {m.count}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -319,15 +307,6 @@ export function BookingRateWidget({
           </ScrollFade>
         )}
 
-        {/* FOOTER */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/projects")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("bookingRate.viewProjects") ?? "View Projects"}
-          </button>
-        )}
       </div>
     </Card>
   );

@@ -19,7 +19,7 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { showActions, showFooter } from "@/lib/widget-tokens";
+import { showActions } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import {
   OpportunityStage,
@@ -44,6 +44,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -117,13 +118,36 @@ function daysInStage(stageEnteredAt: Date | string): number {
   return Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function getOpportunityDisplayName(opportunity: Opportunity, unknownLabel: string): string {
-  const clientName = opportunity.client?.name ?? opportunity.contactName;
-  if (!clientName) return opportunity.title || unknownLabel;
-  if (opportunity.title && opportunity.title !== clientName) {
-    return `${clientName} - ${opportunity.title}`;
+/** Primary: client/contact name — who is this lead? */
+function getOpportunityPrimary(opportunity: Opportunity, unknownLabel: string): string {
+  return opportunity.client?.name ?? opportunity.contactName ?? opportunity.title ?? unknownLabel;
+}
+
+/** Secondary: opportunity context — what do they want + where in pipeline */
+function getOpportunitySecondary(opportunity: Opportunity): string {
+  const parts: string[] = [];
+  // Clean title: strip "Lead[Name]" prefix artifacts from AI-generated titles
+  const clientName = opportunity.client?.name ?? opportunity.contactName ?? "";
+  const title = opportunity.title;
+  if (title && title !== clientName) {
+    // Remove the client name or "Lead" prefix duplications from the title
+    let cleanTitle = title;
+    if (clientName) {
+      // Strip exact client name prefix (e.g., "Jared Lantzmann - Deck Rebuild" → "Deck Rebuild")
+      const prefixPattern = new RegExp(`^${clientName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[-–—]\\s*`, "i");
+      cleanTitle = cleanTitle.replace(prefixPattern, "");
+      // Strip "Lead[LastName]" prefix (e.g., "LeadLantzmann Deck Rebuild" → "Deck Rebuild")
+      const lastName = clientName.split(/\s+/).pop() ?? "";
+      if (lastName && cleanTitle.startsWith(`Lead${lastName}`)) {
+        cleanTitle = cleanTitle.slice(`Lead${lastName}`.length).trim();
+      }
+    }
+    if (cleanTitle && cleanTitle !== clientName) {
+      parts.push(cleanTitle);
+    }
   }
-  return clientName;
+  parts.push(`${getStageDisplayName(opportunity.stage)} · ${daysInStage(opportunity.stageEnteredAt)}d`);
+  return parts.join(" · ");
 }
 
 // ---------------------------------------------------------------------------
@@ -430,6 +454,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
   const { t } = useDictionary("dashboard");
   const router = useRouter();
   const navigate = (path: string) => router.push(path);
+  const openEntity = useWidgetEntityOpen();
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
@@ -574,9 +599,9 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                       {visibleItems.map((opp, i) => (
                         <WidgetLineItem
                           key={opp.id}
-                          indicator={{ type: "bar", color: group.color }}
-                          primary={getOpportunityDisplayName(opp, t("pipelineList.unknown"))}
-                          secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
+                          indicator={{ type: "bar", color: group.color, label: group.label }}
+                          primary={getOpportunityPrimary(opp, t("pipelineList.unknown"))}
+                          secondary={getOpportunitySecondary(opp)}
                           metric={
                             opp.estimatedValue != null
                               ? formatCompactCurrency(opp.estimatedValue)
@@ -591,14 +616,22 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           index={i}
                           isVisible={isVisible}
                           reducedMotion={reducedMotion}
-                          onClick={() => navigate("/pipeline")}
+                          onClick={(e) => openEntity({
+                          entityType: "opportunity",
+                          entityId: opp.id,
+                          title: getOpportunityPrimary(opp, t("pipelineList.unknown")),
+                          color: group.color,
+                          event: e,
+                          fallbackPath: "/pipeline",
+                        })}
                         />
                       ))}
                       {group.items.length > visibleItems.length && (
-                        <span className="font-mono text-micro-sm text-text-disabled block px-1">
-                          +{group.items.length - visibleItems.length}{" "}
-                          {t("pipelineList.more")}
-                        </span>
+                        <WidgetMoreButton
+                          remaining={group.items.length - visibleItems.length}
+                          expanded={showAllItems}
+                          onToggle={() => setShowAllItems((prev) => !prev)}
+                        />
                       )}
                     </div>
                   );
@@ -614,15 +647,6 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             )}
           </ScrollFade>
 
-          {/* Footer */}
-          {showFooter(size) && (
-            <button
-              onClick={() => navigate("/pipeline")}
-              className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-            >
-              {t("pipelineList.viewPipeline") ?? "View Pipeline"}
-            </button>
-          )}
         </div>
       </Card>
     );
@@ -671,9 +695,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                   indicator={{
                     type: "bar",
                     color: OPPORTUNITY_STAGE_COLORS[opp.stage],
+                    label: getStageDisplayName(opp.stage),
                   }}
-                  primary={getOpportunityDisplayName(opp, t("pipelineList.unknown"))}
-                  secondary={`${daysInStage(opp.stageEnteredAt)}d · ${getStageDisplayName(opp.stage)}`}
+                  primary={getOpportunityPrimary(opp, t("pipelineList.unknown"))}
+                  secondary={getOpportunitySecondary(opp)}
                   metric={
                     opp.estimatedValue != null
                       ? formatCompactCurrency(opp.estimatedValue)
@@ -690,7 +715,14 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                   index={i}
                   isVisible={isVisible}
                   reducedMotion={reducedMotion}
-                  onClick={() => navigate(`/pipeline/${opp.id}`)}
+                  onClick={(e) => openEntity({
+                    entityType: "opportunity",
+                    entityId: opp.id,
+                    title: getOpportunityPrimary(opp, t("pipelineList.unknown")),
+                    color: OPPORTUNITY_STAGE_COLORS[opp.stage],
+                    event: e,
+                    fallbackPath: `/pipeline/${opp.id}`,
+                  })}
                 />
               ))}
             </ScrollFade>
@@ -705,15 +737,6 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           </>
         )}
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => navigate("/pipeline")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("pipelineList.viewPipeline") ?? "View Pipeline"}
-          </button>
-        )}
       </div>
     </Card>
   );
