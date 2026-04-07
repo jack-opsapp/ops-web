@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight } from "lucide-react";
 import {
   StickyNote,
   Mail,
@@ -28,7 +27,8 @@ import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useScrollFadeScroll } from "./shared/use-scroll-fade-scroll";
-import { WT, isCompact, showFooter, showActions } from "@/lib/widget-tokens";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { WT, isCompact, showActions } from "@/lib/widget-tokens";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useTeamMembers, useProjects } from "@/lib/hooks";
@@ -41,6 +41,8 @@ import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { parseDateRequired } from "@/lib/supabase/helpers";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 
 // ---------------------------------------------------------------------------
 // Inline hook — company-wide recent activities
@@ -166,6 +168,7 @@ export function ActivityWidget({
   onNavigate,
 }: ActivityWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const openEntity = useWidgetEntityOpen();
   const { company } = useAuthStore();
   const companyId = company?.id;
   const { data: activities, isLoading } = useRecentActivities(companyId);
@@ -177,6 +180,7 @@ export function ActivityWidget({
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
   const [heroCollapsed, setHeroCollapsed] = useState(false);
+  const [listExpanded, setListExpanded] = useState(false);
 
   const count = activities?.length ?? 0;
 
@@ -244,27 +248,17 @@ export function ActivityWidget({
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <div className="flex items-baseline justify-between">
-            <span
-              className={`font-mono text-data-lg font-bold leading-none ${
-                isLoading
-                  ? "text-text-disabled"
-                  : count > 0
-                    ? "text-text-primary"
-                    : "text-text-disabled"
-              }`}
-            >
-              {isLoading ? "—" : count}
-            </span>
-            {showFooter(size) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onNavigate("/inbox"); }}
-                className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-              >
-                <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
-              </button>
-            )}
-          </div>
+          <span
+            className={`font-mono text-data-lg font-bold leading-none ${
+              isLoading
+                ? "text-text-disabled"
+                : count > 0
+                  ? "text-text-primary"
+                  : "text-text-disabled"
+            }`}
+          >
+            {isLoading ? "—" : count}
+          </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("activity.title")}
           </span>
@@ -275,13 +269,92 @@ export function ActivityWidget({
                 ? activities[0].subject || activityTypeLabel(activities[0].type, t)
                 : t("activity.empty")}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.recent") ?? "Recent"} />
         </div>
       </Card>
     );
   }
 
   // ── MD+: Scrollable activity feed ──────────────────────────────────────
-  const maxItems = size === "lg" || size === "xl" ? 12 : 6;
+  const defaultMax = size === "lg" || size === "xl" ? 12 : 6;
+  const maxItems = listExpanded ? (activities?.length ?? 0) : defaultMax;
+  const remaining = (activities?.length ?? 0) - defaultMax;
+
+  const getActivityEntityClick = (activity: Activity): ((e?: React.MouseEvent) => void) | undefined => {
+    const color = activityColor(activity.type);
+    const title = activity.subject || activityTypeLabel(activity.type, t);
+
+    if (activity.projectId) {
+      const projectName = projectNameMap[activity.projectId];
+      return (e) => openEntity({
+        entityType: "project",
+        entityId: activity.projectId!,
+        title: projectName || title,
+        color,
+        event: e,
+        fallbackPath: `/projects/${activity.projectId}`,
+      });
+    }
+    if (activity.opportunityId) {
+      return (e) => openEntity({
+        entityType: "opportunity",
+        entityId: activity.opportunityId!,
+        title,
+        color,
+        event: e,
+        fallbackPath: "/pipeline",
+      });
+    }
+    if (activity.invoiceId) {
+      return (e) => openEntity({
+        entityType: "invoice",
+        entityId: activity.invoiceId!,
+        title,
+        color,
+        event: e,
+        fallbackPath: "/invoices",
+      });
+    }
+    if (activity.estimateId) {
+      return (e) => openEntity({
+        entityType: "estimate",
+        entityId: activity.estimateId!,
+        title,
+        color,
+        event: e,
+        fallbackPath: "/estimates",
+      });
+    }
+    return undefined;
+  };
+
+  const renderActivityRows = (items: Activity[]) =>
+    items.map((activity, i) => {
+      const IconComp = ACTIVITY_TYPE_ICONS[activity.type] ?? Settings;
+      const author = activity.createdBy ? authorMap[activity.createdBy] : null;
+      const preview = activity.content
+        ? activity.content.slice(0, 40) + (activity.content.length > 40 ? "..." : "")
+        : null;
+      const secondary = [author, preview].filter(Boolean).join(" · ") || undefined;
+
+      return (
+        <WidgetLineItem
+          key={activity.id}
+          indicator={{
+            type: "icon",
+            icon: IconComp,
+            color: activityColor(activity.type),
+          }}
+          primary={activity.subject || activityTypeLabel(activity.type, t)}
+          secondary={secondary}
+          metric={timeAgo(activity.createdAt, t)}
+          onClick={getActivityEntityClick(activity)}
+          index={i}
+          isVisible={isVisible}
+          reducedMotion={reducedMotion}
+        />
+      );
+    });
 
   return (
     <Card className="h-full p-0" ref={ref}>
@@ -331,64 +404,36 @@ export function ActivityWidget({
         )}
 
         {/* Feed list */}
-        <div ref={scrollContainerRef}>
-          <ScrollFade>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <span className="font-mono text-[11px] text-text-disabled">
-                  {t("activity.loading")}
-                </span>
-              </div>
-            ) : !activities || activities.length === 0 ? (
-              <p className="font-mohave text-body-sm text-text-disabled py-2">
-                {t("activity.empty")}
-              </p>
-            ) : (
+        <div className="flex-1 min-h-0 flex flex-col" ref={scrollContainerRef}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <span className="font-mono text-[11px] text-text-disabled">
+                {t("activity.loading")}
+              </span>
+            </div>
+          ) : !activities || activities.length === 0 ? (
+            <p className="font-mohave text-body-sm text-text-disabled py-2">
+              {t("activity.empty")}
+            </p>
+          ) : listExpanded ? (
+            <ScrollFade>
               <div className="flex flex-col gap-[2px]">
-                {activities.slice(0, maxItems).map((activity, i) => {
-                  const IconComp = ACTIVITY_TYPE_ICONS[activity.type] ?? Settings;
-                  const author = activity.createdBy ? authorMap[activity.createdBy] : null;
-                  const preview = activity.content
-                    ? activity.content.slice(0, 40) + (activity.content.length > 40 ? "..." : "")
-                    : null;
-                  const secondary = [author, preview].filter(Boolean).join(" · ") || undefined;
-                  const path = getActivityPath(activity);
-
-                  return (
-                    <WidgetLineItem
-                      key={activity.id}
-                      indicator={{
-                        type: "icon",
-                        icon: IconComp,
-                        color: activityColor(activity.type),
-                      }}
-                      primary={activity.subject || activityTypeLabel(activity.type, t)}
-                      secondary={secondary}
-                      metric={timeAgo(activity.createdAt, t)}
-                      onClick={path ? () => onNavigate(path) : undefined}
-                      index={i}
-                      isVisible={isVisible}
-                      reducedMotion={reducedMotion}
-                    />
-                  );
-                })}
-                {activities.length > maxItems && (
-                  <span className="font-mono text-[11px] text-text-disabled block px-1 pt-1">
-                    +{activities.length - maxItems} {t("activity.more") ?? "more"}
-                  </span>
-                )}
+                {renderActivityRows(activities)}
               </div>
-            )}
-          </ScrollFade>
+              <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+            </ScrollFade>
+          ) : (
+            <>
+              <div className="flex flex-col gap-[2px]">
+                {renderActivityRows(activities.slice(0, maxItems))}
+              </div>
+              {remaining > 0 && (
+                <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+              )}
+            </>
+          )}
         </div>
 
-        {/* Footer nav */}
-        <button
-          onClick={() => onNavigate("/inbox")}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-        >
-          {t("activity.viewAll")}
-        </button>
       </div>
     </Card>
   );

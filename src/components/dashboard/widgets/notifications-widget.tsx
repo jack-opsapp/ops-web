@@ -13,6 +13,7 @@ import { useNotifications, useDismissNotification } from "@/lib/hooks/use-notifi
 import { isCompact, WT } from "@/lib/widget-tokens";
 import type { AppNotification, NotificationType } from "@/lib/api/services/notification-service";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -41,6 +42,27 @@ function getTypeColor(type: NotificationType): string {
       return WT.error;
     default:
       return WT.muted;
+  }
+}
+
+function getTypeLabel(type: NotificationType): string {
+  switch (type) {
+    case "task_assigned": return "Task Assigned";
+    case "task_completed": return "Task Done";
+    case "expense_submitted": return "Expense";
+    case "expense_approved": return "Approved";
+    case "pipeline_complete": return "Pipeline";
+    case "gmail_sync": return "Gmail Sync";
+    case "mention": return "Mention";
+    case "role_needed": return "Role Needed";
+    case "intel_available": return "Intel";
+    case "setup_prompt": return "Setup";
+    case "leads_waiting": return "Leads";
+    case "system": return "System";
+    case "project_assigned": return "Project";
+    case "schedule_change": return "Schedule";
+    case "duplicates_found": return "Duplicates";
+    default: return type;
   }
 }
 
@@ -110,14 +132,14 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
     const count = sorted.length;
     return (
       <Card className="h-full p-0">
-        <div className="h-full flex flex-col items-center justify-center p-3 gap-1">
-          <Bell className="w-[16px] h-[16px] text-text-disabled" />
-          <span className="font-mohave text-body-sm text-text-primary">
+        <div className="h-full flex flex-col p-3">
+          <span className="font-mono text-display font-bold text-text-primary leading-none">
             {isLoading ? "—" : count}
           </span>
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("notifications.title")}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.unread") ?? "Unread"} />
         </div>
       </Card>
     );
@@ -164,8 +186,9 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
                 <WidgetLineItem
                   key={notification.id}
                   indicator={{
-                    type: "dot",
+                    type: "bar",
                     color: getTypeColor(notification.type),
+                    label: getTypeLabel(notification.type),
                   }}
                   primary={notification.title}
                   secondary={notification.body ?? undefined}

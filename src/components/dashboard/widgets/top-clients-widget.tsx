@@ -9,13 +9,15 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { widgetLineItemStyle, WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, isCompact, showActions, showFooter } from "@/lib/widget-tokens";
+import { WT, isCompact } from "@/lib/widget-tokens";
 import type { Client, Project } from "@/lib/types/models";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -52,6 +54,7 @@ export function TopClientsWidget({
   onNavigate,
 }: TopClientsWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const openEntity = useWidgetEntityOpen();
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
@@ -163,11 +166,23 @@ export function TopClientsWidget({
               {t("topClients.noData") ?? "No client data yet"}
             </span>
           </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("topClients.viewClients") ?? "View Clients"}
-            </span>
-          )}
+        </div>
+      </Card>
+    );
+  }
+
+  // ── XS: Hero count + title + context ────────────────────────────────
+  if (size === "xs") {
+    return (
+      <Card className="h-full p-0" ref={ref}>
+        <div className="h-full flex flex-col p-3">
+          <span className="font-mono text-display font-bold leading-none text-text-primary">
+            {rankedClients.length}
+          </span>
+          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            {t("topClients.title") ?? "Top Clients"}
+          </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
         </div>
       </Card>
     );
@@ -201,6 +216,7 @@ export function TopClientsWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("topClients.title") ?? "Top Clients"}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
           {topClient && (
             <span className="font-mohave text-caption-sm text-text-secondary truncate mt-0.5">
               #1: {topClient.client.name} · {metric === "projects" ? `${topRevenue}` : formatCompactCurrency(topRevenue)}
@@ -246,9 +262,7 @@ export function TopClientsWidget({
               const barPct = maxValue > 0 ? (val / maxValue) * 100 : 0;
               const days = daysSince(entry.lastActivityAt);
 
-              const secondary = showActions(size)
-                ? `${entry.projectCount} ${t("topClients.projects") ?? "projects"}${days !== null ? ` · ${t("topClients.lastActive") ?? "Last active"} ${days}d ago` : ""}`
-                : undefined;
+              const secondary = `${entry.projectCount} ${t("topClients.projects") ?? "projects"}${days !== null ? ` · ${t("topClients.lastActive") ?? "Last active"} ${days}d ago` : ""}`;
 
               return (
                 <div
@@ -264,11 +278,18 @@ export function TopClientsWidget({
                   {/* Line item + proportional bar */}
                   <div className="flex-1 min-w-0 relative">
                     <WidgetLineItem
-                      indicator={{ type: "bar", color: WT.accent }}
+                      indicator={{ type: "bar", color: WT.accent, label: `#${i + 1}` }}
                       primary={entry.client.name}
                       secondary={secondary}
                       metric={metric === "projects" ? `${val}` : formatCompactCurrency(val)}
-                      onClick={() => onNavigate(`/clients/${entry.client.id}`)}
+                      onClick={(e) => openEntity({
+                        entityType: "client",
+                        entityId: entry.client.id,
+                        title: entry.client.name,
+                        color: WT.accent,
+                        event: e,
+                        fallbackPath: `/clients/${entry.client.id}`,
+                      })}
                     />
 
                     {/* Proportional bar behind */}
@@ -291,15 +312,6 @@ export function TopClientsWidget({
           </div>
         </ScrollFade>
 
-        {/* FOOTER */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/clients")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("topClients.viewClients") ?? "View Clients"}
-          </button>
-        )}
       </div>
     </Card>
   );

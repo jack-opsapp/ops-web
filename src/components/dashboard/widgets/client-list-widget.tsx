@@ -7,19 +7,22 @@ import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
 import { WidgetPeriodPicker } from "./shared/widget-period-picker";
-import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
+// WidgetHeroCollapse removed — static metrics eliminate scroll jitter
 import { WidgetEmptyState } from "./shared/widget-empty-state";
+import { WidgetMoreButton } from "./shared/widget-more-button";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useScrollFadeScroll } from "./shared/use-scroll-fade-scroll";
 import { widgetLineItemStyle } from "./shared/widget-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, showActions, showFooter } from "@/lib/widget-tokens";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WT, showActions } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useClients, useProjects, useInvoices } from "@/lib/hooks";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { useWidgetActionQueue } from "@/stores/widget-action-queue";
 import { ClientService } from "@/lib/api/services";
 import { useQueryClient } from "@tanstack/react-query";
@@ -46,11 +49,12 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
   const { t } = useDictionary("dashboard");
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
+  const openEntity = useWidgetEntityOpen();
   const queryClient = useQueryClient();
   const { queueAction } = useWidgetActionQueue();
 
   const ref = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // scrollContainerRef removed — ScrollFade manages its own scroll
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
 
@@ -58,7 +62,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
     (config.sortBy as SortBy) ?? "recent"
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [heroCollapsed, setHeroCollapsed] = useState(false);
+  const [listExpanded, setListExpanded] = useState(false);
 
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
@@ -201,12 +205,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
     return byRecent[0] ?? null;
   }, [clients]);
 
-  // Hero collapse via scroll listener on ScrollFade's internal div
-  const handleScrollTop = useCallback((scrollTop: number) => {
-    setHeroCollapsed(scrollTop > 20);
-  }, []);
-
-  useScrollFadeScroll(scrollContainerRef, showActions(size), handleScrollTop);
+  // Hero collapse removed — static metrics, no scroll jitter
 
   // Delete client with undo window
   const handleDeleteClient = useCallback(
@@ -246,6 +245,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("clientList.title")}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.active") ?? "Active"} />
           {!isLoading && mostRecent && (
             <span className="font-mohave text-caption-sm text-text-tertiary truncate mt-0.5">
               {t("clientList.latest")}: {mostRecent.name}
@@ -263,11 +263,16 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
     { value: "revenue", label: t("clientList.sortRevenue") ?? "Revenue" },
   ];
 
+  const isLg = showActions(size);
+  const defaultMax = isLg ? 10 : 5;
+  const visibleClients = listExpanded ? sorted : sorted.slice(0, defaultMax);
+  const clientsRemaining = sorted.length - defaultMax;
+
   return (
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         {/* HEADER: Title + Sort + New Client */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 shrink-0">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("clientList.title")}
           </span>
@@ -288,36 +293,34 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
           </div>
         </div>
 
-        {/* LG METRICS */}
-        {lgMetrics && showActions(size) && (
-          <WidgetHeroCollapse collapsed={heroCollapsed} collapsedHeight="0px" expandedHeight="60px">
-            <div className="flex items-start gap-4 mb-2">
-              <div>
-                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
-                  {lgMetrics.total}
-                </span>
-                <span className="font-kosugi text-micro text-text-tertiary uppercase">
-                  {t("clientList.total")}
-                </span>
-              </div>
-              <div>
-                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
-                  {lgMetrics.activeThisMonth}
-                </span>
-                <span className="font-kosugi text-micro text-text-tertiary uppercase">
-                  {t("clientList.activeMonth")}
-                </span>
-              </div>
-              <div>
-                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
-                  {lgMetrics.newThisMonth}
-                </span>
-                <span className="font-kosugi text-micro text-text-tertiary uppercase">
-                  {t("clientList.newMonth")}
-                </span>
-              </div>
+        {/* LG METRICS — static, no collapse (eliminates scroll jitter) */}
+        {lgMetrics && isLg && (
+          <div className="flex items-start gap-4 mb-2 shrink-0">
+            <div>
+              <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                {lgMetrics.total}
+              </span>
+              <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                {t("clientList.total")}
+              </span>
             </div>
-          </WidgetHeroCollapse>
+            <div>
+              <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                {lgMetrics.activeThisMonth}
+              </span>
+              <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                {t("clientList.activeMonth")}
+              </span>
+            </div>
+            <div>
+              <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                {lgMetrics.newThisMonth}
+              </span>
+              <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                {t("clientList.newMonth")}
+              </span>
+            </div>
+          </div>
         )}
 
         {/* SEARCH BOX */}
@@ -326,76 +329,80 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("clientList.search") ?? "Search clients..."}
-          className="w-full bg-background-input border border-border-input font-mohave text-caption-sm placeholder:text-text-placeholder rounded-sm px-2 py-1 outline-none focus:border-ops-accent/50 transition-colors mb-2"
+          className="w-full bg-background-input border border-border-input font-mohave text-caption-sm placeholder:text-text-placeholder rounded-sm px-2 py-1 outline-none focus:border-ops-accent/50 transition-colors mb-2 shrink-0"
         />
 
         {/* CLIENT LIST */}
-        <div ref={scrollContainerRef}>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
+            <span className="font-mono text-[11px] text-text-disabled ml-1">
+              {t("clientList.loading")}
+            </span>
+          </div>
+        ) : sorted.length === 0 ? (
+          <WidgetEmptyState
+            message={searchQuery ? (t("clientList.noMatch") ?? "No clients match your search") : (t("clientList.empty") ?? "No clients yet")}
+          />
+        ) : (
           <ScrollFade>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-                <span className="font-mono text-[11px] text-text-disabled ml-1">
-                  {t("clientList.loading")}
-                </span>
-              </div>
-            ) : sorted.length === 0 ? (
-              <WidgetEmptyState
-                message={searchQuery ? (t("clientList.noMatch") ?? "No clients match your search") : (t("clientList.empty") ?? "No clients yet")}
-              />
-            ) : (
-              <div className="flex flex-col gap-[2px]">
-                {sorted.map((client, i) => {
-                  const contact = client.email ?? client.phoneNumber ?? undefined;
-                  const revenue = revenueMap[client.id] ?? 0;
-                  const outstanding = outstandingMap[client.id] ?? 0;
-                  const projCount = projectCountMap[client.id] ?? 0;
+            <div className="flex flex-col gap-[2px]">
+              {visibleClients.map((client, i) => {
+                const contact = client.email ?? client.phoneNumber ?? undefined;
+                const revenue = revenueMap[client.id] ?? 0;
+                const outstanding = outstandingMap[client.id] ?? 0;
+                const projCount = projectCountMap[client.id] ?? 0;
 
-                  // Financial metric: outstanding (warning) > revenue (accent) > project count badge
-                  const financialMetric = outstanding > 0 ? (
-                    <div className="flex flex-col items-end">
-                      {revenue > 0 && (
-                        <span className="font-mono text-micro-sm text-text-secondary">
-                          {formatCompactCurrency(revenue)}
-                        </span>
-                      )}
-                      <span className="font-mono text-[9px] text-status-warning">
-                        {formatCompactCurrency(outstanding)} {t("clientList.due") ?? "due"}
+                const financialMetric = outstanding > 0 ? (
+                  <div className="flex flex-col items-end">
+                    {revenue > 0 && (
+                      <span className="font-mono text-micro-sm text-text-secondary">
+                        {formatCompactCurrency(revenue)}
                       </span>
-                    </div>
-                  ) : revenue > 0 ? (
-                    <span className="font-mono text-micro-sm text-text-secondary">
-                      {formatCompactCurrency(revenue)}
+                    )}
+                    <span className="font-mono text-[9px] text-status-warning">
+                      {formatCompactCurrency(outstanding)} {t("clientList.due") ?? "due"}
                     </span>
-                  ) : (
-                    <span className="font-mono text-micro-sm text-text-disabled">
-                      {projCount} {projCount === 1 ? t("clientList.proj") : t("clientList.projs")}
-                    </span>
-                  );
+                  </div>
+                ) : revenue > 0 ? (
+                  <span className="font-mono text-micro-sm text-text-secondary">
+                    {formatCompactCurrency(revenue)}
+                  </span>
+                ) : (
+                  <span className="font-mono text-micro-sm text-text-disabled">
+                    {projCount} {projCount === 1 ? t("clientList.proj") : t("clientList.projs")}
+                  </span>
+                );
 
-                  return (
+                return (
+                  <div
+                    key={client.id}
+                    className="flex items-center"
+                    style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
+                  >
                     <div
-                      key={client.id}
-                      className="flex items-center"
-                      style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
+                      className="flex-1 min-w-0 cursor-pointer rounded-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                      onClick={(e) => openEntity({
+                        entityType: "client",
+                        entityId: client.id,
+                        title: client.name,
+                        color: WT.accent,
+                        event: e,
+                        fallbackPath: `/clients/${client.id}`,
+                      })}
                     >
-                      {/* Navigation zone — clicking here navigates to client */}
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer rounded-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors"
-                        onClick={() => navigate(`/clients/${client.id}`)}
-                      >
-                        <WidgetLineItem
-                          indicator={{
-                            type: "avatar",
-                            initials: client.name ? client.name[0].toUpperCase() : "?",
-                            color: WT.accent,
-                          }}
-                          primary={client.name}
-                          secondary={contact}
-                          metric={financialMetric}
-                        />
-                      </div>
-                      {/* Action zone — structurally separate from navigation */}
+                      <WidgetLineItem
+                        indicator={{
+                          type: "avatar",
+                          initials: client.name ? client.name[0].toUpperCase() : "?",
+                          color: WT.accent,
+                        }}
+                        primary={client.name}
+                        secondary={[contact, projCount > 0 ? `${projCount} ${projCount === 1 ? "project" : "projects"}` : null].filter(Boolean).join(" · ") || undefined}
+                        metric={financialMetric}
+                      />
+                    </div>
+                    {isLg && (
                       <div className="shrink-0 ml-0.5">
                         <WidgetInlineAction
                           icon={Plus}
@@ -408,22 +415,19 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                           ]}
                         />
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    )}
+                  </div>
+                );
+              })}
+              {clientsRemaining > 0 && (
+                <WidgetMoreButton
+                  remaining={clientsRemaining}
+                  expanded={listExpanded}
+                  onToggle={() => setListExpanded(!listExpanded)}
+                />
+              )}
+            </div>
           </ScrollFade>
-        </div>
-
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => navigate("/clients")}
-            className="mt-auto pt-2 px-3 pb-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("clientList.viewAll") ?? "View All Clients"}
-          </button>
         )}
       </div>
     </Card>

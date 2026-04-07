@@ -20,12 +20,13 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { ScrollFade } from "./shared/scroll-fade";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import type { ProjectTask } from "@/lib/types/models";
+import type { ProjectTask, Project, Client } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 import { InvoiceStatus, EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
-import { WT, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WT, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,8 @@ interface ActionRequiredWidgetProps {
   invoices: Invoice[];
   opportunities: Opportunity[];
   estimates: Estimate[];
+  projects?: Project[];
+  clients?: Client[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
 }
@@ -87,6 +90,8 @@ export function ActionRequiredWidget({
   invoices,
   opportunities,
   estimates,
+  projects = [],
+  clients = [],
   isLoading,
   onNavigate,
 }: ActionRequiredWidgetProps) {
@@ -94,6 +99,18 @@ export function ActionRequiredWidget({
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
+
+  // Build lookup maps
+  const projectMap = useMemo(() => {
+    const map = new Map<string, Project>();
+    for (const p of projects) map.set(p.id, p);
+    return map;
+  }, [projects]);
+  const clientMap = useMemo(() => {
+    const map = new Map<string, Client>();
+    for (const c of clients) map.set(c.id, c);
+    return map;
+  }, [clients]);
 
   // ── Build action items ────────────────────────────────────────────────
   const items = useMemo(() => {
@@ -114,12 +131,18 @@ export function ActionRequiredWidget({
       const days = daysBetween(startDay, today);
       const hasStartDate = !!task.startDate;
       const reasonKey = hasStartDate ? "actionRequired.pastStartDate" : "actionRequired.unscheduled";
+      const proj = task.projectId ? projectMap.get(task.projectId) : null;
+      const cli = proj?.clientId ? clientMap.get(proj.clientId) : null;
+      const clientName = cli?.name ?? task.project?.client?.name;
+      const projectName = proj?.title ?? task.project?.title;
+      const contextParts = [projectName, clientName].filter(Boolean);
+      const contextStr = contextParts.length > 0 ? `${contextParts.join(" · ")} · ` : "";
       result.push({
         id: `task-${task.id}`,
         type: "overdue-task",
         priority: 2,
         description: task.customTitle || task.taskType?.display || t("actionRequired.taskFallback"),
-        reason: `${t(reasonKey) ?? "Past start date"}, ${days}d ${t("actionRequired.overdueShort") ?? "overdue"}`,
+        reason: `${contextStr}${t(reasonKey) ?? "Past start date"}, ${days}d ${t("actionRequired.overdueShort") ?? "overdue"}`,
         age: formatAgeDays(days, "overdue", t),
         navigateTo: `/projects/${task.projectId}`,
       });
@@ -270,8 +293,7 @@ export function ActionRequiredWidget({
             <PopoverTrigger asChild>
               <button className="text-left cursor-pointer">
                 <span
-                  className="font-mono text-display font-bold leading-none block"
-                  style={{ color: totalColor }}
+                  className="font-mono text-display font-bold leading-none block text-text-primary"
                 >
                   {items.length}
                 </span>
@@ -302,6 +324,11 @@ export function ActionRequiredWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
+          <WidgetTrendContext
+            variant="health"
+            color={items.length > 0 ? WT.error : WT.success}
+            label={items.length > 0 ? (t("trend.needsAction") ?? "Needs Action") : (t("trend.allClear") ?? "All Clear")}
+          />
         </div>
       </Card>
     );
@@ -314,7 +341,7 @@ export function ActionRequiredWidget({
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number + nav icon */}
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none" style={{ color: totalColor }}>
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
               {items.length}
             </span>
             <button
@@ -328,7 +355,13 @@ export function ActionRequiredWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
-          {/* Row 3: Clickable category dots */}
+          {/* Row 3: Health indicator */}
+          <WidgetTrendContext
+            variant="health"
+            color={items.length > 0 ? WT.error : WT.success}
+            label={items.length > 0 ? (t("trend.needsAction") ?? "Needs Action") : (t("trend.allClear") ?? "All Clear")}
+          />
+          {/* Row 4: Clickable category dots */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {Object.entries(categoryCounts).map(([type, count]) => {
               const config = TYPE_CONFIG[type as keyof typeof TYPE_CONFIG];
@@ -497,15 +530,6 @@ export function ActionRequiredWidget({
           </div>
         </ScrollFade>
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/calendar")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("actionRequired.viewTasks") ?? "View Tasks"}
-          </button>
-        )}
       </div>
     </Card>
   );
