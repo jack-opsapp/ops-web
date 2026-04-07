@@ -13,8 +13,10 @@ import { useReducedMotion } from "./shared/use-reduced-motion";
 import { ScrollFade } from "./shared/scroll-fade";
 import { widgetLineItemStyle } from "./shared/widget-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, isCompact, showDetail, showFooter } from "@/lib/widget-tokens";
-import type { ProjectTask } from "@/lib/types/models";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { WT, isCompact, showDetail } from "@/lib/widget-tokens";
+import type { ProjectTask, Project, Client } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { Estimate } from "@/lib/types/pipeline";
 import { EstimateStatus } from "@/lib/types/pipeline";
@@ -46,6 +48,8 @@ interface TaskPulseWidgetProps {
   size: WidgetSize;
   tasks: ProjectTask[];
   estimates?: Estimate[];
+  projects?: Project[];
+  clients?: Client[];
   isLoading: boolean;
   onNavigate: (path: string) => void;
 }
@@ -53,13 +57,26 @@ interface TaskPulseWidgetProps {
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate }: TaskPulseWidgetProps) {
+export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients = [], isLoading, onNavigate }: TaskPulseWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const openEntity = useWidgetEntityOpen();
   const barRef = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(barRef);
   const compact = isCompact(size);
   const reducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
+
+  // Build lookup maps for enriching task context
+  const projectMap = useMemo(() => {
+    const map = new Map<string, Project>();
+    for (const p of projects) map.set(p.id, p);
+    return map;
+  }, [projects]);
+  const clientMap = useMemo(() => {
+    const map = new Map<string, Client>();
+    for (const c of clients) map.set(c.id, c);
+    return map;
+  }, [clients]);
 
   // ── Tooltip state ─────────────────────────────────────────────────────
   const [tooltip, setTooltip] = useState<{
@@ -221,14 +238,6 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
             message={t("taskPulse.allClear") ?? "All clear"}
             className="flex-1"
           />
-          {showFooter(size) && (
-            <button
-              onClick={() => onNavigate("/calendar")}
-              className="mt-auto pt-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-            >
-              {t("taskPulse.viewCalendar") ?? "View Calendar"}
-            </button>
-          )}
         </div>
       </Card>
     );
@@ -286,20 +295,18 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3">
           <span
-            className="font-mono text-display font-bold leading-none"
-            style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : WT.accent }}
+            className="font-mono text-display font-bold leading-none text-text-primary"
           >
             {hasOverdue ? segments.overdue : segments.total}
           </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
-          <span
-            className="font-kosugi text-micro-sm uppercase"
-            style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : undefined }}
-          >
-            {hasOverdue ? (t("taskPulse.overdue") ?? "Overdue") : (t("taskPulse.openTasks") ?? "Open Tasks")}
-          </span>
+          <WidgetTrendContext
+            variant="health"
+            color={hasOverdue ? WT.error : WT.success}
+            label={hasOverdue ? `${segments.overdue} ${t("trend.overdue") ?? "Overdue"}` : (t("trend.onTrack") ?? "On Track")}
+          />
         </div>
       </Card>
     );
@@ -311,16 +318,20 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number */}
-          <span className="font-mono text-data-lg font-bold leading-none"
-            style={{ color: hasOverdue ? SEGMENT_COLORS_RAW.overdue : WT.accent }}
-          >
+          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
             {segments.total}
           </span>
           {/* Row 2: Title */}
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
-          {/* Row 3: Segmented bar (no tooltip at SM — bar too small) */}
+          {/* Row 3: Health indicator */}
+          <WidgetTrendContext
+            variant="health"
+            color={hasOverdue ? WT.error : WT.success}
+            label={hasOverdue ? `${segments.overdue} ${t("trend.overdue") ?? "Overdue"}` : (t("trend.onTrack") ?? "On Track")}
+          />
+          {/* Row 4: Segmented bar (no tooltip at SM — bar too small) */}
           <div className="mt-1.5 pointer-events-none">
             {segmentedBar}
           </div>
@@ -365,8 +376,10 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
             <ScrollFade className={!expanded ? "pt-1" : undefined}>
               <div className="flex flex-col">
                 {visibleOverdue.map(({ task, daysOverdue, isBlocking, projectValue }, i) => {
-                  const clientName = task.project?.client?.name;
-                  const projectName = task.project?.title;
+                  const project = task.projectId ? projectMap.get(task.projectId) : null;
+                  const client = project?.clientId ? clientMap.get(project.clientId) : null;
+                  const clientName = client?.name ?? task.project?.client?.name;
+                  const projectName = project?.title ?? task.project?.title;
                   const secondaryParts = [clientName, projectName].filter(Boolean);
                   const metricParts: string[] = [`${daysOverdue}${t("taskPulse.dOverdue") ?? "d overdue"}`];
                   if (projectValue !== undefined) {
@@ -379,11 +392,19 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
                       indicator={{
                         type: "bar",
                         color: isBlocking ? WT.error : (task.taskColor || WT.accent),
+                        label: isBlocking ? "Blocking" : "Overdue",
                       }}
                       primary={task.customTitle || task.taskType?.display || "Task"}
                       secondary={secondaryParts.join(" · ") || undefined}
                       metric={metricParts.join(" · ")}
-                      onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
+                      onClick={task.projectId ? (e) => openEntity({
+                        entityType: "project",
+                        entityId: task.projectId!,
+                        title: task.project?.title || task.customTitle || "Project",
+                        color: isBlocking ? WT.error : (task.taskColor || WT.accent),
+                        event: e,
+                        fallbackPath: `/projects/${task.projectId}`,
+                      }) : undefined}
                       index={i}
                       isVisible={isVisible}
                       reducedMotion={reducedMotion}
@@ -406,15 +427,6 @@ export function TaskPulseWidget({ size, tasks, estimates, isLoading, onNavigate 
           />
         )}
 
-        {/* Footer */}
-        {showFooter(size) && !expanded && (
-          <button
-            onClick={() => onNavigate("/calendar")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("taskPulse.viewCalendar") ?? "View Calendar"}
-          </button>
-        )}
       </div>
     </Card>
   );

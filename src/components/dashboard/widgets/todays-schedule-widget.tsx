@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetLineItem } from "./shared/widget-line-item";
 
 // ---------------------------------------------------------------------------
 // Minimal event shape
@@ -40,6 +42,11 @@ interface TodaysScheduleWidgetProps {
 // ---------------------------------------------------------------------------
 function formatTime(date: Date): string {
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.round(minutes / 60)}h`;
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -113,9 +120,7 @@ export function TodaysScheduleWidget({
             <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
               {t("todaysSchedule.title") ?? "Schedule"}
             </span>
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-              {t("todaysSchedule.eventsToday") ?? "today"}
-            </span>
+            <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
           </div>
         </Card>
       );
@@ -135,11 +140,6 @@ export function TodaysScheduleWidget({
               {t("todaysSchedule.noEvents") ?? "No events today"}
             </span>
           </div>
-          {showFooter(size) && (
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-              {t("todaysSchedule.viewCalendar") ?? "View Calendar"}
-            </span>
-          )}
         </div>
       </Card>
     );
@@ -156,9 +156,7 @@ export function TodaysScheduleWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("todaysSchedule.title") ?? "Schedule"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-            {t("todaysSchedule.eventsToday") ?? "today"}
-          </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
         </div>
       </Card>
     );
@@ -228,51 +226,26 @@ export function TodaysScheduleWidget({
             <div className="flex flex-col">
               {displayEvents.map((event, i) => {
                 const startDate = new Date(event.startDate!);
-                const now = new Date();
-                const isPast = startDate.getTime() < now.getTime();
+                const secondaryParts = [formatTime(startDate)];
+                if ((event.duration ?? 0) > 0) {
+                  secondaryParts.push(formatDuration(event.duration!));
+                }
 
                 return (
-                  <div
+                  <WidgetLineItem
                     key={event.id}
-                    className="flex items-start gap-2 py-[3px] cursor-pointer"
-                    onClick={() => onNavigate("/calendar")}
-                    style={{
-                      opacity: isVisible ? 1 : 0,
-                      transform: isVisible ? "translateY(0)" : "translateY(4px)",
-                      transition: reducedMotion
-                        ? "opacity 200ms ease"
-                        : `opacity 300ms ease ${i * 50}ms, transform 300ms ease ${i * 50}ms`,
+                    indicator={{
+                      type: "bar",
+                      color: event.color || WT.accent,
+                      label: "Event",
                     }}
-                  >
-                    {/* Time */}
-                    <span className="font-mono text-micro-sm text-text-tertiary w-[52px] shrink-0 pt-[2px]">
-                      {formatTime(startDate)}
-                    </span>
-                    {/* Color indicator */}
-                    <div className="flex flex-col items-center shrink-0 pt-[4px]">
-                      <div
-                        className="w-[6px] h-[6px] rounded-full"
-                        style={{
-                          backgroundColor: event.color || WT.accent,
-                          opacity: isPast ? 0.5 : 1,
-                        }}
-                      />
-                      {i < displayEvents.length - 1 && (
-                        <div className="w-[1px] flex-1 min-h-[12px] bg-border-subtle mt-[2px]" />
-                      )}
-                    </div>
-                    {/* Event details */}
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-mohave text-caption-sm truncate ${isPast ? "text-text-tertiary" : "text-text-primary"}`}>
-                        {event.title}
-                      </p>
-                      {(event.duration ?? 0) > 0 && (
-                        <p className="font-mono text-micro-sm text-text-disabled">
-                          {(event.duration ?? 0) < 60 ? `${event.duration}m` : `${Math.round((event.duration ?? 0) / 60)}h`}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                    primary={event.title}
+                    secondary={secondaryParts.join(" · ")}
+                    onClick={() => onNavigate("/calendar")}
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
                 );
               })}
 
@@ -305,15 +278,6 @@ export function TodaysScheduleWidget({
           </ScrollFade>
         )}
 
-        {/* FOOTER */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/calendar")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("todaysSchedule.viewCalendar") ?? "View Calendar"}
-          </button>
-        )}
       </div>
     </Card>
   );

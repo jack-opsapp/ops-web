@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -11,8 +11,10 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetMoreButton } from "./shared/widget-more-button";
 import { widgetLineItemStyle } from "./shared/widget-motion";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { User, ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -127,6 +129,7 @@ export function CrewBoardWidget({
 
   const animatedUtilization = useAnimatedValue(isVisible ? crewData.avgUtilization : 0, 1000);
   const avgColor = utilizationColor(crewData.avgUtilization);
+  const [listExpanded, setListExpanded] = useState(false);
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {
@@ -173,9 +176,7 @@ export function CrewBoardWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("crewBoard.title") ?? "Crew"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-            {t("crewBoard.utilization") ?? "Utilization"}
-          </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
         </div>
       </Card>
     );
@@ -210,9 +211,10 @@ export function CrewBoardWidget({
 
   // ── MD: Per-member rows with today context ────────────────────────────
   const isLg = showActions(size);
-  const maxMembers = isLg ? 8 : 4;
+  const defaultMaxMembers = isLg ? 8 : 4;
+  const maxMembers = listExpanded ? crewData.members.length : defaultMaxMembers;
   const displayMembers = crewData.members.slice(0, maxMembers);
-  const remaining = crewData.members.length - maxMembers;
+  const remaining = crewData.members.length - defaultMaxMembers;
 
   return (
     <Card className="h-full p-0" ref={ref}>
@@ -228,117 +230,155 @@ export function CrewBoardWidget({
         </div>
 
         {/* Detail zone — flex-1 so ScrollFade fills remaining vertical space */}
-        <ScrollFade className="flex-1 min-h-0">
-          <div className="flex flex-col gap-[6px]">
-            {displayMembers.map((m, i) => {
-              // Availability text and color
-              const availText = m.availability === "available"
-                ? (t("crewBoard.available") ?? "Available")
-                : m.availability === "overloaded"
-                  ? (t("crewBoard.overloaded") ?? "Overloaded")
-                  : (m.currentTask?.customTitle || m.currentTask?.taskType?.display || null);
-              const availColor = m.availability === "available"
-                ? WT.success
-                : m.availability === "overloaded"
-                  ? WT.error
-                  : undefined;
-
-              return (
-                <div
-                  key={m.member.id}
-                  className="flex flex-col gap-[2px]"
-                  style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
-                >
-                  {/* Member row */}
-                  <WidgetLineItem
-                    indicator={{
-                      type: "avatar",
-                      color: "transparent",
-                      initials: getInitials(m.member),
-                    }}
-                    primary={`${m.member.firstName ?? ""} ${m.member.lastName ?? ""}`.trim()}
-                    secondary={`${m.todayCount} ${t("crewBoard.tasksToday") ?? "tasks today"}`}
-                    metric={
-                      availText ? (
-                        <span className="font-mono text-micro-sm whitespace-nowrap" style={availColor ? { color: availColor } : undefined}>
-                          {availText}
-                        </span>
-                      ) : undefined
-                    }
-                    action={isLg ? (
-                      <WidgetInlineAction
-                        icon={CalendarDays}
-                        actions={[
-                          { icon: CalendarDays, label: t("crewBoard.assignTask") ?? "Assign Task", onAction: () => onNavigate("/calendar") },
-                          { icon: ArrowUpRight, label: t("crewBoard.viewSchedule") ?? "View Schedule", onAction: () => onNavigate("/calendar") },
-                        ]}
-                      />
-                    ) : undefined}
-                    onClick={() => onNavigate("/calendar")}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {listExpanded ? (
+            <ScrollFade>
+              <div className="flex flex-col gap-[6px]">
+                {displayMembers.map((m, i) => (
+                  <CrewMemberRow
+                    key={m.member.id}
+                    m={m}
+                    i={i}
+                    isLg={isLg}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                    onNavigate={onNavigate}
+                    t={t}
                   />
-
-                  {/* Utilization bar */}
-                  <div className="ml-[24px] w-[calc(100%-24px)]">
-                    <div className="w-full h-[4px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
-                      <div
-                        className="h-full rounded-sm"
-                        style={{
-                          width: isVisible ? `${m.utilization}%` : "0%",
-                          backgroundColor: utilizationColor(m.utilization),
-                          transitionProperty: "width",
-                          transitionDuration: reducedMotion ? "200ms" : "500ms",
-                          transitionDelay: reducedMotion ? "0ms" : `${i * 50 + 100}ms`,
-                          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* LG: Sub-tasks */}
-                  {isLg && m.todayAssigned.length > 0 && (
-                    <div className="ml-[24px] flex flex-col">
-                      {m.todayAssigned.slice(0, 3).map((task) => (
-                        <WidgetLineItem
-                          key={task.id}
-                          indicator={{ type: "bar", color: task.taskColor || WT.accent }}
-                          primary={task.customTitle || task.taskType?.display || "Task"}
-                          secondary={task.project?.title ?? undefined}
-                          onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
-                          className="py-[1px]"
-                        />
-                      ))}
-                      {m.todayAssigned.length > 3 && (
-                        <span className="font-mono text-micro-sm text-text-disabled px-1">
-                          +{m.todayAssigned.length - 3} {t("widgets.more") ?? "more"}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {remaining > 0 && (
-            <button
-              onClick={() => onNavigate("/calendar")}
-              className="font-kosugi text-micro-sm text-text-tertiary cursor-pointer hover:text-text-secondary transition-colors block px-1 mt-1"
-            >
-              +{remaining} {t("widgets.more") ?? "more"}
-            </button>
+                ))}
+              </div>
+              <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+            </ScrollFade>
+          ) : (
+            <>
+              <div className="flex flex-col gap-[6px]">
+                {displayMembers.map((m, i) => (
+                  <CrewMemberRow
+                    key={m.member.id}
+                    m={m}
+                    i={i}
+                    isLg={isLg}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                    onNavigate={onNavigate}
+                    t={t}
+                  />
+                ))}
+              </div>
+              {remaining > 0 && (
+                <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+              )}
+            </>
           )}
-        </ScrollFade>
+        </div>
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/calendar")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-          >
-            {t("crewBoard.viewSchedule") ?? "View Schedule"}
-          </button>
-        )}
       </div>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Crew Member Row (extracted for reuse in collapsed/expanded branches)
+// ---------------------------------------------------------------------------
+interface CrewMemberRowProps {
+  m: {
+    member: User;
+    todayAssigned: ProjectTask[];
+    todayCount: number;
+    utilization: number;
+    currentTask: ProjectTask | undefined;
+    availability: "available" | "busy" | "overloaded";
+  };
+  i: number;
+  isLg: boolean;
+  isVisible: boolean;
+  reducedMotion: boolean | null;
+  onNavigate: (path: string) => void;
+  t: (key: string) => string;
+}
+
+function CrewMemberRow({ m, i, isLg, isVisible, reducedMotion, onNavigate, t }: CrewMemberRowProps) {
+  const availText = m.availability === "available"
+    ? (t("crewBoard.available") ?? "Available")
+    : m.availability === "overloaded"
+      ? (t("crewBoard.overloaded") ?? "Overloaded")
+      : (m.currentTask?.customTitle || m.currentTask?.taskType?.display || null);
+  const availColor = m.availability === "available"
+    ? WT.success
+    : m.availability === "overloaded"
+      ? WT.error
+      : undefined;
+
+  return (
+    <div
+      className="flex flex-col gap-[2px]"
+      style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
+    >
+      {/* Member row */}
+      <WidgetLineItem
+        indicator={{
+          type: "avatar",
+          color: "transparent",
+          initials: getInitials(m.member),
+        }}
+        primary={`${m.member.firstName ?? ""} ${m.member.lastName ?? ""}`.trim()}
+        secondary={`${m.todayCount} ${t("crewBoard.tasksToday") ?? "tasks today"}`}
+        metric={
+          availText ? (
+            <span className="font-mono text-micro-sm whitespace-nowrap" style={availColor ? { color: availColor } : undefined}>
+              {availText}
+            </span>
+          ) : undefined
+        }
+        action={isLg ? (
+          <WidgetInlineAction
+            icon={CalendarDays}
+            actions={[
+              { icon: CalendarDays, label: t("crewBoard.assignTask") ?? "Assign Task", onAction: () => onNavigate("/calendar") },
+              { icon: ArrowUpRight, label: t("crewBoard.viewSchedule") ?? "View Schedule", onAction: () => onNavigate("/calendar") },
+            ]}
+          />
+        ) : undefined}
+        onClick={() => onNavigate("/calendar")}
+      />
+
+      {/* Utilization bar */}
+      <div className="ml-[24px] w-[calc(100%-24px)]">
+        <div className="w-full h-[4px] rounded-sm overflow-hidden" style={{ backgroundColor: WT.faint }}>
+          <div
+            className="h-full rounded-sm"
+            style={{
+              width: isVisible ? `${m.utilization}%` : "0%",
+              backgroundColor: utilizationColor(m.utilization),
+              transitionProperty: "width",
+              transitionDuration: reducedMotion ? "200ms" : "500ms",
+              transitionDelay: reducedMotion ? "0ms" : `${i * 50 + 100}ms`,
+              transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* LG: Sub-tasks */}
+      {isLg && m.todayAssigned.length > 0 && (
+        <div className="ml-[24px] flex flex-col">
+          {m.todayAssigned.slice(0, 3).map((task) => (
+            <WidgetLineItem
+              key={task.id}
+              indicator={{ type: "bar", color: task.taskColor || WT.accent }}
+              primary={task.customTitle || task.taskType?.display || "Task"}
+              secondary={task.project?.title ?? undefined}
+              onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
+              className="py-[1px]"
+            />
+          ))}
+          {m.todayAssigned.length > 3 && (
+            <span className="font-mono text-micro-sm text-text-disabled px-1">
+              +{m.todayAssigned.length - 3} {t("widgets.more") ?? "more"}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

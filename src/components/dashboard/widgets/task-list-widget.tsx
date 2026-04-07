@@ -2,9 +2,8 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronRight, Loader2, MapPin } from "lucide-react";
+import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { ScrollFade } from "./shared/scroll-fade";
@@ -15,7 +14,9 @@ import type { ProjectTask, TaskType, Project, Client } from "@/lib/types/models"
 import { useUpdateTaskStatus, useTaskTypes } from "@/lib/hooks";
 import { format, isSameDay } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { useDictionary } from "@/i18n/client";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 import { WT, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -129,6 +130,7 @@ export function TaskListWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("taskList.title") ?? "Task List"}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
           {!isLoading && nextTask && (
             <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
               {t("taskList.next") ?? "Next"}: {nextTask.customTitle || nextTask.taskType?.display || "Task"}
@@ -140,26 +142,17 @@ export function TaskListWidget({
   }
 
   // ── Visibility toggle (MD+) ───────────────────────────────────────────
+  const viewToggleOptions = useMemo(() => [
+    { value: "all" as const, label: t("taskList.all") ?? "All" },
+    { value: "mine" as const, label: t("taskList.mine") ?? "Mine" },
+  ], [t]);
+
   const viewToggle = canViewAll ? (
-    <div className="flex items-center gap-[3px]">
-      {([
-        { value: "all" as const, label: t("taskList.all") ?? "All" },
-        { value: "mine" as const, label: t("taskList.mine") ?? "Mine" },
-      ]).map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => setViewMode(opt.value)}
-          className={cn(
-            "font-kosugi text-micro-sm uppercase tracking-wider px-1.5 py-[1px] rounded-sm transition-colors",
-            viewMode === opt.value
-              ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
-              : "text-text-tertiary hover:text-text-secondary border border-transparent"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+    <SegmentedPicker
+      options={viewToggleOptions}
+      value={viewMode}
+      onChange={setViewMode}
+    />
   ) : null;
 
   // ── LG: Hero metric boxes ─────────────────────────────────────────────
@@ -321,13 +314,6 @@ export function TaskListWidget({
           )}
         </ScrollFade>
 
-        {/* Footer */}
-        <button
-          onClick={() => onNavigate("/calendar")}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
-        >
-          {t("taskList.viewCalendar") ?? "View Calendar"}
-        </button>
       </div>
     </Card>
   );
@@ -378,6 +364,14 @@ function TaskRow({
   const clientName = client?.name || null;
   const address = project?.address || null;
 
+  // Always build a secondary line: project · client · address
+  const secondaryParts: string[] = [];
+  if (projectName) secondaryParts.push(projectName);
+  if (clientName) secondaryParts.push(clientName);
+  if (address) secondaryParts.push(address);
+  if (secondaryParts.length === 0) secondaryParts.push(timeDisplay ?? "");
+  const secondaryText = secondaryParts.join(" · ");
+
   const handleComplete = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -400,7 +394,7 @@ function TaskRow({
       transition={{ duration: reducedMotion ? 0.15 : 0.25, ease: [0.22, 1, 0.36, 1] }}
       onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/calendar")}
       className={cn(
-        "flex items-start gap-1 px-1 py-[7px] rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
+        "flex items-center gap-1 px-1 py-2 rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
         isDone && "opacity-40"
       )}
     >
@@ -409,7 +403,7 @@ function TaskRow({
         <button
           onClick={handleComplete}
           className={cn(
-            "w-[18px] h-[18px] rounded border flex items-center justify-center shrink-0 transition-all duration-200 mt-[1px]",
+            "w-[18px] h-[18px] rounded border flex items-center justify-center shrink-0 transition-all duration-200",
             completing
               ? "bg-status-success border-status-success"
               : isCompleted
@@ -424,17 +418,16 @@ function TaskRow({
 
       {/* Status indicator for completed (no checkbox) */}
       {!showCheckbox && isCompleted && (
-        <div className="w-[18px] h-[18px] rounded-full bg-status-success/30 flex items-center justify-center shrink-0 mt-[1px]">
+        <div className="w-[18px] h-[18px] rounded-full bg-status-success/30 flex items-center justify-center shrink-0">
           <Check className="w-[12px] h-[12px] text-status-success" />
         </div>
       )}
 
       {/* Color bar */}
       <div
-        className="w-[3px] rounded-full shrink-0 mt-[2px]"
+        className="w-[3px] rounded-full shrink-0 self-stretch"
         style={{
           backgroundColor: isOverdue ? WT.error : (task.taskColor || WT.muted),
-          height: (projectName || clientName || address) ? "32px" : "16px",
         }}
       />
 
@@ -446,43 +439,22 @@ function TaskRow({
         )}>
           {displayTitle}
         </p>
-        {(projectName || clientName || address) && (
-          <div className="flex items-center gap-[3px] mt-[1px] min-w-0">
-            {projectName && (
-              <span className="font-mono text-[10px] text-text-tertiary truncate shrink min-w-0">
-                {projectName}
-              </span>
-            )}
-            {projectName && clientName && (
-              <span className="font-mono text-[10px] text-text-disabled shrink-0">·</span>
-            )}
-            {clientName && (
-              <span className="font-mono text-[10px] text-text-disabled truncate shrink min-w-0">
-                {clientName}
-              </span>
-            )}
-            {(projectName || clientName) && address && (
-              <span className="font-mono text-[10px] text-text-disabled shrink-0">·</span>
-            )}
-            {address && (
-              <span className="flex items-center gap-[2px] shrink min-w-0">
-                <MapPin className="w-[8px] h-[8px] text-text-disabled shrink-0" />
-                <span className="font-mono text-[10px] text-text-disabled truncate">
-                  {address}
-                </span>
-              </span>
-            )}
-          </div>
-        )}
+        <span className="font-kosugi text-micro-sm text-text-disabled truncate block">
+          {secondaryText}
+        </span>
       </div>
 
-      <span className={cn(
-        "font-mono text-[11px] text-text-tertiary shrink-0 mt-[1px]",
-        isDone && "text-text-disabled"
-      )}>
-        {timeDisplay}
-      </span>
-      <ChevronRight className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-[2px]" />
+      {/* Time metric (only when secondary already has client/project context) */}
+      {(clientName || projectName) && (
+        <span className={cn(
+          "font-mono text-micro-sm text-text-secondary shrink-0 ml-1",
+          isDone && "text-text-disabled"
+        )}>
+          {timeDisplay}
+        </span>
+      )}
+
+      <ChevronRight className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
     </motion.div>
   );
 }
