@@ -319,4 +319,3 @@ export function ProductEditor({ product, categories, options: initialOptions, va
     </div>
   );
 }
-}

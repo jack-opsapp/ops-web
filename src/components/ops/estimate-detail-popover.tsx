@@ -14,6 +14,7 @@ import {
 import {
   ESTIMATE_STATUS_COLORS,
   EstimateStatus,
+  DiscountType,
   formatCurrency,
 } from "@/lib/types/pipeline";
 import type { Estimate, LineItem } from "@/lib/types/pipeline";
@@ -430,7 +431,7 @@ function EstimateOverviewTab({
             <div className="flex items-center justify-between">
               <span className="font-mohave text-body-sm text-text-secondary">
                 Discount
-                {estimate.discountType === "percent" &&
+                {estimate.discountType === DiscountType.Percentage &&
                   estimate.discountValue !== null && (
                     <span className="text-text-disabled ml-1">
                       ({estimate.discountValue}%)

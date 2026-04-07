@@ -252,4 +252,3 @@ export function ShippingTable({ methods }: ShippingTableProps) {
     </div>
   );
 }
-}
