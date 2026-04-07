@@ -32,6 +32,16 @@ const config: Config = {
           },
         },
 
+        // === Glass Surface System (frosted backdrop tokens) ===
+        glass: {
+          DEFAULT: "var(--glass-bg)",
+          dense: "var(--glass-bg-dense)",
+          subtle: "var(--glass-bg-subtle)",
+          border: "var(--glass-border)",
+          "border-medium": "var(--glass-border-medium)",
+          "border-strong": "var(--glass-border-strong)",
+        },
+
         // === Background System (pure black base — OPSStyle) ===
         background: {
           DEFAULT: "#000000",

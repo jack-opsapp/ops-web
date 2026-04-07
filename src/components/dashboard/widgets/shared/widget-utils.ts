@@ -62,6 +62,14 @@ export function formatAge(
     : `${dueInLabel} ${weeks}w`;
 }
 
+// ── Delta Computation ────────────────────────────────────────────────
+
+/** Compute percentage change: ((current - prior) / prior) * 100, rounded */
+export function computeDeltaPct(current: number, prior: number): number {
+  if (prior === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - prior) / prior) * 100);
+}
+
 // ── Status Colors ────────────────────────────────────────────────────
 
 type StatusColors = { text: string; bg: string; border: string };

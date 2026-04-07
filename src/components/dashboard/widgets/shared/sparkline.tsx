@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useWidgetIntersection } from "./use-widget-intersection";
 
 interface SparklineProps {
@@ -8,6 +8,8 @@ interface SparklineProps {
   width?: number;
   height?: number;
   color?: string;
+  /** Hide data point dots (use when sparkline is a subtle background graphic) */
+  showDots?: boolean;
   className?: string;
 }
 
@@ -24,7 +26,6 @@ function monotoneCubicPath(
   }
 
   const n = points.length;
-  // Compute secants (slopes between consecutive points)
   const deltas: number[] = [];
   const h: number[] = [];
   for (let i = 0; i < n - 1; i++) {
@@ -32,7 +33,6 @@ function monotoneCubicPath(
     deltas.push((points[i + 1].y - points[i].y) / (h[i] || 1));
   }
 
-  // Compute tangents using Fritsch–Carlson method
   const m: number[] = new Array(n).fill(0);
   m[0] = deltas[0];
   m[n - 1] = deltas[n - 2];
@@ -44,7 +44,6 @@ function monotoneCubicPath(
     }
   }
 
-  // Ensure monotonicity (Fritsch–Carlson conditions)
   for (let i = 0; i < n - 1; i++) {
     if (Math.abs(deltas[i]) < 1e-12) {
       m[i] = 0;
@@ -61,7 +60,6 @@ function monotoneCubicPath(
     }
   }
 
-  // Build SVG cubic bezier path
   let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
   for (let i = 0; i < n - 1; i++) {
     const dx = (points[i + 1].x - points[i].x) / 3;
@@ -74,66 +72,105 @@ function monotoneCubicPath(
   return d;
 }
 
-export function Sparkline({ data, width = 60, height = 24, color = "currentColor", className }: SparklineProps) {
-  const ref = useRef<SVGSVGElement>(null);
-  const isVisible = useWidgetIntersection(ref);
+export function Sparkline({ data, width: fallbackWidth = 60, height: fallbackHeight = 24, color = "currentColor", showDots = true, className }: SparklineProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isVisible = useWidgetIntersection(containerRef);
   const [reducedMotion] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(prefers-reduced-motion: reduce)").matches : false
   );
 
-  const pathD = useMemo(() => {
-    if (data.length < 2) return "";
+  // Measure actual container dimensions — eliminates preserveAspectRatio distortion
+  const [size, setSize] = useState({ w: fallbackWidth, h: fallbackHeight });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width: w, height: h } = entry.contentRect;
+        if (w > 0 && h > 0) setSize({ w, h });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const w = size.w;
+  const h = size.h;
+  const pad = 4;
+
+  const { pathD, points } = useMemo(() => {
+    if (data.length < 2) return { pathD: "", points: [] as { x: number; y: number }[] };
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min || 1;
-    const padding = 2;
-    const usableW = width - padding * 2;
-    const usableH = height - padding * 2;
+    const usableW = w - pad * 2;
+    const usableH = h - pad * 2;
 
-    // Map data to coordinate points
     const stepX = usableW / (data.length - 1);
-    const points = data.map((val, i) => ({
-      x: padding + i * stepX,
-      y: padding + usableH - ((val - min) / range) * usableH,
+    const pts = data.map((val, i) => ({
+      x: pad + i * stepX,
+      // 2px inset from bottom so stroke at y=0 doesn't clip
+      y: pad + (usableH - 2) - ((val - min) / range) * (usableH - 2),
     }));
 
-    // Use monotone cubic interpolation for smooth curves
-    return monotoneCubicPath(points);
-  }, [data, width, height]);
+    // Straight segments for sparse data (≤5 points), smooth curves for dense
+    let d: string;
+    if (pts.length <= 5) {
+      d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+      for (let i = 1; i < pts.length; i++) {
+        d += ` L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
+      }
+    } else {
+      d = monotoneCubicPath(pts);
+    }
+
+    return { pathD: d, points: pts };
+  }, [data, w, h]);
 
   const totalLength = useMemo(() => {
-    // Generous estimate for stroke-dashoffset draw animation
     if (data.length < 2) return 0;
-    return width * 2;
-  }, [data, width]);
+    return w * 2;
+  }, [data, w]);
 
   if (data.length < 2) return null;
 
   return (
-    <svg
-      ref={ref}
-      width="100%"
-      height="100%"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      className={className}
-      role="img"
-      aria-label="Sparkline trend"
-    >
-      <path
-        d={pathD}
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-        style={{
-          strokeDasharray: totalLength,
-          strokeDashoffset: isVisible || reducedMotion ? 0 : totalLength,
-          transition: reducedMotion ? "none" : "stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      />
-    </svg>
+    <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }}>
+      <svg
+        width={w}
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+        role="img"
+        aria-label="Sparkline trend"
+      >
+        <path
+          d={pathD}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            strokeDasharray: totalLength,
+            strokeDashoffset: isVisible || reducedMotion ? 0 : totalLength,
+            transition: reducedMotion ? "none" : "stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        />
+        {/* Data point dots — true circles, never distorted */}
+        {showDots && data.length <= 8 && points.map((pt, i) => (
+          <circle
+            key={i}
+            cx={pt.x}
+            cy={pt.y}
+            r={2.5}
+            fill={color}
+            style={{
+              opacity: isVisible ? 1 : 0,
+              transition: reducedMotion ? "none" : `opacity 400ms ease ${200 + i * 60}ms`,
+            }}
+          />
+        ))}
+      </svg>
+    </div>
   );
 }

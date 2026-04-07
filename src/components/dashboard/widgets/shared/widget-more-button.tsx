@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 
@@ -26,15 +27,30 @@ export function WidgetMoreButton({
 
   return (
     <button
-      onClick={onToggle}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
       className={cn(
-        "font-kosugi text-micro-sm text-text-tertiary cursor-pointer hover:text-text-secondary transition-colors block px-1",
+        "w-full flex items-center justify-center gap-1 py-1 mt-1 rounded-sm",
+        "text-text-disabled hover:text-text-tertiary hover:bg-[rgba(255,255,255,0.04)]",
+        "transition-colors cursor-pointer",
         className
       )}
     >
-      {expanded
-        ? (t("widgets.showLess") ?? "Show less")
-        : `+${remaining} ${label ?? t("widgets.more") ?? "more"}`}
+      {expanded ? (
+        <>
+          <ChevronUp className="w-3 h-3" />
+          <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+            {t("widgets.showLess") ?? "Show less"}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="font-mono text-micro-sm">+{remaining}</span>
+          <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+            {label ?? t("widgets.more") ?? "more"}
+          </span>
+          <ChevronDown className="w-3 h-3" />
+        </>
+      )}
     </button>
   );
 }

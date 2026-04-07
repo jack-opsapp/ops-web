@@ -5,14 +5,16 @@ import { cn } from "@/lib/utils/cn";
 const cardVariants = cva("rounded-md border p-2 transition-all duration-150", {
   variants: {
     variant: {
-      default: "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)]",
-      dark: "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)]",
-      elevated: "bg-background-card border-[rgba(255,255,255,0.2)] shadow-elevated",
+      default: "bg-glass border-glass-border-strong glass-surface",
+      dark: "bg-glass border-glass-border-strong glass-surface",
+      elevated: "bg-background-card border-glass-border-strong shadow-elevated",
       interactive: [
-        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)] cursor-pointer",
+        "bg-glass border-glass-border-strong glass-surface cursor-pointer",
         "hover:border-[rgba(255,255,255,0.3)] hover:bg-[rgba(255,255,255,0.05)]",
       ],
-      accent: "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.2)] border-l-4 border-l-ops-accent",
+      accent: "bg-glass border-glass-border-strong glass-surface border-l-4 border-l-ops-accent",
+      /** Transparent — for use inside WidgetShell where the shell provides the glass backdrop */
+      ghost: "bg-transparent border-transparent",
     },
   },
   defaultVariants: {

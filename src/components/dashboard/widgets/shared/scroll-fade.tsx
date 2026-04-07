@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils/cn";
 interface ScrollFadeProps {
   children: ReactNode;
   className?: string;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
 /**
@@ -16,7 +17,7 @@ interface ScrollFadeProps {
  *
  * Replaces `<div className="flex-1 overflow-y-auto scrollbar-hide">`.
  */
-export function ScrollFade({ children, className }: ScrollFadeProps) {
+export function ScrollFade({ children, className, onScroll }: ScrollFadeProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [showTop, setShowTop] = useState(false);
   const [showBottom, setShowBottom] = useState(false);
@@ -54,7 +55,7 @@ export function ScrollFade({ children, className }: ScrollFadeProps) {
       {/* Scrollable content */}
       <div
         ref={ref}
-        onScroll={check}
+        onScroll={(e) => { check(); onScroll?.(e); }}
         className={cn("h-full overflow-y-auto scrollbar-hide", className)}
       >
         {children}

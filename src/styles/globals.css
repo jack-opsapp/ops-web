@@ -110,6 +110,16 @@
     --input: 0 0% 7%;
     --ring: 203 39% 42%;
     --radius: 5px;
+
+    /* ── Glass surface system ── */
+    --glass-bg: rgba(10, 10, 10, 0.70);
+    --glass-bg-dense: rgba(10, 10, 10, 0.85);
+    --glass-bg-subtle: rgba(10, 10, 10, 0.50);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-border-medium: rgba(255, 255, 255, 0.12);
+    --glass-border-strong: rgba(255, 255, 255, 0.20);
+    --glass-blur: 20px;
+    --glass-saturate: 1.2;
   }
 
   * {
@@ -157,12 +167,28 @@
 }
 
 @layer components {
+  /* === Glass surface utility === */
+  .glass-surface {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    border: 1px solid var(--glass-border);
+  }
+
+  /* Cards inside widget content inherit the shell's frosted backdrop — no double glass */
+  [data-widget-content] .rounded-md.border {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: transparent;
+  }
+
   /* === ultrathinmaterialdark (iOS: cardBackgroundDark @ 60% + blur) === */
   .ultrathin-material-dark {
-    background: rgba(13, 13, 13, 0.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    border: 1px solid var(--glass-border-strong);
   }
 
   /* === Panel Styling === */

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { useReducedMotion } from "./use-reduced-motion";
+import { ScrollFade } from "./scroll-fade";
 import {
   WIDGET_FLIP_DURATION,
   WIDGET_EASE_CSS,
@@ -115,13 +116,15 @@ function CardBack({
         >
           <X className="w-[14px] h-[14px] text-text-tertiary" />
         </button>
-        <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+        <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary shrink-0">
           {content.title}
         </span>
-        <p className="font-mohave text-caption-sm text-text-secondary mt-1.5 leading-relaxed">
-          {content.description}
-        </p>
-        <span className="font-mono text-micro-sm text-text-disabled mt-auto">
+        <ScrollFade className="flex-1 min-h-0 mt-1.5">
+          <p className="font-mohave text-caption-sm text-text-secondary leading-relaxed">
+            {content.description}
+          </p>
+        </ScrollFade>
+        <span className="font-mono text-micro-sm text-text-disabled mt-1 shrink-0">
           {content.dataSource}
         </span>
       </div>

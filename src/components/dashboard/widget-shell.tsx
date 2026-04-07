@@ -83,26 +83,31 @@ export function WidgetShell({
   const spacerColSpan = isSpacer ? ((config?.colSpan as number) ?? 2) : undefined;
   const spacerRowSpan = isSpacer ? ((config?.rowSpan as number) ?? 1) : undefined;
 
-  // Compute animation state — GPU-composited only (transform, opacity, filter)
+  // Compute animation state — GPU-composited only (transform, opacity)
+  // IMPORTANT: `filter` is applied via CSS (not Framer animate) because any
+  // non-"none" CSS filter on a parent creates a new "backdrop root", which
+  // breaks `backdrop-filter: blur()` on child elements (the frosted glass).
+  // We only apply filter during edit/drag states where blur breakage is acceptable.
   const animateState = useMemo(() => {
     if (isBeingDragged) {
-      // Invisible in-place — overlay shows the "grabbed" copy
-      return { scale: 0.95, opacity: 0, filter: "saturate(0.3)" };
+      return { scale: 0.95, opacity: 0 };
     }
     if (isDragActive) {
-      // Sibling: shrink + desaturate more
       return {
         scale: DRAG_SIBLING_SCALE,
         opacity: DRAG_SIBLING_OPACITY,
-        filter: `saturate(${DRAG_SIBLING_SATURATION})`,
       };
     }
-    if (isCustomizing) {
-      // Edit mode resting — no scale (avoids inconsistent visual shrink across widget sizes)
-      return { scale: 1, opacity: 1, filter: "saturate(0.7)" };
-    }
-    // Normal
-    return { scale: 1, opacity: 1, filter: "saturate(1)" };
+    return { scale: 1, opacity: 1 };
+  }, [isBeingDragged, isDragActive]);
+
+  // CSS filter for edit/drag desaturation — applied via style, not Framer animate,
+  // so it can be fully removed (undefined) in normal state to preserve backdrop-filter.
+  const filterStyle = useMemo((): string | undefined => {
+    if (isBeingDragged) return "saturate(0.3)";
+    if (isDragActive) return `saturate(${DRAG_SIBLING_SATURATION})`;
+    if (isCustomizing) return "saturate(0.7)";
+    return undefined; // No filter → no new backdrop root → backdrop-filter works
   }, [isBeingDragged, isDragActive, isCustomizing]);
 
   return (
@@ -126,6 +131,8 @@ export function WidgetShell({
           gridRow: `span ${spacerRowSpan}`,
         } : undefined),
         ...entryStyle,
+        filter: filterStyle,
+        transition: filterStyle !== undefined ? "filter 0.3s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
       }}
       data-widget-id={instanceId}
       data-widget-type={typeId}
@@ -135,18 +142,15 @@ export function WidgetShell({
       {/* Frosted backdrop — blocks map bleed-through for all real widgets */}
       {!isSpacer && (
         <div
-          className="absolute inset-0 rounded-md"
+          className="absolute inset-0 rounded-[6px] bg-glass border border-glass-border"
           style={{
-            background: "rgba(10, 10, 10, 0.70)",
             backdropFilter: "blur(20px) saturate(1.2)",
             WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: "6px",
           }}
         />
       )}
       {/* Widget content — wrapped in card flip for info reveal */}
-      <div className={cn("h-full relative", isCustomizing && "pointer-events-none")}>
+      <div className={cn("h-full relative", isCustomizing && "pointer-events-none")} data-widget-content>
         {isSpacer ? (
           children
         ) : (
@@ -194,12 +198,10 @@ export function WidgetShell({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-            className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px] rounded-md px-[3px] py-[2px] pointer-events-auto"
+            className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px] rounded-md px-[3px] py-[2px] pointer-events-auto bg-glass-dense border border-glass-border"
             style={{
-              background: "rgba(10, 10, 10, 0.70)",
               backdropFilter: "blur(20px) saturate(1.2)",
               WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
             onPointerDown={(e) => e.stopPropagation()}
           >

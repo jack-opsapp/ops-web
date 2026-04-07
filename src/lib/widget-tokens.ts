@@ -50,7 +50,3 @@ export function showDetail(size: string): boolean {
 export function showActions(size: string): boolean {
   return size === "lg" || size === "xl";
 }
-
-export function showFooter(size: string): boolean {
-  return size !== "xs";
-}

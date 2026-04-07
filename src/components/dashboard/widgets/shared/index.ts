@@ -13,9 +13,11 @@ export {
   formatLocaleCurrency,
   formatCompactDate,
   formatAge,
+  computeDeltaPct,
   getStatusColor,
   getStatusLabel,
 } from "./widget-utils";
+export { WidgetTrendContext } from "./widget-trend-context";
 export {
   WIDGET_EASE,
   WIDGET_EASE_CSS,

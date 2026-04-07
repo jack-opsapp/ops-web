@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
+import { SegmentedPicker } from "@/components/ops/segmented-picker";
 import { isCompact } from "@/lib/widget-tokens";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 
@@ -23,7 +24,7 @@ export function WidgetPeriodPicker({
   onChange,
   size,
 }: WidgetPeriodPickerProps) {
-  // SM: icon button → popover dropdown
+  // SM: icon button → popover dropdown (not enough room for segmented picker)
   if (isCompact(size)) {
     return (
       <Popover>
@@ -54,23 +55,12 @@ export function WidgetPeriodPicker({
     );
   }
 
-  // MD+: inline pill group
+  // MD+: standardized segmented picker
   return (
-    <div className="flex items-center gap-[3px]">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={cn(
-            "font-kosugi text-micro-sm uppercase tracking-wider px-1.5 py-[1px] rounded-sm transition-colors",
-            value === opt.value
-              ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
-              : "text-text-tertiary hover:text-text-secondary border border-transparent"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+    <SegmentedPicker
+      options={options}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
