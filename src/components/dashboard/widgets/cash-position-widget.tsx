@@ -2,16 +2,19 @@
 
 import { useMemo, useState, useRef } from "react";
 import { ChevronUp, ChevronDown, ArrowUpRight } from "lucide-react";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { useCashFlowForecast } from "@/lib/hooks/use-forecast";
 import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
+import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 import { Sparkline } from "./shared/sparkline";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
@@ -61,10 +64,23 @@ export function CashPositionWidget({
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
-  const period = (config.period as string) ?? "this-month";
+  const [period, setPeriod] = useState((config.period as string) ?? "this-month");
   const { start, end } = getPeriodRange(period);
 
+  const periodOptions = useMemo(() => [
+    { value: "this-month", label: t("cashPosition.thisMonth") ?? "This Month" },
+    { value: "last-month", label: t("cashPosition.lastMonth") ?? "Last Month" },
+  ], [t]);
+
+  const periodLabel = periodOptions.find((o) => o.value === period)?.label ?? "This Month";
+
   const reducedMotion = useReducedMotion();
+
+  const { data: cashForecast } = useCashFlowForecast(30);
+  const forecastNet = useMemo(() => {
+    if (!cashForecast) return null;
+    return cashForecast.reduce((sum, d) => sum + d.netCashFlow, 0);
+  }, [cashForecast]);
 
   const [barTooltip, setBarTooltip] = useState<{
     visible: boolean;
@@ -193,9 +209,6 @@ export function CashPositionWidget({
               {t("cashPosition.noTransactions") ?? "No transactions this period"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("cashPosition.viewInvoices") ?? "View Invoices"}
-          </span>
         </div>
       </Card>
     );
@@ -212,16 +225,10 @@ export function CashPositionWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("cashPosition.title") ?? "Cash Flow"}
           </span>
-          <div className="flex items-center gap-0.5">
-            {cashFlow.net >= 0 ? (
-              <ChevronUp className="w-3 h-3" style={{ color: netColor }} />
-            ) : (
-              <ChevronDown className="w-3 h-3" style={{ color: netColor }} />
-            )}
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-              {t("cashPosition.netCashFlow") ?? "Net"}
-            </span>
-          </div>
+          <WidgetTrendContext
+            variant="snapshot"
+            label={periodLabel}
+          />
         </div>
       </Card>
     );
@@ -239,6 +246,7 @@ export function CashPositionWidget({
                 width={120}
                 height={50}
                 color={netColor}
+                showDots={false}
               />
             </div>
           }
@@ -256,12 +264,18 @@ export function CashPositionWidget({
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
-              {t("cashPosition.title") ?? "Cash Flow"}
+            <span className="font-kosugi text-micro text-text-tertiary mt-0.5">
+              <span className="uppercase tracking-wider">{t("cashPosition.title") ?? "Cash Flow"}</span>
+              <span className="text-text-disabled"> · {periodLabel}</span>
             </span>
-            <span className="font-mono text-micro-sm text-text-tertiary mt-auto">
+            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
               {t("cashPosition.collected") ?? "Collected"}: {formatCompactCurrency(cashFlow.collected)} · {t("cashPosition.spent") ?? "Spent"}: {formatCompactCurrency(cashFlow.spent)}
             </span>
+            {forecastNet !== null && (
+              <span className="font-mono text-micro-sm text-text-disabled mt-0.5">
+                {t("cashPosition.forecast30d") ?? "30d forecast"}: {forecastNet >= 0 ? "+" : "-"}{formatCompactCurrency(Math.abs(forecastNet))}
+              </span>
+            )}
           </div>
         </WidgetBackgroundChart>
       </Card>
@@ -280,6 +294,12 @@ export function CashPositionWidget({
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("cashPosition.title") ?? "Cash Flow"}
           </span>
+          <WidgetPeriodPicker
+            options={periodOptions}
+            value={period}
+            onChange={setPeriod}
+            size={size}
+          />
         </div>
 
         {/* HERO */}
@@ -379,27 +399,30 @@ export function CashPositionWidget({
               </div>
             </div>
 
-            {/* Net summary */}
-            <div className="flex items-center justify-between pt-1 border-t border-border-subtle">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
-                {t("cashPosition.netCashFlow") ?? "Net"}
-              </span>
-              <span className="font-mono text-data-sm font-medium" style={{ color: netColor }}>
-                {netPrefix}{formatCompactCurrency(Math.abs(cashFlow.net))}
-              </span>
+            {/* Net + forecast summary */}
+            <div className="pt-1 border-t border-border-subtle space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
+                  {t("cashPosition.netCashFlow") ?? "Net"}
+                </span>
+                <span className="font-mono text-data-sm font-medium" style={{ color: netColor }}>
+                  {netPrefix}{formatCompactCurrency(Math.abs(cashFlow.net))}
+                </span>
+              </div>
+              {forecastNet !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
+                    {t("cashPosition.forecast30d") ?? "30d forecast"}
+                  </span>
+                  <span className="font-mono text-micro-sm text-text-disabled">
+                    {forecastNet >= 0 ? "+" : "-"}{formatCompactCurrency(Math.abs(forecastNet))}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* FOOTER — SM+ */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/invoices")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("cashPosition.viewInvoices") ?? "View Invoices"}
-          </button>
-        )}
       </div>
     </Card>
   );

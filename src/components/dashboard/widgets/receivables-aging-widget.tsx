@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetMoreButton } from "./shared/widget-more-button";
 import { ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
@@ -10,7 +12,9 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -48,12 +52,15 @@ export function ReceivablesAgingWidget({
   onNavigate,
 }: ReceivablesAgingWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const openEntity = useWidgetEntityOpen();
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
   const heroClass = compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded;
 
   const reducedMotion = useReducedMotion();
+
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
 
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -183,9 +190,6 @@ export function ReceivablesAgingWidget({
               {t("receivablesAging.allCurrent") ?? "All invoices current"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("receivablesAging.viewInvoices") ?? "View Invoices"}
-          </span>
         </div>
       </Card>
     );
@@ -197,17 +201,18 @@ export function ReceivablesAgingWidget({
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
-            className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`}
-            style={{ color: heroColor }}
+            className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}
           >
             {formatCompactCurrency(animatedTotal)}
           </span>
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-            {t("receivablesAging.outstanding") ?? "Outstanding"}
-          </span>
+          <WidgetTrendContext
+            variant="health"
+            color={heroColor}
+            label={aging.worstBucket ? (t(aging.worstBucket.labelKey) ?? aging.worstBucket.fallback) : (t("trend.onTrack") ?? "Current")}
+          />
         </div>
       </Card>
     );
@@ -220,7 +225,7 @@ export function ReceivablesAgingWidget({
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number + tiny nav icon */}
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none" style={{ color: heroColor }}>
+            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
               {formatCompactCurrency(animatedTotal)}
             </span>
             <button
@@ -234,7 +239,13 @@ export function ReceivablesAgingWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
-          {/* Row 3: Stacked aging bar with hover tooltips */}
+          {/* Row 3: Health indicator */}
+          <WidgetTrendContext
+            variant="health"
+            color={heroColor}
+            label={aging.worstBucket ? (t(aging.worstBucket.labelKey) ?? aging.worstBucket.fallback) : (t("trend.onTrack") ?? "Current")}
+          />
+          {/* Row 4: Stacked aging bar with hover tooltips */}
           {aging.totalAmount > 0 && (
             <div className="relative mt-1.5">
               <WidgetTooltip visible={tooltip.visible} x={tooltip.x} y={tooltip.y} anchorRef={ref} anchor="above">
@@ -292,12 +303,19 @@ export function ReceivablesAgingWidget({
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
-            {aging.totalCount} · {formatCompactCurrency(aging.totalAmount)}
+        </div>
+
+        {/* Hero */}
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="font-mono text-display font-bold text-text-primary leading-none">
+            {formatCompactCurrency(aging.totalAmount)}
+          </span>
+          <span className="font-mono text-micro-sm text-text-disabled">
+            {aging.totalCount} {t("receivablesAging.invoicesLabel") ?? "invoices"}
           </span>
         </div>
 
@@ -405,37 +423,71 @@ export function ReceivablesAgingWidget({
           )}
 
           {/* LG: Top overdue invoices from worst bucket */}
-          {showActions(size) && aging.worstBucket && aging.worstBucket.key !== "current" && (
-            <div className="mt-2 pt-2 border-t border-border-subtle">
-              {aging.worstBucket.invoices.slice(0, 5).map((inv, i) => {
-                const due = new Date(inv.dueDate);
-                const days = Math.floor((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
-                return (
-                  <WidgetLineItem
-                    key={inv.id}
-                    primary={inv.client?.name ?? `#${inv.invoiceNumber}`}
-                    metric={formatCompactCurrency(inv.balanceDue)}
-                    secondary={`${days}d`}
-                    onClick={() => onNavigate("/invoices")}
-                    index={i}
-                    isVisible={isVisible}
-                    reducedMotion={reducedMotion}
-                  />
-                );
-              })}
-            </div>
-          )}
+          {showActions(size) && aging.worstBucket && aging.worstBucket.key !== "current" && (() => {
+            const worstInvoices = aging.worstBucket!.invoices;
+            const DEFAULT_OVERDUE_COUNT = 5;
+            const overdueRemaining = worstInvoices.length - DEFAULT_OVERDUE_COUNT;
+            const visibleOverdue = overdueExpanded ? worstInvoices : worstInvoices.slice(0, DEFAULT_OVERDUE_COUNT);
+
+            const invoiceList = visibleOverdue.map((inv, i) => {
+              const due = new Date(inv.dueDate);
+              const days = Math.floor((new Date().getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+              return (
+                <WidgetLineItem
+                  key={inv.id}
+                  indicator={{
+                    type: "bar",
+                    color: aging.worstBucket!.color,
+                    label: t(aging.worstBucket!.labelKey) ?? aging.worstBucket!.fallback,
+                  }}
+                  primary={inv.client?.name ?? `#${inv.invoiceNumber}`}
+                  metric={formatCompactCurrency(inv.balanceDue)}
+                  secondary={`#${inv.invoiceNumber} · ${days}d overdue`}
+                  onClick={(e) => openEntity({
+                    entityType: "invoice",
+                    entityId: inv.id,
+                    title: inv.client?.name ?? `#${inv.invoiceNumber}`,
+                    color: aging.worstBucket!.color,
+                    event: e,
+                    fallbackPath: "/invoices",
+                  })}
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
+                />
+              );
+            });
+
+            return (
+              <div className="mt-2 pt-2 border-t border-border-subtle flex-1 min-h-0">
+                {overdueExpanded ? (
+                  <ScrollFade>
+                    {invoiceList}
+                    {overdueRemaining > 0 && (
+                      <WidgetMoreButton
+                        remaining={overdueRemaining}
+                        expanded={overdueExpanded}
+                        onToggle={() => setOverdueExpanded(!overdueExpanded)}
+                      />
+                    )}
+                  </ScrollFade>
+                ) : (
+                  <>
+                    {invoiceList}
+                    {overdueRemaining > 0 && (
+                      <WidgetMoreButton
+                        remaining={overdueRemaining}
+                        expanded={overdueExpanded}
+                        onToggle={() => setOverdueExpanded(!overdueExpanded)}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/invoices?status=past_due")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("receivablesAging.viewInvoices") ?? "View Invoices"}
-          </button>
-        )}
       </div>
     </Card>
   );

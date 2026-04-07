@@ -9,7 +9,7 @@ import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, HERO_SIZE_CLASS, isCompact, showFooter } from "@/lib/widget-tokens";
+import { WT, HERO_SIZE_CLASS, isCompact } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
@@ -343,15 +343,6 @@ export function ProfitGaugeWidget({
           )}
         </div>
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate?.("/accounting")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("profitGauge.viewExpenses") ?? "View Expenses"}
-          </button>
-        )}
       </div>
     </Card>
   );

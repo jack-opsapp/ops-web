@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
@@ -9,13 +9,16 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
-import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { formatCompactCurrency, computeDeltaPct } from "./shared/widget-utils";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetMoreButton } from "./shared/widget-more-button";
 import { useTeamMembers } from "@/lib/hooks";
+import { useMemberExpensesPopoverStore } from "@/stores/member-expenses-popover-store";
 
 // ---------------------------------------------------------------------------
 // Chart palette — ranked by spend, from WT tokens (no hardcoded hex)
@@ -147,25 +150,22 @@ export function ExpenseTrackerWidget({
 
   const teamData = useMemo(() => {
     if (!showActions(size)) return [];
-    const memberMap = new Map<string, { name: string; amount: number; count: number }>();
+    const memberMap = new Map<string, { id: string; name: string; amount: number; count: number }>();
     for (const e of filteredExpenses) {
       const id = e.submittedBy ?? "unknown";
       const name = userNameMap.get(id) ?? t("expenseTracker.unknownMember") ?? "Unassigned";
-      const existing = memberMap.get(id) ?? { name, amount: 0, count: 0 };
+      const existing = memberMap.get(id) ?? { id, name, amount: 0, count: 0 };
       existing.amount += e.amount;
       existing.count++;
       memberMap.set(id, existing);
     }
 
-    const entries = Array.from(memberMap.values())
+    return Array.from(memberMap.values())
       .sort((a, b) => b.amount - a.amount);
-
-    return entries;
   }, [filteredExpenses, size, t, userNameMap]);
 
-  // ── Prior period for delta (XS) ───────────────────────────────────────
+  // ── Prior period for delta ────────────────────────────────────────────
   const priorTotal = useMemo(() => {
-    if (size !== "xs") return 0;
     const now = new Date();
     let priorStart: Date;
     let priorEnd: Date;
@@ -186,9 +186,10 @@ export function ExpenseTrackerWidget({
       if (d >= priorStart && d <= priorEnd) total += e.amount;
     }
     return total;
-  }, [expenses, period, size]);
+  }, [expenses, period]);
 
   const animatedTotal = useAnimatedValue(isVisible ? Math.round(categoryData.total) : 0, 1000);
+  const deltaPercent = computeDeltaPct(categoryData.total, priorTotal);
   const trend: "up" | "down" | "neutral" = categoryData.total > priorTotal ? "up" : categoryData.total < priorTotal ? "down" : "neutral";
 
   // LG: per-member category breakdown for hover highlight (must be before early returns)
@@ -206,6 +207,8 @@ export function ExpenseTrackerWidget({
   }, [filteredExpenses, size]);
 
   const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
+  const [teamListExpanded, setTeamListExpanded] = useState(false);
+  const openMemberPopover = useMemberExpensesPopoverStore((s) => s.openPopover);
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {
@@ -269,9 +272,6 @@ export function ExpenseTrackerWidget({
               {t("expenseTracker.noExpenses") ?? "No expenses recorded"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("expenseTracker.viewAll") ?? "View Expenses"}
-          </span>
         </div>
       </Card>
     );
@@ -288,18 +288,13 @@ export function ExpenseTrackerWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
-          <div className="flex items-center gap-0.5">
-            {trend === "up" ? (
-              <ChevronUp className="w-3 h-3" style={{ color: WT.error }} />
-            ) : trend === "down" ? (
-              <ChevronDown className="w-3 h-3" style={{ color: WT.success }} />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-text-disabled" />
-            )}
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-              {t("expenseTracker.delta") ?? "vs last period"}
-            </span>
-          </div>
+          <WidgetTrendContext
+            variant="trend"
+            direction={trend}
+            delta={`${Math.abs(deltaPercent)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+            color={{ up: "var(--color-status-error)", down: "var(--color-status-success)" }}
+          />
         </div>
       </Card>
     );
@@ -330,6 +325,13 @@ export function ExpenseTrackerWidget({
               {topCat.name}: {formatCompactCurrency(topCat.amount)}
             </span>
           )}
+          <WidgetTrendContext
+            variant="trend"
+            direction={trend}
+            delta={`${Math.abs(deltaPercent)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+            color={{ up: "var(--color-status-error)", down: "var(--color-status-success)" }}
+          />
         </div>
       </Card>
     );
@@ -344,11 +346,24 @@ export function ExpenseTrackerWidget({
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
-          <span className="font-mono text-micro text-text-primary">{formatCompactCurrency(categoryData.total)}</span>
+        </div>
+
+        {/* Hero */}
+        <div className="mb-2">
+          <span className="font-mono text-display font-bold text-text-primary leading-none">
+            {formatCompactCurrency(categoryData.total)}
+          </span>
+          <WidgetTrendContext
+            variant="trend"
+            direction={trend}
+            delta={`${Math.abs(deltaPercent)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+            color={{ up: "var(--color-status-error)", down: "var(--color-status-success)" }}
+          />
         </div>
 
         {/* Category bars — directly in the flex column so flex-1 works */}
@@ -443,57 +458,76 @@ export function ExpenseTrackerWidget({
         </div>
 
         {/* LG: Team member breakdown */}
-        {showActions(size) && teamData.length > 0 && (
-          <ScrollFade className="mt-2 pt-2 border-t border-border-subtle shrink-0 max-h-[140px]">
+        {showActions(size) && teamData.length > 0 && (() => {
+          const defaultMaxTeam = 5;
+          const maxTeam = teamListExpanded ? teamData.length : defaultMaxTeam;
+          const teamRemaining = teamData.length - defaultMaxTeam;
+          const displayTeam = teamData.slice(0, maxTeam);
+
+          const renderTeamRows = (members: typeof teamData) =>
+            members.map((member, i) => {
+              const memberPct = categoryData.total > 0 ? Math.round((member.amount / categoryData.total) * 100) : 0;
+
+              return (
+                <div
+                  key={member.id}
+                  className="rounded-sm transition-colors cursor-pointer"
+                  style={{
+                    backgroundColor: hoveredMemberId === member.id ? "rgba(255,255,255,0.06)" : "transparent",
+                    borderLeft: hoveredMemberId === member.id ? `2px solid ${WT.accent}` : "2px solid transparent",
+                    transition: reducedMotion ? "none" : "background-color 200ms ease, border-color 200ms ease",
+                  }}
+                  onMouseEnter={() => setHoveredMemberId(member.id)}
+                  onMouseLeave={() => setHoveredMemberId(null)}
+                  onClick={(e) => {
+                    openMemberPopover(
+                      member.id,
+                      { x: e.clientX, y: e.clientY },
+                      member.name,
+                      WT.accent,
+                    );
+                  }}
+                >
+                  <WidgetLineItem
+                    indicator={{ type: "avatar", color: WT.accent, initials: member.name.slice(0, 2) }}
+                    primary={member.name}
+                    secondary={`${member.count} ${member.count === 1 ? "expense" : "expenses"}`}
+                    metric={
+                      <span className="flex items-center gap-1">
+                        <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(member.amount)}</span>
+                        <span className="font-mono text-micro-sm text-text-disabled">{memberPct}%</span>
+                      </span>
+                    }
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                  />
+                </div>
+              );
+            });
+
+          return (
+            <div className="mt-2 pt-2 border-t border-border-subtle shrink-0 flex flex-col">
               <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
                 {t("expenseTracker.byTeamMember") ?? "By Team Member"}
               </span>
-              {teamData.slice(0, 5).map((member, i) => {
-                const memberPct = categoryData.total > 0 ? Math.round((member.amount / categoryData.total) * 100) : 0;
-                const memberId = filteredExpenses.find((e) => {
-                  const name = userNameMap.get(e.submittedBy ?? "") ?? "";
-                  return name === member.name;
-                })?.submittedBy ?? `member-${i}`;
-                return (
-                  <div
-                    key={i}
-                    className="rounded-sm transition-colors"
-                    style={{
-                      backgroundColor: hoveredMemberId === memberId ? "rgba(255,255,255,0.06)" : "transparent",
-                      borderLeft: hoveredMemberId === memberId ? `2px solid ${WT.accent}` : "2px solid transparent",
-                      transition: reducedMotion ? "none" : "background-color 200ms ease, border-color 200ms ease",
-                    }}
-                    onMouseEnter={() => setHoveredMemberId(memberId)}
-                    onMouseLeave={() => setHoveredMemberId(null)}
-                  >
-                    <WidgetLineItem
-                      indicator={{ type: "avatar", color: WT.accent, initials: member.name.slice(0, 2) }}
-                      primary={member.name}
-                      metric={
-                        <span className="flex items-center gap-1">
-                          <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(member.amount)}</span>
-                          <span className="font-mono text-micro-sm text-text-disabled">{memberPct}%</span>
-                        </span>
-                      }
-                      index={i}
-                      isVisible={isVisible}
-                      reducedMotion={reducedMotion}
-                    />
-                  </div>
-                );
-              })}
-          </ScrollFade>
-        )}
+              {teamListExpanded ? (
+                <ScrollFade>
+                  {renderTeamRows(displayTeam)}
+                  <WidgetMoreButton remaining={teamRemaining} expanded={teamListExpanded} onToggle={() => setTeamListExpanded((v) => !v)} className="mt-1" />
+                </ScrollFade>
+              ) : (
+                <>
+                  {renderTeamRows(displayTeam)}
+                  {teamRemaining > 0 && (
+                    <WidgetMoreButton remaining={teamRemaining} expanded={teamListExpanded} onToggle={() => setTeamListExpanded((v) => !v)} className="mt-1" />
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => onNavigate("/accounting")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("expenseTracker.viewAll") ?? "View Expenses"}
-          </button>
-        )}
       </div>
     </Card>
   );

@@ -13,11 +13,12 @@ import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useInvoices, useSendInvoice, useClientMap } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
-import { showFooter } from "@/lib/widget-tokens";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { formatLocaleCurrency } from "./shared/widget-utils";
+import { formatLocaleCurrency, getStatusLabel } from "./shared/widget-utils";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { WT } from "@/lib/widget-tokens";
 import { ScrollFade } from "./shared/scroll-fade";
 import {
   Popover,
@@ -104,6 +105,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
   const filter = (config.statusFilter as StatusFilter) ?? "all-open";
   const { data: rawInvoices, isLoading } = useInvoices();
   const clientMap = useClientMap();
+  const openEntity = useWidgetEntityOpen();
   const [sortField, setSortField] = useState<SortField>("due");
   const [listExpanded, setListExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -164,14 +166,11 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
   return (
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-micro text-text-tertiary">
-              {isLoading ? "..." : `${filtered.length} \u00B7 ${formatLocaleCurrency(totalAmount, getDateLocale(locale), 2)}`}
-            </span>
             {/* Sort dropdown */}
             <Popover>
               <PopoverTrigger asChild>
@@ -200,6 +199,17 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             </Popover>
           </div>
         </div>
+
+        {/* Hero */}
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="font-mono text-display font-bold text-text-primary leading-none">
+            {isLoading ? "—" : formatLocaleCurrency(totalAmount, getDateLocale(locale), 0)}
+          </span>
+          <span className="font-mono text-micro-sm text-text-disabled">
+            {filtered.length} {t("invoiceList.invoicesLower") ?? "invoices"}
+          </span>
+        </div>
+
         <ScrollFade>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
@@ -221,6 +231,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
                   index={i}
                   isVisible={isVisible}
                   reducedMotion={reducedMotion}
+                  openEntity={openEntity}
                 />
               ))}
               {remaining > 0 && (
@@ -234,35 +245,51 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
           )}
         </ScrollFade>
 
-        {/* Footer */}
-        {showFooter(size) && (
-          <button
-            onClick={() => navigate("/accounting")}
-            className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-          >
-            {t("invoiceList.viewAll") ?? "View Invoices"}
-          </button>
-        )}
       </div>
     </Card>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Invoice row — uses WidgetLineItem + WidgetStatusBadge
-// For PartiallyPaid: shows % paid instead of status text
+// Invoice row — bar indicator (left) + currency metric (right)
+// PartiallyPaid: bar color is dynamic based on % paid
 // ---------------------------------------------------------------------------
+
+/** Map invoice status to a WT CSS variable color for the bar indicator */
+function invoiceStatusToColor(status: InvoiceStatus): string {
+  switch (status) {
+    case InvoiceStatus.Draft:
+      return WT.muted;
+    case InvoiceStatus.Sent:
+      return WT.accent;
+    case InvoiceStatus.AwaitingPayment:
+      return WT.warning;
+    case InvoiceStatus.PartiallyPaid:
+      return WT.receivables;
+    case InvoiceStatus.PastDue:
+      return WT.error;
+    case InvoiceStatus.Paid:
+      return WT.success;
+    case InvoiceStatus.Void:
+    case InvoiceStatus.WrittenOff:
+      return WT.muted;
+    default:
+      return WT.muted;
+  }
+}
 
 function InvoiceRow({
   invoice,
   index,
   isVisible,
   reducedMotion,
+  openEntity,
 }: {
   invoice: Invoice;
   index?: number;
   isVisible?: boolean;
   reducedMotion?: boolean | null;
+  openEntity: ReturnType<typeof useWidgetEntityOpen>;
 }) {
   const { t } = useDictionary("dashboard");
   const { locale } = useLocale();
@@ -297,20 +324,17 @@ function InvoiceRow({
     ? Math.round((invoice.amountPaid / invoice.total) * 100)
     : null;
 
-  // Partial-paid: dynamic color badge — red for low %, green for high %
-  const pctColor = pctPaid !== null
-    ? pctPaid >= 75 ? "text-status-success bg-status-success/15 border-status-success/30"
-    : pctPaid >= 40 ? "text-ops-amber bg-ops-amber/15 border-ops-amber/30"
-    : "text-ops-error bg-ops-error/15 border-ops-error/30"
-    : "";
+  // Determine indicator color and label
+  let indicatorColor: string;
+  let indicatorLabel: string;
 
-  const metricSlot = isPartial && pctPaid !== null ? (
-    <span className={cn("font-mono text-micro-xs px-1 py-[1px] rounded-sm uppercase tracking-wide border shrink-0 whitespace-nowrap", pctColor)}>
-      {pctPaid}% {t("invoiceList.pctPaid") ?? "paid"}
-    </span>
-  ) : (
-    formatLocaleCurrency(invoice.balanceDue, getDateLocale(locale), 2)
-  );
+  if (isPartial && pctPaid !== null) {
+    indicatorColor = pctPaid >= 75 ? WT.success : pctPaid >= 40 ? WT.warning : WT.error;
+    indicatorLabel = `${pctPaid}% ${t("invoiceList.pctPaid") ?? "Paid"}`;
+  } else {
+    indicatorColor = invoiceStatusToColor(invoice.status);
+    indicatorLabel = getStatusLabel(invoice.status, "invoice", t);
+  }
 
   // Send button — drafts only, goes through the action slot
   const actionSlot = isDraft ? (
@@ -340,11 +364,19 @@ function InvoiceRow({
 
   return (
     <WidgetLineItem
+      indicator={{ type: "bar", color: indicatorColor, label: indicatorLabel }}
       primary={clientName}
-      secondary={`${t("invoiceList.due")} ${dueDisplay}`}
-      metric={metricSlot}
-      badge={isPartial ? undefined : { status: invoice.status, entity: "invoice" }}
+      secondary={`#${invoice.invoiceNumber} · ${t("invoiceList.due")} ${dueDisplay}`}
+      metric={formatLocaleCurrency(invoice.balanceDue, getDateLocale(locale), 2)}
       action={actionSlot}
+      onClick={(e) => openEntity({
+        entityType: "invoice",
+        entityId: invoice.id,
+        title: clientName,
+        color: indicatorColor,
+        event: e,
+        fallbackPath: "/invoices",
+      })}
       index={index}
       isVisible={isVisible}
       reducedMotion={reducedMotion}

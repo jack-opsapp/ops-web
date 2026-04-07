@@ -1,21 +1,26 @@
 "use client";
 
 import { useMemo, useState, useRef, useCallback } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { WidgetPeriodPicker } from "./shared/widget-period-picker";
+import { Sparkline } from "./shared/sparkline";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetLineItem } from "./shared/widget-line-item";
+import { ScrollFade } from "./shared/scroll-fade";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS, WIDGET_COLLAPSE_DURATION } from "./shared/widget-motion";
-import { formatCompactCurrency } from "./shared/widget-utils";
-import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions, showFooter } from "@/lib/widget-tokens";
+import { formatCompactCurrency, computeDeltaPct } from "./shared/widget-utils";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { useRevenueProjection } from "@/lib/hooks/use-forecast";
+import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
 import { InvoiceStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -53,6 +58,7 @@ export function RevenuePulseWidget({
   onNavigate,
 }: RevenuePulseWidgetProps) {
   const { t } = useDictionary("dashboard");
+  const openEntity = useWidgetEntityOpen();
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const compact = isCompact(size);
@@ -151,7 +157,7 @@ export function RevenuePulseWidget({
   // ── Top clients by revenue (LG only) ──────────────────────────────────
   const topClients = useMemo(() => {
     if (!showActions(size)) return [];
-    const clientMap = new Map<string, { name: string; clientId: string; total: number }>();
+    const clientMap = new Map<string, { name: string; clientId: string; total: number; invoiceCount: number; projectName: string | null }>();
     for (const inv of invoices) {
       if (inv.deletedAt || inv.status !== InvoiceStatus.Paid || !inv.paidAt) continue;
       const cid = inv.clientId;
@@ -159,11 +165,14 @@ export function RevenuePulseWidget({
       const existing = clientMap.get(cid);
       if (existing) {
         existing.total += inv.amountPaid;
+        existing.invoiceCount += 1;
       } else {
         clientMap.set(cid, {
           name: inv.client?.name ?? "Unknown",
           clientId: cid,
           total: inv.amountPaid,
+          invoiceCount: 1,
+          projectName: inv.project?.title ?? null,
         });
       }
     }
@@ -172,7 +181,31 @@ export function RevenuePulseWidget({
       .slice(0, 10);
   }, [invoices, size]);
 
+  // ── Sparkline data for SM trendline background ──────────────────────
+  const sparklineData = useMemo(() => {
+    // Use last 6 months of paid revenue for the trendline
+    const now = new Date();
+    const months: number[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      let total = 0;
+      for (const inv of invoices) {
+        if (inv.deletedAt || inv.status !== InvoiceStatus.Paid || !inv.paidAt) continue;
+        const paidDate = new Date(inv.paidAt);
+        if (paidDate.getFullYear() === year && paidDate.getMonth() === month) {
+          total += inv.amountPaid;
+        }
+      }
+      months.push(total);
+    }
+    return months;
+  }, [invoices]);
+
+  const { data: projection } = useRevenueProjection();
   const animatedMtd = useAnimatedValue(isVisible ? Math.round(monthlyData.mtd) : 0, 1000);
+  const deltaPercent = computeDeltaPct(monthlyData.mtd, monthlyData.months.length >= 2 ? monthlyData.months[monthlyData.months.length - 2]?.amount ?? 0 : 0);
 
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -228,24 +261,33 @@ export function RevenuePulseWidget({
                   className="absolute bottom-0 w-[70%] rounded-t-sm"
                   style={{
                     height: `${ghostH}px`,
-                    backgroundColor: WT.revenue,
-                    opacity: isVisible ? GHOST_OPACITY : 0,
+                    border: `1px solid ${WT.revenue}`,
+                    backgroundColor: `color-mix(in srgb, ${WT.revenue} 8%, transparent)`,
+                    opacity: isVisible ? 1 : 0,
                     transition: reducedMotion ? "opacity 200ms ease" : `opacity 400ms ${WIDGET_EASE_CSS} ${500 + 200}ms`,
                   }}
                 />
               )}
               <div
-                className="w-[70%] rounded-t-sm relative z-10"
+                className="w-[70%] rounded-sm relative z-10 flex items-end justify-center pb-0.5 overflow-hidden"
                 style={{
-                  height: isVisible ? `${Math.max(barH, m.amount > 0 ? 2 : 0)}px` : "0px",
-                  backgroundColor: WT.revenue,
-                  opacity: isCurrent ? 1 : 0.6,
-                  transitionProperty: "height, opacity",
+                  height: isVisible ? `${Math.max(barH, m.amount > 0 ? 24 : 0)}px` : "0px",
+                  border: isCurrent
+                    ? `1px solid ${WT.revenue}`
+                    : `1px solid color-mix(in srgb, ${WT.revenue} 50%, transparent)`,
+                  backgroundColor: `color-mix(in srgb, ${WT.revenue} ${isCurrent ? '25%' : '12%'}, transparent)`,
+                  transitionProperty: "height",
                   transitionDuration: reducedMotion ? "200ms" : "600ms",
                   transitionDelay: reducedMotion ? "0ms" : `${i * 80}ms`,
                   transitionTimingFunction: WIDGET_EASE_CSS,
                 }}
-              />
+              >
+                {barH >= 24 && (
+                  <span className="font-mono text-micro-sm font-semibold" style={{ color: WT.revenue }}>
+                    {formatCompactCurrency(m.amount)}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
@@ -317,9 +359,6 @@ export function RevenuePulseWidget({
               {t("revenuePulse.noData") ?? "No payments received"}
             </span>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors">
-            {t("revenuePulse.viewInvoices") ?? "View Invoices"}
-          </span>
         </div>
       </Card>
     );
@@ -336,30 +375,34 @@ export function RevenuePulseWidget({
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
-          <div className="flex items-center gap-0.5">
-            {monthlyData.trend === "up" ? (
-              <ChevronUp className="w-3 h-3" style={{ color: WT.success }} />
-            ) : monthlyData.trend === "down" ? (
-              <ChevronDown className="w-3 h-3" style={{ color: WT.error }} />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-text-disabled" />
-            )}
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-              {t("revenuePulse.mtdRevenue") ?? "MTD"}
-            </span>
-          </div>
+          <WidgetTrendContext
+            variant="trend"
+            direction={monthlyData.trend}
+            delta={`${Math.abs(deltaPercent)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+          />
         </div>
       </Card>
     );
   }
 
-  // ── SM: WidgetBackgroundChart with bar chart behind text ──────────────
+  // ── SM: WidgetBackgroundChart with sparkline trendline behind text ──
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
         <WidgetBackgroundChart
-          chart={renderBarChart(80, false)}
-          opacity={0.3}
+          chart={
+            <div className="h-full w-full flex items-end justify-center">
+              <Sparkline
+                data={sparklineData.length >= 2 ? sparklineData : [0, monthlyData.mtd]}
+                width={140}
+                height={60}
+                color={WT.revenue}
+                showDots={false}
+              />
+            </div>
+          }
+          opacity={0.4}
         >
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
@@ -373,12 +416,23 @@ export function RevenuePulseWidget({
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-0.5">
               {t("revenuePulse.title") ?? "Revenue"}
             </span>
-            <span className="font-mono text-micro-sm text-text-tertiary mt-auto">
+            <WidgetTrendContext
+              variant="trend"
+              direction={monthlyData.trend}
+              delta={`${Math.abs(deltaPercent)}%`}
+              comparison={t("trend.vsLastMonth") ?? "vs last month"}
+            />
+            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
               {t("revenuePulse.ytd") ?? "YTD"}: {formatCompactCurrency(monthlyData.ytd)}
             </span>
+            {projection && (
+              <span className="font-mono text-micro-sm text-text-disabled mt-0.5">
+                {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
+              </span>
+            )}
           </div>
         </WidgetBackgroundChart>
       </Card>
@@ -391,7 +445,7 @@ export function RevenuePulseWidget({
       <Card className="h-full p-0" ref={ref}>
         <WidgetBackgroundChart
           chart={renderBarChart(120, false)}
-          opacity={0.25}
+          opacity={0.45}
         >
           <div className="h-full flex flex-col p-3">
             {/* Header with period picker */}
@@ -407,38 +461,30 @@ export function RevenuePulseWidget({
               />
             </div>
 
-            {/* Hero — animated MTD */}
-            <div className="flex items-baseline gap-2 mb-2">
+            {/* Hero — animated MTD + YTD beneath */}
+            <div className="flex items-baseline gap-2">
               <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
                 {formatCompactCurrency(animatedMtd)}
               </span>
-              {monthlyData.trend === "up" ? (
-                <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
-              ) : monthlyData.trend === "down" ? (
-                <ChevronDown className="w-4 h-4" style={{ color: WT.error }} />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-text-disabled" />
-              )}
             </div>
-
-            {/* Bottom summary: MTD vs YTD */}
-            <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-border-subtle">
-              <div>
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-                  {t("revenuePulse.mtdRevenue") ?? "MTD"}
-                </span>
-                <p className="font-mono text-data-sm text-text-primary font-medium">
-                  {formatCompactCurrency(monthlyData.mtd)}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
-                  {t("revenuePulse.ytdTotal") ?? "YTD Total"}
-                </span>
-                <p className="font-mono text-data-sm text-text-primary font-medium">
-                  {formatCompactCurrency(monthlyData.ytd)}
-                </p>
-              </div>
+            <WidgetTrendContext
+              variant="trend"
+              direction={monthlyData.trend}
+              delta={`${Math.abs(deltaPercent)}%`}
+              comparison={t("trend.vsLastMonth") ?? "vs last month"}
+            />
+            <div className="flex items-center gap-2 mt-0.5 mb-2">
+              <span className="font-mono text-micro-sm text-text-tertiary">
+                {t("revenuePulse.ytdTotal") ?? "YTD"}: {formatCompactCurrency(monthlyData.ytd)}
+              </span>
+              {projection && (
+                <>
+                  <span className="text-[rgba(255,255,255,0.12)]">·</span>
+                  <span className="font-mono text-micro-sm text-text-disabled">
+                    {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </WidgetBackgroundChart>
@@ -469,16 +515,25 @@ export function RevenuePulseWidget({
         </div>
 
         {/* HERO — animated MTD */}
-        <div className="flex items-baseline gap-2 mb-2">
+        <div className="flex items-baseline gap-2 mb-1">
           <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
             {formatCompactCurrency(animatedMtd)}
           </span>
-          {monthlyData.trend === "up" ? (
-            <ChevronUp className="w-4 h-4" style={{ color: WT.success }} />
-          ) : monthlyData.trend === "down" ? (
-            <ChevronDown className="w-4 h-4" style={{ color: WT.error }} />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-text-disabled" />
+        </div>
+        <div className="flex items-center gap-2 mb-2">
+          <WidgetTrendContext
+            variant="trend"
+            direction={monthlyData.trend}
+            delta={`${Math.abs(deltaPercent)}%`}
+            comparison={t("trend.vsLastMonth") ?? "vs last month"}
+          />
+          {projection && (
+            <>
+              <span className="text-[rgba(255,255,255,0.12)]">·</span>
+              <span className="font-mono text-micro-sm text-text-disabled">
+                {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
+              </span>
+            </>
           )}
         </div>
 
@@ -537,38 +592,39 @@ export function RevenuePulseWidget({
 
         {/* Top clients — scrollable list that triggers hero collapse */}
         {topClients.length > 0 && (
-          <div
-            className="mt-2 pt-2 border-t border-border-subtle flex-1 min-h-0 overflow-y-auto scrollbar-hide"
-            onScroll={handleListScroll}
-          >
-            {visibleClients.map((client, i) => (
-              <WidgetLineItem
-                key={client.clientId}
-                primary={client.name}
-                metric={formatCompactCurrency(client.total)}
-                onClick={() => onNavigate(`/clients/${client.clientId}`)}
-                index={i}
-                isVisible={isVisible}
-                reducedMotion={reducedMotion}
-              />
-            ))}
-            {remainingClients > 0 && (
-              <WidgetMoreButton
-                remaining={remainingClients}
-                expanded={clientsExpanded}
-                onToggle={() => setClientsExpanded(!clientsExpanded)}
-              />
-            )}
+          <div className="mt-2 pt-2 border-t border-border-subtle flex-1 min-h-0">
+            <ScrollFade onScroll={handleListScroll}>
+              {visibleClients.map((client, i) => (
+                <WidgetLineItem
+                  key={client.clientId}
+                  indicator={{ type: "bar", color: WT.revenue, label: t("revenuePulse.title") ?? "Revenue" }}
+                  primary={client.name}
+                  secondary={`${client.invoiceCount} ${client.invoiceCount === 1 ? "invoice" : "invoices"}${client.projectName ? ` · ${client.projectName}` : ""}`}
+                  metric={formatCompactCurrency(client.total)}
+                  onClick={(e) => openEntity({
+                    entityType: "client",
+                    entityId: client.clientId,
+                    title: client.name,
+                    color: WT.revenue,
+                    event: e,
+                    fallbackPath: `/clients/${client.clientId}`,
+                  })}
+                  index={i}
+                  isVisible={isVisible}
+                  reducedMotion={reducedMotion}
+                />
+              ))}
+              {remainingClients > 0 && (
+                <WidgetMoreButton
+                  remaining={remainingClients}
+                  expanded={clientsExpanded}
+                  onToggle={() => setClientsExpanded(!clientsExpanded)}
+                />
+              )}
+            </ScrollFade>
           </div>
         )}
 
-        {/* FOOTER */}
-        <button
-          onClick={() => onNavigate("/invoices?status=paid")}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left shrink-0"
-        >
-          {t("revenuePulse.viewAll") ?? "View Invoices"}
-        </button>
       </div>
     </Card>
   );

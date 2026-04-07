@@ -5,6 +5,7 @@ import { Loader2, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
+import { ScrollFade } from "./shared/scroll-fade";
 import { formatCompactCurrency, formatLocaleCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -15,6 +16,7 @@ import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
+import { WidgetTrendContext } from "./shared/widget-trend-context";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -110,6 +112,7 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
           <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
             {t("payments.lastPayment")}
           </span>
+          <WidgetTrendContext variant="snapshot" label={t("trend.latest") ?? "Latest"} />
           {!isLoading && lastPayment && (
             <span className="font-mohave text-caption-sm text-text-secondary truncate mt-0.5">
               {lastPayment.client?.name ?? t("payments.unknownClient")}
@@ -147,75 +150,101 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
           <p className="font-mohave text-body-sm text-text-disabled py-2">
             {t("payments.noPaymentsReceived")}
           </p>
-        ) : (
-          <div className={expanded ? "flex-1 min-h-0 overflow-y-auto scrollbar-hide" : undefined}>
-            <div className="space-y-[2px]">
-              {paidInvoices.slice(0, maxItems).map((invoice, i) => {
-                const clientName = invoice.client?.name ?? t("payments.unknownClient");
-                const pctPaid = invoice.total > 0 ? Math.round((invoice.amountPaid / invoice.total) * 100) : 100;
+        ) : expanded ? (
+            <ScrollFade>
+              <div className="space-y-[2px]">
+                {paidInvoices.slice(0, maxItems).map((invoice, i) => {
+                  const clientName = invoice.client?.name ?? t("payments.unknownClient");
+                  const pctPaid = invoice.total > 0 ? Math.round((invoice.amountPaid / invoice.total) * 100) : 100;
 
-                return (
-                  <WidgetLineItem
-                    key={invoice.id}
-                    indicator={{
-                      type: "avatar",
-                      color: "transparent",
-                      initials: clientName.slice(0, 2),
-                    }}
-                    primary={clientName}
-                    secondary={`${invoice.invoiceNumber} · ${formatRelativeDate(invoice.paidAt, locale, t)}`}
-                    metric={
-                      <span className="flex items-center gap-1">
-                        <span className="font-mono text-micro-sm text-status-success font-medium">
-                          {formatLocaleCurrency(invoice.amountPaid, getDateLocale(locale), 2)}
-                        </span>
-                        {pctPaid < 100 && (
-                          <span className="font-mono text-micro-sm text-text-disabled">
-                            {t("payments.ofInvoice") ?? "of"} {formatCompactCurrency(invoice.total)} ({pctPaid}%)
+                  return (
+                    <WidgetLineItem
+                      key={invoice.id}
+                      indicator={{
+                        type: "avatar",
+                        color: "transparent",
+                        initials: clientName.slice(0, 2),
+                      }}
+                      primary={clientName}
+                      secondary={`${invoice.invoiceNumber} · ${formatRelativeDate(invoice.paidAt, locale, t)}`}
+                      metric={
+                        <span className="flex items-center gap-1">
+                          <span className="font-mono text-micro-sm text-status-success font-medium">
+                            {formatLocaleCurrency(invoice.amountPaid, getDateLocale(locale), 2)}
                           </span>
-                        )}
-                      </span>
-                    }
-                    index={i}
-                    isVisible={isVisible}
-                    reducedMotion={reducedMotion}
+                          {pctPaid < 100 && (
+                            <span className="font-mono text-micro-sm text-text-disabled">
+                              {t("payments.ofInvoice") ?? "of"} {formatCompactCurrency(invoice.total)} ({pctPaid}%)
+                            </span>
+                          )}
+                        </span>
+                      }
+                      index={i}
+                      isVisible={isVisible}
+                      reducedMotion={reducedMotion}
+                    />
+                  );
+                })}
+              </div>
+              {/* Show less */}
+              {remaining > 0 && (
+                <div className="flex items-center mt-1 px-1">
+                  <WidgetMoreButton
+                    remaining={remaining}
+                    expanded={expanded}
+                    onToggle={() => setExpanded(!expanded)}
                   />
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </ScrollFade>
+          ) : (
+            <>
+              <div className="space-y-[2px]">
+                {paidInvoices.slice(0, maxItems).map((invoice, i) => {
+                  const clientName = invoice.client?.name ?? t("payments.unknownClient");
+                  const pctPaid = invoice.total > 0 ? Math.round((invoice.amountPaid / invoice.total) * 100) : 100;
 
-            {/* +N more / Show less + View All Payments */}
-            {remaining > 0 && (
-              <div className="flex items-center justify-between mt-1 px-1">
-                <WidgetMoreButton
-                  remaining={remaining}
-                  expanded={expanded}
-                  onToggle={() => setExpanded(!expanded)}
-                />
-                {onNavigate && (
-                  <button
-                    onClick={() => onNavigate("/accounting")}
-                    className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors"
-                  >
-                    {t("payments.viewAllPayments") ?? "View All Payments"}
-                  </button>
-                )}
+                  return (
+                    <WidgetLineItem
+                      key={invoice.id}
+                      indicator={{
+                        type: "avatar",
+                        color: "transparent",
+                        initials: clientName.slice(0, 2),
+                      }}
+                      primary={clientName}
+                      secondary={`${invoice.invoiceNumber} · ${formatRelativeDate(invoice.paidAt, locale, t)}`}
+                      metric={
+                        <span className="flex items-center gap-1">
+                          <span className="font-mono text-micro-sm text-status-success font-medium">
+                            {formatLocaleCurrency(invoice.amountPaid, getDateLocale(locale), 2)}
+                          </span>
+                          {pctPaid < 100 && (
+                            <span className="font-mono text-micro-sm text-text-disabled">
+                              {t("payments.ofInvoice") ?? "of"} {formatCompactCurrency(invoice.total)} ({pctPaid}%)
+                            </span>
+                          )}
+                        </span>
+                      }
+                      index={i}
+                      isVisible={isVisible}
+                      reducedMotion={reducedMotion}
+                    />
+                  );
+                })}
               </div>
-            )}
-
-            {/* If no remaining but has navigate, show view all at bottom */}
-            {remaining <= 0 && onNavigate && (
-              <div className="mt-1 px-1">
-                <button
-                  onClick={() => onNavigate("/accounting")}
-                  className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors"
-                >
-                  {t("payments.viewAllPayments") ?? "View All Payments"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+              {/* +N more */}
+              {remaining > 0 && (
+                <div className="flex items-center mt-1 px-1">
+                  <WidgetMoreButton
+                    remaining={remaining}
+                    expanded={expanded}
+                    onToggle={() => setExpanded(!expanded)}
+                  />
+                </div>
+              )}
+            </>
+          )}
       </div>
     </Card>
   );
