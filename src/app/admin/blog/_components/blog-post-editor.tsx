@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { BlogCategory } from "@/lib/admin/types";
 import { RichTextEditor } from "./rich-text-editor";
@@ -229,24 +229,13 @@ export function BlogPostEditor({
 
         {/* Card 2 — Metadata */}
         <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02] space-y-4">
-          {/* Thumbnail URL */}
-          <div>
-            <label className={labelClass}>Thumbnail URL</label>
-            <input
-              type="text"
-              placeholder="https://..."
-              value={post.thumbnail_url}
-              onChange={(e) => update("thumbnail_url", e.target.value)}
-              className={inputClass}
-            />
-            {post.thumbnail_url && (
-              <img
-                src={post.thumbnail_url}
-                alt="Thumbnail preview"
-                className="mt-2 w-full rounded border border-white/[0.08]"
-              />
-            )}
-          </div>
+          {/* Thumbnail */}
+          <ThumbnailUploader
+            url={post.thumbnail_url}
+            onUrlChange={(url) => update("thumbnail_url", url)}
+            inputClass={inputClass}
+            labelClass={labelClass}
+          />
 
           {/* Author */}
           <div>
@@ -386,6 +375,164 @@ export function BlogPostEditor({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Thumbnail Uploader ──────────────────────────────────────────────────── */
+
+function ThumbnailUploader({
+  url,
+  onUrlChange,
+  inputClass,
+  labelClass,
+}: {
+  url: string;
+  onUrlChange: (url: string) => void;
+  inputClass: string;
+  labelClass: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  async function uploadFile(file: File) {
+    if (uploading) return;
+    setUploading(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const res = await fetch("/api/admin/blog/upload", {
+        method: "POST",
+        body: form,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert("Upload failed: " + data.error);
+        return;
+      }
+
+      onUrlChange(data.url);
+    } catch (err: unknown) {
+      alert(
+        "Upload failed: " +
+          (err instanceof Error ? err.message : "Unknown error")
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      uploadFile(file);
+    }
+  }
+
+  return (
+    <div>
+      <label className={labelClass}>Thumbnail</label>
+
+      {/* Drop zone / preview */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => fileRef.current?.click()}
+        className={[
+          "relative w-full rounded border cursor-pointer transition-colors overflow-hidden",
+          dragOver
+            ? "border-[#597794] bg-[#597794]/10"
+            : url
+              ? "border-white/[0.08]"
+              : "border-dashed border-white/[0.15] bg-white/[0.02] hover:border-white/[0.25]",
+        ].join(" ")}
+      >
+        {url ? (
+          <div className="relative group">
+            <img
+              src={url}
+              alt="Thumbnail preview"
+              className="w-full aspect-[1200/630] object-cover"
+            />
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="font-mohave text-[12px] uppercase tracking-wider text-white/80">
+                {uploading ? "Uploading..." : "Replace"}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 px-4">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-[#6B6B6B] mb-2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span className="font-mohave text-[11px] uppercase tracking-wider text-[#6B6B6B]">
+              {uploading ? "Uploading..." : "Drop image or click to upload"}
+            </span>
+            <span className="font-kosugi text-[10px] text-[#6B6B6B]/60 mt-1">
+              JPEG, PNG, WebP — max 10MB
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadFile(file);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Manual URL input */}
+      <input
+        type="text"
+        placeholder="Or paste URL..."
+        value={url}
+        onChange={(e) => onUrlChange(e.target.value)}
+        className={inputClass + " mt-2"}
+      />
+
+      {/* Remove button */}
+      {url && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onUrlChange("");
+          }}
+          className="mt-1 font-mohave text-[11px] uppercase tracking-wider text-[#93321A] hover:text-[#B5432A] transition-colors"
+        >
+          Remove
+        </button>
+      )}
     </div>
   );
 }

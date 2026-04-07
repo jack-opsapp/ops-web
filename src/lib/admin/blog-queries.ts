@@ -140,19 +140,40 @@ export async function getLiveBlogPosts(): Promise<BlogPost[]> {
 export async function createBlogPost(
   input: Partial<BlogPost> & { title: string }
 ): Promise<BlogPost> {
-  const slug = slugify(input.title);
-  const word_count = input.content ? countWords(input.content) : 0;
-  const published_at =
-    input.is_live ? new Date().toISOString() : (input.published_at ?? null);
+  // Strip read-only fields
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = input as Record<string, unknown>;
+
+  const row: Record<string, unknown> = {
+    ...rest,
+    slug: slugify(input.title),
+    word_count: input.content ? countWords(input.content) : 0,
+    published_at: input.is_live
+      ? new Date().toISOString()
+      : input.published_at || null,
+  };
+
+  // Convert empty strings to null for nullable columns
+  const nullableFields = [
+    "category_id",
+    "category2_id",
+    "published_at",
+    "subtitle",
+    "author",
+    "summary",
+    "teaser",
+    "meta_title",
+    "thumbnail_url",
+  ];
+  for (const field of nullableFields) {
+    if (row[field] === "") {
+      row[field] = null;
+    }
+  }
 
   const { data, error } = await db()
     .from("blog_posts")
-    .insert({
-      ...input,
-      slug,
-      word_count,
-      published_at,
-    })
+    .insert(row)
     .select()
     .single();
   if (error) throw error;
@@ -163,18 +184,40 @@ export async function updateBlogPost(
   id: string,
   input: Partial<BlogPost>
 ): Promise<BlogPost> {
+  // Strip read-only / server-managed fields
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, created_at: _ca, updated_at: _ua, word_count: _wc, ...rest } = input as Record<string, unknown>;
+
   const updates: Record<string, unknown> = {
-    ...input,
+    ...rest,
     updated_at: new Date().toISOString(),
   };
 
+  // Convert empty strings to null for nullable UUID and timestamp columns
+  const nullableFields = [
+    "category_id",
+    "category2_id",
+    "published_at",
+    "subtitle",
+    "author",
+    "summary",
+    "teaser",
+    "meta_title",
+    "thumbnail_url",
+  ];
+  for (const field of nullableFields) {
+    if (updates[field] === "") {
+      updates[field] = null;
+    }
+  }
+
   // Recalculate word_count when content changes
-  if (input.content !== undefined) {
-    updates.word_count = countWords(input.content);
+  if (typeof updates.content === "string") {
+    updates.word_count = countWords(updates.content as string);
   }
 
   // Auto-set published_at on first publish
-  if (input.is_live) {
+  if (updates.is_live) {
     const existing = await getBlogPostById(id);
     if (existing && !existing.published_at) {
       updates.published_at = new Date().toISOString();
