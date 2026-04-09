@@ -11,7 +11,7 @@ import { EmailService } from "@/lib/api/services/email-service";
 
 export const maxDuration = 300;
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json(
