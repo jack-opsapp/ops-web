@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["X47H96M34K.co.opsapp.ops.OPS"],
+        "components": [
+          {
+            "/": "/projects/*",
+            "comment": "Project deep links — opens the OPS iOS app directly"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["X47H96M34K.co.opsapp.ops.OPS"]
+  }
+}

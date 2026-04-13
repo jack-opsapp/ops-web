@@ -31,6 +31,21 @@ const nextConfig: NextConfig = {
       "date-fns",
     ],
   },
+  async headers() {
+    return [
+      {
+        // Apple App Site Association file for Universal Links.
+        // Apple requires Content-Type: application/json and no redirects.
+        // Files in public/ without an extension default to octet-stream,
+        // so we override the Content-Type explicitly here.
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
