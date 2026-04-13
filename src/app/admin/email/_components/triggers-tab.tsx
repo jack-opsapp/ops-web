@@ -10,7 +10,10 @@ interface TriggerConfig {
   label: string;
   description: string;
   schedule: string;
+  /** cron job name (Supabase pg_cron). Mutually exclusive with settingsKey. */
   cronJobName: string | null;
+  /** app_settings key powering the on/off toggle. Mutually exclusive with cronJobName. */
+  settingsKey?: string;
   hasTestEmail: boolean;
 }
 
@@ -48,6 +51,15 @@ const TRIGGERS: TriggerConfig[] = [
     hasTestEmail: true,
   },
   {
+    slug: "blog-newsletter",
+    label: "Blog Newsletter",
+    description: "OPS Field Notes — sends when a new blog post is published. Toggle gates all non-test sends.",
+    schedule: "On blog publish",
+    cronJobName: null,
+    settingsKey: "blog_newsletter_enabled",
+    hasTestEmail: false,
+  },
+  {
     slug: "verify-email-domains",
     label: "Domain Validation",
     description: "Validates email domains and updates the email_domain_valid flag.",
@@ -74,6 +86,10 @@ export function TriggersTab() {
   const [toggleLoading, setToggleLoading] = useState<Record<string, boolean>>({});
   const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({});
 
+  // Settings-backed toggles (e.g. blog_newsletter_enabled)
+  const [settings, setSettings] = useState<Record<string, boolean>>({});
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
   // Sheet state
   const [selectedTrigger, setSelectedTrigger] = useState<TriggerConfig | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -99,9 +115,62 @@ export function TriggersTab() {
     }
   }, []);
 
+  const fetchSettings = useCallback(async () => {
+    const keys = TRIGGERS.map((t) => t.settingsKey).filter(
+      (k): k is string => !!k
+    );
+    if (keys.length === 0) {
+      setSettingsLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/admin/settings?keys=${encodeURIComponent(keys.join(","))}`
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as Record<string, unknown>;
+      const map: Record<string, boolean> = {};
+      for (const k of keys) {
+        map[k] = data[k] === true;
+      }
+      setSettings(map);
+    } catch {
+      // silent
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCronStatus();
-  }, [fetchCronStatus]);
+    fetchSettings();
+  }, [fetchCronStatus, fetchSettings]);
+
+  async function toggleSetting(key: string, active: boolean) {
+    setToggleLoading((prev) => ({ ...prev, [key]: true }));
+    setToggleErrors((prev) => ({ ...prev, [key]: "" }));
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value: active }),
+      });
+      if (res.ok) {
+        setSettings((prev) => ({ ...prev, [key]: active }));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.detail || data.error || `Toggle failed (${res.status})`;
+        setToggleErrors((prev) => ({ ...prev, [key]: msg }));
+      }
+    } catch (err) {
+      setToggleErrors((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : "Network error",
+      }));
+    } finally {
+      setToggleLoading((prev) => ({ ...prev, [key]: false }));
+    }
+  }
 
   async function toggleCron(jobname: string, active: boolean) {
     setToggleLoading((prev) => ({ ...prev, [jobname]: true }));
@@ -202,8 +271,15 @@ export function TriggersTab() {
       <div className="space-y-2">
         {TRIGGERS.map((trigger) => {
           const cronJob = trigger.cronJobName ? cronJobs[trigger.cronJobName] : null;
-          const isToggling = trigger.cronJobName ? toggleLoading[trigger.cronJobName] : false;
-          const isActive = cronJob?.active ?? false;
+          const toggleKey = trigger.cronJobName ?? trigger.settingsKey ?? null;
+          const isToggling = toggleKey ? !!toggleLoading[toggleKey] : false;
+          const isSettingsBacked = !trigger.cronJobName && !!trigger.settingsKey;
+          const isActive = isSettingsBacked
+            ? !!settings[trigger.settingsKey!]
+            : (cronJob?.active ?? false);
+          const toggleDisabled = isSettingsBacked
+            ? settingsLoading || isToggling
+            : cronLoading || isToggling || !cronJob;
 
           return (
             <div
@@ -211,13 +287,19 @@ export function TriggersTab() {
               className="border border-white/[0.08] rounded-lg px-4 py-3 bg-white/[0.02]"
             >
               <div className="flex items-center gap-3">
-                {/* Cron toggle — separate from clickable area */}
-                {trigger.cronJobName ? (
+                {/* Toggle — cron-backed or settings-backed */}
+                {trigger.cronJobName || trigger.settingsKey ? (
                   <div className="flex-shrink-0">
                     <Switch
                       checked={isActive}
-                      onCheckedChange={(val) => toggleCron(trigger.cronJobName!, val)}
-                      disabled={cronLoading || isToggling || !cronJob}
+                      onCheckedChange={(val) => {
+                        if (trigger.cronJobName) {
+                          toggleCron(trigger.cronJobName, val);
+                        } else if (trigger.settingsKey) {
+                          toggleSetting(trigger.settingsKey, val);
+                        }
+                      }}
+                      disabled={toggleDisabled}
                     />
                   </div>
                 ) : (
@@ -247,9 +329,9 @@ export function TriggersTab() {
               </div>
 
               {/* Toggle error */}
-              {trigger.cronJobName && toggleErrors[trigger.cronJobName] && (
+              {toggleKey && toggleErrors[toggleKey] && (
                 <p className="mt-2 font-kosugi text-[11px] text-[#93321A]">
-                  Toggle failed: {toggleErrors[trigger.cronJobName]}
+                  Toggle failed: {toggleErrors[toggleKey]}
                 </p>
               )}
             </div>

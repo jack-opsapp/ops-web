@@ -295,6 +295,9 @@ export interface BlogPost {
   display_views: number;
   word_count: number;
   faqs: { question: string; answer: string }[];
+  email_content: string | null;
+  linkedin_article: string | null;
+  image_prompt: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;
