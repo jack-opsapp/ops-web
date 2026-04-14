@@ -26,6 +26,14 @@ export async function upsertDailyAccount(row: Omit<AdsDailyAccount, "synced_at">
     .upsert({ ...row, synced_at: new Date().toISOString() }, { onConflict: "date" });
 }
 
+export async function upsertDailyAccountBatch(rows: Omit<AdsDailyAccount, "synced_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
+  await db()
+    .from("ads_daily_account")
+    .upsert(withTimestamp, { onConflict: "date" });
+}
+
 export async function upsertDailyCampaigns(rows: Omit<AdsDailyCampaign, "synced_at">[]): Promise<void> {
   if (rows.length === 0) return;
   const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));

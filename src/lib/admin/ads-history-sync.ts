@@ -13,6 +13,7 @@ import {
 } from "@/lib/analytics/google-ads-client";
 import {
   upsertDailyAccount,
+  upsertDailyAccountBatch,
   upsertDailyCampaigns,
   updateSyncStatus,
 } from "./ads-history-queries";
@@ -67,34 +68,19 @@ export async function syncDay(date: Date): Promise<void> {
 
 /**
  * Sync a chunk of dates (up to ~30 days) using bulk daily-segmented queries.
- * Two API calls per chunk instead of 2 per day.
+ * Two API calls + two batched upserts per chunk.
+ * Returns the count of account rows synced (= days with data in the range).
  */
-async function syncChunk(chunkStart: Date, chunkEnd: Date): Promise<number> {
+export async function syncChunk(chunkStart: Date, chunkEnd: Date): Promise<number> {
   const [accountRows, campaignRows] = await Promise.all([
     queryDailyAccountData(chunkStart, chunkEnd),
     queryDailyCampaignData(chunkStart, chunkEnd),
   ]);
 
-  let synced = 0;
+  await upsertDailyAccountBatch(accountRows);
+  await upsertDailyCampaigns(campaignRows);
 
-  // Upsert account rows
-  for (const row of accountRows) {
-    await upsertDailyAccount(row);
-    synced++;
-  }
-
-  // Group campaign rows by date and upsert in batches
-  const campaignsByDate = new Map<string, typeof campaignRows>();
-  for (const row of campaignRows) {
-    const existing = campaignsByDate.get(row.date) ?? [];
-    existing.push(row);
-    campaignsByDate.set(row.date, existing);
-  }
-  for (const [, rows] of campaignsByDate) {
-    await upsertDailyCampaigns(rows);
-  }
-
-  return synced;
+  return accountRows.length;
 }
 
 /**

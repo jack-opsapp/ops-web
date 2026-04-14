@@ -7,6 +7,7 @@ export function SyncStatusBar() {
   const [dailySync, setDailySync] = useState<AdsSyncStatus | null>(null);
   const [backfill, setBackfill] = useState<AdsSyncStatus | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -39,11 +40,24 @@ export function SyncStatusBar() {
   }, [backfillRunning, fetchStatus]);
 
   const handleBackfill = useCallback(async () => {
+    setStartError(null);
     setBackfillRunning(true);
     try {
-      await fetch("/api/admin/google-ads/backfill", { method: "POST" });
-    } catch { /* silent */ }
-  }, []);
+      const res = await fetch("/api/admin/google-ads/backfill", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = typeof body?.error === "string" ? body.error : `HTTP ${res.status}`;
+        setStartError(msg);
+        setBackfillRunning(false);
+        return;
+      }
+      // Kick status polling immediately — the server queued the job.
+      await fetchStatus();
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+      setBackfillRunning(false);
+    }
+  }, [fetchStatus]);
 
   const progress = backfill?.backfill_progress;
   const pct = progress ? Math.round((progress.completedDays / progress.totalDays) * 100) : 0;
@@ -80,11 +94,15 @@ export function SyncStatusBar() {
       )}
 
       {/* Error */}
-      {(backfill?.status === "failed" && backfill.error) && (
-        <span className="text-[#93321A] truncate max-w-[200px]" title={backfill.error}>
+      {startError ? (
+        <span className="text-[#93321A] truncate max-w-[300px]" title={startError}>
+          {startError}
+        </span>
+      ) : (backfill?.status === "failed" && backfill.error) ? (
+        <span className="text-[#93321A] truncate max-w-[300px]" title={backfill.error}>
           {backfill.error}
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

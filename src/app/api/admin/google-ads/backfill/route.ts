@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireAdmin } from "@/lib/admin/api-auth";
-import { syncDateRange } from "@/lib/admin/ads-history-sync";
 import { getSyncStatus, updateSyncStatus } from "@/lib/admin/ads-history-queries";
 
-export const maxDuration = 300;
+export const maxDuration = 60;
+
+function fmt(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,69 +16,91 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Check if already running (with 10-minute stale timeout)
+  // Stale-run detection (10 min)
   const current = await getSyncStatus("backfill");
   if (current?.status === "running") {
     const updatedAt = new Date(current.updated_at).getTime();
-    const staleAfterMs = 10 * 60 * 1000; // 10 minutes
-    const isStale = Date.now() - updatedAt > staleAfterMs;
-
+    const isStale = Date.now() - updatedAt > 10 * 60 * 1000;
     if (!isStale) {
       return NextResponse.json({ error: "Backfill already in progress" }, { status: 409 });
     }
-    // Stale run — reset and allow restart
     await updateSyncStatus("backfill", { status: "failed", error: "Previous run timed out" });
   }
 
   // Default: 2 years ago → yesterday
   const body = await req.json().catch(() => ({}));
   const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setUTCHours(0, 0, 0, 0);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const twoYearsAgo = new Date();
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  twoYearsAgo.setUTCHours(0, 0, 0, 0);
+  twoYearsAgo.setUTCFullYear(twoYearsAgo.getUTCFullYear() - 2);
 
   const startDate = body.startDate ? new Date(body.startDate) : twoYearsAgo;
   const endDate = body.endDate ? new Date(body.endDate) : yesterday;
 
-  try {
-    await updateSyncStatus("backfill", {
-      status: "running",
-      error: null,
-      backfill_progress: {
-        currentDate: startDate.toISOString().split("T")[0],
-        startDate: startDate.toISOString().split("T")[0],
-        endDate: endDate.toISOString().split("T")[0],
-        totalDays: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1,
-        completedDays: 0,
-      },
-    });
-
-    const result = await syncDateRange(startDate, endDate, {
-      trackProgress: true,
-      rateLimitMs: 150,
-    });
-
-    if (result.synced === 0) {
-      const errorMsg = result.firstError
-        ? `All ${result.failed} days failed. First error: ${result.firstError}`
-        : `All ${result.failed} days failed to sync. Check Google Ads API credentials.`;
-      await updateSyncStatus("backfill", { status: "failed", error: errorMsg });
-      return NextResponse.json(
-        { status: "failed", error: errorMsg, ...result },
-        { status: 500 }
-      );
-    }
-
-    await updateSyncStatus("backfill", {
-      status: "complete",
-      last_synced_date: endDate.toISOString().split("T")[0],
-      error: result.failed > 0 ? `${result.failed} days failed` : null,
-    });
-
-    return NextResponse.json({ status: "complete", ...result });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await updateSyncStatus("backfill", { status: "failed", error: message });
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (!(startDate <= endDate)) {
+    return NextResponse.json({ error: "startDate must be <= endDate" }, { status: 400 });
   }
+
+  const totalDays =
+    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  await updateSyncStatus("backfill", {
+    status: "running",
+    error: null,
+    backfill_progress: {
+      currentDate: fmt(startDate),
+      startDate: fmt(startDate),
+      endDate: fmt(endDate),
+      totalDays,
+      completedDays: 0,
+    },
+  });
+
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    await updateSyncStatus("backfill", {
+      status: "failed",
+      error: "Missing CRON_SECRET env var (required to dispatch chunk worker)",
+    });
+    return NextResponse.json(
+      { error: "Server misconfigured: CRON_SECRET not set" },
+      { status: 500 }
+    );
+  }
+
+  const chunkUrl = new URL("/api/admin/google-ads/backfill/chunk", req.url).toString();
+
+  // Fire-and-forget the first chunk after the response is sent.
+  // Each chunk worker self-schedules the next chunk, so this one HTTP call
+  // starts a chain of independent function invocations, bypassing the 60s
+  // function limit that would kill a single long-running request.
+  after(async () => {
+    try {
+      await fetch(chunkUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${cronSecret}`,
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (err) {
+      console.error("[backfill] failed to dispatch first chunk:", err);
+      await updateSyncStatus("backfill", {
+        status: "failed",
+        error: `Failed to dispatch chunk worker: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  });
+
+  return NextResponse.json(
+    {
+      status: "queued",
+      startDate: fmt(startDate),
+      endDate: fmt(endDate),
+      totalDays,
+    },
+    { status: 202 }
+  );
 }
