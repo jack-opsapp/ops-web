@@ -40,6 +40,20 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceRoleClient();
 
+  // Idempotency check: if we've already successfully processed this event,
+  // ack and exit. Recorded AFTER processing (see bottom of handler) so a
+  // mid-handler failure still gets retried by Stripe.
+  const { data: existingEvent } = await supabase
+    .from("stripe_webhook_events")
+    .select("event_id")
+    .eq("event_id", event.id)
+    .maybeSingle();
+
+  if (existingEvent) {
+    console.log(`[stripe-webhook] Duplicate event ${event.id} (${event.type}) — skipping`);
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   // Handle payment_intent.succeeded
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -125,6 +139,24 @@ export async function POST(req: NextRequest) {
         subscription_ids_json: JSON.stringify([subscription.id]),
       };
 
+      // Persist trial window from Stripe — these are the canonical source.
+      // trial_start/trial_end are top-level unix seconds on Stripe.Subscription,
+      // present whenever the subscription has ever had a trial (even post-conversion).
+      if (subscription.trial_start) {
+        updates.trial_start_date = new Date(subscription.trial_start * 1000).toISOString();
+      }
+      if (subscription.trial_end) {
+        updates.trial_end_date = new Date(subscription.trial_end * 1000).toISOString();
+      }
+
+      // Grace period lifecycle: enter on past_due, clear on return to active/trialing.
+      // Writing null on recovery prevents a stale start date from lingering.
+      if (mappedStatus === "grace") {
+        updates.seat_grace_start_date = new Date().toISOString();
+      } else if (mappedStatus === "active" || mappedStatus === "trial") {
+        updates.seat_grace_start_date = null;
+      }
+
       await supabase
         .from("companies")
         .update(updates)
@@ -163,18 +195,37 @@ export async function POST(req: NextRequest) {
 
     const { data: company } = await supabase
       .from("companies")
-      .select("id")
+      .select("id, seat_grace_start_date")
       .eq("stripe_customer_id", customerId)
       .maybeSingle();
 
     if (company) {
+      const updates: Record<string, unknown> = { subscription_status: "grace" };
+      // Only set grace start on the first failure — subsequent retries must not
+      // extend the window by overwriting it.
+      if (!company.seat_grace_start_date) {
+        updates.seat_grace_start_date = new Date().toISOString();
+      }
+
       await supabase
         .from("companies")
-        .update({ subscription_status: "grace" })
+        .update(updates)
         .eq("id", company.id);
 
       console.log(`[stripe-webhook] Payment failed for company ${company.id}`);
     }
+  }
+
+  // Record successful processing. Any unique-violation here means a concurrent
+  // delivery of the same event beat us to it — still safe to ack.
+  const { error: recordError } = await supabase
+    .from("stripe_webhook_events")
+    .insert({ event_id: event.id, event_type: event.type });
+
+  if (recordError && (recordError as { code?: string }).code !== "23505") {
+    console.error("[stripe-webhook] Failed to record event:", recordError.message);
+    // Do not fail the response — the event was already applied. Stripe retrying
+    // would re-apply idempotently, but we prefer to ack.
   }
 
   return NextResponse.json({ received: true });

@@ -48,6 +48,14 @@
       "schedule": "0 4 * * *"
     },
     {
+      "path": "/api/cron/expire-grace-periods",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-stripe-subscriptions",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/project-health",
       "schedule": "0 8 * * *"
     },

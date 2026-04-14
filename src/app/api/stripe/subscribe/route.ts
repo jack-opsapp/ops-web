@@ -148,15 +148,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? new Date(periodEnd * 1000).toISOString()
       : new Date().toISOString();
 
+    const companyUpdates: Record<string, unknown> = {
+      subscription_status: "active",
+      subscription_plan: plan,
+      subscription_period: period,
+      subscription_end: subscriptionEnd,
+      subscription_ids_json: JSON.stringify([subscription.id]),
+      // Clear any lingering grace window from a prior failed subscription.
+      seat_grace_start_date: null,
+    };
+
+    // If the new subscription starts in a trial window, persist it. The webhook
+    // will overwrite these on subsequent state changes, but we set them here so
+    // the UI has correct countdown data immediately without waiting for the webhook.
+    if (subscription.trial_start) {
+      companyUpdates.trial_start_date = new Date(subscription.trial_start * 1000).toISOString();
+    }
+    if (subscription.trial_end) {
+      companyUpdates.trial_end_date = new Date(subscription.trial_end * 1000).toISOString();
+    }
+
     const { error: subUpdateError } = await supabase
       .from("companies")
-      .update({
-        subscription_status: "active",
-        subscription_plan: plan,
-        subscription_period: period,
-        subscription_end: subscriptionEnd,
-        subscription_ids_json: JSON.stringify([subscription.id]),
-      })
+      .update(companyUpdates)
       .eq("id", companyId);
 
     if (subUpdateError) {
