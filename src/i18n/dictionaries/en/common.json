@@ -59,5 +59,12 @@
   "bugReport.autoCapture": "PAGE URL AND ACCOUNT WILL BE ATTACHED AUTOMATICALLY",
   "bugReport.submit": "SUBMIT REPORT",
   "bugReport.sending": "SENDING...",
-  "bugReport.submitted": "Bug report submitted. Thank you."
+  "bugReport.submitted": "Bug report submitted. Thank you.",
+
+  "notification.confirmedTaskRescheduled.title": "CONFIRMED TASK RESCHEDULED",
+  "notification.confirmedTaskRescheduled.body": "A previously-confirmed appointment was changed. Consider letting the client know.",
+  "notification.confirmedTaskRescheduled.action": "Open Calendar",
+
+  "notification.autoConfirmedTasks.title": "TASKS AUTO-CONFIRMED",
+  "notification.autoConfirmedTasks.action": "Open Calendar"
 }

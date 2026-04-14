@@ -19,6 +19,7 @@ import {
   Boxes,
   Calculator,
   Radar,
+  BrainCircuit,
   Settings,
   LogOut,
   Building2,
@@ -37,6 +38,7 @@ import { useDictionary } from "@/i18n/client";
 import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
 import { useFeatureAccessRequests } from "@/lib/hooks/use-feature-access-requests";
 import { useUnifiedUnreadCount } from "@/lib/hooks/use-unified-inbox";
+import { useApprovalQueuePendingCount } from "@/lib/hooks/use-approval-queue";
 import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitions";
 import {
   DropdownMenu,
@@ -86,6 +88,7 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
     "divider",
     { label: t("nav.intel"), href: "/intel", icon: Radar },
+    { label: t("nav.agentQueue"), href: "/agent/queue", icon: BrainCircuit, permission: "admin" },
     "divider",
     { label: t("nav.settings"), href: "/settings", icon: Settings },
   ];
@@ -185,6 +188,7 @@ export function Sidebar() {
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
   const { data: inboxUnreadCount = 0 } = useUnifiedUnreadCount();
+  const { data: agentQueuePendingCount = 0 } = useApprovalQueuePendingCount();
 
   // Mobile: detect viewport and derive effective collapsed state
   const [isMobileView, setIsMobileView] = useState(false);
@@ -215,6 +219,10 @@ export function Sidebar() {
       if (entry !== "divider" && entry.href === "/inbox" && inboxUnreadCount > 0) {
         entry = { ...entry, badge: inboxUnreadCount };
       }
+      // Inject pending count badge for agent queue
+      if (entry !== "divider" && entry.href === "/agent/queue" && agentQueuePendingCount > 0) {
+        entry = { ...entry, badge: agentQueuePendingCount };
+      }
       if (entry === "divider") return entry;
       if (!entry.permission) return entry;
 
@@ -235,7 +243,7 @@ export function Sidebar() {
       if (i === 0 || i === arr.length - 1) return false;
       return arr[i - 1] !== "divider";
     });
-  }, [allNavItems, can, permissionsReady, isPermissionUnlocked, inboxUnreadCount]);
+  }, [allNavItems, can, permissionsReady, isPermissionUnlocked, inboxUnreadCount, agentQueuePendingCount]);
 
   const handleSignOut = useCallback(() => {
     beginSignOut(currentUser?.firstName || "", currentUser?.lastName || "");

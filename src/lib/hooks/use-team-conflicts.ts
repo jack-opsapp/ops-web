@@ -43,7 +43,7 @@ async function fetchTeamConflicts(
     .eq("company_id", companyId)
     .neq("project_id", excludeProjectId)
     .is("deleted_at", null)
-    .not("status", "in", '("Completed","Cancelled")')
+    .not("status", "in", '("completed","cancelled")')
     .not("start_date", "is", null)
     .not("end_date", "is", null)
     .gte("end_date", rangeStart.toISOString())

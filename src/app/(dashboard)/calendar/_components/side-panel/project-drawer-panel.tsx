@@ -15,6 +15,7 @@ import {
 } from "@/lib/hooks";
 import {
   PROJECT_STATUS_COLORS,
+  TaskStatus,
   getTaskDisplayTitle,
   getTaskEffectiveColor,
 } from "@/lib/types/models";
@@ -220,7 +221,7 @@ export function ProjectDrawerPanel() {
         companyId: company.id,
         taskTypeId: defaultTaskType?.id ?? "",
         customTitle: newTaskTitle.trim(),
-        status: "Booked" as ProjectTask["status"],
+        status: TaskStatus.Booked,
         taskColor: defaultTaskType?.color ?? "#59779F",
         displayOrder: sortedTasks.length,
         taskIndex: sortedTasks.length,

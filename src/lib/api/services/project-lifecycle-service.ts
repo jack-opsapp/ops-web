@@ -18,6 +18,7 @@ import { AssignmentService } from "./assignment-service";
 import { BusinessContextService } from "./business-context-service";
 import { AIDraftService } from "./ai-draft-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
+import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
 import type {
   SendStatusEmailActionData,
   ReassignTaskActionData,
@@ -25,22 +26,56 @@ import type {
   CreateTaskActionData,
 } from "@/lib/types/approval-queue";
 
+// ─── Stage Normalization ────────────────────────────────────────────────────
+
+/**
+ * Accept any legacy or display form of a project status and normalize to
+ * the production lowercase canonical values:
+ *   rfq, estimated, accepted, in_progress, completed, closed, archived.
+ * See docs/reference §1d for verification against live data.
+ */
+function normalizeProjectStage(input: string): string {
+  const slug = input.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+  switch (slug) {
+    case "rfq": return "rfq";
+    case "estimated": return "estimated";
+    case "accepted": return "accepted";
+    case "in_progress": return "in_progress";
+    case "completed": return "completed";
+    case "closed": return "closed";
+    case "archived": return "archived";
+    default: return slug;
+  }
+}
+
 // ─── Stage-to-Task Defaults ─────────────────────────────────────────────────
 
-const DEFAULT_STAGE_TASKS: Record<string, string[]> = {
-  "rfq→estimated": ["Site Visit", "Prepare Estimate"],
+/**
+ * Default follow-up tasks to seed when a project moves between stages.
+ * Values are i18n keys into `server-emails` — resolved at propose time
+ * using the company's locale so the task title the user sees is in the
+ * right language.
+ */
+const DEFAULT_STAGE_TASK_KEYS: Record<string, string[]> = {
+  "rfq→estimated": [
+    "lifecycle.task.siteVisit",
+    "lifecycle.task.prepareEstimate",
+  ],
   "estimated→accepted": [
-    "Order Materials",
-    "Schedule Crew",
-    "Send Confirmation Email",
+    "lifecycle.task.orderMaterials",
+    "lifecycle.task.scheduleCrew",
+    "lifecycle.task.sendConfirmationEmail",
   ],
-  "accepted→in_progress": ["Pre-Job Walkthrough", "Day-Of Setup"],
+  "accepted→in_progress": [
+    "lifecycle.task.preJobWalkthrough",
+    "lifecycle.task.dayOfSetup",
+  ],
   "in_progress→completed": [
-    "Final Inspection",
-    "Send Completion Email",
-    "Send Invoice",
+    "lifecycle.task.finalInspection",
+    "lifecycle.task.sendCompletionEmail",
+    "lifecycle.task.sendInvoice",
   ],
-  "completed→closed": ["Schedule 30-Day Follow-Up"],
+  "completed→closed": ["lifecycle.task.scheduleFollowUp"],
 };
 
 // ─── Lifecycle Configuration Defaults ───────────────────────────────────────
@@ -218,15 +253,17 @@ async function getHistoricalTaskPatterns(
   const supabase = requireSupabase();
 
   // Find projects that have passed through this stage (now in a later stage).
-  // Stage order: rfq → estimated → accepted → in_progress → completed → closed → archived
+  // Stage order (DB CHECK-constraint values, title case):
+  //   RFQ → Estimated → Accepted → In Progress → Completed → Closed → Archived
   const STAGE_ORDER = ["rfq", "estimated", "accepted", "in_progress", "completed", "closed", "archived"];
-  const stageIndex = STAGE_ORDER.indexOf(newStage.toLowerCase());
+  const normalizedInput = normalizeProjectStage(newStage);
+  const stageIndex = STAGE_ORDER.indexOf(normalizedInput);
   const laterStages = stageIndex >= 0
     ? STAGE_ORDER.slice(stageIndex + 1)
     : [];
 
   // Include the current stage AND later stages (they all went through this stage)
-  const relevantStages = [newStage.toLowerCase(), ...laterStages].filter(Boolean);
+  const relevantStages = [normalizedInput, ...laterStages].filter(Boolean);
 
   const { data: projects } = await supabase
     .from("projects")
@@ -297,10 +334,31 @@ export const ProjectLifecycleService = {
       `[project-lifecycle] Stage change detected: ${transitionKey} for project ${projectId}`
     );
 
-    // Determine which tasks to suggest
+    // Determine which tasks to suggest. Overrides from company settings
+    // are stored verbatim (user-chosen names). Defaults are i18n keys
+    // that we resolve against the company's locale so the proposed task
+    // titles show up in the right language when the user is browsing
+    // the approval queue.
     const configuredTasks = config.stage_task_overrides[transitionKey];
-    const defaultTasks = DEFAULT_STAGE_TASKS[transitionKey];
-    const taskNames = configuredTasks ?? defaultTasks ?? [];
+    let taskNames: string[];
+
+    if (configuredTasks && configuredTasks.length > 0) {
+      taskNames = configuredTasks;
+    } else {
+      const defaultKeys = DEFAULT_STAGE_TASK_KEYS[transitionKey] ?? [];
+      if (defaultKeys.length === 0) {
+        console.log(
+          `[project-lifecycle] No task mappings for transition ${transitionKey}`
+        );
+        return;
+      }
+      const locale = await getCompanyLocale(companyId);
+      taskNames = await Promise.all(
+        defaultKeys.map((key) =>
+          renderServerString(locale, "server-emails", key)
+        )
+      );
+    }
 
     if (taskNames.length === 0) {
       console.log(
@@ -488,6 +546,24 @@ export const ProjectLifecycleService = {
     console.log(
       `[project-lifecycle] Proposed follow-up tasks for ${transitionKey} on ${projectId}`
     );
+
+    // I1.5: When project reaches "completed", suggest an invoice
+    if (newStage.toLowerCase() === "completed") {
+      import("./invoice-suggestion-service")
+        .then(({ InvoiceSuggestionService }) =>
+          InvoiceSuggestionService.suggestInvoiceFromCompletion(
+            companyId,
+            userId,
+            projectId
+          )
+        )
+        .catch((err) =>
+          console.error(
+            "[project-lifecycle] Invoice suggestion on completion error:",
+            err
+          )
+        );
+    }
   },
 
   // ── P3.2 — Client Status Update Emails ─────────────────────────────
@@ -571,19 +647,25 @@ export const ProjectLifecycleService = {
         .select("id", { count: "exact", head: true })
         .eq("project_id", projectId)
         .eq("company_id", companyId)
-        .in("status", ["completed", "complete"])
+        .eq("status", "completed")
         .gte("updated_at", lastStatusDate.toISOString())
         .is("deleted_at", null);
       tasksCompletedSinceLast = count ?? 0;
     } else {
       // First status email — count all completed tasks
       tasksCompletedSinceLast = projectCtx.tasks?.filter(
-        (t) => t.status === "completed" || t.status === "complete"
+        (t) => t.status === "completed"
       ).length ?? 0;
     }
 
     // Generate draft using AI
-    const subject = `Project Update: ${projectCtx.title}`;
+    const locale = await getCompanyLocale(companyId);
+    const subject = await renderServerString(
+      locale,
+      "server-emails",
+      "statusEmail.subject",
+      { projectTitle: projectCtx.title ?? "" }
+    );
     const completionPct = projectCtx.metrics?.completionPercent ?? 0;
 
     // Build a manual draft context for the AI
@@ -610,7 +692,10 @@ export const ProjectLifecycleService = {
       .single();
     const opportunityId = (projectRow?.opportunity_id as string) ?? undefined;
 
-    // Use AIDraftService for voice-matched draft
+    // Use AIDraftService for voice-matched draft. profileTypeOverride
+    // pins this draft to the "client_active_project" writing profile so
+    // that recordDraftOutcome() at execution time feeds edits back into
+    // the correct profile instead of resolving to "general".
     const draftResult = await AIDraftService.generateDraft({
       companyId,
       userId,
@@ -619,11 +704,85 @@ export const ProjectLifecycleService = {
       recipientEmail: projectCtx.client.email,
       recipientName: projectCtx.client.name ?? undefined,
       userInstruction: `Write a project status update email to the client. Here is the current project status:\n\n${statusSummary}\n\nProject summary: ${projectCtx.summary}\n\nKeep it professional, concise, and action-oriented. Include what's been completed and what's coming next.`,
+      profileTypeOverride: "client_active_project",
     });
 
-    const draftText = draftResult.available
-      ? draftResult.draft
-      : `Hi ${projectCtx.client.name ?? ""},\n\nI wanted to give you a quick update on your project "${projectCtx.title}".\n\n${completionPct > 0 ? `We're currently at ${completionPct}% completion. ` : ""}${tasksCompletedSinceLast > 0 ? `${tasksCompletedSinceLast} task${tasksCompletedSinceLast > 1 ? "s have" : " has"} been completed since our last update. ` : ""}${upcomingTaskCount > 0 ? `There ${upcomingTaskCount === 1 ? "is" : "are"} ${upcomingTaskCount} upcoming task${upcomingTaskCount > 1 ? "s" : ""} scheduled.` : ""}\n\nPlease let me know if you have any questions.\n\nBest regards`;
+    let draftText: string;
+    let draftHistoryId: string | null;
+
+    if (draftResult.available && draftResult.draft) {
+      draftText = draftResult.draft;
+      draftHistoryId = draftResult.draftHistoryId || null;
+    } else {
+      // AI unavailable — fall back to a templated message rendered in
+      // the company's locale. Insert a history row manually so edits to
+      // the fallback also feed the writing profile at execution time.
+      const progressParts: string[] = [];
+      if (completionPct > 0) {
+        progressParts.push(
+          await renderServerString(
+            locale,
+            "server-emails",
+            "statusEmail.progress.completion",
+            { percent: completionPct }
+          )
+        );
+      }
+      if (tasksCompletedSinceLast > 0) {
+        const completedKey =
+          tasksCompletedSinceLast === 1
+            ? "statusEmail.progress.tasksCompletedSingular"
+            : "statusEmail.progress.tasksCompletedPlural";
+        progressParts.push(
+          await renderServerString(
+            locale,
+            "server-emails",
+            completedKey,
+            { count: tasksCompletedSinceLast }
+          )
+        );
+      }
+      if (upcomingTaskCount > 0) {
+        const upcomingKey =
+          upcomingTaskCount === 1
+            ? "statusEmail.progress.upcomingSingular"
+            : "statusEmail.progress.upcomingPlural";
+        progressParts.push(
+          await renderServerString(
+            locale,
+            "server-emails",
+            upcomingKey,
+            { count: upcomingTaskCount }
+          )
+        );
+      }
+      const progressLine = progressParts.join("");
+
+      draftText = await renderServerString(
+        locale,
+        "server-emails",
+        "statusEmail.fallback",
+        {
+          clientName: projectCtx.client.name ?? "",
+          projectTitle: projectCtx.title ?? "",
+          progressLine,
+        }
+      );
+
+      const { data: fallbackHistory } = await supabase
+        .from("ai_draft_history")
+        .insert({
+          company_id: companyId,
+          user_id: userId,
+          connection_id: connectionId,
+          original_draft: draftText,
+          profile_type: "client_active_project",
+          status: "drafted",
+        })
+        .select("id")
+        .single();
+      draftHistoryId = (fallbackHistory?.id as string) ?? null;
+    }
 
     const actionData: SendStatusEmailActionData = {
       project_id: projectId,
@@ -637,6 +796,7 @@ export const ProjectLifecycleService = {
       completion_percent: completionPct,
       tasks_completed_since_last: tasksCompletedSinceLast,
       upcoming_tasks: upcomingTaskCount,
+      draft_history_id: draftHistoryId,
     };
 
     await ApprovalQueueService.proposeAction({
@@ -1010,8 +1170,7 @@ export const ProjectLifecycleService = {
 
       const totalTasks = allTasks?.length ?? 0;
       const completedTasks = (allTasks ?? []).filter(
-        (t) =>
-          t.status === "completed" || t.status === "complete"
+        (t) => t.status === "completed"
       ).length;
 
       // Check last activity — use the most recent task or calendar event update

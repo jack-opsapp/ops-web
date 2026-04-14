@@ -79,7 +79,7 @@ export function InventoryTab() {
               onChange={(e) => setNewUnitName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               placeholder={t("inventory.unitPlaceholder")}
-              className="flex-1 h-[32px]"
+              className="flex-1 h-[56px]"
             />
             <Button
               size="sm"

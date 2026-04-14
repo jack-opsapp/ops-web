@@ -7,6 +7,35 @@ import { notifCardFullVariants } from "@/lib/utils/motion";
 import { useNotificationRailStore } from "@/stores/notification-rail-store";
 import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
+import { useDictionary } from "@/i18n/client";
+
+/**
+ * Translate a notification string with graceful fallback.
+ *
+ * Services that emit notifications can use i18n dot-notation keys
+ * (e.g. "notification.confirmedTaskRescheduled.title") as the title/body
+ * and the rail component will resolve them at render time. Pre-i18n code
+ * that passes raw English strings still renders correctly — the fallback
+ * is "return raw if no translation exists".
+ */
+function translateNotif(
+  raw: string | null | undefined,
+  t: (key: string) => string
+): string | null {
+  if (!raw) return null;
+  // Only attempt translation if the string looks like a dot-key
+  // (contains '.', starts with a lowercase letter, no spaces). This
+  // guards existing notifications whose titles contain legitimate dots
+  // or sentences.
+  const looksLikeKey =
+    /^[a-z][a-zA-Z0-9._-]*$/.test(raw) && raw.includes(".");
+  if (!looksLikeKey) return raw;
+  const translated = t(raw);
+  // Our useDictionary returns the key itself when not found — that means
+  // "no translation". In that case we fall back to showing the raw key,
+  // which is still better than a missing notification.
+  return translated;
+}
 
 interface NotificationCardFullProps {
   notification: AppNotification;
@@ -34,6 +63,12 @@ export function NotificationCardFull({
   const closeModal = useNotificationRailStore((s) => s.closeModal);
   const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
   const isDuplicateReview = notification.type === "duplicates_found";
+  const { t } = useDictionary("common");
+
+  // Translate key-shaped title/body/action if they look like i18n dot-keys
+  const displayTitle = translateNotif(notification.title, t) ?? notification.title;
+  const displayBody = translateNotif(notification.body, t);
+  const displayActionLabel = translateNotif(notification.actionLabel, t);
 
   function handleCardClick() {
     if (isDuplicateReview) {
@@ -87,7 +122,7 @@ export function NotificationCardFull({
       {/* Row 1: Title + timestamp */}
       <div className="flex items-center gap-[8px] pr-[20px]">
         <span className="font-mohave text-body-sm text-text-primary text-left flex-1">
-          {notification.title}
+          {displayTitle}
         </span>
         <span className="font-mono text-[10px] text-text-disabled shrink-0">
           {formatTimestamp(notification.createdAt)}
@@ -95,16 +130,16 @@ export function NotificationCardFull({
       </div>
 
       {/* Row 2: Body */}
-      {notification.body && (
+      {displayBody && (
         <p className="font-mohave text-[12px] text-text-secondary text-left line-clamp-2 mt-[2px]">
-          {notification.body}
+          {displayBody}
         </p>
       )}
 
       {/* Row 3: Action label (visual indicator — whole card is clickable) */}
-      {(isDuplicateReview || (notification.actionLabel && notification.actionUrl)) && (
+      {(isDuplicateReview || (displayActionLabel && notification.actionUrl)) && (
         <span className="font-kosugi text-[10px] uppercase tracking-wider text-ops-accent inline-block mt-[4px]">
-          {isDuplicateReview ? "REVIEW" : notification.actionLabel}
+          {isDuplicateReview ? "REVIEW" : displayActionLabel}
         </span>
       )}
     </motion.div>

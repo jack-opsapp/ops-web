@@ -38,36 +38,52 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const results: Array<{
+    type StatusResult = {
       companyId: string;
       proposed: number;
       error?: string;
-    }> = [];
+    };
 
+    // Filter to phase_c companies first
+    const phaseCCompanyIds: string[] = [];
     for (const company of companies ?? []) {
       const companyId = company.id as string;
-
-      // Gate behind phase_c
       const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
         companyId,
         "phase_c"
       );
-      if (!enabled) continue;
+      if (enabled) phaseCCompanyIds.push(companyId);
+    }
 
-      try {
-        const proposed =
-          await ProjectLifecycleService.scheduleStatusUpdates(companyId);
+    // Process in parallel chunks of 3 (status updates involve AI calls)
+    const CHUNK_SIZE = 3;
+    const results: StatusResult[] = [];
 
-        if (proposed > 0) {
-          results.push({ companyId, proposed });
+    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
+      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.allSettled(
+        chunk.map(async (companyId): Promise<StatusResult> => {
+          const proposed =
+            await ProjectLifecycleService.scheduleStatusUpdates(companyId);
+          return { companyId, proposed };
+        })
+      );
+
+      for (let j = 0; j < chunkResults.length; j++) {
+        const r = chunkResults[j];
+        if (r.status === "fulfilled") {
+          if (r.value.proposed > 0) {
+            results.push(r.value);
+          }
+        } else {
+          const message =
+            r.reason instanceof Error ? r.reason.message : "Unknown error";
+          console.error(
+            `[project-status-updates] Error for company ${chunk[j]}:`,
+            message
+          );
+          results.push({ companyId: chunk[j], proposed: 0, error: message });
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        console.error(
-          `[project-status-updates] Error for company ${companyId}:`,
-          message
-        );
-        results.push({ companyId, proposed: 0, error: message });
       }
     }
 

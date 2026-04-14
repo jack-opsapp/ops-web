@@ -50,6 +50,10 @@ import { MapPreferencesTab } from "@/components/settings/map-preferences-tab";
 import { InventoryTab } from "@/components/settings/inventory-tab";
 import { SetupWizardsTab } from "@/components/settings/setup-wizards-tab";
 import { EmailTemplatesTab } from "@/components/settings/email-templates-tab";
+import { LifecycleSettingsTab } from "@/components/settings/lifecycle-settings-tab";
+import { InvoiceSettingsTab } from "@/components/settings/invoice-settings-tab";
+import { FinancialSettingsTab } from "@/components/settings/financial-settings-tab";
+import { ClientCommsSettingsTab } from "@/components/settings/client-comms-settings-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -120,6 +124,10 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "templates", labelKey: "sections.templates" },
       { id: "email-templates", labelKey: "sections.emailTemplates" },
       { id: "accounting", labelKey: "sections.accounting" },
+      { id: "lifecycle", labelKey: "sections.lifecycle" },
+      { id: "invoice-automation", labelKey: "sections.invoiceAutomation" },
+      { id: "financial-intelligence", labelKey: "sections.financialIntelligence" },
+      { id: "client-comms", labelKey: "sections.clientComms" },
     ],
   },
   {
@@ -167,6 +175,7 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   integrations: { group: "integrations", sub: "email" },
   portal: { group: "integrations", sub: "portal" },
   accounting: { group: "integrations", sub: "accounting" },
+  "client-comms": { group: "integrations", sub: "client-comms" },
   preferences: { group: "preferences", sub: "preferences-general" },
   map: { group: "preferences", sub: "map" },
   "data-privacy": { group: "preferences", sub: "data-privacy" },
@@ -192,6 +201,10 @@ const CONTENT_MAP: Record<string, React.ComponentType> = {
   templates: DocumentTemplatesTab,
   "email-templates": EmailTemplatesTab,
   accounting: AccountingTab,
+  lifecycle: LifecycleSettingsTab,
+  "invoice-automation": InvoiceSettingsTab,
+  "financial-intelligence": FinancialSettingsTab,
+  "client-comms": ClientCommsSettingsTab,
   "preferences-general": PreferencesTab,
   notifications: NotificationsTab,
   map: MapPreferencesTab,

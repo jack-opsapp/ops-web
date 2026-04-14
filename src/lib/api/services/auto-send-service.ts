@@ -231,6 +231,9 @@ export const AutoSendService = {
     const currentSettings =
       (current?.auto_send_settings as Record<string, unknown>) || {};
 
+    // E5: Extended settings type — includes auto_draft_enabled + category_autonomy
+    const ext = settings as Record<string, unknown>;
+
     const merged = {
       ...currentSettings,
       ...(settings.enabled !== undefined && { enabled: settings.enabled }),
@@ -250,6 +253,13 @@ export const AutoSendService = {
       ...(settings.enabled === true && !currentSettings.enabled_at
         ? { enabled_at: new Date().toISOString() }
         : {}),
+      // E5: Auto-draft and per-category autonomy fields
+      ...(ext.auto_draft_enabled !== undefined && {
+        auto_draft_enabled: ext.auto_draft_enabled,
+      }),
+      ...(ext.category_autonomy !== undefined && {
+        category_autonomy: ext.category_autonomy,
+      }),
     };
 
     await supabase

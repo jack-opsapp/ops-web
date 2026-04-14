@@ -1,0 +1,122 @@
+{
+  "label.tomorrow": "Tomorrow",
+  "label.flexible": "Flexible",
+
+  "action.editDraft": "Edit",
+  "action.collapse": "Hide",
+
+  "card.client": "Client",
+  "card.project": "Project",
+  "card.scheduled": "Scheduled",
+  "card.crew": "Crew",
+  "card.crewArriving": "Crew arriving",
+  "card.address": "Address",
+  "card.duration": "Duration",
+  "card.subject": "Subject",
+  "card.emailPreview": "Email preview",
+  "card.replyPreview": "Reply preview",
+  "card.incomingMessage": "Incoming message",
+  "card.detectedTask": "Detected task",
+  "card.reasonGiven": "Reason given",
+  "card.chooseAlternative": "Choose alternative",
+  "card.classificationConfidence": "Classification confidence",
+  "card.subcontractor": "Subcontractor",
+  "card.trade": "Trade",
+  "card.mainCrewSchedule": "Main crew schedule",
+  "card.scopeOfWork": "Scope of work",
+
+  "summary.appointment_confirmation": "Confirm {{clientName}}'s appointment on {{date}}",
+  "summary.day_before_reminder": "Remind {{clientName}} about the upcoming visit",
+  "summary.appointment_reminder": "Remind {{clientName}} about the upcoming visit",
+  "summary.schedule_changed": "Notify {{clientName}} that \"{{taskTitle}}\" moved to {{newDate}}",
+  "summary.reschedule_request": "{{clientName}} wants to reschedule \"{{taskTitle}}\"",
+  "summary.subcontractor_coordination": "Coordinate with {{subcontractorName}} on \"{{projectTitle}}\"",
+
+  "weather.warning": "Weather warning",
+  "weather.low": "Low risk",
+  "weather.medium": "Medium risk",
+  "weather.high": "High risk",
+  "weather.reason.winter_risk": "Winter conditions in {{month}} may affect outdoor work",
+  "weather.reason.no_seasonal_risk": "No seasonal weather risk detected",
+  "weather.reason.disabled": "Weather awareness is disabled",
+
+  "reasoning.assigned_crew_next_gap": "Next availability for {{memberName}}",
+  "reasoning.client_requested": "Client-requested date",
+  "reasoning.fallback_two_days": "Fallback: two days from now",
+
+  "settings.title": "Client Communications",
+  "settings.description": "Automated client messaging for scheduling — confirmations, reminders, reschedule requests, and subcontractor coordination",
+  "settings.save": "Save",
+  "settings.saving": "Saving",
+  "settings.saved": "Client comms settings saved",
+  "settings.error": "Failed to save client comms settings",
+
+  "settings.appointmentConfirmations": "Appointment confirmations",
+  "settings.enableAppointmentConfirmations": "Enable appointment confirmations",
+  "settings.appointmentDelayHours": "Delay after scheduling",
+  "settings.hoursSuffix": "hours",
+
+  "settings.dayBeforeReminders": "Day-before reminders",
+  "settings.enableDayBeforeReminders": "Enable day-before reminders",
+  "settings.sendHourUtc": "Cron send hour (UTC)",
+  "settings.hourUtcSuffix": "UTC",
+  "settings.includeWeather": "Include weather information",
+
+  "settings.rescheduleRequests": "Reschedule request detection",
+  "settings.enableRescheduleRequests": "Enable reschedule request detection",
+  "settings.minConfidence": "Minimum detection confidence",
+
+  "settings.subcontractorCoordination": "Subcontractor coordination",
+  "settings.enableSubcontractorCoordination": "Enable subcontractor coordination",
+
+  "settings.configuredOn": "Configured on {{date}}",
+  "settings.notConfigured": "Not yet configured — run the setup wizard to get started",
+  "settings.rerunWizard": "Re-run Setup Wizard",
+  "settings.edit": "Edit",
+  "settings.disabled": "Off",
+
+  "settings.statusUpdate": "Status updates",
+  "settings.appointmentConfirmationSingular": "Appointment confirmations",
+  "settings.appointmentReminderSingular": "Visit reminders",
+  "settings.paymentReminder": "Payment reminders",
+  "settings.invoiceCover": "Invoice cover emails",
+  "settings.rescheduleRequestSingular": "Reschedule requests",
+
+  "settings.cadence.off": "Off",
+  "settings.cadence.weekly": "Weekly",
+  "settings.cadence.biweekly": "Biweekly",
+  "settings.cadence.monthly": "Monthly",
+  "settings.cadence.on_stage_change": "On stage change",
+
+  "settings.autonomyValue.off": "Off",
+  "settings.autonomyValue.draft_to_queue": "Draft to approval queue",
+  "settings.autonomyValue.auto_send": "Auto-send after delay",
+
+  "settings.confirmationLevel.off": "Off",
+  "settings.confirmationLevel.manual": "Manual only",
+  "settings.confirmationLevel.draft_on_confirm": "Draft on confirm",
+  "settings.confirmationLevel.auto_send_on_confirm": "Auto-send on confirm",
+  "settings.confirmationLevel.full_auto": "Full auto",
+
+  "settings.confirmMode.explicit": "Explicit button",
+  "settings.confirmMode.automatic": "Automatic grace",
+
+  "settings.paymentPreset.standard": "Standard schedule",
+  "settings.paymentPreset.gentle": "Gentle schedule",
+  "settings.paymentPreset.aggressive": "Aggressive schedule",
+  "settings.paymentPreset.custom": "Custom schedule",
+
+  "settings.rescheduleBehavior.detect_only": "Detect and notify only",
+  "settings.rescheduleBehavior.detect_and_draft": "Detect and draft response",
+
+  "settings.subcontractorTrigger.manual": "Manual trigger only",
+  "settings.subcontractorTrigger.auto_suggest": "Auto-suggest on stage change",
+
+  "settings.dayOf": "day of visit",
+  "settings.before": "before",
+  "settings.maxN": "max {{n}}",
+  "settings.thresholdOver": "over ${{n}}",
+  "settings.thresholdAny": "any amount",
+  "settings.confidenceLabel": "{{pct}} confidence",
+  "settings.sendDelayShort": "{{n}} min delay"
+}

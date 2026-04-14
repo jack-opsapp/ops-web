@@ -12,10 +12,49 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import { WritingProfileService } from "./writing-profile-service";
 import { MemoryService } from "./memory-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
+import { BusinessContextService } from "./business-context-service";
+import { FinancialIntelligenceService } from "./financial-intelligence-service";
+import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { getDraftingOpenAI } from "./openai-clients";
 
 function getOpenAI() {
   return getDraftingOpenAI();
+}
+
+// ─── Profile Type Detection ─────────────────────────────────────────────────
+
+/**
+ * Determine the writing profile type from thread/opportunity context.
+ * Maps opportunity stage + thread signals to one of 10 profile types.
+ */
+function determineProfileType(
+  opportunityStage?: string,
+  recipientDomain?: string,
+  threadSubject?: string,
+): string {
+  // Internal emails
+  if (recipientDomain && recipientDomain.includes("opsapp")) return "internal";
+
+  // Stage-based classification from opportunity
+  if (opportunityStage) {
+    const stage = opportunityStage.toLowerCase();
+    if (stage === "new" || stage === "inquiry" || stage === "lead") return "client_new_inquiry";
+    if (stage === "quoting" || stage === "estimate" || stage === "proposal") return "client_quoting";
+    if (stage === "active" || stage === "in_progress" || stage === "won") return "client_active_project";
+    if (stage === "follow_up" || stage === "followup" || stage === "closed") return "client_followup";
+  }
+
+  // Subject-based heuristics
+  if (threadSubject) {
+    const lower = threadSubject.toLowerCase();
+    if (lower.includes("warranty") || lower.includes("defect") || lower.includes("repair")) return "warranty_claim";
+    if (lower.includes("quote") || lower.includes("estimate") || lower.includes("pricing")) return "client_quoting";
+    if (lower.includes("invoice") || lower.includes("payment") || lower.includes("billing")) return "client_active_project";
+    if (lower.includes("order") || lower.includes("supply") || lower.includes("material")) return "vendor_ordering";
+    if (lower.includes("sub") || lower.includes("coordinate") || lower.includes("schedule")) return "subtrade_coordination";
+  }
+
+  return "general";
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -31,6 +70,8 @@ export interface AIDraftRequest {
   recipientName?: string;
   /** Optional instruction from user e.g. "follow up on the quote" */
   userInstruction?: string;
+  /** Explicit profile type override — bypasses heuristic detection */
+  profileTypeOverride?: string;
 }
 
 export interface AIDraftResult {
@@ -40,6 +81,7 @@ export interface AIDraftResult {
   sources: string[];
   available: boolean;
   reason?: string;
+  profileType?: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -80,7 +122,7 @@ export function editDistance(a: string, b: string): number {
 
 /**
  * Detect specific changes between original and edited drafts.
- * Returns a list of change descriptions for learning.
+ * Full-spectrum: greeting, closing, tone, formality, structure, length.
  */
 export function detectChanges(
   original: string,
@@ -104,18 +146,96 @@ export function detectChanges(
     changes.push({ type: "closing", from: origClosing, to: editClosing });
   }
 
-  // Detect tone shift (rough heuristic: exclamation marks, capitalization)
+  // Detect tone shift: exclamation marks
   const origExcl = (original.match(/!/g) || []).length;
   const editExcl = (edited.match(/!/g) || []).length;
   if (Math.abs(origExcl - editExcl) >= 2) {
     changes.push({
-      type: "tone",
+      type: "tone_exclamation",
       from: `${origExcl} exclamations`,
       to: `${editExcl} exclamations`,
     });
   }
 
+  // Detect formality shift: contractions added/removed
+  const contractionPattern = /\b(don't|won't|can't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't|wouldn't|couldn't|shouldn't|didn't|it's|i'm|i'll|i've|we're|we'll|we've|they're|they'll|you're|you'll)\b/gi;
+  const origContractions = (original.match(contractionPattern) || []).length;
+  const editContractions = (edited.match(contractionPattern) || []).length;
+  if (editContractions > origContractions + 1) {
+    changes.push({ type: "formality_shift", from: "formal", to: "less_formal" });
+  } else if (origContractions > editContractions + 1) {
+    changes.push({ type: "formality_shift", from: "casual", to: "more_formal" });
+  }
+
+  // Detect structure change: bullets added/removed
+  const origBullets = (original.match(/^\s*[-*•]\s/gm) || []).length;
+  const editBullets = (edited.match(/^\s*[-*•]\s/gm) || []).length;
+  if (editBullets > origBullets + 1) {
+    changes.push({ type: "structure", from: "prose", to: "bullets" });
+  } else if (origBullets > editBullets + 1) {
+    changes.push({ type: "structure", from: "bullets", to: "prose" });
+  }
+
+  // Detect length change
+  const origWords = original.split(/\s+/).length;
+  const editWords = edited.split(/\s+/).length;
+  const lengthRatio = editWords / (origWords || 1);
+  if (lengthRatio < 0.6) {
+    changes.push({ type: "length", from: `${origWords} words`, to: `${editWords} words (shortened)` });
+  } else if (lengthRatio > 1.5) {
+    changes.push({ type: "length", from: `${origWords} words`, to: `${editWords} words (lengthened)` });
+  }
+
   return changes;
+}
+
+/**
+ * GPT-based edit diff analysis for significant edits.
+ * Detects tone shifts, phrasing substitutions, content corrections, and structure changes.
+ * Only called when edit distance is >10% of word count (significant changes).
+ */
+async function analyzeEditWithGPT(
+  original: string,
+  edited: string
+): Promise<{
+  toneShift: string | null;
+  substitutions: Array<{ from: string; to: string }>;
+  structureChanges: string[];
+  contentCorrections: string[];
+} | null> {
+  try {
+    const openai = getOpenAI();
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.4-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Compare an AI-generated email draft with the human-edited final version. Identify systematic changes the human made. Return JSON:
+{
+  "toneShift": "more_formal" | "less_formal" | "more_direct" | "softer" | null,
+  "substitutions": [{"from": "word/phrase in original", "to": "replacement in edited"}],
+  "structureChanges": ["added bullets", "shortened paragraphs", etc.],
+  "contentCorrections": ["added pricing info: $X per sqft", "removed incorrect claim about Y", etc.]
+}
+Only include systematic patterns, not one-off edits. substitutions should be word-for-word replacements that suggest a preference. contentCorrections are factual additions/removals.`,
+        },
+        {
+          role: "user",
+          content: `ORIGINAL DRAFT:\n${original.slice(0, 1500)}\n\nFINAL (HUMAN-EDITED) VERSION:\n${edited.slice(0, 1500)}`,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 200,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) return null;
+    return JSON.parse(content);
+  } catch (err) {
+    console.error("[ai-draft] GPT edit analysis failed:", err);
+    return null;
+  }
 }
 
 // ─── Service ────────────────────────────────────────────────────────────────
@@ -137,23 +257,6 @@ export const AIDraftService = {
       recipientName,
       userInstruction,
     } = req;
-
-    // ── Get writing profile ────────────────────────────────────────────
-    const profile = await WritingProfileService.getProfile(companyId, userId);
-    const emailsAnalyzed = (profile?.emails_analyzed as number) || 0;
-    const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
-
-    // Need at least some email data to match voice (relaxed: 10 emails = ~0.08 confidence)
-    if (emailsAnalyzed < 5) {
-      return {
-        draft: "",
-        draftHistoryId: "",
-        confidence: 0,
-        sources: [],
-        available: false,
-        reason: `Need more email data to match your voice (${emailsAnalyzed}/5 emails analyzed)`,
-      };
-    }
 
     // ── Fetch thread messages for context ───────────────────────────────
     let threadMessages: Array<{
@@ -179,6 +282,7 @@ export const AIDraftService = {
 
     // ── Fetch opportunity context ──────────────────────────────────────
     let opportunityContext = "";
+    let opportunityStage = "";
     let clientEmail = recipientEmail || "";
     let clientName = recipientName || "";
 
@@ -193,6 +297,7 @@ export const AIDraftService = {
         const client = opp.clients as unknown as Record<string, unknown>;
         clientEmail = clientEmail || (client.email as string) || "";
         clientName = clientName || (client.name as string) || "";
+        opportunityStage = (opp.stage as string) || "";
         opportunityContext = [
           opp.title ? `Project: ${opp.title}` : "",
           opp.ai_summary ? `Summary: ${opp.ai_summary}` : "",
@@ -203,8 +308,36 @@ export const AIDraftService = {
       }
     }
 
-    // ── Memory context (optional — only if phase_c enabled) ────────────
+    // ── Determine profile type and get writing profile ─────────────────
+    const threadSubject = threadMessages[0]?.subject || "";
+    const recipientDomain = (clientEmail || recipientEmail || "").split("@")[1] || "";
+    // Use userInstruction as fallback signal when no thread subject exists
+    const subjectSignal = threadSubject || userInstruction || "";
+    const profileType = req.profileTypeOverride ?? determineProfileType(opportunityStage, recipientDomain, subjectSignal);
+
+    const profile = await WritingProfileService.getProfile(companyId, userId, profileType);
+    const emailsAnalyzed = (profile?.emails_analyzed as number) || 0;
+    const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
+
+    // Need at least some email data to match voice (relaxed: 10 emails = ~0.08 confidence)
+    if (emailsAnalyzed < 5) {
+      return {
+        draft: "",
+        draftHistoryId: "",
+        confidence: 0,
+        sources: [],
+        available: false,
+        reason: `Need more email data to match your voice (${emailsAnalyzed}/5 emails analyzed)`,
+      };
+    }
+
+    // ── Memory + business context (optional — only if phase_c enabled) ─
     let memoryContext = "";
+    let companyContextBlock = "";
+    let clientContextBlock = "";
+    let pricingContextBlock = "";
+    let projectContextBlock = "";
+    let financialContextBlock = "";
     const sources: string[] = ["writing_profile"];
 
     try {
@@ -213,36 +346,165 @@ export const AIDraftService = {
           companyId,
           "phase_c"
         );
-      if (phaseCEnabled && clientEmail) {
-        const mem = await MemoryService.getContextForDraft(
-          companyId,
-          clientEmail,
-          opportunityContext
-        );
-        if (mem.pricingReferences.length > 0) {
-          memoryContext += `\nPricing references: ${mem.pricingReferences.slice(0, 5).join("; ")}`;
-          sources.push("pricing");
+      if (phaseCEnabled) {
+        // ── Semantic memory context ──────────────────────────────────────
+        if (clientEmail) {
+          const mem = await MemoryService.getContextForDraft(
+            companyId,
+            clientEmail,
+            opportunityContext
+          );
+          if (mem.pricingReferences.length > 0) {
+            memoryContext += `\nPricing references: ${mem.pricingReferences.slice(0, 5).join("; ")}`;
+            sources.push("pricing");
+          }
+          if (mem.currentPromotions.length > 0) {
+            memoryContext += `\nCurrent promotions: ${mem.currentPromotions.join("; ")}`;
+            sources.push("promotions");
+          }
+          if (mem.clientHistory.length > 0) {
+            memoryContext += `\nClient history: ${JSON.stringify(mem.clientHistory.slice(0, 3))}`;
+            sources.push("client_history");
+          }
+          if (
+            mem.relevantFacts.some((f) => f.category === "limitation")
+          ) {
+            const limitations = mem.relevantFacts
+              .filter((f) => f.category === "limitation")
+              .map((f) => f.content);
+            memoryContext += `\nLimitations: ${limitations.join("; ")}`;
+            sources.push("limitations");
+          }
         }
-        if (mem.currentPromotions.length > 0) {
-          memoryContext += `\nCurrent promotions: ${mem.currentPromotions.join("; ")}`;
-          sources.push("promotions");
+
+        // ── Live business data context (Layer 3) ────────────────────────
+        // Company context — always included (lightweight)
+        try {
+          const companyCx = await BusinessContextService.getCompanyContext(companyId);
+          if (companyCx.companyName !== "Unknown") {
+            companyContextBlock = companyCx.summary;
+            sources.push("company_data");
+          }
+        } catch {
+          // Non-fatal — company context is supplementary
         }
-        if (mem.clientHistory.length > 0) {
-          memoryContext += `\nClient history: ${JSON.stringify(mem.clientHistory.slice(0, 3))}`;
-          sources.push("client_history");
+
+        // Client context — if we have a client email
+        if (clientEmail) {
+          try {
+            const clientCx = await BusinessContextService.getClientContext(companyId, clientEmail);
+            if (clientCx.found) {
+              clientContextBlock = clientCx.summary;
+              sources.push("client_data");
+            }
+          } catch {
+            // Non-fatal
+          }
         }
-        if (
-          mem.relevantFacts.some((f) => f.category === "limitation")
-        ) {
-          const limitations = mem.relevantFacts
-            .filter((f) => f.category === "limitation")
-            .map((f) => f.content);
-          memoryContext += `\nLimitations: ${limitations.join("; ")}`;
-          sources.push("limitations");
+
+        // Pricing context — if thread mentions pricing/quoting
+        const threadText = threadMessages.map((m) => `${m.subject} ${m.body_text}`).join(" ").toLowerCase();
+        const pricingSignals = ["quote", "estimate", "price", "pricing", "cost", "how much", "rate", "budget", "proposal"];
+        const mentionsPricing = pricingSignals.some((signal) => threadText.includes(signal));
+        if (mentionsPricing || (userInstruction && pricingSignals.some((s) => userInstruction.toLowerCase().includes(s)))) {
+          try {
+            const pricingCx = await BusinessContextService.getPricingContext(companyId);
+            if (pricingCx.services.length > 0) {
+              pricingContextBlock = pricingCx.summary;
+              sources.push("pricing_data");
+            }
+          } catch {
+            // Non-fatal
+          }
+        }
+
+        // Financial intelligence context — for quoting/pricing and payment-related emails
+        const paymentSignals = ["payment", "overdue", "invoice", "balance", "past due", "reminder", "collect"];
+        const mentionsPayment = paymentSignals.some((s) => threadText.includes(s));
+        if (mentionsPricing || mentionsPayment) {
+          try {
+            const financialParts: string[] = [];
+
+            if (mentionsPricing) {
+              // Include win rate data for quoting context
+              const pricingOpt = await FinancialIntelligenceService.getPricingOptimization(companyId);
+              for (const svc of pricingOpt.serviceAnalysis.slice(0, 3)) {
+                financialParts.push(
+                  `${svc.service}: ${svc.winRate}% win rate, avg winning estimate $${svc.avgWinPrice.toLocaleString()}`
+                );
+              }
+
+              // Include seasonal context
+              const seasonal = await FinancialIntelligenceService.getSeasonalPatterns(companyId);
+              if (seasonal.peakMonths.length > 0) {
+                const now = new Date();
+                const currentMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][now.getMonth()];
+                const isPeak = seasonal.peakMonths.includes(currentMonth);
+                const isSlow = seasonal.slowMonths.includes(currentMonth);
+                if (isPeak) financialParts.push(`Current month (${currentMonth}) is a peak business period`);
+                else if (isSlow) financialParts.push(`Current month (${currentMonth}) is typically a slower period`);
+              }
+            }
+
+            if (mentionsPayment) {
+              // Include cash flow context for payment-related emails
+              const cashflow = await FinancialIntelligenceService.getCashFlowProjection(companyId, 30);
+              if (cashflow.outstanding > 0) {
+                financialParts.push(
+                  `Total outstanding: $${cashflow.outstanding.toLocaleString()}, overdue: $${cashflow.overdue.toLocaleString()}`
+                );
+              }
+
+              // Include client-specific payment history if we have their email
+              if (clientEmail) {
+                const clientCx = await BusinessContextService.getClientContext(companyId, clientEmail);
+                if (clientCx.found && clientCx.invoices.overdue > 0) {
+                  financialParts.push(
+                    `This client has ${clientCx.invoices.overdue} overdue invoice(s) totaling $${clientCx.invoices.overdueAmount.toLocaleString()}`
+                  );
+                }
+              }
+            }
+
+            if (financialParts.length > 0) {
+              financialContextBlock = financialParts.join("\n");
+              sources.push("financial_intelligence");
+            }
+          } catch {
+            // Non-fatal — financial context is supplementary
+          }
+        }
+
+        // Project context — if thread references a specific project via opportunity
+        if (opportunityId) {
+          try {
+            // Look up project linked to this opportunity
+            const { data: oppProject } = await supabase
+              .from("projects")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("opportunity_id", opportunityId)
+              .is("deleted_at", null)
+              .limit(1)
+              .single();
+
+            if (oppProject) {
+              const projectCx = await BusinessContextService.getProjectContext(
+                companyId,
+                oppProject.id as string
+              );
+              if (projectCx.found) {
+                projectContextBlock = projectCx.summary;
+                sources.push("project_data");
+              }
+            }
+          } catch {
+            // Non-fatal
+          }
         }
       }
     } catch {
-      // Memory is optional — don't fail the draft
+      // Memory + business context is optional — don't fail the draft
     }
 
     // ── Build thread context string ────────────────────────────────────
@@ -258,31 +520,67 @@ export const AIDraftService = {
       sources.push("thread_history");
     }
 
-    // ── Build system prompt ────────────────────────────────────────────
+    // ── Build system prompt with all 12 writing dimensions ─────────────
     const greetings = (profile?.greeting_patterns as string[]) || [];
     const closings = (profile?.closing_patterns as string[]) || [];
     const toneTraits = profile?.tone_traits || {};
     const avgSentLen = (profile?.avg_sentence_length as number) || 15;
     const formality = (profile?.formality_score as number) || 0.6;
-    const vocabPrefs = profile?.vocabulary_preferences as Record<string, unknown> | undefined;
+    const vocabPrefs = (profile?.vocabulary_preferences as Record<string, unknown>) || {};
+
+    // Extract 12-dimension sub-objects from vocabulary_preferences
+    const paragraphStructure = vocabPrefs.paragraph_structure as Record<string, unknown> | undefined;
+    const hedgingTendency = typeof vocabPrefs.hedging_tendency === "number" ? vocabPrefs.hedging_tendency as number : null;
+    const punctuationHabits = vocabPrefs.punctuation_habits as Record<string, number> | undefined;
+    const vocabComplexity = vocabPrefs.vocabulary_complexity as Record<string, unknown> | undefined;
+    const engagementStyle = vocabPrefs.engagement_style as Record<string, number> | undefined;
+    const emailLengthData = vocabPrefs.email_length as Record<string, unknown> | undefined;
+    const substitutions = vocabPrefs.substitutions as Record<string, string> | undefined;
+
+    // Extract response_structure from tone_traits (dimension 10)
+    const normalizedTraits = Array.isArray(toneTraits)
+      ? Object.fromEntries((toneTraits as string[]).map((t) => [t, true]))
+      : (toneTraits as Record<string, unknown>);
+    const responseStructure = normalizedTraits.response_structure as Record<string, string> | undefined;
+    const traitLabels = Object.entries(normalizedTraits)
+      .filter(([k, v]) => k !== "response_structure" && v === true)
+      .map(([k]) => k);
+
+    // Format tone traits as readable string
+    const toneString = traitLabels.length > 0 ? traitLabels.join(", ") : "neutral";
 
     const systemPrompt = `You are drafting an email reply for a trades business owner. Write in THEIR exact voice and style. The draft must be indistinguishable from an email they would write themselves.
 
-WRITING STYLE:
-- Greeting: ${greetings[0] || "Hi {name},"}${greetings.length > 1 ? ` (alternatives: ${greetings.slice(1, 3).join(", ")})` : ""}
-- Sign-off: ${closings[0] || "Cheers,"}${closings.length > 1 ? ` (alternatives: ${closings.slice(1, 3).join(", ")})` : ""}
-- Tone traits: ${Array.isArray(toneTraits) ? toneTraits.join(", ") : JSON.stringify(toneTraits)}
-- Average sentence length: ${avgSentLen.toFixed(0)} words
-- Formality: ${formality.toFixed(1)}/1.0 (0=very casual, 1=very formal)
-${vocabPrefs ? `- Vocabulary: ${JSON.stringify(vocabPrefs)}` : ""}
+WRITING VOICE (12 dimensions — match ALL of these):
 
-${opportunityContext ? `PROJECT CONTEXT:\n${opportunityContext}\n` : ""}
-${memoryContext ? `BUSINESS MEMORY:\n${memoryContext}\n` : ""}
+1. FORMALITY: ${formality.toFixed(2)}/1.0 (0=very casual, 1=very formal)
+2. SENTENCE LENGTH: Average ${avgSentLen.toFixed(0)} words per sentence
+3. PARAGRAPH STRUCTURE: ${paragraphStructure ? `${(paragraphStructure.prefersBullets as boolean) ? "Prefers bullet points" : "Prefers prose paragraphs"}, avg ${((paragraphStructure.avgParagraphLines as number) || 3).toFixed(1)} lines per paragraph` : "Standard paragraphs"}
+4. HEDGING: ${hedgingTendency !== null ? `${(hedgingTendency * 100).toFixed(0)}% of sentences use hedging ("maybe", "I think", "perhaps")` : "Unknown"}${hedgingTendency !== null && hedgingTendency < 0.1 ? " — this person is DIRECT, avoid hedging language" : ""}
+5. PUNCTUATION: ${punctuationHabits ? `Exclamations: ${(punctuationHabits.exclamation_marks || 0).toFixed(1)}/email, Em-dashes: ${(punctuationHabits.em_dashes || 0).toFixed(1)}/email, Semicolons: ${(punctuationHabits.semicolons || 0).toFixed(1)}/email, Ellipsis: ${(punctuationHabits.ellipsis || 0).toFixed(1)}/email` : "Standard"}
+6. VOCABULARY: ${vocabComplexity ? `Avg word length ${(vocabComplexity.avgWordLength as number || 4.5).toFixed(1)} chars, ${(vocabComplexity.usesTradeJargon as boolean) ? "uses trade jargon freely" : "avoids jargon"}` : "Standard vocabulary"}
+7. ENGAGEMENT: ${engagementStyle ? `${(engagementStyle.questionsPerEmail || 0).toFixed(1)} questions/email, ${((engagementStyle.directAddressFreq || 0) * 100).toFixed(0)}% "you/your", ${((engagementStyle.firstPersonFreq || 0) * 100).toFixed(0)}% "I/we"` : "Standard engagement"}
+8. GREETING: ${greetings[0] || "Hi {name},"}${greetings.length > 1 ? ` (alternatives: ${greetings.slice(1, 3).join(", ")})` : ""}
+9. SIGN-OFF: ${closings[0] || "Cheers,"}${closings.length > 1 ? ` (alternatives: ${closings.slice(1, 3).join(", ")})` : ""}
+10. RESPONSE STRUCTURE: ${responseStructure ? `Opens with: ${responseStructure.openingStyle || "business"}, Transitions: ${responseStructure.transitionStyle || "natural"}, Pre-closing: ${responseStructure.preClosingStyle || "call to action"}` : "Standard structure"}
+11. TONE: ${toneString}
+12. EMAIL LENGTH: ${emailLengthData ? `Average ${((emailLengthData.avgWordCount as number) || 100).toFixed(0)} words` : "Medium length"}
+
+${substitutions && Object.keys(substitutions).length > 0 ? `WORD PREFERENCES (always use the right-side word):\n${Object.entries(substitutions).map(([from, to]) => `- "${from}" → "${to}"`).join("\n")}\n` : ""}
+${companyContextBlock ? `YOUR COMPANY:\n${companyContextBlock}\n` : ""}
+${clientContextBlock ? `CLIENT HISTORY:\n${clientContextBlock}\n` : ""}
+${pricingContextBlock ? `PRICING DATA:\n${pricingContextBlock}\n` : ""}
+${financialContextBlock ? `FINANCIAL INTELLIGENCE:\n${financialContextBlock}\n` : ""}
+${projectContextBlock ? `PROJECT DETAILS:\n${projectContextBlock}\n` : ""}
+${opportunityContext ? `OPPORTUNITY:\n${opportunityContext}\n` : ""}
+${memoryContext ? `LEARNED KNOWLEDGE:\n${memoryContext}\n` : ""}
 
 RULES:
 - Do NOT mention AI or that this is auto-generated
-- Match the owner's voice EXACTLY — same greeting, same tone, same sentence structure
-- Be concise — trades owners write short, direct emails
+- Match the owner's voice EXACTLY across ALL 12 dimensions above
+- Match their punctuation habits precisely — if they rarely use exclamation marks, DO NOT add them
+- Match their hedging level — if they're direct, be direct; if they hedge, hedge similarly
+- Use their preferred word substitutions if listed above
 - Include relevant business details if available from context
 - Write in markdown format
 - Replace {name} in greeting with the client's first name`;
@@ -347,6 +645,7 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
         connection_id: connectionId,
         thread_id: threadId || null,
         original_draft: draft,
+        profile_type: profileType,
         status: "drafted",
       })
       .select("id")
@@ -358,26 +657,29 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       confidence,
       sources,
       available: true,
+      profileType,
     };
   },
 
   /**
    * Record the final version after user sends (or discards) an AI draft.
-   * Computes edit distance and detected changes, feeds back into writing profile.
+   * Computes edit distance, detected changes, and GPT diff analysis for significant edits.
+   * Feeds back into writing profile learning across all dimensions.
    */
   async recordDraftOutcome(
     draftHistoryId: string,
     companyId: string,
     userId: string,
     outcome: "sent" | "discarded",
-    finalVersion?: string
+    finalVersion?: string,
+    profileType: string = "general"
   ): Promise<void> {
     const supabase = requireSupabase();
 
-    // Fetch original draft
+    // Fetch original draft and its profile type
     const { data: history } = await supabase
       .from("ai_draft_history")
-      .select("original_draft")
+      .select("original_draft, profile_type")
       .eq("id", draftHistoryId)
       .eq("company_id", companyId)
       .single();
@@ -385,6 +687,8 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     if (!history) return;
 
     const original = history.original_draft as string;
+    // Use stored profile_type from when the draft was generated
+    const effectiveProfileType = (history.profile_type as string) || profileType;
 
     if (outcome === "discarded") {
       await supabase
@@ -400,37 +704,105 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     const noChanges = original.trim() === final.trim();
     const changes = noChanges ? [] : detectChanges(original, final);
 
+    // GPT-based analysis for significant edits (>10% words changed)
+    const origWordCount = original.split(/\s+/).length || 1;
+    let gptAnalysis: Awaited<ReturnType<typeof analyzeEditWithGPT>> = null;
+    if (!noChanges && distance / origWordCount > 0.1) {
+      gptAnalysis = await analyzeEditWithGPT(original, final);
+    }
+
+    // Merge GPT analysis into changes
+    const enrichedChanges = [...changes];
+    if (gptAnalysis) {
+      if (gptAnalysis.toneShift) {
+        enrichedChanges.push({ type: "tone_shift", from: "original", to: gptAnalysis.toneShift });
+      }
+      for (const sub of gptAnalysis.substitutions || []) {
+        enrichedChanges.push({ type: "substitution", from: sub.from, to: sub.to });
+      }
+      for (const sc of gptAnalysis.structureChanges || []) {
+        enrichedChanges.push({ type: "structure_gpt", from: "", to: sc });
+      }
+      for (const cc of gptAnalysis.contentCorrections || []) {
+        enrichedChanges.push({ type: "content_correction", from: "", to: cc });
+      }
+    }
+
     await supabase
       .from("ai_draft_history")
       .update({
         final_version: final,
         edit_distance: distance,
-        changes_made: changes,
+        changes_made: enrichedChanges,
         sent_without_changes: noChanges,
         status: "sent",
         sent_at: new Date().toISOString(),
       })
       .eq("id", draftHistoryId);
 
-    // Feed significant changes back into writing profile learning
-    if (changes.length > 0) {
-      await this.learnFromEdits(companyId, userId, changes);
+    // Feed changes back into writing profile learning (per profile type)
+    if (enrichedChanges.length > 0) {
+      await this.learnFromEdits(companyId, userId, enrichedChanges, effectiveProfileType);
+    }
+
+    // Store content corrections as high-priority agent_memories
+    if (gptAnalysis?.contentCorrections?.length) {
+      for (const correction of gptAnalysis.contentCorrections) {
+        try {
+          await supabase.from("agent_memories").insert({
+            company_id: companyId,
+            content: correction,
+            category: "correction",
+            memory_type: "correction",
+            confidence: 0.9,
+            source: "draft_edit",
+            decay_score: 1.0,
+          });
+        } catch {
+          // Non-fatal — correction memory is supplementary
+        }
+      }
+    }
+
+    // E5: Check autonomy milestones after draft feedback
+    // Look up connectionId from the draft history to pass to milestone service
+    try {
+      const { data: draftRecord } = await supabase
+        .from("ai_draft_history")
+        .select("connection_id")
+        .eq("id", draftHistoryId)
+        .single();
+
+      if (draftRecord?.connection_id && userId) {
+        AutonomyMilestoneService.checkMilestonesAfterDraftFeedback(
+          companyId,
+          userId,
+          draftRecord.connection_id as string,
+        ).catch((err) => {
+          console.error("[ai-draft] Milestone check failed (non-fatal):", err);
+        });
+      }
+    } catch {
+      // Non-fatal — milestone check is supplementary
     }
   },
 
   /**
-   * Learn from user edits to improve future drafts.
-   * If user consistently changes greetings/closings, update the profile.
+   * Full-spectrum edit learning.
+   * Learns from ALL types of edits: greetings, closings, tone shifts,
+   * phrasing substitutions, formality direction, and structure preferences.
+   * Thresholds: 3 for hard prefs (greeting/closing/substitution), 5 for soft (tone/structure).
    */
   async learnFromEdits(
     companyId: string,
     userId: string,
-    changes: Array<{ type: string; from: string; to: string }>
+    changes: Array<{ type: string; from: string; to: string }>,
+    profileType: string = "general"
   ): Promise<void> {
     const supabase = requireSupabase();
 
-    // Fetch recent edit patterns (last 20 drafts)
-    const { data: recentDrafts } = await supabase
+    // Fetch recent edit patterns (last 20 drafts), scoped by profile type
+    let draftsQuery = supabase
       .from("ai_draft_history")
       .select("changes_made")
       .eq("company_id", companyId)
@@ -440,46 +812,113 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       .order("created_at", { ascending: false })
       .limit(20);
 
+    // Scope to profile type for per-relationship learning.
+    // "general" intentionally learns from ALL profile types — it's the catch-all
+    // learner that aggregates cross-relationship patterns. Type-specific profiles
+    // only learn from their own drafts to capture per-relationship preferences.
+    if (profileType !== "general") {
+      draftsQuery = draftsQuery.eq("profile_type", profileType);
+    }
+
+    const { data: recentDrafts } = await draftsQuery;
+
     if (!recentDrafts || recentDrafts.length < 3) return;
 
-    // Count greeting and closing change patterns
+    // Aggregate all change patterns from recent drafts
     const greetingChanges = new Map<string, number>();
     const closingChanges = new Map<string, number>();
+    const toneShifts = new Map<string, number>();
+    const substitutionCounts = new Map<string, { to: string; count: number }>();
+    let structureToBullets = 0;
+    let structureToProse = 0;
+    let lengthShortened = 0;
+    let lengthLengthened = 0;
+    let formalityMoreFormal = 0;
+    let formalityLessFormal = 0;
 
     for (const row of recentDrafts) {
-      const rowChanges = (row.changes_made as Array<{ type: string; to: string }>) || [];
+      const rowChanges = (row.changes_made as Array<{ type: string; from: string; to: string }>) || [];
       for (const c of rowChanges) {
-        if (c.type === "greeting" && c.to) {
-          greetingChanges.set(c.to, (greetingChanges.get(c.to) || 0) + 1);
-        }
-        if (c.type === "closing" && c.to) {
-          closingChanges.set(c.to, (closingChanges.get(c.to) || 0) + 1);
+        switch (c.type) {
+          case "greeting":
+            if (c.to) greetingChanges.set(c.to, (greetingChanges.get(c.to) || 0) + 1);
+            break;
+          case "closing":
+            if (c.to) closingChanges.set(c.to, (closingChanges.get(c.to) || 0) + 1);
+            break;
+          case "tone_shift":
+            if (c.to) toneShifts.set(c.to, (toneShifts.get(c.to) || 0) + 1);
+            break;
+          case "tone_exclamation": {
+            // Parse exclamation counts from "N exclamations" format
+            const origCount = parseInt(c.from) || 0;
+            const editCount = parseInt(c.to) || 0;
+            if (editCount < origCount) {
+              // User removed exclamations → prefers fewer
+              toneShifts.set("fewer_exclamations", (toneShifts.get("fewer_exclamations") || 0) + 1);
+            } else if (editCount > origCount) {
+              toneShifts.set("more_exclamations", (toneShifts.get("more_exclamations") || 0) + 1);
+            }
+            break;
+          }
+          case "formality_shift":
+            if (c.to === "more_formal") formalityMoreFormal++;
+            else if (c.to === "less_formal") formalityLessFormal++;
+            break;
+          case "substitution":
+            if (c.from && c.to) {
+              const key = c.from.toLowerCase();
+              const existing = substitutionCounts.get(key);
+              if (existing && existing.to === c.to.toLowerCase()) {
+                existing.count++;
+              } else if (!existing) {
+                substitutionCounts.set(key, { to: c.to.toLowerCase(), count: 1 });
+              }
+            }
+            break;
+          case "structure":
+            if (c.to === "bullets") structureToBullets++;
+            else if (c.to === "prose") structureToProse++;
+            break;
+          case "structure_gpt":
+            if (c.to?.toLowerCase().includes("bullet")) structureToBullets++;
+            if (c.to?.toLowerCase().includes("shorten")) lengthShortened++;
+            break;
+          case "length":
+            if (c.to?.includes("shortened")) lengthShortened++;
+            else if (c.to?.includes("lengthened")) lengthLengthened++;
+            break;
         }
       }
     }
 
-    // If user changed greeting to the same thing 3+ times, update profile
+    // Fetch current profile
     const { data: profile } = await supabase
       .from("agent_writing_profiles")
-      .select("id, greeting_patterns, closing_patterns")
+      .select("id, greeting_patterns, closing_patterns, formality_score, vocabulary_preferences")
       .eq("company_id", companyId)
       .eq("user_id", userId)
+      .eq("profile_type", profileType)
       .single();
 
     if (!profile) return;
 
     const updates: Record<string, unknown> = {};
+    const vocabPrefs = (profile.vocabulary_preferences as Record<string, unknown>) || {};
 
+    // ── Hard preferences (threshold: 3) ─────────────────────────────────
+
+    // Greeting promotion
     for (const [greeting, count] of greetingChanges) {
       if (count >= 3) {
         const patterns = (profile.greeting_patterns as string[]) || [];
-        // Move preferred greeting to first position
         const filtered = patterns.filter((p) => p !== greeting);
         updates.greeting_patterns = [greeting, ...filtered].slice(0, 10);
         break;
       }
     }
 
+    // Closing promotion
     for (const [closing, count] of closingChanges) {
       if (count >= 3) {
         const patterns = (profile.closing_patterns as string[]) || [];
@@ -489,6 +928,73 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       }
     }
 
+    // Phrasing substitutions (3+ consistent changes to same replacement)
+    const existingSubs = (vocabPrefs.substitutions as Record<string, string>) || {};
+    let subsUpdated = false;
+    for (const [from, { to, count }] of substitutionCounts) {
+      if (count >= 3) {
+        existingSubs[from] = to;
+        subsUpdated = true;
+      }
+    }
+    if (subsUpdated) {
+      vocabPrefs.substitutions = existingSubs;
+      updates.vocabulary_preferences = vocabPrefs;
+    }
+
+    // ── Soft preferences (threshold: 5) ──────────────────────────────────
+
+    // Formality direction
+    if (formalityMoreFormal >= 5) {
+      const currentFormality = (profile.formality_score as number) || 0.5;
+      updates.formality_score = Math.min(1.0, currentFormality + 0.1);
+    } else if (formalityLessFormal >= 5) {
+      const currentFormality = (profile.formality_score as number) || 0.5;
+      updates.formality_score = Math.max(0.0, currentFormality - 0.1);
+    }
+
+    // Tone shift direction (from GPT analysis)
+    for (const [shift, count] of toneShifts) {
+      if (count >= 5) {
+        if (shift === "more_formal" || shift === "less_formal") {
+          const currentFormality = (updates.formality_score as number) ?? (profile.formality_score as number) ?? 0.5;
+          updates.formality_score = shift === "more_formal"
+            ? Math.min(1.0, currentFormality + 0.1)
+            : Math.max(0.0, currentFormality - 0.1);
+        }
+        // Other tone shifts stored for reference but don't auto-adjust numerical scores
+      }
+    }
+
+    // Structure preference
+    if (structureToBullets >= 5) {
+      const paragraphStructure = (vocabPrefs.paragraph_structure as Record<string, unknown>) || {};
+      paragraphStructure.prefersBullets = true;
+      vocabPrefs.paragraph_structure = paragraphStructure;
+      updates.vocabulary_preferences = vocabPrefs;
+    } else if (structureToProse >= 5) {
+      const paragraphStructure = (vocabPrefs.paragraph_structure as Record<string, unknown>) || {};
+      paragraphStructure.prefersBullets = false;
+      vocabPrefs.paragraph_structure = paragraphStructure;
+      updates.vocabulary_preferences = vocabPrefs;
+    }
+
+    // Exclamation preference (from tone_exclamation tracking)
+    const fewerExcl = toneShifts.get("fewer_exclamations") || 0;
+    const moreExcl = toneShifts.get("more_exclamations") || 0;
+    if (fewerExcl >= 5 || moreExcl >= 5) {
+      const punctHabits = (vocabPrefs.punctuation_habits as Record<string, number>) || {};
+      const current = punctHabits.exclamation_marks ?? 1.0;
+      if (fewerExcl >= 5) {
+        punctHabits.exclamation_marks = Math.max(0, current - 0.5);
+      } else {
+        punctHabits.exclamation_marks = current + 0.5;
+      }
+      vocabPrefs.punctuation_habits = punctHabits;
+      updates.vocabulary_preferences = vocabPrefs;
+    }
+
+    // Apply updates
     if (Object.keys(updates).length > 0) {
       updates.updated_at = new Date().toISOString();
       await supabase

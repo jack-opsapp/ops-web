@@ -159,7 +159,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       "opportunities",
       "clients",
       "products",
-      "task_types_v2",
+      "task_types",
       "users",
     ];
 

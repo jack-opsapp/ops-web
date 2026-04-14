@@ -7,10 +7,33 @@ import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import { getSyncOpenAI } from "./openai-clients";
+import { WritingProfileService } from "./writing-profile-service";
 
 // Uses OPENAI_API_KEY_SYNC — memory extraction runs during ongoing sync.
 function getOpenAI() {
   return getSyncOpenAI();
+}
+
+// normalizeToneTraits imported from writing-profile-service to avoid duplication
+
+/**
+ * Generate a 1536-dimension embedding vector using OpenAI text-embedding-3-small.
+ * Returns null on failure (non-fatal — memory still stored without embedding).
+ */
+export async function generateEmbedding(text: string): Promise<number[] | null> {
+  try {
+    // Truncate to ~8000 tokens (~32,000 chars) — model limit is 8191 tokens
+    const truncated = text.slice(0, 32000);
+    const response = await getOpenAI().embeddings.create({
+      model: "text-embedding-3-small",
+      input: truncated,
+      dimensions: 1536,
+    });
+    return response.data[0]?.embedding ?? null;
+  } catch (err) {
+    console.error("[memory-service] Embedding generation failed:", err);
+    return null;
+  }
 }
 
 // ─── Phase C Helpers (copied from analyze-continue to avoid route imports) ──
@@ -331,6 +354,11 @@ export const MemoryService = {
           })
           .eq("id", current.id);
       } else {
+        // Generate embedding for vector search retrieval
+        const embedding = await generateEmbedding(
+          `${fact.category}: ${fact.content}`
+        );
+
         await supabase.from("agent_memories").insert({
           company_id: companyId,
           user_id: userId,
@@ -340,6 +368,7 @@ export const MemoryService = {
           confidence: fact.confidence,
           source: "email",
           source_id: email.date,
+          ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
         });
       }
     }
@@ -625,6 +654,11 @@ export const MemoryService = {
             entityId = entityMatch?.id || null;
           }
 
+          // Generate embedding for vector search retrieval
+          const embedding = await generateEmbedding(
+            `${fact.category}: ${fact.content}`
+          );
+
           await supabase.from("agent_memories").insert({
             company_id: companyId,
             user_id: userId,
@@ -635,6 +669,7 @@ export const MemoryService = {
             source: 'email_import',
             source_id: thread.threadId,
             entity_id: entityId,
+            ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
           });
           factsExtracted++;
         }
@@ -789,13 +824,18 @@ Return JSON:
   "greeting_patterns": ["Hey {name},", "Hi {name},"],
   "closing_patterns": ["Thanks,", "Best,"],
   "avg_sentence_length": 12,
-  "formality_score": 6,
-  "tone_traits": ["direct", "professional", "warm"],
+  "formality_score": 0.6,
+  "tone_traits": {"direct": true, "professional": true, "warm": true},
   "vocabulary_preferences": ["appreciate", "looking forward to", "let me know"],
   "common_phrases": ["happy to help", "sounds good"],
-  "hedging_tendency": "low",
-  "punctuation_habits": {"exclamation_marks": "occasional", "ellipsis": "never", "oxford_comma": true}
-}`,
+  "hedging_tendency": 0.15,
+  "punctuation_habits": {"exclamation_marks": 1.5, "em_dashes": 0.3, "semicolons": 0.1, "ellipsis": 0.0, "parenthetical": 0.5}
+}
+
+IMPORTANT:
+- formality_score must be 0.0-1.0 (0=very casual, 1=very formal). NOT 1-10.
+- hedging_tendency must be a number 0.0-1.0 (fraction of sentences containing hedging phrases).
+- punctuation_habits values must be numbers (average count per email), NOT strings.`,
             },
             {
               role: 'user',
@@ -810,13 +850,43 @@ Return JSON:
         const content = response.choices[0]?.message?.content || '{}';
         const parsed = JSON.parse(content);
 
-        // Store common_phrases, hedging_tendency, punctuation_habits inside vocabulary_preferences JSONB
+        // Normalize hedging_tendency to number (GPT may return string like "low")
+        let hedgingNum = 0.2;
+        if (typeof parsed.hedging_tendency === 'number') {
+          hedgingNum = parsed.hedging_tendency;
+        } else if (typeof parsed.hedging_tendency === 'string') {
+          const hedgeMap: Record<string, number> = { none: 0, low: 0.15, moderate: 0.35, medium: 0.5, high: 0.7, very_high: 0.85 };
+          hedgingNum = hedgeMap[parsed.hedging_tendency.toLowerCase()] ?? 0.2;
+        }
+
+        // Normalize punctuation_habits to numbers (GPT may return strings like "occasional")
+        const rawPunctuation = parsed.punctuation_habits || {};
+        const punctMap: Record<string, number> = { never: 0, rare: 0.2, occasional: 0.8, sometimes: 1.0, moderate: 1.5, frequent: 3.0, heavy: 5.0 };
+        const normalizePunctValue = (v: unknown): number => {
+          if (typeof v === 'number') return v;
+          if (typeof v === 'string') return punctMap[v.toLowerCase()] ?? 0.5;
+          if (typeof v === 'boolean') return v ? 1.0 : 0;
+          return 0;
+        };
+        const normalizedPunctuation = {
+          exclamation_marks: normalizePunctValue(rawPunctuation.exclamation_marks ?? rawPunctuation.exclamations),
+          em_dashes: normalizePunctValue(rawPunctuation.em_dashes),
+          semicolons: normalizePunctValue(rawPunctuation.semicolons),
+          ellipsis: normalizePunctValue(rawPunctuation.ellipsis),
+          parenthetical: normalizePunctValue(rawPunctuation.parenthetical ?? rawPunctuation.parentheticals),
+        };
+
+        // Store in vocabulary_preferences JSONB
         const vocabPrefs = {
           words: Array.isArray(parsed.vocabulary_preferences) ? parsed.vocabulary_preferences : [],
           common_phrases: Array.isArray(parsed.common_phrases) ? parsed.common_phrases : [],
-          hedging_tendency: parsed.hedging_tendency || 'unknown',
-          punctuation_habits: parsed.punctuation_habits || {},
+          hedging_tendency: hedgingNum,
+          punctuation_habits: normalizedPunctuation,
         };
+
+        // Normalize formality_score to 0-1 (GPT may return 1-10 scale)
+        let formalityScore = typeof parsed.formality_score === 'number' ? parsed.formality_score : 0.5;
+        if (formalityScore > 1) formalityScore = formalityScore / 10; // Convert 1-10 → 0-1
 
         await supabase
           .from("agent_writing_profiles")
@@ -827,8 +897,8 @@ Return JSON:
             greeting_patterns: Array.isArray(parsed.greeting_patterns) ? parsed.greeting_patterns : [],
             closing_patterns: Array.isArray(parsed.closing_patterns) ? parsed.closing_patterns : [],
             avg_sentence_length: parsed.avg_sentence_length || 0,
-            formality_score: parsed.formality_score || 5,
-            tone_traits: Array.isArray(parsed.tone_traits) ? parsed.tone_traits : [],
+            formality_score: formalityScore,
+            tone_traits: WritingProfileService.normalizeToneTraits(parsed.tone_traits),
             vocabulary_preferences: vocabPrefs,
             emails_analyzed: selected.length,
             updated_at: new Date().toISOString(),
@@ -845,11 +915,14 @@ Return JSON:
 
   /**
    * Query memory for context relevant to drafting a reply.
+   * Uses hybrid retrieval: vector similarity search + category-based filtering.
+   * Vector results surface semantically relevant facts; category results ensure
+   * pricing, promotions, and limitations are always included.
    */
   async getContextForDraft(
     companyId: string,
     clientEmail: string,
-    _projectDescription: string
+    projectDescription: string
   ): Promise<{
     relevantFacts: MemoryFact[];
     clientHistory: Record<string, unknown>[];
@@ -858,49 +931,142 @@ Return JSON:
   }> {
     const supabase = requireSupabase();
 
-    const { data: pricingFacts } = await supabase
-      .from("agent_memories")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("category", "pricing")
-      .order("confidence", { ascending: false })
-      .limit(10);
+    // ── Vector similarity search (semantic relevance) ────────────────────────
+    // Build a context string from client + project info for embedding query
+    const queryText = [
+      clientEmail ? `client: ${clientEmail}` : '',
+      projectDescription || '',
+    ].filter(Boolean).join(' | ');
 
-    const { data: promotions } = await supabase
-      .from("agent_memories")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("category", "promotion")
-      .gt("confidence", 0.5)
-      .limit(5);
+    let vectorFacts: MemoryFact[] = [];
 
-    const { data: limitations } = await supabase
-      .from("agent_memories")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("category", "limitation")
-      .limit(10);
+    if (queryText.length > 10) {
+      const queryEmbedding = await generateEmbedding(queryText);
 
-    const { data: clientEdges } = await supabase
-      .from("agent_knowledge_graph")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("subject_id", clientEmail)
-      .is("valid_to", null);
+      if (queryEmbedding) {
+        // Use the match_memories function from migration 053
+        const { data: vectorResults } = await supabase
+          .rpc("match_memories", {
+            query_embedding: JSON.stringify(queryEmbedding),
+            match_company_id: companyId,
+            match_threshold: 0.3,
+            match_count: 15,
+          });
+
+        if (vectorResults) {
+          vectorFacts = (vectorResults as Record<string, unknown>[]).map((f) => ({
+            id: f.id as string,
+            type: f.memory_type as string,
+            category: f.category as string,
+            content: f.content as string,
+            confidence: f.confidence as number,
+            source: f.source as string,
+          }));
+
+          // Touch access timestamps + increment count for retrieved memories (fire-and-forget)
+          const ids = vectorFacts.map((f) => f.id);
+          if (ids.length > 0) {
+            supabase
+              .rpc("increment_access_count", { memory_ids: ids })
+              .then(null, (err) =>
+                console.error("[memory-service] Access count update failed:", err)
+              );
+          }
+        }
+      }
+    }
+
+    // ── Category-based retrieval (structured essentials) ─────────────────────
+    // Always fetch pricing, promotions, and limitations regardless of vector match
+    const [pricingResult, promotionsResult, limitationsResult, clientEdgesResult, entityEdgesResult] =
+      await Promise.all([
+        supabase
+          .from("agent_memories")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("category", "pricing")
+          .gt("decay_score", 0.1)
+          .order("confidence", { ascending: false })
+          .limit(10),
+        supabase
+          .from("agent_memories")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("category", "promotion")
+          .gt("confidence", 0.5)
+          .gt("decay_score", 0.1)
+          .limit(5),
+        supabase
+          .from("agent_memories")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("category", "limitation")
+          .gt("decay_score", 0.1)
+          .limit(10),
+        // Legacy text-based client edges
+        supabase
+          .from("agent_knowledge_graph")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("subject_id", clientEmail)
+          .is("valid_to", null),
+        // Entity-linked client edges (Phase C graph)
+        clientEmail
+          ? supabase
+              .from("graph_entities")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("entity_type", "person")
+              .eq("normalized_name", clientEmail.toLowerCase())
+              .limit(1)
+          : Promise.resolve({ data: null }),
+      ]);
+
+    const pricingFacts = pricingResult.data as Record<string, unknown>[] | null;
+    const promotions = promotionsResult.data as Record<string, unknown>[] | null;
+    const limitations = limitationsResult.data as Record<string, unknown>[] | null;
+    const clientEdges = clientEdgesResult.data as Record<string, unknown>[] | null;
+
+    // If we found a person entity, also fetch their entity-linked edges
+    let entityClientEdges: Record<string, unknown>[] = [];
+    const personEntity = entityEdgesResult.data;
+    if (personEntity && personEntity.length > 0) {
+      const personId = (personEntity[0] as Record<string, unknown>).id as string;
+      const { data: entityEdges } = await supabase
+        .from("agent_knowledge_graph")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("source_entity_id", personId)
+        .is("valid_to", null);
+      entityClientEdges = (entityEdges as Record<string, unknown>[]) || [];
+    }
+
+    // ── Merge & deduplicate vector + category results ────────────────────────
+    const categoryFacts: MemoryFact[] = [
+      ...((pricingFacts as Record<string, unknown>[]) || []),
+      ...((limitations as Record<string, unknown>[]) || []),
+    ].map((f) => ({
+      id: f.id as string,
+      type: f.memory_type as string,
+      category: f.category as string,
+      content: f.content as string,
+      confidence: f.confidence as number,
+      source: f.source as string,
+    }));
+
+    // Deduplicate: vector results take priority (higher relevance), then category fill-ins
+    const seenIds = new Set(vectorFacts.map((f) => f.id));
+    const mergedFacts = [...vectorFacts];
+    for (const fact of categoryFacts) {
+      if (!seenIds.has(fact.id)) {
+        seenIds.add(fact.id);
+        mergedFacts.push(fact);
+      }
+    }
 
     return {
-      relevantFacts: [
-        ...((pricingFacts as Record<string, unknown>[]) || []),
-        ...((limitations as Record<string, unknown>[]) || []),
-      ].map((f) => ({
-        id: f.id as string,
-        type: f.memory_type as string,
-        category: f.category as string,
-        content: f.content as string,
-        confidence: f.confidence as number,
-        source: f.source as string,
-      })),
-      clientHistory: (clientEdges as Record<string, unknown>[]) || [],
+      relevantFacts: mergedFacts,
+      clientHistory: [...(clientEdges || []), ...entityClientEdges],
       currentPromotions: ((promotions as Record<string, unknown>[]) || []).map(
         (p) => p.content as string
       ),

@@ -1,0 +1,69 @@
+{
+  "paymentReminder.friendly.subject": "Recordatorio amistoso: Factura #{{invoiceNumber}}",
+  "paymentReminder.firm.subject": "Recordatorio de pago: Factura #{{invoiceNumber}} — {{days}} días de atraso",
+  "paymentReminder.final.subject": "Aviso final: Factura #{{invoiceNumber}} — {{days}} días vencida",
+  "paymentReminder.collections.subject": "Cuenta vencida: Factura #{{invoiceNumber}} — requiere atención inmediata",
+
+  "paymentReminder.friendly.fallback": "Hola {{clientName}},\n\nSólo un recordatorio rápido de que la factura #{{invoiceNumber}} por {{amount}} venció el {{dueDate}}.\n\nSi ya ha enviado el pago, ignore este mensaje. De lo contrario, le agradeceríamos el pago lo antes posible.\n\nGracias por su confianza.",
+  "paymentReminder.firm.fallback": "Hola {{clientName}},\n\nLe recordamos que la factura #{{invoiceNumber}} por {{amount}} lleva {{daysOverdue}} días vencida (fecha de vencimiento: {{dueDate}}).\n\nPor favor, gestione el pago a la mayor brevedad posible. Si tiene cualquier duda sobre esta factura, no dude en contactarnos.\n\nGracias.",
+  "paymentReminder.final.fallback": "{{clientName}},\n\nEste es un aviso final respecto a la factura #{{invoiceNumber}} por {{amount}}, cuyo vencimiento fue el {{dueDate}} — ahora con {{daysOverdue}} días de atraso.\n\nNecesitamos recibir el pago en los próximos 7 días hábiles para evitar tomar otras medidas sobre esta cuenta.\n\nSi existen circunstancias atenuantes, por favor contáctenos de inmediato para analizar opciones.\n\nAtentamente",
+  "paymentReminder.collections.fallback": "{{clientName}},\n\nLa factura #{{invoiceNumber}} por {{amount}} lleva {{daysOverdue}} días vencida (fecha original: {{dueDate}}).\n\nEsta cuenta ha sido marcada para revisión. Se requiere el pago inmediato para resolver este asunto.\n\nPor favor, realice el pago o contáctenos en las próximas 48 horas para discutir una solución.\n\nAtentamente",
+
+  "paymentReminder.notification.title": "Recordatorio de pago enviado",
+  "paymentReminder.notification.body": "Recordatorio enviado a {{clientName}} por la factura #{{invoiceNumber}}",
+
+  "appointmentConfirmation.subject": "Confirmando su cita del {{date}}",
+  "appointmentConfirmation.fallback": "Hola {{clientName}},\n\nLe escribimos para confirmar su cita de \"{{taskTitle}}\" el {{date}}.\n\nPor favor, responda para confirmar o avísenos si necesita reprogramarla.\n\nGracias.",
+
+  "dayBeforeReminder.subject": "Recordatorio: Su cita es mañana",
+  "dayBeforeReminder.fallback": "Hola {{clientName}},\n\nSólo un recordatorio rápido — tenemos programada una visita mañana, {{date}}, para \"{{taskTitle}}\".\n\nPor favor, avísenos si algo ha cambiado.\n\nGracias.",
+
+  "scheduleChanged.subject": "Actualización sobre su visita programada",
+  "scheduleChanged.fallback": "Hola {{clientName}},\n\nQueríamos avisarle que \"{{taskTitle}}\" ha sido reprogramada para el {{newDate}}.\n\nPor favor, responda si este horario no le funciona y buscaremos un mejor momento.\n\nGracias por su flexibilidad.",
+
+  "rescheduleRequest.subject": "Re: Reprogramación de \"{{taskTitle}}\"",
+  "rescheduleRequest.fallback": "Hola {{clientName}},\n\nGracias por avisarnos que necesita reprogramar. Le contactaremos en breve con un nuevo horario.\n\nGracias.",
+
+  "subcontractorCoordination.subject": "Coordinación para {{projectTitle}}",
+  "subcontractorCoordination.fallback": "Hola {{subcontractorName}},\n\nLe escribimos para coordinar su trabajo en \"{{projectTitle}}\" en {{address}}.\n\nPor favor, confirme su disponibilidad y cualquier requisito.\n\nGracias.",
+
+  "notification.appointmentConfirmation.title": "Borrador de confirmación de cita",
+  "notification.appointmentConfirmation.body": "Borrador listo para {{clientName}} — {{taskTitle}} el {{date}}",
+  "notification.dayBeforeReminder.title": "Borrador de recordatorio",
+  "notification.dayBeforeReminder.body": "Borrador listo para {{clientName}} — visita mañana",
+  "notification.scheduleChanged.title": "Borrador de cambio de horario",
+  "notification.scheduleChanged.body": "Borrador listo — \"{{taskTitle}}\" movido al {{newDate}}",
+  "notification.rescheduleRequest.title": "Solicitud de reprogramación detectada",
+  "notification.rescheduleRequest.body": "{{clientName}} pidió mover \"{{taskTitle}}\"",
+  "notification.subcontractorCoordination.title": "Borrador para subcontratista",
+  "notification.subcontractorCoordination.body": "Borrador listo para {{subcontractorName}} en \"{{projectTitle}}\"",
+
+  "summary.appointmentConfirmation": "Confirmar la cita de {{clientName}} el {{date}}",
+  "summary.dayBeforeReminder": "Recordar a {{clientName}} sobre la próxima visita",
+  "summary.scheduleChanged": "Notificar a {{clientName}} que \"{{taskTitle}}\" se movió al {{newDate}}",
+  "summary.rescheduleRequest": "{{clientName}} quiere reprogramar \"{{taskTitle}}\"",
+  "summary.subcontractorCoordination": "Coordinar con {{subcontractorName}} en \"{{projectTitle}}\"",
+
+  "statusEmail.subject": "Actualización de proyecto: {{projectTitle}}",
+  "statusEmail.fallback": "Hola {{clientName}},\n\nQuería darle una actualización rápida sobre su proyecto \"{{projectTitle}}\".\n\n{{progressLine}}\n\nPor favor, avíseme si tiene alguna pregunta.\n\nSaludos cordiales",
+  "statusEmail.progress.completion": "Actualmente estamos al {{percent}}% de avance. ",
+  "statusEmail.progress.tasksCompletedSingular": "{{count}} tarea ha sido completada desde nuestra última actualización. ",
+  "statusEmail.progress.tasksCompletedPlural": "{{count}} tareas han sido completadas desde nuestra última actualización. ",
+  "statusEmail.progress.upcomingSingular": "Hay {{count}} tarea próxima programada.",
+  "statusEmail.progress.upcomingPlural": "Hay {{count}} tareas próximas programadas.",
+
+  "invoiceCover.fallback": "Hola {{clientName}},\n\nAdjuntamos la factura #{{invoiceNumber}} por {{amount}} correspondiente a \"{{projectTitle}}\".\n\nEl pago vence el {{dueDate}}.\n\nGracias por su confianza.",
+  "invoiceCover.subject": "Factura #{{invoiceNumber}} para {{projectTitle}}",
+
+  "lifecycle.task.siteVisit": "Visita al Sitio",
+  "lifecycle.task.prepareEstimate": "Preparar Presupuesto",
+  "lifecycle.task.orderMaterials": "Pedir Materiales",
+  "lifecycle.task.scheduleCrew": "Programar Cuadrilla",
+  "lifecycle.task.sendConfirmationEmail": "Enviar Correo de Confirmación",
+  "lifecycle.task.preJobWalkthrough": "Recorrido Previo al Trabajo",
+  "lifecycle.task.dayOfSetup": "Preparación el Día del Trabajo",
+  "lifecycle.task.finalInspection": "Inspección Final",
+  "lifecycle.task.sendCompletionEmail": "Enviar Correo de Finalización",
+  "lifecycle.task.sendInvoice": "Enviar Factura",
+  "lifecycle.task.scheduleFollowUp": "Programar Seguimiento de 30 Días"
+}

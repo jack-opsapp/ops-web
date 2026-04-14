@@ -73,6 +73,10 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [featureEnabled, setFeatureEnabled] = useState(false);
+
+  const prefersReducedMotion = typeof window !== "undefined"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
   const [settings, setSettings] = useState<AutoSendSettingsData | null>(null);
   const [stats, setStats] = useState<DraftStats | null>(null);
 
@@ -156,7 +160,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-4">
-        <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
+        <Loader2 className={cn("w-[14px] h-[14px] text-text-disabled", !prefersReducedMotion && "animate-spin")} />
         <span className="font-mohave text-body-sm text-text-disabled">
           Loading...
         </span>
@@ -214,7 +218,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           </div>
           <div className="h-[3px] bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-1">
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className={cn("h-full rounded-full", !prefersReducedMotion && "transition-all duration-500")}
               style={{
                 width: `${stats.approvalRate * 100}%`,
                 backgroundColor:
@@ -292,30 +296,37 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
             </span>
           </div>
 
-          {/* Toggle */}
+          {/* Toggle — 56dp tap area */}
           <button
             onClick={handleToggle}
             disabled={saving}
             className={cn(
-              "relative w-[36px] h-[18px] rounded-full transition-colors",
-              effectiveSettings.enabled
-                ? "bg-[#597794]"
-                : "bg-[rgba(255,255,255,0.1)]"
+              "relative flex items-center justify-center w-[56px] h-[56px] -m-[19px]",
+              saving && "opacity-50"
             )}
           >
             <div
               className={cn(
-                "absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform",
+                "relative w-[36px] h-[18px] rounded-full transition-colors",
                 effectiveSettings.enabled
-                  ? "translate-x-[20px]"
-                  : "translate-x-[2px]"
+                  ? "bg-[#597794]"
+                  : "bg-[rgba(255,255,255,0.1)]"
               )}
-            />
+            >
+              <div
+                className={cn(
+                  "absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform",
+                  effectiveSettings.enabled
+                    ? "translate-x-[20px]"
+                    : "translate-x-[2px]"
+                )}
+              />
+            </div>
           </button>
         </div>
 
         <p className="font-mohave text-caption-sm text-text-disabled mb-3">
-          {t("autoSend.description")}
+          [{t("autoSend.description")}]
         </p>
 
         {effectiveSettings.enabled && (

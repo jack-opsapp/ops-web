@@ -35,7 +35,14 @@ export interface IntelTask {
   id: string;
   projectId: string;
   title: string;
-  status: "Booked" | "In Progress" | "Completed" | "Cancelled";
+  /**
+   * Raw DB value from project_tasks.status — CHECK constraint allows
+   * only three values (verified 2026-04-14 against live DB):
+   *   active, completed, cancelled.
+   * The TS TaskStatus enum keeps a separate InProgress slot for iOS
+   * parity, but project_tasks collapses it into 'active'.
+   */
+  status: "active" | "completed" | "cancelled";
   taskColor: string;
   startDate: string | null;
   endDate: string | null;

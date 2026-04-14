@@ -48,10 +48,25 @@ export async function GET(request: NextRequest) {
         "ai_auto_send"
       );
 
+    // E5: Always return raw JSONB for autonomy panel, even if auto-send is disabled.
+    // Auto-draft and autonomy features are independent of the auto-send feature flag.
+    const { data: rawConn } = await supabase
+      .from("email_connections")
+      .select("auto_send_settings")
+      .eq("id", connectionId)
+      .eq("company_id", companyId)
+      .single();
+
+    const rawSettings = (rawConn?.auto_send_settings as Record<string, unknown>) || {};
+
     if (!featureEnabled) {
       return NextResponse.json({
         featureEnabled: false,
-        settings: null,
+        settings: {
+          auto_draft_enabled: rawSettings.auto_draft_enabled ?? false,
+          category_autonomy: rawSettings.category_autonomy ?? {},
+          milestones: rawSettings.milestones ?? {},
+        },
       });
     }
 
@@ -62,7 +77,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       featureEnabled: true,
-      settings,
+      settings: {
+        ...settings,
+        auto_draft_enabled: rawSettings.auto_draft_enabled ?? false,
+        category_autonomy: rawSettings.category_autonomy ?? {},
+        milestones: rawSettings.milestones ?? {},
+      },
     });
   } catch (err) {
     console.error("[auto-send-settings]", err);
@@ -100,16 +120,16 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check feature gate
-    const featureEnabled =
-      await AdminFeatureOverrideService.isAIFeatureEnabled(
-        companyId,
-        "ai_auto_send"
-      );
+    // Check feature gate — allow writes if EITHER ai_auto_send OR phase_c is enabled.
+    // E5: Auto-draft and per-category autonomy are phase_c features, not auto-send.
+    const [autoSendEnabled, phaseCEnabled] = await Promise.all([
+      AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "ai_auto_send"),
+      AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c"),
+    ]);
 
-    if (!featureEnabled) {
+    if (!autoSendEnabled && !phaseCEnabled) {
       return NextResponse.json(
-        { error: "Auto-send feature is not enabled for this company" },
+        { error: "AI features are not enabled for this company" },
         { status: 403 }
       );
     }

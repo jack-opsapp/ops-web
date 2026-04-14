@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { useUnifiedConversations } from "@/lib/hooks/use-unified-inbox";
 import { ConversationList } from "@/components/ops/inbox/conversation-list";
 import { UnifiedThreadView } from "@/components/ops/inbox/unified-thread-view";
@@ -16,6 +17,7 @@ export default function InboxPage() {
   usePageTitle("Inbox");
   const { t } = useDictionary("inbox");
   const can = usePermissionStore((s) => s.can);
+  const { company } = useAuthStore();
 
   const [selectedConversation, setSelectedConversation] = useState<InboxConversation | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
@@ -26,6 +28,22 @@ export default function InboxPage() {
 
   // Single data source — emailThreadIds live on each conversation
   const { data: conversations = [], isLoading } = useUnifiedConversations();
+
+  // E5: Fetch thread IDs with pending auto-drafts for sparkles badge
+  const [autoDraftThreadIds, setAutoDraftThreadIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!company?.id) return;
+    fetch(`/api/integrations/email/auto-drafts?companyId=${company.id}`)
+      .then((res) => (res.ok ? res.json() : { autoDrafts: [] }))
+      .then((data) => {
+        const ids = new Set<string>();
+        for (const d of (data.autoDrafts || []) as Array<{ threadId: string }>) {
+          if (d.threadId) ids.add(d.threadId);
+        }
+        setAutoDraftThreadIds(ids);
+      })
+      .catch(() => {});
+  }, [company?.id, conversations.length]);
 
   // Auto-select first conversation
   useEffect(() => {
@@ -88,6 +106,7 @@ export default function InboxPage() {
           selectedId={selectedConversation?.id ?? null}
           onSelect={handleSelectConversation}
           onNewMessage={handleNewMessage}
+          autoDraftThreadIds={autoDraftThreadIds}
         />
       </div>
 

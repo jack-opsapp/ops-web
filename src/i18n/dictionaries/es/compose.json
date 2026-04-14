@@ -33,6 +33,7 @@
   "template.replace.cancel": "Mantener actual",
   "mergeField.unresolved": "Campo sin resolver — completa manualmente",
   "aiDraft.banner": "Borrador generado por IA",
+  "aiDraft.banner.auto": "Borrador auto-generado basado en tu estilo de escritura",
   "aiDraft.banner.description": "Revisa antes de enviar — tus ediciones mejoran los borradores futuros",
   "aiDraft.banner.discard": "Borrar borrador IA",
   "aiDraft.stats": "{{sent}} de {{total}} borradores IA enviados sin cambios",

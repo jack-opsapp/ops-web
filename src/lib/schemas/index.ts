@@ -11,21 +11,23 @@ import { z } from "zod";
 
 // ─── Enum Schemas ─────────────────────────────────────────────────────────────
 
+// Canonical lowercase DB values — see data architecture reference §1c/1d.
+// Migration 004 defines Title Case CHECK constraints but those have been
+// relaxed in production; the table stores lowercase snake_case.
 export const projectStatusSchema = z.enum([
-  "RFQ",
-  "Estimated",
-  "Accepted",
-  "In Progress",
-  "Completed",
-  "Closed",
-  "Archived",
+  "rfq",
+  "estimated",
+  "accepted",
+  "in_progress",
+  "completed",
+  "closed",
+  "archived",
 ]);
 
 export const taskStatusSchema = z.enum([
-  "Booked",
-  "In Progress",
-  "Completed",
-  "Cancelled",
+  "active",
+  "completed",
+  "cancelled",
 ]);
 
 export const userRoleSchema = z.enum(["admin", "owner", "operator", "crew", "unassigned"]);
@@ -269,7 +271,7 @@ export const createProjectSchema = z.object({
   startDate: z.date().optional().nullable(),
   endDate: z.date().optional().nullable(),
   duration: z.number().min(1).optional().nullable(),
-  status: projectStatusSchema.default("RFQ"),
+  status: projectStatusSchema.default("rfq"),
   notes: z.string().optional().nullable(),
   companyId: z.string().min(1, "Company is required"),
   clientId: z.string().optional().nullable(),
@@ -297,7 +299,7 @@ export const createTaskSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
   companyId: z.string().min(1, "Company is required"),
   taskTypeId: z.string().min(1, "Task type is required"),
-  status: taskStatusSchema.default("Booked"),
+  status: taskStatusSchema.default("active"),
   taskColor: z.string().default("#59779F"),
   taskNotes: z.string().optional().nullable(),
   teamMemberIds: z.array(z.string()).default([]),

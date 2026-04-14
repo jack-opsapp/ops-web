@@ -210,6 +210,9 @@ function mapLineItemToDb(
   if (data.invoiceId !== undefined) row.invoice_id = data.invoiceId;
   if (data.productId !== undefined) row.product_id = data.productId;
 
+  if (data.type !== undefined) row.type = data.type;
+  if (data.taskTypeId !== undefined) row.task_type_id = data.taskTypeId;
+
   if (data.name !== undefined) row.name = data.name;
   if (data.description !== undefined) row.description = data.description;
   if (data.quantity !== undefined) row.quantity = data.quantity;

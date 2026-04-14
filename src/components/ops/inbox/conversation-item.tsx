@@ -1,11 +1,13 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { InboxConversation } from "@/lib/types/unified-inbox";
 
 interface ConversationItemProps {
   conversation: InboxConversation;
   isActive: boolean;
+  hasAutoDraft?: boolean;
   onClick: () => void;
 }
 
@@ -25,6 +27,7 @@ function formatRelativeTime(date: Date): string {
 export function ConversationItem({
   conversation,
   isActive,
+  hasAutoDraft,
   onClick,
 }: ConversationItemProps) {
   const isUnmatched = conversation.type === "unmatched";
@@ -76,6 +79,9 @@ export function ConversationItem({
               {conversation.displayName}
             </span>
             <div className="flex items-center gap-1 shrink-0">
+              {hasAutoDraft && (
+                <Sparkles className="w-[14px] h-[14px] text-[#597794]" />
+              )}
               <span className="font-kosugi text-micro-sm text-text-disabled">
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>

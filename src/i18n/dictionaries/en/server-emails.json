@@ -1,0 +1,69 @@
+{
+  "paymentReminder.friendly.subject": "Friendly reminder: Invoice #{{invoiceNumber}}",
+  "paymentReminder.firm.subject": "Payment reminder: Invoice #{{invoiceNumber}} — {{days}} days overdue",
+  "paymentReminder.final.subject": "Final notice: Invoice #{{invoiceNumber}} — {{days}} days past due",
+  "paymentReminder.collections.subject": "Overdue account: Invoice #{{invoiceNumber}} — immediate attention required",
+
+  "paymentReminder.friendly.fallback": "Hi {{clientName}},\n\nJust a quick reminder that invoice #{{invoiceNumber}} for {{amount}} was due on {{dueDate}}.\n\nIf you've already sent payment, please disregard this message. Otherwise, we'd appreciate payment at your earliest convenience.\n\nThank you for your business.",
+  "paymentReminder.firm.fallback": "Hi {{clientName}},\n\nThis is a reminder that invoice #{{invoiceNumber}} for {{amount}} is now {{daysOverdue}} days past the due date of {{dueDate}}.\n\nPlease arrange payment at your earliest convenience. If you have any questions about this invoice, please don't hesitate to reach out.\n\nThank you.",
+  "paymentReminder.final.fallback": "{{clientName}},\n\nThis is a final notice regarding invoice #{{invoiceNumber}} for {{amount}}, which was due on {{dueDate}} — now {{daysOverdue}} days overdue.\n\nWe need to receive payment within the next 7 business days to avoid further action on this account.\n\nIf there are extenuating circumstances, please contact us immediately so we can discuss options.\n\nRegards",
+  "paymentReminder.collections.fallback": "{{clientName}},\n\nInvoice #{{invoiceNumber}} for {{amount}} has been overdue for {{daysOverdue}} days (original due date: {{dueDate}}).\n\nThis account has been flagged for review. Immediate payment is required to resolve this matter.\n\nPlease remit payment or contact us within 48 hours to discuss a resolution.\n\nRegards",
+
+  "paymentReminder.notification.title": "Payment reminder sent",
+  "paymentReminder.notification.body": "Reminder sent to {{clientName}} for Invoice #{{invoiceNumber}}",
+
+  "appointmentConfirmation.subject": "Confirming your appointment on {{date}}",
+  "appointmentConfirmation.fallback": "Hi {{clientName}},\n\nWe're writing to confirm your appointment for \"{{taskTitle}}\" on {{date}}.\n\nPlease reply to confirm or let us know if you need to reschedule.\n\nThank you.",
+
+  "dayBeforeReminder.subject": "Reminder: Your appointment is tomorrow",
+  "dayBeforeReminder.fallback": "Hi {{clientName}},\n\nJust a quick reminder — we're scheduled to visit tomorrow, {{date}}, for \"{{taskTitle}}\".\n\nPlease let us know if anything has changed.\n\nThank you.",
+
+  "scheduleChanged.subject": "Update on your scheduled visit",
+  "scheduleChanged.fallback": "Hi {{clientName}},\n\nWe wanted to let you know that \"{{taskTitle}}\" has been rescheduled to {{newDate}}.\n\nPlease reply if this doesn't work for you and we'll find a better time.\n\nThank you for your flexibility.",
+
+  "rescheduleRequest.subject": "Re: Rescheduling \"{{taskTitle}}\"",
+  "rescheduleRequest.fallback": "Hi {{clientName}},\n\nThanks for letting us know you need to reschedule. We'll follow up shortly with a new time.\n\nThank you.",
+
+  "subcontractorCoordination.subject": "Coordination for {{projectTitle}}",
+  "subcontractorCoordination.fallback": "Hi {{subcontractorName}},\n\nReaching out to coordinate your work on \"{{projectTitle}}\" at {{address}}.\n\nPlease confirm your schedule and any requirements.\n\nThanks.",
+
+  "notification.appointmentConfirmation.title": "Appointment confirmation drafted",
+  "notification.appointmentConfirmation.body": "Draft ready for {{clientName}} — {{taskTitle}} on {{date}}",
+  "notification.dayBeforeReminder.title": "Reminder drafted",
+  "notification.dayBeforeReminder.body": "Draft ready for {{clientName}} — visit tomorrow",
+  "notification.scheduleChanged.title": "Schedule change drafted",
+  "notification.scheduleChanged.body": "Draft ready — \"{{taskTitle}}\" moved to {{newDate}}",
+  "notification.rescheduleRequest.title": "Reschedule request detected",
+  "notification.rescheduleRequest.body": "{{clientName}} asked to move \"{{taskTitle}}\"",
+  "notification.subcontractorCoordination.title": "Subcontractor outreach drafted",
+  "notification.subcontractorCoordination.body": "Draft ready for {{subcontractorName}} on \"{{projectTitle}}\"",
+
+  "summary.appointmentConfirmation": "Confirm {{clientName}}'s appointment on {{date}}",
+  "summary.dayBeforeReminder": "Remind {{clientName}} about the upcoming visit",
+  "summary.scheduleChanged": "Notify {{clientName}} that \"{{taskTitle}}\" moved to {{newDate}}",
+  "summary.rescheduleRequest": "{{clientName}} wants to reschedule \"{{taskTitle}}\"",
+  "summary.subcontractorCoordination": "Coordinate with {{subcontractorName}} on \"{{projectTitle}}\"",
+
+  "statusEmail.subject": "Project Update: {{projectTitle}}",
+  "statusEmail.fallback": "Hi {{clientName}},\n\nI wanted to give you a quick update on your project \"{{projectTitle}}\".\n\n{{progressLine}}\n\nPlease let me know if you have any questions.\n\nBest regards",
+  "statusEmail.progress.completion": "We're currently at {{percent}}% completion. ",
+  "statusEmail.progress.tasksCompletedSingular": "{{count}} task has been completed since our last update. ",
+  "statusEmail.progress.tasksCompletedPlural": "{{count}} tasks have been completed since our last update. ",
+  "statusEmail.progress.upcomingSingular": "There is {{count}} upcoming task scheduled.",
+  "statusEmail.progress.upcomingPlural": "There are {{count}} upcoming tasks scheduled.",
+
+  "invoiceCover.fallback": "Hi {{clientName}},\n\nPlease find attached invoice #{{invoiceNumber}} for {{amount}} for \"{{projectTitle}}\".\n\nPayment is due by {{dueDate}}.\n\nThank you for your business.",
+  "invoiceCover.subject": "Invoice #{{invoiceNumber}} for {{projectTitle}}",
+
+  "lifecycle.task.siteVisit": "Site Visit",
+  "lifecycle.task.prepareEstimate": "Prepare Estimate",
+  "lifecycle.task.orderMaterials": "Order Materials",
+  "lifecycle.task.scheduleCrew": "Schedule Crew",
+  "lifecycle.task.sendConfirmationEmail": "Send Confirmation Email",
+  "lifecycle.task.preJobWalkthrough": "Pre-Job Walkthrough",
+  "lifecycle.task.dayOfSetup": "Day-Of Setup",
+  "lifecycle.task.finalInspection": "Final Inspection",
+  "lifecycle.task.sendCompletionEmail": "Send Completion Email",
+  "lifecycle.task.sendInvoice": "Send Invoice",
+  "lifecycle.task.scheduleFollowUp": "Schedule 30-Day Follow-Up"
+}

@@ -153,7 +153,7 @@ export function ExpenseSettingsTab() {
                 onBlur={() => handleThresholdBlur("autoApproveThreshold", localAutoApprove)}
                 placeholder="—"
                 disabled={!can("expenses.configure")}
-                className="w-[80px] h-[32px] text-center"
+                className="w-[96px] h-[56px] text-center"
               />
             </div>
           </div>
@@ -174,7 +174,7 @@ export function ExpenseSettingsTab() {
                 onBlur={() => handleThresholdBlur("adminApprovalThreshold", localAdminApproval)}
                 placeholder="—"
                 disabled={!can("expenses.configure")}
-                className="w-[80px] h-[32px] text-center"
+                className="w-[96px] h-[56px] text-center"
               />
             </div>
           </div>

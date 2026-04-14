@@ -16,6 +16,7 @@ import {
   X,
   Search,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -64,6 +65,7 @@ import { useProjectTasks } from "@/lib/hooks/use-tasks";
 import { useTaskTypes } from "@/lib/hooks/use-task-types";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import {
   type Project,
   type ProjectTask,
@@ -1100,10 +1102,14 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
-  const { company } = useAuthStore();
+  const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
   const canDelete = can("projects.delete");
+  const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
+  const phaseCEnabled = canAccessFeature("phase_c");
+  const isAdminOrOwner = currentUser?.role === "admin" || currentUser?.role === "owner";
+  const [suggestingTasks, setSuggestingTasks] = useState(false);
 
   // Tab state — map legacy "overview" to "tasks"
   const initialTab = (searchParams.get("tab") as TabId) || "tasks";
@@ -1177,6 +1183,36 @@ export default function ProjectDetailPage() {
         router.push("/projects");
       },
     });
+  }
+
+  async function handleSuggestTasks() {
+    if (!project || suggestingTasks) return;
+    setSuggestingTasks(true);
+    try {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+      const res = await fetch("/api/agent/suggest-tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Request failed");
+      if (data.proposed === 0 && data.deduplicated === 0) {
+        toast.info(t("detail.noSuggestions"));
+      } else {
+        toast.success(
+          t("detail.suggestionsQueued").replace("{{count}}", String(data.proposed))
+        );
+      }
+    } catch {
+      toast.error(t("detail.suggestTasksError") ?? "Failed to suggest tasks");
+    } finally {
+      setSuggestingTasks(false);
+    }
   }
 
   // Loading state
@@ -1262,6 +1298,21 @@ export default function ProjectDetailPage() {
           >
             <Info className="w-[18px] h-[18px]" />
           </button>
+
+          {/* Suggest Tasks — Phase C + admin/owner only */}
+          {phaseCEnabled && isAdminOrOwner && activeTab === "tasks" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-[6px] text-text-tertiary hover:text-text-secondary min-h-[56px]"
+              onClick={handleSuggestTasks}
+              disabled={suggestingTasks}
+              loading={suggestingTasks}
+            >
+              <Sparkles className="w-[14px] h-[14px]" />
+              {t("detail.suggestTasks")}
+            </Button>
+          )}
 
           {/* Edit Project button */}
           <PermissionGate permission="projects.edit">

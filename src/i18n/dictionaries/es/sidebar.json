@@ -14,6 +14,7 @@
   "nav.inventory": "Inventario",
   "nav.accounting": "Contabilidad",
   "nav.intel": "Intel",
+  "nav.agentQueue": "Cola del agente",
   "nav.settings": "Configuración",
 
   "companyAlt": "Empresa",

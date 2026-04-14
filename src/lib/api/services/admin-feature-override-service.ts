@@ -71,6 +71,11 @@ export const AdminFeatureOverrideService = {
 
   /**
    * Toggle an AI feature for a company (admin only).
+   *
+   * When phase_c transitions from disabled → enabled for the first time
+   * (or after a long gap), we fire a persistent notification routing the
+   * user into the communications configuration wizard so they can set up
+   * autonomy levels before any emails go out.
    */
   async setOverride(
     companyId: string,
@@ -79,6 +84,16 @@ export const AdminFeatureOverrideService = {
     adminUserId: string
   ): Promise<void> {
     const supabase = getServiceRoleClient();
+
+    // Capture prior state to detect the first-enable transition
+    const { data: prior } = await supabase
+      .from("admin_feature_overrides")
+      .select("enabled")
+      .eq("company_id", companyId)
+      .eq("feature_key", feature)
+      .maybeSingle();
+
+    const wasEnabled = prior?.enabled === true;
 
     const { error } = await supabase
       .from("admin_feature_overrides")
@@ -95,5 +110,22 @@ export const AdminFeatureOverrideService = {
 
     if (error)
       throw new Error(`Failed to set feature override: ${error.message}`);
+
+    // On first phase_c enable, fire the wizard notification to all admins
+    if (feature === "phase_c" && enabled && !wasEnabled) {
+      try {
+        const { AutonomyMilestoneService } = await import(
+          "./autonomy-milestone-service"
+        );
+        await AutonomyMilestoneService.fireCommsWizardReadyOnPhaseCEnable(
+          companyId
+        );
+      } catch (err) {
+        console.error(
+          "[admin-feature-override] wizard notification failed (non-fatal):",
+          err
+        );
+      }
+    }
   },
 };

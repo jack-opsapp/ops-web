@@ -76,15 +76,38 @@ export const DraftGenerator = {
       context.projectDescription
     );
 
-    // Build the draft prompt
+    // Build the draft prompt with 12-dimension writing voice
+    const vocabPrefs = (profile?.vocabulary_preferences as Record<string, unknown>) || {};
+    const toneTraits = profile?.tone_traits || {};
+    const normalizedTraits = Array.isArray(toneTraits)
+      ? Object.fromEntries((toneTraits as string[]).map((t: string) => [t, true]))
+      : (toneTraits as Record<string, unknown>);
+    const traitLabels = Object.entries(normalizedTraits)
+      .filter(([k, v]) => k !== "response_structure" && v === true)
+      .map(([k]) => k);
+    const substitutions = vocabPrefs.substitutions as Record<string, string> | undefined;
+    const hedgingTendency = typeof vocabPrefs.hedging_tendency === "number" ? vocabPrefs.hedging_tendency as number : null;
+    const punctuationHabits = vocabPrefs.punctuation_habits as Record<string, number> | undefined;
+    const paragraphStructure = vocabPrefs.paragraph_structure as Record<string, unknown> | undefined;
+    const engagementStyle = vocabPrefs.engagement_style as Record<string, number> | undefined;
+    const responseStructure = normalizedTraits.response_structure as Record<string, string> | undefined;
+    const emailLengthData = vocabPrefs.email_length as Record<string, unknown> | undefined;
+
     const systemPrompt = `You are drafting an email reply for a trades business owner. Write in their exact voice and style.
 
-WRITING STYLE:
+WRITING VOICE:
 - Greeting: ${(profile?.greeting_patterns as string[])?.[0] || "Hi {name},"}
 - Sign-off: ${(profile?.closing_patterns as string[])?.[0] || "Cheers,"}
-- Tone: ${JSON.stringify(profile?.tone_traits || {})}
+- Tone: ${traitLabels.length > 0 ? traitLabels.join(", ") : "neutral"}
 - Average sentence length: ${((profile?.avg_sentence_length as number) || 15).toFixed(0)} words
-- Formality: ${((profile?.formality_score as number) || 0.6).toFixed(1)}/1.0
+- Formality: ${((profile?.formality_score as number) || 0.6).toFixed(2)}/1.0
+${hedgingTendency !== null ? `- Hedging: ${(hedgingTendency * 100).toFixed(0)}% of sentences${hedgingTendency < 0.1 ? " — be DIRECT, avoid hedging" : ""}` : ""}
+${punctuationHabits ? `- Punctuation: ${(punctuationHabits.exclamation_marks || 0).toFixed(1)} exclamations/email, ${(punctuationHabits.em_dashes || 0).toFixed(1)} em-dashes/email` : ""}
+${paragraphStructure ? `- Structure: ${(paragraphStructure.prefersBullets as boolean) ? "prefers bullets" : "prefers prose"}` : ""}
+${engagementStyle ? `- Engagement: ${(engagementStyle.questionsPerEmail || 0).toFixed(1)} questions/email` : ""}
+${responseStructure ? `- Response structure: Opens with ${responseStructure.openingStyle || "business"}, transitions via ${responseStructure.transitionStyle || "natural flow"}, closes with ${responseStructure.preClosingStyle || "call to action"}` : ""}
+${emailLengthData ? `- Target length: ~${((emailLengthData.avgWordCount as number) || 100).toFixed(0)} words` : ""}
+${substitutions && Object.keys(substitutions).length > 0 ? `- Word preferences: ${Object.entries(substitutions).map(([from, to]) => `"${from}"→"${to}"`).join(", ")}` : ""}
 
 BUSINESS CONTEXT:
 ${memoryContext.currentPromotions.length > 0 ? `Current promotions: ${memoryContext.currentPromotions.join("; ")}` : "No current promotions."}
@@ -97,7 +120,7 @@ ${memoryContext.relevantFacts
 CLIENT HISTORY:
 ${memoryContext.clientHistory.length > 0 ? JSON.stringify(memoryContext.clientHistory.slice(0, 5)) : "No prior history with this client."}
 
-Write a natural reply. Do NOT mention that you are AI. Match the owner's voice exactly. Include relevant business details (pricing, promotions, next steps) if appropriate.`;
+Write a natural reply. Do NOT mention that you are AI. Match the owner's voice exactly across all dimensions. Include relevant business details (pricing, promotions, next steps) if appropriate.`;
 
     const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",

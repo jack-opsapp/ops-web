@@ -6,11 +6,14 @@
  * - "discarded" if user deleted the draft
  *
  * Computes edit distance and feeds changes back into writing profile.
+ * Authenticated: requires Firebase auth + company_id validation.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
 
 export const maxDuration = 30;
@@ -20,6 +23,31 @@ export async function POST(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
+    // ── Auth ──────────────────────────────────────────────────────────────
+    const authUser = await verifyAdminAuth(request);
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id, role"
+    );
+    if (!user) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Only admin/owner users may record draft feedback — this writes to
+    // the writing profile training data, and crew/operator users must not
+    // be able to corrupt it.
+    const role = (user.role as string) ?? "unassigned";
+    if (!["admin", "owner"].includes(role)) {
+      return NextResponse.json(
+        { error: "Admin or owner access required for this action" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { draftHistoryId, companyId, userId, outcome, finalVersion } = body;
 
@@ -28,6 +56,11 @@ export async function POST(request: NextRequest) {
         { error: "draftHistoryId, companyId, userId, and outcome are required" },
         { status: 400 }
       );
+    }
+
+    // Validate company ownership
+    if (companyId !== user.company_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (outcome !== "sent" && outcome !== "discarded") {

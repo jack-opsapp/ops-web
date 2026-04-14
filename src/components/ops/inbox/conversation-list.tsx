@@ -12,6 +12,8 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelect: (conversation: InboxConversation) => void;
   onNewMessage: () => void;
+  /** Thread IDs with pending auto-drafts — shows sparkles badge. */
+  autoDraftThreadIds?: Set<string>;
 }
 
 function ConversationSkeleton() {
@@ -35,6 +37,7 @@ export function ConversationList({
   selectedId,
   onSelect,
   onNewMessage,
+  autoDraftThreadIds,
 }: ConversationListProps) {
   const { t } = useDictionary("inbox");
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,6 +133,7 @@ export function ConversationList({
               key={conversation.id}
               conversation={conversation}
               isActive={conversation.id === selectedId}
+              hasAutoDraft={autoDraftThreadIds?.has(conversation.id) ?? false}
               onClick={() => onSelect(conversation)}
             />
           ))}

@@ -17,7 +17,7 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import type { IntelEntity, IntelEdge, IntelVoiceProfile, IntelTask, IntelTeamMember, IntelClientWithStatus, IntelGraphData } from "@/types/intel";
-import { TASK_STATUS_COLORS, type TaskStatus } from "@/lib/types/models";
+import { TASK_STATUS_COLORS, TaskStatus } from "@/lib/types/models";
 
 export const maxDuration = 60;
 
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
       .is("deleted_at", null),
 
     supabase
-      .from("task_types_v2")
+      .from("task_types")
       .select("id, display, color")
       .eq("company_id", companyId),
   ]);
@@ -169,10 +169,21 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Build tasks array ──────────────────────────────────────────────────
+  // project_tasks.status CHECK constraint is 3-state in prod (active,
+  // completed, cancelled). Map DB → TaskStatus enum for palette lookups
+  // (the TS enum still has InProgress for iOS parity, but project_tasks
+  // collapses it into 'active').
+  const dbStatusToEnum: Record<IntelTask["status"], TaskStatus> = {
+    active: TaskStatus.Booked,
+    completed: TaskStatus.Completed,
+    cancelled: TaskStatus.Cancelled,
+  };
+
   const tasks: IntelTask[] = (taskRows ?? []).map((t) => {
     const typeId = t.task_type_id as string | null;
     const taskType = typeId ? taskTypeMap.get(typeId) : null;
-    const status = (t.status as IntelTask["status"]) ?? "Booked";
+    const status = (t.status as IntelTask["status"]) ?? "active";
+    const enumStatus = dbStatusToEnum[status] ?? TaskStatus.Booked;
     const rawIds = t.team_member_ids as string[] | null;
     const memberIds = rawIds
       ? rawIds.filter((id: string) => id && id.trim()).map((id: string) => id.trim())
@@ -183,7 +194,7 @@ export async function GET(req: NextRequest) {
       projectId: t.project_id as string,
       title: (t.custom_title as string) || taskType?.display || "Task",
       status,
-      taskColor: (t.task_color as string) || taskType?.color || TASK_STATUS_COLORS[status as TaskStatus] || "#8195B5",
+      taskColor: (t.task_color as string) || taskType?.color || TASK_STATUS_COLORS[enumStatus] || "#8195B5",
       startDate: (t.start_date as string) ?? null,
       endDate: (t.end_date as string) ?? null,
       teamMemberIds: memberIds,
@@ -203,10 +214,11 @@ export async function GET(req: NextRequest) {
   }));
 
   // ── Compute mostActiveProjectStatus per client ─────────────────────────
-  // Priority: higher = more progressed. Archived excluded.
+  // Priority: higher = more progressed. Archived excluded. Values are
+  // lowercase DB status values per §1d of the data architecture reference.
   const STATUS_PRIORITY: Record<string, number> = {
-    RFQ: 0, Estimated: 1, Accepted: 2,
-    "In Progress": 3, Completed: 4, Closed: 5,
+    rfq: 0, estimated: 1, accepted: 2,
+    in_progress: 3, completed: 4, closed: 5,
   };
 
   const projectStatusesByClient = new Map<string, string[]>();
@@ -214,7 +226,7 @@ export async function GET(req: NextRequest) {
     const clientId = p.client_id as string;
     if (!clientId) continue;
     const status = p.status as string;
-    if (status === "Archived") continue;
+    if (status === "archived") continue;
     const list = projectStatusesByClient.get(clientId) ?? [];
     list.push(status);
     projectStatusesByClient.set(clientId, list);
@@ -222,7 +234,7 @@ export async function GET(req: NextRequest) {
 
   const clientsWithStatus: IntelClientWithStatus[] = (clientRows ?? []).map((c) => {
     const statuses = projectStatusesByClient.get(c.id as string) ?? [];
-    let bestStatus = "RFQ";
+    let bestStatus = "rfq";
     let bestPriority = -1;
     for (const s of statuses) {
       const p = STATUS_PRIORITY[s] ?? 0;
@@ -452,7 +464,11 @@ export async function GET(req: NextRequest) {
     (wp) => ({
       profileType: (wp.profile_type as string) ?? "unknown",
       formalityScore: (wp.formality_score as number) ?? 0,
-      toneTraits: Array.isArray(wp.tone_traits) ? (wp.tone_traits as string[]) : [],
+      toneTraits: Array.isArray(wp.tone_traits)
+        ? (wp.tone_traits as string[])
+        : typeof wp.tone_traits === "object" && wp.tone_traits !== null
+          ? Object.entries(wp.tone_traits as Record<string, boolean>).filter(([, v]) => v).map(([k]) => k)
+          : [],
       greetingPatterns: Array.isArray(wp.greeting_patterns)
         ? (wp.greeting_patterns as string[])
         : [],

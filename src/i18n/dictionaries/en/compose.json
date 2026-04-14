@@ -33,6 +33,7 @@
   "template.replace.cancel": "Keep current",
   "mergeField.unresolved": "Unresolved field — fill in manually",
   "aiDraft.banner": "AI-generated draft",
+  "aiDraft.banner.auto": "Auto-generated draft based on your writing style",
   "aiDraft.banner.description": "Review before sending — edits improve future drafts",
   "aiDraft.banner.discard": "Clear AI draft",
   "aiDraft.stats": "{{sent}} of {{total}} AI drafts sent unchanged",

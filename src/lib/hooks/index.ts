@@ -339,3 +339,15 @@ export {
   useMapMetrics,
   useInboxMetrics,
 } from "./use-metrics";
+
+// Approval Queue (agent actions)
+export {
+  useApprovalQueue,
+  useApprovalQueueStats,
+  useApprovalQueuePendingCount,
+  useApproveAction,
+  useRejectAction,
+  useBulkApprove,
+  useBulkReject,
+  useCancelAction,
+} from "./use-approval-queue";

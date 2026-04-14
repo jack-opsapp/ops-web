@@ -111,7 +111,7 @@ export const AssignmentService = {
       .from("project_tasks")
       .select("team_member_ids")
       .eq("company_id", companyId)
-      .in("status", ["active", "in_progress"])
+      .eq("status", "active")
       .is("deleted_at", null)
       .limit(1000);
 
@@ -133,7 +133,7 @@ export const AssignmentService = {
       .from("project_tasks")
       .select("team_member_ids, start_date, end_date")
       .eq("company_id", companyId)
-      .in("status", ["active", "in_progress"])
+      .eq("status", "active")
       .is("deleted_at", null)
       .not("start_date", "is", null)
       .gte("start_date", now.toISOString())
@@ -278,7 +278,7 @@ export const AssignmentService = {
       .select("start_date, end_date, duration")
       .eq("company_id", companyId)
       .contains("team_member_ids", [teamMemberId])
-      .in("status", ["active", "in_progress"])
+      .eq("status", "active")
       .is("deleted_at", null)
       .not("start_date", "is", null)
       .gte("start_date", start.toISOString())
@@ -350,7 +350,7 @@ export const AssignmentService = {
       .from("project_tasks")
       .select("id, project_id, team_member_ids, start_date, end_date, status")
       .eq("company_id", companyId)
-      .in("status", ["active", "in_progress"])
+      .eq("status", "active")
       .is("deleted_at", null)
       .not("start_date", "is", null)
       .or(

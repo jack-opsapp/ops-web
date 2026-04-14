@@ -395,7 +395,7 @@ export async function getFeatureAdoption(): Promise<FeatureAdoption[]> {
     { feature: "Invoices", table: "invoices" },
     { feature: "Payments", table: "payments" },
     { feature: "Products", table: "products" },
-    { feature: "Task Types", table: "task_types_v2" },
+    { feature: "Task Types", table: "task_types" },
     { feature: "Site Visits", table: "site_visits" },
     { feature: "Photos", table: "photos" },
     { feature: "Notes", table: "notes" },
@@ -903,7 +903,7 @@ export async function getDataQualityChecks(): Promise<DataQualityIssue[]> {
 export async function getTableStats(): Promise<TableStats[]> {
   const tables = [
     "companies", "users", "projects", "project_tasks", "calendar_events",
-    "clients", "sub_clients", "task_types_v2", "pipeline_references",
+    "clients", "sub_clients", "task_types", "pipeline_references",
     "estimates", "invoices", "payments", "products", "photos", "notes",
     "site_visits", "feature_requests", "app_messages", "promo_codes",
   ];

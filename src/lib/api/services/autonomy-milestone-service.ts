@@ -23,6 +23,9 @@ export interface MilestoneState {
   draft_available_shown: boolean;
   auto_draft_suggested: boolean;
   auto_send_suggested: boolean;
+  /** S2 amendment: fired when writing profile confidence crosses 0.75 and the
+   *  communications configuration wizard has not yet been completed. */
+  comms_wizard_ready_shown: boolean;
 }
 
 export type AutonomyLevel = 0 | 1 | 2 | 3 | 4 | 5;
@@ -31,6 +34,7 @@ const DEFAULT_MILESTONES: MilestoneState = {
   draft_available_shown: false,
   auto_draft_suggested: false,
   auto_send_suggested: false,
+  comms_wizard_ready_shown: false,
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -42,7 +46,26 @@ function parseMilestones(raw: unknown): MilestoneState {
     draft_available_shown: obj.draft_available_shown === true,
     auto_draft_suggested: obj.auto_draft_suggested === true,
     auto_send_suggested: obj.auto_send_suggested === true,
+    comms_wizard_ready_shown: obj.comms_wizard_ready_shown === true,
   };
+}
+
+/** Check if the company has completed the comms wizard at the current version.
+ *  If they have, we shouldn't re-fire the wizard notification. */
+async function isCommsWizardCompleted(companyId: string): Promise<boolean> {
+  const supabase = requireSupabase();
+  const { data } = await supabase
+    .from("companies")
+    .select("client_comms_settings")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  const raw =
+    (data?.client_comms_settings as Record<string, unknown>) ?? {};
+  const completedAt = raw.comms_wizard_completed_at;
+  const version = (raw.comms_wizard_version as number) ?? 0;
+  const CURRENT_VERSION = 1;
+  return typeof completedAt === "string" && version >= CURRENT_VERSION;
 }
 
 /**
@@ -138,6 +161,31 @@ export const AutonomyMilestoneService = {
         });
 
         milestones.auto_draft_suggested = true;
+      }
+
+      // ── Milestone: COMMS_WIZARD_READY ─────────────────────────────────
+      //
+      // Fires when writing profile confidence crosses 0.75 and the comms
+      // wizard has not yet been completed at the current version. Routes
+      // the user into /agent/comms-config where they set up appointment
+      // confirmations, reminders, and other autonomous communications.
+      if (
+        !milestones.comms_wizard_ready_shown &&
+        confidence > 0.75 &&
+        !(await isCommsWizardCompleted(companyId))
+      ) {
+        await NotificationService.create({
+          userId,
+          companyId,
+          type: "ai_milestone",
+          title: "CONFIGURE YOUR AI COMMUNICATIONS",
+          body: "Your AI is ready to handle client communications. Take 2 minutes to set up how you want it to work.",
+          persistent: true,
+          actionUrl: "/agent/comms-config",
+          actionLabel: "Configure",
+        });
+
+        milestones.comms_wizard_ready_shown = true;
       }
 
       // ── Persist milestones ────────────────────────────────────────────
@@ -322,6 +370,89 @@ export const AutonomyMilestoneService = {
       autoSendEnabled,
       categoryAutonomy,
     };
+  },
+
+  /**
+   * Fire the comms-wizard notification to all admin/owner users on a
+   * company when phase_c is first enabled. No-op if the wizard was already
+   * completed at the current version.
+   *
+   * Called from AdminFeatureOverrideService.setOverride on the
+   * disabled→enabled transition for phase_c.
+   */
+  async fireCommsWizardReadyOnPhaseCEnable(companyId: string): Promise<void> {
+    try {
+      if (await isCommsWizardCompleted(companyId)) return;
+
+      const supabase = requireSupabase();
+
+      // 7-day re-fire guard: if an admin toggles phase_c off and on during
+      // setup, we don't want to spam the notification rail. Check whether
+      // any comms-wizard-ready notification has been created for this
+      // company in the last 7 days. If so, skip.
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const { data: recent } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("type", "ai_milestone")
+        .in("title", [
+          "CONFIGURE YOUR AI COMMUNICATIONS",
+          "notification.commsWizardReady.title",
+        ])
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .limit(1);
+
+      if (recent && recent.length > 0) {
+        return;
+      }
+
+      // Find all admin/owner users to target
+      const { data: company } = await supabase
+        .from("companies")
+        .select("admin_ids")
+        .eq("id", companyId)
+        .maybeSingle();
+
+      const rawAdminIds = (company?.admin_ids as string) ?? "";
+      let targetIds = rawAdminIds
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+
+      if (targetIds.length === 0) {
+        const { data: roleMatches } = await supabase
+          .from("users")
+          .select("id")
+          .eq("company_id", companyId)
+          .in("role", ["admin", "owner"])
+          .is("deleted_at", null)
+          .limit(10);
+        targetIds = (roleMatches ?? []).map((u) => u.id as string);
+      }
+
+      await Promise.allSettled(
+        targetIds.map((userId) =>
+          NotificationService.create({
+            userId,
+            companyId,
+            type: "ai_milestone",
+            title: "CONFIGURE YOUR AI COMMUNICATIONS",
+            body: "Your AI is ready to handle client communications. Take 2 minutes to set up how you want it to work.",
+            persistent: true,
+            actionUrl: "/agent/comms-config",
+            actionLabel: "Configure",
+          })
+        )
+      );
+    } catch (err) {
+      console.error(
+        "[autonomy-milestones] fireCommsWizardReadyOnPhaseCEnable failed:",
+        err
+      );
+    }
   },
 
   /**

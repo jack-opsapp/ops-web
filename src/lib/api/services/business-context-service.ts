@@ -699,7 +699,8 @@ export const BusinessContextService = {
     const paidTotal = invoices.reduce((sum, inv) => sum + Number(inv.amount_paid ?? 0), 0);
     const outstandingBalance = invoices.reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
 
-    // Completion % (based on task statuses)
+    // Completion % (task statuses are lowercase in production — see data
+    // architecture reference §1c).
     const completedTasks = tasks.filter((t) => t.status === "completed").length;
     const completionPercent = tasks.length > 0
       ? Math.round((completedTasks / tasks.length) * 100)

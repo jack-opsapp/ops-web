@@ -59,5 +59,12 @@
   "bugReport.autoCapture": "LA URL Y LA CUENTA SE ADJUNTARÁN AUTOMÁTICAMENTE",
   "bugReport.submit": "ENVIAR REPORTE",
   "bugReport.sending": "ENVIANDO...",
-  "bugReport.submitted": "Reporte de error enviado. Gracias."
+  "bugReport.submitted": "Reporte de error enviado. Gracias.",
+
+  "notification.confirmedTaskRescheduled.title": "TAREA CONFIRMADA REPROGRAMADA",
+  "notification.confirmedTaskRescheduled.body": "Una cita previamente confirmada ha cambiado. Considera avisar al cliente.",
+  "notification.confirmedTaskRescheduled.action": "Abrir calendario",
+
+  "notification.autoConfirmedTasks.title": "TAREAS CONFIRMADAS AUTOMÁTICAMENTE",
+  "notification.autoConfirmedTasks.action": "Abrir calendario"
 }

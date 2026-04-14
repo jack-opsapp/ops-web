@@ -21,8 +21,16 @@ export type Namespace =
   | 'forms'
   | 'intel'
   | 'ai-drafting'
+  | 'ai-setup'
   | 'import-wizard'
   | 'projects-canvas'
-  | 'duplicates';
+  | 'duplicates'
+  | 'autonomy'
+  | 'agent-queue'
+  | 'scheduling'
+  | 'client-comms'
+  | 'comms-wizard'
+  | 'server-emails';
+
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

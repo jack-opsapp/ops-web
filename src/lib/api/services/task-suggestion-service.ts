@@ -132,7 +132,7 @@ export const TaskSuggestionService = {
       .select("task_type_id, project_id")
       .eq("company_id", companyId)
       .neq("project_id", projectId)
-      .in("status", ["completed", "active"])
+      .in("status", ["active", "completed"])
       .is("deleted_at", null)
       .gte("created_at", twelveMonthsAgo.toISOString())
       .limit(2000);

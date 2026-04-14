@@ -391,6 +391,20 @@ export const queryKeys = {
       [...queryKeys.inbox.all, "portal-unread", companyId] as const,
   },
 
+  // Approval Queue (agent actions)
+  approvalQueue: {
+    all: ["approvalQueue"] as const,
+    lists: () => [...queryKeys.approvalQueue.all, "list"] as const,
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.approvalQueue.lists(), companyId, filters] as const,
+    detail: (id: string) =>
+      [...queryKeys.approvalQueue.all, "detail", id] as const,
+    stats: (companyId: string) =>
+      [...queryKeys.approvalQueue.all, "stats", companyId] as const,
+    pendingCount: (companyId: string) =>
+      [...queryKeys.approvalQueue.all, "pendingCount", companyId] as const,
+  },
+
   // Duplicate Reviews
   duplicateReviews: {
     all: ["duplicateReviews"] as const,

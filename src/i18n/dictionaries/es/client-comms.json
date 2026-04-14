@@ -1,0 +1,122 @@
+{
+  "label.tomorrow": "Mañana",
+  "label.flexible": "Flexible",
+
+  "action.editDraft": "Editar",
+  "action.collapse": "Ocultar",
+
+  "card.client": "Cliente",
+  "card.project": "Proyecto",
+  "card.scheduled": "Programado",
+  "card.crew": "Equipo",
+  "card.crewArriving": "Equipo llegando",
+  "card.address": "Dirección",
+  "card.duration": "Duración",
+  "card.subject": "Asunto",
+  "card.emailPreview": "Vista previa del correo",
+  "card.replyPreview": "Vista previa de respuesta",
+  "card.incomingMessage": "Mensaje recibido",
+  "card.detectedTask": "Tarea detectada",
+  "card.reasonGiven": "Razón dada",
+  "card.chooseAlternative": "Elegir alternativa",
+  "card.classificationConfidence": "Confianza de clasificación",
+  "card.subcontractor": "Subcontratista",
+  "card.trade": "Oficio",
+  "card.mainCrewSchedule": "Horario del equipo principal",
+  "card.scopeOfWork": "Alcance del trabajo",
+
+  "summary.appointment_confirmation": "Confirmar la cita de {{clientName}} el {{date}}",
+  "summary.day_before_reminder": "Recordar a {{clientName}} sobre la próxima visita",
+  "summary.appointment_reminder": "Recordar a {{clientName}} sobre la próxima visita",
+  "summary.schedule_changed": "Avisar a {{clientName}} que \"{{taskTitle}}\" se movió al {{newDate}}",
+  "summary.reschedule_request": "{{clientName}} quiere reprogramar \"{{taskTitle}}\"",
+  "summary.subcontractor_coordination": "Coordinar con {{subcontractorName}} en \"{{projectTitle}}\"",
+
+  "weather.warning": "Advertencia meteorológica",
+  "weather.low": "Riesgo bajo",
+  "weather.medium": "Riesgo medio",
+  "weather.high": "Riesgo alto",
+  "weather.reason.winter_risk": "Las condiciones invernales en {{month}} pueden afectar el trabajo al aire libre",
+  "weather.reason.no_seasonal_risk": "No se detectó riesgo climático estacional",
+  "weather.reason.disabled": "La conciencia climática está desactivada",
+
+  "reasoning.assigned_crew_next_gap": "Próxima disponibilidad de {{memberName}}",
+  "reasoning.client_requested": "Fecha solicitada por el cliente",
+  "reasoning.fallback_two_days": "Alternativa: dos días a partir de hoy",
+
+  "settings.title": "Comunicaciones con clientes",
+  "settings.description": "Mensajería automática para programación — confirmaciones, recordatorios, solicitudes de reprogramación y coordinación con subcontratistas",
+  "settings.save": "Guardar",
+  "settings.saving": "Guardando",
+  "settings.saved": "Configuración de comunicaciones guardada",
+  "settings.error": "No se pudo guardar la configuración",
+
+  "settings.appointmentConfirmations": "Confirmaciones de citas",
+  "settings.enableAppointmentConfirmations": "Habilitar confirmaciones de citas",
+  "settings.appointmentDelayHours": "Retraso tras programar",
+  "settings.hoursSuffix": "horas",
+
+  "settings.dayBeforeReminders": "Recordatorios del día anterior",
+  "settings.enableDayBeforeReminders": "Habilitar recordatorios del día anterior",
+  "settings.sendHourUtc": "Hora de envío del cron (UTC)",
+  "settings.hourUtcSuffix": "UTC",
+  "settings.includeWeather": "Incluir información meteorológica",
+
+  "settings.rescheduleRequests": "Detección de solicitudes de reprogramación",
+  "settings.enableRescheduleRequests": "Habilitar detección de solicitudes de reprogramación",
+  "settings.minConfidence": "Confianza mínima de detección",
+
+  "settings.subcontractorCoordination": "Coordinación con subcontratistas",
+  "settings.enableSubcontractorCoordination": "Habilitar coordinación con subcontratistas",
+
+  "settings.configuredOn": "Configurado el {{date}}",
+  "settings.notConfigured": "Aún no configurado — ejecuta el asistente de configuración para comenzar",
+  "settings.rerunWizard": "Reiniciar asistente",
+  "settings.edit": "Editar",
+  "settings.disabled": "Desactivado",
+
+  "settings.statusUpdate": "Actualizaciones de estado",
+  "settings.appointmentConfirmationSingular": "Confirmaciones de cita",
+  "settings.appointmentReminderSingular": "Recordatorios de visita",
+  "settings.paymentReminder": "Recordatorios de pago",
+  "settings.invoiceCover": "Correos de portada de factura",
+  "settings.rescheduleRequestSingular": "Solicitudes de reprogramación",
+
+  "settings.cadence.off": "Desactivado",
+  "settings.cadence.weekly": "Semanal",
+  "settings.cadence.biweekly": "Quincenal",
+  "settings.cadence.monthly": "Mensual",
+  "settings.cadence.on_stage_change": "Al cambiar de etapa",
+
+  "settings.autonomyValue.off": "Desactivado",
+  "settings.autonomyValue.draft_to_queue": "Borrador a la cola de aprobación",
+  "settings.autonomyValue.auto_send": "Envío automático tras retraso",
+
+  "settings.confirmationLevel.off": "Desactivado",
+  "settings.confirmationLevel.manual": "Solo manual",
+  "settings.confirmationLevel.draft_on_confirm": "Borrador al confirmar",
+  "settings.confirmationLevel.auto_send_on_confirm": "Envío automático al confirmar",
+  "settings.confirmationLevel.full_auto": "Totalmente automático",
+
+  "settings.confirmMode.explicit": "Botón explícito",
+  "settings.confirmMode.automatic": "Gracia automática",
+
+  "settings.paymentPreset.standard": "Calendario estándar",
+  "settings.paymentPreset.gentle": "Calendario suave",
+  "settings.paymentPreset.aggressive": "Calendario agresivo",
+  "settings.paymentPreset.custom": "Calendario personalizado",
+
+  "settings.rescheduleBehavior.detect_only": "Solo detectar y notificar",
+  "settings.rescheduleBehavior.detect_and_draft": "Detectar y redactar respuesta",
+
+  "settings.subcontractorTrigger.manual": "Solo activación manual",
+  "settings.subcontractorTrigger.auto_suggest": "Sugerir automáticamente al cambiar de etapa",
+
+  "settings.dayOf": "el día de la visita",
+  "settings.before": "antes",
+  "settings.maxN": "máx {{n}}",
+  "settings.thresholdOver": "sobre ${{n}}",
+  "settings.thresholdAny": "cualquier monto",
+  "settings.confidenceLabel": "{{pct}} de confianza",
+  "settings.sendDelayShort": "retraso de {{n}} min"
+}

@@ -100,7 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       fetchTable(db, "opportunities", companyId),
       fetchTable(db, "calendar_events", companyId),
       fetchTable(db, "products", companyId),
-      fetchTable(db, "task_types_v2", companyId),
+      fetchTable(db, "task_types", companyId),
     ]);
 
     // Fetch line items for estimates and invoices

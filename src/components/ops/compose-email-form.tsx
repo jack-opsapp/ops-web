@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import {
   Bold,
   Italic,
@@ -254,6 +254,45 @@ export function ComposeEmailForm({
   const selectedConnection = activeConnections.find(
     (c: EmailConnection) => c.id === effectiveConnectionId
   );
+
+  // ─── E5: Auto-draft pre-population ──────────────────────────────────────
+  // When opening compose for a thread, check if an auto-draft exists
+  // and pre-populate the body + AI state.
+  useEffect(() => {
+    if (!composeData?.threadId || !company?.id || body.trim().length > 0) return;
+
+    const checkAutoDraft = async () => {
+      try {
+        const res = await fetch(
+          `/api/integrations/email/auto-drafts?companyId=${company.id}&threadId=${composeData.threadId}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const drafts = data.autoDrafts as Array<{
+          id: string;
+          draft: string;
+          threadId: string;
+          connectionId: string;
+        }>;
+        if (drafts.length === 0) return;
+
+        const autoDraft = drafts[0];
+        setBody(autoDraft.draft);
+        setAiState({
+          isAIDraft: true,
+          originalDraft: autoDraft.draft,
+          draftHistoryId: autoDraft.id,
+          confidence: 1, // auto-drafts already passed confidence check
+          sources: ["auto_draft"],
+        });
+      } catch {
+        // Non-fatal — auto-draft check is supplementary
+      }
+    };
+
+    checkAutoDraft();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composeData?.threadId, company?.id]);
 
   // ─── Markdown Toolbar Actions ───────────────────────────────────────────
 
@@ -699,11 +738,15 @@ export function ComposeEmailForm({
           <Sparkles className="w-[12px] h-[12px] text-[#597794] shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="font-mohave text-caption-sm text-[#597794]">
-              {t("aiDraft.banner")}
+              {aiState.sources.includes("auto_draft")
+                ? t("aiDraft.banner.auto")
+                : t("aiDraft.banner")}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled ml-1.5">
-              {t("aiDraft.banner.description")}
-            </span>
+            {!aiState.sources.includes("auto_draft") && (
+              <span className="font-mohave text-caption-sm text-text-disabled ml-1.5">
+                {t("aiDraft.banner.description")}
+              </span>
+            )}
           </div>
           <button
             onClick={clearAiDraft}

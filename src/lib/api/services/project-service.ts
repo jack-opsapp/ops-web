@@ -27,6 +27,10 @@ function parseProjectStatus(raw: unknown): ProjectStatus {
 }
 
 function serializeProjectStatus(status: ProjectStatus): string {
+  // Production projects.status is lowercase — verified 2026-04-13 against
+  // the live database (see docs/reference §1d). Values present in prod:
+  //   rfq, estimated, accepted, in_progress, completed, closed, archived.
+  // The migration-file Title Case CHECK has been relaxed in prod.
   switch (status) {
     case ProjectStatus.RFQ: return "rfq";
     case ProjectStatus.Estimated: return "estimated";
@@ -267,16 +271,47 @@ export const ProjectService = {
 
   /**
    * Update only the project status.
+   * Fires stage change detection (fire-and-forget) for lifecycle automation.
    */
   async updateProjectStatus(id: string, status: ProjectStatus): Promise<void> {
     const supabase = requireSupabase();
 
+    // Fetch old status before updating (for stage change detection)
+    const { data: current } = await supabase
+      .from("projects")
+      .select("status, company_id")
+      .eq("id", id)
+      .single();
+
+    const oldStatus = (current?.status as string) ?? "";
+    const companyId = (current?.company_id as string) ?? "";
+    const newStatus = serializeProjectStatus(status);
+
     const { error } = await supabase
       .from("projects")
-      .update({ status: serializeProjectStatus(status) })
+      .update({ status: newStatus })
       .eq("id", id);
 
     if (error) throw new Error(`Failed to update project status: ${error.message}`);
+
+    // Fire-and-forget: trigger lifecycle automation on stage change
+    if (oldStatus && newStatus && oldStatus !== newStatus && companyId) {
+      import("./project-lifecycle-service")
+        .then(({ ProjectLifecycleService }) =>
+          ProjectLifecycleService.onProjectStageChange(
+            companyId,
+            id,
+            oldStatus,
+            newStatus
+          )
+        )
+        .catch((err) =>
+          console.error(
+            "[project-service] Lifecycle stage change error:",
+            err
+          )
+        );
+    }
   },
 
   /**

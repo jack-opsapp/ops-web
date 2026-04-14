@@ -38,44 +38,60 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const results: Array<{
+    type HealthResult = {
       companyId: string;
       overdueTasks: number;
       archivableProjects: number;
       error?: string;
-    }> = [];
+    };
 
+    // Filter to phase_c companies first
+    const phaseCCompanyIds: string[] = [];
     for (const company of companies ?? []) {
       const companyId = company.id as string;
-
-      // Gate behind phase_c
       const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
         companyId,
         "phase_c"
       );
-      if (!enabled) continue;
+      if (enabled) phaseCCompanyIds.push(companyId);
+    }
 
-      try {
-        const [overdueTasks, archivableProjects] = await Promise.all([
-          ProjectLifecycleService.detectOverdueTasks(companyId),
-          ProjectLifecycleService.detectArchivableProjects(companyId),
-        ]);
+    // Process in parallel chunks of 5 to avoid timeout
+    const CHUNK_SIZE = 5;
+    const results: HealthResult[] = [];
 
-        if (overdueTasks > 0 || archivableProjects > 0) {
-          results.push({ companyId, overdueTasks, archivableProjects });
+    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
+      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.allSettled(
+        chunk.map(async (companyId): Promise<HealthResult> => {
+          const [overdueTasks, archivableProjects] = await Promise.all([
+            ProjectLifecycleService.detectOverdueTasks(companyId),
+            ProjectLifecycleService.detectArchivableProjects(companyId),
+          ]);
+          return { companyId, overdueTasks, archivableProjects };
+        })
+      );
+
+      for (let j = 0; j < chunkResults.length; j++) {
+        const r = chunkResults[j];
+        if (r.status === "fulfilled") {
+          if (r.value.overdueTasks > 0 || r.value.archivableProjects > 0) {
+            results.push(r.value);
+          }
+        } else {
+          const message =
+            r.reason instanceof Error ? r.reason.message : "Unknown error";
+          console.error(
+            `[project-health] Error for company ${chunk[j]}:`,
+            message
+          );
+          results.push({
+            companyId: chunk[j],
+            overdueTasks: 0,
+            archivableProjects: 0,
+            error: message,
+          });
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        console.error(
-          `[project-health] Error for company ${companyId}:`,
-          message
-        );
-        results.push({
-          companyId,
-          overdueTasks: 0,
-          archivableProjects: 0,
-          error: message,
-        });
       }
     }
 

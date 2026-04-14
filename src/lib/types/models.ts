@@ -283,6 +283,13 @@ export interface ProjectTask {
   duration: number;
   startTime?: string | null;
   endTime?: string | null;
+  /** S2 Amendment: explicit schedule-confirmed marker. When set, the task is
+   *  considered stable and the appointment_confirmation dispatcher has fired. */
+  scheduleConfirmedAt?: Date | null;
+  /** User id who confirmed the schedule. NULL when auto-confirmed by cron. */
+  scheduleConfirmedBy?: string | null;
+  /** Task row updated_at — used by the auto-confirm grace period display. */
+  updatedAt?: Date | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;

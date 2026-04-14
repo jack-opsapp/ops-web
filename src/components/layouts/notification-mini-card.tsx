@@ -7,6 +7,22 @@ import { notifCardVariants, notifCardVariantsReduced } from "@/lib/utils/motion"
 import { useNotificationRailStore } from "@/stores/notification-rail-store";
 import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
+import { useDictionary } from "@/i18n/client";
+
+/**
+ * Translate a notification string with graceful fallback. Mirrors the helper
+ * in notification-card-full.tsx — keep in sync if behavior changes.
+ */
+function translateNotif(
+  raw: string | null | undefined,
+  t: (key: string) => string
+): string | null {
+  if (!raw) return null;
+  const looksLikeKey =
+    /^[a-z][a-zA-Z0-9._-]*$/.test(raw) && raw.includes(".");
+  if (!looksLikeKey) return raw;
+  return t(raw);
+}
 
 interface NotificationMiniCardProps {
   notification: AppNotification;
@@ -25,6 +41,10 @@ export function NotificationMiniCard({
   const variants = reducedMotion ? notifCardVariantsReduced : notifCardVariants;
   const isDuplicateReview = notification.type === "duplicates_found";
   const hasAction = isDuplicateReview || (notification.actionUrl && notification.actionLabel);
+
+  const { t } = useDictionary("common");
+  const displayTitle = translateNotif(notification.title, t) ?? notification.title;
+  const displayActionLabel = translateNotif(notification.actionLabel, t);
 
   const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
 
@@ -72,13 +92,13 @@ export function NotificationMiniCard({
     >
       {/* Title */}
       <span className="font-mohave text-[12px] text-text-primary truncate flex-1 text-left">
-        {notification.title}
+        {displayTitle}
       </span>
 
       {/* Action label (visual indicator only — whole card is clickable) */}
       {hasAction && (
         <span className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-ops-accent">
-          {isDuplicateReview ? "Review" : notification.actionLabel}
+          {isDuplicateReview ? "Review" : displayActionLabel}
         </span>
       )}
 

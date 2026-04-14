@@ -24,9 +24,18 @@ function parseTaskStatus(raw: unknown): TaskStatus {
 }
 
 function serializeTaskStatus(status: TaskStatus): string {
+  // Production project_tasks.status CHECK constraint — verified
+  // 2026-04-14 via information_schema.check_constraints:
+  //   status IN ('active', 'completed', 'cancelled')
+  //
+  // There is intentionally NO 'in_progress' slot on project_tasks — the
+  // migrate_task_status_to_active migration collapsed Booked+InProgress
+  // into a single 'active' state. The TS enum keeps both values for iOS
+  // parity, so we collapse InProgress → active on write. parseTaskStatus
+  // still accepts in_progress on read for forward-compat.
   switch (status) {
     case TaskStatus.Booked: return "active";
-    case TaskStatus.InProgress: return "in_progress";
+    case TaskStatus.InProgress: return "active";
     case TaskStatus.Completed: return "completed";
     case TaskStatus.Cancelled: return "cancelled";
     default: return "active";
@@ -54,6 +63,41 @@ function mapTaskTypeFromDb(raw: unknown): TaskType | null {
   };
 }
 
+/**
+ * Find a default admin/owner user id for a company. Used by fire-and-forget
+ * hooks inside task mutations to attribute agent actions without requiring
+ * the caller to pass a userId.
+ */
+async function findDefaultUserForCompany(
+  companyId: string
+): Promise<string | null> {
+  const supabase = requireSupabase();
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("admin_ids")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  const rawAdminIds = (company?.admin_ids as string) ?? "";
+  const adminIds = rawAdminIds
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (adminIds.length > 0) return adminIds[0];
+
+  const { data: roleMatch } = await supabase
+    .from("users")
+    .select("id")
+    .eq("company_id", companyId)
+    .in("role", ["admin", "owner"])
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  return (roleMatch?.id as string) ?? null;
+}
+
 function mapFromDb(row: Record<string, unknown>): ProjectTask {
   return {
     id: row.id as string,
@@ -75,6 +119,9 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     duration: (row.duration as number) ?? 1,
     startTime: (row.start_time as string) ?? null,
     endTime: (row.end_time as string) ?? null,
+    scheduleConfirmedAt: parseDate(row.schedule_confirmed_at),
+    scheduleConfirmedBy: (row.schedule_confirmed_by as string) ?? null,
+    updatedAt: parseDate(row.updated_at),
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -296,14 +343,58 @@ export const TaskService = {
 
     if (taskError) throw new Error(`Failed to create task: ${taskError.message}`);
 
-    return { taskId: taskCreated.id as string };
+    const newTaskId = taskCreated.id as string;
+
+    // S2 Amendment: fire the full_auto appointment confirmation dispatcher
+    // if the company's appointment_confirmation.level is 'full_auto'. This
+    // catches manual creation paths (calendar, task-form, task-list) —
+    // executeCreateTask (agent path) also fires this, so both surfaces are
+    // covered. Phase C gated inside the service; fire-and-forget.
+    if (taskData.startDate && data.task.companyId) {
+      const companyIdValue = data.task.companyId;
+      void (async () => {
+        try {
+          const userId = await findDefaultUserForCompany(companyIdValue);
+          if (!userId) return;
+          const { ClientSchedulingCommsService } = await import(
+            "./client-scheduling-comms-service"
+          );
+          await ClientSchedulingCommsService.onTaskCreatedMaybeFullAuto(
+            companyIdValue,
+            userId,
+            newTaskId
+          );
+        } catch (err) {
+          console.error(
+            "[task-service] full_auto dispatcher after createTaskWithEvent:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      })();
+    }
+
+    return { taskId: newTaskId };
   },
 
   /**
    * Update an existing task.
+   *
+   * Fires a fire-and-forget schedule cascade check when schedule-relevant
+   * fields change (start/end dates, team member assignments). This lets the
+   * agent detect downstream impacts from manual calendar/task edits —
+   * drag-and-drop schedule changes, direct reassignments, etc.
    */
   async updateTask(id: string, data: Partial<ProjectTask>): Promise<void> {
     const supabase = requireSupabase();
+
+    // Capture prior state — needed to detect "confirmed task rescheduled"
+    // which fires the appointment_confirmation.reschedule_behavior dispatcher.
+    const { data: priorRow } = await supabase
+      .from("project_tasks")
+      .select("company_id, start_date, schedule_confirmed_at")
+      .eq("id", id)
+      .maybeSingle();
+
     const row = mapToDb(data);
 
     const { error } = await supabase
@@ -312,6 +403,72 @@ export const TaskService = {
       .eq("id", id);
 
     if (error) throw new Error(`Failed to update task: ${error.message}`);
+
+    // Detect if schedule-relevant fields changed → fire cascade check.
+    const scheduleRelevant =
+      data.startDate !== undefined ||
+      data.endDate !== undefined ||
+      data.startTime !== undefined ||
+      data.endTime !== undefined ||
+      data.teamMemberIds !== undefined ||
+      data.duration !== undefined;
+
+    // Detect if start_date actually changed on a previously-confirmed task.
+    const priorStartIso = priorRow?.start_date as string | null | undefined;
+    const newStart = data.startDate;
+    const startChanged =
+      newStart !== undefined &&
+      (priorStartIso ?? null) !== (newStart?.toISOString() ?? null);
+    const wasConfirmed = !!priorRow?.schedule_confirmed_at;
+    const shouldFireRescheduleHook = startChanged && wasConfirmed;
+
+    if (scheduleRelevant || shouldFireRescheduleHook) {
+      // Fire-and-forget cascade + reschedule-behavior dispatcher.
+      // Wrapped in async IIFE so all awaits run off the main path.
+      void (async () => {
+        try {
+          const companyId = priorRow?.company_id as string | undefined;
+          if (!companyId) return;
+
+          const userId = await findDefaultUserForCompany(companyId);
+          if (!userId) return;
+
+          if (scheduleRelevant) {
+            const { ScheduleOptimizationService } = await import(
+              "./schedule-optimization-service"
+            );
+            await ScheduleOptimizationService.handleRescheduleCascade(
+              companyId,
+              userId,
+              id,
+              "manual_update"
+            );
+          }
+
+          // S2 Amendment: fire reschedule-behavior dispatcher when a
+          // previously-confirmed task gets a new start_date. This covers
+          // calendar drag-and-drop and task-form edit paths that bypass
+          // the approval queue executor hooks. The prior start_date is
+          // passed so the draft email can reference it explicitly.
+          if (shouldFireRescheduleHook) {
+            const { ClientSchedulingCommsService } = await import(
+              "./client-scheduling-comms-service"
+            );
+            await ClientSchedulingCommsService.onConfirmedTaskRescheduled(
+              companyId,
+              userId,
+              id,
+              priorStartIso ?? null
+            );
+          }
+        } catch (err) {
+          console.error(
+            "[task-service] hooks after manual update:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      })();
+    }
   },
 
   /**

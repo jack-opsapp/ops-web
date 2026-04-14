@@ -9,6 +9,7 @@ import { trackTaskCreated, trackFormAbandoned } from "@/lib/analytics/analytics"
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { CalendarScheduler } from "@/components/ops/calendar-scheduler";
+import { TaskScheduleConfirmStrip } from "@/components/agent/task-schedule-confirm-strip";
 import { useDictionary } from "@/i18n/client";
 import {
   type ProjectTask,
@@ -673,6 +674,14 @@ function TaskForm({
         blockedDates={blockedDates}
         alwaysExpanded
       />
+
+      {/* Schedule confirmation (edit mode, phase_c, scheduled tasks only) */}
+      {isEditMode && task && task.startDate && (
+        <TaskScheduleConfirmStrip
+          task={task}
+          className="pt-1"
+        />
+      )}
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-1 pt-1 border-t border-border-subtle">

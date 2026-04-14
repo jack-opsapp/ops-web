@@ -34,6 +34,10 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useCreateNotification } from "@/lib/hooks/use-notifications";
 import { AutoSendSettings } from "./auto-send-settings";
+import { AutonomyStatusPanel } from "./autonomy-status-panel";
+import { useRouter } from "next/navigation";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
+import { Brain } from "lucide-react";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -626,6 +630,13 @@ export function IntegrationsTab() {
             {t("integrations.gmailHelper")}
           </p>
 
+          {/* AI Autonomy Status + Auto-Draft + Per-Category — visible after wizard is done */}
+          {hasAnyConnection && wizardDone && companyConnections[0] && (
+            <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
+              <AutonomyStatusPanel connectionId={companyConnections[0].id} />
+            </div>
+          )}
+
           {/* Auto-Send Settings — visible after wizard is done */}
           {hasAnyConnection && wizardDone && companyConnections[0] && (
             <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
@@ -635,6 +646,51 @@ export function IntegrationsTab() {
         </CardContent>
       </Card>
 
+      {/* AI Setup Card */}
+      <AiSetupCard />
+
     </div>
+  );
+}
+
+// ─── AI Setup Card ──────────────────────────────────────────────────────────────
+
+function AiSetupCard() {
+  const { t } = useDictionary("ai-setup");
+  const router = useRouter();
+  const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
+  const phaseCEnabled = canAccessFeature("phase_c");
+
+  if (!phaseCEnabled) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>
+            <div className="flex items-center gap-[6px]">
+              <Brain className="w-[16px] h-[16px] text-[#597794]" />
+              {t("nav.cardTitle")}
+            </div>
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <button
+          onClick={() => router.push("/settings/integrations/ai-setup")}
+          className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(89,119,148,0.2)] bg-[rgba(89,119,148,0.06)] hover:bg-[rgba(89,119,148,0.12)] hover:border-[rgba(89,119,148,0.3)] transition-colors text-left"
+        >
+          <Brain className="w-[18px] h-[18px] text-[#597794] shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="font-mohave text-body text-[#597794] block">
+              {t("nav.cardAction")}
+            </span>
+            <span className="font-kosugi text-[10px] text-text-disabled">
+              {t("nav.cardDesc")}
+            </span>
+          </div>
+        </button>
+      </CardContent>
+    </Card>
   );
 }

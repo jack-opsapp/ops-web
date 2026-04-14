@@ -56,7 +56,7 @@ export async function maybeSuggestProject(params: {
 
   // Get common task types for this company
   const { data: taskTypes } = await supabase
-    .from("task_types_v2")
+    .from("task_types")
     .select("id, display")
     .eq("company_id", companyId)
     .eq("is_default", true)
