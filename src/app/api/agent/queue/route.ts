@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, isErrorResponse, requireAdminOrOwner } from "../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import type {
   AgentActionStatus,
   AgentActionType,
@@ -15,6 +17,12 @@ import type {
 // ─── GET: Fetch Queue / Stats / Count ─────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  // Route handlers have no Firebase user session, so the service layer's
+  // requireSupabase() would otherwise fall through to the anon browser
+  // client and RLS policies on agent_actions would filter every row out.
+  // Override it with the service-role client for the duration of this call.
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -54,12 +62,16 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/queue GET]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }
 
 // ─── POST: Propose Action ─────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -127,5 +139,7 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/queue POST]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }

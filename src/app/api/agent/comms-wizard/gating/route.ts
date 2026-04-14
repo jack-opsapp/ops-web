@@ -17,12 +17,15 @@ import {
   requireAdminOrOwner,
 } from "../../_lib/auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 
 const FULL_AUTO_MIN_CONFIDENCE = 0.85;
 const FULL_AUTO_MIN_PRIORS = 50;
 
 export async function GET(request: NextRequest) {
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -79,5 +82,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/comms-wizard/gating]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }

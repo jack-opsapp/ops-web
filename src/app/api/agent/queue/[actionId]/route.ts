@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, isErrorResponse, requireAdminOrOwner } from "../../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { setSupabaseOverride } from "@/lib/supabase/helpers";
 
 /** Action types that require admin/owner role to approve */
 const FINANCIAL_ACTION_TYPES = ["create_invoice", "send_invoice_email"];
@@ -16,6 +18,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ actionId: string }> }
 ) {
+  // Pin the service layer to the service-role client so RLS doesn't
+  // filter out the target row when reading it back for the atomic
+  // approve/reject update.
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -52,6 +59,8 @@ export async function PATCH(
     console.error("[agent/queue PATCH]", message);
     const status = message.includes("not found") || message.includes("already handled") ? 409 : 500;
     return NextResponse.json({ error: message }, { status });
+  } finally {
+    setSupabaseOverride(null);
   }
 }
 
@@ -61,6 +70,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ actionId: string }> }
 ) {
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -79,5 +90,7 @@ export async function DELETE(
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/queue DELETE]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }

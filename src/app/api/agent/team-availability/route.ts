@@ -13,10 +13,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, isErrorResponse } from "../_lib/auth";
 import { AssignmentService } from "@/lib/api/services/assignment-service";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { setSupabaseOverride } from "@/lib/supabase/helpers";
 
 const MAX_RANGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 export async function GET(request: NextRequest) {
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -74,5 +78,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/team-availability GET]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }

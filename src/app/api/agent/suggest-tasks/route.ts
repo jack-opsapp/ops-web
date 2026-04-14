@@ -11,8 +11,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, isErrorResponse } from "../_lib/auth";
 import { TaskSuggestionService } from "@/lib/api/services/task-suggestion-service";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { setSupabaseOverride } from "@/lib/supabase/helpers";
 
 export async function POST(request: NextRequest) {
+  setSupabaseOverride(getServiceRoleClient());
+
   try {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
@@ -48,5 +52,7 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/suggest-tasks POST]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }
