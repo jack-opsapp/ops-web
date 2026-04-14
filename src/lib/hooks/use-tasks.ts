@@ -24,23 +24,33 @@ import {
 import type { Project, ProjectTask, TaskStatus } from "../types/models";
 import { getTaskDisplayTitle } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /**
  * Fetch all tasks for the current company (auto-paginates past 100).
+ * Scope-aware: users without "all" scope only fetch tasks assigned to them.
  */
 export function useTasks(
   options?: FetchTasksOptions,
   queryOptions?: Partial<UseQueryOptions<{ tasks: ProjectTask[]; remaining: number; count: number }>>
 ) {
-  const { company } = useAuthStore();
+  const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
+  const tasksScope = usePermissionStore((s) => s.permissions.get("tasks.view"));
+  const hasAllScope = tasksScope === "all";
+  const scopedUserId = !hasAllScope ? currentUser?.id : undefined;
+
+  const effectiveOptions: FetchTasksOptions = {
+    ...options,
+    ...(scopedUserId && !options?.teamMemberId ? { teamMemberId: scopedUserId } : {}),
+  };
 
   return useQuery({
-    queryKey: queryKeys.tasks.list(companyId, options as Record<string, unknown>),
+    queryKey: queryKeys.tasks.list(companyId, effectiveOptions as Record<string, unknown>),
     queryFn: async () => {
-      const tasks = await TaskService.fetchAllTasks(companyId, options);
+      const tasks = await TaskService.fetchAllTasks(companyId, effectiveOptions);
       return { tasks, remaining: 0, count: tasks.length };
     },
     enabled: !!companyId,
@@ -87,19 +97,26 @@ export function useScheduledTasks(
   endDate: Date | null,
   queryOptions?: Partial<UseQueryOptions<ProjectTask[]>>
 ) {
-  const { company } = useAuthStore();
+  const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
+  // Scope-aware: users with calendar.view: own or tasks.view: assigned
+  // only see tasks they're assigned to. Users with "all" scope see everything.
+  const calendarScope = usePermissionStore((s) => s.permissions.get("calendar.view"));
+  const tasksScope = usePermissionStore((s) => s.permissions.get("tasks.view"));
+  const hasAllScope = calendarScope === "all" || tasksScope === "all";
+  const scopedUserId = !hasAllScope ? currentUser?.id : undefined;
 
   const startStr = startDate?.toISOString() ?? "";
   const endStr = endDate?.toISOString() ?? "";
 
   return useQuery({
-    queryKey: queryKeys.calendar.scheduled(companyId, startStr, endStr),
+    queryKey: queryKeys.calendar.scheduled(companyId, startStr, endStr, scopedUserId ?? ""),
     queryFn: () =>
       TaskService.fetchScheduledTasksForRange(
         companyId,
         startDate!,
-        endDate!
+        endDate!,
+        scopedUserId ? { teamMemberId: scopedUserId } : {}
       ),
     enabled: !!companyId && !!startDate && !!endDate,
     ...queryOptions,

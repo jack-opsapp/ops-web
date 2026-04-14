@@ -87,7 +87,7 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
       : []),
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
     "divider",
-    { label: t("nav.intel"), href: "/intel", icon: Radar },
+    { label: t("nav.intel"), href: "/intel", icon: Radar, permission: "pipeline.view" },
     { label: t("nav.agentQueue"), href: "/agent/queue", icon: BrainCircuit, permission: "admin" },
     "divider",
     { label: t("nav.settings"), href: "/settings", icon: Settings },

@@ -28,6 +28,9 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   "/inventory": "inventory.view",
   "/accounting": "accounting.view",
   "/inbox": "pipeline.view",
+  "/intel": "pipeline.view",
+  "/agent": "pipeline.view",
+  // testing-grounds uses a per-user special permission check on the page itself
 };
 
 /** Check if the current pathname requires a permission the user doesn't have. */

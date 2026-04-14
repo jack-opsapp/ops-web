@@ -401,7 +401,7 @@ export default function EstimatesPage() {
       {reviewTasksEstimate && (
         <ReviewTasksModal
           estimateId={reviewTasksEstimate.id}
-          projectId={reviewTasksEstimate.opportunityId ?? ""}
+          projectId={reviewTasksEstimate.projectId ?? ""}
           projectTitle={reviewTasksEstimate.estimateNumber}
           opportunityId={reviewTasksEstimate.opportunityId}
           open={!!reviewTasksEstimate}
@@ -490,7 +490,7 @@ function EstimateFormModal({
   const isEditing = !!estimate;
 
   const [clientId, setClientId] = useState(estimate?.clientId ?? "");
-  const [projectId, setProjectId] = useState(estimate?.opportunityId ?? "");
+  const [projectId, setProjectId] = useState(estimate?.projectId ?? "");
   const [date, setDate] = useState(
     estimate?.issueDate
       ? new Date(estimate.issueDate).toISOString().slice(0, 10)
@@ -593,7 +593,7 @@ function EstimateFormModal({
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
       clientId: clientId ?? undefined,
-      opportunityId: projectId || null,
+      projectId: projectId || null,
       issueDate: date ? new Date(date) : new Date(),
       expirationDate: expirationDate ? new Date(expirationDate) : null,
       clientMessage: notes || null,

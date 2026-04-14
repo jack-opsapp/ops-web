@@ -234,8 +234,24 @@ const SUB_TAB_PERMISSIONS: Record<string, string> = {
   portal: "portal.manage_branding",
   templates: "documents.manage_templates",
   accounting: "accounting.manage_connections",
+  // Preferences group
+  "preferences-general": "settings.preferences",
+  map: "settings.preferences",
+  "data-privacy": "settings.preferences",
   // Setup group
   "setup-wizards": "settings.company",
+};
+
+/**
+ * Top-level group gates. A group is only visible when the user holds its
+ * gating permission. This is the primary RBAC check for Settings tabs —
+ * sub-tab filtering below provides defense in depth for finer-grained gates.
+ */
+const GROUP_PERMISSIONS: Partial<Record<SettingsGroup, string>> = {
+  company: "settings.company",
+  billing: "settings.billing",
+  integrations: "settings.integrations",
+  preferences: "settings.preferences",
 };
 
 export default function SettingsPage() {
@@ -246,19 +262,29 @@ export default function SettingsPage() {
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
   const { t } = useDictionary("settings");
 
-  // Filter sub-tabs based on permissions (memoize to prevent infinite re-render loop)
+  // Filter groups and sub-tabs based on permissions. Top-level groups are gated
+  // by GROUP_PERMISSIONS; sub-tabs are additionally filtered by SUB_TAB_PERMISSIONS
+  // for defense in depth. Memoized to prevent infinite re-render loops.
   const groupDefs = useMemo(() => {
     const base = permReady
-      ? BASE_GROUP_DEFS.map((group) => ({
-          ...group,
-          subTabs: group.subTabs.filter((sub) => {
-            const required = SUB_TAB_PERMISSIONS[sub.id];
+      ? BASE_GROUP_DEFS
+          .filter((group) => {
+            const required = GROUP_PERMISSIONS[group.id];
             if (!required) return true;
-            // Check both: feature flag must be enabled AND RBAC permission granted
             if (!isPermissionUnlocked(required)) return false;
             return can(required);
-          }),
-        })).filter((group) => group.subTabs.length > 0)
+          })
+          .map((group) => ({
+            ...group,
+            subTabs: group.subTabs.filter((sub) => {
+              const required = SUB_TAB_PERMISSIONS[sub.id];
+              if (!required) return true;
+              // Check both: feature flag must be enabled AND RBAC permission granted
+              if (!isPermissionUnlocked(required)) return false;
+              return can(required);
+            }),
+          }))
+          .filter((group) => group.subTabs.length > 0)
       : BASE_GROUP_DEFS;
 
     return currentUser?.devPermission ? [...base, DEV_GROUP] : base;
@@ -276,6 +302,23 @@ export default function SettingsPage() {
   const majorTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const subTabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const groupContainerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // If the active group/sub-tab becomes hidden (permissions resolved, URL tampering,
+  // role change), redirect to the first visible tab. Crew landing on "company" by
+  // default gets redirected to whichever tab they can actually see.
+  useEffect(() => {
+    if (!permReady || groupDefs.length === 0) return;
+    const activeDef = groupDefs.find((g) => g.id === activeGroup);
+    if (!activeDef) {
+      const first = groupDefs[0];
+      setActiveGroup(first.id);
+      setActiveSubTab(first.subTabs[0].id);
+      return;
+    }
+    if (!activeDef.subTabs.some((s) => s.id === activeSubTab)) {
+      setActiveSubTab(activeDef.subTabs[0].id);
+    }
+  }, [permReady, groupDefs, activeGroup, activeSubTab]);
 
   // ── Group change handler ───────────────────────────────────────────────
   function handleGroupChange(groupId: SettingsGroup) {
@@ -358,7 +401,15 @@ export default function SettingsPage() {
   }, [tabParam]);
 
   // ── Render ─────────────────────────────────────────────────────────────
-  const ContentComponent = CONTENT_MAP[activeSubTab];
+  // Defense in depth: even if the tab bar filter is bypassed (URL manipulation,
+  // stale state), block content rendering for gated groups when the user lacks
+  // the required permission. Until permissions resolve, render nothing rather
+  // than flashing protected content.
+  const activeGroupPermission = GROUP_PERMISSIONS[activeGroup];
+  const groupContentBlocked =
+    !!activeGroupPermission &&
+    (!permReady || !isPermissionUnlocked(activeGroupPermission) || !can(activeGroupPermission));
+  const ContentComponent = groupContentBlocked ? null : CONTENT_MAP[activeSubTab];
 
   return (
     <div className="space-y-3">

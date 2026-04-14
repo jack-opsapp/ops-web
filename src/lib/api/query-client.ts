@@ -88,8 +88,8 @@ export const queryKeys = {
   calendar: {
     all: ["calendar"] as const,
     lists: () => [...queryKeys.calendar.all, "list"] as const,
-    scheduled: (companyId: string, start: string, end: string) =>
-      [...queryKeys.calendar.lists(), "scheduled", companyId, start, end] as const,
+    scheduled: (companyId: string, start: string, end: string, scopedUserId = "") =>
+      [...queryKeys.calendar.lists(), "scheduled", companyId, start, end, scopedUserId] as const,
   },
 
   // Task Types

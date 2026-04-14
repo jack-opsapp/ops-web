@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
@@ -160,6 +161,14 @@ export default function InvoicesPage() {
     }
     setShowCreateModal(true);
   }, [can, setupComplete]);
+
+  // FAB ?action=new handling — auto-open create modal when routed from FAB
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("action") === "new") {
+      gatedOpenCreate();
+    }
+  }, [searchParams, gatedOpenCreate]);
 
   async function handleDownloadPdf(invoiceId: string) {
     setGeneratingPdfId(invoiceId);

@@ -39,6 +39,7 @@ import {
   useClient,
   useSubClients,
   useProjects,
+  useScopedProjects,
   useUpdateClient,
   useDeleteClient,
   useCreateSubClient,
@@ -190,6 +191,8 @@ function DetailLoadingSkeleton() {
 
 export default function ClientDetailPage() {
   const can = usePermissionStore((s) => s.can);
+  const clientScope = usePermissionStore((s) => s.permissions.get("clients.view"));
+  const hasAllClientScope = clientScope === "all";
   const { t } = useDictionary("clients");
   const { locale } = useLocale();
   const router = useRouter();
@@ -201,6 +204,12 @@ export default function ClientDetailPage() {
   usePageTitle(clientData?.name ?? "Client");
   const { data: subClientsData, isLoading: subClientsLoading } = useSubClients(clientId);
   const { data: projectsData, isLoading: projectsLoading } = useProjects({ clientId });
+  // Scope-aware fetch for access gate (skipped if user has "all" scope)
+  const { data: scopedProjectsData } = useScopedProjects(undefined, { enabled: !hasAllClientScope });
+  const isAssignedToClient = !hasAllClientScope
+    ? (scopedProjectsData?.projects ?? []).some((p) => p.clientId === clientId)
+    : true;
+  const clientAccessDenied = !hasAllClientScope && !isAssignedToClient && !clientLoading;
 
   // Mutation hooks
   const updateClient = useUpdateClient();
@@ -246,8 +255,8 @@ export default function ClientDetailPage() {
     return <DetailLoadingSkeleton />;
   }
 
-  // Not found
-  if (!clientData) {
+  // Not found — or access denied (shown as not-found to avoid confirming existence)
+  if (!clientData || clientAccessDenied) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <h2 className="font-mohave text-display text-text-primary">Client Not Found</h2>

@@ -25,7 +25,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useClients, useClientMetrics } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
-import { useProjects } from "@/lib/hooks/use-projects";
+import { useScopedProjects } from "@/lib/hooks/use-projects";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { getInitials } from "@/lib/types/models";
 import type { Client, SubClient } from "@/lib/types/models";
 import { useWindowStore } from "@/stores/window-store";
@@ -345,11 +346,13 @@ export default function ClientsPage() {
   // Track screen view
   useEffect(() => { trackScreenView("clients"); }, []);
 
+  const clientScope = usePermissionStore((s) => s.permissions.get("clients.view"));
+  const hasAllClientScope = clientScope === "all";
   const { data: clientMetrics = [], isLoading: clientMetricsLoading } = useClientMetrics();
   const { data, isLoading } = useClients();
-  const { data: projectsData } = useProjects();
+  const { data: projectsData } = useScopedProjects();
 
-  // Build project count per client from projects data
+  // Build project count per client from scoped projects data
   const projectCountByClient = useMemo(() => {
     const counts = new Map<string, number>();
     for (const project of projectsData?.projects ?? []) {
@@ -360,14 +363,26 @@ export default function ClientsPage() {
     return counts;
   }, [projectsData]);
 
+  // When the user's clients.view scope is not "all", restrict the visible
+  // clients to those linked to the user's accessible (scoped) projects.
+  const allowedClientIds = useMemo(() => {
+    if (hasAllClientScope) return null;
+    const ids = new Set<string>();
+    for (const project of projectsData?.projects ?? []) {
+      if (project.clientId) ids.add(project.clientId);
+    }
+    return ids;
+  }, [hasAllClientScope, projectsData]);
+
   const clients: ClientListItem[] = useMemo(() => {
     const rawClients = data?.clients ?? [];
     return rawClients
       .filter((c) => !c.deletedAt)
+      .filter((c) => allowedClientIds === null || allowedClientIds.has(c.id))
       .map((c) => mapClientToListItem(c, projectCountByClient.get(c.id) ?? 0));
-  }, [data, projectCountByClient]);
+  }, [data, projectCountByClient, allowedClientIds]);
 
-  const totalCount = data?.count ?? clients.length;
+  const totalCount = hasAllClientScope ? (data?.count ?? clients.length) : clients.length;
   const totalSubClients = clients.reduce((sum, c) => sum + c.subClients.length, 0);
 
   const filteredClients = useMemo(() => {

@@ -64,6 +64,7 @@ import {
   type User,
   TaskStatus,
   TASK_STATUS_COLORS,
+  UserRole,
   getTaskDisplayTitle,
   getUserFullName,
 } from "@/lib/types/models";
@@ -407,6 +408,26 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     [tasks]
   );
 
+  // ── Team members scoped to the current project ────────────────
+  // Fix for qa_bug 58aa2b05: the New Task dialog was leaking every
+  // team member in the company into the picker, regardless of whether
+  // they had any assignment on this project. Scope the create form to
+  // (a) users already assigned to a task on this project, plus
+  // (b) admin/owner/operator users who can legitimately be pulled in.
+  const createFormTeamMembers = useMemo(() => {
+    const assignedIds = new Set<string>();
+    for (const task of activeTasks) {
+      for (const id of task.teamMemberIds) assignedIds.add(id);
+    }
+    return teamMembers.filter(
+      (m) =>
+        assignedIds.has(m.id) ||
+        m.role === UserRole.Admin ||
+        m.role === UserRole.Owner ||
+        m.role === UserRole.Operator
+    );
+  }, [teamMembers, activeTasks]);
+
   const sortedTasks = useMemo(() => {
     return [...activeTasks].sort((a, b) => {
       const orderA = a.displayOrder ?? a.taskIndex ?? 0;
@@ -598,7 +619,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
           >
             <TaskForm
               taskTypes={taskTypes}
-              teamMembers={teamMembers}
+              teamMembers={createFormTeamMembers}
               isSubmitting={
                 createTaskMutation.isPending ||
                 createTaskWithEventMutation.isPending

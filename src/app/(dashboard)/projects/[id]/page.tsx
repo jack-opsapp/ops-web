@@ -257,11 +257,12 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
   const { t } = useDictionary("projects");
   const { locale } = useLocale();
   const router = useRouter();
+  const can = usePermissionStore((s) => s.can);
+  const canViewFinancials = can("invoices.view") || can("estimates.view");
   const { data: client } = useClient(project.clientId ?? undefined);
   const resolvedClient = project.client ?? client;
   const { data: teamData } = useTeamMembers();
   const { data: taskTypes } = useTaskTypes();
-  const { data: estimates = [] } = useProjectEstimates(project.id);
   const { data: invoices = [] } = useProjectInvoices(project.id);
   const updateProjectMutation = useUpdateProject();
 
@@ -449,7 +450,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             />
           </div>
         </div>
-        {/* 4 Metric Tiles */}
+        {/* Metric Tiles — financial tiles gated by permission */}
         <div className="grid grid-cols-2 gap-2">
           <MetricTile
             label={t("sidebar.tasks")}
@@ -460,16 +461,20 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             value={String(overdueTasks.length)}
             colorClass={overdueTasks.length > 0 ? "text-financial-overdue" : "text-text-primary"}
           />
-          <MetricTile
-            label={t("sidebar.invoiced")}
-            value={formatCurrency(totalInvoiced)}
-            colorClass="text-financial-revenue"
-          />
-          <MetricTile
-            label={t("sidebar.outstanding")}
-            value={formatCurrency(totalOutstanding)}
-            colorClass={totalOutstanding > 0 ? "text-financial-receivables" : "text-text-primary"}
-          />
+          {canViewFinancials && (
+            <>
+              <MetricTile
+                label={t("sidebar.invoiced")}
+                value={formatCurrency(totalInvoiced)}
+                colorClass="text-financial-revenue"
+              />
+              <MetricTile
+                label={t("sidebar.outstanding")}
+                value={formatCurrency(totalOutstanding)}
+                colorClass={totalOutstanding > 0 ? "text-financial-receivables" : "text-text-primary"}
+              />
+            </>
+          )}
         </div>
       </SidebarSection>
 
@@ -1106,16 +1111,30 @@ export default function ProjectDetailPage() {
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
   const canDelete = can("projects.delete");
+  const canViewFinancialTab = can("invoices.view") || can("estimates.view");
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
   const phaseCEnabled = canAccessFeature("phase_c");
   const isAdminOrOwner = currentUser?.role === "admin" || currentUser?.role === "owner";
   const [suggestingTasks, setSuggestingTasks] = useState(false);
 
-  // Tab state — map legacy "overview" to "tasks"
+  // Tab state — map legacy "overview" to "tasks", respect permissions
+  const visibleTabs = useMemo<TabId[]>(() => {
+    const base: TabId[] = ["tasks"];
+    if (canViewFinancialTab) base.push("financial");
+    base.push("photos", "notes");
+    return base;
+  }, [canViewFinancialTab]);
   const initialTab = (searchParams.get("tab") as TabId) || "tasks";
-  const [activeTab, setActiveTab] = useState<TabId>(
-    initialTab === ("overview" as string) ? "tasks" : (["tasks", "financial", "photos", "notes"].includes(initialTab) ? initialTab as TabId : "tasks")
-  );
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const mapped = initialTab === ("overview" as string) ? "tasks" : initialTab;
+    return visibleTabs.includes(mapped as TabId) ? (mapped as TabId) : "tasks";
+  });
+  // If permissions change and active tab becomes hidden, fall back to tasks
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab("tasks");
+    }
+  }, [visibleTabs, activeTab]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -1130,6 +1149,17 @@ export default function ProjectDetailPage() {
 
   // Fetch tasks for sidebar metrics
   const { data: tasks = [] } = useProjectTasks(projectId || undefined);
+
+  // Scope enforcement: if the user has projects.view: assigned (not all),
+  // deny access when this project isn't in their assigned list. The project
+  // fetch itself passes RLS (company-isolated), so we gate on the client.
+  const hasAllProjectsScope = can("projects.view", "all");
+  const isAssignedToProject = useMemo(() => {
+    if (!project || !currentUser) return false;
+    return project.teamMemberIds?.includes(currentUser.id) ?? false;
+  }, [project, currentUser]);
+  const accessDenied =
+    !!project && !hasAllProjectsScope && !isAssignedToProject;
 
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
@@ -1235,6 +1265,19 @@ export default function ProjectDetailPage() {
     );
   }
 
+  // Access denied — user isn't assigned to this project and lacks "all" scope.
+  // Show 404 rather than a forbidden page, so the project's existence isn't confirmed.
+  if (accessDenied) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
+        <span className="font-mohave text-[64px] text-text-disabled leading-none">404</span>
+        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-wider">
+          {t("detail.notFound") ?? "Project not found"}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* ── Breadcrumb row — no bottom border ─────────────────────────────── */}
@@ -1274,7 +1317,7 @@ export default function ProjectDetailPage() {
       {/* ── Tab bar + actions row — with bottom border ────────────────────── */}
       <div className="border-b border-border px-6 flex items-center justify-between">
         <div className="flex">
-          {(["tasks", "financial", "photos", "notes"] as TabId[]).map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab}
               onClick={() => handleTabChange(tab)}
@@ -1362,7 +1405,7 @@ export default function ProjectDetailPage() {
               companyId={project.companyId || companyId}
             />
           )}
-          {activeTab === "financial" && <FinancialTab project={project} />}
+          {activeTab === "financial" && canViewFinancialTab && <FinancialTab project={project} />}
           {activeTab === "photos" && <PhotoFeed projectId={project.id} />}
           {activeTab === "notes" && <NotesTab project={project} />}
         </div>

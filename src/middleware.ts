@@ -14,6 +14,7 @@ const protectedPrefixes = [
   "/team",
   "/map",
   "/pipeline",
+  "/intel",
   "/estimates",
   "/products",
   "/inventory",

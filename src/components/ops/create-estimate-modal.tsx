@@ -113,7 +113,7 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
       clientId: clientId || undefined,
-      opportunityId: projectId || null,
+      projectId: projectId || null,
       issueDate: date ? new Date(date) : new Date(),
       expirationDate: expirationDate ? new Date(expirationDate) : null,
       clientMessage: notes || null,

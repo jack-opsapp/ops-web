@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Calculator,
@@ -341,7 +342,11 @@ function AgingBar({
 export default function AccountingPage() {
   usePageTitle("Accounting");
   const { t } = useDictionary("accounting");
-  const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as TabValue) || "dashboard";
+  const [activeTab, setActiveTab] = useState<TabValue>(
+    initialTab === "expenses" || initialTab === "integrations" ? initialTab : "dashboard"
+  );
   const { company } = useAuthStore();
   const can = usePermissionStore((s) => s.can);
   const companyId = company?.id ?? "";

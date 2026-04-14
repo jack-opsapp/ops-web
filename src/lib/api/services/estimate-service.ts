@@ -92,6 +92,7 @@ function mapEstimateToDb(
 
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.opportunityId !== undefined) row.opportunity_id = data.opportunityId;
+  if (data.projectId !== undefined) row.project_id = data.projectId;
   if (data.clientId !== undefined) row.client_id = data.clientId;
   if (data.version !== undefined) row.version = data.version;
   if (data.parentId !== undefined) row.parent_id = data.parentId;
