@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Plus, Trash2, HelpCircle } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { Plus, Trash2, HelpCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/cn";
 import {
   calculateLineTotal,
@@ -12,6 +18,9 @@ import {
 } from "@/lib/types/pipeline";
 import type { Product } from "@/lib/types/pipeline";
 import type { LineItemQuestion } from "@/lib/types/portal";
+import { useStockIndicator } from "@/lib/hooks/use-stock-indicator";
+import type { LineItemStockStatus } from "@/lib/types/product-materials";
+import { LineItemMaterialsSection } from "./line-item-materials-section";
 
 export interface LineItemRow {
   id: string;
@@ -131,10 +140,37 @@ export function LineItemEditor({
     { subtotal: 0, tax: 0, total: 0 }
   );
 
+  // Stock indicator — batch query for all line items with a productId
+  const stockInputs = useMemo(
+    () =>
+      items
+        .filter((i) => i.productId)
+        .map((i) => ({ id: i.id, productId: i.productId, quantity: i.quantity })),
+    [items]
+  );
+  const { data: stockStatuses } = useStockIndicator(stockInputs);
+  const stockByLine = useMemo(() => {
+    const map = new Map<string, LineItemStockStatus>();
+    (stockStatuses ?? []).forEach((s) => map.set(s.lineItemId, s));
+    return map;
+  }, [stockStatuses]);
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   return (
+    <TooltipProvider delayDuration={150}>
     <div className={cn("space-y-2", className)}>
       {/* Header */}
-      <div className="hidden sm:grid grid-cols-[1fr_80px_100px_60px_60px_36px] gap-1 px-1">
+      <div className="hidden sm:grid grid-cols-[18px_1fr_80px_100px_60px_60px_16px_36px] gap-1 px-1">
+        <span />
         <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
           Name
         </span>
@@ -151,17 +187,37 @@ export function LineItemEditor({
           Amount
         </span>
         <span />
+        <span />
       </div>
 
       {/* Items */}
       <div className="space-y-1">
         {items.map((item) => {
           const computed = computeAmount(item, taxRate);
+          const stock = item.productId ? stockByLine.get(item.id) : undefined;
+          const expanded = expandedIds.has(item.id);
+          const isTempId = item.id.startsWith("temp-");
           return (
+            <div key={item.id} className="space-y-1">
             <div
-              key={item.id}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_80px_100px_60px_60px_36px] gap-1 items-start bg-background-card border border-border rounded p-1 sm:p-0 sm:bg-transparent sm:border-0 sm:rounded-none"
+              className="grid grid-cols-1 sm:grid-cols-[18px_1fr_80px_100px_60px_60px_16px_36px] gap-1 items-start bg-background-card border border-border rounded p-1 sm:p-0 sm:bg-transparent sm:border-0 sm:rounded-none"
             >
+              {/* Expand chevron — only if the line item has a product */}
+              <div className="hidden sm:flex items-center justify-center h-[36px]">
+                {item.productId && (
+                  <button
+                    onClick={() => toggleExpand(item.id)}
+                    className={cn(
+                      "p-0.5 rounded text-text-disabled hover:text-text-secondary transition-all",
+                      expanded && "rotate-90 text-text-secondary"
+                    )}
+                    aria-label={expanded ? "Collapse materials" : "Expand materials"}
+                  >
+                    <ChevronRight className="w-[12px] h-[12px]" />
+                  </button>
+                )}
+              </div>
+
               {/* Name + Product Select */}
               <div className="space-y-0.5">
                 {products.length > 0 && (
@@ -225,6 +281,52 @@ export function LineItemEditor({
                 </span>
               </div>
 
+              {/* Stock Indicator */}
+              <div className="hidden sm:flex items-center justify-center h-[36px]">
+                {stock && stock.overallStatus !== "no_bom" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        aria-label={`Stock ${stock.overallStatus}`}
+                        className={cn(
+                          "block w-[8px] h-[8px] rounded-full",
+                          stock.overallStatus === "sufficient" && "bg-status-success",
+                          stock.overallStatus === "warning" && "bg-status-warning",
+                          stock.overallStatus === "insufficient" && "bg-ops-error"
+                        )}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px]">
+                      <div className="space-y-1">
+                        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                          Stock
+                        </p>
+                        {stock.materials.map((m) => (
+                          <div
+                            key={m.inventoryItemId}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="font-mohave text-body-sm text-text-primary truncate">
+                              {m.inventoryItemName}
+                            </span>
+                            <span
+                              className={cn(
+                                "font-mono text-data-sm",
+                                m.status === "sufficient" && "text-status-success",
+                                m.status === "warning" && "text-status-warning",
+                                m.status === "insufficient" && "text-ops-error"
+                              )}
+                            >
+                              {m.required} / {m.available}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+
               {/* Actions */}
               <div className="flex items-center justify-center h-[36px] gap-0.5">
                 {onEditQuestions && (
@@ -252,6 +354,24 @@ export function LineItemEditor({
                   <Trash2 className="w-[14px] h-[14px]" />
                 </button>
               </div>
+            </div>
+
+            {/* Expanded: materials override (existing saved items only) */}
+            {expanded && item.productId && (
+              <div className="border-t border-border pt-1.5 pb-1 pl-[22px] pr-1">
+                {isTempId ? (
+                  <p className="font-kosugi text-[10px] text-text-disabled">
+                    [save estimate to override materials on this line item]
+                  </p>
+                ) : (
+                  <LineItemMaterialsSection
+                    lineItemId={item.id}
+                    productId={item.productId}
+                    quantity={item.quantity}
+                  />
+                )}
+              </div>
+            )}
             </div>
           );
         })}
@@ -292,6 +412,7 @@ export function LineItemEditor({
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
