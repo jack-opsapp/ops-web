@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 import type {
   AgentAction,
   QueueFilters,
@@ -47,6 +48,7 @@ async function authFetch<T>(url: string, init?: RequestInit): Promise<T> {
 export function useApprovalQueue(filters: QueueFilters = {}) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("pipeline.view"));
 
   return useQuery<AgentAction[]>({
     queryKey: queryKeys.approvalQueue.list(
@@ -63,7 +65,6 @@ export function useApprovalQueue(filters: QueueFilters = {}) {
         `/api/agent/queue?${params}`
       );
 
-      // Parse date strings back to Date objects
       return data.actions.map((a) => ({
         ...a,
         createdAt: new Date(a.createdAt),
@@ -73,24 +74,28 @@ export function useApprovalQueue(filters: QueueFilters = {}) {
         expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
       }));
     },
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
   });
 }
 
 export function useApprovalQueueStats() {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("pipeline.view"));
 
   return useQuery<QueueStats>({
     queryKey: queryKeys.approvalQueue.stats(companyId),
     queryFn: () => authFetch<QueueStats>("/api/agent/queue?statsOnly=true"),
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
   });
 }
 
 export function useApprovalQueuePendingCount() {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  // Agent queue is a pipeline-level feature — gate by pipeline.view so
+  // crew/operator users don't hit /api/agent/queue and earn 403s in the console.
+  const canView = usePermissionStore((s) => s.can("pipeline.view"));
 
   return useQuery<number>({
     queryKey: queryKeys.approvalQueue.pendingCount(companyId),
@@ -100,7 +105,7 @@ export function useApprovalQueuePendingCount() {
       );
       return data.count;
     },
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
     refetchInterval: 60_000,
   });
 }

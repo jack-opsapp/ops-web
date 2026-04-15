@@ -1250,24 +1250,15 @@ export default function ProjectDetailPage() {
     return <DetailSkeleton />;
   }
 
-  // Error state
-  if (isError || !project) {
-    return (
-      <DetailError
-        message={
-          error instanceof Error
-            ? error.message
-            : t("detail.failedToLoadDesc")
-        }
-        onRetry={() => refetch()}
-        onBack={() => router.push("/projects")}
-      />
-    );
-  }
-
-  // Access denied — user isn't assigned to this project and lacks "all" scope.
-  // Show 404 rather than a forbidden page, so the project's existence isn't confirmed.
-  if (accessDenied) {
+  // 404 — either RLS blocked the fetch, the project was deleted, or the user
+  // lacks scope access. PostgREST returns "Cannot coerce the result to a
+  // single JSON object" when .single() matches zero rows (RLS-filtered).
+  const errMsg = error instanceof Error ? error.message : "";
+  const isNotFound =
+    (!isLoading && !project && !isError) ||
+    /cannot coerce the result to a single json object/i.test(errMsg) ||
+    /no rows returned/i.test(errMsg);
+  if (accessDenied || isNotFound) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
         <span className="font-mohave text-[64px] text-text-disabled leading-none">404</span>
@@ -1275,6 +1266,17 @@ export default function ProjectDetailPage() {
           {t("detail.notFound") ?? "Project not found"}
         </p>
       </div>
+    );
+  }
+
+  // Genuine error state (network, 500, etc.)
+  if (isError || !project) {
+    return (
+      <DetailError
+        message={errMsg || t("detail.failedToLoadDesc")}
+        onRetry={() => refetch()}
+        onBack={() => router.push("/projects")}
+      />
     );
   }
 

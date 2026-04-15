@@ -13,15 +13,17 @@ import { queryKeys } from "../api/query-client";
 import { InvoiceService, type FetchInvoicesOptions } from "../api/services";
 import type { CreateInvoice, CreateLineItem, CreatePayment } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 export function useInvoiceLineItems() {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("invoices.view"));
 
   return useQuery({
     queryKey: queryKeys.invoices.lineItems(companyId),
     queryFn: () => InvoiceService.fetchAllLineItems(companyId),
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -29,22 +31,24 @@ export function useInvoiceLineItems() {
 export function useInvoices(options?: FetchInvoicesOptions) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("invoices.view"));
 
   return useQuery({
     queryKey: queryKeys.invoices.list(companyId, options as Record<string, unknown>),
     queryFn: () => InvoiceService.fetchAllInvoices(companyId, options),
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
   });
 }
 
 export function useProjectInvoices(projectId: string | undefined) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("invoices.view"));
 
   return useQuery({
     queryKey: queryKeys.invoices.projectInvoices(projectId ?? ""),
     queryFn: () => InvoiceService.fetchProjectInvoices(projectId!, companyId),
-    enabled: !!projectId && !!companyId,
+    enabled: !!projectId && !!companyId && canView,
   });
 }
 

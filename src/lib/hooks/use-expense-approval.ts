@@ -10,6 +10,7 @@ import { queryKeys } from "../api/query-client";
 import { ExpenseApprovalService } from "../api/services/expense-approval-service";
 import { dispatchExpenseApproved } from "../api/services/notification-dispatch";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 import type { ExpenseBatch, CreateAutoApproveRule } from "../types/expense-approval";
 
 // ─── All Expenses (dashboard widgets) ─────────────────────────────────────────
@@ -17,11 +18,12 @@ import type { ExpenseBatch, CreateAutoApproveRule } from "../types/expense-appro
 export function useAllExpenses() {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canApprove = usePermissionStore((s) => s.can("expenses.approve"));
 
   return useQuery({
     queryKey: queryKeys.expenseBatches.allExpenses(companyId),
     queryFn: () => ExpenseApprovalService.fetchAllExpenses(companyId),
-    enabled: !!companyId,
+    enabled: !!companyId && canApprove,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -31,11 +33,12 @@ export function useAllExpenses() {
 export function useExpenseBatches() {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canApprove = usePermissionStore((s) => s.can("expenses.approve"));
 
   return useQuery({
     queryKey: queryKeys.expenseBatches.list(companyId),
     queryFn: () => ExpenseApprovalService.fetchBatches(companyId),
-    enabled: !!companyId,
+    enabled: !!companyId && canApprove,
     staleTime: 2 * 60 * 1000,
   });
 }

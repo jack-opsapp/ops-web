@@ -4,7 +4,7 @@
 
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3000";
+const BASE = process.env.RBAC_SMOKE_BASE ?? "http://localhost:3000";
 const EMAIL = "nickybradshaw1989@outlook.com";
 const PASSWORD = "Poopsie494!";
 

@@ -409,11 +409,10 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
   );
 
   // ── Team members scoped to the current project ────────────────
-  // Fix for qa_bug 58aa2b05: the New Task dialog was leaking every
-  // team member in the company into the picker, regardless of whether
-  // they had any assignment on this project. Scope the create form to
-  // (a) users already assigned to a task on this project, plus
-  // (b) admin/owner/operator users who can legitimately be pulled in.
+  // Scope the New Task picker to (a) users already assigned to a task
+  // on this project, plus (b) Admin and Owner users who can legitimately
+  // add anyone on any project. Operators must prove project involvement
+  // via existing task assignment — they are not included in the fallback.
   const createFormTeamMembers = useMemo(() => {
     const assignedIds = new Set<string>();
     for (const task of activeTasks) {
@@ -423,8 +422,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
       (m) =>
         assignedIds.has(m.id) ||
         m.role === UserRole.Admin ||
-        m.role === UserRole.Owner ||
-        m.role === UserRole.Operator
+        m.role === UserRole.Owner
     );
   }, [teamMembers, activeTasks]);
 

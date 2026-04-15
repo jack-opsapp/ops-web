@@ -26,6 +26,7 @@ import type {
 } from "../types/pipeline";
 import { OpportunityStage as Stage } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -38,11 +39,12 @@ export function useOpportunities(
 ) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("pipeline.view"));
 
   return useQuery({
     queryKey: queryKeys.opportunities.list(companyId, options as Record<string, unknown>),
     queryFn: () => OpportunityService.fetchOpportunities(companyId, options),
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
     ...queryOptions,
   });
 }

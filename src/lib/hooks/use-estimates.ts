@@ -13,26 +13,29 @@ import { queryKeys } from "../api/query-client";
 import { EstimateService, type FetchEstimatesOptions } from "../api/services";
 import type { CreateEstimate, CreateLineItem } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 export function useEstimates(options?: FetchEstimatesOptions) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("estimates.view"));
 
   return useQuery({
     queryKey: queryKeys.estimates.list(companyId, options as Record<string, unknown>),
     queryFn: () => EstimateService.fetchEstimates(companyId, options),
-    enabled: !!companyId,
+    enabled: !!companyId && canView,
   });
 }
 
 export function useProjectEstimates(projectId: string | undefined) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
+  const canView = usePermissionStore((s) => s.can("estimates.view"));
 
   return useQuery({
     queryKey: queryKeys.estimates.projectEstimates(projectId ?? ""),
     queryFn: () => EstimateService.fetchProjectEstimates(projectId!, companyId),
-    enabled: !!projectId && !!companyId,
+    enabled: !!projectId && !!companyId && canView,
   });
 }
 
