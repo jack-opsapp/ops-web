@@ -8,15 +8,17 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.amazonaws.com",
-        pathname: "/ops-app-files-prod/**",
-      },
+      // Virtual-hosted-style bucket URL (how profile images and uploads are actually served)
       {
         protocol: "https",
         hostname: "ops-app-files-prod.s3.us-west-2.amazonaws.com",
-        pathname: "/shop/**",
+        pathname: "/**",
+      },
+      // Path-style bucket URL (legacy / SigV4 fallback)
+      {
+        protocol: "https",
+        hostname: "s3.us-west-2.amazonaws.com",
+        pathname: "/ops-app-files-prod/**",
       },
       {
         protocol: "https",

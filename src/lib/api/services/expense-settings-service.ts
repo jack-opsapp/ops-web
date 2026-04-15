@@ -2,7 +2,9 @@
  * OPS Web - Expense Settings Service
  *
  * Per-company expense configuration using Supabase.
- * Uses upsert-read pattern: getSettings creates defaults if row doesn't exist.
+ * getSettings reads the row if present and returns in-memory defaults otherwise —
+ * creation is deferred to updateSettings, which is gated by the `expenses.approve`
+ * RLS policy (see migration 016).
  */
 
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
@@ -43,55 +45,64 @@ function mapFromDb(row: Record<string, unknown>): ExpenseSettings {
   };
 }
 
+function defaultSettings(companyId: string): ExpenseSettings {
+  const now = new Date();
+  return {
+    companyId,
+    reviewFrequency: "weekly",
+    autoApproveThreshold: null,
+    adminApprovalThreshold: null,
+    requireReceiptPhoto: true,
+    requireProjectAssignment: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export const ExpenseSettingsService = {
   /**
-   * Get expense settings for a company. Creates default row if one doesn't exist.
+   * Get expense settings for a company.
+   * Returns in-memory defaults if no row exists — users without `expenses.approve`
+   * cannot insert, so creation is deferred to updateSettings.
    */
   async getSettings(companyId: string): Promise<ExpenseSettings> {
     const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("expense_settings")
-      .upsert(
-        { company_id: companyId },
-        { onConflict: "company_id", ignoreDuplicates: true }
-      )
-      .select()
-      .single();
+      .select("*")
+      .eq("company_id", companyId)
+      .maybeSingle();
 
-    if (error) {
-      const { data: fetched, error: fetchError } = await supabase
-        .from("expense_settings")
-        .select("*")
-        .eq("company_id", companyId)
-        .single();
-
-      if (fetchError) throw new Error(`Failed to get expense settings: ${fetchError.message}`);
-      return mapFromDb(fetched);
-    }
-
+    if (error) throw new Error(`Failed to get expense settings: ${error.message}`);
+    if (!data) return defaultSettings(companyId);
     return mapFromDb(data);
   },
 
+  /**
+   * Update (or create) expense settings for a company.
+   * Uses upsert so the first save from the settings UI creates the row.
+   * RLS requires `expenses.approve` for both insert and update.
+   */
   async updateSettings(
     companyId: string,
     updates: UpdateExpenseSettings
   ): Promise<ExpenseSettings> {
     const supabase = requireSupabase();
 
-    const row: Record<string, unknown> = {};
+    const row: Record<string, unknown> = { company_id: companyId };
     if (updates.reviewFrequency !== undefined) row.review_frequency = updates.reviewFrequency;
     if (updates.autoApproveThreshold !== undefined) row.auto_approve_threshold = updates.autoApproveThreshold;
     if (updates.adminApprovalThreshold !== undefined) row.admin_approval_threshold = updates.adminApprovalThreshold;
     if (updates.requireReceiptPhoto !== undefined) row.require_receipt_photo = updates.requireReceiptPhoto;
     if (updates.requireProjectAssignment !== undefined) row.require_project_assignment = updates.requireProjectAssignment;
+    row.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from("expense_settings")
-      .update(row)
-      .eq("company_id", companyId)
+      .upsert(row, { onConflict: "company_id" })
       .select()
       .single();
 
