@@ -25,6 +25,7 @@ export function BugReportButton() {
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
+  const [includeScreenshot, setIncludeScreenshot] = useState(true);
   const [capturingScreenshot, setCapturingScreenshot] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
@@ -108,6 +109,7 @@ export function BugReportButton() {
       setFormState("idle");
       setErrorMessage(null);
       setScreenshotBlob(null);
+      setIncludeScreenshot(true);
     }, 200);
   }
 
@@ -190,16 +192,35 @@ export function BugReportButton() {
         reporterEmail: currentUser.email ?? null,
       });
 
-      // Upload screenshot if we have one — best effort, doesn't block success.
-      if (screenshotBlob) {
+      // Upload screenshot if we have one and the user didn't opt out — best
+      // effort, doesn't block success. Goes through a server API because
+      // client-side storage writes fail the bug-reports bucket RLS: ops-web's
+      // Supabase client uses a Firebase JWT which does not produce the
+      // Postgres "authenticated" role that the bucket's INSERT policy requires.
+      if (screenshotBlob && includeScreenshot) {
         try {
-          const path = await BugReportService.uploadScreenshot(
-            currentUser.companyId,
-            reportId,
-            screenshotBlob,
-            "image/png"
-          );
-          await BugReportService.updateReport(reportId, { screenshotUrl: path });
+          const { getFirebaseAuth } = await import("@/lib/firebase/config");
+          const fbAuth = getFirebaseAuth();
+          const fbUser = fbAuth.currentUser;
+          if (!fbUser) throw new Error("No Firebase user for screenshot upload");
+
+          const idToken = await fbUser.getIdToken();
+
+          const form = new FormData();
+          form.append("file", screenshotBlob, "screenshot.png");
+          form.append("reportId", reportId);
+          form.append("companyId", currentUser.companyId);
+
+          const resp = await fetch("/api/bug-reports/screenshot", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${idToken}` },
+            body: form,
+          });
+
+          if (!resp.ok) {
+            const errBody = await resp.json().catch(() => ({}));
+            throw new Error(errBody.error ?? `Upload failed with status ${resp.status}`);
+          }
         } catch (uploadErr) {
           console.warn("Bug report screenshot upload failed:", uploadErr);
         }
@@ -216,7 +237,7 @@ export function BugReportButton() {
         err instanceof Error ? err.message : "Failed to submit bug report."
       );
     }
-  }, [title, description, formState, currentUser, company, screenshotBlob]);
+  }, [title, description, formState, currentUser, company, screenshotBlob, includeScreenshot]);
 
   // Don't render on dashboard (map filter rail occupies bottom-left)
   // Don't render on intel (full-bleed canvas, overlaps cluster legend)
@@ -321,14 +342,49 @@ export function BugReportButton() {
                   </div>
 
                   {/* Auto-captured context */}
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <p className="font-kosugi text-[9px] text-text-disabled tracking-wider">
                       {t("bugReport.autoCapture")}
                     </p>
                     {screenshotBlob && (
-                      <p className="font-kosugi text-[9px] text-ops-accent/70 tracking-wider uppercase">
-                        [SCREENSHOT ATTACHED · {Math.round(screenshotBlob.size / 1024)}KB]
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIncludeScreenshot((v) => !v)}
+                        className={cn(
+                          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors",
+                          includeScreenshot
+                            ? "border-ops-accent/30 bg-ops-accent/10"
+                            : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "font-kosugi text-[9px] tracking-wider uppercase text-left",
+                            includeScreenshot ? "text-ops-accent" : "text-text-disabled"
+                          )}
+                        >
+                          {includeScreenshot
+                            ? `[ATTACH SCREENSHOT · ${Math.round(screenshotBlob.size / 1024)}KB]`
+                            : "[SCREENSHOT OFF]"}
+                        </span>
+                        <span
+                          className={cn(
+                            "relative inline-block w-6 h-3 rounded-full transition-colors flex-shrink-0",
+                            includeScreenshot
+                              ? "bg-ops-accent/40"
+                              : "bg-[rgba(255,255,255,0.08)]"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-[1px] w-[10px] h-[10px] rounded-full transition-all",
+                              includeScreenshot
+                                ? "left-[13px] bg-ops-accent"
+                                : "left-[1px] bg-text-disabled"
+                            )}
+                          />
+                        </span>
+                      </button>
                     )}
                   </div>
 
