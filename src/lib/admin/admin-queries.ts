@@ -15,6 +15,7 @@ import {
   type PipelineStage,
   type InvoiceAging,
   type FeatureRequest,
+  type BugReportRow,
   type AppMessage,
   type PromoCode,
   type AuditLogEntry,
@@ -783,6 +784,55 @@ export async function getFeatureRequests(): Promise<FeatureRequest[]> {
 
 export async function updateFeatureRequestStatus(id: string, status: string) {
   await db().from("feature_requests").update({ status }).eq("id", id);
+}
+
+export async function getBugReports(): Promise<BugReportRow[]> {
+  const { data: reports } = await db()
+    .from("bug_reports")
+    .select(
+      "id, company_id, reporter_id, description, category, platform, status, priority, screen_name, url, browser, browser_version, os_name, os_version, device_model, app_version, viewport_width, viewport_height, network_type, reporter_name, reporter_email, screenshot_url, console_logs, breadcrumbs, state_snapshot, custom_metadata, resolution_notes, resolved_at, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (!reports || reports.length === 0) return [];
+
+  const companyIds = Array.from(
+    new Set(reports.map((r) => r.company_id).filter((id): id is string => !!id))
+  );
+
+  let nameById = new Map<string, string>();
+  if (companyIds.length > 0) {
+    const { data: companies } = await db()
+      .from("companies")
+      .select("id, name")
+      .in("id", companyIds);
+    nameById = new Map((companies ?? []).map((c) => [c.id as string, c.name as string]));
+  }
+
+  return reports.map((r) => ({
+    ...(r as BugReportRow),
+    company_name: r.company_id ? nameById.get(r.company_id) ?? null : null,
+  }));
+}
+
+export async function updateBugReportStatus(id: string, status: string) {
+  await db().from("bug_reports").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+}
+
+export async function updateBugReportPriority(id: string, priority: string) {
+  await db().from("bug_reports").update({ priority, updated_at: new Date().toISOString() }).eq("id", id);
+}
+
+/**
+ * Generate a short-lived signed URL for a private bug-reports bucket object.
+ * Returns null if path is missing or signing fails.
+ */
+export async function getBugReportScreenshotSignedUrl(path: string | null): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await db().storage.from("bug-reports").createSignedUrl(path, 3600);
+  if (error) return null;
+  return data?.signedUrl ?? null;
 }
 
 export async function getAppMessages(): Promise<AppMessage[]> {

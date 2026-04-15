@@ -298,25 +298,28 @@ export const BugReportService = {
     if (error) throw new Error(`Failed to update bug report priority: ${error.message}`);
   },
 
+  /**
+   * Upload a screenshot to the private `bug-reports` bucket and return the
+   * storage path. Admin views must call `getScreenshotUrl(path)` to produce a
+   * short-lived signed URL for display — the stored value is not a direct URL.
+   */
   async uploadScreenshot(
     companyId: string,
     reportId: string,
-    file: File | Blob
+    file: File | Blob,
+    contentType: string = "image/png"
   ): Promise<string> {
     const supabase = requireSupabase();
-    const path = `${companyId}/${reportId}/screenshot.jpg`;
+    const ext = contentType === "image/jpeg" ? "jpg" : "png";
+    const path = `${companyId}/${reportId}/screenshot.${ext}`;
 
     const { error } = await supabase.storage
       .from("bug-reports")
-      .upload(path, file, { contentType: "image/jpeg", upsert: true });
+      .upload(path, file, { contentType, upsert: true });
 
     if (error) throw new Error(`Failed to upload screenshot: ${error.message}`);
 
-    const { data: urlData } = supabase.storage
-      .from("bug-reports")
-      .getPublicUrl(path);
-
-    return urlData.publicUrl;
+    return path;
   },
 
   async getScreenshotUrl(path: string): Promise<string> {

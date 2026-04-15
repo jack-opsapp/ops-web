@@ -126,6 +126,39 @@ export interface FeatureRequest {
   created_at: string;
 }
 
+export interface BugReportRow {
+  id: string;
+  company_id: string | null;
+  reporter_id: string | null;
+  description: string;
+  category: string | null;
+  platform: string;
+  status: string | null;
+  priority: string | null;
+  screen_name: string | null;
+  url: string | null;
+  browser: string | null;
+  browser_version: string | null;
+  os_name: string | null;
+  os_version: string | null;
+  device_model: string | null;
+  app_version: string | null;
+  viewport_width: number | null;
+  viewport_height: number | null;
+  network_type: string | null;
+  reporter_name: string | null;
+  reporter_email: string | null;
+  screenshot_url: string | null;
+  console_logs: unknown[] | null;
+  breadcrumbs: unknown[] | null;
+  state_snapshot: Record<string, unknown> | null;
+  custom_metadata: Record<string, unknown> | null;
+  resolution_notes: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  company_name?: string | null;
+}
+
 export interface AppMessage {
   id: string;
   title: string;

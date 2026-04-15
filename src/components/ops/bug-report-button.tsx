@@ -3,14 +3,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Bug, X, Send, CheckCircle2, Loader2 } from "lucide-react";
+import { Bug, X, Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 import { useAuthStore } from "@/lib/store/auth-store";
-import { requireSupabase } from "@/lib/supabase/helpers";
+import { BugReportService } from "@/lib/api/services/bug-report-service";
+import {
+  getBugContext,
+  initBugContext,
+  screenNameFromPath,
+} from "@/lib/utils/bug-context";
 import { useDictionary } from "@/i18n/client";
 
-type FormState = "idle" | "submitting" | "success";
+type FormState = "idle" | "submitting" | "success" | "error";
 
 export function BugReportButton() {
   const { t } = useDictionary("common");
@@ -18,11 +23,55 @@ export function BugReportButton() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [formState, setFormState] = useState<FormState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
+  const [capturingScreenshot, setCapturingScreenshot] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const pathname = usePathname();
-  const { currentUser } = useAuthStore();
+  const { currentUser, company } = useAuthStore();
   const sidebarWidth = 72;
+
+  useEffect(() => {
+    initBugContext();
+  }, []);
+
+  /**
+   * Capture the viewport BEFORE the bug form is visible, so the screenshot
+   * shows what the user was actually looking at when they hit the bug button.
+   * modern-screenshot handles backdrop-filter / custom fonts better than
+   * html2canvas, which is important for this app's frosted-glass surfaces.
+   */
+  const handleOpen = useCallback(async () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setCapturingScreenshot(true);
+    try {
+      const { domToBlob } = await import("modern-screenshot");
+      const blob = await domToBlob(document.body, {
+        type: "image/png",
+        quality: 0.85,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        backgroundColor: "#0A0A0A",
+        filter: (node) => {
+          if (!(node instanceof HTMLElement)) return true;
+          // Skip the bug report button itself and anything that opts out
+          if (node.dataset?.bugReportIgnore === "true") return false;
+          return true;
+        },
+      });
+      setScreenshotBlob(blob);
+    } catch (err) {
+      // Screenshot is best-effort — the report still submits without it.
+      console.warn("Bug report screenshot capture failed:", err);
+      setScreenshotBlob(null);
+    } finally {
+      setCapturingScreenshot(false);
+      setOpen(true);
+    }
+  }, [open]);
 
   // Close on outside click
   useEffect(() => {
@@ -57,32 +106,117 @@ export function BugReportButton() {
       setTitle("");
       setDescription("");
       setFormState("idle");
+      setErrorMessage(null);
+      setScreenshotBlob(null);
     }, 200);
   }
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim() || formState === "submitting") return;
+
+    if (!currentUser?.id || !currentUser.companyId) {
+      setFormState("error");
+      setErrorMessage("You must be signed in to submit a bug report.");
+      return;
+    }
+
     setFormState("submitting");
+    setErrorMessage(null);
 
     try {
-      const supabase = requireSupabase();
-      await supabase.from("feature_requests").insert({
-        type: "bug",
-        title: title.trim(),
-        description: description.trim() || null,
-        platform: "web",
-        status: "new",
-        user_email: currentUser?.email ?? null,
+      const ctx = getBugContext({
+        stateSnapshot: {
+          companyName: company?.name ?? null,
+          userRole: currentUser.role ?? null,
+          isCompanyAdmin: currentUser.isCompanyAdmin ?? null,
+        },
+        customMetadata: {
+          submittedFrom: "bug-report-button",
+        },
       });
+
+      // bug_reports.description is NOT NULL. Merge title + details so the
+      // column is always populated, and keep the user's title as a leading line.
+      const trimmedTitle = title.trim();
+      const trimmedDetails = description.trim();
+      const fullDescription = trimmedDetails
+        ? `${trimmedTitle}\n\n${trimmedDetails}`
+        : trimmedTitle;
+
+      const reporterName = [currentUser.firstName, currentUser.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      const reportId = await BugReportService.createReport({
+        companyId: currentUser.companyId,
+        reporterId: currentUser.id,
+        description: fullDescription,
+        category: "bug",
+        platform: "web",
+
+        browser: ctx.browser,
+        browserVersion: ctx.browserVersion,
+        osName: ctx.osName,
+        osVersion: ctx.osVersion,
+        deviceModel: ctx.deviceModel,
+
+        viewportWidth: ctx.viewportWidth,
+        viewportHeight: ctx.viewportHeight,
+
+        screenName: screenNameFromPath(ctx.pathname),
+        url: ctx.url,
+
+        networkType: ctx.networkType,
+
+        consoleLogs: ctx.consoleLogs,
+        breadcrumbs: ctx.breadcrumbs,
+        networkLog: [],
+        stateSnapshot: ctx.stateSnapshot,
+        customMetadata: {
+          ...ctx.customMetadata,
+          userAgent: ctx.userAgent,
+          referrer: ctx.referrer,
+          language: ctx.language,
+          timezone: ctx.timezone,
+          online: ctx.online,
+          devicePixelRatio: ctx.devicePixelRatio,
+          screenWidth: ctx.screenWidth,
+          screenHeight: ctx.screenHeight,
+          userTitle: trimmedTitle,
+        },
+
+        reporterName: reporterName || null,
+        reporterEmail: currentUser.email ?? null,
+      });
+
+      // Upload screenshot if we have one — best effort, doesn't block success.
+      if (screenshotBlob) {
+        try {
+          const path = await BugReportService.uploadScreenshot(
+            currentUser.companyId,
+            reportId,
+            screenshotBlob,
+            "image/png"
+          );
+          await BugReportService.updateReport(reportId, { screenshotUrl: path });
+        } catch (uploadErr) {
+          console.warn("Bug report screenshot upload failed:", uploadErr);
+        }
+      }
 
       setFormState("success");
       setTimeout(() => {
         handleClose();
       }, 1200);
-    } catch {
-      setFormState("idle");
+    } catch (err) {
+      console.error("Bug report submission failed:", err);
+      setFormState("error");
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to submit bug report."
+      );
     }
-  }, [title, description, formState, currentUser]);
+  }, [title, description, formState, currentUser, company, screenshotBlob]);
 
   // Don't render on dashboard (map filter rail occupies bottom-left)
   // Don't render on intel (full-bleed canvas, overlaps cluster legend)
@@ -93,6 +227,7 @@ export function BugReportButton() {
       ref={containerRef}
       className="fixed z-[90]"
       style={{ bottom: 16, left: sidebarWidth + 12 }}
+      data-bug-report-ignore="true"
     >
       {/* Popover form */}
       <AnimatePresence>
@@ -186,9 +321,26 @@ export function BugReportButton() {
                   </div>
 
                   {/* Auto-captured context */}
-                  <p className="font-kosugi text-[9px] text-text-disabled tracking-wider">
-                    {t("bugReport.autoCapture")}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="font-kosugi text-[9px] text-text-disabled tracking-wider">
+                      {t("bugReport.autoCapture")}
+                    </p>
+                    {screenshotBlob && (
+                      <p className="font-kosugi text-[9px] text-ops-accent/70 tracking-wider uppercase">
+                        [SCREENSHOT ATTACHED · {Math.round(screenshotBlob.size / 1024)}KB]
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Error state */}
+                  {formState === "error" && errorMessage && (
+                    <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-sm border border-[rgba(220,80,80,0.3)] bg-[rgba(220,80,80,0.08)]">
+                      <AlertCircle className="w-3 h-3 text-[#E57373] mt-[2px] flex-shrink-0" />
+                      <p className="font-kosugi text-[9px] tracking-wider text-[#E57373] break-words">
+                        {errorMessage}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Submit */}
                   <button
@@ -221,7 +373,8 @@ export function BugReportButton() {
 
       {/* Bug button */}
       <motion.button
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleOpen}
+        disabled={capturingScreenshot}
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={
@@ -235,11 +388,16 @@ export function BugReportButton() {
           "border border-[rgba(255,255,255,0.08)]",
           "hover:border-[rgba(255,255,255,0.15)]",
           "transition-colors duration-150",
-          open && "border-ops-accent/30"
+          open && "border-ops-accent/30",
+          capturingScreenshot && "opacity-60 cursor-wait"
         )}
         title={t("bugReport.title")}
       >
-        <Bug className="w-[13px] h-[13px] text-text-disabled" />
+        {capturingScreenshot ? (
+          <Loader2 className="w-[13px] h-[13px] text-text-disabled animate-spin" />
+        ) : (
+          <Bug className="w-[13px] h-[13px] text-text-disabled" />
+        )}
         <span className="font-kosugi text-[9px] text-text-disabled tracking-wider uppercase select-none">
           {t("bugReport.label")}
         </span>
