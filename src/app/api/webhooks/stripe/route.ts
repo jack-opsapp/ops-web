@@ -187,8 +187,58 @@ export async function POST(req: NextRequest) {
 
     const { data: company } = await supabase
       .from("companies")
-      .select("id")
+      .select("id, subscription_ids_json")
       .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (company) {
+      // Guard against late .deleted events from a previously-cancelled
+      // subscription arriving AFTER the user has re-subscribed with a new
+      // sub ID. Only apply the cancellation if the deleted subscription is
+      // actually the one we're currently tracking (or we're tracking none).
+      let currentIds: string[] = [];
+      if (company.subscription_ids_json) {
+        try {
+          const parsed = JSON.parse(company.subscription_ids_json);
+          if (Array.isArray(parsed)) currentIds = parsed.filter((v): v is string => typeof v === "string");
+        } catch {
+          // malformed json — treat as empty, proceed with cancellation
+        }
+      }
+
+      if (currentIds.length > 0 && !currentIds.includes(subscription.id)) {
+        console.log(
+          `[stripe-webhook] Ignoring stale .deleted for ${subscription.id} — current tracked: ${currentIds.join(",")}`
+        );
+      } else {
+        const { error: delErr } = await supabase
+          .from("companies")
+          .update({
+            subscription_status: "cancelled",
+            subscription_ids_json: null,
+          })
+          .eq("id", company.id);
+
+        if (delErr) {
+          console.error(`[stripe-webhook] Failed to mark company ${company.id} cancelled:`, delErr.message);
+          return NextResponse.json({ error: "Update failed" }, { status: 500 });
+        }
+
+        console.log(`[stripe-webhook] Subscription deleted for company ${company.id}`);
+      }
+    }
+  }
+
+  // L4 — handle Stripe customer deletion (admin action via Stripe Dashboard).
+  // Clears the dangling customer ID and marks the subscription cancelled so
+  // the next /subscribe call creates a fresh Stripe customer.
+  if (event.type === "customer.deleted") {
+    const customer = event.data.object as Stripe.Customer;
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("stripe_customer_id", customer.id)
       .maybeSingle();
 
     if (company) {
@@ -196,16 +246,17 @@ export async function POST(req: NextRequest) {
         .from("companies")
         .update({
           subscription_status: "cancelled",
+          stripe_customer_id: null,
           subscription_ids_json: null,
         })
         .eq("id", company.id);
 
       if (delErr) {
-        console.error(`[stripe-webhook] Failed to mark company ${company.id} cancelled:`, delErr.message);
+        console.error(`[stripe-webhook] Failed to clear deleted customer for ${company.id}:`, delErr.message);
         return NextResponse.json({ error: "Update failed" }, { status: 500 });
       }
 
-      console.log(`[stripe-webhook] Subscription deleted for company ${company.id}`);
+      console.log(`[stripe-webhook] Customer deleted, cleared company ${company.id}`);
     }
   }
 

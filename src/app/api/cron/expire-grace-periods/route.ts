@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabase
       .from("companies")
-      .update({ subscription_status: "expired" })
+      .update({ subscription_status: "expired", seat_grace_start_date: null })
       .eq("subscription_status", "grace")
       .lt("seat_grace_start_date", cutoff)
       .select("id, name");

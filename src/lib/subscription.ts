@@ -193,12 +193,21 @@ export function shouldShowBanner(info: SubscriptionInfo): boolean {
   return false;
 }
 
-/** Whether a user has an active seat (is in seatedEmployeeIds or adminIds) */
+/** Whether a user has an active seat (is in seatedEmployeeIds or adminIds).
+ *
+ * Intentionally fail-open when company or userId is null: this is the
+ * loading state before the auth/company queries resolve. Callers should
+ * render neutral UI (spinners, skeletons) during this phase, not
+ * security-sensitive content. Once both are loaded, enforcement is strict.
+ *
+ * Do NOT rely on this function for server-side authorization — use a
+ * service-role query against seated_employee_ids directly.
+ */
 export function isUserSeated(
   company: Pick<Company, "seatedEmployeeIds" | "adminIds"> | null,
   userId: string | null
 ): boolean {
-  if (!company || !userId) return true; // Default to seated if data isn't loaded yet
+  if (!company || !userId) return true;
   return (
     (company.seatedEmployeeIds?.includes(userId) ?? false) ||
     (company.adminIds?.includes(userId) ?? false)

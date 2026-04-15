@@ -104,26 +104,59 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
 
-    // Ensure Stripe customer exists
+    // Ensure Stripe customer exists.
+    //
+    // Race condition protection: if two /subscribe calls land concurrently for
+    // the same company (user double-click + flaky network), both may read a
+    // null stripe_customer_id. Without protection each would create a fresh
+    // Stripe customer and orphan one.
+    //
+    // Defense in two layers:
+    //   1. Stripe Idempotency-Key on customer.create — concurrent creates with
+    //      the same key return the same customer, no duplicate in Stripe.
+    //   2. Compare-and-swap on the Supabase update — only write if the column
+    //      is still null. If we lose the race, re-read and use whatever the
+    //      winning call wrote (which will be the same Stripe customer ID
+    //      because of idempotency key #1).
     let stripeCustomerId = company.stripe_customer_id;
 
     if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: company.name,
-        metadata: { companyId },
-      });
+      const customer = await stripe.customers.create(
+        {
+          email: user.email,
+          name: company.name,
+          metadata: { companyId },
+        },
+        { idempotencyKey: `company-${companyId}-customer` }
+      );
 
-      stripeCustomerId = customer.id;
-
-      const { error: updateError } = await supabase
+      const { data: claimed, error: claimErr } = await supabase
         .from("companies")
-        .update({ stripe_customer_id: stripeCustomerId })
-        .eq("id", companyId);
+        .update({ stripe_customer_id: customer.id })
+        .eq("id", companyId)
+        .is("stripe_customer_id", null)
+        .select("stripe_customer_id")
+        .maybeSingle();
 
-      if (updateError) {
-        console.error("[stripe/subscribe] Failed to save stripe_customer_id:", updateError.message);
+      if (claimErr) {
+        console.error("[stripe/subscribe] CAS update failed:", claimErr.message);
         return NextResponse.json({ error: "Failed to update company" }, { status: 500 });
+      }
+
+      if (claimed?.stripe_customer_id) {
+        stripeCustomerId = claimed.stripe_customer_id;
+      } else {
+        // Lost the race. Re-read to get the winning customer ID.
+        const { data: winner, error: readErr } = await supabase
+          .from("companies")
+          .select("stripe_customer_id")
+          .eq("id", companyId)
+          .single();
+        if (readErr || !winner?.stripe_customer_id) {
+          return NextResponse.json({ error: "Failed to resolve customer" }, { status: 500 });
+        }
+        stripeCustomerId = winner.stripe_customer_id;
+        console.log(`[stripe/subscribe] Lost customer-create race for ${companyId}, using winning ID ${stripeCustomerId}`);
       }
     }
 
