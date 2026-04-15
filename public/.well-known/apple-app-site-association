@@ -8,6 +8,14 @@
           {
             "/": "/projects/*",
             "comment": "Project deep links — opens the OPS iOS app directly"
+          },
+          {
+            "/": "/open",
+            "comment": "Web-to-app return bridge (exact match)"
+          },
+          {
+            "/": "/open/*",
+            "comment": "Web-to-app return bridge (with path)"
           }
         ]
       }
