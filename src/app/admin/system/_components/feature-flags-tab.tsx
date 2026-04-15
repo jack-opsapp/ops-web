@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { CompanyAiFeatures } from "./company-ai-features";
 
 interface UserRow {
   id: string;
@@ -153,7 +154,21 @@ export function FeatureFlagsTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* ── Company AI Features (phase_c, ai_email_review) ─────────────── */}
+      <CompanyAiFeatures />
+
+      {/* Divider between the two distinct feature-flag systems */}
+      <div className="border-t border-white/[0.08] pt-8 space-y-6">
+        <div>
+          <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#E5E5E5]">
+            User Special Permissions
+          </h2>
+          <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-1">
+            [per-user permission flags — separate from the company AI toggles above]
+          </p>
+        </div>
+
       {/* Message toast */}
       {message && (
         <div
@@ -345,6 +360,7 @@ export function FeatureFlagsTab() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
