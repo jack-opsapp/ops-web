@@ -21,6 +21,7 @@ import {
 import { pushByDays, calculateCascade } from "@/lib/scheduling/engine";
 import { taskToSchedulable } from "@/lib/scheduling/adapters";
 import { SidePanelShell } from "./side-panel-shell";
+import { TaskMaterialsSection } from "@/components/ops/task-materials-section";
 
 // ─── Status options ─────────────────────────────────────────────────────────
 
@@ -718,6 +719,20 @@ export function TaskDetailPanel() {
               </div>
             )}
           </div>
+
+          {/* ── Materials Section ──────────────────────────────────────── */}
+          {selectedTaskId && task && (
+            <div
+              className="px-[16px] py-[12px]"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+            >
+              <SectionLabel>MATERIALS</SectionLabel>
+              <TaskMaterialsSection
+                taskId={selectedTaskId}
+                inventoryDeducted={task.inventoryDeducted ?? false}
+              />
+            </div>
+          )}
 
           {/* ── Notes Section ──────────────────────────────────────────── */}
           <div
