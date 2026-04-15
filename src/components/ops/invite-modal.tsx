@@ -23,6 +23,7 @@ import {
 import { useSendInvite, useCompany, useRoles } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { normalizePhoneE164, formatPhoneNational, InvalidPhoneError } from "@/lib/sms/phone-utils";
 
 // ─── Invite Modal ─────────────────────────────────────────────────────────────
 
@@ -43,6 +44,10 @@ export function InviteModal({
   const [inviteMode, setInviteMode] = useState<"email" | "sms">("email");
   const [inputValue, setInputValue] = useState("");
   const [entries, setEntries] = useState<string[]>([]);
+  // Maps the national-format display string in `entries` to its E.164 value.
+  // Only populated when inviteMode === "sms". The display string is what the
+  // user sees in the chip; the E.164 string is what submits to the API.
+  const [phonesE164, setPhonesE164] = useState<Record<string, string>>({});
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
   const [codeCopied, setCodeCopied] = useState(false);
 
@@ -59,6 +64,7 @@ export function InviteModal({
   const resetForm = useCallback(() => {
     setInputValue("");
     setEntries([]);
+    setPhonesE164({});
     setSelectedRoleId(unassignedRoleId);
     setInviteMode("email");
     setCodeCopied(false);
@@ -68,30 +74,68 @@ export function InviteModal({
     const trimmed = inputValue.trim();
     if (!trimmed) return;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const parts = trimmed.split(/[,;\s]+/).filter(Boolean);
     const valid: string[] = [];
     const invalid: string[] = [];
+    const newPhoneMap: Record<string, string> = {};
 
-    for (const p of parts) {
-      if (emailRegex.test(p)) {
-        if (!entries.includes(p)) valid.push(p);
-      } else {
-        invalid.push(p);
+    if (inviteMode === "email") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      for (const p of parts) {
+        if (emailRegex.test(p)) {
+          if (!entries.includes(p)) valid.push(p);
+        } else {
+          invalid.push(p);
+        }
+      }
+      if (invalid.length > 0) {
+        toast.error(`Invalid email${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`);
+      }
+    } else {
+      // SMS mode: normalize to E.164, display as national format in the chip
+      for (const raw of parts) {
+        try {
+          const e164 = normalizePhoneE164(raw);
+          const display = formatPhoneNational(e164);
+          if (!entries.includes(display)) {
+            valid.push(display);
+            newPhoneMap[display] = e164;
+          }
+        } catch (err) {
+          if (err instanceof InvalidPhoneError) {
+            invalid.push(raw);
+          } else {
+            invalid.push(raw);
+          }
+        }
+      }
+      if (invalid.length > 0) {
+        toast.error(
+          invalid.length > 1
+            ? `${t("team.toast.invalidPhoneMulti")}: ${invalid.join(", ")}`
+            : `${t("team.toast.invalidPhone")}: ${invalid[0]}`
+        );
       }
     }
 
-    if (invalid.length > 0) {
-      toast.error(`Invalid email${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}`);
-    }
     if (valid.length > 0) {
       setEntries((prev) => [...prev, ...valid]);
+      if (inviteMode === "sms") {
+        setPhonesE164((prev) => ({ ...prev, ...newPhoneMap }));
+      }
     }
     setInputValue("");
   }
 
   function removeEntry(entry: string) {
     setEntries((prev) => prev.filter((e) => e !== entry));
+    if (inviteMode === "sms") {
+      setPhonesE164((prev) => {
+        const next = { ...prev };
+        delete next[entry];
+        return next;
+      });
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -112,23 +156,65 @@ export function InviteModal({
   }
 
   function handleSend() {
-    const allEntries = [...entries];
+    // Flush any pending input, then re-compute the fresh list locally — we
+    // can't rely on setEntries to be applied before the mutate call fires.
     const trimmed = inputValue.trim();
+    if (trimmed) addEntry();
+
+    const allDisplays = [...entries];
+    const freshPhoneMap: Record<string, string> = {};
+
     if (trimmed) {
       const parts = trimmed.split(/[,;\s]+/).filter(Boolean);
-      parts.forEach((p) => {
-        if (!allEntries.includes(p)) allEntries.push(p);
-      });
+      for (const raw of parts) {
+        if (inviteMode === "email") {
+          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) && !allDisplays.includes(raw)) {
+            allDisplays.push(raw);
+          }
+        } else {
+          try {
+            const e164 = normalizePhoneE164(raw);
+            const display = formatPhoneNational(e164);
+            if (!allDisplays.includes(display)) {
+              allDisplays.push(display);
+              freshPhoneMap[display] = e164;
+            }
+          } catch {
+            // already toasted by addEntry
+          }
+        }
+      }
     }
 
-    if (allEntries.length === 0) {
+    if (allDisplays.length === 0) {
       toast.error(inviteMode === "email" ? t("team.toast.enterEmail") : t("team.toast.enterPhone"));
       return;
     }
 
-    const data = inviteMode === "email"
-      ? { emails: allEntries, roleId: selectedRoleId || undefined }
-      : { phones: allEntries, roleId: selectedRoleId || undefined };
+    let data: { emails?: string[]; phones?: string[]; roleId?: string };
+
+    if (inviteMode === "email") {
+      data = { emails: allDisplays, roleId: selectedRoleId || undefined };
+    } else {
+      // Resolve E.164 for each display chip. Preference order:
+      //   1. phonesE164 state (populated by addEntry)
+      //   2. freshPhoneMap (populated just above for unflushed input)
+      //   3. re-normalize on the fly as a last resort
+      const e164List: string[] = [];
+      for (const display of allDisplays) {
+        const mapped = phonesE164[display] ?? freshPhoneMap[display];
+        if (mapped) {
+          e164List.push(mapped);
+        } else {
+          try {
+            e164List.push(normalizePhoneE164(display));
+          } catch {
+            // already surfaced as a toast earlier
+          }
+        }
+      }
+      data = { phones: e164List, roleId: selectedRoleId || undefined };
+    }
 
     sendInvite.mutate(data, {
       onSuccess: (result) => {
