@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { useProposedTasks } from "@/lib/hooks/use-task-templates";
 import { useTeamMembers } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { TaskService } from "@/lib/api/services";
+import { TaskService, TaskMaterialsService } from "@/lib/api/services";
 import { OpportunityService } from "@/lib/api/services";
 import { OpportunityStage } from "@/lib/types/pipeline";
 import type { ProposedTask } from "@/lib/api/services/task-template-service";
@@ -224,7 +224,18 @@ export function ReviewTasksModal({
           selected: true,
         }));
 
-      await TaskService.createTasksFromProposals(proposals, projectId, company.id);
+      const taskIds = await TaskService.createTasksFromProposals(proposals, projectId, company.id);
+
+      // Populate materials for each task from its source line item
+      await Promise.all(
+        taskIds.map((taskId, idx) => {
+          const lineItemId = proposals[idx]?.lineItemId;
+          if (!lineItemId) return Promise.resolve();
+          return TaskMaterialsService.populateFromLineItem(taskId, lineItemId).catch(() => {
+            // Non-fatal: materials not populated but task still created
+          });
+        })
+      );
 
       // Advance opportunity to Won
       if (opportunityId) {
