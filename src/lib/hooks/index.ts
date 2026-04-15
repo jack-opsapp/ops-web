@@ -355,5 +355,6 @@ export {
 // Product-Inventory Bridge
 export { useProductMaterials, useSetProductBom } from "./use-product-materials";
 export { useTaskMaterials, useSetTaskMaterials } from "./use-task-materials";
+export { useLineItemMaterials, useSetLineItemMaterials } from "./use-line-item-materials";
 export { useProjectDeductions, useTaskDeductions } from "./use-inventory-deductions";
 export { useStockIndicator } from "./use-stock-indicator";

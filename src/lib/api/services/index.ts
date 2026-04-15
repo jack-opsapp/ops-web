@@ -109,3 +109,4 @@ export type { ProposeActionParams, QueueFilters, QueueStats } from "@/lib/types/
 export { ProductMaterialsService } from "./product-materials-service";
 export { TaskMaterialsService } from "./task-materials-service";
 export { InventoryDeductionService } from "./inventory-deduction-service";
+export { LineItemMaterialsService } from "./line-item-materials-service";

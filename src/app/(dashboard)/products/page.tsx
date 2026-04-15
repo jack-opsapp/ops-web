@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/ops/empty-state";
+import { ProductBomEditor } from "@/components/ops/product-bom-editor";
 import {
   useProducts,
   useCreateProduct,
@@ -534,6 +535,13 @@ function ProductFormModal({
               <span className="font-mono text-data-sm text-status-success">
                 {formatCurrency(defaultPrice - (unitCost || 0))} ({margin.toFixed(1)}%)
               </span>
+            </div>
+          )}
+
+          {/* Bill of Materials — only for saved products */}
+          {isEditing && product && (
+            <div className="border-t border-border pt-3">
+              <ProductBomEditor productId={product.id} productUnit={unit} />
             </div>
           )}
 

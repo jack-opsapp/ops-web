@@ -322,6 +322,13 @@ export const queryKeys = {
       [...queryKeys.taskMaterials.all, taskId] as const,
   },
 
+  // Line Item Materials (per-estimate overrides)
+  lineItemMaterials: {
+    all: ["lineItemMaterials"] as const,
+    byLineItem: (lineItemId: string) =>
+      [...queryKeys.lineItemMaterials.all, lineItemId] as const,
+  },
+
   // Inventory Deductions
   inventoryDeductions: {
     all: ["inventoryDeductions"] as const,
