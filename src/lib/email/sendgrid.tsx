@@ -29,6 +29,10 @@ import { TrialExpiryDiscount } from "./react/templates/TrialExpiryDiscount";
 import { TrialExpiryReengagement } from "./react/templates/TrialExpiryReengagement";
 import { AdsBriefing } from "./react/templates/AdsBriefing";
 import { BlogNewsletter } from "./react/templates/BlogNewsletter";
+import {
+  FieldNotesNewsletter,
+  type NewsletterItem,
+} from "./react/templates/FieldNotesNewsletter";
 import { PortalMagicLink } from "./react/templates/PortalMagicLink";
 import { PortalEstimateReady } from "./react/templates/PortalEstimateReady";
 import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
@@ -442,6 +446,90 @@ export async function sendBlogNewsletter(params: {
             thumbnailUrl={params.post.thumbnail_url}
             emailContent={bodyContent}
             postUrl={postUrl}
+            unsubscribeUrl={unsubscribeUrl}
+          />,
+        );
+        await sgMail.send({
+          to: r.email,
+          from: FIELD_NOTES,
+          replyTo: FIELD_NOTES.email,
+          subject,
+          html,
+        });
+        return r.email;
+      }),
+    );
+
+    settled.forEach((outcome, idx) => {
+      const email = batch[idx].email;
+      if (outcome.status === "fulfilled") {
+        aggregate.sent++;
+        aggregate.results.push({ email, status: "sent" });
+      } else {
+        aggregate.failed++;
+        const message =
+          outcome.reason instanceof Error
+            ? outcome.reason.message
+            : String(outcome.reason);
+        aggregate.errors.push(`${email}: ${message}`);
+        aggregate.results.push({ email, status: "failed", error: message });
+      }
+    });
+  }
+
+  return aggregate;
+}
+
+// ─── Field Notes Newsletter (periodic digest — OPS Field Notes) ───────────
+
+export interface FieldNotesIssue {
+  issueNumber: number;
+  issueDate: string;
+  intro: string;
+  companyNews: NewsletterItem[];
+  industryInsights: NewsletterItem[];
+  fullIssueUrl: string;
+}
+
+export async function sendFieldNotesNewsletter(params: {
+  issue: FieldNotesIssue;
+  recipients: BlogNewsletterRecipient[];
+}): Promise<BlogNewsletterResult> {
+  ensureInitialized();
+
+  // Deduplicate by lowercased email
+  const seen = new Set<string>();
+  const unique: BlogNewsletterRecipient[] = [];
+  for (const r of params.recipients) {
+    const lower = (r.email ?? "").toLowerCase().trim();
+    if (!lower || seen.has(lower)) continue;
+    seen.add(lower);
+    unique.push({ email: lower, first_name: r.first_name });
+  }
+
+  const subject = `Field Notes #${params.issue.issueNumber} — ${params.issue.issueDate}`;
+
+  const aggregate: BlogNewsletterResult = {
+    sent: 0,
+    failed: 0,
+    errors: [],
+    results: [],
+  };
+
+  for (let i = 0; i < unique.length; i += BLOG_NEWSLETTER_BATCH_SIZE) {
+    const batch = unique.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
+    const settled = await Promise.allSettled(
+      batch.map(async (r) => {
+        const unsubscribeUrl = buildUnsubscribeUrl(r.email, "field-notes");
+        const html = await render(
+          <FieldNotesNewsletter
+            firstName={r.first_name}
+            issueNumber={params.issue.issueNumber}
+            issueDate={params.issue.issueDate}
+            intro={params.issue.intro}
+            companyNews={params.issue.companyNews}
+            industryInsights={params.issue.industryInsights}
+            fullIssueUrl={params.issue.fullIssueUrl}
             unsubscribeUrl={unsubscribeUrl}
           />,
         );

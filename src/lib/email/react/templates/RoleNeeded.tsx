@@ -22,13 +22,17 @@ export function RoleNeeded({
     >
       <Headline>{userName}&apos;s in. Give them a role.</Headline>
       <Paragraph>
-        {userName} just joined {companyName} on OPS. They can&apos;t see
-        jobs until you set their role.
+        <strong>{userName}</strong> just joined {companyName} on OPS. Until
+        you assign a role, they&apos;ll have limited access and won&apos;t
+        see jobs.
       </Paragraph>
       <Spacer size="md" />
       <Button href={assignUrl}>Assign role &rarr;</Button>
       <Spacer size="lg" />
       <InfoBlock label="New member">{userName}</InfoBlock>
+      <Paragraph small>
+        Head to Settings &rarr; Team anytime to manage roles and permissions.
+      </Paragraph>
     </OpsEmailLayout>
   );
 }

@@ -6,81 +6,137 @@ import {
   Spacer,
   InfoBlock,
   Divider,
+  Button,
+  emailTokens as T,
 } from "../primitives";
+import { Section, Row, Column, Text } from "@react-email/components";
 import { DISPATCH } from "../../senders";
-import type { AdBriefing } from "@/lib/admin/briefing-types";
+import type { AdBriefing, ActionItem } from "@/lib/admin/briefing-types";
 
 interface AdsBriefingProps {
   briefing: AdBriefing;
 }
 
-function formatPct(n: number): string {
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${(n * 100).toFixed(1)}%`;
+function priorityColor(p: "high" | "medium" | "low"): string {
+  return p === "high" ? "#93321A" : p === "medium" ? "#C4A868" : "#6B6B6B";
+}
+
+function formatDelta(value: number): string {
+  const pct = (value * 100).toFixed(1);
+  if (value > 0) return `\u2191${pct}%`;
+  if (value < 0) return `\u2193${Math.abs(Number(pct))}%`;
+  return "\u2192 flat";
 }
 
 function formatCurrency(n: number): string {
   return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
+function ActionRow({ item, index }: { item: ActionItem; index: number }) {
+  const color = priorityColor(item.priority);
+  return (
+    <Section
+      style={{
+        borderLeft: `2px solid ${color}`,
+        paddingLeft: T.spacing.md,
+        margin: `${T.spacing.sm} 0`,
+      }}
+    >
+      <Row>
+        <Column>
+          <Text
+            style={{
+              margin: 0,
+              fontFamily: T.font.sans,
+              fontSize: T.size.body,
+              lineHeight: T.size.bodyLine,
+              color: T.color.paperTextPrimary,
+            }}
+          >
+            {index + 1}.&nbsp;
+            <span
+              style={{
+                color,
+                textTransform: "uppercase",
+                fontSize: T.size.eyebrow,
+                fontWeight: T.weight.bold,
+                letterSpacing: T.tracking.eyebrow,
+              }}
+            >
+              [{item.priority}]
+            </span>
+            &nbsp;{item.action}
+          </Text>
+          <Text
+            style={{
+              margin: `${T.spacing.xs} 0 0 0`,
+              fontFamily: T.font.sans,
+              fontSize: T.size.small,
+              lineHeight: T.size.smallLine,
+              color: T.color.paperTextSecondary,
+            }}
+          >
+            {item.expectedImpact} &middot; {item.effort}
+          </Text>
+        </Column>
+      </Row>
+    </Section>
+  );
+}
+
 export function AdsBriefing({ briefing }: AdsBriefingProps) {
   const perf = briefing.performance_data;
-  const topInsights = (briefing.insights ?? [])
-    .filter((i) => i.severity === "high")
-    .slice(0, 3);
-  const topActions = (briefing.action_items ?? [])
-    .filter((a) => a.priority === "high")
-    .slice(0, 3);
+  const actions = (briefing.action_items ?? []).slice(0, 3);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
 
   return (
     <OpsEmailLayout
       preview={`Google Ads weekly — ${briefing.period_start} to ${briefing.period_end}`}
-      eyebrow="Ads intel"
+      eyebrow="Ads intel // Google Ads weekly"
       senderAddress={DISPATCH.email}
     >
       <Headline>
-        Google Ads — {briefing.period_start} to {briefing.period_end}
+        {briefing.period_start} &mdash; {briefing.period_end}
       </Headline>
-      {briefing.summary ? <Paragraph>{briefing.summary}</Paragraph> : null}
+      <Paragraph>{briefing.summary ?? "Briefing summary unavailable."}</Paragraph>
+
+      {actions.length > 0 ? (
+        <>
+          <Spacer size="md" />
+          <Headline as="h2">This week&apos;s actions</Headline>
+          {actions.map((action, i) => (
+            <ActionRow key={i} item={action} index={i} />
+          ))}
+        </>
+      ) : null}
+
       {perf ? (
         <>
-          <Spacer size="sm" />
+          <Divider spacing="md" />
+          <Headline as="h2">Key metrics</Headline>
           <InfoBlock label="Spend">
-            {formatCurrency(perf.current.spend)} ({formatPct(perf.deltas.spend)})
+            {formatCurrency(perf.current.spend)} &middot;{" "}
+            {formatDelta(perf.deltas.spend)}
           </InfoBlock>
           <InfoBlock label="CPA">
-            {formatCurrency(perf.current.cpa)} ({formatPct(perf.deltas.cpa)})
+            {formatCurrency(perf.current.cpa)} &middot;{" "}
+            {formatDelta(perf.deltas.cpa)}
           </InfoBlock>
           <InfoBlock label="Conversions">
-            {perf.current.conversions} ({formatPct(perf.deltas.conversions)})
+            {perf.current.conversions} &middot;{" "}
+            {formatDelta(perf.deltas.conversions)}
           </InfoBlock>
           <InfoBlock label="Top campaign">
-            {perf.topCampaign.name} — {perf.topCampaign.conversions} conv @ {formatCurrency(perf.topCampaign.cpa)} CPA
+            {perf.topCampaign.name} &middot; {perf.topCampaign.conversions} conv
+            @ {formatCurrency(perf.topCampaign.cpa)} CPA
           </InfoBlock>
         </>
       ) : null}
-      {topInsights.length > 0 ? (
-        <>
-          <Divider spacing="md" />
-          <Headline as="h2">High-priority insights</Headline>
-          {topInsights.map((insight, i) => (
-            <InfoBlock key={i} label={insight.category.toUpperCase()}>
-              <strong>{insight.title}.</strong> {insight.recommendation}
-            </InfoBlock>
-          ))}
-        </>
-      ) : null}
-      {topActions.length > 0 ? (
-        <>
-          <Divider spacing="md" />
-          <Headline as="h2">Next moves</Headline>
-          {topActions.map((action, i) => (
-            <Paragraph key={i}>
-              &bull; {action.action} <em>({action.effort}, {action.expectedImpact})</em>
-            </Paragraph>
-          ))}
-        </>
-      ) : null}
+
+      <Spacer size="lg" />
+      <Button href={`${appUrl}/admin/google-ads/briefings/${briefing.id}`}>
+        View full briefing &rarr;
+      </Button>
     </OpsEmailLayout>
   );
 }
@@ -136,17 +192,7 @@ AdsBriefing.PreviewProps = {
     },
     competitor_intel: [],
     market_sentiment: [],
-    insights: [
-      {
-        category: "creative",
-        severity: "high",
-        title: "Deck Builder landing page is working",
-        explanation:
-          "CPA dropped 18% since launching the dedicated deck builder landing page.",
-        recommendation: "Double down — build a similar page for railing.",
-        impactScore: 9,
-      },
-    ],
+    insights: [],
     ad_suggestions: [],
     keyword_recs: [],
     ab_test_proposals: [],
@@ -164,6 +210,13 @@ AdsBriefing.PreviewProps = {
         expectedImpact: "$1,120/week recovered",
         category: "bidding",
         effort: "5min",
+      },
+      {
+        priority: "medium",
+        action: "Test three new headline variants on Deck Builder ad group",
+        expectedImpact: "CTR +0.5-1.0pp",
+        category: "creative",
+        effort: "30min",
       },
     ],
     email_sent: false,
