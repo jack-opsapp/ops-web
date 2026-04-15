@@ -126,11 +126,18 @@ export default function JoinPage() {
     setError(null);
     setIsLoadingGoogle(true);
     try {
-      await signInWithGoogle();
+      const fbUser = await signInWithGoogle();
       const token = await getIdToken();
       if (token) {
         try {
-          await UserService.syncUser(token, "");
+          await UserService.syncUser(
+            token,
+            fbUser.email ?? "",
+            fbUser.displayName ?? undefined,
+            fbUser.displayName?.split(" ")[0] || undefined,
+            fbUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+            fbUser.photoURL ?? undefined,
+          );
         } catch {
           /* may already exist */
         }
@@ -155,11 +162,18 @@ export default function JoinPage() {
     setError(null);
     setIsLoadingApple(true);
     try {
-      await signInWithApple();
+      const fbUser = await signInWithApple();
       const token = await getIdToken();
       if (token) {
         try {
-          await UserService.syncUser(token, "");
+          await UserService.syncUser(
+            token,
+            fbUser.email ?? "",
+            fbUser.displayName ?? undefined,
+            fbUser.displayName?.split(" ")[0] || undefined,
+            fbUser.displayName?.split(" ").slice(1).join(" ") || undefined,
+            fbUser.photoURL ?? undefined,
+          );
         } catch {
           /* may already exist */
         }

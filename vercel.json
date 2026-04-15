@@ -86,6 +86,10 @@
     {
       "path": "/api/cron/auto-execute-actions",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/trial-expiry",
+      "schedule": "0 14 * * *"
     }
   ]
 }

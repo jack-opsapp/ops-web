@@ -10,9 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-
-const ONESIGNAL_APP_ID = "0fc0a8e0-9727-49b6-9e37-5d6d919d741f";
-const ONESIGNAL_API_ENDPOINT = "https://onesignal.com/api/v1/notifications";
+import { sendOneSignalPush } from "@/lib/integrations/onesignal";
 
 interface SendNotificationBody {
   recipientUserIds: string[];
@@ -24,7 +22,6 @@ interface SendNotificationBody {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // Verify Firebase auth
     const firebaseUser = await verifyAdminAuth(req);
     if (!firebaseUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,60 +37,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
-    if (!restApiKey) {
-      console.error("[api/notifications/send] ONESIGNAL_REST_API_KEY not configured");
-      return NextResponse.json(
-        { error: "Notification service not configured" },
-        { status: 500 }
-      );
-    }
-
-    // Build OneSignal payload
-    const payload: Record<string, unknown> = {
-      app_id: ONESIGNAL_APP_ID,
-      headings: { en: title },
-      contents: { en: body },
-      include_aliases: { external_id: recipientUserIds },
-      target_channel: "push",
-    };
-
-    if (data) {
-      payload.data = data;
-    }
-
-    if (imageUrl) {
-      payload.ios_attachments = { photo: imageUrl };
-      payload.big_picture = imageUrl;
-    }
-
-    // Send via OneSignal REST API
-    const osResponse = await fetch(ONESIGNAL_API_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${restApiKey}`,
-      },
-      body: JSON.stringify(payload),
+    const result = await sendOneSignalPush({
+      recipientUserIds,
+      title,
+      body,
+      data,
+      imageUrl,
     });
 
-    const osResult = await osResponse.json();
-
-    console.log("[api/notifications/send] OneSignal response:", JSON.stringify(osResult));
-    console.log("[api/notifications/send] Payload sent:", JSON.stringify({ recipientUserIds, title }));
-
-    if (!osResponse.ok) {
-      console.error("[api/notifications/send] OneSignal error:", osResult);
+    if (!result.ok) {
       return NextResponse.json(
-        { error: "Failed to send notification", details: osResult },
-        { status: 502 }
+        { error: "Failed to send notification", details: result.error },
+        { status: result.status ?? 502 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      recipients: osResult.recipients || 0,
-      onesignalId: osResult.id,
+      recipients: result.recipients,
+      onesignalId: result.onesignalId,
     });
   } catch (error) {
     console.error("[api/notifications/send] Error:", error);

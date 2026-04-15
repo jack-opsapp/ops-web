@@ -20,6 +20,9 @@ import { betaAccessDecisionTemplate } from "./templates/beta-access-decision";
 import { adsBriefingTemplate } from "./templates/ads-briefing";
 import { passwordResetTemplate } from "./templates/password-reset";
 import { blogNewsletterTemplate } from "./templates/blog-newsletter";
+import { trialExpiryWarningTemplate } from "./templates/trial-expiry-warning";
+import { trialExpiryDiscountTemplate } from "./templates/trial-expiry-discount";
+import { trialExpiryReengagementTemplate } from "./templates/trial-expiry-reengagement";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
 
 let initialized = false;
@@ -384,4 +387,106 @@ export async function sendBlogNewsletter(params: {
   }
 
   return aggregate;
+}
+
+// ─── Trial Expiry Emails ────────────────────────────────────────────────────
+
+export async function sendTrialExpiryWarning(params: {
+  email: string;
+  companyName: string;
+  daysRemaining: number;
+  trialEndDisplay: string;
+  subscribeUrl: string;
+  accentColor: string;
+  logoUrl: string | null;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = trialExpiryWarningTemplate({
+    companyName: params.companyName,
+    daysRemaining: params.daysRemaining,
+    trialEndDisplay: params.trialEndDisplay,
+    subscribeUrl: params.subscribeUrl,
+    accentColor: params.accentColor,
+    logoUrl: params.logoUrl,
+  });
+
+  const subject =
+    params.daysRemaining === 1
+      ? "Tomorrow — your OPS trial ends"
+      : `${params.daysRemaining} days left on your OPS trial`;
+
+  await sgMail.send({
+    to: params.email,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject,
+    html,
+  });
+}
+
+export async function sendTrialExpiryDiscount(params: {
+  email: string;
+  companyName: string;
+  daysRemaining: number;
+  trialEndDisplay: string;
+  promoCode50: string;
+  promoCode30: string;
+  subscribeUrl: string;
+  accentColor: string;
+  logoUrl: string | null;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = trialExpiryDiscountTemplate({
+    companyName: params.companyName,
+    daysRemaining: params.daysRemaining,
+    trialEndDisplay: params.trialEndDisplay,
+    promoCode50: params.promoCode50,
+    promoCode30: params.promoCode30,
+    subscribeUrl: params.subscribeUrl,
+    accentColor: params.accentColor,
+    logoUrl: params.logoUrl,
+  });
+
+  await sgMail.send({
+    to: params.email,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject: `${params.daysRemaining} days left — 50% off or 30% off, your call`,
+    html,
+  });
+}
+
+export async function sendTrialExpiryReengagement(params: {
+  email: string;
+  companyName: string;
+  daysSinceExpiry: number;
+  promoCode50: string;
+  promoCode30: string;
+  subscribeUrl: string;
+  accentColor: string;
+  logoUrl: string | null;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = trialExpiryReengagementTemplate({
+    companyName: params.companyName,
+    daysSinceExpiry: params.daysSinceExpiry,
+    promoCode50: params.promoCode50,
+    promoCode30: params.promoCode30,
+    subscribeUrl: params.subscribeUrl,
+    accentColor: params.accentColor,
+    logoUrl: params.logoUrl,
+  });
+
+  const subject =
+    params.daysSinceExpiry >= 30
+      ? "Last check-in before we stop"
+      : "Still thinking about it?";
+
+  await sgMail.send({
+    to: params.email,
+    from: { email: getFromEmail(), name: "OPS" },
+    subject,
+    html,
+  });
 }
