@@ -13,6 +13,7 @@ import {
 import { queryKeys } from "../api/query-client";
 import {
   TaskService,
+  InventoryDeductionService,
   type FetchTasksOptions,
   type CreateTaskWithEventData,
 } from "../api/services";
@@ -25,6 +26,7 @@ import type { Project, ProjectTask, TaskStatus } from "../types/models";
 import { getTaskDisplayTitle } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";
+import { toast } from "sonner";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -396,6 +398,34 @@ export function useUpdateTaskStatus() {
             companyId: prev.companyId,
           });
         }
+      }
+
+      // Inventory deduction on completion / reversal on reopening
+      if (status === "Completed" && context?.previousTask && !context.previousTask.inventoryDeducted) {
+        InventoryDeductionService.deductForTask(id, currentUser?.id ?? null)
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items.lists() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.inventoryDeductions.all });
+            queryClient.invalidateQueries({ queryKey: queryKeys.taskMaterials.byTask(id) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(id) });
+          })
+          .catch((err) => {
+            console.error("Inventory deduction failed:", err);
+            toast.error("Task completed but inventory deduction failed");
+          });
+      }
+
+      if (status !== "Completed" && context?.previousTask?.inventoryDeducted) {
+        InventoryDeductionService.reverseForTask(id, currentUser?.id ?? null)
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items.lists() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.inventoryDeductions.all });
+            queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(id) });
+          })
+          .catch((err) => {
+            console.error("Inventory reversal failed:", err);
+            toast.error("Task reopened but inventory reversal failed");
+          });
       }
     },
 

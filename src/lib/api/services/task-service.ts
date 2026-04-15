@@ -122,6 +122,7 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     scheduleConfirmedAt: parseDate(row.schedule_confirmed_at),
     scheduleConfirmedBy: (row.schedule_confirmed_by as string) ?? null,
     updatedAt: parseDate(row.updated_at),
+    inventoryDeducted: (row.inventory_deducted as boolean) ?? false,
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
@@ -150,6 +151,7 @@ function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   // Map both taskIndex and displayOrder to display_order
   if (data.displayOrder !== undefined) row.display_order = data.displayOrder;
   else if (data.taskIndex !== undefined) row.display_order = data.taskIndex;
+  if (data.inventoryDeducted !== undefined) row.inventory_deducted = data.inventoryDeducted;
   return row;
 }
 
