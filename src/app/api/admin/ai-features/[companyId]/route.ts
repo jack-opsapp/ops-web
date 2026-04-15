@@ -12,6 +12,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { MemoryService } from "@/lib/api/services/memory-service";
+import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 
 export const maxDuration = 300;
 
@@ -104,10 +105,12 @@ export async function PATCH(
 
   const { companyId } = await params;
   const body = await req.json();
-  const db = getAdminSupabase();
 
-  const validFeatures = ["ai_email_review", "phase_c"];
-  const updates: Array<{ feature: string; enabled: boolean }> = [];
+  const validFeatures: Array<"ai_email_review" | "phase_c"> = [
+    "ai_email_review",
+    "phase_c",
+  ];
+  const updates: Array<{ feature: "ai_email_review" | "phase_c"; enabled: boolean }> = [];
 
   for (const feature of validFeatures) {
     if (feature in body) {
@@ -122,21 +125,38 @@ export async function PATCH(
     );
   }
 
-  for (const u of updates) {
-    const { error } = await db.from("admin_feature_overrides").upsert(
-      {
-        company_id: companyId,
-        feature_key: u.feature,
-        enabled: u.enabled,
-        enabled_by: admin.email || null,
-        enabled_at: u.enabled ? new Date().toISOString() : null,
-      },
-      { onConflict: "company_id,feature_key" }
-    );
+  // Pin the service-role client so service-layer queries (and any
+  // secondary side effects like the comms-wizard-ready notification fire
+  // from setOverride) run with full DB access instead of falling through
+  // to the anon client.
+  setSupabaseOverride(getServiceRoleClient());
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    // Route through AdminFeatureOverrideService.setOverride so the
+    // disabled→enabled transition fires the guidance notification that
+    // tells the company's admins to run the AI Setup wizard. A raw
+    // db.upsert (the prior implementation) silently skipped that
+    // side effect — and that's exactly why admin-toggled phase_c
+    // customers never saw any onboarding prompt.
+    for (const u of updates) {
+      try {
+        await AdminFeatureOverrideService.setOverride(
+          companyId,
+          u.feature,
+          u.enabled,
+          // setOverride stamps enabled_by with this value. Admin routes
+          // authenticate via Firebase so we pass the email rather than a
+          // real uuid — the column is TEXT in prod so either works for
+          // audit purposes.
+          admin.email || "admin"
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
     }
+  } finally {
+    setSupabaseOverride(null);
   }
 
   return NextResponse.json({ ok: true, updated: updates });

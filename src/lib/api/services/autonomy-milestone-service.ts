@@ -388,8 +388,13 @@ export const AutonomyMilestoneService = {
 
       // 7-day re-fire guard: if an admin toggles phase_c off and on during
       // setup, we don't want to spam the notification rail. Check whether
-      // any comms-wizard-ready notification has been created for this
-      // company in the last 7 days. If so, skip.
+      // any setup-ready notification has been created for this company in
+      // the last 7 days. If so, skip.
+      //
+      // The title list intentionally includes the legacy
+      // "CONFIGURE YOUR AI COMMUNICATIONS" so customers who already
+      // received the previous wording don't get a duplicate after the
+      // notification was repointed at the AI Setup wizard.
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -399,6 +404,7 @@ export const AutonomyMilestoneService = {
         .eq("company_id", companyId)
         .eq("type", "ai_milestone")
         .in("title", [
+          "YOUR AI IS READY — SET IT UP",
           "CONFIGURE YOUR AI COMMUNICATIONS",
           "notification.commsWizardReady.title",
         ])
@@ -433,17 +439,26 @@ export const AutonomyMilestoneService = {
         targetIds = (roleMatches ?? []).map((u) => u.id as string);
       }
 
+      // Route the user to the AI Setup wizard, not to /agent/comms-config.
+      // The comms-config page gates on writing profile confidence and
+      // redirects back to the queue when confidence is 0, so pointing a
+      // brand-new customer there was a dead-end. The setup wizard
+      // (/settings/integrations/ai-setup) is the actual starting point:
+      // it runs the intake interview, email scan, and database mining
+      // that builds the writing profile — after which the comms wizard
+      // unlocks itself via the milestone-check path in
+      // checkMilestonesAfterDraftFeedback.
       await Promise.allSettled(
         targetIds.map((userId) =>
           NotificationService.create({
             userId,
             companyId,
             type: "ai_milestone",
-            title: "CONFIGURE YOUR AI COMMUNICATIONS",
-            body: "Your AI is ready to handle client communications. Take 2 minutes to set up how you want it to work.",
+            title: "YOUR AI IS READY — SET IT UP",
+            body: "Phase C is enabled. Run the 5-minute intake to teach your AI your voice, your clients, and your business rules.",
             persistent: true,
-            actionUrl: "/agent/comms-config",
-            actionLabel: "Configure",
+            actionUrl: "/settings/integrations/ai-setup",
+            actionLabel: "Start Setup",
           })
         )
       );
