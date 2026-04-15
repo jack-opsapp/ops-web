@@ -3,9 +3,12 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { useNotificationRailStore } from "@/stores/notification-rail-store";
 import { useNotifications, useDismissNotification } from "@/lib/hooks/use-notifications";
+import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
+import type { AppNotification } from "@/lib/api/services/notification-service";
 import { NotificationPill } from "./notification-pill";
 import { NotificationMiniCard } from "./notification-mini-card";
 import { useDictionary } from "@/i18n/client";
@@ -16,7 +19,9 @@ const HOVER_PREVIEW_COUNT = 3;
 
 export function NotificationRail() {
   const { t } = useDictionary("topbar");
+  const router = useRouter();
   const { railState, expand, collapse, openModal } = useNotificationRailStore();
+  const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
   const { data: notifications = [] } = useNotifications();
   const dismissMutation = useDismissNotification();
   const railRef = useRef<HTMLDivElement>(null);
@@ -93,6 +98,27 @@ export function NotificationRail() {
     setCountHovered(false);
     expand();
   }, [expand]);
+
+  // Click a preview card in the collapsed-hover state → open the notification
+  // directly on the first click instead of merely expanding the rail.
+  const handlePreviewClick = useCallback(
+    (n: AppNotification) => {
+      setCountHovered(false);
+      if (n.type === "duplicates_found") {
+        if (!n.persistent) dismissRef.current(n.id);
+        openDuplicateSheet();
+        return;
+      }
+      if (n.actionUrl) {
+        if (!n.persistent) dismissRef.current(n.id);
+        router.push(n.actionUrl);
+        return;
+      }
+      // No action target — fall back to expanding the rail for review.
+      expand();
+    },
+    [expand, openDuplicateSheet, router]
+  );
 
   if (count === 0) return null;
 
@@ -224,7 +250,7 @@ export function NotificationRail() {
                     initial={false}
                     animate={{ width: 160, opacity: 1 }}
                     transition={{ duration: 0.25, ease: EASE_SMOOTH }}
-                    onClick={expandRail}
+                    onClick={() => handlePreviewClick(n)}
                     className="shrink-0 h-[40px] rounded-[4px] cursor-pointer overflow-hidden"
                     style={{
                       background: "rgba(10, 10, 10, 0.70)",

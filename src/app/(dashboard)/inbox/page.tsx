@@ -72,6 +72,11 @@ export default function InboxPage() {
     setContextOpen((prev) => !prev);
   }, []);
 
+  const handleGoToThreadReady = useCallback(
+    (fn: (threadId: string) => void) => setGoToThread(() => fn),
+    []
+  );
+
   // Keyboard: Escape to close context panel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -97,7 +102,7 @@ export default function InboxPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex h-[calc(100vh-68px-96px)] overflow-hidden rounded border border-border bg-background-panel">
+      <div className="flex h-[calc(100vh-68px-96px)] overflow-hidden rounded border border-border">
       {/* Left: Conversation List */}
       <div style={{ width: 320 }} className="shrink-0 border-r border-border-subtle">
         <ConversationList
@@ -120,7 +125,7 @@ export default function InboxPage() {
             contextOpen={contextOpen}
             onReply={handleReply}
             onMessagesLoaded={setThreadMessages}
-            onGoToThreadReady={(fn) => setGoToThread(() => fn)}
+            onGoToThreadReady={handleGoToThreadReady}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

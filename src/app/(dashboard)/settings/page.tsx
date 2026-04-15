@@ -21,6 +21,7 @@ import {
   FileText,
   Wrench,
   Rocket,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -57,7 +58,7 @@ import { ClientCommsSettingsTab } from "@/components/settings/client-comms-setti
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type SettingsGroup = "account" | "company" | "operations" | "billing" | "integrations" | "preferences" | "setup" | "developer";
+type SettingsGroup = "account" | "company" | "operations" | "billing" | "integrations" | "ai" | "preferences" | "setup" | "developer";
 
 interface SubTab {
   id: string;
@@ -124,6 +125,13 @@ const BASE_GROUP_DEFS: GroupDef[] = [
       { id: "templates", labelKey: "sections.templates" },
       { id: "email-templates", labelKey: "sections.emailTemplates" },
       { id: "accounting", labelKey: "sections.accounting" },
+    ],
+  },
+  {
+    id: "ai",
+    labelKey: "tabs.ai",
+    icon: Brain,
+    subTabs: [
       { id: "lifecycle", labelKey: "sections.lifecycle" },
       { id: "invoice-automation", labelKey: "sections.invoiceAutomation" },
       { id: "financial-intelligence", labelKey: "sections.financialIntelligence" },
@@ -175,7 +183,11 @@ const legacyTabMap: Record<string, { group: SettingsGroup; sub: string }> = {
   integrations: { group: "integrations", sub: "email" },
   portal: { group: "integrations", sub: "portal" },
   accounting: { group: "integrations", sub: "accounting" },
-  "client-comms": { group: "integrations", sub: "client-comms" },
+  ai: { group: "ai", sub: "lifecycle" },
+  lifecycle: { group: "ai", sub: "lifecycle" },
+  "invoice-automation": { group: "ai", sub: "invoice-automation" },
+  "financial-intelligence": { group: "ai", sub: "financial-intelligence" },
+  "client-comms": { group: "ai", sub: "client-comms" },
   preferences: { group: "preferences", sub: "preferences-general" },
   map: { group: "preferences", sub: "map" },
   "data-privacy": { group: "preferences", sub: "data-privacy" },
@@ -251,6 +263,7 @@ const GROUP_PERMISSIONS: Partial<Record<SettingsGroup, string>> = {
   company: "settings.company",
   billing: "settings.billing",
   integrations: "settings.integrations",
+  ai: "settings.integrations",
   preferences: "settings.preferences",
 };
 

@@ -1,25 +1,41 @@
 import { SidebarNavItem } from "./sidebar-nav-item";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "OVERVIEW" },
-  { href: "/admin/acquisition", label: "ACQUISITION" },
-  { href: "/admin/google-ads", label: "GOOGLE ADS" },
-  { href: "/admin/ab-testing", label: "A/B TESTING" },
-  { href: "/admin/onboarding", label: "ONBOARDING" },
-  { href: "/admin/companies", label: "COMPANIES" },
-  { href: "/admin/engagement", label: "ENGAGEMENT" },
-  { href: "/admin/app-analytics", label: "APP ANALYTICS" },
-  { href: "/admin/revenue", label: "REVENUE" },
-  { href: "/admin/platform-health", label: "PLATFORM HEALTH" },
-  { href: "/admin/feedback", label: "FEEDBACK" },
-  { href: "/admin/app-messages", label: "APP MESSAGES" },
-  { href: "/admin/analytics", label: "ANALYTICS" },
-  { href: "/admin/blog", label: "BLOG" },
-  { href: "/admin/email", label: "EMAIL" },
-  { href: "/admin/system", label: "SYSTEM" },
-  { href: "/admin/feature-releases", label: "FEATURE RELEASES" },
-  { href: "/admin/learn", label: "OPS LEARN" },
-  { href: "/admin/shop", label: "SHOP" },
+type NavEntry =
+  | { type: "item"; href: string; label: string }
+  | { type: "section"; label: string };
+
+const NAV_ITEMS: NavEntry[] = [
+  { type: "item", href: "/admin", label: "OVERVIEW" },
+
+  { type: "section", label: "GROWTH" },
+  { type: "item", href: "/admin/acquisition", label: "ACQUISITION" },
+  { type: "item", href: "/admin/google-ads", label: "GOOGLE ADS" },
+  { type: "item", href: "/admin/ab-testing", label: "A/B TESTING" },
+  { type: "item", href: "/admin/onboarding", label: "ONBOARDING" },
+
+  { type: "section", label: "USERS" },
+  { type: "item", href: "/admin/companies", label: "COMPANIES" },
+  { type: "item", href: "/admin/engagement", label: "ENGAGEMENT" },
+  { type: "item", href: "/admin/feedback", label: "FEEDBACK" },
+
+  { type: "section", label: "ANALYTICS" },
+  { type: "item", href: "/admin/app-analytics", label: "APP ANALYTICS" },
+  { type: "item", href: "/admin/analytics", label: "ANALYTICS" },
+  { type: "item", href: "/admin/revenue", label: "REVENUE" },
+  { type: "item", href: "/admin/platform-health", label: "PLATFORM HEALTH" },
+
+  { type: "section", label: "CONTENT" },
+  { type: "item", href: "/admin/blog", label: "BLOG" },
+  { type: "item", href: "/admin/email", label: "EMAIL" },
+  { type: "item", href: "/admin/app-messages", label: "APP MESSAGES" },
+  { type: "item", href: "/admin/feature-releases", label: "FEATURE RELEASES" },
+
+  { type: "section", label: "PRODUCTS" },
+  { type: "item", href: "/admin/learn", label: "OPS LEARN" },
+  { type: "item", href: "/admin/shop", label: "SHOP" },
+
+  { type: "section", label: "SYSTEM" },
+  { type: "item", href: "/admin/system", label: "SYSTEM" },
 ];
 
 export function AdminSidebar() {
@@ -31,9 +47,18 @@ export function AdminSidebar() {
         </p>
       </div>
       <nav className="flex flex-col">
-        {NAV_ITEMS.map((item) => (
-          <SidebarNavItem key={item.href} href={item.href} label={item.label} />
-        ))}
+        {NAV_ITEMS.map((entry, i) =>
+          entry.type === "section" ? (
+            <div
+              key={`section-${i}`}
+              className="px-6 pt-5 pb-1 font-mohave text-[10px] uppercase tracking-[0.18em] text-[#4A4A4A]"
+            >
+              {entry.label}
+            </div>
+          ) : (
+            <SidebarNavItem key={entry.href} href={entry.href} label={entry.label} />
+          )
+        )}
       </nav>
     </aside>
   );

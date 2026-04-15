@@ -310,7 +310,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
       </div>
 
       {/* Facts grouped by category */}
-      <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-hide">
+      <div className="space-y-2">
         {[...factsByCategory.entries()].map(([category, facts]) => (
           <div key={category} className="space-y-[4px]">
             <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.08em]">
@@ -540,7 +540,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide py-3 space-y-2 min-h-0">
+      <div className="py-3 space-y-2">
         <AnimatePresence mode="popLayout">
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} reduced={prefersReducedMotion} />

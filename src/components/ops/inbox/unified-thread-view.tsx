@@ -196,18 +196,26 @@ export function UnifiedThreadView({
     }
   }, [visibleMessages]);
 
-  // Expose ALL messages (not filtered) to parent for context panel
+  // Expose ALL messages (not filtered) to parent for context panel.
+  // Callback is held in a ref so its identity does not drive the effect —
+  // prevents an infinite render loop when the parent passes an inline arrow.
+  const onMessagesLoadedRef = useRef(onMessagesLoaded);
+  onMessagesLoadedRef.current = onMessagesLoaded;
   useEffect(() => {
-    onMessagesLoaded?.(messages);
-  }, [messages, onMessagesLoaded]);
+    onMessagesLoadedRef.current?.(messages);
+  }, [messages]);
 
-  // Expose go-to-thread function to parent
+  // Expose go-to-thread function to parent. Same ref pattern — only fire once.
+  const onGoToThreadReadyRef = useRef(onGoToThreadReady);
+  onGoToThreadReadyRef.current = onGoToThreadReady;
   useEffect(() => {
-    onGoToThreadReady?.((threadId: string) => {
+    onGoToThreadReadyRef.current?.((threadId: string) => {
       setFilter("email");
       setSelectedThreadId(threadId);
     });
-  }, [onGoToThreadReady]);
+    // Only expose once on mount — re-exposing on every render was the loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Send portal message
   const sendPortalMutation = useMutation({

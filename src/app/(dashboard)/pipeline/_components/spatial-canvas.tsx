@@ -226,7 +226,7 @@ export function SpatialCanvas({
     <div
       ref={containerRef}
       data-spatial-canvas
-      className="relative w-full h-full overflow-hidden bg-[#0A0A0A] select-none"
+      className="relative w-full h-full overflow-hidden bg-background select-none"
       style={{ touchAction: "none", cursor }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
