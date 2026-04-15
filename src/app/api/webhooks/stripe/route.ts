@@ -11,6 +11,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  mapStripeStatus,
+  planFromStripePriceId,
+  MAX_SEATS_BY_PLAN,
+} from "@/lib/stripe/subscription-mapping";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -114,30 +119,34 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (company) {
-      // Derive OPS subscription status from Stripe subscription state.
-      // When cancel_at_period_end is true the subscription remains "active"
-      // in Stripe until the period ends, so we keep it "active" in OPS too
-      // and only mark it as "cancelled" once Stripe sends the .deleted event.
-      let mappedStatus: string;
-      if (subscription.status === "active") {
-        mappedStatus = "active";
-      } else if (subscription.status === "trialing") {
-        mappedStatus = "trial";
-      } else if (subscription.status === "past_due") {
-        mappedStatus = "grace";
-      } else if (subscription.status === "canceled") {
-        mappedStatus = "cancelled";
-      } else {
-        mappedStatus = subscription.status;
-      }
+      // Derive OPS subscription status from Stripe subscription state via the
+      // shared mapper. mapStripeStatus returns null for `incomplete` so we
+      // leave whatever /api/stripe/subscribe wrote untouched until payment
+      // confirms. When cancel_at_period_end is true Stripe keeps status as
+      // "active" until the period ends, so we do too.
+      const mappedStatus = mapStripeStatus(subscription.status);
 
       const updates: Record<string, unknown> = {
-        subscription_status: mappedStatus,
         subscription_end: subscription.items.data[0]?.current_period_end
           ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : new Date().toISOString(),
         subscription_ids_json: JSON.stringify([subscription.id]),
       };
+
+      if (mappedStatus !== null) {
+        updates.subscription_status = mappedStatus;
+      }
+
+      // Derive plan + max_seats from the Stripe price. Keeps the tier seat
+      // limit in sync when a customer upgrades/downgrades via the Stripe
+      // dashboard or billing portal (outside our /subscribe route).
+      const priceId = subscription.items.data[0]?.price?.id;
+      const planInfo = planFromStripePriceId(priceId);
+      if (planInfo) {
+        updates.subscription_plan = planInfo.plan;
+        updates.subscription_period = planInfo.period;
+        updates.max_seats = MAX_SEATS_BY_PLAN[planInfo.plan];
+      }
 
       // Persist trial window from Stripe — these are the canonical source.
       // trial_start/trial_end are top-level unix seconds on Stripe.Subscription,
@@ -157,12 +166,18 @@ export async function POST(req: NextRequest) {
         updates.seat_grace_start_date = null;
       }
 
-      await supabase
+      const { error: updErr } = await supabase
         .from("companies")
         .update(updates)
         .eq("id", company.id);
 
-      console.log(`[stripe-webhook] Subscription ${event.type} for company ${company.id}, status: ${mappedStatus}`);
+      if (updErr) {
+        // Do NOT record the event in the dedup table — let Stripe retry.
+        console.error(`[stripe-webhook] Failed to apply subscription update for ${company.id}:`, updErr.message);
+        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+      }
+
+      console.log(`[stripe-webhook] Subscription ${event.type} for company ${company.id}, status: ${mappedStatus ?? "unchanged"}`);
     }
   }
 
@@ -177,13 +192,18 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (company) {
-      await supabase
+      const { error: delErr } = await supabase
         .from("companies")
         .update({
           subscription_status: "cancelled",
           subscription_ids_json: null,
         })
         .eq("id", company.id);
+
+      if (delErr) {
+        console.error(`[stripe-webhook] Failed to mark company ${company.id} cancelled:`, delErr.message);
+        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+      }
 
       console.log(`[stripe-webhook] Subscription deleted for company ${company.id}`);
     }
@@ -207,10 +227,15 @@ export async function POST(req: NextRequest) {
         updates.seat_grace_start_date = new Date().toISOString();
       }
 
-      await supabase
+      const { error: pfErr } = await supabase
         .from("companies")
         .update(updates)
         .eq("id", company.id);
+
+      if (pfErr) {
+        console.error(`[stripe-webhook] Failed to mark company ${company.id} grace:`, pfErr.message);
+        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+      }
 
       console.log(`[stripe-webhook] Payment failed for company ${company.id}`);
     }

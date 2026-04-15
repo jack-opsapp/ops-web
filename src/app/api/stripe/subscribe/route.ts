@@ -10,6 +10,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  mapStripeStatus,
+  MAX_SEATS_BY_PLAN,
+  type OpsSubscriptionPlan,
+} from "@/lib/stripe/subscription-mapping";
 
 function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -148,15 +153,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? new Date(periodEnd * 1000).toISOString()
       : new Date().toISOString();
 
+    // Derive status from Stripe's actual state. Stripe returns `incomplete`
+    // for the common case (payment_behavior: default_incomplete + 3DS), which
+    // maps to null → we leave subscription_status untouched until the webhook
+    // catches the confirmation (or expiry).
+    const mappedStatus = mapStripeStatus(subscription.status);
+
     const companyUpdates: Record<string, unknown> = {
-      subscription_status: "active",
       subscription_plan: plan,
       subscription_period: period,
       subscription_end: subscriptionEnd,
       subscription_ids_json: JSON.stringify([subscription.id]),
+      // Tier seat limit — kept in sync with subscription_plan on every write.
+      max_seats: MAX_SEATS_BY_PLAN[plan as OpsSubscriptionPlan],
       // Clear any lingering grace window from a prior failed subscription.
       seat_grace_start_date: null,
     };
+
+    if (mappedStatus !== null) {
+      companyUpdates.subscription_status = mappedStatus;
+    }
 
     // If the new subscription starts in a trial window, persist it. The webhook
     // will overwrite these on subsequent state changes, but we set them here so

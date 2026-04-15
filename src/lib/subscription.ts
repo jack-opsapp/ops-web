@@ -15,7 +15,7 @@ import {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type SubscriptionTier = "trial" | "starter" | "team" | "business";
-export type SubscriptionStatusValue = "active" | "past_due" | "canceled" | "expired" | "trialing" | "grace";
+export type SubscriptionStatusValue = "active" | "canceled" | "expired" | "trialing" | "grace";
 export type LockoutReason = "subscription_expired" | "unseated" | null;
 
 export interface SubscriptionInfo {
@@ -187,7 +187,7 @@ export function shouldLockOut(info: SubscriptionInfo): boolean {
 
 /** Whether a dismissible warning banner should be shown */
 export function shouldShowBanner(info: SubscriptionInfo): boolean {
-  if (info.status === "past_due") return true;
+  if (info.status === "grace") return true;
   if (info.daysRemaining !== undefined && info.daysRemaining <= 7) return true;
   if (info.currentSeats >= info.maxSeats - 1) return true;
   return false;

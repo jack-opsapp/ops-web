@@ -19,7 +19,7 @@ export function SubscriptionBanner({ subscription }: SubscriptionBannerProps) {
   let icon = Clock;
   let variant: "warning" | "error" | "info" = "info";
 
-  if (subscription.status === "past_due") {
+  if (subscription.status === "grace") {
     message = "Your payment is past due. Please update your payment method to avoid service interruption.";
     icon = AlertTriangle;
     variant = "error";
