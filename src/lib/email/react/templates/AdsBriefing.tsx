@@ -85,4 +85,91 @@ export function AdsBriefing({ briefing }: AdsBriefingProps) {
   );
 }
 
+AdsBriefing.PreviewProps = {
+  briefing: {
+    id: "preview",
+    created_at: "2026-04-15T12:00:00Z",
+    period_start: "2026-04-08",
+    period_end: "2026-04-14",
+    status: "complete",
+    progress: null,
+    summary:
+      "Spend held flat week-over-week but CPA dropped 18% thanks to the new landing page for deck builders. Two competitors launched aggressive spring offers — expect pressure on top-of-funnel next week.",
+    performance_data: {
+      current: {
+        spend: 4820,
+        cpa: 68,
+        ctr: 0.041,
+        clicks: 1214,
+        impressions: 29800,
+        conversions: 71,
+      },
+      prior: {
+        spend: 4790,
+        cpa: 83,
+        ctr: 0.036,
+        clicks: 1180,
+        impressions: 32700,
+        conversions: 58,
+      },
+      deltas: {
+        spend: 0.006,
+        cpa: -0.181,
+        ctr: 0.139,
+        clicks: 0.029,
+        impressions: -0.089,
+        conversions: 0.224,
+      },
+      topCampaign: {
+        name: "Deck Builders — Victoria",
+        conversions: 29,
+        cpa: 52,
+      },
+      worstCampaign: {
+        name: "General — Broad Match",
+        spend: 1120,
+        conversions: 4,
+        cpa: 280,
+      },
+      dailySpend: [],
+      trendContext: null,
+    },
+    competitor_intel: [],
+    market_sentiment: [],
+    insights: [
+      {
+        category: "creative",
+        severity: "high",
+        title: "Deck Builder landing page is working",
+        explanation:
+          "CPA dropped 18% since launching the dedicated deck builder landing page.",
+        recommendation: "Double down — build a similar page for railing.",
+        impactScore: 9,
+      },
+    ],
+    ad_suggestions: [],
+    keyword_recs: [],
+    ab_test_proposals: [],
+    action_items: [
+      {
+        priority: "high",
+        action: "Ship railing-specific landing page mirroring the deck builder",
+        expectedImpact: "15-20% CPA reduction on railing keywords",
+        category: "creative",
+        effort: "1hr",
+      },
+      {
+        priority: "high",
+        action: "Pause 'General — Broad Match' campaign",
+        expectedImpact: "$1,120/week recovered",
+        category: "bidding",
+        effort: "5min",
+      },
+    ],
+    email_sent: false,
+    triggered_by: "cron",
+    error: null,
+  },
+} satisfies AdsBriefingProps;
+
 export default AdsBriefing;
