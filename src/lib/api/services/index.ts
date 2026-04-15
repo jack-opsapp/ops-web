@@ -105,3 +105,5 @@ export { MetricsService } from "./metrics-service";
 
 export { ApprovalQueueService } from "./approval-queue-service";
 export type { ProposeActionParams, QueueFilters, QueueStats } from "@/lib/types/approval-queue";
+
+export { ProductMaterialsService } from "./product-materials-service";
