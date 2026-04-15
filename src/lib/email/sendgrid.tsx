@@ -1,8 +1,14 @@
 /**
  * OPS Web - SendGrid Email Service
  *
- * Sends branded portal emails: magic links, estimate notifications,
- * question reminders, and invoice notifications.
+ * Sends all OPS transactional and marketing email. Every template is a
+ * React Email component rendered at send time via `@react-email/render`.
+ * Sender identities live in `./senders.ts` — four buckets:
+ *
+ *   DISPATCH    — product / team / beta / trial / ads briefing
+ *   GATE        — security / auth / password / email verification
+ *   FIELD_NOTES — blog newsletter
+ *   portalSender(companyName) — whitelabel portal emails (contractor brand)
  *
  * Uses SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables.
  */
@@ -10,24 +16,26 @@
 import sgMail from "@sendgrid/mail";
 import { render } from "@react-email/render";
 
-import { magicLinkTemplate } from "./templates/magic-link";
-import { estimateReadyTemplate } from "./templates/estimate-ready";
-import { questionsReminderTemplate } from "./templates/questions-reminder";
-import { invoiceReadyTemplate } from "./templates/invoice-ready";
-import { teamInviteTemplate } from "./templates/team-invite";
-import { roleNeededTemplate } from "./templates/role-needed";
-import { betaAccessRequestTemplate } from "./templates/beta-access-request";
-import { betaAccessDecisionTemplate } from "./templates/beta-access-decision";
-import { adsBriefingTemplate } from "./templates/ads-briefing";
-import { blogNewsletterTemplate } from "./templates/blog-newsletter";
-import { trialExpiryWarningTemplate } from "./templates/trial-expiry-warning";
-import { trialExpiryDiscountTemplate } from "./templates/trial-expiry-discount";
-import { trialExpiryReengagementTemplate } from "./templates/trial-expiry-reengagement";
-import type { AdBriefing } from "@/lib/admin/briefing-types";
-
-// React Email templates (migrated)
+// React Email templates
 import { PasswordReset } from "./react/templates/PasswordReset";
-import { GATE } from "./senders";
+import { EmailVerification } from "./react/templates/EmailVerification";
+import { EmailChangeConfirmation } from "./react/templates/EmailChangeConfirmation";
+import { TeamInvite } from "./react/templates/TeamInvite";
+import { RoleNeeded } from "./react/templates/RoleNeeded";
+import { BetaAccessRequest } from "./react/templates/BetaAccessRequest";
+import { BetaAccessDecision } from "./react/templates/BetaAccessDecision";
+import { TrialExpiryWarning } from "./react/templates/TrialExpiryWarning";
+import { TrialExpiryDiscount } from "./react/templates/TrialExpiryDiscount";
+import { TrialExpiryReengagement } from "./react/templates/TrialExpiryReengagement";
+import { AdsBriefing } from "./react/templates/AdsBriefing";
+import { BlogNewsletter } from "./react/templates/BlogNewsletter";
+import { PortalMagicLink } from "./react/templates/PortalMagicLink";
+import { PortalEstimateReady } from "./react/templates/PortalEstimateReady";
+import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
+import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsReminder";
+
+import { DISPATCH, GATE, FIELD_NOTES, portalSender } from "./senders";
+import type { AdBriefing } from "@/lib/admin/briefing-types";
 
 let initialized = false;
 
@@ -39,11 +47,16 @@ function ensureInitialized(): void {
   initialized = true;
 }
 
-function getFromEmail(): string {
+function getPortalFromEmail(): string {
   return process.env.SENDGRID_FROM_EMAIL ?? "noreply@opsapp.co";
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+function buildUnsubscribeUrl(email: string, list: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+  return `${base}/unsubscribe?email=${encodeURIComponent(email)}&list=${encodeURIComponent(list)}`;
+}
+
+// ─── Portal whitelabel ─────────────────────────────────────────────────────
 
 export async function sendMagicLink(params: {
   email: string;
@@ -55,16 +68,19 @@ export async function sendMagicLink(params: {
   ensureInitialized();
 
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL}/portal/${params.token}`;
-  const html = magicLinkTemplate({
-    companyName: params.companyName,
-    portalUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl ?? null,
-  });
+  const html = await render(
+    <PortalMagicLink
+      companyName={params.companyName}
+      portalUrl={portalUrl}
+      accentColor={params.accentColor}
+      logoUrl={params.logoUrl ?? null}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: params.companyName },
+    from: portalSender(params.companyName),
+    replyTo: getPortalFromEmail(),
     subject: `Access your ${params.companyName} portal`,
     html,
   });
@@ -80,17 +96,20 @@ export async function sendEstimateReady(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = estimateReadyTemplate({
-    companyName: params.companyName,
-    estimateNumber: params.estimateNumber,
-    portalUrl: params.portalUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl ?? null,
-  });
+  const html = await render(
+    <PortalEstimateReady
+      companyName={params.companyName}
+      estimateNumber={params.estimateNumber}
+      portalUrl={params.portalUrl}
+      accentColor={params.accentColor}
+      logoUrl={params.logoUrl ?? null}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: params.companyName },
+    from: portalSender(params.companyName),
+    replyTo: getPortalFromEmail(),
     subject: `Estimate #${params.estimateNumber} from ${params.companyName}`,
     html,
   });
@@ -105,16 +124,19 @@ export async function sendQuestionsReminder(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = questionsReminderTemplate({
-    companyName: params.companyName,
-    portalUrl: params.portalUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl ?? null,
-  });
+  const html = await render(
+    <PortalQuestionsReminder
+      companyName={params.companyName}
+      portalUrl={params.portalUrl}
+      accentColor={params.accentColor}
+      logoUrl={params.logoUrl ?? null}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: params.companyName },
+    from: portalSender(params.companyName),
+    replyTo: getPortalFromEmail(),
     subject: `${params.companyName} needs a few answers from you`,
     html,
   });
@@ -131,28 +153,35 @@ export async function sendInvoiceReady(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = invoiceReadyTemplate({
-    companyName: params.companyName,
-    invoiceNumber: params.invoiceNumber,
-    amount: params.amount,
-    portalUrl: params.portalUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl ?? null,
-  });
+  const html = await render(
+    <PortalInvoiceReady
+      companyName={params.companyName}
+      invoiceNumber={params.invoiceNumber}
+      amount={params.amount}
+      portalUrl={params.portalUrl}
+      accentColor={params.accentColor}
+      logoUrl={params.logoUrl ?? null}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: params.companyName },
+    from: portalSender(params.companyName),
+    replyTo: getPortalFromEmail(),
     subject: `Invoice #${params.invoiceNumber} from ${params.companyName} — ${params.amount}`,
     html,
   });
 }
 
+// ─── OPS Dispatch ──────────────────────────────────────────────────────────
+
 export async function sendTeamInvite(params: {
   email: string;
   companyName: string;
   joinUrl: string;
+  /** @deprecated retained for backward compat; no longer used */
   accentColor?: string;
+  /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
   inviterName: string;
   inviterEmail: string;
@@ -161,20 +190,21 @@ export async function sendTeamInvite(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = teamInviteTemplate({
-    companyName: params.companyName,
-    joinUrl: params.joinUrl,
-    accentColor: params.accentColor ?? "#597794",
-    logoUrl: params.logoUrl ?? null,
-    inviterName: params.inviterName,
-    inviterEmail: params.inviterEmail,
-    companyCode: params.companyCode,
-    roleName: params.roleName,
-  });
+  const html = await render(
+    <TeamInvite
+      companyName={params.companyName}
+      joinUrl={params.joinUrl}
+      inviterName={params.inviterName}
+      inviterEmail={params.inviterEmail}
+      companyCode={params.companyCode}
+      roleName={params.roleName}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject: `${params.inviterName} invited you to join ${params.companyName} on OPS`,
     html,
   });
@@ -185,22 +215,25 @@ export async function sendRoleNeeded(params: {
   userName: string;
   companyName: string;
   assignUrl: string;
+  /** @deprecated retained for backward compat; no longer used */
   accentColor?: string;
+  /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
   ensureInitialized();
 
-  const html = roleNeededTemplate({
-    userName: params.userName,
-    companyName: params.companyName,
-    assignUrl: params.assignUrl,
-    accentColor: params.accentColor ?? "#417394",
-    logoUrl: params.logoUrl ?? null,
-  });
+  const html = await render(
+    <RoleNeeded
+      userName={params.userName}
+      companyName={params.companyName}
+      assignUrl={params.assignUrl}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject: `${params.userName} joined ${params.companyName} and needs a role`,
     html,
   });
@@ -220,11 +253,12 @@ export async function sendBetaAccessRequest(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = betaAccessRequestTemplate(params);
+  const html = await render(<BetaAccessRequest {...params} />);
 
   await sgMail.send({
     to: "jack@opsapp.co",
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject: `Beta Access Request — ${params.featureTitle} — ${params.companyName}`,
     html,
   });
@@ -239,18 +273,21 @@ export async function sendBetaAccessDecision(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = betaAccessDecisionTemplate({
-    userName: params.userName,
-    featureTitle: params.featureTitle,
-    approved: params.approved,
-    adminNotes: params.adminNotes,
-  });
+  const html = await render(
+    <BetaAccessDecision
+      userName={params.userName}
+      featureTitle={params.featureTitle}
+      approved={params.approved}
+      adminNotes={params.adminNotes}
+    />,
+  );
 
   await sgMail.send({
     to: params.userEmail,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject: params.approved
-      ? `Your OPS Beta Access — Approved!`
+      ? `Your OPS Beta Access — Approved`
       : `Your OPS Beta Access Request — ${params.featureTitle}`,
     html,
   });
@@ -261,20 +298,23 @@ export async function sendAdsBriefing(params: {
   briefing: AdBriefing;
 }): Promise<void> {
   ensureInitialized();
-  const html = adsBriefingTemplate(params.briefing);
+  const html = await render(<AdsBriefing briefing={params.briefing} />);
   const subject = `[OPS Intel] Google Ads Weekly — ${params.briefing.period_start} to ${params.briefing.period_end}`;
 
   await Promise.all(
     params.recipientEmails.map((email) =>
       sgMail.send({
         to: email,
-        from: getFromEmail(),
+        from: DISPATCH,
+        replyTo: DISPATCH.email,
         subject,
         html,
-      })
-    )
+      }),
+    ),
   );
 }
+
+// ─── OPS Gate ──────────────────────────────────────────────────────────────
 
 export async function sendPasswordReset(params: {
   email: string;
@@ -293,7 +333,49 @@ export async function sendPasswordReset(params: {
   });
 }
 
-// ─── Blog Newsletter (OPS Field Notes) ───────────────────────────────────────
+export async function sendEmailVerification(params: {
+  email: string;
+  verifyLink: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = await render(<EmailVerification verifyLink={params.verifyLink} />);
+
+  await sgMail.send({
+    to: params.email,
+    from: GATE,
+    replyTo: GATE.email,
+    subject: "Verify your OPS email",
+    html,
+  });
+}
+
+export async function sendEmailChangeConfirmation(params: {
+  toEmail: string;
+  newEmail: string;
+  oldEmail: string;
+  recoveryLink: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = await render(
+    <EmailChangeConfirmation
+      newEmail={params.newEmail}
+      oldEmail={params.oldEmail}
+      recoveryLink={params.recoveryLink}
+    />,
+  );
+
+  await sgMail.send({
+    to: params.toEmail,
+    from: GATE,
+    replyTo: GATE.email,
+    subject: "Your OPS sign-in email changed",
+    html,
+  });
+}
+
+// ─── Blog Newsletter (OPS Field Notes) ─────────────────────────────────────
 
 export interface BlogNewsletterPost {
   id: string;
@@ -317,7 +399,6 @@ export interface BlogNewsletterResult {
   results: Array<{ email: string; status: "sent" | "failed"; error?: string }>;
 }
 
-const BLOG_NEWSLETTER_FROM = "info@opsapp.co";
 const BLOG_NEWSLETTER_BATCH_SIZE = 100;
 
 export async function sendBlogNewsletter(params: {
@@ -352,24 +433,27 @@ export async function sendBlogNewsletter(params: {
     const batch = unique.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
     const settled = await Promise.allSettled(
       batch.map(async (r) => {
-        const unsubscribeUrl = `${appUrl}/unsubscribe?email=${encodeURIComponent(r.email)}`;
-        const html = blogNewsletterTemplate({
-          firstName: r.first_name,
-          title: params.post.title,
-          teaser: params.post.teaser,
-          thumbnailUrl: params.post.thumbnail_url,
-          emailContent: bodyContent,
-          postUrl,
-          unsubscribeUrl,
-        });
+        const unsubscribeUrl = buildUnsubscribeUrl(r.email, "field-notes");
+        const html = await render(
+          <BlogNewsletter
+            firstName={r.first_name}
+            title={params.post.title}
+            teaser={params.post.teaser}
+            thumbnailUrl={params.post.thumbnail_url}
+            emailContent={bodyContent}
+            postUrl={postUrl}
+            unsubscribeUrl={unsubscribeUrl}
+          />,
+        );
         await sgMail.send({
           to: r.email,
-          from: { email: BLOG_NEWSLETTER_FROM, name: "OPS Field Notes" },
+          from: FIELD_NOTES,
+          replyTo: FIELD_NOTES.email,
           subject,
           html,
         });
         return r.email;
-      })
+      }),
     );
 
     settled.forEach((outcome, idx) => {
@@ -392,7 +476,7 @@ export async function sendBlogNewsletter(params: {
   return aggregate;
 }
 
-// ─── Trial Expiry Emails ────────────────────────────────────────────────────
+// ─── Trial Expiry Emails (marketing — OPS Dispatch) ────────────────────────
 
 export async function sendTrialExpiryWarning(params: {
   email: string;
@@ -400,19 +484,23 @@ export async function sendTrialExpiryWarning(params: {
   daysRemaining: number;
   trialEndDisplay: string;
   subscribeUrl: string;
-  accentColor: string;
-  logoUrl: string | null;
+  /** @deprecated retained for backward compat; no longer used */
+  accentColor?: string;
+  /** @deprecated retained for backward compat; no longer used */
+  logoUrl?: string | null;
 }): Promise<void> {
   ensureInitialized();
 
-  const html = trialExpiryWarningTemplate({
-    companyName: params.companyName,
-    daysRemaining: params.daysRemaining,
-    trialEndDisplay: params.trialEndDisplay,
-    subscribeUrl: params.subscribeUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl,
-  });
+  const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
+  const html = await render(
+    <TrialExpiryWarning
+      companyName={params.companyName}
+      daysRemaining={params.daysRemaining}
+      trialEndDisplay={params.trialEndDisplay}
+      subscribeUrl={params.subscribeUrl}
+      unsubscribeUrl={unsubscribeUrl}
+    />,
+  );
 
   const subject =
     params.daysRemaining === 1
@@ -421,7 +509,8 @@ export async function sendTrialExpiryWarning(params: {
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject,
     html,
   });
@@ -435,25 +524,30 @@ export async function sendTrialExpiryDiscount(params: {
   promoCode50: string;
   promoCode30: string;
   subscribeUrl: string;
-  accentColor: string;
-  logoUrl: string | null;
+  /** @deprecated retained for backward compat; no longer used */
+  accentColor?: string;
+  /** @deprecated retained for backward compat; no longer used */
+  logoUrl?: string | null;
 }): Promise<void> {
   ensureInitialized();
 
-  const html = trialExpiryDiscountTemplate({
-    companyName: params.companyName,
-    daysRemaining: params.daysRemaining,
-    trialEndDisplay: params.trialEndDisplay,
-    promoCode50: params.promoCode50,
-    promoCode30: params.promoCode30,
-    subscribeUrl: params.subscribeUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl,
-  });
+  const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
+  const html = await render(
+    <TrialExpiryDiscount
+      companyName={params.companyName}
+      daysRemaining={params.daysRemaining}
+      trialEndDisplay={params.trialEndDisplay}
+      promoCode50={params.promoCode50}
+      promoCode30={params.promoCode30}
+      subscribeUrl={params.subscribeUrl}
+      unsubscribeUrl={unsubscribeUrl}
+    />,
+  );
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject: `${params.daysRemaining} days left — 50% off or 30% off, your call`,
     html,
   });
@@ -466,20 +560,24 @@ export async function sendTrialExpiryReengagement(params: {
   promoCode50: string;
   promoCode30: string;
   subscribeUrl: string;
-  accentColor: string;
-  logoUrl: string | null;
+  /** @deprecated retained for backward compat; no longer used */
+  accentColor?: string;
+  /** @deprecated retained for backward compat; no longer used */
+  logoUrl?: string | null;
 }): Promise<void> {
   ensureInitialized();
 
-  const html = trialExpiryReengagementTemplate({
-    companyName: params.companyName,
-    daysSinceExpiry: params.daysSinceExpiry,
-    promoCode50: params.promoCode50,
-    promoCode30: params.promoCode30,
-    subscribeUrl: params.subscribeUrl,
-    accentColor: params.accentColor,
-    logoUrl: params.logoUrl,
-  });
+  const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
+  const html = await render(
+    <TrialExpiryReengagement
+      companyName={params.companyName}
+      daysSinceExpiry={params.daysSinceExpiry}
+      promoCode50={params.promoCode50}
+      promoCode30={params.promoCode30}
+      subscribeUrl={params.subscribeUrl}
+      unsubscribeUrl={unsubscribeUrl}
+    />,
+  );
 
   const subject =
     params.daysSinceExpiry >= 30
@@ -488,7 +586,8 @@ export async function sendTrialExpiryReengagement(params: {
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
     subject,
     html,
   });

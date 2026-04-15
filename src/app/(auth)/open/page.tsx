@@ -92,9 +92,3 @@ export default function OpenPage() {
   );
 }
 
-export const metadata = {
-  other: {
-    "apple-itunes-app":
-      "app-id=6746662078, app-argument=https://app.opsapp.co/open",
-  },
-};

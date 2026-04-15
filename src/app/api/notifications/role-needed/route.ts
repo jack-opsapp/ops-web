@@ -10,8 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { roleNeededTemplate } from "@/lib/email/templates/role-needed";
-import sgMail from "@sendgrid/mail";
+import { sendRoleNeeded } from "@/lib/email/sendgrid";
 
 export async function POST(req: NextRequest) {
   try {
@@ -104,31 +103,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Email notifications via SendGrid
-    const sendgridKey = process.env.SENDGRID_API_KEY;
-    if (sendgridKey) {
-      sgMail.setApiKey(sendgridKey);
-      const fromEmail =
-        process.env.SENDGRID_FROM_EMAIL ?? "noreply@opsapp.co";
-
+    // 2. Email notifications — OPS Dispatch sender, React Email template
+    if (process.env.SENDGRID_API_KEY) {
       const emailPromises = admins
         .filter((a) => a.email)
-        .map((admin) => {
-          const html = roleNeededTemplate({
+        .map((admin) =>
+          sendRoleNeeded({
+            email: admin.email as string,
             userName,
             companyName: company.name as string,
             assignUrl,
-            accentColor: "#417394",
-            logoUrl: (company.logo_url as string) ?? null,
-          });
-
-          return sgMail.send({
-            to: admin.email as string,
-            from: { email: fromEmail, name: "OPS" },
-            subject: `${userName} joined ${company.name} and needs a role`,
-            html,
-          });
-        });
+          }),
+        );
 
       await Promise.allSettled(emailPromises);
     }
