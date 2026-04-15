@@ -16,7 +16,17 @@ interface AssignRoleResponse {
   roleName: string;
 }
 
-export function useAssignUserRole() {
+/**
+ * Assign an RBAC role to a member via the PATCH /api/users/:id/role endpoint.
+ * The route also marks related `role_needed` notifications as read, so the
+ * rail notification disappears immediately after the admin acts.
+ *
+ * Distinct from `useAssignUserRole` in `use-roles.ts` — that hook is used
+ * inside the roles settings page and writes directly to Supabase without
+ * touching notifications. This hook is for the admin → member assignment
+ * flow triggered by a rail-notification click or the team-tab deep-link.
+ */
+export function useAssignMemberRole() {
   const qc = useQueryClient();
 
   return useMutation({
