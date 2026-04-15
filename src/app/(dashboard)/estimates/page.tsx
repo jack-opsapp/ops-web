@@ -120,7 +120,13 @@ export default function EstimatesPage() {
 
   // Data
   const { data: estimates = [], isLoading } = useEstimates();
-  const { data: estimateDetail } = useEstimate(editingEstimate?.id);
+  const { data: estimateDetail, isLoading: isEditingDetailLoading } = useEstimate(
+    editingEstimate?.id
+  );
+  // True once the modal is open for an edit but the full detail (with line
+  // items) hasn't arrived yet. Drives the modal's loading skeleton so users
+  // don't see a stale $0 total during the initial fetch.
+  const isEditingLoading = !!editingEstimate && (isEditingDetailLoading || !estimateDetail);
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();
@@ -418,6 +424,7 @@ export default function EstimatesPage() {
           setEditingEstimate(null);
         }}
         estimate={estimateDetail ?? editingEstimate}
+        loading={isEditingLoading}
         clients={clients}
         projects={projects}
         products={products}
@@ -469,6 +476,7 @@ function EstimateFormModal({
   open,
   onClose,
   estimate,
+  loading = false,
   clients,
   projects,
   products,
@@ -479,6 +487,7 @@ function EstimateFormModal({
   open: boolean;
   onClose: () => void;
   estimate: Estimate | null;
+  loading?: boolean;
   clients: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; title: string }>;
   products: Array<Product>;
@@ -489,63 +498,57 @@ function EstimateFormModal({
   const { t } = useDictionary("pipeline");
   const isEditing = !!estimate;
 
-  const [clientId, setClientId] = useState(estimate?.clientId ?? "");
-  const [projectId, setProjectId] = useState(estimate?.projectId ?? "");
-  const [date, setDate] = useState(
-    estimate?.issueDate
-      ? new Date(estimate.issueDate).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10)
-  );
-  const [expirationDate, setExpirationDate] = useState(
-    estimate?.expirationDate
-      ? new Date(estimate.expirationDate).toISOString().slice(0, 10)
-      : ""
-  );
-  const [notes, setNotes] = useState(estimate?.clientMessage ?? "");
-  const [internalNotes, setInternalNotes] = useState(estimate?.internalNotes ?? "");
-  const [termsAndConditions, setTermsAndConditions] = useState(estimate?.terms ?? "");
-  const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
-    if (estimate?.lineItems && estimate.lineItems.length > 0) {
-      return estimate.lineItems.map((li) => ({
-        id: li.id,
-        name: li.name,
-        quantity: li.quantity,
-        unitPrice: li.unitPrice,
-        isTaxable: li.isTaxable,
-        discountPercent: li.discountPercent,
-        productId: li.productId,
-        unit: li.unit,
-        isOptional: li.isOptional,
-        isSelected: li.isSelected,
-      }));
-    }
-    return [createEmptyLineItem()];
-  });
+  // State is fully driven by props through the effect below. Initializers are
+  // intentionally blank so the initial render never captures a partial list
+  // row (no line items) as the source of truth.
+  const [clientId, setClientId] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [expirationDate, setExpirationDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
+  const [termsAndConditions, setTermsAndConditions] = useState("");
+  const [lineItems, setLineItems] = useState<LineItemRow[]>(() => [createEmptyLineItem()]);
 
-  // Reset form when estimate changes
+  // Reset form when estimate changes. Waits for `loading` to clear so we
+  // never populate from an incomplete list-row estimate that's missing its
+  // line items — otherwise the form would flash $0 and be overwritten on
+  // the next render.
   useEffect(() => {
+    if (loading) return;
+
     if (estimate) {
       setClientId(estimate.clientId ?? "");
-      setProjectId(estimate.opportunityId ?? "");
-      setDate(estimate.issueDate ? new Date(estimate.issueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
-      setExpirationDate(estimate.expirationDate ? new Date(estimate.expirationDate).toISOString().slice(0, 10) : "");
+      setProjectId(estimate.projectId ?? estimate.opportunityId ?? "");
+      setDate(
+        estimate.issueDate
+          ? new Date(estimate.issueDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10)
+      );
+      setExpirationDate(
+        estimate.expirationDate
+          ? new Date(estimate.expirationDate).toISOString().slice(0, 10)
+          : ""
+      );
       setNotes(estimate.clientMessage ?? "");
       setInternalNotes(estimate.internalNotes ?? "");
       setTermsAndConditions(estimate.terms ?? "");
-      if (estimate.lineItems && estimate.lineItems.length > 0) {
-        setLineItems(estimate.lineItems.map((li) => ({
-          id: li.id,
-          name: li.name,
-          quantity: li.quantity,
-          unitPrice: li.unitPrice,
-          isTaxable: li.isTaxable,
-          discountPercent: li.discountPercent,
-          productId: li.productId,
-          unit: li.unit,
-          isOptional: li.isOptional,
-          isSelected: li.isSelected,
-        })));
-      }
+      setLineItems(
+        estimate.lineItems && estimate.lineItems.length > 0
+          ? estimate.lineItems.map((li) => ({
+              id: li.id,
+              name: li.name,
+              quantity: li.quantity,
+              unitPrice: li.unitPrice,
+              isTaxable: li.isTaxable,
+              discountPercent: li.discountPercent,
+              productId: li.productId,
+              unit: li.unit,
+              isOptional: li.isOptional,
+              isSelected: li.isSelected,
+            }))
+          : [createEmptyLineItem()]
+      );
     } else {
       setClientId("");
       setProjectId("");
@@ -556,7 +559,7 @@ function EstimateFormModal({
       setTermsAndConditions("");
       setLineItems([createEmptyLineItem()]);
     }
-  }, [estimate]);
+  }, [estimate, loading]);
 
   const handleSubmit = () => {
     const mappedLineItems: Partial<CreateLineItem>[] = lineItems.map((li, index) => {
@@ -612,6 +615,29 @@ function EstimateFormModal({
       onCreate(formData, mappedLineItems);
     }
   };
+
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+        <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+              {isEditing ? `${t("estimates.modal.edit")} ${estimate?.estimateNumber ?? ""}` : t("estimates.modal.new")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {[48, 48, 48, 120, 80, 80].map((h, i) => (
+              <div
+                key={i}
+                className="w-full rounded bg-background-elevated/40 animate-pulse"
+                style={{ height: h }}
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

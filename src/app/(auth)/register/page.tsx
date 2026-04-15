@@ -89,7 +89,10 @@ export default function RegisterPage() {
       const { updateProfile } = await import("firebase/auth");
       await updateProfile(user, { displayName: fullName.trim() });
 
-      // Sync user with Supabase via API route
+      // Sync user with Supabase via API route. If this fails, we MUST roll
+      // back the Firebase account — otherwise the user is left in a
+      // half-created state where Firebase has them but Supabase doesn't,
+      // which blocks all future signup/login attempts for this email.
       const idToken = await user.getIdToken();
       try {
         await UserService.syncUser(
@@ -100,8 +103,30 @@ export default function RegisterPage() {
           fullName.trim().split(" ").slice(1).join(" ")
         );
       } catch (syncError) {
-        console.error("[Register] User sync failed:", syncError);
-        // Continue anyway - auth provider will reconcile on next login
+        console.error("[Register] User sync failed, rolling back Firebase account:", syncError);
+
+        try {
+          await fetch("/api/auth/rollback-signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken }),
+          });
+        } catch (rollbackErr) {
+          console.error("[Register] Rollback call failed:", rollbackErr);
+        }
+
+        // Sign the client-side Firebase session out so the user isn't left
+        // in a zombie "authenticated but nonexistent" state.
+        const { signOut: clientSignOut } = await import("@/lib/firebase/auth");
+        await clientSignOut().catch(() => {});
+
+        setError(
+          syncError instanceof Error
+            ? `Signup failed: ${syncError.message}. Please try again.`
+            : "Signup failed. Please try again."
+        );
+        setIsLoadingEmail(false);
+        return;
       }
 
       trackSignUp("email");

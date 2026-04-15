@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { UnscheduledBadge, UnassignedBadge } from "@/components/ops/task-badge";
 import { PermissionGate } from "@/components/ops/permission-gate";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
 import {
   Popover,
@@ -358,6 +359,7 @@ function TaskListSkeleton() {
 function TaskList({ projectId, companyId, className }: TaskListProps) {
   const { t } = useDictionary("projects");
   const { locale } = useLocale();
+  const canCreateTask = usePermissionStore((s) => s.can("tasks.create"));
 
   // ── State ─────────────────────────────────────────────────────
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -592,43 +594,42 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Popover
-          open={showCreateForm}
-          onOpenChange={(open) => {
-            if (!open) setShowCreateForm(false);
-          }}
-        >
-          <PopoverTrigger asChild>
-            <PermissionGate permission="tasks.create">
-              {!editingTask && (
-                <button
-                  onClick={() => setShowCreateForm(true)}
-                  className="bg-ops-accent text-white font-mohave text-body-sm rounded-[3px] px-4 py-1.5 hover:opacity-90 transition-opacity"
-                >
-                  + {t("taskList.addTask")}
-                </button>
-              )}
-            </PermissionGate>
-          </PopoverTrigger>
-          <PopoverContent
-            side="bottom"
-            align="end"
-            className="w-[480px] p-0"
+        {canCreateTask && !editingTask && (
+          <Popover
+            open={showCreateForm}
+            onOpenChange={(open) => {
+              if (!open) setShowCreateForm(false);
+            }}
           >
-            <TaskForm
-              taskTypes={taskTypes}
-              teamMembers={createFormTeamMembers}
-              isSubmitting={
-                createTaskMutation.isPending ||
-                createTaskWithEventMutation.isPending
-              }
-              onSubmit={handleCreateSubmit}
-              onCancel={() => setShowCreateForm(false)}
-              projectTasks={activeTasks}
-              teamConflicts={teamConflicts}
-            />
-          </PopoverContent>
-        </Popover>
+            <PopoverTrigger asChild>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-ops-accent text-white font-mohave text-body-sm rounded-[3px] px-4 py-1.5 hover:opacity-90 transition-opacity"
+              >
+                + {t("taskList.addTask")}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              className="w-[480px] p-0"
+              collisionPadding={16}
+            >
+              <TaskForm
+                taskTypes={taskTypes}
+                teamMembers={createFormTeamMembers}
+                isSubmitting={
+                  createTaskMutation.isPending ||
+                  createTaskWithEventMutation.isPending
+                }
+                onSubmit={handleCreateSubmit}
+                onCancel={() => setShowCreateForm(false)}
+                projectTasks={activeTasks}
+                teamConflicts={teamConflicts}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       {/* Edit form popover (no visible trigger — opened programmatically) */}

@@ -30,9 +30,12 @@ export function NoteCard({
   onPhotoClick,
 }: NoteCardProps) {
   const isOwn = note.authorId === currentUserId;
+  // When we can't resolve the author (soft-deleted user, left company), fall
+  // back to "Former member" rather than the ambiguous "Unknown User" — the
+  // live-loading case is handled by the parent's skeleton state.
   const displayName = author
-    ? `${author.firstName} ${author.lastName}`
-    : "Unknown User";
+    ? `${author.firstName} ${author.lastName}`.trim() || "Former member"
+    : "Former member";
   const timeAgo = formatDistanceToNow(note.createdAt, { addSuffix: true });
   const wasEdited = note.updatedAt && note.updatedAt > note.createdAt;
 

@@ -738,8 +738,10 @@ export async function fetchMapMetrics(companyId: string): Promise<InlineMetricCo
 export async function fetchInboxMetrics(companyId: string): Promise<InlineMetricConfig[]> {
   const supabase = requireSupabase();
 
-  // Unread count: email activities that haven't been read
-  const { count: unread } = await supabase
+  // Unread count: email activities that haven't been read. Errors (503s from
+  // transient Supabase hiccups, etc.) must not break the metrics bar — fall
+  // back to 0 and let the next poll retry.
+  const { count: unread, error: unreadErr } = await supabase
     .from("activities")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
@@ -747,15 +749,17 @@ export async function fetchInboxMetrics(companyId: string): Promise<InlineMetric
     .eq("is_read", false)
     .not("opportunity_id", "is", null);
 
-  // Pipeline thread count: opportunities that have linked email threads
-  const { count: pipeline } = await supabase
+  const { count: pipeline, error: pipelineErr } = await supabase
     .from("opportunity_email_threads")
     .select("id, opportunities!inner(company_id)", { count: "exact", head: true })
     .eq("opportunities.company_id", companyId);
 
+  const unreadCount = unreadErr ? 0 : unread ?? 0;
+  const pipelineCount = pipelineErr ? 0 : pipeline ?? 0;
+
   return [
-    { value: unread ?? 0, label: "unread", color: (unread ?? 0) > 0 ? "#C4A868" : undefined },
-    { value: pipeline ?? 0, label: "pipeline" },
+    { value: unreadCount, label: "unread", color: unreadCount > 0 ? "#C4A868" : undefined },
+    { value: pipelineCount, label: "pipeline" },
   ];
 }
 

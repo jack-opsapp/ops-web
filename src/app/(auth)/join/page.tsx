@@ -208,7 +208,27 @@ export default function JoinPage() {
         const { updateProfile } = await import("firebase/auth");
         await updateProfile(fbUser, { displayName: fullName.trim() });
         const token = await fbUser.getIdToken();
-        await UserService.syncUser(token, email, fullName.trim(), firstName, lastName);
+
+        // If sync-user fails, roll back the Firebase account so the user can
+        // retry — otherwise Firebase will block subsequent signups with
+        // "email already in use" for a Supabase row that doesn't exist.
+        try {
+          await UserService.syncUser(token, email, fullName.trim(), firstName, lastName);
+        } catch (syncError) {
+          console.error("[Join] User sync failed, rolling back Firebase account:", syncError);
+          try {
+            await fetch("/api/auth/rollback-signup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken: token }),
+            });
+          } catch (rollbackErr) {
+            console.error("[Join] Rollback call failed:", rollbackErr);
+          }
+          const { signOut: clientSignOut } = await import("@/lib/firebase/auth");
+          await clientSignOut().catch(() => {});
+          throw syncError;
+        }
       } else {
         await signInWithEmail(email, password);
       }

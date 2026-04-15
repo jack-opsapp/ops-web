@@ -18,7 +18,14 @@ interface NotesListProps {
   notes: ProjectNote[];
   users: User[];
   currentUserId: string;
+  /** True while the notes query is in flight. */
   isLoading?: boolean;
+  /**
+   * True while the team-members query is in flight. When notes arrive before
+   * users, a lookup miss would render "Unknown User" for every row — this
+   * flag lets the list wait for users instead.
+   */
+  usersLoading?: boolean;
   onEdit?: (note: ProjectNote) => void;
   onDelete?: (noteId: string) => void;
   onPhotoClick?: (url: string) => void;
@@ -29,6 +36,7 @@ export function NotesList({
   users,
   currentUserId,
   isLoading,
+  usersLoading = false,
   onEdit,
   onDelete,
   onPhotoClick,
@@ -53,7 +61,10 @@ export function NotesList({
     return result;
   }, [notes, searchQuery, sortOrder]);
 
-  if (isLoading) {
+  // Show the skeleton while notes are loading OR while the team-members
+  // query hasn't populated yet — rendering notes against an empty user map
+  // would show "Unknown User" for every row until users arrive.
+  if (isLoading || (usersLoading && notes.length > 0)) {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (

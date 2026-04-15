@@ -129,7 +129,10 @@ export default function InvoicesPage() {
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
 
   const { data: invoices = [], isLoading } = useInvoices();
-  const { data: invoiceDetail } = useInvoice(editingInvoice?.id);
+  const { data: invoiceDetail, isLoading: isEditingDetailLoading } = useInvoice(
+    editingInvoice?.id
+  );
+  const isEditingLoading = !!editingInvoice && (isEditingDetailLoading || !invoiceDetail);
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();
@@ -420,6 +423,7 @@ export default function InvoicesPage() {
         open={showCreateModal || !!editingInvoice}
         onClose={() => { setShowCreateModal(false); setEditingInvoice(null); }}
         invoice={invoiceDetail ?? editingInvoice}
+        loading={isEditingLoading}
         clients={clients}
         projects={projects}
         products={products}
@@ -468,6 +472,7 @@ function InvoiceFormModal({
   open,
   onClose,
   invoice,
+  loading = false,
   clients,
   projects,
   products,
@@ -478,6 +483,7 @@ function InvoiceFormModal({
   open: boolean;
   onClose: () => void;
   invoice: Invoice | null;
+  loading?: boolean;
   clients: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; title: string }>;
   products: Array<Product>;
@@ -488,35 +494,17 @@ function InvoiceFormModal({
   const { t } = useDictionary("pipeline");
   const isEditing = !!invoice;
 
-  const [clientId, setClientId] = useState(invoice?.clientId ?? "");
-  const [projectId, setProjectId] = useState(invoice?.projectId ?? "");
-  const [date, setDate] = useState(
-    invoice?.issueDate ? new Date(invoice.issueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
-  );
-  const [paymentTerms, setPaymentTerms] = useState(invoice?.paymentTerms ?? "Net 30");
-  const [dueDate, setDueDate] = useState(
-    invoice?.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : ""
-  );
-  const [depositAmount, setDepositAmount] = useState(invoice?.depositApplied ?? 0);
-  const [notes, setNotes] = useState(invoice?.clientMessage ?? "");
-  const [internalNotes, setInternalNotes] = useState(invoice?.internalNotes ?? "");
-  const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
-    if (invoice?.lineItems && invoice.lineItems.length > 0) {
-      return invoice.lineItems.map((li) => ({
-        id: li.id,
-        name: li.name,
-        quantity: li.quantity,
-        unitPrice: li.unitPrice,
-        isTaxable: li.isTaxable,
-        discountPercent: li.discountPercent,
-        productId: li.productId,
-        unit: li.unit,
-        isOptional: li.isOptional,
-        isSelected: li.isSelected,
-      }));
-    }
-    return [createEmptyLineItem()];
-  });
+  // State is fully prop-driven through the effect below. Initial values stay
+  // blank so we never capture a stale list row that's missing its line items.
+  const [clientId, setClientId] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paymentTerms, setPaymentTerms] = useState("Net 30");
+  const [dueDate, setDueDate] = useState("");
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [notes, setNotes] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
+  const [lineItems, setLineItems] = useState<LineItemRow[]>(() => [createEmptyLineItem()]);
 
   // Auto-compute due date from terms
   useEffect(() => {
@@ -526,29 +514,53 @@ function InvoiceFormModal({
     }
   }, [date, paymentTerms]);
 
+  // Reset form when invoice changes. Skips while `loading` so we don't
+  // populate from an incomplete list row.
   useEffect(() => {
+    if (loading) return;
+
     if (invoice) {
       setClientId(invoice.clientId ?? "");
       setProjectId(invoice.projectId ?? "");
-      setDate(invoice.issueDate ? new Date(invoice.issueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setDate(
+        invoice.issueDate
+          ? new Date(invoice.issueDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10)
+      );
       setPaymentTerms(invoice.paymentTerms ?? "Net 30");
-      setDueDate(invoice.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : "");
+      setDueDate(
+        invoice.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : ""
+      );
       setDepositAmount(invoice.depositApplied ?? 0);
       setNotes(invoice.clientMessage ?? "");
       setInternalNotes(invoice.internalNotes ?? "");
-      if (invoice.lineItems && invoice.lineItems.length > 0) {
-        setLineItems(invoice.lineItems.map((li) => ({
-          id: li.id, name: li.name, quantity: li.quantity,
-          unitPrice: li.unitPrice, isTaxable: li.isTaxable, discountPercent: li.discountPercent,
-          productId: li.productId, unit: li.unit, isOptional: li.isOptional, isSelected: li.isSelected,
-        })));
-      }
+      setLineItems(
+        invoice.lineItems && invoice.lineItems.length > 0
+          ? invoice.lineItems.map((li) => ({
+              id: li.id,
+              name: li.name,
+              quantity: li.quantity,
+              unitPrice: li.unitPrice,
+              isTaxable: li.isTaxable,
+              discountPercent: li.discountPercent,
+              productId: li.productId,
+              unit: li.unit,
+              isOptional: li.isOptional,
+              isSelected: li.isSelected,
+            }))
+          : [createEmptyLineItem()]
+      );
     } else {
-      setClientId(""); setProjectId(""); setDate(new Date().toISOString().slice(0, 10));
-      setPaymentTerms("Net 30"); setDepositAmount(0); setNotes(""); setInternalNotes("");
+      setClientId("");
+      setProjectId("");
+      setDate(new Date().toISOString().slice(0, 10));
+      setPaymentTerms("Net 30");
+      setDepositAmount(0);
+      setNotes("");
+      setInternalNotes("");
       setLineItems([createEmptyLineItem()]);
     }
-  }, [invoice]);
+  }, [invoice, loading]);
 
   const handleSubmit = () => {
     const mappedLineItems = lineItems.map((li, index) => {
@@ -596,6 +608,29 @@ function InvoiceFormModal({
       onCreate(formData, mappedLineItems);
     }
   };
+
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+        <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+              {isEditing ? `${t("invoices.modal.edit")} ${invoice?.invoiceNumber ?? ""}` : t("invoices.modal.new")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {[48, 48, 48, 120, 80, 80].map((h, i) => (
+              <div
+                key={i}
+                className="w-full rounded bg-background-elevated/40 animate-pulse"
+                style={{ height: h }}
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
