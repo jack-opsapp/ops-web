@@ -17,6 +17,7 @@ import { checkPermission } from "@/lib/supabase/check-permission";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { sendTeamInvite } from "@/lib/email/sendgrid";
 import { sendTeamInviteSMS } from "@/lib/sms/twilio";
+import { normalizePhoneE164, InvalidPhoneError } from "@/lib/sms/phone-utils";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -124,6 +125,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let emailsSent = 0;
     let smsSent = 0;
 
+    // Normalize phone numbers to E.164 BEFORE any DB write or Twilio call.
+    // Twilio rejects non-E.164 numbers with error 21211 — this is the root
+    // cause of the SMS invite failure. Invalid numbers surface as 400 errors
+    // with the raw value so the client can show the exact number that failed.
+    const smsErrors: string[] = [];
+    const normalizedPhones: string[] = [];
+
+    if (hasPhones) {
+      for (const rawPhone of phones) {
+        try {
+          normalizedPhones.push(normalizePhoneE164(rawPhone));
+        } catch (err) {
+          if (err instanceof InvalidPhoneError) {
+            smsErrors.push(`${rawPhone}: Invalid phone number`);
+          } else {
+            smsErrors.push(`${rawPhone}: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      }
+
+      // If EVERY phone failed validation, return 400 early — no DB writes, no Twilio
+      if (normalizedPhones.length === 0 && phones.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid phone number${phones.length > 1 ? "s" : ""}: ${phones.join(", ")}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Create invitation records in team_invitations table
     const invitationRows: {
       company_id: string;
@@ -147,7 +177,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (hasPhones) {
-      for (const phone of phones) {
+      for (const phone of normalizedPhones) {
         invitationRows.push({
           company_id: companyId,
           phone,
@@ -193,10 +223,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Send SMS invites via Twilio
-    const smsErrors: string[] = [];
+    // Send SMS invites via Twilio — now uses normalized E.164 numbers
     if (hasPhones) {
-      for (const phone of phones) {
+      for (const phone of normalizedPhones) {
         try {
           await sendTeamInviteSMS({
             phone,
