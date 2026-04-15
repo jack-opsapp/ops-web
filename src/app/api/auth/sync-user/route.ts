@@ -258,6 +258,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertError || !inserted) {
+      // Race recovery: a concurrent sync-user call (e.g. JoinPage and
+      // AuthProvider firing in parallel right after an OAuth sign-in)
+      // may have committed an insert for the same firebase_uid between
+      // our lookup and our insert. Postgres unique_violation is code
+      // 23505 — re-fetch the row that raced us and return it as if
+      // this call had created it, so both callers see a 200.
+      if ((insertError as { code?: string } | null)?.code === "23505") {
+        const { data: raced } = await db
+          .from("users")
+          .select("*")
+          .eq("firebase_uid", firebaseUid)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (raced) {
+          const user = mapUserFromDb(raced);
+          const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
+          return NextResponse.json({ user, company });
+        }
+      }
       return NextResponse.json(
         { error: `Failed to create user: ${insertError?.message ?? "Unknown error"}` },
         { status: 500 }
