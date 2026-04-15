@@ -15,6 +15,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { parseDate } from "@/lib/supabase/helpers";
+import { sendOneSignalPush } from "@/lib/notifications/onesignal";
+import { buildMemberJoinedCopy } from "@/lib/notifications/notification-copy";
 import type {
   User,
   UserRole,
@@ -248,6 +250,75 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     console.log("[api/auth/join-company] join_user_to_company result:", joinResult);
+
+    // Fan out admin notifications (web rail + OneSignal push).
+    // Best-effort — failures are logged, never block the user's join.
+    try {
+      const adminIds: string[] = Array.isArray(joinResult?.admin_ids)
+        ? (joinResult.admin_ids as string[])
+        : [];
+      const firstName: string =
+        (joinResult?.new_member_first_name as string) ?? "A new member";
+      const memberId: string = (joinResult?.new_member_id as string) ?? userId;
+      const wasSeated: boolean = joinResult?.seat_granted === true;
+      const roleName: string | null =
+        (joinResult?.role_name as string | null) ?? null;
+
+      if (adminIds.length > 0) {
+        const copy = buildMemberJoinedCopy({ firstName, roleName, wasSeated });
+        const actionUrl = `/settings?tab=team&assignRole=${memberId}`;
+
+        // Look up admin OneSignal player IDs
+        const { data: adminRows } = await db
+          .from("users")
+          .select("id, onesignal_player_id")
+          .in("id", adminIds);
+
+        const adminPlayerIds: string[] = (adminRows ?? [])
+          .map((r) => r.onesignal_player_id as string | null)
+          .filter((v): v is string => !!v);
+
+        // Create a web rail notification for each admin via the dedup RPC
+        for (const adminId of adminIds) {
+          const { error: notifError } = await db.rpc("create_notification_if_new", {
+            p_user_id: adminId,
+            p_company_id: companyId,
+            p_type: "role_needed",
+            p_title: copy.title,
+            p_body: copy.body,
+            p_persistent: copy.persistent,
+            p_action_url: actionUrl,
+            p_action_label: copy.actionLabel,
+            p_project_id: null,
+          });
+          if (notifError) {
+            console.error(
+              `[api/auth/join-company] rail notification failed for admin ${adminId}:`,
+              notifError
+            );
+          }
+        }
+
+        // One push request targeting all admin player_ids at once
+        if (adminPlayerIds.length > 0) {
+          await sendOneSignalPush({
+            playerIds: adminPlayerIds,
+            title: copy.title,
+            body: copy.body,
+            data: {
+              type: "member_joined",
+              memberId,
+              companyId,
+              wasSeated,
+              roleAssigned: !!roleName && roleName.toLowerCase() !== "unassigned",
+            },
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.error("[api/auth/join-company] notification fan-out failed:", notifyErr);
+      // Deliberately swallow — the user's join already succeeded.
+    }
 
     // Re-fetch user and company to return fresh data
     const { data: freshUser } = await db
