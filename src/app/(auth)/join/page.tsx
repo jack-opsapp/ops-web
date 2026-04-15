@@ -119,7 +119,8 @@ export default function JoinPage() {
     if (data.user) setUser(data.user);
     if (data.company) setCompany(data.company);
 
-    router.push("/employee-setup");
+    const companyId = data.company?.id ?? "";
+    router.push(`/join/welcome?company=${encodeURIComponent(companyId)}`);
   }
 
   async function handleGoogleSignIn() {
