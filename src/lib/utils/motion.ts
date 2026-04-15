@@ -400,3 +400,28 @@ export const spatialToolbarVariantsReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.15 } },
 };
+
+// ── Invite / Assign-role seat banner ──
+
+/** Seat banner entry — drops in from above the modal content.
+ *  Entry beat: sharp, decisive arrival. No overshoot. Lands and stops. */
+export const fadeSlideDown: Variants = {
+  hidden: { opacity: 0, y: -12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.25, ease: EASE_SMOOTH },
+  },
+  exit: {
+    opacity: 0,
+    y: -12,
+    transition: { duration: 0.2, ease: EASE_SMOOTH },
+  },
+};
+
+/** Reduced-motion fallback — opacity only */
+export const fadeSlideDownReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
