@@ -1,6 +1,7 @@
 import * as React from "react";
 import sanitizeHtml from "sanitize-html";
 import parse from "html-react-parser";
+import { Img } from "@react-email/components";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, Divider } from "../primitives";
 import { FIELD_NOTES } from "../../senders";
@@ -55,6 +56,7 @@ export function BlogNewsletter({
   firstName,
   title,
   teaser,
+  thumbnailUrl,
   emailContent,
   postUrl,
   unsubscribeUrl,
@@ -72,6 +74,25 @@ export function BlogNewsletter({
       mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
     >
+      {thumbnailUrl ? (
+        <>
+          <Img
+            src={thumbnailUrl}
+            alt={title}
+            width="496"
+            style={{
+              display: "block",
+              width: "100%",
+              maxWidth: "496px",
+              height: "auto",
+              border: 0,
+              outline: "none",
+              borderRadius: "2px",
+            }}
+          />
+          <Spacer size="lg" />
+        </>
+      ) : null}
       <Headline>{title}</Headline>
       {firstName ? <Paragraph small>{firstName},</Paragraph> : null}
       {teaser ? <Paragraph>{teaser}</Paragraph> : null}
@@ -96,7 +117,7 @@ BlogNewsletter.PreviewProps = {
   firstName: "Jackson",
   title: "Why your crew ignores your project management software",
   teaser: "Nobody reads a Gantt chart at 6am with coffee in their hand.",
-  thumbnailUrl: null,
+  thumbnailUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&q=80",
   emailContent:
     "<p>The first crew I ran on Jobber quit after two weeks.</p><p>Not the software's fault &mdash; but the friction killed them.</p>",
   postUrl: "https://opsapp.co/blog/preview",
