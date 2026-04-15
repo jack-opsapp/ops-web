@@ -290,6 +290,8 @@ export interface ProjectTask {
   scheduleConfirmedBy?: string | null;
   /** Task row updated_at — used by the auto-confirm grace period display. */
   updatedAt?: Date | null;
+  /** True once task_materials for this task have been deducted from inventory. */
+  inventoryDeducted: boolean;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;
