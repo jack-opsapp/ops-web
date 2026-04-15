@@ -24,6 +24,7 @@ import { useSendInvite, useCompany, useRoles } from "@/lib/hooks";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { normalizePhoneE164, formatPhoneNational, InvalidPhoneError } from "@/lib/sms/phone-utils";
+import { InviteModalSeatBanner } from "./invite-modal-seat-banner";
 
 // ─── Invite Modal ─────────────────────────────────────────────────────────────
 
@@ -53,6 +54,16 @@ export function InviteModal({
 
   const companyCode = company?.companyCode || "";
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
+
+  // Seat math for the banner
+  const seatedIds = company?.seatedEmployeeIds ?? [];
+  const maxSeats = company?.maxSeats ?? 0;
+  const seatsRemaining = Math.max(0, maxSeats - seatedIds.length);
+  const invitesQueued =
+    entries.length +
+    (inputValue.trim()
+      ? inputValue.trim().split(/[,;\s]+/).filter(Boolean).length
+      : 0);
 
   // Default to "unassigned" role when roles load
   useEffect(() => {
@@ -306,6 +317,11 @@ export function InviteModal({
               </button>
             ))}
           </div>
+
+          <InviteModalSeatBanner
+            seatsRemaining={seatsRemaining}
+            invitesQueued={invitesQueued}
+          />
 
           {/* Multi-entry input with chips */}
           <div>
