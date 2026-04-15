@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   UserPlus,
   Shield,
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { InviteModal } from "@/components/ops/invite-modal";
+import { AssignRoleModal } from "@/components/ops/assign-role-modal";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import {
   Tooltip,
@@ -459,6 +460,9 @@ export function TeamTab() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const assignRoleMemberId = searchParams.get("assignRole");
 
   // Auto-open invite modal when navigated with ?action=invite
   useEffect(() => {
@@ -466,6 +470,34 @@ export function TeamTab() {
       setInviteOpen(true);
     }
   }, [searchParams]);
+
+  function closeAssignRoleModal() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("assignRole");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }
+
+  function scrollToSeatsCard() {
+    const el = document.getElementById("active-seats-card");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.classList.add(
+        "ring-2",
+        "ring-ops-accent",
+        "ring-offset-2",
+        "ring-offset-background"
+      );
+      window.setTimeout(() => {
+        el.classList.remove(
+          "ring-2",
+          "ring-ops-accent",
+          "ring-offset-2",
+          "ring-offset-background"
+        );
+      }, 3000);
+    }
+  }
 
   const seatedIds = company?.seatedEmployeeIds ?? [];
   const maxSeats = company?.maxSeats ?? 10;
@@ -483,7 +515,7 @@ export function TeamTab() {
   return (
     <div className="space-y-3">
       {/* Top section: Seat Usage */}
-      <Card>
+      <Card id="active-seats-card" className="transition-shadow">
         <CardHeader>
           <CardTitle>{t("team.seatUsage")}</CardTitle>
         </CardHeader>
@@ -704,6 +736,16 @@ export function TeamTab() {
 
       {/* Invite Modal */}
       <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
+
+      {/* Deep-link Assign Role Modal — opens via ?assignRole=<memberId> */}
+      {assignRoleMemberId && (
+        <AssignRoleModal
+          memberId={assignRoleMemberId}
+          open={true}
+          onClose={closeAssignRoleModal}
+          onManageSeats={scrollToSeatsCard}
+        />
+      )}
     </div>
   );
 }
