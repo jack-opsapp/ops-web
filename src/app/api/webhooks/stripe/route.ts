@@ -114,11 +114,47 @@ export async function POST(req: NextRequest) {
     // Find the company by stripe_customer_id
     const { data: company } = await supabase
       .from("companies")
-      .select("id")
+      .select("id, subscription_ids_json")
       .eq("stripe_customer_id", customerId)
       .maybeSingle();
 
     if (company) {
+      // N4 — Skip late events for terminal-state subscriptions that aren't
+      // currently tracked. Scenario: company has sub_OLD that gets cancelled,
+      // then user re-subscribes with sub_NEW (subscription_ids_json=[sub_NEW]),
+      // then Stripe re-delivers a stale sub_OLD.updated from before the
+      // cancellation. Without this guard we'd overwrite subscription_ids_json
+      // with [sub_OLD], clobbering tracking of the current sub.
+      let currentIds: string[] = [];
+      if (company.subscription_ids_json) {
+        try {
+          const parsed = JSON.parse(company.subscription_ids_json);
+          if (Array.isArray(parsed)) currentIds = parsed.filter((v): v is string => typeof v === "string");
+        } catch {
+          // malformed json — fall through, treat as untracked
+        }
+      }
+      const terminalStripeStatuses: Stripe.Subscription.Status[] = [
+        "canceled",
+        "incomplete_expired",
+        "unpaid",
+      ];
+      const isTerminal = terminalStripeStatuses.includes(subscription.status);
+      if (
+        currentIds.length > 0 &&
+        !currentIds.includes(subscription.id) &&
+        isTerminal
+      ) {
+        console.log(
+          `[stripe-webhook] Skipping late ${event.type} (${subscription.status}) for ${subscription.id} — current tracked: ${currentIds.join(",")}`
+        );
+        // Record the event in dedup and return — it's handled by being skipped.
+        await supabase
+          .from("stripe_webhook_events")
+          .insert({ event_id: event.id, event_type: event.type });
+        return NextResponse.json({ received: true, skipped: "stale-terminal" });
+      }
+
       // Derive OPS subscription status from Stripe subscription state via the
       // shared mapper. mapStripeStatus returns null for `incomplete` so we
       // leave whatever /api/stripe/subscribe wrote untouched until payment

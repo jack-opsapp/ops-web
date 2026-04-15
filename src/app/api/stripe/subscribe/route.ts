@@ -96,12 +96,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Fetch company
     const { data: company, error: fetchError } = await supabase
       .from("companies")
-      .select("id, name, stripe_customer_id")
+      .select("id, name, stripe_customer_id, subscription_status")
       .eq("id", companyId)
       .single();
 
     if (fetchError || !company) {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
+    }
+
+    // N2 — Refuse to create a second subscription while one is already live.
+    // Without this check, a UI bug, stale tab, or confused user clicking
+    // "Upgrade" twice would create two Stripe subscriptions on the same
+    // customer and double-bill them. Plan changes should go through a
+    // dedicated upgrade/downgrade route (not yet built).
+    if (
+      company.subscription_status &&
+      ["active", "trial", "grace"].includes(company.subscription_status)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Company already has an active subscription. Cancel the existing subscription first.",
+        },
+        { status: 409 }
+      );
     }
 
     // Ensure Stripe customer exists.
@@ -171,13 +189,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // Create subscription
-    const subscription = await stripe.subscriptions.create({
-      customer: stripeCustomerId,
-      items: [{ price: priceId }],
-      payment_behavior: "default_incomplete",
-      expand: ["latest_invoice.payment_intent"],
-    });
+    // Create subscription.
+    //
+    // N1 — Idempotency key on subscriptions.create protects against double-
+    // click / race conditions that slip past the N2 "already active" check
+    // (two concurrent /subscribe calls can both read status=null and both
+    // pass the guard). The key is scoped to company + plan + period so that
+    // legitimate upgrade/downgrade flows (eventually, via a separate route)
+    // don't collide. Stripe idempotency-key TTL is 24h, plenty for
+    // deduping immediate double-submits but short enough that a legitimate
+    // re-subscribe after cancellation the next day works.
+    const subscription = await stripe.subscriptions.create(
+      {
+        customer: stripeCustomerId,
+        items: [{ price: priceId }],
+        payment_behavior: "default_incomplete",
+        expand: ["latest_invoice.payment_intent"],
+      },
+      { idempotencyKey: `company-${companyId}-sub-${plan}-${period}` }
+    );
 
     // Update company in Supabase
     // In Stripe v20+, current_period_end moved from Subscription to SubscriptionItem

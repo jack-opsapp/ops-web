@@ -141,9 +141,14 @@ export function getSubscriptionInfo(company: Pick<
     daysRemaining = Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
   }
 
-  // A trialing status with an expired trial end date is NOT active.
-  // This catches trials managed outside Stripe where the backend never flips the status.
-  const trialExpired = status === "trialing" && daysRemaining !== undefined && daysRemaining <= 0;
+  // A trialing status with an expired OR MISSING trial end date is NOT active.
+  // The "missing" case (daysRemaining === undefined) is the fail-closed defense
+  // against the null-trial unlimited-access bug: if someone inserts a company
+  // with subscription_status='trial' but no trial_end_date, we lock them out
+  // rather than granting unlimited access. Migration 065's BEFORE INSERT
+  // trigger should prevent this on new rows, but this is belt-and-suspenders.
+  const trialExpired =
+    status === "trialing" && (daysRemaining === undefined || daysRemaining <= 0);
 
   const isActive =
     !trialExpired && (
