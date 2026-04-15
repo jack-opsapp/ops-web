@@ -171,7 +171,8 @@
     "tasks": "Tareas",
     "financial": "Finanzas",
     "photos": "Fotos",
-    "notes": "Notas"
+    "notes": "Notas",
+    "deductions": "Inventario"
   },
 
   "taskList.list": "Lista",

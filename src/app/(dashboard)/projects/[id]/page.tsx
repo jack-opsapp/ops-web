@@ -32,6 +32,7 @@ import { TaskList } from "@/components/ops/task-list";
 import { NotesList } from "@/components/ops/notes-list";
 import { NoteComposer } from "@/components/ops/note-composer";
 import { PhotoFeed } from "@/components/ops/photo-feed";
+import { ProjectDeductionsTab } from "@/components/ops/project-deductions-tab";
 import { PermissionGate } from "@/components/ops/permission-gate";
 import {
   useProjectNotes,
@@ -87,7 +88,7 @@ import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabId = "tasks" | "financial" | "photos" | "notes";
+type TabId = "tasks" | "financial" | "photos" | "notes" | "deductions";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -691,7 +692,7 @@ function NotesTab({ project }: { project: Project }) {
   const deleteNote = useDeleteProjectNote();
   const createPhoto = useCreateProjectPhoto();
   const queryClient = useQueryClient();
-  const { data: teamData } = useTeamMembers();
+  const { data: teamData, isLoading: usersLoading } = useTeamMembers();
   const users = teamData?.users ?? [];
   const migrated = useRef(false);
 
@@ -855,6 +856,7 @@ function NotesTab({ project }: { project: Project }) {
         users={users}
         currentUserId={currentUser?.id ?? ""}
         isLoading={isLoading}
+        usersLoading={usersLoading}
         onEdit={handleEdit}
         onDelete={(id) => setDeleteTarget(id)}
       />
@@ -1121,7 +1123,7 @@ export default function ProjectDetailPage() {
   const visibleTabs = useMemo<TabId[]>(() => {
     const base: TabId[] = ["tasks"];
     if (canViewFinancialTab) base.push("financial");
-    base.push("photos", "notes");
+    base.push("photos", "notes", "deductions");
     return base;
   }, [canViewFinancialTab]);
   const initialTab = (searchParams.get("tab") as TabId) || "tasks";
@@ -1410,6 +1412,7 @@ export default function ProjectDetailPage() {
           {activeTab === "financial" && canViewFinancialTab && <FinancialTab project={project} />}
           {activeTab === "photos" && <PhotoFeed projectId={project.id} />}
           {activeTab === "notes" && <NotesTab project={project} />}
+          {activeTab === "deductions" && <ProjectDeductionsTab project={project} />}
         </div>
 
         {/* Desktop sidebar */}
