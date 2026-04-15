@@ -308,6 +308,36 @@ export const queryKeys = {
     },
   },
 
+  // Product Materials (BOM)
+  productMaterials: {
+    all: ["productMaterials"] as const,
+    byProduct: (productId: string) =>
+      [...queryKeys.productMaterials.all, productId] as const,
+  },
+
+  // Task Materials
+  taskMaterials: {
+    all: ["taskMaterials"] as const,
+    byTask: (taskId: string) =>
+      [...queryKeys.taskMaterials.all, taskId] as const,
+  },
+
+  // Inventory Deductions
+  inventoryDeductions: {
+    all: ["inventoryDeductions"] as const,
+    byProject: (projectId: string) =>
+      [...queryKeys.inventoryDeductions.all, "project", projectId] as const,
+    byTask: (taskId: string) =>
+      [...queryKeys.inventoryDeductions.all, "task", taskId] as const,
+  },
+
+  // Stock Indicator
+  stockIndicator: {
+    all: ["stockIndicator"] as const,
+    forLineItems: (lineItemIds: string[]) =>
+      [...queryKeys.stockIndicator.all, ...[...lineItemIds].sort()] as const,
+  },
+
   // Bug Reports
   bugReports: {
     all: ["bugReports"] as const,
