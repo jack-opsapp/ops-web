@@ -1241,15 +1241,20 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 - Modify: `src/lib/api/services/task-service.ts`
 - Modify: `src/lib/hooks/use-tasks.ts`
 
+**NOTE (codebase audit 2026-04-14):**
+- `use-tasks.ts` has uncommitted changes adding permission-scoping to `useTasks` and `useScheduledTasks`. These do NOT touch `useUpdateTaskStatus` — no conflict.
+- `toast` from `sonner` is already imported in `use-tasks.ts`. Only `InventoryDeductionService` needs adding.
+- `task-service.ts` mapFromDb has `scheduleConfirmedAt`, `scheduleConfirmedBy`, `updatedAt` fields — add `inventoryDeducted` after `updatedAt` (around line 124).
+
 - [ ] **Step 1: Add inventory_deducted to task mapper in task-service.ts**
 
-In `mapTaskFromDb`, add after the existing `endTime` mapping:
+In `mapFromDb` (around line 101), add after the `updatedAt: parseDate(row.updated_at),` line:
 
 ```typescript
     inventoryDeducted: (row.inventory_deducted as boolean) ?? false,
 ```
 
-In `mapTaskToDb`, add:
+In `mapToDb` (around line 132), add after the `displayOrder`/`taskIndex` block:
 
 ```typescript
     if (data.inventoryDeducted !== undefined) row.inventory_deducted = data.inventoryDeducted;
@@ -1257,7 +1262,15 @@ In `mapTaskToDb`, add:
 
 - [ ] **Step 2: Add deduction call to useUpdateTaskStatus in use-tasks.ts**
 
-In the `onSuccess` callback of `useUpdateTaskStatus`, after the existing notification dispatch block, add:
+Add import at top (after existing service imports):
+
+```typescript
+import { InventoryDeductionService } from "../api/services";
+```
+
+(`toast` from `sonner` and `queryKeys` are already imported in the current file.)
+
+In the `onSuccess` callback of `useUpdateTaskStatus`, after the existing `dispatchTaskCompleted` block (around line 398), add:
 
 ```typescript
       // Inventory deduction on completion / reversal on reopening
@@ -1288,14 +1301,6 @@ In the `onSuccess` callback of `useUpdateTaskStatus`, after the existing notific
             toast.error("Task reopened but inventory reversal failed");
           });
       }
-```
-
-Add the required imports at the top of `use-tasks.ts`:
-
-```typescript
-import { InventoryDeductionService } from "../api/services";
-import { queryKeys } from "../api/query-client"; // if not already imported
-import { toast } from "sonner"; // if not already imported
 ```
 
 - [ ] **Step 3: Commit**
@@ -1363,9 +1368,11 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src/lib/types/models.ts`
 
+**NOTE (codebase audit 2026-04-14):** `ProjectTask` interface now has `scheduleConfirmedAt`, `scheduleConfirmedBy`, `updatedAt` fields. Add `inventoryDeducted` after `updatedAt` (around line 292), before the `lastSyncedAt` field.
+
 - [ ] **Step 1: Add field to ProjectTask interface**
 
-Find the `ProjectTask` interface and add after `endTime`:
+Find the `ProjectTask` interface in `src/lib/types/models.ts` and add after `updatedAt?: Date | null;` (around line 292):
 
 ```typescript
   inventoryDeducted: boolean;
