@@ -8,6 +8,7 @@
  */
 
 import sgMail from "@sendgrid/mail";
+import { render } from "@react-email/render";
 
 import { magicLinkTemplate } from "./templates/magic-link";
 import { estimateReadyTemplate } from "./templates/estimate-ready";
@@ -18,12 +19,15 @@ import { roleNeededTemplate } from "./templates/role-needed";
 import { betaAccessRequestTemplate } from "./templates/beta-access-request";
 import { betaAccessDecisionTemplate } from "./templates/beta-access-decision";
 import { adsBriefingTemplate } from "./templates/ads-briefing";
-import { passwordResetTemplate } from "./templates/password-reset";
 import { blogNewsletterTemplate } from "./templates/blog-newsletter";
 import { trialExpiryWarningTemplate } from "./templates/trial-expiry-warning";
 import { trialExpiryDiscountTemplate } from "./templates/trial-expiry-discount";
 import { trialExpiryReengagementTemplate } from "./templates/trial-expiry-reengagement";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
+
+// React Email templates (migrated)
+import { PasswordReset } from "./react/templates/PasswordReset";
+import { GATE } from "./senders";
 
 let initialized = false;
 
@@ -278,13 +282,12 @@ export async function sendPasswordReset(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const html = passwordResetTemplate({
-    resetLink: params.resetLink,
-  });
+  const html = await render(<PasswordReset resetLink={params.resetLink} />);
 
   await sgMail.send({
     to: params.email,
-    from: { email: getFromEmail(), name: "OPS" },
+    from: GATE,
+    replyTo: GATE.email,
     subject: "Reset your OPS password",
     html,
   });
