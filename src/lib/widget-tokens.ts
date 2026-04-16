@@ -30,6 +30,12 @@ export const WT = {
   // Neutral
   muted: "rgba(255, 255, 255, 0.15)",
   faint: "rgba(255, 255, 255, 0.08)",
+  // Surface
+  glass: "var(--surface-glass)",
+  glassDense: "var(--surface-glass-dense)",
+  surfaceInput: "var(--surface-input)",
+  fillNeutral: "var(--fill-neutral)",
+  fillNeutralDim: "var(--fill-neutral-dim)",
 } as const;
 
 // ── Hero number size by widget tier ──
