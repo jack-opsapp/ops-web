@@ -1,12 +1,15 @@
 # OPS Web — Interface Design System
 
+> **Canonical spec:** `docs/superpowers/specs/2026-04-15-ops-web-visual-system-design.md`
+> This file summarizes the design system for quick reference. The spec is the source of truth for all token values, WCAG ratios, and migration details.
+
 ## Direction
 
 **Who:** A trades business owner — roofer, plumber, electrician — drowning in texts, paper, and chaos. Checking the dashboard between job sites, in the truck, on a phone or tablet. Not a desk-bound power user.
 
-**Feel:** Military tactical minimalist. Understated confidence. A command center, not a toy. Every element earns its place. Dense but not cluttered — information-rich without visual noise. The vibe is a well-organized toolbox: everything where you'd expect it, nothing wasted.
+**Feel:** Command Deck — Apple-depth glass panels with tactical content. Uppercase Kosugi labels, `//` slash prefixes, JetBrains Mono data readouts, Mohave hero type. Earth-tone semantic palette. Military, measured, no nonsense. Every element earns its place.
 
-**Depth strategy:** Borders-only. No drop shadows on dark backgrounds. Frosted glass surfaces for elevated layers (popovers, modals). Borders at rgba white opacity — whisper-quiet separation.
+**Depth strategy:** Glass surfaces + borders only. Zero box-shadows on dark backgrounds. Top-edge gradient pseudo-element provides subtle lit-from-above quality. Stacked glass (dense variant) for modals over panels.
 
 ---
 
@@ -15,35 +18,36 @@
 ### Backgrounds
 | Token | Value | Use |
 |-------|-------|-----|
-| `background` | `#000000` | Page canvas |
-| `background-panel` | `#0A0A0A` | Sidebar, panels |
-| `background-card` | `#191919` | Card surfaces |
-| `background-elevated` | `#1A1A1A` | Elevated within cards |
-| `background-input` | `#111111` | Input fields (inset) |
+| `background` | `#000000` | Page canvas — pure black |
+| `glass-surface` | `rgba(18,18,20,0.58)` + blur(28px) sat(1.3) | All elevated surfaces |
+| `glass-dense` | `rgba(18,18,20,0.78)` + blur(28px) sat(1.3) | Stacked glass: modal over panel |
+| `surface-input` | `rgba(255,255,255,0.04)` | Input fields |
 
-### Text Hierarchy
+### Text Hierarchy (WCAG AA verified vs #000)
+| Token | Value | Ratio | Use |
+|-------|-------|-------|-----|
+| `text` | `#EDEDED` | 18.8:1 AAA | Primary body, hero numbers, names, active nav |
+| `text-2` | `#B5B5B5` | 10.3:1 AAA | Secondary values, ghost buttons, links |
+| `text-3` | `#8A8A8A` | 5.4:1 AA | Labels, metadata, subtitles |
+| `text-mute` | `#6A6A6A` | 3.4:1 | Decorative ONLY: `//` slashes, separators. Never body text. |
+
+### Accent — Primary Actions Only
 | Token | Value | Use |
 |-------|-------|-----|
-| `text-primary` | `#E5E5E5` | Default body text, hero numbers |
-| `text-secondary` | `#A7A7A7` | Supporting text, metrics |
-| `text-tertiary` | `#777777` | Labels, section headers, footers |
-| `text-disabled` | `#555555` | Placeholder, empty state values |
+| `ops-accent` | `#6F94B0` (5.6:1 AA) | Primary CTA button fill. Focus rings. Nothing else. |
+| `ops-amber` | `#C4A868` | Warning semantic indicator. Never decorative. |
 
-### Accent
-| Token | Value | Use |
-|-------|-------|-----|
-| `ops-accent` | `#597794` (Steel Blue) | Interactive elements, active states. Used sparingly. |
-| `ops-amber` | `#C4A868` | Active/warning state only. Never decorative. |
-| `ops-error` | `#93321A` | Destructive, error, overdue. |
+Accent does NOT appear on: ghost buttons, links, toggles, sidebar active state, tags, data bars, `//` slashes, or any decorative element.
 
-### Semantic (Status)
-| Token | Value | Use |
-|-------|-------|-----|
-| `status-success` | `#A5B368` | Completed, paid, healthy |
-| `status-warning` | `#C4A868` | Attention needed, expiring |
-| `status-error` | `#93321A` | Overdue, failed, destructive |
+### Earth Tones — Semantic Indicators Only
+| Token | Value | Semantic |
+|-------|-------|----------|
+| `olive` | `#9DB582` (7.8:1) | Positive: success, nominal, completed, +delta |
+| `tan` | `#C4A868` (8.1:1) | Attention: warning, site visit, expiring |
+| `rose` | `#B58289` (6.2:1) | Negative: error, overdue, cost |
+| `brick` | `#93321A` (2.5:1) | Destructive: borders/dots only, never text on black |
 
-### Financial
+### Financial (unchanged)
 | Token | Value | Use |
 |-------|-------|-----|
 | `financial-revenue` | `#C4A868` | Revenue bars, income |
@@ -55,9 +59,14 @@
 ### Borders
 | Token | Value | Use |
 |-------|-------|-----|
-| `border-subtle` | `rgba(255,255,255,0.05)` | Whisper separation |
-| `border-DEFAULT` | `rgba(255,255,255,0.2)` | Standard card borders |
-| `border-strong` | `rgba(255,255,255,0.3)` | Emphasis, active state borders |
+| `line` | `rgba(255,255,255,0.10)` | Standard hairline — panels, topbar, statusbar |
+| `glass-border` | `rgba(255,255,255,0.09)` | Glass panel edge |
+
+### Neutral Fills
+| Token | Value | Use |
+|-------|-------|-----|
+| `fill-neutral` | `rgba(255,255,255,0.14)` | Non-interactive data: bar fills, progress tracks |
+| `fill-neutral-dim` | `rgba(255,255,255,0.06)` | Track backgrounds, skeletons |
 
 ---
 
