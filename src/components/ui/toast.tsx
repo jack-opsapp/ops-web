@@ -14,7 +14,7 @@ function Toaster({ className, ...props }: ToasterProps) {
         classNames: {
           toast: cn(
             "group toast",
-            "bg-background-panel border border-border rounded shadow-floating",
+            "bg-glass glass-surface border border-border rounded shadow-floating",
             "font-mohave text-body-sm text-text",
             "p-2 gap-1"
           ),
@@ -28,7 +28,7 @@ function Toaster({ className, ...props }: ToasterProps) {
           cancelButton: cn(
             "bg-transparent text-text-2 font-mohave text-caption-sm",
             "rounded px-1.5 py-[4px]",
-            "hover:text-text hover:bg-background-elevated"
+            "hover:text-text hover:bg-fill-neutral-dim"
           ),
           closeButton: "text-text-3 hover:text-text",
           success: "border-status-success/30 shadow-[0_0_12px_rgba(74,222,128,0.15)]",

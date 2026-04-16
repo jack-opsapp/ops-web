@@ -196,7 +196,7 @@ export function ExpenseSettingsTab() {
               onClick={() => handleToggle("requireReceiptPhoto", requireReceiptPhoto)}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                requireReceiptPhoto ? "bg-ops-accent" : "bg-background-elevated"
+                requireReceiptPhoto ? "bg-ops-accent" : "bg-fill-neutral-dim"
               )}
             >
               <span
@@ -218,7 +218,7 @@ export function ExpenseSettingsTab() {
               onClick={() => handleToggle("requireProjectAssignment", requireProjectAssignment)}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                requireProjectAssignment ? "bg-ops-accent" : "bg-background-elevated"
+                requireProjectAssignment ? "bg-ops-accent" : "bg-fill-neutral-dim"
               )}
             >
               <span
@@ -301,7 +301,7 @@ export function ExpenseSettingsTab() {
                   }}
                   className={cn(
                     "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                    rule.isActive ? "bg-ops-accent" : "bg-background-elevated"
+                    rule.isActive ? "bg-ops-accent" : "bg-fill-neutral-dim"
                   )}
                 >
                   <span

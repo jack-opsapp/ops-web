@@ -141,7 +141,7 @@ export function FinancialSettingsTab() {
       </div>
 
       {/* Enable/disable toggle */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
         <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
           <span className="font-mohave text-[14px] text-text">
             {t("financial.settings.enableDigest")}
@@ -167,7 +167,7 @@ export function FinancialSettingsTab() {
       </div>
 
       {/* Alert thresholds */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
         <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {t("financial.settings.alertThresholds")}
         </h3>
@@ -214,7 +214,7 @@ export function FinancialSettingsTab() {
       </div>
 
       {/* Pricing optimization */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
         <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {t("financial.settings.pricingTitle")}
         </h3>

@@ -463,7 +463,7 @@ function ProductFormModal({
               <select
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
                 {UNIT_OPTIONS.map((u) => (
                   <option key={u} value={u}>{u}</option>
@@ -490,7 +490,7 @@ function ProductFormModal({
             <select
               value={taskTypeId ?? ""}
               onChange={(e) => setTaskTypeId(e.target.value || null)}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+              className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">{t("products.none")}</option>
               {taskTypes.map((tt) => (

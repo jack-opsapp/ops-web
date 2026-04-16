@@ -87,7 +87,7 @@ export function OptionCard({
         "motion-reduce:transition-none",
         selected
           ? "border-l-[#597794] border-t-[rgba(255,255,255,0.12)] border-r-[rgba(255,255,255,0.12)] border-b-[rgba(255,255,255,0.12)] bg-[rgba(89,119,148,0.08)]"
-          : "border-l-transparent border-t-[rgba(255,255,255,0.08)] border-r-[rgba(255,255,255,0.08)] border-b-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] hover:border-l-[rgba(89,119,148,0.4)]",
+          : "border-l-transparent border-t-[rgba(255,255,255,0.08)] border-r-[rgba(255,255,255,0.08)] border-b-[rgba(255,255,255,0.08)] bg-glass glass-surface hover:border-l-[rgba(89,119,148,0.4)]",
         (locked || disabled) && "opacity-50 cursor-not-allowed"
       )}
     >
@@ -153,7 +153,7 @@ export function Toggle({
       className={cn(
         "w-full flex items-center justify-between gap-3 min-h-[56px] p-4 rounded-[8px]",
         "border border-[rgba(255,255,255,0.08)]",
-        "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
+        "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "hover:border-[rgba(255,255,255,0.16)]",
         "motion-reduce:transition-none"
@@ -212,7 +212,7 @@ export function StepSlider({
   onChange: (value: number) => void;
 }) {
   return (
-    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <div className="flex items-center justify-between mb-3">
         <span className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em]">
           {label}
@@ -269,7 +269,7 @@ export function StepDropdown<T extends string | number>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <div className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em] mb-3">
         {label}
       </div>
@@ -292,7 +292,7 @@ export function StepDropdown<T extends string | number>({
           <option
             key={String(opt.value)}
             value={String(opt.value)}
-            className="bg-[#0D0D0D]"
+            className="bg-black"
           >
             {opt.label}
           </option>

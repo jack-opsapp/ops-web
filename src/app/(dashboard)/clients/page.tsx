@@ -160,7 +160,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
       {/* Expanded SubClients */}
       {expanded && client.subClients.length > 0 && (
         <div
-          className="border-t border-border-subtle bg-background-elevated/50 px-2 py-1.5 space-y-1 animate-slide-up"
+          className="border-t border-border-subtle bg-fill-neutral-dim/50 px-2 py-1.5 space-y-1 animate-slide-up"
           onClick={(e) => e.stopPropagation()}
         >
           <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest">
@@ -203,7 +203,7 @@ function ClientTableRow({
   return (
     <tr
       onClick={onClick}
-      className="border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors group"
+      className="border-b border-border-subtle hover:bg-fill-neutral-dim cursor-pointer transition-colors group"
     >
       {/* Name + Company */}
       <td className="px-1.5 py-1">
@@ -272,20 +272,20 @@ function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="bg-background-card border border-border rounded-lg p-2 space-y-1.5 animate-pulse"
+            className="bg-glass glass-surface border border-border rounded-lg p-2 space-y-1.5 animate-pulse"
           >
             <div className="flex items-center gap-1.5">
-              <div className="w-[44px] h-[44px] rounded-full bg-background-elevated" />
+              <div className="w-[44px] h-[44px] rounded-full bg-fill-neutral-dim" />
               <div className="flex-1 space-y-1">
-                <div className="h-[16px] bg-background-elevated rounded w-3/4" />
-                <div className="h-[12px] bg-background-elevated rounded w-1/2" />
+                <div className="h-[16px] bg-fill-neutral-dim rounded w-3/4" />
+                <div className="h-[12px] bg-fill-neutral-dim rounded w-1/2" />
               </div>
             </div>
-            <div className="h-[14px] bg-background-elevated rounded w-full" />
-            <div className="h-[14px] bg-background-elevated rounded w-2/3" />
+            <div className="h-[14px] bg-fill-neutral-dim rounded w-full" />
+            <div className="h-[14px] bg-fill-neutral-dim rounded w-2/3" />
             <div className="flex justify-between pt-1 border-t border-border-subtle">
-              <div className="h-[14px] bg-background-elevated rounded w-[80px]" />
-              <div className="h-[14px] bg-background-elevated rounded w-[40px]" />
+              <div className="h-[14px] bg-fill-neutral-dim rounded w-[80px]" />
+              <div className="h-[14px] bg-fill-neutral-dim rounded w-[40px]" />
             </div>
           </div>
         ))}
@@ -298,7 +298,7 @@ function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
       {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
-          className="h-[52px] bg-background-card border border-border rounded"
+          className="h-[52px] bg-glass glass-surface border border-border rounded"
         />
       ))}
     </div>
@@ -504,7 +504,7 @@ export default function ClientsPage() {
         </div>
       ) : (
         /* Table View */
-        <div className="bg-background-card border border-border rounded-lg overflow-x-auto">
+        <div className="bg-glass glass-surface border border-border rounded-lg overflow-x-auto">
           <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border">

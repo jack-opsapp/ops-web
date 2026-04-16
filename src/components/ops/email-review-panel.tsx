@@ -288,7 +288,7 @@ function NeedsReviewCard({
   const busy = isConfirming || isRejecting;
 
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-[#0D0D0D] p-4 space-y-3">
+    <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start gap-2">
         <div className="h-7 w-7 rounded-full bg-[#597794]/15 flex items-center justify-center shrink-0 mt-0.5">
@@ -380,7 +380,7 @@ function UnmatchedCard({
   const busy = isIgnoring || isBlocking;
 
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-[#0D0D0D] p-4 space-y-3">
+    <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start gap-2">
         <div className="h-7 w-7 rounded-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0 mt-0.5">
@@ -454,7 +454,7 @@ function UnmatchedCard({
 /** Card for the "Matched" tab — confirmed matches with view link */
 function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: (clientId: string) => void }) {
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.06)] bg-[#0D0D0D] p-4 space-y-3 opacity-80">
+    <div className="rounded-sm border border-[rgba(255,255,255,0.06)] bg-black p-4 space-y-3 opacity-80">
       {/* Header */}
       <div className="flex items-start gap-2">
         <div className="h-7 w-7 rounded-full bg-[#9DB582]/15 flex items-center justify-center shrink-0 mt-0.5">

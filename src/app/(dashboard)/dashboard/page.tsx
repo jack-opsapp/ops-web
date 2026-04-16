@@ -114,7 +114,7 @@ function getGreeting(t: (key: string) => string): string {
 function PlaceholderWidget({ typeId, label }: { typeId: string; label: string }) {
   const { t } = useDictionary("dashboard");
   return (
-    <div className="h-full rounded-lg bg-background-card border border-border p-2 flex flex-col items-center justify-center">
+    <div className="h-full rounded-lg bg-glass glass-surface border border-border p-2 flex flex-col items-center justify-center">
       <span className="font-mono text-micro text-text-mute uppercase">{typeId}</span>
       <span className="font-mohave text-body-sm text-text-3 mt-[4px]">{label}</span>
       <span className="font-mono text-[9px] text-text-mute mt-1">{t("widgets.comingSoon")}</span>

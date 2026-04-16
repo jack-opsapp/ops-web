@@ -692,8 +692,8 @@ function PipelineSkeleton() {
           <div className="flex items-center gap-[16px] px-3 py-[8px]">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col gap-[2px]">
-                <div className="h-[18px] w-[60px] bg-background-elevated rounded animate-pulse" />
-                <div className="h-[10px] w-[40px] bg-background-elevated rounded animate-pulse" />
+                <div className="h-[18px] w-[60px] bg-fill-neutral-dim rounded animate-pulse" />
+                <div className="h-[10px] w-[40px] bg-fill-neutral-dim rounded animate-pulse" />
               </div>
             ))}
           </div>
@@ -709,7 +709,7 @@ function PipelineSkeleton() {
               className="flex flex-col w-[280px] shrink-0"
             >
               <div
-                className="border-t-2 rounded-t-sm px-1.5 py-1 bg-background-panel border border-border border-b-0"
+                className="border-t-2 rounded-t-sm px-1.5 py-1 bg-glass glass-surface border border-border border-b-0"
                 style={{ borderTopColor: stage.color }}
               >
                 <div className="flex items-center gap-1">
@@ -719,7 +719,7 @@ function PipelineSkeleton() {
                   >
                     {stage.name}
                   </h3>
-                  <span className="font-mono text-[11px] text-text-mute bg-background-elevated px-[6px] py-[2px] rounded-sm">
+                  <span className="font-mono text-[11px] text-text-mute bg-fill-neutral-dim px-[6px] py-[2px] rounded-sm">
                     --
                   </span>
                 </div>
@@ -728,11 +728,11 @@ function PipelineSkeleton() {
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="bg-[rgba(13,13,13,0.6)] border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5 space-y-1.5 animate-pulse"
+                    className="bg-glass glass-surface border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5 space-y-1.5 animate-pulse"
                   >
-                    <div className="h-[14px] w-3/4 bg-background-elevated rounded" />
-                    <div className="h-[10px] w-1/2 bg-background-elevated rounded" />
-                    <div className="h-[10px] w-1/3 bg-background-elevated rounded" />
+                    <div className="h-[14px] w-3/4 bg-fill-neutral-dim rounded" />
+                    <div className="h-[10px] w-1/2 bg-fill-neutral-dim rounded" />
+                    <div className="h-[10px] w-1/3 bg-fill-neutral-dim rounded" />
                   </div>
                 ))}
               </div>

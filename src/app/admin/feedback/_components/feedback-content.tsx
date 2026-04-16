@@ -179,7 +179,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                   style={{ color: statusColor, borderColor: statusColor }}
                 >
                   {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s} className="bg-[#1D1D1D] text-[#E5E5E5]">
+                    <option key={s} value={s} className="bg-glass glass-surface text-[#E5E5E5]">
                       {s}
                     </option>
                   ))}
@@ -394,7 +394,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                         style={{ color: priorityColor, borderColor: priorityColor }}
                       >
                         {BUG_PRIORITY_OPTIONS.map((p) => (
-                          <option key={p} value={p} className="bg-[#1D1D1D] text-[#E5E5E5]">
+                          <option key={p} value={p} className="bg-glass glass-surface text-[#E5E5E5]">
                             {p}
                           </option>
                         ))}
@@ -409,7 +409,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                         style={{ color: statusColor, borderColor: statusColor }}
                       >
                         {BUG_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s} className="bg-[#1D1D1D] text-[#E5E5E5]">
+                          <option key={s} value={s} className="bg-glass glass-surface text-[#E5E5E5]">
                             {s}
                           </option>
                         ))}

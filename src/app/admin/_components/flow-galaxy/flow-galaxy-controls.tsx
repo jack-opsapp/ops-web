@@ -61,7 +61,7 @@ export function FlowGalaxyControls({
             className="bg-transparent border border-white/[0.08] rounded-[3px] px-2 py-1 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none cursor-pointer"
           >
             {DEVICE_OPTIONS.map(d => (
-              <option key={d} value={d} className="bg-[#0D0D0D]">
+              <option key={d} value={d} className="bg-black">
                 {d.toUpperCase()}
               </option>
             ))}

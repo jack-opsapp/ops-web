@@ -189,7 +189,7 @@ export function LifecycleSettingsTab() {
       </div>
 
       {/* Status Update Frequency */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
         <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
           [{t("lifecycle.statusUpdates")}]
         </span>
@@ -216,7 +216,7 @@ export function LifecycleSettingsTab() {
       </div>
 
       {/* Overdue Task Detection */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
         <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
           [{t("lifecycle.overdueDetection")}]
         </span>
@@ -254,7 +254,7 @@ export function LifecycleSettingsTab() {
       </div>
 
       {/* Auto-Archive */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
         <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
           [{t("lifecycle.autoArchive")}]
         </span>
@@ -292,7 +292,7 @@ export function LifecycleSettingsTab() {
       </div>
 
       {/* Stage-to-Task Mapping */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="font-kosugi text-[11px] text-text-3 uppercase">
             [{t("lifecycle.stageTaskMapping")}]

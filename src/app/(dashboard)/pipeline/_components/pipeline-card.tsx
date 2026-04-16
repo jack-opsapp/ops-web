@@ -225,7 +225,7 @@ export function PipelineCard({
       style={{ borderLeftColor: stageColor }}
       className={cn(
         // Surface
-        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl",
+        "bg-glass glass-surface backdrop-blur-xl",
         "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
         "border-l-[3px]",
         // Interaction

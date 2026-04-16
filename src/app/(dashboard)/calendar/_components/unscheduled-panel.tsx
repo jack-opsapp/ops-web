@@ -45,7 +45,7 @@ export function UnscheduledPanel() {
   const showSearch = isExpanded && count > 5;
 
   return (
-    <div className="border-t border-white/10 bg-[#141414] flex-shrink-0">
+    <div className="border-t border-white/10 bg-glass glass-surface flex-shrink-0">
       {/* ── Collapsed bar / header ── */}
       <button
         type="button"
@@ -104,7 +104,7 @@ export function UnscheduledPanel() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search..."
-                        className="w-full pl-[26px] pr-2 py-[5px] bg-[#0D0D0D] border border-white/10 rounded-sm font-kosugi text-[10px] text-white uppercase placeholder:text-[#999] placeholder:normal-case focus:outline-none focus:border-[#597794]/40 transition-colors"
+                        className="w-full pl-[26px] pr-2 py-[5px] bg-black border border-white/10 rounded-sm font-kosugi text-[10px] text-white uppercase placeholder:text-[#999] placeholder:normal-case focus:outline-none focus:border-[#597794]/40 transition-colors"
                       />
                     </div>
                   )}
@@ -156,7 +156,7 @@ function UnscheduledTaskCard({ task }: { task: ProjectTask }) {
       {...attributes}
       className={cn(
         "relative flex items-center shrink-0 w-[160px] h-[80px] rounded-sm cursor-grab",
-        "bg-[#0D0D0D] border border-white/10",
+        "bg-black border border-white/10",
         "transition-opacity duration-100",
         isDragging && "opacity-40"
       )}

@@ -230,7 +230,7 @@ export function FloatingActionButton() {
                   onClick={() => handleAction(action)}
                   className={cn(
                     "relative flex items-center gap-2 pl-2 pr-3 py-2 rounded-[4px]",
-                    "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
+                    "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
                     "border border-[rgba(255,255,255,0.08)]",
                     "hover:border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.05)]",
                     "transition-colors duration-150 whitespace-nowrap"
@@ -295,7 +295,7 @@ export function FloatingActionButton() {
                     transition={{ duration: 0.15 }}
                     className={cn(
                       "absolute top-0 right-full mr-2 flex flex-col gap-1 p-1 rounded-[4px]",
-                      "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
+                      "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
                       "border border-[rgba(255,255,255,0.08)]"
                     )}
                   >
@@ -333,7 +333,7 @@ export function FloatingActionButton() {
           onPointerCancel={cancelLongPress}
           className={cn(
             "w-[52px] h-[52px] rounded-full flex items-center justify-center",
-            "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
+            "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
             "border-2 border-[rgba(255,255,255,0.20)]",
             "hover:border-[rgba(255,255,255,0.30)]",
             "transition-colors duration-150"

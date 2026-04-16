@@ -98,7 +98,7 @@ class ErrorBoundary extends React.Component<
             <div
               className={cn(
                 "w-full max-w-lg rounded p-4",
-                "border border-border-primary bg-background-elevated"
+                "border border-border-primary bg-fill-neutral-dim"
               )}
             >
               <p className="font-mono text-xs leading-relaxed text-text-3 break-all">

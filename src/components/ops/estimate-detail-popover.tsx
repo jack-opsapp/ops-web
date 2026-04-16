@@ -193,7 +193,7 @@ const EstimateDetailPopoverInstance = memo(
         transition={{ duration: 0.2, ease: EASE_SMOOTH }}
         className={cn(
           "fixed flex flex-col overflow-hidden",
-          "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]",
+          "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
           "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
           (isDragging || isResizing) && "select-none"
         )}

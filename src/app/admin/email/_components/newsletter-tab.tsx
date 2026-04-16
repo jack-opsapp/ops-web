@@ -185,7 +185,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
               className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:outline-none focus:border-[#597794] disabled:opacity-50"
             >
               {MONTHS.map((m, i) => (
-                <option key={m} value={i + 1} className="bg-[#1D1D1D]">{m}</option>
+                <option key={m} value={i + 1} className="bg-glass glass-surface">{m}</option>
               ))}
             </select>
           </div>

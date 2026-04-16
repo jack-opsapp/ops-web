@@ -458,7 +458,7 @@ function DependencySection({
                     next[i] = { ...next[i], overlap_percentage: Number(e.target.value) };
                     onOverridesChange(next);
                   }}
-                  className="w-[50px] font-mono text-data-sm bg-background-card border border-border rounded-[2px] px-1.5 py-0.5 text-text outline-none focus:border-ops-accent"
+                  className="w-[50px] font-mono text-data-sm bg-glass glass-surface border border-border rounded-[2px] px-1.5 py-0.5 text-text outline-none focus:border-ops-accent"
                 />
               ) : (
                 <span className="font-mohave text-body-sm text-text-3">

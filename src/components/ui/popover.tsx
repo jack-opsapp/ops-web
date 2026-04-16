@@ -19,7 +19,7 @@ const PopoverContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "z-50 outline-none",
-        "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]",
+        "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
         "border border-[rgba(255,255,255,0.08)] rounded-[3px]",
         "shadow-floating",
         "animate-scale-in",

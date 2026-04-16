@@ -440,7 +440,7 @@ export function BugReportButton() {
         }
         className={cn(
           "flex items-center gap-1.5 px-2 py-1.5 rounded-sm",
-          "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]",
+          "bg-glass glass-surface backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]",
           "border border-[rgba(255,255,255,0.08)]",
           "hover:border-[rgba(255,255,255,0.15)]",
           "transition-colors duration-150",

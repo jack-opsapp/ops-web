@@ -899,7 +899,7 @@ export const ActionCard = memo(function ActionCard({
         // Fix 21: selected border uses neutral instead of accent
         selected
           ? "border-[rgba(255,255,255,0.20)] bg-[rgba(255,255,255,0.03)]"
-          : "border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)]",
+          : "border-[rgba(255,255,255,0.08)] bg-glass glass-surface",
         "backdrop-blur-[20px] saturate-[1.2]"
       )}
     >

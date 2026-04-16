@@ -1182,7 +1182,7 @@ function StepConnect({
             }}
             className="w-full flex items-center gap-2 px-2 py-2 border border-border-subtle rounded hover:border-border transition-colors group text-left"
           >
-            <div className="w-[40px] h-[40px] rounded bg-background-card flex items-center justify-center shrink-0">
+            <div className="w-[40px] h-[40px] rounded bg-glass glass-surface flex items-center justify-center shrink-0">
               <Mail className="w-[20px] h-[20px] text-text-mute group-hover:text-text-2 transition-colors" />
             </div>
             <div className="flex-1 min-w-0">
@@ -1199,7 +1199,7 @@ function StepConnect({
       )}
 
       <motion.div variants={staggerItem}>
-        <div className="flex items-start gap-[8px] px-1.5 py-1 rounded bg-background-card border border-border-subtle">
+        <div className="flex items-start gap-[8px] px-1.5 py-1 rounded bg-glass glass-surface border border-border-subtle">
           <Shield className="w-[14px] h-[14px] text-text-mute mt-[2px] shrink-0" />
           <p className="font-kosugi text-[10px] text-text-mute leading-relaxed text-left">
             OPS uses read-only access. We never send, delete, or modify your
@@ -1275,7 +1275,7 @@ function StepHowItWorks() {
       {/* Visual flow */}
       <motion.div
         variants={staggerItem}
-        className="flex items-center justify-between px-2 py-1.5 bg-background-card rounded border border-border-subtle"
+        className="flex items-center justify-between px-2 py-1.5 bg-glass glass-surface rounded border border-border-subtle"
       >
         {[
           { label: "Email arrives", color: "text-text-2" },
@@ -1342,7 +1342,7 @@ function StepScan({
       {!scanComplete && !scanning && (
         <motion.div variants={staggerItem} className="flex flex-col items-start gap-1.5">
           {connectionEmail && (
-            <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded bg-background-card border border-border-subtle w-full">
+            <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded bg-glass glass-surface border border-border-subtle w-full">
               <Mail className="w-[14px] h-[14px] text-ops-accent shrink-0" />
               <span className="font-mono text-data-sm text-text-2 truncate">
                 {connectionEmail}
@@ -1829,7 +1829,7 @@ function StepFilters({
                 {filters.excludeDomains.slice(0, 12).map((d) => (
                   <span
                     key={d}
-                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-mute"
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-glass glass-surface border border-border-subtle font-mono text-[10px] text-text-mute"
                   >
                     {d}
                     <button
@@ -1866,7 +1866,7 @@ function StepFilters({
                 {filters.excludeAddresses.slice(0, 8).map((a) => (
                   <span
                     key={a}
-                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-mute"
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-glass glass-surface border border-border-subtle font-mono text-[10px] text-text-mute"
                   >
                     {a}
                     <button
@@ -1903,7 +1903,7 @@ function StepFilters({
                 {filters.excludeSubjectKeywords.slice(0, 8).map((k) => (
                   <span
                     key={k}
-                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-mute"
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-glass glass-surface border border-border-subtle font-mono text-[10px] text-text-mute"
                   >
                     {k}
                     <button
@@ -1984,7 +1984,7 @@ function StepFilters({
           {starfieldCollapsed && scannedEmails.length > 0 && (
             <button
               onClick={() => setStarfieldCollapsed(false)}
-              className="shrink-0 flex items-center gap-[6px] px-2 py-1 rounded border border-border-subtle bg-background-card hover:bg-background-elevated transition-colors text-left"
+              className="shrink-0 flex items-center gap-[6px] px-2 py-1 rounded border border-border-subtle bg-glass glass-surface hover:bg-fill-neutral-dim transition-colors text-left"
             >
               <BarChart3 className="w-[12px] h-[12px] text-ops-accent shrink-0" />
               <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
@@ -1995,10 +1995,10 @@ function StepFilters({
           )}
 
           {/* Collapsible email import list — fills remaining space */}
-          <div className="rounded border border-border-subtle bg-background-card overflow-hidden flex flex-col min-h-0 flex-1">
+          <div className="rounded border border-border-subtle bg-glass glass-surface overflow-hidden flex flex-col min-h-0 flex-1">
             <button
               onClick={() => setEmailsExpanded(!emailsExpanded)}
-              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-background-elevated transition-colors text-left shrink-0"
+              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-fill-neutral-dim transition-colors text-left shrink-0"
             >
               <div className="flex items-center gap-[6px]">
                 <div className="w-[6px] h-[6px] rounded-full bg-[#9DB582]" />
@@ -2042,7 +2042,7 @@ function StepFilters({
                             expandedImportDomain === domain ? null : domain,
                           )
                         }
-                        className="w-full flex items-center gap-[8px] px-2 py-[5px] hover:bg-background-elevated transition-colors text-left border-b border-border-subtle/50"
+                        className="w-full flex items-center gap-[8px] px-2 py-[5px] hover:bg-fill-neutral-dim transition-colors text-left border-b border-border-subtle/50"
                       >
                         <ChevronDown
                           className={`w-[10px] h-[10px] text-text-mute shrink-0 transition-transform duration-200 ${
@@ -2416,7 +2416,7 @@ function StepReview({
                     {/* Main row */}
                     <div
                       className={`flex items-center gap-[8px] px-2 py-[8px] transition-colors ${
-                        contact.excluded ? "" : "hover:bg-background-elevated cursor-pointer"
+                        contact.excluded ? "" : "hover:bg-fill-neutral-dim cursor-pointer"
                       }`}
                       onClick={() => {
                         if (!contact.excluded) {
@@ -2576,7 +2576,7 @@ function StepReview({
                               {contact.subContacts.map((sub) => (
                                 <div
                                   key={sub.fromEmail}
-                                  className="flex items-center justify-between px-1.5 py-[3px] rounded bg-background-card border border-border-subtle text-left"
+                                  className="flex items-center justify-between px-1.5 py-[3px] rounded bg-glass glass-surface border border-border-subtle text-left"
                                 >
                                   <div className="min-w-0">
                                     <span className="font-mohave text-[11px] text-text block truncate">
@@ -2605,7 +2605,7 @@ function StepReview({
                               {contact.recentEmails.map((email, i) => (
                                 <div
                                   key={i}
-                                  className="px-1.5 py-1 rounded bg-background-card border border-border-subtle text-left"
+                                  className="px-1.5 py-1 rounded bg-glass glass-surface border border-border-subtle text-left"
                                 >
                                   <div className="flex items-center justify-between gap-[8px] mb-[2px]">
                                     <span className="font-mohave text-[11px] text-text truncate flex-1">
@@ -2755,7 +2755,7 @@ function StepImport({
       {/* Summary */}
       <motion.div
         variants={staggerItem}
-        className="px-2 py-1.5 rounded border border-border-subtle bg-background-card space-y-[6px] text-left"
+        className="px-2 py-1.5 rounded border border-border-subtle bg-glass glass-surface space-y-[6px] text-left"
       >
         <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
           Import summary

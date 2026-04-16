@@ -147,7 +147,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             onClick={() => setAppliesToAll(!appliesToAll)}
             className={cn(
               "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0",
-              appliesToAll ? "bg-ops-accent" : "bg-background-elevated"
+              appliesToAll ? "bg-ops-accent" : "bg-fill-neutral-dim"
             )}
           >
             <span

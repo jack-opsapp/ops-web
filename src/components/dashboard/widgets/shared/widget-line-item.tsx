@@ -194,7 +194,7 @@ function LineItemIndicatorEl({
       ) : null;
     case "avatar":
       return (
-        <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-background-elevated flex items-center justify-center">
+        <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-fill-neutral-dim flex items-center justify-center">
           <span className="font-kosugi text-[8px] text-text-3 uppercase">
             {indicator.initials}
           </span>

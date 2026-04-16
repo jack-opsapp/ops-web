@@ -295,7 +295,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                   className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794]"
                 >
                   {APP_MESSAGE_TYPES.map((t) => (
-                    <option key={t} value={t} className="bg-[#1D1D1D]">
+                    <option key={t} value={t} className="bg-glass glass-surface">
                       {APP_MESSAGE_TYPE_LABELS[t]}
                     </option>
                   ))}

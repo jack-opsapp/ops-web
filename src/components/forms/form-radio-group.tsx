@@ -78,7 +78,7 @@ function FormRadioGroup<T extends FieldValues = FieldValues>({
                     "flex items-start gap-1 cursor-pointer group",
                     "rounded p-1 -m-1",
                     "transition-colors duration-150",
-                    "hover:bg-background-elevated/50",
+                    "hover:bg-fill-neutral-dim/50",
                     disabled && "cursor-not-allowed opacity-40"
                   )}
                 >

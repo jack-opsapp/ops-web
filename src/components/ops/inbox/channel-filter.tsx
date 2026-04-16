@@ -44,7 +44,7 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
   ];
 
   return (
-    <div className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] shrink-0">
+    <div className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] shrink-0">
       {segments.map((seg, i) => (
         <div key={seg.value} className="flex items-center gap-[8px]">
           {i > 0 && <div className="w-[1px] h-[18px] bg-border-subtle" />}

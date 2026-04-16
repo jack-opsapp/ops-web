@@ -77,7 +77,7 @@ export function SendEstimateFlow({
 
         <div className="space-y-4 mt-2">
           {/* Estimate summary */}
-          <div className="rounded-lg bg-[#111] border border-[#2A2A2A] px-4 py-3 space-y-1">
+          <div className="rounded-lg bg-surface-input border border-[#2A2A2A] px-4 py-3 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#9CA3AF]">Estimate</span>
               <span className="font-mono text-sm text-[#C4A868]">

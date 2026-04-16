@@ -113,17 +113,17 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
 
               {/* Stats row */}
               <div className="grid grid-cols-3 gap-1.5 pt-1">
-                <div className="bg-background-elevated rounded-lg p-1.5 text-center">
+                <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
                   <ClipboardList className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">{completedTasks}/{totalTasks}</p>
                   <p className="font-kosugi text-[10px] text-text-mute">Tasks</p>
                 </div>
-                <div className="bg-background-elevated rounded-lg p-1.5 text-center">
+                <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
                   <Users className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">{project.teamMemberIds?.length ?? 0}</p>
                   <p className="font-kosugi text-[10px] text-text-mute">Team</p>
                 </div>
-                <div className="bg-background-elevated rounded-lg p-1.5 text-center">
+                <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
                   <CalendarDays className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">
                     {project.duration ? `${project.duration}d` : "—"}
@@ -150,7 +150,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                     {tasks.slice(0, 5).map((task) => (
                       <div
                         key={task.id}
-                        className="flex items-center gap-[8px] py-[4px] px-[8px] rounded bg-background-elevated"
+                        className="flex items-center gap-[8px] py-[4px] px-[8px] rounded bg-fill-neutral-dim"
                       >
                         <span
                           className="w-[8px] h-[8px] rounded-full shrink-0"

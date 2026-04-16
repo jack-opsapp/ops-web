@@ -161,13 +161,13 @@ const roleStyleConfig: Record<
   crew: {
     icon: HardHat,
     color: "text-text-2",
-    bg: "bg-background-elevated",
+    bg: "bg-fill-neutral-dim",
     borderColor: "border-l-[#555555]",
   },
   unassigned: {
     icon: HardHat,
     color: "text-text-mute",
-    bg: "bg-background-elevated",
+    bg: "bg-fill-neutral-dim",
     borderColor: "border-l-[#333333]",
   },
 };
@@ -218,7 +218,7 @@ function RoleSelector({
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
+      <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
           <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-widest">
             {t("team.changeRole")}
@@ -239,7 +239,7 @@ function RoleSelector({
                 "flex items-center gap-1 w-full px-1.5 py-[8px] transition-colors font-mohave text-body-sm",
                 isActive
                   ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-2 hover:text-text-2 hover:bg-background-elevated"
+                  : "text-text-2 hover:text-text-2 hover:bg-fill-neutral-dim"
               )}
             >
               <Icon className="w-[14px] h-[14px]" />
@@ -305,7 +305,7 @@ function TeamMemberCard({
             <div
               className={cn(
                 "w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0",
-                isInactive ? "bg-background-elevated" : "bg-ops-accent-muted"
+                isInactive ? "bg-fill-neutral-dim" : "bg-ops-accent-muted"
               )}
               style={
                 member.userColor && !isInactive
@@ -360,7 +360,7 @@ function TeamMemberCard({
                   setMenuOpen(!menuOpen);
                   setShowRoleSelector(false);
                 }}
-                className="p-[6px] rounded text-text-3 hover:text-text-2 hover:bg-background-elevated transition-colors"
+                className="p-[6px] rounded text-text-3 hover:text-text-2 hover:bg-fill-neutral-dim transition-colors"
               >
                 <MoreVertical className="w-[16px] h-[16px]" />
               </button>
@@ -370,12 +370,12 @@ function TeamMemberCard({
                     className="fixed inset-0 z-40"
                     onClick={() => setMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-[4px] w-[180px] bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
+                  <div className="absolute right-0 top-full mt-[4px] w-[180px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
                     <button
                       onClick={() => {
                         setShowRoleSelector(true);
                       }}
-                      className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-2 hover:text-text hover:bg-background-elevated transition-colors font-mohave text-body-sm"
+                      className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-2 hover:text-text hover:bg-fill-neutral-dim transition-colors font-mohave text-body-sm"
                     >
                       <UserCog className="w-[14px] h-[14px]" />
                       {t("team.changeRole")}
@@ -456,17 +456,17 @@ function LoadingSkeleton() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="bg-background-card border border-border rounded-lg p-2 space-y-1.5 animate-pulse border-l-[3px] border-l-background-elevated"
+          className="bg-glass glass-surface border border-border rounded-lg p-2 space-y-1.5 animate-pulse border-l-[3px] border-l-background-elevated"
         >
           <div className="flex items-start gap-1.5">
-            <div className="w-[48px] h-[48px] rounded-full bg-background-elevated" />
+            <div className="w-[48px] h-[48px] rounded-full bg-fill-neutral-dim" />
             <div className="flex-1 space-y-1">
-              <div className="h-[16px] bg-background-elevated rounded w-3/4" />
-              <div className="h-[14px] bg-background-elevated rounded w-1/2" />
+              <div className="h-[16px] bg-fill-neutral-dim rounded w-3/4" />
+              <div className="h-[14px] bg-fill-neutral-dim rounded w-1/2" />
             </div>
           </div>
-          <div className="h-[14px] bg-background-elevated rounded w-full" />
-          <div className="h-[14px] bg-background-elevated rounded w-2/3" />
+          <div className="h-[14px] bg-fill-neutral-dim rounded w-full" />
+          <div className="h-[14px] bg-fill-neutral-dim rounded w-2/3" />
         </div>
       ))}
     </div>

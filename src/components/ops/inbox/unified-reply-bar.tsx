@@ -50,7 +50,7 @@ export function UnifiedReplyBar({
   );
 
   return (
-    <div className="px-3.5 py-2.5 border-t border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]">
+    <div className="px-3.5 py-2.5 border-t border-border-subtle bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]">
       <div className="flex items-center gap-2">
         {/* Channel selector */}
         <div className="relative shrink-0">
@@ -73,7 +73,7 @@ export function UnifiedReplyBar({
           </button>
 
           {showChannelPicker && (
-            <div className="absolute bottom-full left-0 mb-1 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] border border-border-subtle rounded-[3px] overflow-hidden z-20">
+            <div className="absolute bottom-full left-0 mb-1 bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] border border-border-subtle rounded-[3px] overflow-hidden z-20">
               {hasPortalMessages && (
                 <button
                   onClick={() => {

@@ -35,7 +35,7 @@ const AlertDialogContent = React.forwardRef<
       className={cn(
         "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
         "w-full max-w-[440px]",
-        "bg-background-panel border border-border rounded-lg shadow-floating",
+        "bg-glass glass-surface border border-border rounded-lg shadow-floating",
         "p-3",
         "data-[state=open]:animate-scale-in",
         "focus:outline-none",

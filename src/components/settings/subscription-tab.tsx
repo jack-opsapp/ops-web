@@ -119,7 +119,7 @@ function UpgradeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-background-card border border-border rounded-lg w-full max-w-[480px] mx-3">
+      <div className="bg-glass glass-surface border border-border rounded-lg w-full max-w-[480px] mx-3">
         {/* Header */}
         <div className="flex items-center justify-between p-2 border-b border-border">
           <h2 className="font-mohave text-heading text-text">
@@ -127,7 +127,7 @@ function UpgradeModal({
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-background-elevated transition-colors"
+            className="p-1 rounded hover:bg-fill-neutral-dim transition-colors"
           >
             <X className="w-[20px] h-[20px] text-text-3" />
           </button>
@@ -406,7 +406,7 @@ export function SubscriptionTab() {
                   {seatedCount} / {maxSeats}
                 </span>
               </div>
-              <div className="h-[6px] bg-background-elevated rounded-full overflow-hidden">
+              <div className="h-[6px] bg-fill-neutral-dim rounded-full overflow-hidden">
                 <div
                   className="h-full bg-ops-accent rounded-full transition-all duration-300"
                   style={{ width: `${seatPercentage}%` }}

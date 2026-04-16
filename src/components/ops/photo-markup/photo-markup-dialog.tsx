@@ -56,7 +56,7 @@ export function PhotoMarkupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl border-white/10 bg-[#111]">
+      <DialogContent className="max-w-3xl border-white/10 bg-surface-input">
         <DialogHeader>
           <DialogTitle className="text-[#E5E5E5]">
             Mark Up Photo

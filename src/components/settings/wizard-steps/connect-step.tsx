@@ -55,7 +55,7 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           variants={staggerItem}
           onClick={() => handleConnect("gmail")}
           disabled={!!connecting}
-          className="group flex items-center gap-4 p-4 border border-white/10 bg-[#141414] hover:border-white/20 transition-all"
+          className="group flex items-center gap-4 p-4 border border-white/10 bg-glass glass-surface hover:border-white/20 transition-all"
           style={{ borderRadius: 3 }}
         >
           <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10" style={{ borderRadius: 2 }}>
@@ -80,7 +80,7 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           variants={staggerItem}
           onClick={() => handleConnect("microsoft365")}
           disabled={!!connecting}
-          className="group flex items-center gap-4 p-4 border border-white/10 bg-[#141414] hover:border-white/20 transition-all"
+          className="group flex items-center gap-4 p-4 border border-white/10 bg-glass glass-surface hover:border-white/20 transition-all"
           style={{ borderRadius: 3 }}
         >
           <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10" style={{ borderRadius: 2 }}>

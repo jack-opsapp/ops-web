@@ -33,7 +33,7 @@ export function ExpenseFilters({
   return (
     <div className="space-y-2">
       {/* Tab toggle */}
-      <div className="flex bg-background-card border border-border rounded-lg p-0.5">
+      <div className="flex bg-glass glass-surface border border-border rounded-lg p-0.5">
         <button
           onClick={() => onTabChange("review")}
           className={cn(

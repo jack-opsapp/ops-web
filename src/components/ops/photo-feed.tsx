@@ -39,7 +39,7 @@ export interface PhotoFeedProps {
 
 function PhotoCardSkeleton() {
   return (
-    <div className="bg-background-card border border-border rounded-[3px] overflow-hidden mb-4 animate-pulse">
+    <div className="bg-glass glass-surface border border-border rounded-[3px] overflow-hidden mb-4 animate-pulse">
       <div className="w-full h-[280px] bg-[rgba(255,255,255,0.04)]" />
       <div className="px-4 py-3 flex items-center gap-3">
         <div className="h-7 w-7 rounded-full bg-[rgba(255,255,255,0.06)]" />
@@ -66,7 +66,7 @@ function PhotoCard({
   const timeAgo = formatDistanceToNow(photoDate, { addSuffix: true });
 
   return (
-    <div className="bg-background-card border border-border rounded-[3px] overflow-hidden mb-4">
+    <div className="bg-glass glass-surface border border-border rounded-[3px] overflow-hidden mb-4">
       {/* Image — click opens full size */}
       <a href={photo.url} target="_blank" rel="noopener noreferrer">
         <img
@@ -205,7 +205,7 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
           placeholder={t("photoFeed.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
+          className="font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
         />
       </div>
 

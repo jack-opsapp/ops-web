@@ -155,7 +155,7 @@ export function AppearanceTab() {
               }}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative",
-                compactMode ? "bg-ops-accent" : "bg-background-elevated"
+                compactMode ? "bg-ops-accent" : "bg-fill-neutral-dim"
               )}
             >
               <span

@@ -53,7 +53,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-lg border bg-background-panel p-3 transition-all duration-200",
+        "relative flex flex-col rounded-lg border bg-glass glass-surface p-3 transition-all duration-200",
         display.borderClass,
         display.glowClass,
         display.popular && "ring-1 ring-ops-amber/20"
@@ -70,7 +70,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
 
       {/* Header */}
       <div className="flex items-center gap-1 mb-2">
-        <div className={cn("p-1 rounded bg-background-elevated", display.accentClass)}>
+        <div className={cn("p-1 rounded bg-fill-neutral-dim", display.accentClass)}>
           {display.icon}
         </div>
         <div>

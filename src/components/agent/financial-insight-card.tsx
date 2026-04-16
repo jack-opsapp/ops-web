@@ -41,7 +41,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
       <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider mb-3">
         {title}
       </h3>
@@ -67,7 +67,7 @@ function CollapsibleSection({
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 min-h-[56px] text-left"

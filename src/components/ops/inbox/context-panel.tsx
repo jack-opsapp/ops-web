@@ -270,11 +270,11 @@ export function ContextPanel({
                   {conversation.displayName}
                 </p>
                 <div className="space-y-1">
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors">
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
                     <UserPlus className="w-[12px] h-[12px] text-text-3" />
                     <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.createClient")}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors">
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
                     <Link className="w-[12px] h-[12px] text-text-3" />
                     <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.linkToClient")}</span>
                   </button>
@@ -327,7 +327,7 @@ export function ContextPanel({
                               key={c.email || i}
                               className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors"
                             >
-                              <div className="w-[24px] h-[24px] rounded-full bg-background-card border border-border-subtle flex items-center justify-center shrink-0">
+                              <div className="w-[24px] h-[24px] rounded-full bg-glass glass-surface border border-border-subtle flex items-center justify-center shrink-0">
                                 <Users className="w-[10px] h-[10px] text-text-mute" />
                               </div>
                               <div className="min-w-0 flex-1">
@@ -454,7 +454,7 @@ export function ContextPanel({
                     <div className="pt-2 border-t border-border-subtle">
                       <button
                         onClick={() => router.push(`/clients/${conversation?.clientId}`)}
-                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors"
+                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors"
                       >
                         <ExternalLink className="w-[11px] h-[11px] text-text-3" />
                         <span className="font-kosugi text-micro text-text-2 uppercase">
@@ -487,7 +487,7 @@ function ImageThumbnail({
   const src = `/api/integrations/email/attachment?companyId=${companyId}&messageId=${image.messageId}&attachmentId=${encodeURIComponent(image.attachmentId)}&mimeType=${encodeURIComponent(image.mimeType)}`;
 
   return (
-    <div className="group relative aspect-square rounded-[3px] overflow-hidden border border-border-subtle bg-background-card">
+    <div className="group relative aspect-square rounded-[3px] overflow-hidden border border-border-subtle bg-glass glass-surface">
       <img
         src={src}
         alt={image.filename}
@@ -500,7 +500,7 @@ function ImageThumbnail({
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-end p-1.5">
           <button
             onClick={() => onGoToThread(image.threadId)}
-            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-background-card/90 border border-border-subtle text-text-2 hover:text-ops-accent transition-colors cursor-pointer"
+            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-glass glass-surface/90 border border-border-subtle text-text-2 hover:text-ops-accent transition-colors cursor-pointer"
           >
             <ArrowRight className="w-[10px] h-[10px] shrink-0" />
             <span className="font-kosugi text-[9px] uppercase tracking-wider truncate">

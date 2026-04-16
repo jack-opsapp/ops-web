@@ -28,7 +28,7 @@ function ToggleSwitch({ enabled, onToggle, disabled, size = "default" }: ToggleS
         "rounded-full transition-colors relative shrink-0",
         isDefault ? "w-[40px] h-[22px]" : "w-[32px] h-[18px]",
         disabled && "opacity-30 cursor-not-allowed",
-        enabled ? "bg-ops-accent" : "bg-background-elevated"
+        enabled ? "bg-ops-accent" : "bg-fill-neutral-dim"
       )}
     >
       <span

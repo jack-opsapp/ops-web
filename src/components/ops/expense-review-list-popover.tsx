@@ -143,7 +143,7 @@ function BatchRow({
           dotColor ? (
             <div className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
           ) : (
-            <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-background-elevated flex items-center justify-center">
+            <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-fill-neutral-dim flex items-center justify-center">
               <span className="font-kosugi text-[8px] text-text-3 uppercase">
                 {submitterName.slice(0, 2)}
               </span>
@@ -439,7 +439,7 @@ export function ExpenseReviewListPopover() {
         transition={{ duration: 0.2, ease: EASE_SMOOTH }}
         className={cn(
           "fixed flex flex-col overflow-hidden",
-          "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]",
+          "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
           "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
           (isDragging || isResizing) && "select-none"
         )}

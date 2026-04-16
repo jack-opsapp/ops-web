@@ -107,7 +107,7 @@ export const PhaseCDashboard = memo(function PhaseCDashboard() {
 
   if (loading || !data) {
     return (
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
         <span className="font-kosugi text-[11px] text-text-3 uppercase">
           [{t("dashboard.loading")}]
         </span>
@@ -126,7 +126,7 @@ export const PhaseCDashboard = memo(function PhaseCDashboard() {
   return (
     <motion.div
       {...cardMotion}
-      className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] p-4"
+      className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

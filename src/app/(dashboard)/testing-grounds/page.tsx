@@ -79,13 +79,13 @@ export default function TestingGroundsPage() {
                 setMode("launch");
               }
             }}
-            className="px-4 py-2 rounded-lg bg-background-card border border-border text-text-2 font-mohave text-body hover:border-border-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-glass glass-surface border border-border text-text-2 font-mohave text-body hover:border-border-medium transition-colors"
           >
             Launch Animation {answeredCount < 4 ? `(need ${4 - answeredCount} more)` : ""}
           </button>
           <button
             onClick={resetAnswers}
-            className="px-4 py-2 rounded-lg bg-background-card border border-border text-text-3 font-mohave text-body hover:border-border-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-glass glass-surface border border-border text-text-3 font-mohave text-body hover:border-border-medium transition-colors"
           >
             Reset
           </button>
@@ -123,7 +123,7 @@ export default function TestingGroundsPage() {
           )}
           <button
             onClick={() => setMode("idle")}
-            className="px-3 py-1.5 rounded-lg bg-background-card border border-border text-text-2 font-mohave text-body-sm hover:border-border-medium transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-glass glass-surface border border-border text-text-2 font-mohave text-body-sm hover:border-border-medium transition-colors"
           >
             Exit
           </button>
@@ -144,7 +144,7 @@ export default function TestingGroundsPage() {
       <div className="absolute top-4 right-4 z-10">
         <button
           onClick={() => setMode("idle")}
-          className="px-3 py-1.5 rounded-lg bg-background-card border border-border text-text-2 font-mohave text-body-sm hover:border-border-medium transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-glass glass-surface border border-border text-text-2 font-mohave text-body-sm hover:border-border-medium transition-colors"
         >
           Exit
         </button>

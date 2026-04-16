@@ -330,7 +330,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
             </label>
             <select
               {...register("source")}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+              className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select source...</option>
               {sourceOptions.map((s) => (
@@ -346,7 +346,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
             </label>
             <select
               {...register("priority")}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+              className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select priority...</option>
               {priorityOptions.map((p) => (

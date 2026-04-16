@@ -33,7 +33,7 @@ export function PhotoCaptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border-white/10 bg-[#111]">
+      <DialogContent className="max-w-md border-white/10 bg-surface-input">
         <DialogHeader>
           <DialogTitle className="text-[#E5E5E5]">
             Photo Caption

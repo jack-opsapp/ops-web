@@ -70,7 +70,7 @@ function CrewPicker({
         )}
       </button>
       {open && (
-        <div className="absolute z-50 top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto bg-background-elevated border border-border rounded shadow-lg">
+        <div className="absolute z-50 top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto bg-fill-neutral-dim border border-border rounded shadow-lg">
           {members.map((member) => {
             const name = getUserFullName(member);
             const selected = selectedIds.includes(member.id);

@@ -484,7 +484,7 @@ export default function AccountingPage() {
         </p>
 
         {/* Tabs */}
-        <div className="flex bg-background-card border border-border rounded-lg p-0.5">
+        <div className="flex bg-glass glass-surface border border-border rounded-lg p-0.5">
           {tabs.map((tab) => (
             <button
               key={tab.value}

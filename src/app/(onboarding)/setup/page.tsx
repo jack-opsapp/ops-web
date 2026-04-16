@@ -486,7 +486,7 @@ export default function SetupPage() {
           <button
             onClick={handleBack}
             aria-label="Back to company information"
-            className="flex items-center gap-0.5 px-2 min-h-[56px] min-w-[56px] rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm uppercase hover:border-[rgba(255,255,255,0.18)] transition-colors"
+            className="flex items-center gap-0.5 px-2 min-h-[56px] min-w-[56px] rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm uppercase hover:border-[rgba(255,255,255,0.18)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
@@ -608,7 +608,7 @@ export default function SetupPage() {
       </h1>
 
       {/* Glass surface card */}
-      <div className="bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm p-3">
+      <div className="bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm p-3">
         {/* Progress bar + step label */}
         <div className="mb-3">
           <div className="mb-1">

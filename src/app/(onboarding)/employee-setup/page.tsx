@@ -308,7 +308,7 @@ export default function EmployeeSetupPage() {
       </h1>
 
       {/* Glass surface card */}
-      <div className="bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm">
+      <div className="bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm">
         {/* Progress header */}
         <div className="p-3 pb-0">
           <div className="flex items-center justify-between mb-1">

@@ -90,7 +90,7 @@ export function ThreadSelector({
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-[5px] rounded-[3px] border max-w-[220px]",
-            "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]",
+            "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
             "border-border-subtle text-text-2",
             "hover:bg-surface-input transition-colors cursor-pointer"
           )}
@@ -143,7 +143,7 @@ export function ThreadSelector({
     <div ref={containerRef} className="overflow-hidden">
       <div
         ref={tabsRef}
-        className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2] whitespace-nowrap"
+        className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] whitespace-nowrap"
       >
         {threads.map((thread, i) => {
           const isActive = thread.threadId === selectedThreadId;

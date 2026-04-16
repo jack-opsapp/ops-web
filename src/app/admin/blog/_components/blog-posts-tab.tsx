@@ -82,9 +82,9 @@ function BlogPreviewModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-3xl bg-[#141414] border border-white/[0.1] rounded-xl shadow-2xl mx-4">
+      <div className="relative w-full max-w-3xl bg-glass glass-surface border border-white/[0.1] rounded-xl shadow-2xl mx-4">
         {/* Top bar */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#141414] border-b border-white/[0.08] rounded-t-xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-glass glass-surface border-b border-white/[0.08] rounded-t-xl">
           <div className="flex items-center gap-3">
             {post.is_live ? (
               <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368]">

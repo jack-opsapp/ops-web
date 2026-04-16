@@ -53,7 +53,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
         // Layout
         "w-full text-left px-3 py-2 flex flex-col gap-1.5",
         // Surface
-        "bg-background-card border rounded",
+        "bg-glass glass-surface border rounded",
         // Transition
         "transition-colors duration-150",
         // States

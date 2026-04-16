@@ -87,7 +87,7 @@ function AddSubClientForm({
   }
 
   return (
-    <div className="border border-ops-accent/30 rounded-lg p-1.5 space-y-1 bg-background-elevated/30 animate-slide-up">
+    <div className="border border-ops-accent/30 rounded-lg p-1.5 space-y-1 bg-fill-neutral-dim/30 animate-slide-up">
       <div className="grid grid-cols-2 gap-1">
         <Input
           placeholder="Name *"
@@ -162,25 +162,25 @@ function DetailLoadingSkeleton() {
   return (
     <div className="space-y-3 max-w-[1000px] animate-pulse">
       <div className="flex items-start gap-2">
-        <div className="w-[40px] h-[40px] rounded bg-background-elevated shrink-0" />
+        <div className="w-[40px] h-[40px] rounded bg-fill-neutral-dim shrink-0" />
         <div className="flex-1 space-y-1">
           <div className="flex items-center gap-1.5">
-            <div className="w-[52px] h-[52px] rounded-full bg-background-elevated" />
+            <div className="w-[52px] h-[52px] rounded-full bg-fill-neutral-dim" />
             <div className="space-y-1 flex-1">
-              <div className="h-[24px] bg-background-elevated rounded w-1/3" />
-              <div className="h-[14px] bg-background-elevated rounded w-1/4" />
+              <div className="h-[24px] bg-fill-neutral-dim rounded w-1/3" />
+              <div className="h-[14px] bg-fill-neutral-dim rounded w-1/4" />
             </div>
           </div>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         <div className="space-y-2">
-          <div className="h-[200px] bg-background-card border border-border rounded-lg" />
-          <div className="h-[120px] bg-background-card border border-border rounded-lg" />
-          <div className="h-[150px] bg-background-card border border-border rounded-lg" />
+          <div className="h-[200px] bg-glass glass-surface border border-border rounded-lg" />
+          <div className="h-[120px] bg-glass glass-surface border border-border rounded-lg" />
+          <div className="h-[150px] bg-glass glass-surface border border-border rounded-lg" />
         </div>
         <div className="lg:col-span-2">
-          <div className="h-[300px] bg-background-card border border-border rounded-lg" />
+          <div className="h-[300px] bg-glass glass-surface border border-border rounded-lg" />
         </div>
       </div>
     </div>
@@ -765,7 +765,7 @@ export default function ClientDetailPage() {
                       <div
                         key={project.id}
                         onClick={() => router.push(`/projects/${project.id}?fromClient=${clientId}`)}
-                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/50 hover:bg-background-elevated cursor-pointer transition-all group"
+                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/50 hover:bg-fill-neutral-dim cursor-pointer transition-all group"
                       >
                         <div className="flex items-center gap-1 min-w-0">
                           <FolderKanban className="w-[16px] h-[16px] text-text-3 shrink-0" />
@@ -820,7 +820,7 @@ export default function ClientDetailPage() {
                       <div
                         key={project.id}
                         onClick={() => router.push(`/projects/${project.id}?fromClient=${clientId}`)}
-                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/30 hover:bg-background-elevated cursor-pointer transition-all opacity-70 hover:opacity-100"
+                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/30 hover:bg-fill-neutral-dim cursor-pointer transition-all opacity-70 hover:opacity-100"
                       >
                         <div className="flex items-center gap-1 min-w-0">
                           <FolderKanban className="w-[16px] h-[16px] text-text-mute shrink-0" />

@@ -265,7 +265,7 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-[4px] border bg-background-panel p-2.5 transition-all duration-200",
+        "relative flex flex-col rounded-[4px] border bg-glass glass-surface p-2.5 transition-all duration-200",
         display.borderClass,
         display.popular && "ring-1 ring-ops-amber/20"
       )}
@@ -279,7 +279,7 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
       )}
 
       <div className="flex items-center gap-1 mb-1.5">
-        <div className={cn("p-0.5 rounded bg-background-elevated", display.accentClass)}>
+        <div className={cn("p-0.5 rounded bg-fill-neutral-dim", display.accentClass)}>
           {display.icon}
         </div>
         <h3 className="font-mohave text-body text-text">{config.name}</h3>

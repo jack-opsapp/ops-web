@@ -20,8 +20,8 @@ const DropdownMenuSubTrigger = React.forwardRef<
       "flex cursor-pointer select-none items-center gap-1 rounded-sm px-1 py-[6px]",
       "text-body-sm text-text font-mohave",
       "outline-none",
-      "focus:bg-background-elevated",
-      "data-[state=open]:bg-background-elevated",
+      "focus:bg-fill-neutral-dim",
+      "data-[state=open]:bg-fill-neutral-dim",
       inset && "pl-4",
       className
     )}
@@ -41,7 +41,7 @@ const DropdownMenuSubContent = React.forwardRef<
     ref={ref}
     className={cn(
       "z-50 min-w-[180px] overflow-hidden",
-      "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
+      "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
       "p-0.5",
       "data-[state=open]:animate-scale-in",
       className
@@ -61,7 +61,7 @@ const DropdownMenuContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "z-50 min-w-[180px] overflow-hidden",
-        "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
+        "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
         "p-0.5",
         "data-[state=open]:animate-scale-in",
         className
@@ -82,7 +82,7 @@ const DropdownMenuItem = React.forwardRef<
       "relative flex cursor-pointer select-none items-center gap-1 rounded-sm px-1 py-[6px]",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "focus:bg-background-elevated focus:text-text",
+      "focus:bg-fill-neutral-dim focus:text-text",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
       inset && "pl-4",
       className
@@ -102,7 +102,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
       "relative flex cursor-pointer select-none items-center rounded-sm py-[6px] pl-4 pr-1",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "focus:bg-background-elevated",
+      "focus:bg-fill-neutral-dim",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
       className
     )}
@@ -129,7 +129,7 @@ const DropdownMenuRadioItem = React.forwardRef<
       "relative flex cursor-pointer select-none items-center rounded-sm py-[6px] pl-4 pr-1",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "focus:bg-background-elevated",
+      "focus:bg-fill-neutral-dim",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
       className
     )}

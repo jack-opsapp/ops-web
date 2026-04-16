@@ -114,7 +114,7 @@ function OptionsEditor({ options, onChange, answerType }: OptionsEditorProps) {
           {options.map((opt, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded bg-background-elevated border border-border text-body-sm text-text-2 font-mohave"
+              className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded bg-fill-neutral-dim border border-border text-body-sm text-text-2 font-mohave"
             >
               {answerType === "color" && (
                 <span
@@ -261,7 +261,7 @@ function QuestionForm({ initial, onSubmit, onCancel, submitLabel }: QuestionForm
           onClick={() => setIsRequired(!isRequired)}
           className={cn(
             "w-[40px] h-[22px] rounded-full transition-colors relative",
-            isRequired ? "bg-ops-accent" : "bg-background-elevated"
+            isRequired ? "bg-ops-accent" : "bg-fill-neutral-dim"
           )}
         >
           <span
@@ -434,7 +434,7 @@ export function LineItemQuestionEditor({
                       {question.options.slice(0, 6).map((opt, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded bg-background-elevated text-[10px] text-text-3 font-kosugi border border-[rgba(255,255,255,0.06)]"
+                          className="inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded bg-fill-neutral-dim text-[10px] text-text-3 font-kosugi border border-[rgba(255,255,255,0.06)]"
                         >
                           {question.answerType === "color" && (
                             <span

@@ -113,7 +113,7 @@ function ClientSelector({
               disabled={isLoadingClients}
             />
             {showDropdown && !isLoadingClients && (
-              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-background-panel border border-border rounded-lg shadow-floating max-h-[200px] overflow-y-auto">
+              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-glass glass-surface border border-border rounded-lg shadow-floating max-h-[200px] overflow-y-auto">
                 {filteredClients.length === 0 ? (
                   <div className="px-1.5 py-1 text-left">
                     <p className="font-mohave text-body-sm text-text-3">
@@ -130,7 +130,7 @@ function ClientSelector({
                         setShowDropdown(false);
                         setClientSearch("");
                       }}
-                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-2 hover:text-text hover:bg-background-elevated transition-colors"
+                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-2 hover:text-text hover:bg-fill-neutral-dim transition-colors"
                     >
                       {client.name}
                     </button>
@@ -177,7 +177,7 @@ function TeamMemberSelector({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-[36px] w-[120px] bg-background-elevated rounded animate-pulse"
+              className="h-[36px] w-[120px] bg-fill-neutral-dim rounded animate-pulse"
             />
           ))}
         </div>
@@ -224,7 +224,7 @@ function TeamMemberSelector({
                   "w-[20px] h-[20px] rounded-full flex items-center justify-center text-[10px]",
                   isSelected
                     ? "bg-ops-accent text-white"
-                    : "bg-background-elevated text-text-3"
+                    : "bg-fill-neutral-dim text-text-3"
                 )}
               >
                 {isSelected ? (
@@ -351,7 +351,7 @@ export default function NewProjectPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="bg-background-panel border border-border rounded-lg p-3 space-y-3">
+        <div className="bg-glass glass-surface border border-border rounded-lg p-3 space-y-3">
           {/* Project Name */}
           <Input
             label={t("new.nameLabel")}

@@ -220,7 +220,7 @@ export function CompanyTab() {
               {t("company.logo")}
             </label>
             <div className="flex items-center gap-1.5">
-              <div className="relative w-[56px] h-[56px] rounded-lg bg-background-elevated border border-border flex items-center justify-center overflow-hidden">
+              <div className="relative w-[56px] h-[56px] rounded-lg bg-fill-neutral-dim border border-border flex items-center justify-center overflow-hidden">
                 {logoUpload.isUploading ? (
                   <>
                     {/* Show preview as background while uploading */}
@@ -296,7 +296,7 @@ export function CompanyTab() {
                 {t("company.companyCode")}
               </label>
               <div className="flex items-center gap-1">
-                <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-sm border border-border bg-background-elevated">
+                <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-sm border border-border bg-fill-neutral-dim">
                   <span className="font-mono text-body-sm text-text tracking-wider">
                     {company.companyCode}
                   </span>
@@ -309,7 +309,7 @@ export function CompanyTab() {
                     toast.success(t("company.toast.codeCopied"));
                     setTimeout(() => setCodeCopied(false), 2000);
                   }}
-                  className="p-[10px] rounded-sm border border-border bg-surface-input hover:bg-background-elevated transition-colors"
+                  className="p-[10px] rounded-sm border border-border bg-surface-input hover:bg-fill-neutral-dim transition-colors"
                 >
                   {codeCopied ? (
                     <Check className="w-[16px] h-[16px] text-status-success" />

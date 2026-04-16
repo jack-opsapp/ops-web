@@ -92,7 +92,7 @@ function PhotoGroup({
       {/* Group header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-[#111] hover:bg-[#1A1A1A] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-surface-input hover:bg-glass glass-surface transition-colors"
       >
         <div className="flex items-center gap-2">
           <span className={cn("text-sm font-medium", config.color)}>
@@ -113,7 +113,7 @@ function PhotoGroup({
           {shown.map((photo) => (
             <div
               key={photo.id}
-              className="group relative aspect-square rounded-lg overflow-hidden bg-[#1A1A1A] cursor-pointer"
+              className="group relative aspect-square rounded-lg overflow-hidden bg-glass glass-surface cursor-pointer"
               onClick={() => setLightbox({ url: photo.url, caption: photo.caption })}
             >
               <img
@@ -138,7 +138,7 @@ function PhotoGroup({
           {hidden > 0 && (
             <button
               onClick={() => setExpanded(true)}
-              className="aspect-square rounded-lg bg-[#1A1A1A] flex items-center justify-center text-sm text-[#9CA3AF] hover:bg-[#2A2A2A] transition-colors"
+              className="aspect-square rounded-lg bg-glass glass-surface flex items-center justify-center text-sm text-[#9CA3AF] hover:bg-[#2A2A2A] transition-colors"
             >
               +{hidden} more
             </button>
@@ -220,7 +220,7 @@ function UploadButton({
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 top-10 z-50 w-44 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg shadow-xl py-1">
+        <div className="absolute right-0 top-10 z-50 w-44 bg-glass glass-surface border border-[#2A2A2A] rounded-lg shadow-xl py-1">
           {SOURCE_ORDER.map((source) => (
             <label
               key={source}

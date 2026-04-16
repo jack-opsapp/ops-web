@@ -408,7 +408,7 @@ export function CalendarScheduler({
       <div
         className={cn(
           "flex items-center px-1.5 py-1",
-          "bg-background-card border rounded-sm transition-all duration-150",
+          "bg-glass glass-surface border rounded-sm transition-all duration-150",
           hasSelection ? "border-ops-accent/30" : "border-border"
         )}
       >
@@ -475,7 +475,7 @@ export function CalendarScheduler({
       </div>
 
       {/* Calendar grid */}
-      <div className="bg-background-card border border-border rounded-sm p-1.5">
+      <div className="bg-glass glass-surface border border-border rounded-sm p-1.5">
         {/* Month navigation */}
         <div className="flex items-center justify-between mb-1">
           <button

@@ -121,7 +121,7 @@ export function AssignRoleModal({
         </DialogHeader>
 
         <div className="flex items-center gap-3 py-2">
-          <div className="w-12 h-12 rounded-full border border-border-subtle bg-background-elevated flex items-center justify-center font-mohave text-body-lg text-text">
+          <div className="w-12 h-12 rounded-full border border-border-subtle bg-fill-neutral-dim flex items-center justify-center font-mohave text-body-lg text-text">
             {firstName.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">

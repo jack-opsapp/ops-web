@@ -113,7 +113,7 @@ export function DraftReplyButton({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.3, ease: EASE_SMOOTH }}
-              className="w-full max-w-lg mx-4 rounded border border-white/10 bg-[#0D0D0D] shadow-2xl"
+              className="w-full max-w-lg mx-4 rounded border border-white/10 bg-black shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -159,7 +159,7 @@ export function DraftReplyButton({
                   </div>
                 ) : draftResult?.draft ? (
                   <div className="space-y-3">
-                    <div className="p-3 rounded border border-white/10 bg-[#141414] max-h-[300px] overflow-y-auto scrollbar-hide">
+                    <div className="p-3 rounded border border-white/10 bg-glass glass-surface max-h-[300px] overflow-y-auto scrollbar-hide">
                       <pre className="font-mohave text-sm text-white whitespace-pre-wrap leading-relaxed">
                         {draftResult.draft}
                       </pre>

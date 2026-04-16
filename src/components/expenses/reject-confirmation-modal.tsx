@@ -97,7 +97,7 @@ export function RejectConfirmationModal({
       >
         {/* Modal card */}
         <motion.div
-          className="w-full max-w-lg mx-4 bg-[#141414] border border-border rounded p-5 flex flex-col gap-4"
+          className="w-full max-w-lg mx-4 bg-glass glass-surface border border-border rounded p-5 flex flex-col gap-4"
           initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}

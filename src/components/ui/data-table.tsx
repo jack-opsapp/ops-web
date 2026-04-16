@@ -66,7 +66,7 @@ function SkeletonRow({ colCount }: { colCount: number }) {
     <tr className="border-b border-border-subtle">
       {Array.from({ length: colCount }).map((_, i) => (
         <td key={i} className="px-1.5 py-1.5">
-          <div className="h-[16px] w-full max-w-[120px] rounded-sm bg-background-elevated animate-pulse" />
+          <div className="h-[16px] w-full max-w-[120px] rounded-sm bg-fill-neutral-dim animate-pulse" />
         </td>
       ))}
     </tr>
@@ -198,7 +198,7 @@ function DataTableInner<T>(
       <div className="overflow-x-auto rounded border border-border">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="border-b border-border-medium bg-background-panel">
+            <tr className="border-b border-border-medium bg-glass glass-surface">
               {selectable && (
                 <th className="w-[40px] px-1 py-1">
                   <Checkbox
@@ -274,7 +274,7 @@ function DataTableInner<T>(
                     className={cn(
                       "border-b border-border-subtle",
                       "transition-colors duration-100",
-                      "hover:bg-background-elevated/50",
+                      "hover:bg-fill-neutral-dim/50",
                       isSelected && "bg-ops-accent-muted"
                     )}
                   >

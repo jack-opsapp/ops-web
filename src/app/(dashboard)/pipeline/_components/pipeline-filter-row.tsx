@@ -33,7 +33,7 @@ interface PipelineFilterRowProps {
 
 const DROPDOWN_SURFACE =
   "absolute top-[calc(100%+4px)] left-0 z-50 min-w-full " +
-  "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] " +
+  "bg-glass glass-surface backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)] " +
   "border border-[rgba(255,255,255,0.08)] rounded-[4px] py-[4px] shadow-lg";
 
 const DROPDOWN_ITEM =

@@ -854,7 +854,7 @@ export function ImportPipelineWizard({
       onOpenChange(isOpen);
     }}>
       <DialogContent
-        className="w-[90vw] max-w-[920px] p-0 border border-white/10 bg-[#0D0D0D] overflow-hidden"
+        className="w-[90vw] max-w-[920px] p-0 border border-white/10 bg-black overflow-hidden"
         style={{ borderRadius: 4 }}
         hideClose
         onKeyDown={(e) => {

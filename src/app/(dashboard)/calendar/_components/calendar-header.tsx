@@ -181,13 +181,13 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
         {/* Keyboard hints */}
         <div className="hidden xl:flex items-center gap-[3px] ml-[4px]">
-          <kbd className="font-mono text-[9px] text-text-mute bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-[9px] text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             T
           </kbd>
-          <kbd className="font-mono text-[9px] text-text-mute bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-[9px] text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             M
           </kbd>
-          <kbd className="font-mono text-[9px] text-text-mute bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-[9px] text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             D
           </kbd>
         </div>

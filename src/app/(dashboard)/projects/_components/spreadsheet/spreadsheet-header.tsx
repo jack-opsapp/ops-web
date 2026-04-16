@@ -54,7 +54,7 @@ export function SpreadsheetHeader({
 
   return (
     <thead>
-      <tr className="border-b border-border-medium bg-background-panel sticky top-0 z-10">
+      <tr className="border-b border-border-medium bg-glass glass-surface sticky top-0 z-10">
         {visibleColumns.map((col) => {
           if (col.id === "actions") {
             return (

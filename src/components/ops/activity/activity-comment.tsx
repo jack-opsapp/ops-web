@@ -39,7 +39,7 @@ function CommentBubble({
           "inline-block px-3 py-2 rounded-xl text-sm max-w-full break-words",
           comment.isClientVisible
             ? "bg-[#1A2A1A] text-[#E5E5E5]"
-            : "bg-[#1A1A1A] text-[#E5E5E5]"
+            : "bg-glass glass-surface text-[#E5E5E5]"
         )}>
           {comment.content}
         </div>
@@ -122,7 +122,7 @@ function AddCommentInput({
           onBlur={() => setFocused(false)}
           placeholder="Add comment… (Enter to submit)"
           rows={1}
-          className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-sm text-[#E5E5E5] placeholder-[#555] resize-none outline-none focus:border-[#417394]/50 transition-colors"
+          className="w-full bg-surface-input border border-[#2A2A2A] rounded-xl px-3 py-2 text-sm text-[#E5E5E5] placeholder-[#555] resize-none outline-none focus:border-[#417394]/50 transition-colors"
         />
         {createComment.isPending && (
           <Loader2 className="absolute right-2 top-2 h-3.5 w-3.5 animate-spin text-[#417394]" />

@@ -171,7 +171,7 @@ export function ConfirmScheduleButton({
         className={cn(
           "flex items-center gap-3 min-h-[56px] px-4 rounded-[8px]",
           "border border-[rgba(255,255,255,0.12)]",
-          "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
+          "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
           "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "hover:border-[rgba(255,255,255,0.24)]",
           "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -203,7 +203,7 @@ export function ConfirmScheduleButton({
         className={cn(
           "flex items-center gap-3 min-h-[56px] px-4 rounded-[8px]",
           "border border-[rgba(255,255,255,0.08)]",
-          "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]",
+          "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
           className
         )}
       >

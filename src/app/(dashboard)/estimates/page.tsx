@@ -250,7 +250,7 @@ export default function EstimatesPage() {
       {isLoading ? (
         <div className="space-y-[2px] animate-pulse">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[48px] bg-background-card border border-border rounded" />
+            <div key={i} className="h-[48px] bg-glass glass-surface border border-border rounded" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -272,7 +272,7 @@ export default function EstimatesPage() {
           )}
         </div>
       ) : (
-        <div className="bg-background-card border border-border rounded-lg overflow-x-auto">
+        <div className="bg-glass glass-surface border border-border rounded-lg overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
@@ -306,7 +306,7 @@ export default function EstimatesPage() {
               {filtered.map((estimate) => (
                 <tr
                   key={estimate.id}
-                  className="border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors"
+                  className="border-b border-border-subtle hover:bg-fill-neutral-dim cursor-pointer transition-colors"
                   onClick={() => { if (!can("estimates.edit")) return; setEditingEstimate(estimate); }}
                 >
                   <td className="px-1.5 py-1">
@@ -629,7 +629,7 @@ function EstimateFormModal({
             {[48, 48, 48, 120, 80, 80].map((h, i) => (
               <div
                 key={i}
-                className="w-full rounded bg-background-elevated/40 animate-pulse"
+                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse"
                 style={{ height: h }}
               />
             ))}
@@ -658,7 +658,7 @@ function EstimateFormModal({
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
                 <option value="">Select client...</option>
                 {clients.map((c) => (
@@ -673,7 +673,7 @@ function EstimateFormModal({
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
                 <option value="">Select project (optional)...</option>
                 {projects.map((p) => (

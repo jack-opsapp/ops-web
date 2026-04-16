@@ -244,7 +244,7 @@ export function EngagementContent({
                             {pct}%
                           </span>
                           {/* Hover tooltip showing absolute count */}
-                          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#1D1D1D] border border-white/[0.08] rounded px-2 py-0.5 font-kosugi text-[11px] text-[#E5E5E5] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-glass glass-surface border border-white/[0.08] rounded px-2 py-0.5 font-kosugi text-[11px] text-[#E5E5E5] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                             {Math.round((pct / 100) * row.signups)} users
                           </span>
                         </td>

@@ -30,7 +30,7 @@ const ProjectMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-full flex items-center justify-center bg-background-card">
+      <div className="w-full h-full flex items-center justify-center bg-glass glass-surface">
         <div className="flex flex-col items-center gap-1">
           <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
           <span className="font-mono text-[11px] text-text-mute tracking-wider">
@@ -79,8 +79,8 @@ function ProjectListItem({
       className={cn(
         "w-full text-left px-1.5 py-1 rounded-lg transition-all duration-150",
         "border border-transparent",
-        "hover:bg-background-elevated",
-        isSelected && "bg-background-elevated border-ops-accent/30 shadow-[inset_2px_0_0_0_#417394]"
+        "hover:bg-fill-neutral-dim",
+        isSelected && "bg-fill-neutral-dim border-ops-accent/30 shadow-[inset_2px_0_0_0_#417394]"
       )}
     >
       <div className="flex items-start gap-1">
@@ -251,7 +251,7 @@ export default function MapPage() {
                     "flex items-center gap-[3px] px-[6px] py-[2px] rounded text-[10px] font-mono transition-colors",
                     isActive
                       ? "bg-ops-accent/20 text-ops-accent border border-ops-accent/30"
-                      : "bg-background-elevated text-text-mute border border-transparent hover:text-text-3"
+                      : "bg-fill-neutral-dim text-text-mute border border-transparent hover:text-text-3"
                   )}
                 >
                   {dotColor && (
@@ -326,7 +326,7 @@ export default function MapPage() {
           className={cn(
             "absolute top-2 left-2 z-[1000]",
             "w-[36px] h-[36px] rounded-lg",
-            "bg-background-panel/90 backdrop-blur border border-border",
+            "bg-glass glass-surface/90 backdrop-blur border border-border",
             "flex items-center justify-center",
             "text-text-3 hover:text-text transition-colors",
             "shadow-floating"
@@ -344,7 +344,7 @@ export default function MapPage() {
         <div
           className={cn(
             "absolute bottom-10 left-2 z-[1000]",
-            "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded-[5px]",
+            "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded-[5px]",
             "p-1 shadow-floating"
           )}
         >

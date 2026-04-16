@@ -151,7 +151,7 @@ function MemberActions({
       <div className="relative">
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="p-[6px] rounded hover:bg-background-elevated transition-colors"
+          className="p-[6px] rounded hover:bg-fill-neutral-dim transition-colors"
         >
           <MoreHorizontal className="w-[16px] h-[16px] text-text-3" />
         </button>
@@ -159,7 +159,7 @@ function MemberActions({
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[180px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
+            <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[180px] bg-glass glass-surface border border-border rounded-lg shadow-lg overflow-hidden">
               {/* Role section — only visible with team.assign_roles */}
               {canAssignRoles && (
                 <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
@@ -175,7 +175,7 @@ function MemberActions({
                         "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                         member.role === role.id
                           ? "text-ops-accent bg-ops-accent-muted"
-                          : "text-text-2 hover:text-text hover:bg-background-elevated"
+                          : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                       )}
                     >
                       {t(role.labelKey)}
@@ -191,7 +191,7 @@ function MemberActions({
                     handleToggleSeat();
                     setMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-background-elevated transition-colors border-b border-[rgba(255,255,255,0.04)]"
+                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-fill-neutral-dim transition-colors border-b border-[rgba(255,255,255,0.04)]"
                 >
                   <Armchair className="w-[14px] h-[14px]" />
                   {isSeated ? t("team.removeSeat") : t("team.assignSeat")}
@@ -206,7 +206,7 @@ function MemberActions({
                       setMenuOpen(false);
                       setConfirmDeactivate(true);
                     }}
-                    className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-background-elevated transition-colors"
+                    className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-fill-neutral-dim transition-colors"
                   >
                     <UserX className="w-[14px] h-[14px]" />
                     {t("team.deactivate")}
@@ -217,7 +217,7 @@ function MemberActions({
                       handleReactivate();
                       setMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-status-success hover:bg-background-elevated transition-colors"
+                    className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-status-success hover:bg-fill-neutral-dim transition-colors"
                   >
                     <UserCheck className="w-[14px] h-[14px]" />
                     {t("team.reactivate")}
@@ -368,7 +368,7 @@ function PendingInvitesCard() {
                       onClick={() => setRoleMenuOpen(roleMenuOpen === inv.id ? null : inv.id)}
                       className={cn(
                         "flex items-center gap-[4px] px-[6px] py-[3px] rounded-sm text-left transition-colors",
-                        "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] hover:bg-background-elevated",
+                        "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] hover:bg-fill-neutral-dim",
                         inv.roleName ? "text-text-2" : "text-text-mute"
                       )}
                     >
@@ -381,7 +381,7 @@ function PendingInvitesCard() {
                     {roleMenuOpen === inv.id && (
                       <>
                         <div className="fixed inset-0 z-30" onClick={() => setRoleMenuOpen(null)} />
-                        <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
+                        <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-glass glass-surface border border-border rounded-lg shadow-lg overflow-hidden">
                           <div className="px-1.5 py-[6px]">
                             <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">
                               {t("team.pendingInvitesChangeRole")}
@@ -393,7 +393,7 @@ function PendingInvitesCard() {
                                 "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                 !inv.roleId
                                   ? "text-ops-accent bg-ops-accent-muted"
-                                  : "text-text-2 hover:text-text hover:bg-background-elevated"
+                                  : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                               )}
                             >
                               {t("team.pendingInvitesNoRole")}
@@ -406,7 +406,7 @@ function PendingInvitesCard() {
                                   "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                   inv.roleId === role.id
                                     ? "text-ops-accent bg-ops-accent-muted"
-                                    : "text-text-2 hover:text-text hover:bg-background-elevated"
+                                    : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                                 )}
                               >
                                 {role.name}
@@ -421,7 +421,7 @@ function PendingInvitesCard() {
                   {/* Revoke button */}
                   <button
                     onClick={() => setConfirmRevoke(inv.id)}
-                    className="p-[6px] rounded hover:bg-background-elevated transition-colors group"
+                    className="p-[6px] rounded hover:bg-fill-neutral-dim transition-colors group"
                   >
                     <Trash2 className="w-[14px] h-[14px] text-text-mute group-hover:text-ops-error transition-colors" />
                   </button>
@@ -526,7 +526,7 @@ export function TeamTab() {
               {seatedCount} / {maxSeats}
             </span>
           </div>
-          <div className="h-[6px] bg-background-elevated rounded-full overflow-hidden">
+          <div className="h-[6px] bg-fill-neutral-dim rounded-full overflow-hidden">
             <div
               className={cn(
                 "h-full rounded-full transition-all",

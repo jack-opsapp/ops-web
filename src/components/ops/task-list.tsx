@@ -179,7 +179,7 @@ function TaskRow({
     <div
       className={cn(
         "group flex items-center gap-3.5 px-4 py-3 rounded-[3px]",
-        "bg-background-card border border-border",
+        "bg-glass glass-surface border border-border",
         "hover:border-[rgba(255,255,255,0.3)] transition-all",
         isDone && "opacity-60",
         isPastDue && !isDone && "border-ops-error/30"
@@ -337,17 +337,17 @@ function TaskListSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="h-[52px] bg-background-card border border-border rounded-[3px] flex items-center gap-3.5 px-4"
+          className="h-[52px] bg-glass glass-surface border border-border rounded-[3px] flex items-center gap-3.5 px-4"
         >
-          <div className="w-[3px] h-8 bg-background-elevated rounded-[1px]" />
+          <div className="w-[3px] h-8 bg-fill-neutral-dim rounded-[1px]" />
           <div className="flex-1">
-            <div className="h-[14px] bg-background-elevated rounded w-1/3" />
+            <div className="h-[14px] bg-fill-neutral-dim rounded w-1/3" />
           </div>
           <div className="hidden sm:flex items-center gap-1">
-            <div className="w-[26px] h-[26px] bg-background-elevated rounded-full" />
+            <div className="w-[26px] h-[26px] bg-fill-neutral-dim rounded-full" />
           </div>
-          <div className="hidden sm:block h-[14px] w-[80px] bg-background-elevated rounded" />
-          <div className="h-[20px] w-[60px] bg-background-elevated rounded" />
+          <div className="hidden sm:block h-[14px] w-[80px] bg-fill-neutral-dim rounded" />
+          <div className="h-[20px] w-[60px] bg-fill-neutral-dim rounded" />
         </div>
       ))}
     </div>
@@ -574,7 +574,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             className={cn(
               "font-mohave text-body-sm rounded-[3px] px-3 py-1.5 transition-colors",
               viewMode === "list"
-                ? "bg-background-card border border-border text-text"
+                ? "bg-glass glass-surface border border-border text-text"
                 : "border border-border-subtle text-text-3 hover:text-text-2"
             )}
           >

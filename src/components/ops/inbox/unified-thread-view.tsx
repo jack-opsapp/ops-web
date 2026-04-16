@@ -351,7 +351,7 @@ export function UnifiedThreadView({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {conversation.type === "unmatched" && (
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-border-subtle bg-surface-input text-text-3 font-kosugi text-micro uppercase tracking-wider hover:bg-background-card transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-border-subtle bg-surface-input text-text-3 font-kosugi text-micro uppercase tracking-wider hover:bg-glass glass-surface transition-colors">
               <LinkIcon className="w-3.5 h-3.5" />
               {t("unmatched.linkToClient")}
             </button>
@@ -362,7 +362,7 @@ export function UnifiedThreadView({
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border font-kosugi text-micro uppercase tracking-wider transition-colors",
               contextOpen
                 ? "bg-ops-accent-muted text-ops-accent border-ops-accent/20"
-                : "bg-surface-input text-text-3 border-border-subtle hover:bg-background-card"
+                : "bg-surface-input text-text-3 border-border-subtle hover:bg-glass glass-surface"
             )}
           >
             <PanelRight className="w-3.5 h-3.5" />

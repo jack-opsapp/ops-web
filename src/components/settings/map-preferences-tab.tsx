@@ -67,7 +67,7 @@ export function MapPreferencesTab() {
               }}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                mapShowTraffic ? "bg-ops-accent" : "bg-background-elevated"
+                mapShowTraffic ? "bg-ops-accent" : "bg-fill-neutral-dim"
               )}
             >
               <span
@@ -93,7 +93,7 @@ export function MapPreferencesTab() {
               }}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                mapShowCrewLabels ? "bg-ops-accent" : "bg-background-elevated"
+                mapShowCrewLabels ? "bg-ops-accent" : "bg-fill-neutral-dim"
               )}
             >
               <span

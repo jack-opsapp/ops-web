@@ -117,7 +117,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
 
     default:
       return (
-        <div className="h-full rounded-lg bg-background-card border border-border p-2 flex items-center justify-center">
+        <div className="h-full rounded-lg bg-glass glass-surface border border-border p-2 flex items-center justify-center">
           <span className="font-mono text-[9px] text-text-mute">{typeId}</span>
         </div>
       );

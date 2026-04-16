@@ -179,7 +179,7 @@ export function ScheduleSettingsTab() {
       />
 
       {/* Optimization window */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
         <div className="flex items-center justify-between min-h-[56px]">
           <span className="font-mohave text-[13px] text-text-2">
             {t("settings.optimizationWindow")}
@@ -205,7 +205,7 @@ export function ScheduleSettingsTab() {
       </div>
 
       {/* Feature toggles */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-0">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-0">
         <ToggleRowInline
           label={t("settings.travelOptimization")}
           description={t("settings.travelOptimizationDesc")}
@@ -227,7 +227,7 @@ export function ScheduleSettingsTab() {
       </div>
 
       {/* Weather awareness */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
         <ToggleRowInline
           label={t("settings.weatherAwareness")}
           description={t("settings.weatherAwarenessDesc")}
@@ -323,7 +323,7 @@ function ToggleRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
       <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
         <span className="font-mohave text-[14px] text-text">
           {label}

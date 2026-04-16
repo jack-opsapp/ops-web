@@ -141,7 +141,7 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
               <select
                 value={row.inventoryItemId}
                 onChange={(e) => updateRow(idx, { inventoryItemId: e.target.value })}
-                className="bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body-sm text-text"
+                className="bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body-sm text-text"
               >
                 <option value="">Select item...</option>
                 {activeInventory.map((i) => (

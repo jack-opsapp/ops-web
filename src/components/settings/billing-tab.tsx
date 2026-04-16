@@ -77,7 +77,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
         <button
           onClick={() => onRemove(method.id)}
           disabled={isRemoving}
-          className="p-[4px] rounded hover:bg-background-elevated transition-colors text-text-mute hover:text-red-400"
+          className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors text-text-mute hover:text-red-400"
           title="Remove card"
         >
           {isRemoving ? (
@@ -175,13 +175,13 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
   const styles: Record<string, string> = {
     paid: "text-status-success bg-status-success/10",
     open: "text-ops-amber bg-ops-amber/10",
-    draft: "text-text-mute bg-background-elevated",
-    void: "text-text-mute bg-background-elevated",
+    draft: "text-text-mute bg-fill-neutral-dim",
+    void: "text-text-mute bg-fill-neutral-dim",
     uncollectible: "text-ops-error bg-ops-error-muted",
   };
 
   const s = status ?? "unknown";
-  const className = styles[s] ?? "text-text-mute bg-background-elevated";
+  const className = styles[s] ?? "text-text-mute bg-fill-neutral-dim";
   const statusLabels: Record<string, string> = {
     paid: t("billing.paid"),
     open: t("billing.open"),
@@ -335,7 +335,7 @@ export function BillingTab() {
                         href={invoice.hostedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-[4px] rounded hover:bg-background-elevated transition-colors"
+                        className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors"
                       >
                         <ExternalLink className="w-[14px] h-[14px] text-ops-accent" />
                       </a>
@@ -345,7 +345,7 @@ export function BillingTab() {
                         href={invoice.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-[4px] rounded hover:bg-background-elevated transition-colors"
+                        className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors"
                       >
                         <Download className="w-[14px] h-[14px] text-text-3" />
                       </a>

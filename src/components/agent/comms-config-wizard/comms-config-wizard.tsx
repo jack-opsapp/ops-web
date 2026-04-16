@@ -305,7 +305,7 @@ export function CommsConfigWizard() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col bg-[#0D0D0D]">
+    <div className="min-h-[calc(100vh-64px)] flex flex-col bg-black">
       {/* Progress indicator */}
       <ProgressBar step={step} />
 
@@ -389,7 +389,7 @@ export function CommsConfigWizard() {
 
       {/* Footer navigation */}
       {step < 10 && (
-        <div className="border-t border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
+        <div className="border-t border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
           <div className="max-w-[640px] mx-auto px-4 py-4 flex items-center justify-between gap-3">
             <button
               type="button"
@@ -432,7 +432,7 @@ export function CommsConfigWizard() {
 
 function ProgressBar({ step }: { step: number }) {
   return (
-    <div className="border-b border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="border-b border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <div className="max-w-[640px] mx-auto px-4 py-3">
         <div className="flex items-center gap-1">
           {Array.from({ length: TOTAL_STEPS }, (_, i) => {
@@ -495,7 +495,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
         {emailTypes.map(({ key, Icon }) => (
           <div
             key={key}
-            className="p-3 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] flex items-start gap-3"
+            className="p-3 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] flex items-start gap-3"
           >
             <div
               className="w-[32px] h-[32px] rounded-[4px] shrink-0 flex items-center justify-center bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
@@ -1015,7 +1015,7 @@ function StepInvoiceCover({
       />
       {value.enabled && (
         <>
-          <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
+          <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
             <div className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em] mb-2">
               {t("step6.threshold")}
             </div>
@@ -1214,7 +1214,7 @@ function StepCategories({ t }: { t: T }) {
           autoSendFeatureEnabled={true}
         />
       ) : (
-        <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)]">
+        <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface">
           <p className="font-kosugi text-[12px] text-text-3">
             [{t("step9.noConnection")}]
           </p>
@@ -1315,7 +1315,7 @@ function StepSummary({
         {rows.map((row) => (
           <div
             key={row.labelKey}
-            className="flex items-center justify-between gap-3 min-h-[56px] px-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]"
+            className="flex items-center justify-between gap-3 min-h-[56px] px-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
           >
             <div className="flex items-center gap-2">
               <Check className="w-[14px] h-[14px] text-text-2" />

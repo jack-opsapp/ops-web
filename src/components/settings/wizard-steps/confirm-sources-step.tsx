@@ -69,7 +69,7 @@ export function ConfirmSourcesStep({
       {analysisResult.estimatePattern && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-4 border border-white/10 bg-[#141414]"
+          className="mb-4 p-4 border border-white/10 bg-glass glass-surface"
           style={{ borderRadius: 3 }}
         >
           <div className="flex items-start justify-between gap-3">
@@ -133,7 +133,7 @@ export function ConfirmSourcesStep({
             <motion.div
               key={`${source.type}-${source.pattern}-${i}`}
               variants={staggerItem}
-              className="flex items-center gap-3 p-3 border border-white/10 bg-[#141414] cursor-pointer select-none"
+              className="flex items-center gap-3 p-3 border border-white/10 bg-glass glass-surface cursor-pointer select-none"
               style={{ borderRadius: 3 }}
               animate={{ opacity: source.enabled ? 1 : 0.4 }}
               transition={{ duration: 0.2 }}

@@ -162,7 +162,7 @@ export function LineItemMaterialsSection({ lineItemId, productId, quantity }: Pr
                 onChange={(e) =>
                   updateRow(idx, { source: e.target.value as MaterialSource })
                 }
-                className="bg-background-elevated border border-border rounded px-1 py-1 font-kosugi text-[10px] uppercase text-text-2 h-7"
+                className="bg-fill-neutral-dim border border-border rounded px-1 py-1 font-kosugi text-[10px] uppercase text-text-2 h-7"
               >
                 <option value="stock">stock</option>
                 <option value="order">order</option>

@@ -111,7 +111,7 @@ function LifecycleSettings() {
             onClick={() => handleToggle("autoGenerateTasks", autoGenerate)}
             className={cn(
               "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-              autoGenerate ? "bg-ops-accent" : "bg-background-elevated"
+              autoGenerate ? "bg-ops-accent" : "bg-fill-neutral-dim"
             )}
           >
             <span
@@ -154,7 +154,7 @@ function LifecycleSettings() {
             onClick={() => handleToggle("gmailAutoLogEnabled", gmailAutoLog)}
             className={cn(
               "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-              gmailAutoLog ? "bg-ops-accent" : "bg-background-elevated"
+              gmailAutoLog ? "bg-ops-accent" : "bg-fill-neutral-dim"
             )}
           >
             <span
@@ -220,7 +220,7 @@ function QuickActionsCard() {
                 className={cn(
                   "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
                   "disabled:opacity-40 disabled:cursor-not-allowed",
-                  isActive ? "bg-ops-accent" : "bg-background-elevated"
+                  isActive ? "bg-ops-accent" : "bg-fill-neutral-dim"
                 )}
               >
                 <span

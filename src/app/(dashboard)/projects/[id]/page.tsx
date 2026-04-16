@@ -140,20 +140,20 @@ function DetailSkeleton() {
       {/* Header skeleton */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <div className="flex items-center gap-2">
-          <div className="h-[18px] bg-background-elevated rounded w-[60px]" />
-          <div className="h-[18px] bg-background-elevated rounded w-[4px]" />
-          <div className="h-[18px] bg-background-elevated rounded w-[180px]" />
-          <div className="h-[20px] bg-background-elevated rounded w-[70px]" />
+          <div className="h-[18px] bg-fill-neutral-dim rounded w-[60px]" />
+          <div className="h-[18px] bg-fill-neutral-dim rounded w-[4px]" />
+          <div className="h-[18px] bg-fill-neutral-dim rounded w-[180px]" />
+          <div className="h-[20px] bg-fill-neutral-dim rounded w-[70px]" />
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-[32px] bg-background-elevated rounded w-[120px]" />
-          <div className="h-[32px] bg-background-elevated rounded w-[70px]" />
+          <div className="h-[32px] bg-fill-neutral-dim rounded w-[120px]" />
+          <div className="h-[32px] bg-fill-neutral-dim rounded w-[70px]" />
         </div>
       </div>
       {/* Tab bar skeleton */}
       <div className="border-b border-border px-6 flex gap-2 py-3">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-[16px] bg-background-elevated rounded w-[60px]" />
+          <div key={i} className="h-[16px] bg-fill-neutral-dim rounded w-[60px]" />
         ))}
       </div>
       {/* Body skeleton */}
@@ -161,40 +161,40 @@ function DetailSkeleton() {
         {/* Main content */}
         <div className="flex-1 p-6 space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-[48px] bg-background-elevated rounded w-full" />
+            <div key={i} className="h-[48px] bg-fill-neutral-dim rounded w-full" />
           ))}
         </div>
         {/* Sidebar skeleton */}
         <div className="hidden lg:block w-[280px] border-l border-border p-5 space-y-4">
           {/* Progress bar */}
           <div className="space-y-2">
-            <div className="h-[10px] bg-background-elevated rounded w-[100px]" />
-            <div className="h-[6px] bg-background-elevated rounded w-full" />
+            <div className="h-[10px] bg-fill-neutral-dim rounded w-[100px]" />
+            <div className="h-[6px] bg-fill-neutral-dim rounded w-full" />
           </div>
           {/* Metric tiles */}
           <div className="grid grid-cols-2 gap-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-background-card border border-border-subtle rounded-[3px] p-2.5 space-y-1">
-                <div className="h-[9px] bg-background-elevated rounded w-[40px]" />
-                <div className="h-[20px] bg-background-elevated rounded w-[50px]" />
+              <div key={i} className="bg-glass glass-surface border border-border-subtle rounded-[3px] p-2.5 space-y-1">
+                <div className="h-[9px] bg-fill-neutral-dim rounded w-[40px]" />
+                <div className="h-[20px] bg-fill-neutral-dim rounded w-[50px]" />
               </div>
             ))}
           </div>
           {/* Text blocks */}
           {[1, 2, 3].map((i) => (
             <div key={i} className="space-y-1.5">
-              <div className="h-[10px] bg-background-elevated rounded w-[60px]" />
-              <div className="h-[14px] bg-background-elevated rounded w-full" />
-              <div className="h-[14px] bg-background-elevated rounded w-2/3" />
+              <div className="h-[10px] bg-fill-neutral-dim rounded w-[60px]" />
+              <div className="h-[14px] bg-fill-neutral-dim rounded w-full" />
+              <div className="h-[14px] bg-fill-neutral-dim rounded w-2/3" />
             </div>
           ))}
           {/* Avatar rows */}
           <div className="space-y-1.5">
-            <div className="h-[10px] bg-background-elevated rounded w-[40px]" />
+            <div className="h-[10px] bg-fill-neutral-dim rounded w-[40px]" />
             {[1, 2].map((i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className="h-[28px] w-[28px] rounded-full bg-background-elevated" />
-                <div className="h-[14px] bg-background-elevated rounded w-[100px]" />
+                <div className="h-[28px] w-[28px] rounded-full bg-fill-neutral-dim" />
+                <div className="h-[14px] bg-fill-neutral-dim rounded w-[100px]" />
               </div>
             ))}
           </div>
@@ -247,7 +247,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
 
 function MetricTile({ label, value, colorClass = "text-text" }: { label: string; value: string; colorClass?: string }) {
   return (
-    <div className="bg-background-card border border-border-subtle rounded-[3px] p-2.5">
+    <div className="bg-glass glass-surface border border-border-subtle rounded-[3px] p-2.5">
       <span className="font-kosugi text-[9px] uppercase tracking-[0.3px] text-text-3 block">{label}</span>
       <span className={cn("font-mohave text-heading font-semibold block mt-0.5", colorClass)}>{value}</span>
     </div>
@@ -494,10 +494,10 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 placeholder={t("sidebar.searchClients")}
-                className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
+                className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
               />
             </div>
-            <div className="mt-1 max-h-[180px] overflow-y-auto bg-background-card border border-border rounded-[3px]">
+            <div className="mt-1 max-h-[180px] overflow-y-auto bg-glass glass-surface border border-border rounded-[3px]">
               {resolvedClient && (
                 <button
                   onClick={handleClearClient}
@@ -570,7 +570,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 if (e.key === "Enter") handleLocationSave();
                 if (e.key === "Escape") handleLocationCancel();
               }}
-              className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
+              className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] px-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
             />
             <div className="flex items-center gap-1.5">
               <button
@@ -902,7 +902,7 @@ function FinancialTab({ project }: { project: Project }) {
   return (
     <div className="space-y-3">
       {/* Budget Health Bar */}
-      <div className="bg-background-card border border-border rounded-[3px] p-4 mb-3">
+      <div className="bg-glass glass-surface border border-border rounded-[3px] p-4 mb-3">
         <span className="font-kosugi text-[10px] uppercase tracking-[0.3px] text-text-3 block mb-2">
           {t("financial.budgetOverview")}
         </span>

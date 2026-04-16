@@ -239,7 +239,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
             {visible.map((m) => (
               <div
                 key={m.id}
-                className="w-[18px] h-[18px] rounded-full bg-background-elevated border border-border-subtle flex items-center justify-center overflow-hidden group relative"
+                className="w-[18px] h-[18px] rounded-full bg-fill-neutral-dim border border-border-subtle flex items-center justify-center overflow-hidden group relative"
                 title={m.name}
               >
                 {m.avatarUrl ? (
@@ -272,7 +272,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
               {visibleImgs.map((url, i) => (
                 <div
                   key={i}
-                  className="w-[18px] h-[18px] rounded-[2px] bg-background-elevated border border-border-subtle overflow-hidden"
+                  className="w-[18px] h-[18px] rounded-[2px] bg-fill-neutral-dim border border-border-subtle overflow-hidden"
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 </div>
@@ -377,7 +377,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
     <tr
       className={cn(
         "border-b border-border-subtle transition-colors duration-100",
-        "hover:bg-background-elevated/50",
+        "hover:bg-fill-neutral-dim/50",
         isSelected && "bg-ops-accent-muted",
         isArchived && "opacity-50",
       )}

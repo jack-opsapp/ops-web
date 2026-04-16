@@ -268,7 +268,7 @@ export function InviteModal({
                 {t("team.companyCode")}
               </label>
               <div className="flex items-center gap-1">
-                <div className="flex-1 flex items-center gap-1 px-1.5 py-[8px] rounded-sm border border-border bg-background-elevated">
+                <div className="flex-1 flex items-center gap-1 px-1.5 py-[8px] rounded-sm border border-border bg-fill-neutral-dim">
                   <span className="font-mono text-body-sm text-text tracking-wider">
                     {companyCode}
                   </span>
@@ -276,7 +276,7 @@ export function InviteModal({
                 <button
                   type="button"
                   onClick={handleCopyCode}
-                  className="p-[8px] rounded-sm border border-border bg-surface-input hover:bg-background-elevated transition-colors"
+                  className="p-[8px] rounded-sm border border-border bg-surface-input hover:bg-fill-neutral-dim transition-colors"
                 >
                   {codeCopied ? (
                     <Check className="w-[14px] h-[14px] text-status-success" />

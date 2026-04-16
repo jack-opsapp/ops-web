@@ -36,7 +36,7 @@ function FilterSection({
     <div className="border-b border-border-subtle">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-background-elevated/30 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-fill-neutral-dim/30 transition-colors"
       >
         <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-[0.12em]">
           {title}
@@ -112,7 +112,7 @@ function FilterCheckbox({
         />
       )}
       {!avatar && (
-        <div className="w-[18px] h-[18px] rounded-full bg-background-elevated shrink-0 flex items-center justify-center">
+        <div className="w-[18px] h-[18px] rounded-full bg-fill-neutral-dim shrink-0 flex items-center justify-center">
           <span className="font-mono text-[8px] text-text-mute">
             {label.charAt(0).toUpperCase()}
           </span>
@@ -207,7 +207,7 @@ export function FilterSidebar() {
   }
 
   return (
-    <div className="w-[260px] shrink-0 bg-background-panel border border-border rounded overflow-hidden flex flex-col min-h-0">
+    <div className="w-[260px] shrink-0 bg-glass glass-surface border border-border rounded overflow-hidden flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <span className="font-mohave text-body-sm text-text">
@@ -224,7 +224,7 @@ export function FilterSidebar() {
           )}
           <button
             onClick={toggleFilterSidebar}
-            className="p-0.5 hover:bg-background-elevated/50 rounded transition-colors"
+            className="p-0.5 hover:bg-fill-neutral-dim/50 rounded transition-colors"
           >
             <X className="w-3.5 h-3.5 text-text-mute" />
           </button>
@@ -290,7 +290,7 @@ export function FilterSidebar() {
                 value={projectSearch}
                 onChange={(e) => setProjectSearch(e.target.value)}
                 placeholder={t("filter.searchProjects")}
-                className="w-full pl-[26px] pr-2 py-[5px] bg-background-elevated/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text placeholder:text-text-mute focus:outline-none focus:border-ops-accent/40 transition-colors"
+                className="w-full pl-[26px] pr-2 py-[5px] bg-fill-neutral-dim/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text placeholder:text-text-mute focus:outline-none focus:border-ops-accent/40 transition-colors"
               />
             </div>
           </div>

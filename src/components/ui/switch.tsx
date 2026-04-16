@@ -14,7 +14,7 @@ const Switch = React.forwardRef<
       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
       "disabled:cursor-not-allowed disabled:opacity-40",
       "data-[state=checked]:bg-ops-accent data-[state=checked]:shadow-glow-accent",
-      "data-[state=unchecked]:bg-background-elevated",
+      "data-[state=unchecked]:bg-fill-neutral-dim",
       className
     )}
     {...props}
@@ -23,7 +23,7 @@ const Switch = React.forwardRef<
     <SwitchPrimitive.Thumb
       className={cn(
         "pointer-events-none block h-[20px] w-[20px] rounded-full",
-        "bg-text-primary shadow-card",
+        "bg-text-primary",
         "transition-transform duration-150",
         "data-[state=checked]:translate-x-[20px] data-[state=unchecked]:translate-x-0"
       )}

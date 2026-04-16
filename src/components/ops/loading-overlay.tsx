@@ -21,7 +21,7 @@ function LoadingOverlay({ message, className }: LoadingOverlayProps) {
       aria-live="polite"
     >
       {/* Scan-line container */}
-      <div className="relative w-[200px] h-[4px] overflow-hidden rounded-full bg-background-elevated">
+      <div className="relative w-[200px] h-[4px] overflow-hidden rounded-full bg-fill-neutral-dim">
         <div
           className={cn(
             "absolute top-0 left-0 h-full w-1/3 rounded-full",

@@ -271,7 +271,7 @@ export default function InvoicesPage() {
       {isLoading ? (
         <div className="space-y-[2px] animate-pulse">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[48px] bg-background-card border border-border rounded" />
+            <div key={i} className="h-[48px] bg-glass glass-surface border border-border rounded" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -293,7 +293,7 @@ export default function InvoicesPage() {
           )}
         </div>
       ) : (
-        <div className="bg-background-card border border-border rounded-lg overflow-x-auto">
+        <div className="bg-glass glass-surface border border-border rounded-lg overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
@@ -313,7 +313,7 @@ export default function InvoicesPage() {
               {filtered.map((invoice) => (
                 <tr
                   key={invoice.id}
-                  className="border-b border-border-subtle hover:bg-background-elevated cursor-pointer transition-colors"
+                  className="border-b border-border-subtle hover:bg-fill-neutral-dim cursor-pointer transition-colors"
                   onClick={() => { if (!can("invoices.edit")) return; setEditingInvoice(invoice); }}
                 >
                   <td className="px-1.5 py-1">
@@ -622,7 +622,7 @@ function InvoiceFormModal({
             {[48, 48, 48, 120, 80, 80].map((h, i) => (
               <div
                 key={i}
-                className="w-full rounded bg-background-elevated/40 animate-pulse"
+                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse"
                 style={{ height: h }}
               />
             ))}
@@ -646,14 +646,14 @@ function InvoiceFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.client")}</label>
-              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 <option value="">Select client...</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.project")}</label>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 <option value="">Select project (optional)...</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
@@ -668,7 +668,7 @@ function InvoiceFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.paymentTerms")}</label>
-              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </div>
@@ -757,7 +757,7 @@ function RecordPaymentModal({
         </DialogHeader>
 
         <div className="space-y-2 mt-2">
-          <div className="bg-background-elevated rounded p-1.5 space-y-0.5">
+          <div className="bg-fill-neutral-dim rounded p-1.5 space-y-0.5">
             <div className="flex justify-between">
               <span className="font-kosugi text-caption text-text-3">{t("invoices.payment.invoice")}</span>
               <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
@@ -787,7 +787,7 @@ function RecordPaymentModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.method")}</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {Object.entries(paymentMethodLabels).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}

@@ -115,7 +115,7 @@ function Tooltip({ text }: { text: string }) {
         <HelpCircle className="w-[12px] h-[12px]" />
       </button>
       {show && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-[6px] z-50 px-[10px] py-[6px] bg-background-elevated border border-border rounded shadow-lg max-w-[220px] whitespace-normal">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-[6px] z-50 px-[10px] py-[6px] bg-fill-neutral-dim border border-border rounded shadow-lg max-w-[220px] whitespace-normal">
           <p className="font-kosugi text-[10px] text-text-2 leading-tight">
             {text}
           </p>
@@ -192,7 +192,7 @@ function PaletteCard({
 
       {/* Badge showing current tier if granted */}
       {isGranted && (
-        <span className="font-mono text-[9px] text-text-mute bg-background-elevated px-[6px] py-[2px] rounded-sm shrink-0">
+        <span className="font-mono text-[9px] text-text-mute bg-fill-neutral-dim px-[6px] py-[2px] rounded-sm shrink-0">
           {grantedTier === "view"
             ? t("roles.tierViewOnly")
             : grantedTier === "manage"
@@ -507,7 +507,7 @@ function TierColumn({
       {/* Column header */}
       <div
         className={cn(
-          "border-t-2 rounded-t-sm px-1.5 py-1 bg-background-elevated border border-border border-b-0",
+          "border-t-2 rounded-t-sm px-1.5 py-1 bg-fill-neutral-dim border border-border border-b-0",
           TIER_BORDER_COLORS[tier]
         )}
       >
@@ -520,7 +520,7 @@ function TierColumn({
           >
             {tierLabel}
           </h3>
-          <span className="font-mono text-[11px] text-text-mute bg-background-elevated px-[6px] py-[2px] rounded-sm">
+          <span className="font-mono text-[11px] text-text-mute bg-fill-neutral-dim px-[6px] py-[2px] rounded-sm">
             {modules.length}
           </span>
           <Tooltip text={tierTooltip} />
@@ -764,7 +764,7 @@ function PermissionBoard({
       {/* Drag overlay */}
       <DragOverlay>
         {activeDragInfo ? (
-          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-kosugi text-[11px] text-text">
+          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-glass glass-surface border border-ops-accent rounded font-kosugi text-[11px] text-text">
             {activeDragInfo.label}
             {activeDragInfo.type === "category" && (
               <span className="ml-[6px] font-mono text-[9px] text-text-mute">
@@ -1709,7 +1709,7 @@ function RoleAssignmentColumn({
       {/* Column header */}
       <div
         className={cn(
-          "flex items-center gap-[6px] px-1.5 py-1 bg-background-elevated border border-border rounded-t",
+          "flex items-center gap-[6px] px-1.5 py-1 bg-fill-neutral-dim border border-border rounded-t",
           onClickHeader && "cursor-pointer hover:bg-[rgba(255,255,255,0.06)]"
         )}
         onClick={onClickHeader}
@@ -1904,7 +1904,7 @@ function RolesAssignmentBoard({
         {/* Drag overlay */}
         <DragOverlay>
           {activeMember ? (
-            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-mohave text-[11px] text-text">
+            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-glass glass-surface border border-ops-accent rounded font-mohave text-[11px] text-text">
               {activeMember.name}
             </div>
           ) : null}
@@ -1993,7 +1993,7 @@ function RoleRow({
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-[6px] rounded hover:bg-background-elevated transition-colors"
+            className="p-[6px] rounded hover:bg-fill-neutral-dim transition-colors"
           >
             <MoreHorizontal className="w-[14px] h-[14px] text-text-3" />
           </button>
@@ -2004,14 +2004,14 @@ function RoleRow({
                 className="fixed inset-0 z-30"
                 onClick={() => setMenuOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
+              <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-glass glass-surface border border-border rounded-lg shadow-lg overflow-hidden">
                 <button
                   type="button"
                   onClick={() => {
                     onEdit();
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-background-elevated transition-colors"
+                  className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-fill-neutral-dim transition-colors"
                 >
                   {role.isPreset
                     ? t("roles.viewPermissions")
@@ -2024,7 +2024,7 @@ function RoleRow({
                       onDelete();
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-background-elevated transition-colors"
+                    className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-ops-error hover:bg-fill-neutral-dim transition-colors"
                   >
                     {t("roles.deleteRole")}
                   </button>

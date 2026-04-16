@@ -152,7 +152,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
       className={cn(
         "fixed flex flex-col overflow-hidden",
-        "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]",
+        "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
         "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
         (isDragging || isResizing) && "select-none",
       )}
@@ -171,7 +171,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
         onMouseDown={handleDragStart}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="w-[22px] h-[22px] rounded-full bg-background-elevated flex items-center justify-center shrink-0">
+          <div className="w-[22px] h-[22px] rounded-full bg-fill-neutral-dim flex items-center justify-center shrink-0">
             <span className="font-kosugi text-[8px] text-text-3 uppercase">
               {state.title.slice(0, 2)}
             </span>

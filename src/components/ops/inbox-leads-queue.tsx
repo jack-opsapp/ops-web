@@ -204,7 +204,7 @@ function LeadCard({
   };
 
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.08)] bg-[#0D0D0D] p-3 space-y-2">
+    <div className="rounded-sm border border-[rgba(255,255,255,0.08)] bg-black p-3 space-y-2">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">

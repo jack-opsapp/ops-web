@@ -163,14 +163,14 @@ export function AIFeaturesPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Company list */}
-        <div className="rounded border border-white/10 bg-[#0D0D0D]">
+        <div className="rounded border border-white/10 bg-black">
           <div className="p-4 border-b border-white/10">
             <input
               type="text"
               placeholder="Search companies..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#141414] border border-white/10 rounded px-3 py-2 text-sm font-mohave text-white placeholder:text-[#999] focus:outline-none focus:border-[#597794]"
+              className="w-full bg-glass glass-surface border border-white/10 rounded px-3 py-2 text-sm font-mohave text-white placeholder:text-[#999] focus:outline-none focus:border-[#597794]"
             />
           </div>
 
@@ -224,7 +224,7 @@ export function AIFeaturesPanel() {
         </div>
 
         {/* Company detail */}
-        <div className="rounded border border-white/10 bg-[#0D0D0D]">
+        <div className="rounded border border-white/10 bg-black">
           {detailLoading ? (
             <div className="p-6 text-left text-[#999] font-mohave text-sm">
               Loading...
@@ -241,7 +241,7 @@ export function AIFeaturesPanel() {
 
               {/* Feature toggles */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded border border-white/10 bg-[#141414]">
+                <div className="flex items-center justify-between p-3 rounded border border-white/10 bg-glass glass-surface">
                   <div>
                     <div className="font-mohave text-sm text-white">
                       AI Email Review
@@ -273,7 +273,7 @@ export function AIFeaturesPanel() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded border border-white/10 bg-[#141414]">
+                <div className="flex items-center justify-between p-3 rounded border border-white/10 bg-glass glass-surface">
                   <div>
                     <div className="font-mohave text-sm text-white">
                       Phase C
@@ -312,7 +312,7 @@ export function AIFeaturesPanel() {
                   [ MEMORY STATS ]
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="p-2 rounded border border-white/10 bg-[#141414]">
+                  <div className="p-2 rounded border border-white/10 bg-glass glass-surface">
                     <div className="font-mohave text-lg text-white">
                       {selectedCompany.memory.facts}
                     </div>
@@ -320,7 +320,7 @@ export function AIFeaturesPanel() {
                       Facts
                     </div>
                   </div>
-                  <div className="p-2 rounded border border-white/10 bg-[#141414]">
+                  <div className="p-2 rounded border border-white/10 bg-glass glass-surface">
                     <div className="font-mohave text-lg text-white">
                       {selectedCompany.memory.graphEdges}
                     </div>
@@ -328,7 +328,7 @@ export function AIFeaturesPanel() {
                       Graph Edges
                     </div>
                   </div>
-                  <div className="p-2 rounded border border-white/10 bg-[#141414]">
+                  <div className="p-2 rounded border border-white/10 bg-glass glass-surface">
                     <div className="font-mohave text-lg text-white">
                       {selectedCompany.memory.profiles}
                     </div>
@@ -344,7 +344,7 @@ export function AIFeaturesPanel() {
                     <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] mb-1">
                       [ ENTITIES ]
                     </div>
-                    <div className="px-2 py-1.5 rounded bg-[#141414] border border-white/5">
+                    <div className="px-2 py-1.5 rounded bg-glass glass-surface border border-white/5">
                       <span className="font-mohave text-xs text-white">
                         {Object.entries(selectedCompany.memory.entitiesByType)
                           .filter(([, count]) => count > 0)
@@ -361,7 +361,7 @@ export function AIFeaturesPanel() {
                     <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] mb-1">
                       [ TOP FACT CATEGORIES ]
                     </div>
-                    <div className="px-2 py-1.5 rounded bg-[#141414] border border-white/5">
+                    <div className="px-2 py-1.5 rounded bg-glass glass-surface border border-white/5">
                       <span className="font-mohave text-xs text-white">
                         {Object.entries(selectedCompany.memory.factsByCategory)
                           .sort(([, a], [, b]) => b - a)
@@ -382,7 +382,7 @@ export function AIFeaturesPanel() {
                     {selectedCompany.memory.writingProfiles.map((wp) => (
                       <div
                         key={wp.profileType}
-                        className="flex items-center justify-between px-2 py-1.5 rounded bg-[#141414] border border-white/5"
+                        className="flex items-center justify-between px-2 py-1.5 rounded bg-glass glass-surface border border-white/5"
                       >
                         <span className="font-mohave text-xs text-white truncate max-w-[180px]">
                           {wp.profileType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}

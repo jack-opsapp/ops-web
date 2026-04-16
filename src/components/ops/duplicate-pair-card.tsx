@@ -39,7 +39,7 @@ export function DuplicatePairCard({
   const idB = entityB.id as string;
 
   return (
-    <div className="rounded-[3px] border border-white/8 bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+    <div className="rounded-[3px] border border-white/8 bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
       {/* Header: confidence + signals */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <span

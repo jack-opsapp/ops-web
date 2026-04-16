@@ -97,7 +97,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
                 disabled={updateSyncEnabled.isPending}
                 className={cn(
                   "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                  connection?.syncEnabled ? "bg-ops-accent" : "bg-background-elevated"
+                  connection?.syncEnabled ? "bg-ops-accent" : "bg-fill-neutral-dim"
                 )}
               >
                 <span

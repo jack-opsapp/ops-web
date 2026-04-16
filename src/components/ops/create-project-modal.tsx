@@ -179,7 +179,7 @@ function TeamMemberSelector({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-[36px] w-[120px] bg-background-elevated rounded animate-pulse"
+              className="h-[36px] w-[120px] bg-fill-neutral-dim rounded animate-pulse"
             />
           ))}
         </div>
@@ -226,7 +226,7 @@ function TeamMemberSelector({
                   "w-[20px] h-[20px] rounded-full flex items-center justify-center text-[10px]",
                   isSelected
                     ? "bg-ops-accent text-white"
-                    : "bg-background-elevated text-text-3"
+                    : "bg-fill-neutral-dim text-text-3"
                 )}
               >
                 {isSelected ? (

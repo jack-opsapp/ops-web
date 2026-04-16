@@ -585,7 +585,7 @@ export function IntegrationsTab() {
                     {importHistory.map((job) => (
                       <div
                         key={job.id}
-                        className="flex items-center justify-between px-1.5 py-[6px] rounded border border-border bg-background-elevated/40"
+                        className="flex items-center justify-between px-1.5 py-[6px] rounded border border-border bg-fill-neutral-dim/40"
                       >
                         <div className="flex items-center gap-[6px] min-w-0">
                           {job.status === "completed" ? (

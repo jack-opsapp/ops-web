@@ -61,9 +61,9 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
           onChange={(e) => setTableFilter(e.target.value)}
           className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[12px] text-[#E5E5E5] uppercase focus:outline-none focus:border-[#597794]"
         >
-          <option value="ALL" className="bg-[#1D1D1D]">All Tables</option>
+          <option value="ALL" className="bg-glass glass-surface">All Tables</option>
           {tables.map((t) => (
-            <option key={t} value={t} className="bg-[#1D1D1D]">{t}</option>
+            <option key={t} value={t} className="bg-glass glass-surface">{t}</option>
           ))}
         </select>
         <div className="flex gap-1">

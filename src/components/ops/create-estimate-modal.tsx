@@ -154,7 +154,7 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+              className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select client...</option>
               {clients.map((c) => (
@@ -171,7 +171,7 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+              className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select project (optional)...</option>
               {projects.map((p) => (

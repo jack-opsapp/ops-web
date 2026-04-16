@@ -277,9 +277,9 @@ export function Sidebar() {
           "md:translate-x-0"
         )}
         style={{
-          background: "rgba(10, 10, 10, 0.80)",
-          backdropFilter: "blur(24px) saturate(1.3)",
-          WebkitBackdropFilter: "blur(24px) saturate(1.3)",
+          background: "var(--surface-glass-dense)",
+          backdropFilter: "blur(28px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         }}
       >
       {/* Company Branding */}

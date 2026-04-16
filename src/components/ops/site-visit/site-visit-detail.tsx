@@ -224,7 +224,7 @@ export function SiteVisitDetail({
               {localPhotos.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
                   {localPhotos.map((url, i) => (
-                    <div key={i} className="aspect-square rounded-lg overflow-hidden bg-[#1A1A1A]">
+                    <div key={i} className="aspect-square rounded-lg overflow-hidden bg-glass glass-surface">
                       <img
                         src={url}
                         alt={`Photo ${i + 1}`}
@@ -250,7 +250,7 @@ export function SiteVisitDetail({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="What did you observe during the visit?"
                 rows={4}
-                className="bg-[#111] border-[#333] text-[#E5E5E5] resize-none text-sm"
+                className="bg-surface-input border-[#333] text-[#E5E5E5] resize-none text-sm"
               />
             </section>
 
@@ -264,7 +264,7 @@ export function SiteVisitDetail({
                 onChange={(e) => setMeasurements(e.target.value)}
                 placeholder="Record dimensions, quantities, or scope notes…"
                 rows={3}
-                className="bg-[#111] border-[#333] text-[#E5E5E5] resize-none text-sm font-mono"
+                className="bg-surface-input border-[#333] text-[#E5E5E5] resize-none text-sm font-mono"
               />
             </section>
 
@@ -279,7 +279,7 @@ export function SiteVisitDetail({
                 onChange={(e) => setInternalNotes(e.target.value)}
                 placeholder="Not visible to clients…"
                 rows={3}
-                className="bg-[#111] border-[#2A4A3A] text-[#E5E5E5] resize-none text-sm"
+                className="bg-surface-input border-[#2A4A3A] text-[#E5E5E5] resize-none text-sm"
               />
             </section>
           </div>

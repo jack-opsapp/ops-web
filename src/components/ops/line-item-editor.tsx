@@ -200,7 +200,7 @@ export function LineItemEditor({
           return (
             <div key={item.id} className="space-y-1">
             <div
-              className="grid grid-cols-1 sm:grid-cols-[18px_1fr_80px_100px_60px_60px_16px_36px] gap-1 items-start bg-background-card border border-border rounded p-1 sm:p-0 sm:bg-transparent sm:border-0 sm:rounded-none"
+              className="grid grid-cols-1 sm:grid-cols-[18px_1fr_80px_100px_60px_60px_16px_36px] gap-1 items-start bg-glass glass-surface border border-border rounded p-1 sm:p-0 sm:bg-transparent sm:border-0 sm:rounded-none"
             >
               {/* Expand chevron — only if the line item has a product */}
               <div className="hidden sm:flex items-center justify-center h-[36px]">

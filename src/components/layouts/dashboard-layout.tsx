@@ -165,10 +165,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <div
         className="fixed top-0 right-0 z-10 h-[56px] left-0 md:left-[72px]"
         style={{
-          background: "rgba(10, 10, 10, 0.70)",
-          backdropFilter: "blur(20px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-          borderBottom: "1px solid hsl(0 0% 100% / 0.2)",
+          background: "var(--surface-glass)",
+          backdropFilter: "blur(28px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.09)",
         }}
       >
         <TopBar />

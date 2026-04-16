@@ -175,7 +175,7 @@ export function ClientCommsSettingsTab() {
         {sections.map((section) => (
           <div
             key={section.id}
-            className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]"
+            className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">

@@ -19,7 +19,7 @@ const Command = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-full w-full flex-col overflow-hidden",
-      "bg-background-panel text-text font-mohave",
+      "bg-glass glass-surface text-text font-mohave",
       className
     )}
     {...props}
@@ -158,7 +158,7 @@ const CommandItem = React.forwardRef<
       "rounded-sm px-1 py-[8px]",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "data-[selected=true]:bg-background-elevated data-[selected=true]:text-text",
+      "data-[selected=true]:bg-fill-neutral-dim data-[selected=true]:text-text",
       "data-[selected=true]:shadow-[inset_2px_0_0_0_#417394]",
       "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
       className
@@ -172,7 +172,7 @@ const CommandShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanE
   <span
     className={cn(
       "ml-auto text-caption-sm text-text-3 tracking-widest font-mono",
-      "px-[6px] py-[2px] rounded-sm bg-background-elevated border border-border-subtle",
+      "px-[6px] py-[2px] rounded-sm bg-fill-neutral-dim border border-border-subtle",
       className
     )}
     {...props}

@@ -496,7 +496,7 @@ export function WhatsNewContent() {
           {/* Drag overlay — renders a ghost of the dragged item */}
           <DragOverlay>
             {activeItem ? (
-              <div className="bg-[#141414] border border-[#597794]/40 rounded opacity-90 shadow-lg">
+              <div className="bg-glass glass-surface border border-[#597794]/40 rounded opacity-90 shadow-lg">
                 <ItemRow
                   item={activeItem}
                   onStatusChange={() => {}}

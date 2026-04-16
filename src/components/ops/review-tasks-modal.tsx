@@ -69,7 +69,7 @@ function TaskRow({
   return (
     <div className={cn(
       "flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors",
-      selected ? "bg-[#1A1A1A]" : "opacity-40"
+      selected ? "bg-glass glass-surface" : "opacity-40"
     )}>
       <button
         onClick={onToggle}
@@ -122,7 +122,7 @@ function TaskRow({
             <Plus className="h-3 w-3 text-[#9CA3AF]" />
           </button>
           {showPicker && (
-            <div className="absolute right-0 top-6 z-50 w-48 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg shadow-xl py-1 max-h-40 overflow-y-auto">
+            <div className="absolute right-0 top-6 z-50 w-48 bg-glass glass-surface border border-[#2A2A2A] rounded-lg shadow-xl py-1 max-h-40 overflow-y-auto">
               {allMembers
                 .filter((m) => !assignedMemberIds.includes(m.id))
                 .map((member) => (
@@ -298,7 +298,7 @@ export function ReviewTasksModal({
             const first = lineTasks[0];
             return (
               <div key={lineItemId} className="rounded-xl border border-[#2A2A2A] overflow-hidden">
-                <div className="px-4 py-2.5 bg-[#111] border-b border-[#2A2A2A]">
+                <div className="px-4 py-2.5 bg-surface-input border-b border-[#2A2A2A]">
                   <p className="text-sm font-medium text-[#C4A868]">
                     {first.lineItemName}
                   </p>
