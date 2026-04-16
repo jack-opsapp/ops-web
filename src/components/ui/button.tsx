@@ -8,8 +8,8 @@ const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-1",
     "font-mohave text-button uppercase whitespace-nowrap",
-    "rounded-sm transition-all duration-150",
-    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(255,255,255,0.2)]",
+    "rounded-[5px] transition-all duration-150",
+    "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
     "disabled:pointer-events-none disabled:opacity-40",
     "no-select cursor-pointer",
     "active:scale-[0.98]",
@@ -18,11 +18,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: [
-          "bg-[rgba(255,255,255,0.07)] text-text-primary border border-[rgba(255,255,255,0.2)]",
-          "hover:bg-[rgba(255,255,255,0.12)]",
+          "bg-[rgba(255,255,255,0.07)] text-text-2 border border-[rgba(255,255,255,0.10)]",
+          "hover:bg-[rgba(255,255,255,0.12)] hover:text-text",
         ],
         primary: [
-          "bg-ops-accent text-white border border-ops-accent",
+          "bg-ops-accent text-black border border-ops-accent",
           "hover:bg-ops-accent-hover",
         ],
         accent: [
@@ -30,26 +30,26 @@ const buttonVariants = cva(
           "hover:bg-ops-amber-hover",
         ],
         secondary: [
-          "bg-transparent text-text-secondary border border-[rgba(255,255,255,0.10)]",
-          "hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.18)] hover:text-text-primary",
+          "bg-transparent text-text-2 border border-[rgba(255,255,255,0.10)]",
+          "hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.18)] hover:text-text",
         ],
         destructive: [
-          "bg-ops-error text-white border border-ops-error",
-          "hover:bg-ops-error-hover",
+          "bg-[rgba(181,130,137,0.12)] text-[#B58289] border border-[rgba(181,130,137,0.28)]",
+          "hover:bg-[rgba(181,130,137,0.18)]",
         ],
         ghost: [
-          "bg-transparent text-text-secondary",
-          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text-primary",
+          "bg-transparent text-text-2",
+          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text",
         ],
         link: [
-          "bg-transparent text-ops-accent underline-offset-4",
-          "hover:underline hover:text-ops-accent-hover",
+          "bg-transparent text-text-2 underline-offset-4",
+          "hover:underline hover:text-text",
           "p-0 h-auto active:scale-100",
         ],
       },
       size: {
         default: "h-7 px-3 py-1.5",
-        sm: "h-[40px] px-2 py-1 text-button-sm",
+        sm: "h-[44px] px-2 py-1 text-button-sm",
         lg: "h-8 px-4 py-2 text-body-lg",
         icon: "h-7 w-7 p-0",
       },
