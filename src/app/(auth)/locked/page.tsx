@@ -35,7 +35,7 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
     icon: <Building2 className="w-[20px] h-[20px]" />,
     accentClass: "text-text",
     borderClass: "border-border-medium hover:border-border-strong",
-    glowClass: "hover:shadow-elevated",
+    glowClass: "",
     badgeClass: "bg-text-primary/10 text-text",
   },
 };
