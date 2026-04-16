@@ -6,9 +6,9 @@
 
 /* Accent color CSS variables (overridden dynamically by PreferencesApplier) */
 :root {
-  --ops-accent-rgb: 65 115 148;
-  --ops-accent-hover: #4d83a6;
-  --ops-accent-muted: rgba(65, 115, 148, 0.15);
+  --ops-accent-rgb: 111 148 176;
+  --ops-accent-hover: #82a8c4;
+  --ops-accent-muted: rgba(111, 148, 176, 0.15);
 
   /* Widget color tokens — for inline styles (charts, SVGs) */
   /* Use Tailwind classes (text-status-warning, bg-financial-revenue) where possible. */
@@ -27,6 +27,13 @@
   --status-error-rgb: 147 50 26;
   --status-warning-rgb: 196 168 104;
   --status-success-rgb: 165 179 104;
+
+  /* ── Surface system (for inline style={{ }} usage) ── */
+  --surface-glass: rgba(18, 18, 20, 0.58);
+  --surface-glass-dense: rgba(18, 18, 20, 0.78);
+  --surface-input: rgba(255, 255, 255, 0.04);
+  --fill-neutral: rgba(255, 255, 255, 0.14);
+  --fill-neutral-dim: rgba(255, 255, 255, 0.06);
 }
 
 /* Compact mode spacing overrides */
@@ -111,15 +118,15 @@
     --ring: 203 39% 42%;
     --radius: 5px;
 
-    /* ── Glass surface system ── */
-    --glass-bg: rgba(10, 10, 10, 0.70);
-    --glass-bg-dense: rgba(10, 10, 10, 0.85);
-    --glass-bg-subtle: rgba(10, 10, 10, 0.50);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    /* ── Glass surface system (Command Deck spec) ── */
+    --glass-bg: rgba(18, 18, 20, 0.58);
+    --glass-bg-dense: rgba(18, 18, 20, 0.78);
+    --glass-bg-subtle: rgba(18, 18, 20, 0.40);
+    --glass-border: rgba(255, 255, 255, 0.09);
     --glass-border-medium: rgba(255, 255, 255, 0.12);
     --glass-border-strong: rgba(255, 255, 255, 0.20);
-    --glass-blur: 20px;
-    --glass-saturate: 1.2;
+    --glass-blur: 28px;
+    --glass-saturate: 1.3;
   }
 
   * {
@@ -155,66 +162,91 @@
 
   /* Selection color */
   ::selection {
-    background: rgba(65, 115, 148, 0.3);
-    color: #E5E5E5;
+    background: rgba(111, 148, 176, 0.3);
+    color: #EDEDED;
   }
 
   /* Focus ring */
   *:focus-visible {
-    outline: 1px solid rgba(255, 255, 255, 0.2);
+    outline: 1.5px solid rgb(var(--ops-accent-rgb));
     outline-offset: 2px;
   }
 }
 
 @layer components {
-  /* === Glass surface utility === */
+  /* === Glass surface utility (Command Deck spec) === */
   .glass-surface {
     background: var(--glass-bg);
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    position: relative;
+  }
+  .glass-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%);
+    pointer-events: none;
+  }
+
+  /* === Dense glass (stacked: modal over panel, popover over card) === */
+  .glass-dense {
+    background: var(--glass-bg-dense);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    position: relative;
+  }
+  .glass-dense::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%);
+    pointer-events: none;
   }
 
   /* Cards inside widget content inherit the shell's frosted backdrop — no double glass */
-  [data-widget-content] .rounded-md.border {
+  [data-widget-content] .rounded-md.border,
+  [data-widget-content] .rounded-panel.border {
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border-color: transparent;
   }
 
-  /* === ultrathinmaterialdark (iOS: cardBackgroundDark @ 60% + blur) === */
+  /* === ultrathinmaterialdark (legacy compat — now maps to glass-surface) === */
   .ultrathin-material-dark {
     background: var(--glass-bg);
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border-strong);
   }
 
   /* === Panel Styling === */
   .ops-panel {
-    @apply bg-background-panel rounded border border-border;
+    @apply glass-surface;
   }
 
-  /* === Card Styles (cardBackgroundDark @ 60% + white @ 20% border) === */
+  /* === Card Styles (glass surface — Command Deck spec) === */
   .ops-card {
-    background: rgba(13, 13, 13, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 5px;
-    @apply p-2;
+    @apply glass-surface p-2;
   }
   .ops-card-dark {
-    @apply rounded border border-border p-2;
-    background: rgba(13, 13, 13, 0.6);
+    @apply glass-surface p-2;
   }
   .ops-card-elevated {
-    @apply bg-background-card rounded border border-border-medium p-2 shadow-elevated;
+    @apply glass-surface p-2;
   }
   .ops-card-interactive {
-    @apply ops-card transition-all duration-150 cursor-pointer;
+    @apply glass-surface p-2 transition-all duration-150 cursor-pointer;
   }
   .ops-card-interactive:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.18);
     background: rgba(255, 255, 255, 0.05);
   }
   .ops-card-interactive:active {
@@ -223,7 +255,7 @@
 
   /* === Accent Border Card === */
   .ops-card-accent {
-    @apply ops-card border-l-4 border-l-ops-accent;
+    @apply glass-surface p-2 border-l-4 border-l-ops-accent;
   }
 
   /* === Status Badge === */
@@ -233,14 +265,16 @@
 
   /* === Form Input === */
   .ops-input {
-    @apply w-full bg-background-input text-text-primary font-mohave text-body
-           px-1.5 py-1.5 rounded
-           border border-border-input
+    @apply w-full text-text-primary font-mohave text-body
+           px-1.5 py-1.5 rounded-[5px]
            transition-all duration-150
-           placeholder:text-text-placeholder;
+           placeholder:text-text-3;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
   }
   .ops-input:focus {
-    @apply border-border-medium outline-none;
+    border-color: rgba(255, 255, 255, 0.20);
+    outline: none;
   }
 
   /* === Monospace Data Display === */
