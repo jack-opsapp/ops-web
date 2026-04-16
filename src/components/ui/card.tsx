@@ -2,18 +2,16 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils/cn";
 
-const cardVariants = cva("rounded-md border p-2 transition-all duration-150", {
+const cardVariants = cva("rounded-panel p-2 transition-all duration-150", {
   variants: {
     variant: {
-      default: "bg-glass border-glass-border-strong glass-surface",
-      dark: "bg-glass border-glass-border-strong glass-surface",
-      elevated: "bg-background-card border-glass-border-strong shadow-elevated",
+      default: "glass-surface",
+      elevated: "glass-surface",
       interactive: [
-        "bg-glass border-glass-border-strong glass-surface cursor-pointer",
-        "hover:border-[rgba(255,255,255,0.3)] hover:bg-[rgba(255,255,255,0.05)]",
+        "glass-surface cursor-pointer",
+        "hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)]",
       ],
-      accent: "bg-glass border-glass-border-strong glass-surface border-l-4 border-l-ops-accent",
-      /** Transparent — for use inside WidgetShell where the shell provides the glass backdrop */
+      accent: "glass-surface border-l-4 border-l-ops-accent",
       ghost: "bg-transparent border-transparent",
     },
   },
@@ -50,7 +48,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn("font-mohave text-card-title text-text-primary", className)}
+      className={cn("font-mohave text-card-title text-text", className)}
       {...props}
     />
   )
@@ -63,7 +61,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("font-mohave text-card-body text-text-secondary", className)}
+    className={cn("font-mohave text-card-body text-text-2", className)}
     {...props}
   />
 ));
