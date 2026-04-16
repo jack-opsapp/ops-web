@@ -54,7 +54,7 @@ function FormTextField<T extends FieldValues = FieldValues>({
           "border border-border",
           "transition-all duration-150",
           "placeholder:text-text-3",
-          "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
+          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none focus:shadow-glow-accent",
           "disabled:cursor-not-allowed disabled:opacity-40",
           errorMessage && "border-ops-error focus:border-ops-error focus:shadow-glow-error",
           className

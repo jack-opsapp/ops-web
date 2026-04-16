@@ -94,7 +94,7 @@ export function AcquisitionCharts({
 
       {/* Selected step detail */}
       {selectedStep && (
-        <div className="border border-[#597794]/30 rounded-lg p-4 bg-[#597794]/5">
+        <div className="border border-[#597794]/30 rounded-lg p-4 bg-ops-accent/5">
           <div className="flex items-center justify-between">
             <div>
               <span className="font-mohave text-[12px] uppercase tracking-widest text-[#597794]">

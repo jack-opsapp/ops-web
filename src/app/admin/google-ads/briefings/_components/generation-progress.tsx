@@ -80,7 +80,7 @@ export function GenerationProgress({ onComplete }: GenerationProgressProps) {
     return (
       <button
         onClick={handleGenerate}
-        className="font-mohave text-[13px] uppercase tracking-wider px-4 py-2 border border-[#597794] text-[#597794] rounded hover:bg-[#597794]/10 transition-colors duration-100"
+        className="font-mohave text-[13px] uppercase tracking-wider px-4 py-2 border border-[#597794] text-[#597794] rounded hover:bg-ops-accent/10 transition-colors duration-100"
       >
         Generate Briefing Now
       </button>

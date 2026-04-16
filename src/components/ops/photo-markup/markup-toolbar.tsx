@@ -61,7 +61,7 @@ export function MarkupToolbar({
             onClick={() => onStrokeWidthChange(sw.value)}
             className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition ${
               strokeWidth === sw.value
-                ? "bg-[#417394]/30 text-[#8BB8D4]"
+                ? "bg-ops-accent/30 text-[#8BB8D4]"
                 : "text-[#999] hover:text-[#E5E5E5]"
             }`}
           >

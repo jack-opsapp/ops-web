@@ -19,7 +19,7 @@ const SelectTrigger = React.forwardRef<
       "px-1.5 py-1.5 rounded-sm",
       "border border-border",
       "transition-all duration-150",
-      "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
+      "focus:border-[rgba(255,255,255,0.20)] focus:outline-none focus:shadow-glow-accent",
       "disabled:cursor-not-allowed disabled:opacity-40",
       "placeholder:text-text-3",
       "[&>span]:truncate",

@@ -31,7 +31,7 @@ export default async function BriefingsArchivePage() {
                 <td className="py-3 pr-3">
                   <span className={`font-mohave text-[11px] uppercase px-2 py-0.5 rounded ${
                     b.status === "complete" ? "bg-[#9DB582]/20 text-[#9DB582]" :
-                    b.status === "generating" ? "bg-[#597794]/20 text-[#597794]" :
+                    b.status === "generating" ? "bg-ops-accent/20 text-[#597794]" :
                     "bg-[#93321A]/20 text-[#93321A]"
                   }`}>{b.status}</span>
                 </td>

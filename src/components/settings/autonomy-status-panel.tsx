@@ -230,7 +230,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
                 className={cn(
                   "w-[6px] h-[6px] rounded-full transition-colors",
                   i <= data.level
-                    ? "bg-[#597794]"
+                    ? "bg-ops-accent"
                     : "bg-[rgba(255,255,255,0.08)]"
                 )}
               />
@@ -303,7 +303,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
               className={cn(
                 "relative w-[36px] h-[18px] rounded-full transition-colors",
                 data.autoDraftEnabled
-                  ? "bg-[#597794]"
+                  ? "bg-ops-accent"
                   : "bg-[rgba(255,255,255,0.1)]"
               )}
             >

@@ -239,7 +239,7 @@ function BulkSetButton({
           setOpen(false);
           setValue("");
         }}
-        className="px-2 py-1 bg-[#597794] rounded-sm font-kosugi text-[9px] uppercase text-white"
+        className="px-2 py-1 bg-ops-accent rounded-sm font-kosugi text-[9px] uppercase text-white"
       >
         Set
       </button>

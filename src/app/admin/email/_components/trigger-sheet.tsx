@@ -151,7 +151,7 @@ export function TriggerSheet({
             )}
           </div>
           <SheetDescription className="flex items-center gap-2 mt-1">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-[10px] uppercase border border-[#597794]/30 text-[#597794] bg-[#597794]/10">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-[10px] uppercase border border-[#597794]/30 text-[#597794] bg-ops-accent/10">
               {trigger.schedule}
             </span>
             {trigger.cronJobName && (

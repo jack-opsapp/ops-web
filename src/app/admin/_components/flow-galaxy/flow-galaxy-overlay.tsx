@@ -125,7 +125,7 @@ export function FlowGalaxyOverlay({
                 key={d}
                 onClick={() => onDeviceFilterChange(d)}
                 className={`px-2 py-0.5 font-kosugi text-[9px] uppercase transition-colors
-                  ${deviceFilter === d ? 'bg-[#597794]/20 text-[#E5E5E5]' : 'text-[#6B6B6B] hover:text-[#A0A0A0]'}
+                  ${deviceFilter === d ? 'bg-ops-accent/20 text-[#E5E5E5]' : 'text-[#6B6B6B] hover:text-[#A0A0A0]'}
                 `}
               >
                 {d}
@@ -189,13 +189,13 @@ export function FlowGalaxyOverlay({
         <div className="flex gap-2 border-t border-white/[0.05] pt-3">
           <button
             onClick={() => onTraceDownstream(node.id)}
-            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-[10px] uppercase tracking-wider text-[#597794] hover:bg-[#597794]/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-[10px] uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Flow ↓
           </button>
           <button
             onClick={() => onTraceUpstream(node.id)}
-            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-[10px] uppercase tracking-wider text-[#597794] hover:bg-[#597794]/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-[10px] uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Upstream ↑
           </button>

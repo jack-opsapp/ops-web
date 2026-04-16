@@ -39,7 +39,7 @@ export function FlowGalaxyControls({
             className={`
               px-4 py-1.5 font-mohave text-[11px] uppercase tracking-wider transition-colors
               ${activeGalaxy === opt.id
-                ? 'bg-[#597794]/20 text-[#E5E5E5]'
+                ? 'bg-ops-accent/20 text-[#E5E5E5]'
                 : 'text-[#6B6B6B] hover:text-[#A0A0A0]'
               }
             `}
@@ -77,7 +77,7 @@ export function FlowGalaxyControls({
               className={`
                 px-3 py-1.5 font-mohave text-[11px] uppercase tracking-wider transition-colors
                 ${params.days === opt.value
-                  ? 'bg-[#597794]/20 text-[#E5E5E5]'
+                  ? 'bg-ops-accent/20 text-[#E5E5E5]'
                   : 'text-[#6B6B6B] hover:text-[#A0A0A0]'
                 }
               `}

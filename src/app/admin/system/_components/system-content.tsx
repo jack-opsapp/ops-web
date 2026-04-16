@@ -151,7 +151,7 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
 
 function DataQualityTab({ issues }: { issues: DataQualityIssue[] }) {
   const SEVERITY_STYLES: Record<string, { dot: string; text: string }> = {
-    info: { dot: "bg-[#597794]", text: "text-[#A0A0A0]" },
+    info: { dot: "bg-ops-accent", text: "text-[#A0A0A0]" },
     warning: { dot: "bg-[#C4A868]", text: "text-[#C4A868]" },
     danger: { dot: "bg-[#93321A]", text: "text-[#93321A]" },
   };
@@ -202,7 +202,7 @@ function IntegrationsTab({ data }: { data: SystemContentProps["integrations"] })
             <div className="flex items-center gap-2">
               <div className="w-16 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#597794] rounded-full"
+                  className="h-full bg-ops-accent rounded-full"
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -258,7 +258,7 @@ function DatabaseTab({ stats }: { stats: TableStats[] }) {
               <div className="flex items-center gap-2">
                 <div className="w-24 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#597794] rounded-full"
+                    className="h-full bg-ops-accent rounded-full"
                     style={{ width: `${Math.max(pct, 1)}%` }}
                   />
                 </div>

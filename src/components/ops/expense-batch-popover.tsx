@@ -185,7 +185,7 @@ function ExpenseRow({
               }
             }}
             placeholder={t("batchPopover.flagComment") ?? "What needs fixing?"}
-            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-ops-accent transition-colors"
+            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
             autoFocus
           />
           <button

@@ -132,7 +132,7 @@ function RelationshipSelect({
           "px-2 py-1.5 rounded-sm min-h-[56px]",
           "border border-[rgba(255,255,255,0.08)]",
           "transition-all duration-150",
-          "focus:border-ops-accent focus:outline-none",
+          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
           !value && "text-text-mute"
         )}
       >

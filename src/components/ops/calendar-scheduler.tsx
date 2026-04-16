@@ -367,7 +367,7 @@ export function CalendarScheduler({
             "w-full flex items-center gap-1.5 px-1.5 py-1.5",
             "bg-surface-input border border-border rounded-sm",
             "text-left transition-all duration-150",
-            "hover:border-border-medium focus:border-ops-accent focus:outline-none"
+            "hover:border-border-medium focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
           )}
         >
           <CalendarIcon className="w-[16px] h-[16px] text-text-3 shrink-0" />

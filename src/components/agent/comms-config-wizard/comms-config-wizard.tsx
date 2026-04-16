@@ -412,7 +412,7 @@ export function CommsConfigWizard() {
               onClick={handleNext}
               className={cn(
                 "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
-                "border border-[#597794] bg-[#597794]",
+                "border border-[#597794] bg-ops-accent",
                 "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
@@ -448,7 +448,7 @@ function ProgressBar({ step }: { step: number }) {
                     "motion-reduce:transition-none",
                     filled
                       ? current
-                        ? "bg-[#597794]"
+                        ? "bg-ops-accent"
                         : "bg-text-primary"
                       : "bg-[rgba(255,255,255,0.08)]"
                   )}
@@ -526,7 +526,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
           onClick={onBegin}
           className={cn(
             "flex items-center gap-2 min-h-[56px] px-6 rounded-[8px]",
-            "border border-[#597794] bg-[#597794]",
+            "border border-[#597794] bg-ops-accent",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
@@ -1356,7 +1356,7 @@ function StepSummary({
           disabled={saving}
           className={cn(
             "flex-1 flex items-center justify-center gap-2 min-h-[56px] px-5 rounded-[8px]",
-            "border border-[#597794] bg-[#597794]",
+            "border border-[#597794] bg-ops-accent",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]",

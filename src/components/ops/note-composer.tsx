@@ -218,7 +218,7 @@ export function NoteComposer({
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="flex items-center gap-1.5 rounded-md bg-[#417394] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#4d8ab0] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 rounded-md bg-ops-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#4d8ab0] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Send className="h-3.5 w-3.5" />
             {onCancel ? "Save" : "Post"}

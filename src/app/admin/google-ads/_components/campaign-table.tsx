@@ -18,7 +18,7 @@ const COLUMNS = [
 ];
 
 const STATUS_STYLES: Record<string, string> = {
-  ENABLED: "bg-[#597794]/20 text-[#597794]",
+  ENABLED: "bg-ops-accent/20 text-[#597794]",
   PAUSED: "bg-white/[0.06] text-[#6B6B6B]",
   REMOVED: "bg-white/[0.04] text-[#444444]",
 };

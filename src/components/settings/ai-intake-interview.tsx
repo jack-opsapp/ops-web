@@ -104,7 +104,7 @@ function ProgressBar() {
                     isComplete
                       ? "bg-[#9DB582]"
                       : isActive
-                        ? "bg-[#597794]"
+                        ? "bg-ops-accent"
                         : "bg-[rgba(255,255,255,0.15)]"
                   )}
                   animate={{ width: `${cp.total > 0 ? (cp.completed / cp.total) * 100 : 0}%` }}
@@ -249,7 +249,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
       <div className="pt-2 flex items-center gap-3">
         <button
           onClick={onStart}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[#597794] hover:bg-[#4a6680] text-white font-mohave text-body-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-ops-accent hover:bg-[#4a6680] text-white font-mohave text-body-sm font-medium transition-colors"
         >
           <Brain className="w-[16px] h-[16px]" />
           {t("intro.startSetup")}
@@ -335,7 +335,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
       <div className="flex gap-2 pt-1">
         <button
           onClick={onConfirm}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[#597794] hover:bg-[#4a6680] text-white font-mohave text-body-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-ops-accent hover:bg-[#4a6680] text-white font-mohave text-body-sm font-medium transition-colors"
         >
           <CheckCircle className="w-[16px] h-[16px]" />
           {t("interview.summary.looksGood")}
@@ -585,7 +585,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
               disabled={!inputValue.trim() || isProcessing}
               className={cn(
                 "flex items-center justify-center w-[40px] h-[40px] rounded-md",
-                "bg-[#597794] hover:bg-[#4a6680] text-white",
+                "bg-ops-accent hover:bg-[#4a6680] text-white",
                 "disabled:opacity-30 disabled:cursor-not-allowed",
                 "transition-colors"
               )}

@@ -57,7 +57,7 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
         <button
           type="button"
           onClick={addItem}
-          className="px-3 py-1.5 rounded text-[13px] font-mohave text-white bg-[#597794] hover:bg-[#6B8AA6] transition-colors"
+          className="px-3 py-1.5 rounded text-[13px] font-mohave text-white bg-ops-accent hover:bg-[#6B8AA6] transition-colors"
         >
           Add Q&A
         </button>

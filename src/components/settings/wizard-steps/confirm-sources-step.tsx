@@ -74,7 +74,7 @@ export function ConfirmSourcesStep({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center bg-[#597794]/10 border border-[#597794]/30" style={{ borderRadius: 2 }}>
+              <div className="w-8 h-8 flex items-center justify-center bg-ops-accent/10 border border-[#597794]/30" style={{ borderRadius: 2 }}>
                 <Mail size={14} className="text-[#597794]" />
               </div>
               <div>
@@ -173,7 +173,7 @@ export function ConfirmSourcesStep({
         </p>
         <Button
           onClick={onNext}
-          className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2"
+          className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
           style={{ borderRadius: 3 }}
         >
           Review Leads

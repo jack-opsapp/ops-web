@@ -38,7 +38,7 @@ export function NewCategoryForm({ onSubmit, onCancel }: NewCategoryFormProps) {
         <button
           onClick={() => name && onSubmit(name, icon)}
           disabled={!name}
-          className="px-3 py-1.5 bg-[#597794] rounded font-mohave text-[11px] uppercase text-white hover:bg-[#597794]/80 disabled:opacity-40"
+          className="px-3 py-1.5 bg-ops-accent rounded font-mohave text-[11px] uppercase text-white hover:bg-ops-accent/80 disabled:opacity-40"
         >
           Create
         </button>

@@ -178,7 +178,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           {/* Progress bar */}
           <div className="h-[3px] rounded-full overflow-hidden bg-[rgba(255,255,255,0.06)]">
             <motion.div
-              className="h-full bg-[#597794] rounded-full"
+              className="h-full bg-ops-accent rounded-full"
               initial={{ width: "5%" }}
               animate={{ width: "85%" }}
               transition={{

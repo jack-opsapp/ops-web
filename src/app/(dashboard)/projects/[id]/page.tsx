@@ -494,7 +494,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 placeholder={t("sidebar.searchClients")}
-                className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
+                className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute"
               />
             </div>
             <div className="mt-1 max-h-[180px] overflow-y-auto bg-glass glass-surface border border-border rounded-[3px]">
@@ -570,7 +570,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 if (e.key === "Enter") handleLocationSave();
                 if (e.key === "Escape") handleLocationCancel();
               }}
-              className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] px-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
+              className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute"
             />
             <div className="flex items-center gap-1.5">
               <button

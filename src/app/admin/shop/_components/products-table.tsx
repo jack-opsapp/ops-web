@@ -149,7 +149,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
         <div className="flex-1" />
         <Link
           href="/admin/shop/products/new"
-          className="flex items-center gap-2 bg-[#597794] text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-[#597794]/80 transition-colors"
+          className="flex items-center gap-2 bg-ops-accent text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-ops-accent/80 transition-colors"
         >
           <Plus size={14} />
           Add Product
@@ -158,7 +158,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-4 py-2 border border-[#597794]/30 rounded-sm bg-[#597794]/5">
+        <div className="flex items-center gap-3 mb-3 px-4 py-2 border border-[#597794]/30 rounded-sm bg-ops-accent/5">
           <span className="font-mohave text-[13px] text-[#E5E5E5]">{selected.size} selected</span>
           <div className="flex-1" />
           <button onClick={() => bulkAction("feature")} className="flex items-center gap-1.5 px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#E5E5E5] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
@@ -258,7 +258,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                       Archived
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 bg-[#597794]/20 rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#597794]">
+                    <span className="px-2 py-0.5 bg-ops-accent/20 rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#597794]">
                       Active
                     </span>
                   )}

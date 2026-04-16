@@ -88,7 +88,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
           "w-full bg-surface-input text-text font-mohave text-body-sm",
           "px-1 py-[5px] rounded border border-border",
           "placeholder:text-text-3",
-          "focus:border-ops-accent focus:outline-none"
+          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
         )}
       />
 
@@ -102,7 +102,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
           "w-full bg-surface-input text-text font-mohave text-body-sm",
           "px-1 py-[5px] rounded border border-border",
           "placeholder:text-text-3",
-          "focus:border-ops-accent focus:outline-none"
+          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
         )}
       />
 
@@ -116,7 +116,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
           "w-full bg-surface-input text-text font-mono text-[11px]",
           "px-1 py-[5px] rounded border border-border",
           "placeholder:text-text-3",
-          "focus:border-ops-accent focus:outline-none"
+          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
         )}
       />
 

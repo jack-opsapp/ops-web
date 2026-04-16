@@ -190,7 +190,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#597794]/30 bg-[#597794]/08 hover:bg-[#597794]/12 transition-colors text-left"
+      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#597794]/30 bg-ops-accent/08 hover:bg-ops-accent/12 transition-colors text-left"
     >
       <Search className="w-[16px] h-[16px] text-[#597794] shrink-0" />
       <div className="flex-1 min-w-0">
@@ -204,7 +204,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
         </div>
         <div className="mt-1 h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
           <motion.div
-            className="h-full bg-[#597794]"
+            className="h-full bg-ops-accent"
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.8, ease: EASE }}
           />

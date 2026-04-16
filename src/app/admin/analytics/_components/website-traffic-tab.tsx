@@ -79,7 +79,7 @@ export function WebsiteTrafficTab({
               <div className="flex items-center gap-2">
                 <div className="w-24 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#597794] rounded-full"
+                    className="h-full bg-ops-accent rounded-full"
                     style={{ width: `${pct}%` }}
                   />
                 </div>

@@ -197,7 +197,7 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
           />
           <button
             onClick={addOption}
-            className="px-3 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white"
+            className="px-3 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white"
           >
             Add
           </button>

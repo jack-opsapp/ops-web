@@ -334,7 +334,7 @@ function Toggle({ enabled, disabled, onClick, label }: ToggleProps) {
       className={[
         "relative inline-flex h-[24px] w-[44px] shrink-0 rounded-full border transition-colors",
         enabled
-          ? "border-[#597794] bg-[#597794]/20"
+          ? "border-[#597794] bg-ops-accent/20"
           : "border-white/[0.12] bg-transparent",
         disabled
           ? "opacity-40 cursor-wait"
@@ -345,7 +345,7 @@ function Toggle({ enabled, disabled, onClick, label }: ToggleProps) {
         className={[
           "inline-block h-[16px] w-[16px] rounded-full transition-transform duration-200",
           enabled
-            ? "translate-x-[24px] bg-[#597794]"
+            ? "translate-x-[24px] bg-ops-accent"
             : "translate-x-[4px] bg-[#6B6B6B]",
         ].join(" ")}
         style={{ marginTop: 3 }}

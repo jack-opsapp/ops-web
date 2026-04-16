@@ -188,7 +188,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={() => { setMode("user"); setUsers([]); setCompanies([]); setSelectedCompany(null); setSearchQuery(""); }}
             className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-wider transition-colors ${
-              mode === "user" ? "bg-[#597794]/30 text-[#E5E5E5]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+              mode === "user" ? "bg-ops-accent/30 text-[#E5E5E5]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
             }`}
           >
             By User
@@ -196,7 +196,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={() => { setMode("company"); setUsers([]); setCompanies([]); setSelectedCompany(null); setSearchQuery(""); }}
             className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-wider transition-colors ${
-              mode === "company" ? "bg-[#597794]/30 text-[#E5E5E5]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+              mode === "company" ? "bg-ops-accent/30 text-[#E5E5E5]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
             }`}
           >
             By Company
@@ -215,7 +215,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="px-5 py-2 bg-[#597794] rounded-lg font-mohave text-[13px] uppercase tracking-wider text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+            className="px-5 py-2 bg-ops-accent rounded-lg font-mohave text-[13px] uppercase tracking-wider text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
           >
             {loading ? "..." : "Search"}
           </button>
@@ -231,7 +231,7 @@ export function FeatureFlagsTab() {
           {knownPermissions.map((p) => (
             <span
               key={p}
-              className="px-2 py-0.5 bg-[#597794]/20 border border-[#597794]/30 rounded text-[12px] font-mono text-[#8195B5]"
+              className="px-2 py-0.5 bg-ops-accent/20 border border-[#597794]/30 rounded text-[12px] font-mono text-[#8195B5]"
             >
               {p}
             </span>
@@ -406,7 +406,7 @@ function UserPermissionRow({
             key={p}
             onClick={() => onRemove(p)}
             disabled={!!actionLoading}
-            className="group flex items-center gap-1 px-2 py-0.5 bg-[#597794]/20 border border-[#597794]/30 rounded text-[12px] font-mono text-[#8195B5] hover:bg-[#93321A]/20 hover:border-[#93321A]/30 hover:text-[#93321A] transition-colors disabled:opacity-50"
+            className="group flex items-center gap-1 px-2 py-0.5 bg-ops-accent/20 border border-[#597794]/30 rounded text-[12px] font-mono text-[#8195B5] hover:bg-[#93321A]/20 hover:border-[#93321A]/30 hover:text-[#93321A] transition-colors disabled:opacity-50"
             title={`Remove "${p}"`}
           >
             {p}

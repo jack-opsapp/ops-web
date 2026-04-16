@@ -54,7 +54,7 @@ export function FunnelChart({ steps, onStepClick }: FunnelChartProps) {
             <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  isHovered ? "bg-[#6B8DAD]" : "bg-[#597794]"
+                  isHovered ? "bg-[#6B8DAD]" : "bg-ops-accent"
                 }`}
                 style={{ width: `${pct}%` }}
               />

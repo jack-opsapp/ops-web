@@ -50,14 +50,14 @@ export function FlowGalaxyLegend() {
             {/* Visual encoding */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-[2px]">
-                <div className="w-[4px] h-[4px] rounded-full bg-[#597794]/60" />
-                <div className="w-[6px] h-[6px] rounded-full bg-[#597794]/80" />
-                <div className="w-[4px] h-[4px] rounded-full bg-[#597794]/60" />
+                <div className="w-[4px] h-[4px] rounded-full bg-ops-accent/60" />
+                <div className="w-[6px] h-[6px] rounded-full bg-ops-accent/80" />
+                <div className="w-[4px] h-[4px] rounded-full bg-ops-accent/60" />
               </div>
               <span className="font-kosugi text-[9px] text-[#A0A0A0]">Size = traffic</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-[6px] h-[6px] rounded-full bg-[#597794]/30 ring-1 ring-[#597794]/20" />
+              <div className="w-[6px] h-[6px] rounded-full bg-ops-accent/30 ring-1 ring-[#597794]/20" />
               <span className="font-kosugi text-[9px] text-[#A0A0A0]">Glow = engagement</span>
             </div>
 

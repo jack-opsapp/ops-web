@@ -308,7 +308,7 @@ export function BugReportButton() {
                         "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
                         "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
                         "placeholder:text-text-mute",
-                        "focus:outline-none focus:border-ops-accent/40",
+                        "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                         "transition-colors duration-150"
                       )}
                       autoFocus
@@ -335,7 +335,7 @@ export function BugReportButton() {
                         "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
                         "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
                         "placeholder:text-text-mute",
-                        "focus:outline-none focus:border-ops-accent/40",
+                        "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                         "transition-colors duration-150"
                       )}
                     />

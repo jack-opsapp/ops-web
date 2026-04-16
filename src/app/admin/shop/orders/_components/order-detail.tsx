@@ -179,7 +179,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={() => setShowShipForm(true)}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
               <Truck size={12} /> Mark Shipped
             </button>
@@ -216,7 +216,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
       {/* Ship form */}
       {showShipForm && (
-        <div className="border border-[#597794]/30 rounded-sm p-4 mb-6 bg-[#597794]/5">
+        <div className="border border-[#597794]/30 rounded-sm p-4 mb-6 bg-ops-accent/5">
           <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
             Shipping Details
           </p>
@@ -248,7 +248,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={handleShip}
               disabled={!trackingNumber || saving}
-              className="px-4 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
               Confirm Ship
             </button>
@@ -285,7 +285,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
         <div className="space-y-3">
           {timeline.map((t, i) => (
             <div key={i} className="flex items-start gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#597794] mt-1.5 flex-shrink-0" />
+              <div className="w-1.5 h-1.5 rounded-full bg-ops-accent mt-1.5 flex-shrink-0" />
               <div>
                 <p className="font-mohave text-[12px] text-[#6B6B6B]">
                   {new Date(t.time).toLocaleString()}

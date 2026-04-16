@@ -76,7 +76,7 @@ function TaskRow({
         className={cn(
           "mt-0.5 h-5 w-5 rounded border shrink-0 flex items-center justify-center transition-colors",
           selected
-            ? "bg-[#417394] border-[#417394]"
+            ? "bg-ops-accent border-[#417394]"
             : "border-[#444] bg-transparent"
         )}
       >
@@ -100,7 +100,7 @@ function TaskRow({
           return (
             <span
               key={memberId}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[#417394]/20 text-[#8BB8D4]"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-ops-accent/20 text-[#8BB8D4]"
             >
               {member.firstName}
               <button
@@ -332,7 +332,7 @@ export function ReviewTasksModal({
           <Button
             onClick={handleCreate}
             disabled={creating || selectedCount === 0}
-            className="flex-1 bg-[#417394] hover:bg-[#4f8aae] text-white"
+            className="flex-1 bg-ops-accent hover:bg-[#4f8aae] text-white"
           >
             {creating ? (
               <Loader2 className="h-4 w-4 animate-spin" />

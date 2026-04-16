@@ -76,7 +76,7 @@ const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
             "border border-border",
             "transition-all duration-150",
             "placeholder:text-text-3",
-            "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent"
+            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none focus:shadow-glow-accent"
           )}
           aria-label={placeholder}
           {...props}

@@ -171,7 +171,7 @@ function IndustryDropdown({
           "px-2 py-1.5 rounded-sm min-h-[56px]",
           "border border-[rgba(255,255,255,0.08)]",
           "transition-all duration-150",
-          "focus:border-ops-accent focus:outline-none",
+          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
           value.length === 0 && "text-text-mute"
         )}
       >
@@ -226,7 +226,7 @@ function IndustryDropdown({
                 aria-activedescendant={
                   highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
                 }
-                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-ops-accent focus:outline-none placeholder:text-text-mute placeholder:font-kosugi min-h-[48px]"
+                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-[rgba(255,255,255,0.20)] focus:outline-none placeholder:text-text-mute placeholder:font-kosugi min-h-[48px]"
               />
             </div>
           </div>

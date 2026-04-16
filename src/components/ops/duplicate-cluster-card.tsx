@@ -673,7 +673,7 @@ export function DuplicateClusterCard({
           type="button"
           onClick={handleMerge}
           disabled={isMerging}
-          className="flex-1 rounded-[3px] bg-[#597794]/20 px-4 py-2.5 font-mohave text-[14px] font-medium text-[#597794] transition-colors duration-150 hover:bg-[#597794]/30 disabled:opacity-40"
+          className="flex-1 rounded-[3px] bg-ops-accent/20 px-4 py-2.5 font-mohave text-[14px] font-medium text-[#597794] transition-colors duration-150 hover:bg-ops-accent/30 disabled:opacity-40"
         >
           {isMerging ? t("merging") : t("card.merge")}
         </button>

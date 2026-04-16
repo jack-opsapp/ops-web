@@ -226,7 +226,7 @@ export function ScheduleTab() {
                 key={key}
                 className={`min-h-[72px] border-b border-r border-white/[0.04] p-1.5 transition-colors ${
                   hasData && !future ? "cursor-pointer hover:bg-white/[0.04]" : ""
-                } ${today ? "ring-1 ring-inset ring-[#597794]/50 bg-[#597794]/5" : ""}`}
+                } ${today ? "ring-1 ring-inset ring-[#597794]/50 bg-ops-accent/5" : ""}`}
                 onClick={() => {
                   if (hasData && !future) openDayDetail(key);
                 }}

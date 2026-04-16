@@ -76,7 +76,7 @@ export function SyncStatusBar() {
         <div className="flex items-center gap-2">
           <div className="w-24 h-1 bg-white/[0.06] rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#597794] transition-all duration-300"
+              className="h-full bg-ops-accent transition-all duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>

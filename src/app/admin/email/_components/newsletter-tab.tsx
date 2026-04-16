@@ -271,7 +271,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
           <button
             onClick={() => save(true)}
             disabled={isPending}
-            className="px-5 py-2 rounded-lg bg-[#597794] font-mohave text-[13px] uppercase tracking-wider text-[#E5E5E5] hover:bg-[#6B8DAD] transition-colors disabled:opacity-50"
+            className="px-5 py-2 rounded-lg bg-ops-accent font-mohave text-[13px] uppercase tracking-wider text-[#E5E5E5] hover:bg-[#6B8DAD] transition-colors disabled:opacity-50"
           >
             Mark Sent
           </button>

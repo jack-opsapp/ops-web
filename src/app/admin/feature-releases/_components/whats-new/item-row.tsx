@@ -145,7 +145,7 @@ export function ItemRow({
           {item.title}
         </span>
         {item.feature_flag_slug && (
-          <span className="ml-1 font-mono text-[10px] text-[#597794] bg-[#597794]/10 px-1.5 py-0.5 rounded flex-shrink-0">
+          <span className="ml-1 font-mono text-[10px] text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
             {item.feature_flag_slug}
           </span>
         )}

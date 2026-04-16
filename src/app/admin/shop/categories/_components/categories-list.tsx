@@ -216,7 +216,7 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
           <button
             onClick={handleAdd}
             disabled={!newName.trim()}
-            className="px-4 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+            className="px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
           >
             Add
           </button>

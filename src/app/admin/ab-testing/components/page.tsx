@@ -191,7 +191,7 @@ export default function ComponentPreviewPage() {
               onClick={() => setSelectedType(selectedType === section.type ? null : section.type)}
               className={`text-left rounded-lg border p-4 transition-all ${
                 selectedType === section.type
-                  ? 'border-[#597794] bg-[#597794]/10'
+                  ? 'border-[#597794] bg-ops-accent/10'
                   : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]'
               }`}
             >
@@ -216,7 +216,7 @@ export default function ComponentPreviewPage() {
 
         {/* Selected section detail */}
         {selected && (
-          <div className="border border-[#597794]/40 rounded-lg p-6 mb-12 bg-[#597794]/5">
+          <div className="border border-[#597794]/40 rounded-lg p-6 mb-12 bg-ops-accent/5">
             <div className="flex items-start gap-8">
               {/* Wireframe preview */}
               <div className="flex-shrink-0 w-[280px] h-[400px] bg-black/60 rounded-lg border border-white/10 overflow-hidden relative">

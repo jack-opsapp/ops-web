@@ -142,7 +142,7 @@ export function DuplicateReviewSheet() {
                 </div>
                 <div className="h-[2px] w-full bg-white/5 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#597794] transition-all duration-300"
+                    className="h-full bg-ops-accent transition-all duration-300"
                     style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
                   />
                 </div>

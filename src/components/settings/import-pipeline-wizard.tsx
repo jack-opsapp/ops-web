@@ -819,7 +819,7 @@ export function ImportPipelineWizard({
               )}
               <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
                 <motion.div
-                  className="h-full bg-[#597794]"
+                  className="h-full bg-ops-accent"
                   animate={{ width: `${Math.round(bgProgress.percent)}%` }}
                   transition={{ duration: 0.8, ease: EASE }}
                 />
@@ -1187,7 +1187,7 @@ export function ImportPipelineWizard({
                     invalidateConnections();
                     onOpenChange(false);
                   }}
-                  className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white transition-colors"
+                  className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white transition-colors"
                   style={{ borderRadius: 4 }}
                 >
                   CLOSE & SAVE

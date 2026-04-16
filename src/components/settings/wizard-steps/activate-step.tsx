@@ -193,7 +193,7 @@ export function ActivateStep({
             </div>
             <Button
               onClick={onComplete}
-              className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2"
+              className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
               style={{ borderRadius: 3 }}
             >
               Done
@@ -203,7 +203,7 @@ export function ActivateStep({
           <Button
             onClick={handleActivate}
             disabled={activating}
-            className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-8 py-2.5 w-full disabled:opacity-40"
+            className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-8 py-2.5 w-full disabled:opacity-40"
             style={{ borderRadius: 3 }}
           >
             {activating ? (

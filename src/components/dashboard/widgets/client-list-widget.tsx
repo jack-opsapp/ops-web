@@ -329,7 +329,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("clientList.search") ?? "Search clients..."}
-          className="w-full bg-surface-input border border-border-input font-mohave text-caption-sm placeholder:text-text-3 rounded-sm px-2 py-1 outline-none focus:border-ops-accent/50 transition-colors mb-2 shrink-0"
+          className="w-full bg-surface-input border border-border-input font-mohave text-caption-sm placeholder:text-text-3 rounded-sm px-2 py-1 outline-none focus:border-[rgba(255,255,255,0.20)]/50 transition-colors mb-2 shrink-0"
         />
 
         {/* CLIENT LIST */}

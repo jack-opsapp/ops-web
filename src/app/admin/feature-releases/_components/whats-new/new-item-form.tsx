@@ -22,7 +22,7 @@ export function NewItemForm({ onSubmit, onCancel }: NewItemFormProps) {
   const [slug, setSlug] = useState("");
 
   return (
-    <div className="px-6 py-3 border-t border-[#597794]/20 bg-[#597794]/5 space-y-2">
+    <div className="px-6 py-3 border-t border-[#597794]/20 bg-ops-accent/5 space-y-2">
       <div className="grid grid-cols-[80px_1fr] gap-2">
         <input
           value={icon}
@@ -64,7 +64,7 @@ export function NewItemForm({ onSubmit, onCancel }: NewItemFormProps) {
         <button
           onClick={() => title && onSubmit(title, description, icon, status, slug)}
           disabled={!title}
-          className="px-3 py-1.5 bg-[#597794] rounded font-mohave text-[11px] uppercase text-white hover:bg-[#597794]/80 disabled:opacity-40"
+          className="px-3 py-1.5 bg-ops-accent rounded font-mohave text-[11px] uppercase text-white hover:bg-ops-accent/80 disabled:opacity-40"
         >
           Create
         </button>

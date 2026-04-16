@@ -90,7 +90,7 @@ function WonContent({
                 "w-full bg-surface-input text-text font-mono text-body",
                 "pl-4 pr-1.5 py-1.5 rounded-lg border border-border",
                 "placeholder:text-text-3",
-                "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent"
+                "focus:border-[rgba(255,255,255,0.20)] focus:outline-none focus:shadow-glow-accent"
               )}
             />
           </div>
@@ -170,7 +170,7 @@ function LostContent({
             className={cn(
               "w-full bg-surface-input text-text font-mohave text-body",
               "px-1.5 py-1.5 rounded-lg border border-border",
-              "focus:border-ops-accent focus:outline-none",
+              "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
               "cursor-pointer",
               !lostReason && "text-text-3"
             )}
@@ -198,7 +198,7 @@ function LostContent({
               "w-full bg-surface-input text-text font-mohave text-body-sm",
               "px-1.5 py-1.5 rounded-lg border border-border resize-none",
               "placeholder:text-text-3",
-              "focus:border-ops-accent focus:outline-none"
+              "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             )}
           />
         </div>

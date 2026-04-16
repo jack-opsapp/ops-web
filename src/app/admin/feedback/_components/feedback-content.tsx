@@ -120,7 +120,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                   className={[
                     "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                     typeFilter === t
-                      ? "text-[#597794] border-[#597794]/30 bg-[#597794]/10"
+                      ? "text-[#597794] border-[#597794]/30 bg-ops-accent/10"
                       : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
                   ].join(" ")}
                 >
@@ -465,7 +465,7 @@ function FilterPill({
         "px-3 py-1.5 rounded-full font-mohave text-[11px] uppercase border transition-colors whitespace-nowrap",
         active
           ? accent
-            ? "text-[#597794] border-[#597794]/30 bg-[#597794]/10"
+            ? "text-[#597794] border-[#597794]/30 bg-ops-accent/10"
             : "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
           : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
       ].join(" ")}

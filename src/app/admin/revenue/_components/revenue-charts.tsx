@@ -225,7 +225,7 @@ export function RevenueCharts({
                   onClick={() => setTrialDays(opt.days)}
                   className={`px-3 py-1 rounded-full font-mohave text-[12px] uppercase tracking-wider transition-colors ${
                     trialDays === opt.days
-                      ? "bg-[#597794]/20 text-[#597794]"
+                      ? "bg-ops-accent/20 text-[#597794]"
                       : "bg-white/[0.06] text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.08]"
                   }`}
                 >

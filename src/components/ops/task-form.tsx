@@ -112,7 +112,7 @@ function TaskTypeDropdown({
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
             open ? "border-ops-accent" : error ? "border-status-error" : "border-border",
-            "focus:border-ops-accent focus:outline-none"
+            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
           )}
         >
           {selected ? (
@@ -210,7 +210,7 @@ function StatusDropdown({
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
             open && "border-ops-accent",
-            "focus:border-ops-accent focus:outline-none"
+            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
           )}
         >
           <span className="flex items-center gap-[6px]">
@@ -301,7 +301,7 @@ function TeamMemberDropdown({
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
             open && "border-ops-accent",
-            "focus:border-ops-accent focus:outline-none",
+            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
             count > 0 ? "text-text" : "text-text-3"
           )}
         >
@@ -458,7 +458,7 @@ function DependencySection({
                     next[i] = { ...next[i], overlap_percentage: Number(e.target.value) };
                     onOverridesChange(next);
                   }}
-                  className="w-[50px] font-mono text-data-sm bg-glass glass-surface border border-border rounded-[2px] px-1.5 py-0.5 text-text outline-none focus:border-ops-accent"
+                  className="w-[50px] font-mono text-data-sm bg-glass glass-surface border border-border rounded-[2px] px-1.5 py-0.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
                 />
               ) : (
                 <span className="font-mohave text-body-sm text-text-3">

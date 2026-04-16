@@ -210,7 +210,7 @@ export function BlogPostEditor({
             type="button"
             onClick={handleSave}
             disabled={!post.title.trim() || saving}
-            className="w-full py-2 bg-[#597794] hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -452,7 +452,7 @@ function ThumbnailUploader({
         className={[
           "relative w-full rounded border cursor-pointer transition-colors overflow-hidden",
           dragOver
-            ? "border-[#597794] bg-[#597794]/10"
+            ? "border-[#597794] bg-ops-accent/10"
             : url
               ? "border-white/[0.08]"
               : "border-dashed border-white/[0.15] bg-white/[0.02] hover:border-white/[0.25]",

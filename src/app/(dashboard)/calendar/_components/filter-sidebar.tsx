@@ -290,7 +290,7 @@ export function FilterSidebar() {
                 value={projectSearch}
                 onChange={(e) => setProjectSearch(e.target.value)}
                 placeholder={t("filter.searchProjects")}
-                className="w-full pl-[26px] pr-2 py-[5px] bg-fill-neutral-dim/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text placeholder:text-text-mute focus:outline-none focus:border-ops-accent/40 transition-colors"
+                className="w-full pl-[26px] pr-2 py-[5px] bg-fill-neutral-dim/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text placeholder:text-text-mute focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40 transition-colors"
               />
             </div>
           </div>

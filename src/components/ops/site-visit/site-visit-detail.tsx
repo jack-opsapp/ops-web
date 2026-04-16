@@ -41,7 +41,7 @@ import { uploadImage } from "@/lib/api/services";
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  scheduled: { label: "Scheduled", color: "bg-[#417394]/20 text-[#8BB8D4]" },
+  scheduled: { label: "Scheduled", color: "bg-ops-accent/20 text-[#8BB8D4]" },
   in_progress: { label: "In Progress", color: "bg-[#C4A868]/20 text-[#D4B878]" },
   completed: { label: "Completed", color: "bg-[#9DB582]/20 text-[#B5D4A0]" },
   cancelled: { label: "Cancelled", color: "bg-[#444]/20 text-[#9CA3AF]" },

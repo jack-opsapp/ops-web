@@ -393,7 +393,7 @@ function PipelineInlineActions({
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[260px] p-2">
             <textarea
-              className="w-full bg-transparent border border-border-subtle rounded-sm p-1.5 font-mohave text-caption-sm text-text resize-none focus:outline-none focus:border-ops-accent/50"
+              className="w-full bg-transparent border border-border-subtle rounded-sm p-1.5 font-mohave text-caption-sm text-text resize-none focus:outline-none focus:border-[rgba(255,255,255,0.20)]/50"
               rows={3}
               placeholder={
                 t("pipelineList.composePlaceholder") ??

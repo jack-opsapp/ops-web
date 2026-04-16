@@ -422,7 +422,7 @@ export function ConfirmPipelineStep({
           <button
             onClick={onImport}
             disabled={counts.importTotal === 0}
-            className="font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794] text-[#597794] hover:bg-[#597794] hover:text-white px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            className="font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794] text-[#597794] hover:bg-ops-accent hover:text-white px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             style={{ borderRadius: 3 }}
           >
             {t("confirm.import")} {counts.importTotal}

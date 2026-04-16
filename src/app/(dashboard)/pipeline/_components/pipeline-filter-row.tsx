@@ -307,7 +307,7 @@ export function PipelineFilterRow({
           onClick={onAddLead}
           className={cn(
             "flex items-center gap-[6px] h-[30px] px-3 shrink-0",
-            "bg-[#597794] hover:bg-[#597794]/90",
+            "bg-ops-accent hover:bg-ops-accent/90",
             "font-mohave text-body-sm text-white",
             "rounded-[4px] transition-colors cursor-pointer"
           )}

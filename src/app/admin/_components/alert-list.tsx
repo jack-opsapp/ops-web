@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import type { AlertItem } from "@/lib/admin/types";
 
 const SEVERITY_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
-  info: { dot: "bg-[#597794]", text: "text-[#A0A0A0]", bg: "" },
+  info: { dot: "bg-ops-accent", text: "text-[#A0A0A0]", bg: "" },
   warning: { dot: "bg-[#C4A868]", text: "text-[#C4A868]", bg: "bg-[#C4A868]/5" },
   danger: { dot: "bg-[#93321A]", text: "text-[#93321A]", bg: "bg-[#93321A]/10" },
 };

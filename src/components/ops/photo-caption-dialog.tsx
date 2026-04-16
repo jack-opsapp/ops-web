@@ -68,7 +68,7 @@ export function PhotoCaptionDialog({
           </button>
           <button
             onClick={handleSave}
-            className="rounded-md bg-[#417394] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4d8ab0]"
+            className="rounded-md bg-ops-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4d8ab0]"
           >
             Save Caption
           </button>

@@ -180,7 +180,7 @@ export function MentionTextArea({
               onClick={() => insertMention(user)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition ${
                 i === suggestionIndex
-                  ? "bg-[#417394]/20 text-[#E5E5E5]"
+                  ? "bg-ops-accent/20 text-[#E5E5E5]"
                   : "text-[#999] hover:bg-white/5"
               }`}
             >

@@ -331,7 +331,7 @@ export function InviteModal({
             <div
               className={cn(
                 "flex flex-wrap items-center gap-[6px] p-1 rounded-sm border bg-surface-input min-h-[40px]",
-                "border-border focus-within:border-ops-accent transition-colors"
+                "border-border focus-within:border-[rgba(255,255,255,0.20)] transition-colors"
               )}
             >
               {entries.map((entry) => (

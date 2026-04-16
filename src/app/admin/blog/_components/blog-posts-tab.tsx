@@ -105,7 +105,7 @@ function BlogPreviewModal({
           <div className="flex items-center gap-2">
             <Link
               href={`/admin/blog/${post.id}/edit`}
-              className="px-3 py-1.5 bg-[#597794] hover:bg-[#6B8AA6] rounded font-mohave text-[12px] uppercase tracking-wider text-white transition-colors"
+              className="px-3 py-1.5 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[12px] uppercase tracking-wider text-white transition-colors"
             >
               Edit
             </Link>
@@ -335,7 +335,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
 
         <Link
           href="/admin/blog/new"
-          className="px-4 py-2 bg-[#597794] hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white"
+          className="px-4 py-2 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white"
         >
           New Post
         </Link>
@@ -380,7 +380,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             </button>
 
             {/* Category */}
-            <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#597794]/20 text-[#8AAFC4] w-fit">
+            <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-ops-accent/20 text-[#8AAFC4] w-fit">
               {getCategoryName(post.category_id, categories)}
             </span>
 

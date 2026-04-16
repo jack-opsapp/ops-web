@@ -353,7 +353,7 @@ function FlagCard({
               {flag.routes.map((r) => (
                 <span
                   key={r}
-                  className="font-mono text-[11px] text-[#8195B5] bg-[#597794]/10 border border-[#597794]/20 px-2 py-0.5 rounded"
+                  className="font-mono text-[11px] text-[#8195B5] bg-ops-accent/10 border border-[#597794]/20 px-2 py-0.5 rounded"
                 >
                   {r}
                 </span>
@@ -451,7 +451,7 @@ function FlagCard({
                   {draftRoutes.map((r) => (
                     <span
                       key={r}
-                      className="flex items-center gap-1 font-mono text-[11px] text-[#8195B5] bg-[#597794]/10 border border-[#597794]/20 px-2 py-0.5 rounded"
+                      className="flex items-center gap-1 font-mono text-[11px] text-[#8195B5] bg-ops-accent/10 border border-[#597794]/20 px-2 py-0.5 rounded"
                     >
                       {r}
                       <button
@@ -507,7 +507,7 @@ function FlagCard({
               <button
                 onClick={searchUsers}
                 disabled={searching || !searchQuery.trim()}
-                className="px-4 py-2 bg-[#597794] rounded-lg font-mohave text-[12px] uppercase tracking-wider text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-ops-accent rounded-lg font-mohave text-[12px] uppercase tracking-wider text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
               >
                 {searching ? "..." : "Search"}
               </button>
@@ -851,7 +851,7 @@ function NewFlagForm({
               <button
                 onClick={() => setStep("definitions")}
                 disabled={!slug || !label}
-                className="px-5 py-2 bg-[#597794] rounded-lg font-mohave text-[12px] uppercase tracking-wider text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-40"
+                className="px-5 py-2 bg-ops-accent rounded-lg font-mohave text-[12px] uppercase tracking-wider text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-40"
               >
                 Next →
               </button>
@@ -885,7 +885,7 @@ function NewFlagForm({
                 {routes.map((r) => (
                   <span
                     key={r}
-                    className="flex items-center gap-1 font-mono text-[11px] text-[#8195B5] bg-[#597794]/10 border border-[#597794]/20 px-2 py-0.5 rounded"
+                    className="flex items-center gap-1 font-mono text-[11px] text-[#8195B5] bg-ops-accent/10 border border-[#597794]/20 px-2 py-0.5 rounded"
                   >
                     {r}
                     <button
@@ -927,7 +927,7 @@ function NewFlagForm({
                 <button
                   onClick={() => onSubmit(slug, label, description, routes, permissions)}
                   disabled={!slug || !label}
-                  className="px-5 py-2 bg-[#597794] rounded-lg font-mohave text-[12px] uppercase tracking-wider text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-40"
+                  className="px-5 py-2 bg-ops-accent rounded-lg font-mohave text-[12px] uppercase tracking-wider text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-40"
                 >
                   Create Flag
                 </button>

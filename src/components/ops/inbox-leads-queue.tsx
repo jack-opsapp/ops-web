@@ -235,7 +235,7 @@ function LeadCard({
       {/* Action */}
       <button
         onClick={() => onCreateLead(prefill)}
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-[#597794]/15 hover:bg-[#597794]/25 text-[#597794] text-xs font-medium transition-colors font-kosugi"
+        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-ops-accent/15 hover:bg-ops-accent/25 text-[#597794] text-xs font-medium transition-colors font-kosugi"
       >
         <UserPlus className="h-3 w-3" />
         Create Lead
@@ -447,7 +447,7 @@ export function InboxLeadsQueue({
               Inbox Leads
             </h3>
             {leads.length > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#597794] text-[9px] font-bold text-white">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-ops-accent text-[9px] font-bold text-white">
                 {leads.length > 9 ? "9+" : leads.length}
               </span>
             )}

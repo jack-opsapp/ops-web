@@ -136,7 +136,7 @@ function NoteContent({ content }: { content: string }) {
     parts.push(
       <span
         key={match.index}
-        className="rounded bg-[#417394]/20 px-1 text-[#8BB8D4] font-medium"
+        className="rounded bg-ops-accent/20 px-1 text-[#8BB8D4] font-medium"
       >
         @{match[1]}
       </span>

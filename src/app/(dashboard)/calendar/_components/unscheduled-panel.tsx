@@ -68,7 +68,7 @@ export function UnscheduledPanel() {
 
         {/* Count badge */}
         {count > 0 && (
-          <span className="font-kosugi text-[9px] text-[#597794] bg-[#597794]/20 px-[6px] py-[1px] rounded-sm ml-auto">
+          <span className="font-kosugi text-[9px] text-[#597794] bg-ops-accent/20 px-[6px] py-[1px] rounded-sm ml-auto">
             {count}
           </span>
         )}

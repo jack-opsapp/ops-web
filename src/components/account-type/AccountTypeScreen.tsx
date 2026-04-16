@@ -335,7 +335,7 @@ export function AccountTypeScreen() {
                       }}
                       placeholder="Enter code"
                       maxLength={20}
-                      className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded px-4 py-3 font-mohave text-[16px] font-medium text-text tracking-widest uppercase outline-none transition-colors focus:border-ops-accent placeholder:text-text-mute placeholder:tracking-wide placeholder:normal-case"
+                      className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded px-4 py-3 font-mohave text-[16px] font-medium text-text tracking-widest uppercase outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute placeholder:tracking-wide placeholder:normal-case"
                     />
                     <button
                       onClick={validateCode}

@@ -176,7 +176,7 @@ export function ReviewStep({
           type="button"
           onClick={handleCreate}
           disabled={status === "creating" || taskTypes.length === 0}
-          className="flex items-center gap-[8px] px-[24px] py-[10px] rounded bg-[#597794] hover:bg-[#6a8ba8] text-white font-mohave text-body-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-[8px] px-[24px] py-[10px] rounded bg-ops-accent hover:bg-[#6a8ba8] text-white font-mohave text-body-sm transition-colors disabled:opacity-50"
         >
           {status === "creating" ? (
             <>

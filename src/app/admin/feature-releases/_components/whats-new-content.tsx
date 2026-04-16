@@ -575,7 +575,7 @@ function ItemRow({
         <div className="min-w-0">
           <span className="font-kosugi text-[13px] text-[#E5E5E5]">{item.title}</span>
           {item.feature_flag_slug && (
-            <span className="ml-2 font-mono text-[10px] text-[#597794] bg-[#597794]/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
+            <span className="ml-2 font-mono text-[10px] text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
           )}
         </div>
       </div>
@@ -611,7 +611,7 @@ function NewCategoryForm({ onSubmit, onCancel }: { onSubmit: (name: string, icon
       </div>
       <div className="flex justify-end gap-2">
         <button onClick={onCancel} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5]">Cancel</button>
-        <button onClick={() => name && onSubmit(name, icon)} disabled={!name} className="px-3 py-1.5 bg-[#597794] rounded font-mohave text-[11px] uppercase text-white hover:bg-[#597794]/80 disabled:opacity-40">Create</button>
+        <button onClick={() => name && onSubmit(name, icon)} disabled={!name} className="px-3 py-1.5 bg-ops-accent rounded font-mohave text-[11px] uppercase text-white hover:bg-ops-accent/80 disabled:opacity-40">Create</button>
       </div>
     </div>
   );
@@ -627,7 +627,7 @@ function NewItemForm({ onSubmit, onCancel }: { onSubmit: (title: string, desc: s
   const [slug, setSlug] = useState("");
 
   return (
-    <div className="px-6 py-3 border-t border-[#597794]/20 bg-[#597794]/5 space-y-2">
+    <div className="px-6 py-3 border-t border-[#597794]/20 bg-ops-accent/5 space-y-2">
       <div className="grid grid-cols-[80px_1fr] gap-2">
         <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none" autoFocus />
@@ -641,7 +641,7 @@ function NewItemForm({ onSubmit, onCancel }: { onSubmit: (title: string, desc: s
       </div>
       <div className="flex justify-end gap-2">
         <button onClick={onCancel} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5]">Cancel</button>
-        <button onClick={() => title && onSubmit(title, description, icon, status, slug)} disabled={!title} className="px-3 py-1.5 bg-[#597794] rounded font-mohave text-[11px] uppercase text-white hover:bg-[#597794]/80 disabled:opacity-40">Create</button>
+        <button onClick={() => title && onSubmit(title, description, icon, status, slug)} disabled={!title} className="px-3 py-1.5 bg-ops-accent rounded font-mohave text-[11px] uppercase text-white hover:bg-ops-accent/80 disabled:opacity-40">Create</button>
       </div>
     </div>
   );

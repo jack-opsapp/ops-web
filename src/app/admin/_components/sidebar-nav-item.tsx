@@ -24,7 +24,7 @@ export function SidebarNavItem({ href, label }: SidebarNavItemProps) {
       ].join(" ")}
     >
       {isActive && (
-        <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#597794]" />
+        <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-ops-accent" />
       )}
       {label}
     </Link>

@@ -129,7 +129,7 @@ export function SendEstimateFlow({
             <Button
               onClick={handleSend}
               disabled={sending || !email.trim()}
-              className="flex-1 bg-[#417394] hover:bg-[#4f8aae] text-white gap-2"
+              className="flex-1 bg-ops-accent hover:bg-[#4f8aae] text-white gap-2"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

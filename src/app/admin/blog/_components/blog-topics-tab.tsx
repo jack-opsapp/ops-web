@@ -112,7 +112,7 @@ export function BlogTopicsTab() {
         <button
           type="button"
           onClick={handleCreate}
-          className="px-4 py-2 bg-[#597794] hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white transition-colors"
+          className="px-4 py-2 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white transition-colors"
         >
           Add
         </button>
