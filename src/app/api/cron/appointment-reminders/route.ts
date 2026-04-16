@@ -271,5 +271,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[cron/appointment-reminders]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }

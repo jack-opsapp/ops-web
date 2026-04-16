@@ -18,7 +18,11 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { getSubscriptionInfo } from "@/lib/subscription";
-import type { Company } from "@/lib/types/models";
+import {
+  SubscriptionPlan,
+  SubscriptionStatus,
+  type Company,
+} from "@/lib/types/models";
 
 export const maxDuration = 60;
 
@@ -42,6 +46,18 @@ type CompanySubscriptionFields = Pick<
   | "adminIds"
   | "maxSeats"
 >;
+
+/** Minimal snake_case → camelCase mapper for subscription gating. */
+function mapSubscriptionRow(row: Record<string, unknown>): CompanySubscriptionFields {
+  return {
+    subscriptionPlan: (row.subscription_plan as SubscriptionPlan) ?? null,
+    subscriptionStatus: (row.subscription_status as SubscriptionStatus) ?? null,
+    trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : null,
+    seatedEmployeeIds: (row.seated_employee_ids as string[]) ?? [],
+    adminIds: (row.admin_ids as string[]) ?? [],
+    maxSeats: (row.max_seats as number) ?? 10,
+  };
+}
 
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
@@ -112,17 +128,24 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Subscription gate ─────────────────────────────────────────────────
-    const { data: company } = await supabase
+    const { data: company, error: companyError } = await supabase
       .from("companies")
       .select(
-        "subscriptionPlan, subscriptionStatus, trialEndDate, seatedEmployeeIds, adminIds, maxSeats"
+        "subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
       )
       .eq("id", companyId)
       .single();
 
-    const subInfo = getSubscriptionInfo(
-      company as unknown as CompanySubscriptionFields
-    );
+    if (companyError || !company) {
+      // Fail closed — a broken company lookup must not silently bypass the subscription gate.
+      console.error("[email-send] company subscription lookup failed:", companyError);
+      return NextResponse.json(
+        { error: "Failed to verify subscription" },
+        { status: 500 }
+      );
+    }
+
+    const subInfo = getSubscriptionInfo(mapSubscriptionRow(company));
     if (!subInfo.isActive) {
       return NextResponse.json(
         { error: "Subscription inactive", reason: "subscription_expired" },

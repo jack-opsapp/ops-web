@@ -6,14 +6,17 @@
  */
 
 import type { EmailConnection } from "@/lib/types/email-connection";
-import type {
-  EmailProviderInterface,
-  ImageAttachmentMeta,
-  NormalizedEmail,
-  SendEmailParams,
-  SendEmailResult,
-  SyncResult,
-  WebhookSubscription,
+import { requireSupabase } from "@/lib/supabase/helpers";
+import {
+  ProviderApiError,
+  ProviderAuthError,
+  type EmailProviderInterface,
+  type ImageAttachmentMeta,
+  type NormalizedEmail,
+  type SendEmailParams,
+  type SendEmailResult,
+  type SyncResult,
+  type WebhookSubscription,
 } from "../email-provider";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
@@ -50,14 +53,58 @@ export class Microsoft365Provider implements EmailProviderInterface {
       }
     );
 
-    if (!res.ok) throw new Error(`M365 token refresh failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      // invalid_grant → refresh token revoked or user consent revoked.
+      if (res.status === 400 && /invalid_grant|AADSTS70/i.test(body)) {
+        throw new ProviderAuthError(
+          `M365 refresh token revoked: ${body}`,
+          res.status
+        );
+      }
+      if (res.status === 401) {
+        throw new ProviderAuthError(
+          `M365 token refresh unauthorized: ${body}`,
+          res.status
+        );
+      }
+      throw new ProviderApiError(
+        `M365 token refresh failed (${res.status}): ${body}`,
+        res.status,
+        body
+      );
+    }
+
     const data = await res.json();
+    if (!data.access_token) {
+      throw new ProviderAuthError("M365 refresh returned no access_token");
+    }
 
-    // Update in-memory connection (caller must persist if needed)
-    this.connection.accessToken = data.access_token;
-    this.connection.expiresAt = new Date(Date.now() + data.expires_in * 1000);
+    const newAccessToken = data.access_token as string;
+    const newExpiresAt = new Date(Date.now() + (data.expires_in as number) * 1000);
 
-    return data.access_token as string;
+    // Update in-memory
+    this.connection.accessToken = newAccessToken;
+    this.connection.expiresAt = newExpiresAt;
+
+    // Persist so the next request doesn't do a wasted refresh.
+    try {
+      const supabase = requireSupabase();
+      await supabase
+        .from("email_connections")
+        .update({
+          access_token: newAccessToken,
+          expires_at: newExpiresAt.toISOString(),
+        })
+        .eq("id", this.connection.id);
+    } catch (err) {
+      console.error(
+        `[m365-provider] Failed to persist refreshed token for ${this.connection.id}:`,
+        err
+      );
+    }
+
+    return newAccessToken;
   }
 
   private async graphFetch(
@@ -82,38 +129,94 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return res.json();
   }
 
-  async fetchNewEmailsSince(syncToken: string): Promise<SyncResult> {
-    // M365 delta query — syncToken is the deltaLink from last sync
-    const url = syncToken.startsWith("http")
-      ? syncToken // deltaLink is a full URL
-      : `/me/mailFolders/inbox/messages/delta`;
+  async getInitialSyncToken(): Promise<string> {
+    // M365's delta query is self-seeding: the first call with no deltaLink
+    // fetches an initial page and returns a deltaLink in the response. We
+    // return an empty string so fetchNewEmailsSince takes the "no deltaLink"
+    // branch on its next call.
+    return "";
+  }
 
-    const data = await this.graphFetch(url);
-    const emails = ((data.value as Array<Record<string, unknown>>) || []).map(
-      (msg) => this.normalizeM365Message(msg)
-    );
+  /**
+   * Walk a Graph delta query's pagination chain from `startUrl` until we
+   * hit either a terminal `@odata.deltaLink` (end of the sync window) or
+   * our safety cap. Returns all messages collected across pages plus the
+   * final deltaLink to persist as the next sync token.
+   *
+   * Graph delta responses are paginated with `@odata.nextLink` (same-sync
+   * continuation) and terminated with `@odata.deltaLink` (next-sync
+   * pointer). Mutually exclusive: a given page has exactly one or the
+   * other. The original implementation only read the first page and
+   * treated the nextLink as "done, no deltaLink" — so:
+   *   - initial syncs against a busy mailbox only imported the first ~10
+   *     messages and immediately marked the connection as synced with
+   *     whatever deltaLink it saw last (sometimes none, masking the loss)
+   *   - the nextSyncToken could regress to `syncToken` when deltaLink
+   *     wasn't present, getting stuck on that page forever
+   *
+   * Cap at 50 pages per invocation to avoid unbounded loops on an
+   * active mailbox — ~500 messages at Graph's default page size, plenty
+   * for a 15-minute cron window.
+   */
+  private async fetchDeltaPages(
+    startUrl: string
+  ): Promise<{ emails: NormalizedEmail[]; nextDeltaLink: string | null }> {
+    const MAX_PAGES = 50;
+    const emails: NormalizedEmail[] = [];
+    let currentUrl: string | null = startUrl;
+    let nextDeltaLink: string | null = null;
+
+    for (let page = 0; page < MAX_PAGES && currentUrl; page++) {
+      const data = await this.graphFetch(currentUrl);
+      const value = (data.value as Array<Record<string, unknown>>) || [];
+      for (const msg of value) {
+        emails.push(this.normalizeM365Message(msg));
+      }
+
+      const delta = data["@odata.deltaLink"] as string | undefined;
+      const next = data["@odata.nextLink"] as string | undefined;
+
+      if (delta) {
+        nextDeltaLink = delta;
+        currentUrl = null;
+      } else if (next) {
+        currentUrl = next;
+      } else {
+        // Neither link present — end of page chain without a clear
+        // terminator. Keep currentUrl null to break out.
+        currentUrl = null;
+      }
+    }
+
+    return { emails, nextDeltaLink };
+  }
+
+  async fetchNewEmailsSince(syncToken: string): Promise<SyncResult> {
+    // M365 delta query — syncToken is the deltaLink from last sync. On
+    // first sync (empty string) start from the folder's delta endpoint
+    // with $select so body.contentType is normalized (see B16 notes).
+    const startUrl = syncToken && syncToken.startsWith("http")
+      ? syncToken
+      : `/me/mailFolders/inbox/messages/delta?$select=id,conversationId,from,toRecipients,ccRecipients,subject,bodyPreview,body,receivedDateTime,categories,isRead,hasAttachments`;
+
+    const { emails, nextDeltaLink } = await this.fetchDeltaPages(startUrl);
 
     return {
       emails,
-      nextSyncToken:
-        (data["@odata.deltaLink"] as string) || syncToken,
+      nextSyncToken: nextDeltaLink || syncToken,
     };
   }
 
   async fetchSentEmailsSince(syncToken: string): Promise<SyncResult> {
-    const url = syncToken.startsWith("http")
+    const startUrl = syncToken && syncToken.startsWith("http")
       ? syncToken
-      : `/me/mailFolders/sentitems/messages/delta`;
+      : `/me/mailFolders/sentitems/messages/delta?$select=id,conversationId,from,toRecipients,ccRecipients,subject,bodyPreview,body,receivedDateTime,categories,isRead,hasAttachments`;
 
-    const data = await this.graphFetch(url);
-    const emails = ((data.value as Array<Record<string, unknown>>) || []).map(
-      (msg) => this.normalizeM365Message(msg)
-    );
+    const { emails, nextDeltaLink } = await this.fetchDeltaPages(startUrl);
 
     return {
       emails,
-      nextSyncToken:
-        (data["@odata.deltaLink"] as string) || syncToken,
+      nextSyncToken: nextDeltaLink || syncToken,
     };
   }
 
@@ -415,6 +518,36 @@ export class Microsoft365Provider implements EmailProviderInterface {
     }
   }
 
+  /**
+   * Convert an M365 message body to plain text. Graph returns bodies as
+   * either `text` or `html` contentType — the old normalizer dropped the
+   * html case to empty string, so every M365 inbox had zero body text
+   * reaching Phase C memory extraction, AI classification, or matching.
+   */
+  private bodyToText(
+    msgBody: { contentType?: string; content?: string } | undefined
+  ): string {
+    if (!msgBody?.content) return "";
+    if (msgBody.contentType === "text") return msgBody.content;
+
+    // HTML → plain text. Same stripping logic as gmail-provider.stripHtml
+    // but inlined here to avoid cross-provider imports.
+    return msgBody.content
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "- ")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
   private normalizeM365Message(
     msg: Record<string, unknown>
   ): NormalizedEmail {
@@ -445,8 +578,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
         .filter(Boolean) as string[],
       subject: (msg.subject as string) || "",
       snippet: ((msg.bodyPreview as string) || "").slice(0, 200),
-      bodyText:
-        msgBody?.contentType === "text" ? msgBody.content || "" : "",
+      bodyText: this.bodyToText(msgBody),
       date: new Date(msg.receivedDateTime as string),
       labelIds: (msg.categories as string[]) || [],
       isRead: (msg.isRead as boolean) || false,

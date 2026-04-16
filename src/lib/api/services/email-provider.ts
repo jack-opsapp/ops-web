@@ -5,6 +5,68 @@
  * Normalizes email operations across providers.
  */
 
+// ─── Typed errors ────────────────────────────────────────────────────────────
+//
+// Sync paths throw these so callers (sync-engine.runSync) can recover or
+// mark the connection needs_reconnect without sniffing error strings.
+
+/**
+ * The provider's incremental sync token is no longer valid and must be
+ * re-seeded. Gmail: startHistoryId is older than ~7 days or never existed.
+ * Callers should fetch a fresh token via `getInitialSyncToken()` and treat
+ * this sync cycle as a no-op.
+ */
+export class SyncTokenExpiredError extends Error {
+  readonly code = "sync_token_expired" as const;
+  constructor(message: string, public readonly providerStatus?: number) {
+    super(message);
+    this.name = "SyncTokenExpiredError";
+  }
+}
+
+/**
+ * Access token is invalid / revoked and refresh failed. Connection must be
+ * re-authorized by the user. Callers should mark status='needs_reconnect'.
+ */
+export class ProviderAuthError extends Error {
+  readonly code = "provider_auth_error" as const;
+  constructor(message: string, public readonly providerStatus?: number) {
+    super(message);
+    this.name = "ProviderAuthError";
+  }
+}
+
+/**
+ * The current OAuth grant lacks a scope the operation requires (e.g. the
+ * token is gmail.readonly but we tried to apply a label or send). Callers
+ * should mark status='needs_reconnect' and prompt the user to re-authorize
+ * with the correct scope.
+ */
+export class ProviderScopeError extends Error {
+  readonly code = "provider_scope_error" as const;
+  constructor(
+    message: string,
+    public readonly providerStatus?: number,
+    public readonly requiredScope?: string
+  ) {
+    super(message);
+    this.name = "ProviderScopeError";
+  }
+}
+
+/** Generic provider API error — unexpected non-2xx response. */
+export class ProviderApiError extends Error {
+  readonly code = "provider_api_error" as const;
+  constructor(
+    message: string,
+    public readonly providerStatus: number,
+    public readonly providerBody?: unknown
+  ) {
+    super(message);
+    this.name = "ProviderApiError";
+  }
+}
+
 // ─── Normalized Types ────────────────────────────────────────────────────────
 
 export interface NormalizedEmail {
@@ -65,7 +127,17 @@ export interface ImageAttachmentMeta {
 export interface EmailProviderInterface {
   readonly providerType: "gmail" | "microsoft365";
 
-  // Incremental sync
+  /**
+   * Fetch a fresh sync token for a new connection or after a
+   * SyncTokenExpiredError. For Gmail this returns the current mailbox
+   * historyId from /profile. For M365 the delta query self-seeds, so this
+   * returns an empty string and the next fetchNewEmailsSince call will
+   * request the initial delta.
+   */
+  getInitialSyncToken(): Promise<string>;
+
+  // Incremental sync — may throw SyncTokenExpiredError, ProviderAuthError,
+  // ProviderScopeError, or ProviderApiError.
   fetchNewEmailsSince(syncToken: string): Promise<SyncResult>;
   fetchSentEmailsSince(syncToken: string): Promise<SyncResult>;
 

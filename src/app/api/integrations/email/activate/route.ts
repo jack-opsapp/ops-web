@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
 
     const provider = EmailService.getProvider(connection);
 
+    // Collect per-step warnings so the wizard can surface partial-success
+    // states to the user instead of pretending everything worked.
+    const warnings: Array<{ step: string; message: string }> = [];
+
     // 1. Create "OPS Pipeline" label/category in user's inbox
     let labelId: string = "";
     try {
@@ -46,7 +50,9 @@ export async function POST(request: NextRequest) {
       const existing = existingLabels.find((l) => l.name === "OPS Pipeline");
       labelId = existing?.id || (await provider.createLabel("OPS Pipeline"));
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error("[email-activate] Failed to create label:", err);
+      warnings.push({ step: "label", message });
     }
 
     // 2. Set up webhook for push notifications
@@ -61,8 +67,13 @@ export async function POST(request: NextRequest) {
         ? webhook.expiresAt
         : null;
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error("[email-activate] Failed to set up webhook:", err);
-      // Non-fatal — scheduled sync will still work
+      // Non-fatal for activation — scheduled sync (cron) still runs every
+      // 15 minutes even without Pub/Sub push. But we surface the warning
+      // so the user knows real-time updates aren't wired up and the
+      // renewal cron will retry on each cron tick.
+      warnings.push({ step: "webhook", message });
     }
 
     // 3. Save sync profile and activate
@@ -85,6 +96,7 @@ export async function POST(request: NextRequest) {
       labelId,
       webhookActive: !!webhookSubscriptionId,
       syncIntervalMinutes,
+      warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (err) {
     console.error("[email-activate]", err);

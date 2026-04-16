@@ -32,13 +32,36 @@ export const EmailMatchingServiceV2 = {
   ): Promise<MatchResultV2> {
     const supabase = requireSupabase();
 
-    // --- Tier 1: Exact email match ---
+    // Normalize inbound email for safer ilike matching. Bail out early
+    // rather than running each tier with an empty string — those would
+    // just scan every row in the company and return a garbage match.
+    const normalizedEmail = (email ?? '').trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return {
+        clientId: null,
+        subClientId: null,
+        confidence: 'unmatched',
+        needsReview: false,
+        suggestedClientId: null,
+        reason: 'No valid email address to match',
+        action: 'create_new',
+      };
+    }
+
+    // --- Tier 1: Exact email match on clients ---
+    //
+    // Using .limit(1).maybeSingle() so duplicate rows (mis-imports, Bubble
+    // sync artifacts) don't throw a "multiple rows returned" error into
+    // the fall-through path. Filter on deleted_at so a soft-deleted client
+    // doesn't get resurrected by a match.
     const { data: exactClient } = await supabase
       .from('clients')
       .select('id')
       .eq('company_id', companyId)
-      .ilike('email', email)
-      .single();
+      .ilike('email', normalizedEmail)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
 
     if (exactClient) {
       return {
@@ -57,8 +80,10 @@ export const EmailMatchingServiceV2 = {
       .from('sub_clients')
       .select('id, client_id')
       .eq('company_id', companyId)
-      .ilike('email', email)
-      .single();
+      .ilike('email', normalizedEmail)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
 
     if (exactSub) {
       return {
@@ -73,19 +98,25 @@ export const EmailMatchingServiceV2 = {
     }
 
     // --- Tier 2: Domain match (non-public domains only) ---
-    const domain = email.split('@')[1]?.toLowerCase();
+    const domain = normalizedEmail.split('@')[1];
     if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain)) {
+      // Escape SQL ilike wildcards in the domain so a user with a weird
+      // local part can't inject pattern characters into our search.
+      const safeDomain = domain.replace(/[%_\\]/g, (c) => `\\${c}`);
+
       const { data: domainClients } = await supabase
         .from('clients')
         .select('id, name, email')
         .eq('company_id', companyId)
-        .ilike('email', `%@${domain}`);
+        .ilike('email', `%@${safeDomain}`)
+        .is('deleted_at', null);
 
       const { data: domainSubs } = await supabase
         .from('sub_clients')
         .select('id, client_id, email')
         .eq('company_id', companyId)
-        .ilike('email', `%@${domain}`);
+        .ilike('email', `%@${safeDomain}`)
+        .is('deleted_at', null);
 
       const allDomainMatches = [
         ...(domainClients || []).map((c: { id: string }) => ({ clientId: c.id, type: 'client' })),
@@ -124,11 +155,14 @@ export const EmailMatchingServiceV2 = {
     if (options?.name) {
       const lastName = options.name.split(' ').pop()?.toLowerCase();
       if (lastName && lastName.length >= 3) {
+        // Escape ilike wildcards in the name — same attack surface.
+        const safeLastName = lastName.replace(/[%_\\]/g, (c) => `\\${c}`);
         const { data: nameMatches } = await supabase
           .from('clients')
           .select('id, name')
           .eq('company_id', companyId)
-          .ilike('name', `%${lastName}%`);
+          .ilike('name', `%${safeLastName}%`)
+          .is('deleted_at', null);
 
         if (nameMatches && nameMatches.length > 0) {
           return {
@@ -145,20 +179,32 @@ export const EmailMatchingServiceV2 = {
     }
 
     // --- Tier 4: Thread CC association ---
+    //
+    // If this sender is CC'd on a thread that's already linked to an
+    // opportunity, treat them as a sub-contact of that opportunity's
+    // client. We fetch the opportunity row separately rather than using
+    // Supabase embedded FK syntax because the embedded-join shape
+    // (object vs array) depends on client version and can drift.
     if (options?.threadId && options?.connectionId) {
       const { data: threadLinks } = await supabase
         .from('opportunity_email_threads')
-        .select('opportunity_id, opportunities!inner(client_id)')
+        .select('opportunity_id')
         .eq('thread_id', options.threadId)
         .eq('connection_id', options.connectionId)
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (threadLinks && threadLinks.length > 0) {
-        const row = threadLinks[0] as unknown as { opportunities?: { client_id: string } };
-        const clientId = row.opportunities?.client_id;
-        if (clientId) {
+      if (threadLinks?.opportunity_id) {
+        const { data: opportunity } = await supabase
+          .from('opportunities')
+          .select('client_id')
+          .eq('id', threadLinks.opportunity_id as string)
+          .is('deleted_at', null)
+          .maybeSingle();
+
+        if (opportunity?.client_id) {
           return {
-            clientId,
+            clientId: opportunity.client_id as string,
             subClientId: null,
             confidence: 'thread_cc',
             needsReview: false,

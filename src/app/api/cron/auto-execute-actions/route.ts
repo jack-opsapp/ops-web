@@ -85,5 +85,10 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[cron/auto-execute-actions]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    // Clear the module-level override so concurrent requests on the same
+    // warm instance don't inherit this cron's service-role client. Without
+    // this, a subsequent user-facing API route would implicitly bypass RLS.
+    setSupabaseOverride(null);
   }
 }

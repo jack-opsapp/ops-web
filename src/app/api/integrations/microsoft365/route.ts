@@ -42,7 +42,14 @@ export async function GET(request: NextRequest) {
     "redirect_uri",
     `${BASE_URL}/api/integrations/microsoft365/callback`
   );
-  authUrl.searchParams.set("scope", "Mail.Read Mail.ReadWrite offline_access");
+  // Full mail access: read, modify, and send. Matches the provider's
+  // SCOPES constant so refresh_token requests don't drift from the
+  // initial grant. Missing Mail.Send here would cause every
+  // /me/messages/{id}/send call to 403.
+  authUrl.searchParams.set(
+    "scope",
+    "Mail.Read Mail.ReadWrite Mail.Send offline_access"
+  );
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("response_mode", "query");
 

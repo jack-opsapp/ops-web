@@ -642,6 +642,7 @@ export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
 
+  try {
   // Auth: CRON_SECRET or Firebase-authenticated user session
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
@@ -754,4 +755,7 @@ export async function POST(request: NextRequest) {
     ok: stats.errors.length === 0,
     ...stats,
   });
+  } finally {
+    setSupabaseOverride(null);
+  }
 }

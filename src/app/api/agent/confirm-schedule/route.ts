@@ -112,5 +112,7 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/confirm-schedule]", message);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    setSupabaseOverride(null);
   }
 }

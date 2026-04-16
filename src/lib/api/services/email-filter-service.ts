@@ -26,14 +26,25 @@ export const EmailFilterService = {
     }));
   },
 
-  /** Build a combined blocklist from presets + user filters */
+  /**
+   * Build a combined blocklist from presets + user filters.
+   *
+   * Accepts a Partial so callers can pass SyncProfile rows that don't have
+   * every field populated (e.g. wizard-driven connections that only set
+   * the pattern-detection keys). Presets default to ON so a fresh
+   * connection gets the baseline noise filter without explicit opt-in.
+   */
   async buildBlocklist(
-    syncFilters: GmailSyncFilters
+    syncFilters: Partial<GmailSyncFilters> | null | undefined
   ): Promise<{ domains: Set<string>; keywords: string[] }> {
-    const domains = new Set<string>(syncFilters.excludeDomains);
-    const keywords = [...syncFilters.excludeSubjectKeywords];
+    const filters = syncFilters ?? {};
+    const domains = new Set<string>(filters.excludeDomains ?? []);
+    const keywords = [...(filters.excludeSubjectKeywords ?? [])];
 
-    if (syncFilters.usePresetBlocklist) {
+    // Default to true when missing — a fresh connection should get the
+    // preset blocklist automatically.
+    const usePreset = filters.usePresetBlocklist !== false;
+    if (usePreset) {
       const presets = await this.getPresets();
       for (const preset of presets) {
         if (preset.type === "domain") domains.add(preset.value);
@@ -49,10 +60,11 @@ export const EmailFilterService = {
     fromEmail: string,
     subject: string,
     blocklist: { domains: Set<string>; keywords: string[] },
-    syncFilters: GmailSyncFilters,
+    syncFilters: Partial<GmailSyncFilters> | null | undefined,
     labelIds?: string[],
     body?: string,
   ): boolean {
+    const filters = syncFilters ?? {};
     const domain = fromEmail.split("@")[1]?.toLowerCase() ?? "";
 
     // Check domain blocklist — subdomain-aware
@@ -76,7 +88,7 @@ export const EmailFilterService = {
     }
 
     // Check address blocklist
-    if (syncFilters.excludeAddresses.includes(fromEmail.toLowerCase())) return true;
+    if ((filters.excludeAddresses ?? []).includes(fromEmail.toLowerCase())) return true;
 
     // Check subject keyword exclusions (case-insensitive)
     const subjectLower = subject.toLowerCase();
@@ -85,10 +97,10 @@ export const EmailFilterService = {
     }
 
     // Evaluate structured filter rules (include-style: if rules exist and don't match, filter out)
-    if (syncFilters.rules && syncFilters.rules.length > 0) {
+    if (filters.rules && filters.rules.length > 0) {
       const matchesRules = this.evaluateRules(
-        syncFilters.rules,
-        syncFilters.ruleLogic ?? "all",
+        filters.rules,
+        filters.ruleLogic ?? "all",
         { fromEmail, subject, domain, labelIds: labelIds ?? [], body: body ?? "" },
       );
       if (!matchesRules) return true;

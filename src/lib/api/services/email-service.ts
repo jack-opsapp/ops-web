@@ -172,6 +172,14 @@ export const EmailService = {
     if (data.aiMemoryEnabled !== undefined)
       row.ai_memory_enabled = data.aiMemoryEnabled;
     if (data.status !== undefined) row.status = data.status;
+    if (data.accessToken !== undefined) row.access_token = data.accessToken;
+    if (data.refreshToken !== undefined) row.refresh_token = data.refreshToken;
+    if (data.expiresAt !== undefined) {
+      row.expires_at =
+        data.expiresAt instanceof Date
+          ? data.expiresAt.toISOString()
+          : data.expiresAt;
+    }
 
     const { data: updated, error } = await supabase
       .from("email_connections")

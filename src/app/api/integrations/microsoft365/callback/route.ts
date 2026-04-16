@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
           code,
           redirect_uri: `${BASE_URL}/api/integrations/microsoft365/callback`,
           grant_type: "authorization_code",
-          scope: "Mail.Read Mail.ReadWrite offline_access",
+          // Full mail access — must match the scope requested in
+          // microsoft365/route.ts so the exchange succeeds without
+          // prompting the user for additional consent.
+          scope: "Mail.Read Mail.ReadWrite Mail.Send offline_access",
         }),
       }
     );

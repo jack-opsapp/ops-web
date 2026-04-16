@@ -7,17 +7,72 @@
  */
 
 import type { EmailConnection } from "@/lib/types/email-connection";
-import type {
-  EmailProviderInterface,
-  ImageAttachmentMeta,
-  NormalizedEmail,
-  SendEmailParams,
-  SendEmailResult,
-  SyncResult,
-  WebhookSubscription,
+import { requireSupabase } from "@/lib/supabase/helpers";
+import {
+  ProviderApiError,
+  ProviderAuthError,
+  ProviderScopeError,
+  SyncTokenExpiredError,
+  type EmailProviderInterface,
+  type ImageAttachmentMeta,
+  type NormalizedEmail,
+  type SendEmailParams,
+  type SendEmailResult,
+  type SyncResult,
+  type WebhookSubscription,
 } from "../email-provider";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
+
+/**
+ * Inspect a Gmail API error response and throw a typed error. Used by sync
+ * path methods so sync-engine can decide whether to re-seed, mark needs
+ * reconnect, or surface the error.
+ *
+ * Gmail returns errors as { error: { code, message, errors: [{ reason, ... }] } }.
+ * Key reasons we handle:
+ *   - "notFound" with message mentioning historyId  → token is too old, re-seed
+ *   - "invalid" on /history with empty startHistoryId → same
+ *   - status 401 → auth error (token revoked)
+ *   - status 403 with reason "insufficientPermissions" → scope error
+ */
+function throwForGmailError(
+  status: number,
+  body: unknown,
+  context: string
+): never {
+  const err = (body as { error?: { message?: string; errors?: Array<{ reason?: string; message?: string }> } })?.error;
+  const message = err?.message ?? `Gmail ${context} failed (status ${status})`;
+  const reason = err?.errors?.[0]?.reason;
+
+  if (status === 401) {
+    throw new ProviderAuthError(`Gmail ${context}: ${message}`, status);
+  }
+  if (status === 403) {
+    if (reason === "insufficientPermissions" || /insufficient/i.test(message)) {
+      throw new ProviderScopeError(
+        `Gmail ${context}: ${message}`,
+        status,
+        "gmail.modify"
+      );
+    }
+    throw new ProviderApiError(`Gmail ${context}: ${message}`, status, body);
+  }
+  if (status === 404 || status === 400 || status === 410) {
+    // /history with expired or invalid startHistoryId → Gmail returns 404 with
+    // reason "notFound" or 400 with reason "invalid". Treat as token-expired.
+    if (
+      context.includes("history") &&
+      (reason === "notFound" ||
+        reason === "invalid" ||
+        /startHistoryId/i.test(message) ||
+        /historyId/i.test(message))
+    ) {
+      throw new SyncTokenExpiredError(`Gmail ${context}: ${message}`, status);
+    }
+  }
+  throw new ProviderApiError(`Gmail ${context}: ${message}`, status, body);
+}
 
 export class GmailProvider implements EmailProviderInterface {
   readonly providerType = "gmail" as const;
@@ -47,14 +102,63 @@ export class GmailProvider implements EmailProviderInterface {
       }),
     });
 
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      // invalid_grant → refresh token revoked or expired → user must reconnect.
+      if (response.status === 400 && /invalid_grant/i.test(body)) {
+        throw new ProviderAuthError(
+          `Gmail refresh token revoked: ${body}`,
+          response.status
+        );
+      }
+      if (response.status === 401) {
+        throw new ProviderAuthError(
+          `Gmail token refresh unauthorized: ${body}`,
+          response.status
+        );
+      }
+      throw new ProviderApiError(
+        `Gmail token refresh failed (${response.status}): ${body}`,
+        response.status,
+        body
+      );
+    }
+
     const json = await response.json();
-    if (!json.access_token) throw new Error("Failed to refresh Gmail access token");
+    if (!json.access_token) {
+      throw new ProviderAuthError("Failed to refresh Gmail access token");
+    }
 
-    // Update in-memory connection (caller must persist if needed)
-    this.connection.accessToken = json.access_token as string;
-    this.connection.expiresAt = new Date(Date.now() + json.expires_in * 1000);
+    const newAccessToken = json.access_token as string;
+    const newExpiresAt = new Date(Date.now() + (json.expires_in as number) * 1000);
 
-    return json.access_token as string;
+    // Update in-memory copy so subsequent calls in this cycle use the fresh token.
+    this.connection.accessToken = newAccessToken;
+    this.connection.expiresAt = newExpiresAt;
+
+    // Persist to the database so the next cold-start invocation doesn't do a
+    // wasted refresh, and so a partially-rotated token never gets stuck in
+    // memory only. Direct supabase call rather than EmailService to avoid a
+    // circular import (email-service → providers/gmail-provider → email-service).
+    try {
+      const supabase = requireSupabase();
+      await supabase
+        .from("email_connections")
+        .update({
+          access_token: newAccessToken,
+          expires_at: newExpiresAt.toISOString(),
+        })
+        .eq("id", this.connection.id);
+    } catch (err) {
+      // Persistence failure is non-fatal for the current call — the
+      // in-memory token is fresh. Log so we notice if it persists.
+      console.error(
+        `[gmail-provider] Failed to persist refreshed token for ${this.connection.id}:`,
+        err
+      );
+    }
+
+    return newAccessToken;
   }
 
   private async gmailFetch(path: string, options?: RequestInit): Promise<Response> {
@@ -69,10 +173,41 @@ export class GmailProvider implements EmailProviderInterface {
     });
   }
 
+  async getInitialSyncToken(): Promise<string> {
+    const res = await this.gmailFetch("/profile");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, body, "profile (bootstrap historyId)");
+    }
+    const data = (await res.json()) as { historyId?: string };
+    if (!data.historyId) {
+      throw new ProviderApiError(
+        "Gmail /profile returned no historyId",
+        res.status,
+        data
+      );
+    }
+    return data.historyId;
+  }
+
   async fetchNewEmailsSince(syncToken: string): Promise<SyncResult> {
+    if (!syncToken) {
+      // Empty syncToken would produce an invalid Gmail request. Callers must
+      // bootstrap via getInitialSyncToken() first; throw the typed error so
+      // sync-engine re-seeds and returns a clean no-op for this cycle.
+      throw new SyncTokenExpiredError(
+        "Gmail history fetch called with empty syncToken",
+        undefined
+      );
+    }
+
     const res = await this.gmailFetch(
       `/history?historyTypes=messageAdded&startHistoryId=${syncToken}&labelId=INBOX`
     );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, body, "history.list (inbox)");
+    }
     const data = await res.json();
 
     const messageIds = new Set<string>();
@@ -86,14 +221,28 @@ export class GmailProvider implements EmailProviderInterface {
 
     return {
       emails,
-      nextSyncToken: data.historyId || syncToken,
+      // If Gmail returned no historyId in the response (possible on a
+      // no-op page), fall back to the token we sent. On a real error we'd
+      // have thrown above so this is not the error-swallowing path.
+      nextSyncToken: (data.historyId as string) || syncToken,
     };
   }
 
   async fetchSentEmailsSince(syncToken: string): Promise<SyncResult> {
+    if (!syncToken) {
+      throw new SyncTokenExpiredError(
+        "Gmail history fetch called with empty syncToken",
+        undefined
+      );
+    }
+
     const res = await this.gmailFetch(
       `/history?historyTypes=messageAdded&startHistoryId=${syncToken}&labelId=SENT`
     );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, body, "history.list (sent)");
+    }
     const data = await res.json();
 
     const messageIds = new Set<string>();
@@ -107,7 +256,7 @@ export class GmailProvider implements EmailProviderInterface {
 
     return {
       emails,
-      nextSyncToken: data.historyId || syncToken,
+      nextSyncToken: (data.historyId as string) || syncToken,
     };
   }
 
@@ -252,20 +401,52 @@ export class GmailProvider implements EmailProviderInterface {
   }
 
   async setupWebhook(_webhookUrl: string): Promise<WebhookSubscription> {
-    // Gmail uses Pub/Sub — the topicName should be configured in env
+    // Precondition: Pub/Sub topic must be configured. Without this env
+    // var, /watch returns an error body and we used to silently store
+    // a fallback expiresAt with no subscription_id — producing rows the
+    // renewal cron couldn't recover.
+    const topicName = process.env.GOOGLE_PUBSUB_TOPIC;
+    if (!topicName) {
+      throw new ProviderApiError(
+        "Gmail webhook setup failed: GOOGLE_PUBSUB_TOPIC env var is not set",
+        0
+      );
+    }
+
     const res = await this.gmailFetch("/watch", {
       method: "POST",
       body: JSON.stringify({
-        topicName: process.env.GOOGLE_PUBSUB_TOPIC!,
+        topicName,
         labelIds: ["INBOX", "SENT"],
       }),
     });
-    const data = await res.json();
 
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, body, "users.watch (webhook setup)");
+    }
+
+    const data = await res.json();
+    if (!data.historyId) {
+      throw new ProviderApiError(
+        "Gmail /watch returned no historyId",
+        res.status,
+        data
+      );
+    }
+
+    // Gmail returns expiration as a Unix-ms string. Parse defensively and
+    // fall back to 7 days only if parsing actually succeeds AND the server
+    // gave us a real response (i.e. this is not a silent-error path).
     const expMs = Number(data.expiration);
+    const expiresAt =
+      !isNaN(expMs) && expMs > Date.now()
+        ? new Date(expMs)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     return {
-      subscriptionId: data.historyId,
-      expiresAt: isNaN(expMs) ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : new Date(expMs),
+      subscriptionId: data.historyId as string,
+      expiresAt,
     };
   }
 

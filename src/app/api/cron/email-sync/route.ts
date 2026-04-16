@@ -12,9 +12,35 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
 import { getSubscriptionInfo } from "@/lib/subscription";
-import type { Company } from "@/lib/types/models";
+import {
+  SubscriptionPlan,
+  SubscriptionStatus,
+  type Company,
+} from "@/lib/types/models";
 
 export const maxDuration = 300;
+
+type CompanySubscriptionFields = Pick<
+  Company,
+  | "subscriptionPlan"
+  | "subscriptionStatus"
+  | "trialEndDate"
+  | "seatedEmployeeIds"
+  | "adminIds"
+  | "maxSeats"
+>;
+
+/** Minimal snake_case → camelCase mapper for subscription gating. */
+function mapSubscriptionRow(row: Record<string, unknown>): CompanySubscriptionFields {
+  return {
+    subscriptionPlan: (row.subscription_plan as SubscriptionPlan) ?? null,
+    subscriptionStatus: (row.subscription_status as SubscriptionStatus) ?? null,
+    trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : null,
+    seatedEmployeeIds: (row.seated_employee_ids as string[]) ?? [],
+    adminIds: (row.admin_ids as string[]) ?? [],
+    maxSeats: (row.max_seats as number) ?? 10,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -49,20 +75,25 @@ export async function GET(request: NextRequest) {
       ...new Set((connections ?? []).map((c) => c.company_id as string)),
     ];
 
-    const { data: companies } = await supabase
+    const { data: companies, error: companiesError } = await supabase
       .from("companies")
       .select(
-        "id, subscriptionPlan, subscriptionStatus, trialEndDate, seatedEmployeeIds, adminIds, maxSeats"
+        "id, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
       )
       .in("id", companyIds);
+
+    if (companiesError) {
+      // Fail closed — don't silently skip every connection when the gate query breaks.
+      console.error("[email-cron-sync] company subscription lookup failed:", companiesError);
+      throw new Error(
+        `Company subscription lookup failed: ${companiesError.message}`
+      );
+    }
 
     const activeCompanyIds = new Set(
       (companies ?? [])
         .filter((c) => {
-          const info = getSubscriptionInfo(c as unknown as Pick<
-            Company,
-            "subscriptionPlan" | "subscriptionStatus" | "trialEndDate" | "seatedEmployeeIds" | "adminIds" | "maxSeats"
-          >);
+          const info = getSubscriptionInfo(mapSubscriptionRow(c));
           return info.isActive;
         })
         .map((c) => c.id as string)

@@ -29,18 +29,39 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // Find connections with webhooks expiring in the next 2 days
+    // Find connections that need a webhook refresh. We pick up two
+    // categories:
+    //
+    //   1. Active webhooks that will expire within the next 2 days — the
+    //      normal renewal path, bounded by webhook_expires_at.
+    //
+    //   2. Connections that failed to set up a webhook in the first place
+    //      (webhook_subscription_id IS NULL). Before B6 this was a dead
+    //      state — the old filter required subscription_id IS NOT NULL so
+    //      these rows could never self-heal. Now we retry on each cron
+    //      tick until setup succeeds (or until status changes).
+    //
+    // Both categories are gated on sync_enabled + status='active' so we
+    // don't hammer paused, errored, or needs_reconnect connections.
     const expiryThreshold = new Date(
       Date.now() + 2 * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    const { data: connections } = await supabase
+    const { data: connections, error: connectionsError } = await supabase
       .from("email_connections")
       .select("id, provider, webhook_subscription_id, webhook_expires_at")
       .eq("sync_enabled", true)
       .eq("status", "active")
-      .not("webhook_subscription_id", "is", null)
-      .lt("webhook_expires_at", expiryThreshold);
+      .or(
+        `webhook_subscription_id.is.null,webhook_expires_at.lt.${expiryThreshold}`
+      );
+
+    if (connectionsError) {
+      console.error("[webhook-renewal] connections query failed:", connectionsError);
+      throw new Error(
+        `webhook-renewal connections query failed: ${connectionsError.message}`
+      );
+    }
 
     const results: Array<{
       id: string;

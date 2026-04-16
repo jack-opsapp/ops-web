@@ -5,6 +5,7 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
+import { EmailFilterService } from "./email-filter-service";
 import { StageEvaluator } from "./stage-evaluator";
 import { AISyncReviewer } from "./ai-sync-reviewer";
 import { MemoryService } from "./memory-service";
@@ -19,7 +20,14 @@ import type {
   EmailConnection,
   SyncProfile,
 } from "@/lib/types/email-connection";
-import type { NormalizedEmail } from "./email-provider";
+import type { GmailSyncFilters } from "@/lib/types/pipeline";
+import {
+  ProviderAuthError,
+  ProviderScopeError,
+  SyncTokenExpiredError,
+  type NormalizedEmail,
+  type SyncResult,
+} from "./email-provider";
 
 export interface SyncCycleResult {
   activitiesCreated: number;
@@ -411,6 +419,57 @@ async function createSyncNotification(
     action_url: "/pipeline",
     action_label: "View Pipeline",
   });
+}
+
+/**
+ * Mark a connection as needing reconnect. Used when the provider throws
+ * ProviderAuthError (refresh token revoked) or ProviderScopeError (grant
+ * lacks required permissions). The cron filters on status='active' so this
+ * effectively parks the connection until the user re-authorizes. Also fires
+ * a persistent notification so the user sees the call-to-action.
+ */
+async function markConnectionNeedsReconnect(
+  connectionId: string,
+  reason: string
+): Promise<void> {
+  try {
+    await EmailService.updateConnection(connectionId, {
+      status: "needs_reconnect",
+    });
+  } catch (err) {
+    console.error(
+      `[sync-engine] Failed to mark ${connectionId} needs_reconnect:`,
+      err
+    );
+  }
+
+  try {
+    const supabase = requireSupabase();
+    const { data: connRow } = await supabase
+      .from("email_connections")
+      .select("company_id, user_id, email")
+      .eq("id", connectionId)
+      .maybeSingle();
+
+    if (connRow?.user_id) {
+      await supabase.from("notifications").insert({
+        user_id: connRow.user_id as string,
+        company_id: connRow.company_id as string,
+        type: "role_needed",
+        title: "Email connection needs attention",
+        body: `${connRow.email as string}: ${reason}. Please reconnect in Settings.`,
+        is_read: false,
+        persistent: true,
+        action_url: "/settings?tab=integrations",
+        action_label: "Reconnect",
+      });
+    }
+  } catch (err) {
+    console.error(
+      `[sync-engine] Failed to notify on needs_reconnect for ${connectionId}:`,
+      err
+    );
+  }
 }
 
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
@@ -976,25 +1035,111 @@ export const SyncEngine = {
     const result = emptyResult();
 
     try {
-      const syncToken = connection.historyId || "";
+      // ── Step 0: Bootstrap sync token if missing ─────────────────────────
+      //
+      // First-ever sync for a newly-activated connection: historyId is null.
+      // Fetch a fresh token from the provider (Gmail: /profile.historyId,
+      // M365: empty — delta self-seeds), persist it, and return empty
+      // without touching the message pipeline for this cycle. The next
+      // cron tick will start fetching real messages.
+      if (!connection.historyId) {
+        try {
+          const freshToken = await provider.getInitialSyncToken();
+          await EmailService.updateConnection(connectionId, {
+            historyId: freshToken,
+            lastSyncedAt: new Date(),
+          });
+          connection.historyId = freshToken;
+          return result;
+        } catch (err) {
+          if (err instanceof ProviderAuthError) {
+            await markConnectionNeedsReconnect(connectionId, err.message);
+          } else if (err instanceof ProviderScopeError) {
+            await markConnectionNeedsReconnect(connectionId, err.message);
+          }
+          throw err;
+        }
+      }
+
+      const syncToken = connection.historyId;
 
       // Step 1: Fetch new emails since last sync (inbox + sent)
-      const [inboxResult, sentResult] = await Promise.all([
-        provider.fetchNewEmailsSince(syncToken),
-        provider.fetchSentEmailsSince(syncToken),
-      ]);
+      //
+      // Wrapped in a re-seed recovery: if either side reports
+      // SyncTokenExpiredError, re-fetch the mailbox's current historyId
+      // from /profile, persist it, and return empty. The next cron tick
+      // will pick up from the new baseline.
+      let inboxResult: SyncResult;
+      let sentResult: SyncResult;
+      try {
+        [inboxResult, sentResult] = await Promise.all([
+          provider.fetchNewEmailsSince(syncToken),
+          provider.fetchSentEmailsSince(syncToken),
+        ]);
+      } catch (err) {
+        if (err instanceof SyncTokenExpiredError) {
+          console.warn(
+            `[sync-engine] Sync token expired for ${connectionId}, re-seeding`
+          );
+          try {
+            const freshToken = await provider.getInitialSyncToken();
+            await EmailService.updateConnection(connectionId, {
+              historyId: freshToken,
+              lastSyncedAt: new Date(),
+            });
+          } catch (reseedErr) {
+            if (reseedErr instanceof ProviderAuthError) {
+              await markConnectionNeedsReconnect(connectionId, reseedErr.message);
+            } else if (reseedErr instanceof ProviderScopeError) {
+              await markConnectionNeedsReconnect(connectionId, reseedErr.message);
+            }
+            throw reseedErr;
+          }
+          return result;
+        }
+        if (err instanceof ProviderAuthError) {
+          await markConnectionNeedsReconnect(connectionId, err.message);
+        } else if (err instanceof ProviderScopeError) {
+          await markConnectionNeedsReconnect(connectionId, err.message);
+        }
+        throw err;
+      }
 
-      const inboxEmails = inboxResult.emails;
-      const sentEmails = sentResult.emails;
+      const rawInboxEmails = inboxResult.emails;
+      const rawSentEmails = sentResult.emails;
       const newSyncToken = inboxResult.nextSyncToken;
 
-      if (inboxEmails.length === 0 && sentEmails.length === 0) {
+      if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
         await EmailService.updateConnection(connectionId, {
           lastSyncedAt: new Date(),
           historyId: newSyncToken,
         });
         return result;
       }
+
+      // ── Step 1.5: Noise filtering ────────────────────────────────────────
+      //
+      // Drop marketing, noreply, domain-blocked, and rule-filtered mail
+      // before any matching / Phase C learning / OpenAI classification runs.
+      // Without this, every cron cycle burns tokens on newsletters and
+      // pollutes the inbox leads view with junk.
+      const blocklist = await EmailFilterService.buildBlocklist(
+        profile as unknown as GmailSyncFilters
+      );
+      const inboxEmails = rawInboxEmails.filter(
+        (email) =>
+          !EmailFilterService.shouldFilter(
+            extractSenderEmail(email.from),
+            email.subject,
+            blocklist,
+            profile as unknown as GmailSyncFilters,
+            email.labelIds,
+            email.bodyText
+          )
+      );
+      // Sent mail is not filtered — user's own outbound is always relevant
+      // to the pipeline (auto-linking, writing-profile learning).
+      const sentEmails = rawSentEmails;
 
       // Step 2-4: Process inbound emails, collect unmatched for AI review
       const unmatchedEmails: NormalizedEmail[] = [];

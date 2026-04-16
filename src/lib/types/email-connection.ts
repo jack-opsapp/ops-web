@@ -9,7 +9,12 @@
 
 export type EmailProvider = "gmail" | "microsoft365";
 
-export type EmailConnectionStatus = "active" | "paused" | "error" | "setup_incomplete";
+export type EmailConnectionStatus =
+  | "active"
+  | "paused"
+  | "error"
+  | "setup_incomplete"
+  | "needs_reconnect";
 
 // ─── Core Types ──────────────────────────────────────────────────────────────
 
@@ -106,6 +111,14 @@ export interface UpdateEmailConnection {
   aiReviewEnabled?: boolean;
   aiMemoryEnabled?: boolean;
   status?: EmailConnectionStatus;
+  /**
+   * Persisted after a provider token refresh. Sync-path callers must update
+   * these whenever they refresh Gmail/M365 access tokens so the DB stays in
+   * sync with the in-memory provider state.
+   */
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: Date;
 }
 
 // ─── Junction & Feature Types ────────────────────────────────────────────────
