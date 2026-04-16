@@ -145,7 +145,7 @@ export function NotificationRail() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2, ease: EASE_SMOOTH }}
               onClick={collapse}
-              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] text-text-secondary hover:text-text-primary hover:border-[rgba(255,255,255,0.2)] transition-colors duration-150"
+              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] text-text-2 hover:text-text hover:border-[rgba(255,255,255,0.2)] transition-colors duration-150"
               aria-label="Collapse notifications"
             >
               <X className="w-[13px] h-[13px]" />
@@ -162,7 +162,7 @@ export function NotificationRail() {
               className="shrink-0 flex items-center gap-[5px] h-[40px] px-[10px] rounded-[4px] border border-[rgba(89,119,148,0.3)] hover:border-[rgba(89,119,148,0.5)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] transition-colors duration-150 whitespace-nowrap"
             >
               <span className="font-mono text-[11px] text-ops-accent">{count}</span>
-              <span className="font-kosugi text-[9px] uppercase tracking-[0.08em] text-text-secondary">{t("notifications.viewAll")}</span>
+              <span className="font-kosugi text-[9px] uppercase tracking-[0.08em] text-text-2">{t("notifications.viewAll")}</span>
             </motion.button>
 
             {/* Left arrow */}
@@ -174,7 +174,7 @@ export function NotificationRail() {
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.12, ease: EASE_SMOOTH }}
                   onClick={() => scrollBy(-1)}
-                  className="shrink-0 flex items-center justify-center text-text-disabled hover:text-text-secondary transition-colors duration-150"
+                  className="shrink-0 flex items-center justify-center text-text-mute hover:text-text-2 transition-colors duration-150"
                   aria-label="Scroll notifications left"
                 >
                   <ChevronLeft className="w-[12px] h-[12px]" />
@@ -206,7 +206,7 @@ export function NotificationRail() {
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.12, ease: EASE_SMOOTH }}
                   onClick={() => scrollBy(1)}
-                  className="shrink-0 flex items-center justify-center text-text-disabled hover:text-text-secondary transition-colors duration-150"
+                  className="shrink-0 flex items-center justify-center text-text-mute hover:text-text-2 transition-colors duration-150"
                   aria-label="Scroll notifications right"
                 >
                   <ChevronRight className="w-[12px] h-[12px]" />
@@ -225,7 +225,7 @@ export function NotificationRail() {
             {/* Count button — styled, bespoke */}
             <motion.button
               key="count-btn"
-              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(89,119,148,0.4)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-secondary hover:text-ops-accent transition-all duration-150 cursor-pointer"
+              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(89,119,148,0.4)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-2 hover:text-ops-accent transition-all duration-150 cursor-pointer"
               style={{
                 background: countHovered ? "rgba(89, 119, 148, 0.08)" : "transparent",
               }}
@@ -263,7 +263,7 @@ export function NotificationRail() {
                     }}
                   >
                     <div className="flex items-center gap-[6px] h-full px-[8px] whitespace-nowrap">
-                      <span className="font-mohave text-[11px] text-text-primary truncate flex-1 min-w-0">
+                      <span className="font-mohave text-[11px] text-text truncate flex-1 min-w-0">
                         {n.title}
                       </span>
                       {n.actionLabel && (
@@ -292,7 +292,7 @@ export function NotificationRail() {
               })}
 
               {overflowCount > 0 && (
-                <span className="font-mono text-[9px] text-text-disabled ml-[2px]">
+                <span className="font-mono text-[9px] text-text-mute ml-[2px]">
                   +{overflowCount}
                 </span>
               )}

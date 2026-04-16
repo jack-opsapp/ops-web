@@ -16,7 +16,7 @@ const SectionHeader = React.forwardRef<HTMLDivElement, SectionHeaderProps>(
       className={cn("flex items-center justify-between gap-1 py-1", className)}
     >
       <div className="flex items-center gap-1">
-        <h2 className="font-kosugi text-caption-bold text-text-secondary uppercase tracking-widest">
+        <h2 className="font-kosugi text-caption-bold text-text-2 uppercase tracking-widest">
           {title}
         </h2>
         {count !== undefined && (

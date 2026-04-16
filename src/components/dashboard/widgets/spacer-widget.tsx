@@ -103,7 +103,7 @@ function ResizeHandle({
           transition={HANDLE_SPRING}
           className="w-[10px] h-[10px] rounded-sm"
         >
-          <GripVertical className="w-2.5 h-2.5 text-text-disabled rotate-[-45deg] translate-x-[1px]" />
+          <GripVertical className="w-2.5 h-2.5 text-text-mute rotate-[-45deg] translate-x-[1px]" />
         </motion.div>
       ) : (
         <motion.div
@@ -278,7 +278,7 @@ export function SpacerWidget({
           initial={{ opacity: 0, scale: 0.8, y: 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={LABEL_SPRING}
-          className="font-kosugi text-[10px] text-text-disabled tracking-wider uppercase select-none"
+          className="font-kosugi text-[10px] text-text-mute tracking-wider uppercase select-none"
         >
           {colSpan} &times; {rowSpan}
         </motion.span>

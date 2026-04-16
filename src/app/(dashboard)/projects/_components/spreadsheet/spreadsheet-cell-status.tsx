@@ -69,7 +69,7 @@ export function SpreadsheetCellStatus({ status, canEdit, onCommit }: Spreadsheet
               className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors ${
                 s === status
                   ? "text-ops-accent bg-ops-accent-muted/20"
-                  : "text-text-secondary hover:bg-[rgba(255,255,255,0.06)]"
+                  : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
               }`}
             >
               <span

@@ -153,7 +153,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           <span className="font-mohave text-body-sm text-[#9DB582] block">
             Analysis complete — {leadCount} lead{leadCount !== 1 ? "s" : ""} found
           </span>
-          <span className="font-kosugi text-[10px] text-text-disabled">
+          <span className="font-kosugi text-[10px] text-text-mute">
             {totalScanned} emails scanned
           </span>
         </div>
@@ -175,7 +175,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           <span className="font-mohave text-body-sm text-[#FF6B4A] block">
             Analysis failed
           </span>
-          <span className="font-kosugi text-[10px] text-text-disabled">
+          <span className="font-kosugi text-[10px] text-text-mute">
             {message}
           </span>
         </div>
@@ -347,14 +347,14 @@ export function IntegrationsTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-1.5">
-          <p className="font-mohave text-body-sm text-text-secondary">
+          <p className="font-mohave text-body-sm text-text-2">
             {t("integrations.companyGmailDesc")}
           </p>
 
           {connectionsLoading ? (
             <div className="flex items-center gap-[6px] py-1">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mohave text-body-sm text-text-disabled">Loading...</span>
+              <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+              <span className="font-mohave text-body-sm text-text-mute">Loading...</span>
             </div>
           ) : companyConnections.length > 0 ? (
             <div className="space-y-1">
@@ -369,7 +369,7 @@ export function IntegrationsTab() {
                       <span className="font-mono text-data-sm text-[#6B8F71] block truncate">
                         {conn.email}
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
+                      <span className="font-kosugi text-[10px] text-text-mute">
                         {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
                       </span>
                     </div>
@@ -386,14 +386,14 @@ export function IntegrationsTab() {
                       {conn.syncEnabled && wizardDone ? (
                         <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
                       ) : (
-                        <ToggleLeft className="w-[28px] h-[28px] text-text-disabled" />
+                        <ToggleLeft className="w-[28px] h-[28px] text-text-mute" />
                       )}
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDisconnect(conn.id)}
-                      className="text-text-disabled hover:text-ops-error"
+                      className="text-text-mute hover:text-ops-error"
                     >
                       <Trash2 className="w-[14px] h-[14px]" />
                     </Button>
@@ -413,7 +413,7 @@ export function IntegrationsTab() {
                 <span className="font-mohave text-body text-ops-accent block">
                   Analysis in progress...
                 </span>
-                <span className="font-kosugi text-[10px] text-text-disabled">
+                <span className="font-kosugi text-[10px] text-text-mute">
                   Click to view progress
                 </span>
               </div>
@@ -428,7 +428,7 @@ export function IntegrationsTab() {
                 <span className="font-mohave text-body text-ops-accent block">
                   Import Your Pipeline
                 </span>
-                <span className="font-kosugi text-[10px] text-text-disabled">
+                <span className="font-kosugi text-[10px] text-text-mute">
                   Connect your email and automatically import leads into your pipeline
                 </span>
               </div>
@@ -484,12 +484,12 @@ export function IntegrationsTab() {
 
           {companyConnections.length > 0 && (
             <div className="pt-[4px]">
-              <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
-                <Clock className="w-[14px] h-[14px] text-text-disabled" />
+              <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-2">
+                <Clock className="w-[14px] h-[14px] text-text-mute" />
                 Sync Frequency
               </label>
               <select
-                className="mt-[4px] w-full bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
+                className="mt-[4px] w-full bg-surface-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text"
                 value={companyConnections[0].syncIntervalMinutes}
                 onChange={(e) =>
                   handleUpdateSyncInterval(companyConnections[0].id, Number(e.target.value))
@@ -518,7 +518,7 @@ export function IntegrationsTab() {
                     <span className="font-mohave text-body text-[#9DB582] block">
                       Import complete — activate sync
                     </span>
-                    <span className="font-kosugi text-[10px] text-text-disabled">
+                    <span className="font-kosugi text-[10px] text-text-mute">
                       Your leads are in the pipeline. Finish setup to enable ongoing sync.
                     </span>
                   </div>
@@ -531,7 +531,7 @@ export function IntegrationsTab() {
                       <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
                         Pipeline import not configured
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
+                      <span className="font-kosugi text-[10px] text-text-mute">
                         Run the import wizard to discover leads in your inbox and activate ongoing sync.
                       </span>
                     </div>
@@ -546,7 +546,7 @@ export function IntegrationsTab() {
                       <span className="font-mohave text-body text-ops-accent block">
                         Import Your Pipeline
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
+                      <span className="font-kosugi text-[10px] text-text-mute">
                         Automatically discover leads, classify with AI, and import into your pipeline
                       </span>
                     </div>
@@ -567,7 +567,7 @@ export function IntegrationsTab() {
                   </span>
                   <button
                     onClick={() => openWizard()}
-                    className="ml-auto font-kosugi text-[10px] text-text-disabled/50 hover:text-text-disabled transition-colors"
+                    className="ml-auto font-kosugi text-[10px] text-text-mute/50 hover:text-text-mute transition-colors"
                   >
                     re-scan
                   </button>
@@ -577,8 +577,8 @@ export function IntegrationsTab() {
               {/* Sync History — last 3 import jobs */}
               {importHistory.length > 0 && (
                 <div className="pt-[4px] space-y-[6px]">
-                  <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-secondary">
-                    <Clock className="w-[14px] h-[14px] text-text-disabled" />
+                  <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-2">
+                    <Clock className="w-[14px] h-[14px] text-text-mute" />
                     Recent Import History
                   </label>
                   <div className="space-y-[4px]">
@@ -596,14 +596,14 @@ export function IntegrationsTab() {
                             <AlertTriangle className="w-[14px] h-[14px] text-ops-error shrink-0" />
                           )}
                           <div className="min-w-0">
-                            <span className="font-mohave text-body-sm text-text-primary block">
+                            <span className="font-mohave text-body-sm text-text block">
                               {job.status === "completed"
                                 ? `${job.processed} emails · ${job.clientsCreated} client${job.clientsCreated !== 1 ? "s" : ""} · ${job.leadsCreated} lead${job.leadsCreated !== 1 ? "s" : ""}`
                                 : job.status === "running"
                                   ? `Importing... ${job.processed}/${job.totalEmails} emails`
                                   : `Failed${job.error ? `: ${job.error}` : ""}`}
                             </span>
-                            <span className="font-kosugi text-[10px] text-text-disabled">
+                            <span className="font-kosugi text-[10px] text-text-mute">
                               {formatTimeAgo(new Date(job.createdAt))}
                             </span>
                           </div>
@@ -626,7 +626,7 @@ export function IntegrationsTab() {
             </>
           )}
 
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             {t("integrations.gmailHelper")}
           </p>
 
@@ -685,7 +685,7 @@ function AiSetupCard() {
             <span className="font-mohave text-body text-[#597794] block">
               {t("nav.cardAction")}
             </span>
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               {t("nav.cardDesc")}
             </span>
           </div>

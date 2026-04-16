@@ -213,8 +213,8 @@ function DetailError({ message, onRetry, onBack }: { message: string; onRetry: (
       <div className="w-[64px] h-[64px] rounded-lg bg-ops-error-muted flex items-center justify-center mb-2">
         <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
       </div>
-      <h3 className="font-mohave text-heading text-text-primary">{t("detail.failedToLoad")}</h3>
-      <p className="font-kosugi text-caption text-text-tertiary mt-0.5 max-w-[300px]">{message}</p>
+      <h3 className="font-mohave text-heading text-text">{t("detail.failedToLoad")}</h3>
+      <p className="font-kosugi text-caption text-text-3 mt-0.5 max-w-[300px]">{message}</p>
       <div className="flex gap-1 mt-3">
         <Button variant="ghost" onClick={onBack}>{t("detail.goBack")}</Button>
         <Button variant="secondary" className="gap-[6px]" onClick={onRetry}>
@@ -233,7 +233,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
   return (
     <div className="group/section p-2.5 -m-2.5 rounded-[3px] border border-transparent hover:border-border transition-colors">
       <div className="flex items-center justify-between mb-2">
-        <span className="font-kosugi text-[10px] uppercase tracking-[0.5px] text-text-tertiary">{label}</span>
+        <span className="font-kosugi text-[10px] uppercase tracking-[0.5px] text-text-3">{label}</span>
         {onEdit && (
           <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-ops-accent text-[11px] border border-ops-accent/30 rounded-[2px] px-2 py-0.5 hover:bg-ops-accent/10">
             {t("sidebar.edit")}
@@ -245,10 +245,10 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
   );
 }
 
-function MetricTile({ label, value, colorClass = "text-text-primary" }: { label: string; value: string; colorClass?: string }) {
+function MetricTile({ label, value, colorClass = "text-text" }: { label: string; value: string; colorClass?: string }) {
   return (
     <div className="bg-background-card border border-border-subtle rounded-[3px] p-2.5">
-      <span className="font-kosugi text-[9px] uppercase tracking-[0.3px] text-text-tertiary block">{label}</span>
+      <span className="font-kosugi text-[9px] uppercase tracking-[0.3px] text-text-3 block">{label}</span>
       <span className={cn("font-mohave text-heading font-semibold block mt-0.5", colorClass)}>{value}</span>
     </div>
   );
@@ -439,8 +439,8 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
         {/* Progress bar */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mohave text-body-sm text-text-secondary">{progressPercent}%</span>
-            <span className="font-mohave text-body-sm text-text-disabled">
+            <span className="font-mohave text-body-sm text-text-2">{progressPercent}%</span>
+            <span className="font-mohave text-body-sm text-text-mute">
               {completedTasks.length}/{activeTasks.length}
             </span>
           </div>
@@ -460,7 +460,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
           <MetricTile
             label={t("sidebar.overdue")}
             value={String(overdueTasks.length)}
-            colorClass={overdueTasks.length > 0 ? "text-financial-overdue" : "text-text-primary"}
+            colorClass={overdueTasks.length > 0 ? "text-financial-overdue" : "text-text"}
           />
           {canViewFinancials && (
             <>
@@ -472,7 +472,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
               <MetricTile
                 label={t("sidebar.outstanding")}
                 value={formatCurrency(totalOutstanding)}
-                colorClass={totalOutstanding > 0 ? "text-financial-receivables" : "text-text-primary"}
+                colorClass={totalOutstanding > 0 ? "text-financial-receivables" : "text-text"}
               />
             </>
           )}
@@ -487,21 +487,21 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
         {editingClient ? (
           <div ref={clientDropdownRef} className="relative">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-[12px] h-[12px] text-text-disabled" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-[12px] h-[12px] text-text-mute" />
               <input
                 ref={clientSearchRef}
                 type="text"
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 placeholder={t("sidebar.searchClients")}
-                className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text-primary outline-none focus:border-ops-accent placeholder:text-text-disabled"
+                className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
               />
             </div>
             <div className="mt-1 max-h-[180px] overflow-y-auto bg-background-card border border-border rounded-[3px]">
               {resolvedClient && (
                 <button
                   onClick={handleClearClient}
-                  className="w-full text-left px-2.5 py-1.5 font-mohave text-body-sm text-text-tertiary hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
+                  className="w-full text-left px-2.5 py-1.5 font-mohave text-body-sm text-text-3 hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
                 >
                   {t("sidebar.removeClient")}
                 </button>
@@ -512,7 +512,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                   onClick={() => handleClientSelect(c)}
                   className={cn(
                     "w-full text-left px-2.5 py-1.5 font-mohave text-body-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors flex items-center justify-between cursor-pointer",
-                    c.id === project.clientId ? "text-ops-accent" : "text-text-primary"
+                    c.id === project.clientId ? "text-ops-accent" : "text-text"
                   )}
                 >
                   <span className="truncate">{c.name}</span>
@@ -522,7 +522,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 </button>
               ))}
               {filteredClients.length === 0 && (
-                <p className="px-2.5 py-2 font-mohave text-body-sm text-text-disabled">
+                <p className="px-2.5 py-2 font-mohave text-body-sm text-text-mute">
                   {t("sidebar.noClientsFound")}
                 </p>
               )}
@@ -530,7 +530,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
           </div>
         ) : resolvedClient ? (
           <div className="space-y-1">
-            <p className="font-mohave text-body-sm text-text-primary">{resolvedClient.name}</p>
+            <p className="font-mohave text-body-sm text-text">{resolvedClient.name}</p>
             {resolvedClient.email && (
               <a
                 href={`mailto:${resolvedClient.email}`}
@@ -542,14 +542,14 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             {resolvedClient.phoneNumber && (
               <a
                 href={`tel:${resolvedClient.phoneNumber}`}
-                className="font-mono text-data-sm text-text-secondary hover:text-ops-accent block"
+                className="font-mono text-data-sm text-text-2 hover:text-ops-accent block"
               >
                 {resolvedClient.phoneNumber}
               </a>
             )}
           </div>
         ) : (
-          <p className="font-mohave text-body-sm text-text-disabled">{t("sidebar.noClient")}</p>
+          <p className="font-mohave text-body-sm text-text-mute">{t("sidebar.noClient")}</p>
         )}
       </SidebarSection>
 
@@ -570,7 +570,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 if (e.key === "Enter") handleLocationSave();
                 if (e.key === "Escape") handleLocationCancel();
               }}
-              className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-2.5 py-1.5 text-text-primary outline-none focus:border-ops-accent placeholder:text-text-disabled"
+              className="w-full font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-2.5 py-1.5 text-text outline-none focus:border-ops-accent placeholder:text-text-mute"
             />
             <div className="flex items-center gap-1.5">
               <button
@@ -582,7 +582,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
               </button>
               <button
                 onClick={handleLocationCancel}
-                className="font-mohave text-[11px] text-text-tertiary border border-border rounded-[2px] px-2.5 py-1 hover:text-text-secondary transition-colors cursor-pointer"
+                className="font-mohave text-[11px] text-text-3 border border-border rounded-[2px] px-2.5 py-1 hover:text-text-2 transition-colors cursor-pointer"
               >
                 {t("sidebar.cancel")}
               </button>
@@ -592,7 +592,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
           <div className="space-y-1">
             <div className="flex items-start gap-1.5">
               <MapPin className="w-[14px] h-[14px] text-ops-accent shrink-0 mt-[2px]" />
-              <p className="font-mohave text-body-sm text-text-primary">{project.address}</p>
+              <p className="font-mohave text-body-sm text-text">{project.address}</p>
             </div>
             {mapQuery && (
               <a
@@ -607,7 +607,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             )}
           </div>
         ) : (
-          <p className="font-mohave text-body-sm text-text-disabled">{t("sidebar.noAddress")}</p>
+          <p className="font-mohave text-body-sm text-text-mute">{t("sidebar.noAddress")}</p>
         )}
       </SidebarSection>
 
@@ -628,10 +628,10 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                     showTooltip
                   />
                   <div className="min-w-0">
-                    <p className="font-mohave text-body-sm text-text-primary truncate">
+                    <p className="font-mohave text-body-sm text-text truncate">
                       {getUserFullName(member)}
                     </p>
-                    <span className="font-kosugi text-[10px] text-text-disabled truncate block">
+                    <span className="font-kosugi text-[10px] text-text-mute truncate block">
                       {typeNames || t("sidebar.noTasksAssigned")}
                     </span>
                   </div>
@@ -640,7 +640,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             })}
           </div>
         ) : (
-          <p className="font-mohave text-body-sm text-text-disabled">{t("sidebar.noTeam")}</p>
+          <p className="font-mohave text-body-sm text-text-mute">{t("sidebar.noTeam")}</p>
         )}
       </SidebarSection>
 
@@ -648,7 +648,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
       <SidebarSection label={t("sidebar.dates")}>
         <div className="flex items-center gap-2">
           <div className="min-w-0">
-            <span className="font-mohave text-body-sm text-text-primary">
+            <span className="font-mohave text-body-sm text-text">
               {project.startDate
                 ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                     month: "short",
@@ -658,9 +658,9 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 : t("sidebar.notScheduled")}
             </span>
           </div>
-          <span className="text-text-disabled font-mohave text-body-sm">&rarr;</span>
+          <span className="text-text-mute font-mohave text-body-sm">&rarr;</span>
           <div className="min-w-0">
-            <span className="font-mohave text-body-sm text-text-primary">
+            <span className="font-mohave text-body-sm text-text">
               {project.endDate
                 ? new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
                     month: "short",
@@ -672,7 +672,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
           </div>
         </div>
         {durationDays !== null && (
-          <p className="font-kosugi text-[10px] text-text-disabled mt-1">
+          <p className="font-kosugi text-[10px] text-text-mute mt-1">
             {durationDays} {t("sidebar.durationDays")}
           </p>
         )}
@@ -903,7 +903,7 @@ function FinancialTab({ project }: { project: Project }) {
     <div className="space-y-3">
       {/* Budget Health Bar */}
       <div className="bg-background-card border border-border rounded-[3px] p-4 mb-3">
-        <span className="font-kosugi text-[10px] uppercase tracking-[0.3px] text-text-tertiary block mb-2">
+        <span className="font-kosugi text-[10px] uppercase tracking-[0.3px] text-text-3 block mb-2">
           {t("financial.budgetOverview")}
         </span>
         <div className="h-2 rounded-[2px] bg-[rgba(255,255,255,0.06)] overflow-hidden flex">
@@ -924,11 +924,11 @@ function FinancialTab({ project }: { project: Project }) {
         <div className="flex items-center gap-4 mt-2">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-financial-profit" />
-            <span className="font-kosugi text-[9px] text-text-disabled uppercase">{t("financial.paid")}</span>
+            <span className="font-kosugi text-[9px] text-text-mute uppercase">{t("financial.paid")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-financial-receivables" />
-            <span className="font-kosugi text-[9px] text-text-disabled uppercase">{t("financial.outstanding")}</span>
+            <span className="font-kosugi text-[9px] text-text-mute uppercase">{t("financial.outstanding")}</span>
           </div>
         </div>
       </div>
@@ -936,15 +936,15 @@ function FinancialTab({ project }: { project: Project }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
             {t("financial.estimated")}
           </span>
-          <span className="font-mono text-data-lg text-text-primary block">
+          <span className="font-mono text-data-lg text-text block">
             {formatCurrency(totals.estimated)}
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
             {t("financial.invoiced")}
           </span>
           <span className="font-mono text-data-lg text-financial-revenue block">
@@ -952,7 +952,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
             {t("financial.paid")}
           </span>
           <span className="font-mono text-data-lg text-financial-profit block">
@@ -960,7 +960,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
             {t("financial.outstanding")}
           </span>
           <span className="font-mono text-data-lg text-financial-receivables block">
@@ -980,7 +980,7 @@ function FinancialTab({ project }: { project: Project }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push("/estimates")}
-                className="gap-1 text-text-tertiary"
+                className="gap-1 text-text-3"
               >
                 <Plus className="w-[12px] h-[12px]" />
                 {t("financial.newEstimate")}
@@ -989,7 +989,7 @@ function FinancialTab({ project }: { project: Project }) {
           }
         />
         {estimates.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-tertiary mt-2">{t("financial.noEstimates")}</p>
+          <p className="font-mohave text-body-sm text-text-3 mt-2">{t("financial.noEstimates")}</p>
         ) : (
           <div className="space-y-1 mt-2">
             {estimates.map((est) => (
@@ -998,7 +998,7 @@ function FinancialTab({ project }: { project: Project }) {
                 className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-[rgba(255,255,255,0.02)] transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-data-sm text-text-primary">
+                  <span className="font-mono text-data-sm text-text">
                     {est.estimateNumber}
                   </span>
                   <span
@@ -1012,11 +1012,11 @@ function FinancialTab({ project }: { project: Project }) {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="font-mono text-data-sm text-text-primary">
+                  <span className="font-mono text-data-sm text-text">
                     {formatCurrency(est.total)}
                   </span>
                   {est.issueDate && (
-                    <span className="font-mono text-[10px] text-text-disabled">
+                    <span className="font-mono text-[10px] text-text-mute">
                       {new Date(est.issueDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         day: "numeric",
@@ -1041,7 +1041,7 @@ function FinancialTab({ project }: { project: Project }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push("/invoices")}
-                className="gap-1 text-text-tertiary"
+                className="gap-1 text-text-3"
               >
                 <Plus className="w-[12px] h-[12px]" />
                 {t("financial.newInvoice")}
@@ -1050,7 +1050,7 @@ function FinancialTab({ project }: { project: Project }) {
           }
         />
         {invoices.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-tertiary mt-2">{t("financial.noInvoices")}</p>
+          <p className="font-mohave text-body-sm text-text-3 mt-2">{t("financial.noInvoices")}</p>
         ) : (
           <div className="space-y-1 mt-2">
             {invoices.map((inv) => (
@@ -1059,7 +1059,7 @@ function FinancialTab({ project }: { project: Project }) {
                 className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-[rgba(255,255,255,0.02)] transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-data-sm text-text-primary">
+                  <span className="font-mono text-data-sm text-text">
                     {inv.invoiceNumber}
                   </span>
                   <span
@@ -1074,7 +1074,7 @@ function FinancialTab({ project }: { project: Project }) {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <span className="font-mono text-data-sm text-text-primary block">
+                    <span className="font-mono text-data-sm text-text block">
                       {formatCurrency(inv.total)}
                     </span>
                     {inv.balanceDue > 0 && inv.balanceDue !== inv.total && (
@@ -1084,7 +1084,7 @@ function FinancialTab({ project }: { project: Project }) {
                     )}
                   </div>
                   {inv.dueDate && (
-                    <span className="font-mono text-[10px] text-text-disabled">
+                    <span className="font-mono text-[10px] text-text-mute">
                       {new Date(inv.dueDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         day: "numeric",
@@ -1263,8 +1263,8 @@ export default function ProjectDetailPage() {
   if (accessDenied || isNotFound) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
-        <span className="font-mohave text-[64px] text-text-disabled leading-none">404</span>
-        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-wider">
+        <span className="font-mohave text-[64px] text-text-mute leading-none">404</span>
+        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-wider">
           {t("detail.notFound") ?? "Project not found"}
         </p>
       </div>
@@ -1292,8 +1292,8 @@ export default function ProjectDetailPage() {
         >
           {t("title")}
         </button>
-        <span className="text-text-tertiary font-mohave text-body">/</span>
-        <span className="font-mohave text-body text-text-primary font-medium truncate">
+        <span className="text-text-3 font-mohave text-body">/</span>
+        <span className="font-mohave text-body text-text font-medium truncate">
           {project.title}
         </span>
         <PermissionGate permission="projects.edit" fallback={<StatusBadge status={statusToKey(project.status)} />}>
@@ -1328,8 +1328,8 @@ export default function ProjectDetailPage() {
               className={cn(
                 "px-5 py-3 font-mohave text-body-sm cursor-pointer transition-colors",
                 activeTab === tab
-                  ? "text-text-primary border-b-2 border-ops-accent font-medium"
-                  : "text-text-tertiary hover:text-text-secondary"
+                  ? "text-text border-b-2 border-ops-accent font-medium"
+                  : "text-text-3 hover:text-text-2"
               )}
             >
               {t(`tabs.${tab}`)}
@@ -1340,7 +1340,7 @@ export default function ProjectDetailPage() {
           {/* Mobile sidebar toggle */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 text-text-tertiary hover:text-text-secondary transition-colors cursor-pointer"
+            className="lg:hidden p-2 text-text-3 hover:text-text-2 transition-colors cursor-pointer"
             aria-label={t("sidebar.projectInfo")}
           >
             <Info className="w-[18px] h-[18px]" />
@@ -1351,7 +1351,7 @@ export default function ProjectDetailPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="gap-[6px] text-text-tertiary hover:text-text-secondary min-h-[56px]"
+              className="gap-[6px] text-text-3 hover:text-text-2 min-h-[56px]"
               onClick={handleSuggestTasks}
               disabled={suggestingTasks}
               loading={suggestingTasks}
@@ -1440,12 +1440,12 @@ export default function ProjectDetailPage() {
               className="fixed right-0 top-0 bottom-0 w-[280px] bg-background border-l border-border p-5 overflow-y-auto z-50 lg:hidden"
             >
               <div className="flex items-center justify-between mb-4">
-                <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+                <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                   {t("sidebar.projectInfo")}
                 </span>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="p-1 text-text-tertiary hover:text-text-secondary cursor-pointer"
+                  className="p-1 text-text-3 hover:text-text-2 cursor-pointer"
                 >
                   <X className="w-[16px] h-[16px]" />
                 </button>

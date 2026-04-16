@@ -97,7 +97,7 @@ export function ColorPickerPopover({
     >
       {grouped.map(({ family, label, colors }) => (
         <div key={family} className="mb-[8px] last:mb-0">
-          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest mb-[4px] block">
+          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[4px] block">
             {label}
           </span>
           <div className="flex flex-wrap gap-[6px]">

@@ -62,10 +62,10 @@ type TagSelection = TagEntry | NewTagEntry;
 // ─── Section Label ──────────────────────────────────────────────────────────────
 
 const SECTION_LABEL =
-  "font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary mb-3";
+  "font-kosugi text-caption-sm uppercase tracking-widest text-text-3 mb-3";
 
 const FORM_LABEL =
-  "font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary";
+  "font-kosugi text-caption-sm uppercase tracking-widest text-text-3";
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 
@@ -421,7 +421,7 @@ export function ItemFormDialog({
                             "inline-flex items-center gap-0.5",
                             "px-1.5 py-0.5 rounded-sm",
                             "bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.12)]",
-                            "text-caption-sm text-text-secondary font-mohave"
+                            "text-caption-sm text-text-2 font-mohave"
                           )}
                         >
                           {tag.name}
@@ -433,7 +433,7 @@ export function ItemFormDialog({
                           <button
                             type="button"
                             onClick={() => removeTag(index)}
-                            className="text-text-tertiary hover:text-text-primary ml-0.5"
+                            className="text-text-3 hover:text-text ml-0.5"
                           >
                             <X className="h-[12px] w-[12px]" />
                           </button>
@@ -476,7 +476,7 @@ export function ItemFormDialog({
                               type="button"
                               className={cn(
                                 "w-full px-1.5 py-1 text-left",
-                                "text-body-sm text-text-primary font-mohave",
+                                "text-body-sm text-text font-mohave",
                                 "hover:bg-[rgba(255,255,255,0.06)]",
                                 "transition-colors"
                               )}
@@ -586,7 +586,7 @@ export function ItemFormDialog({
                     onChange={(e) => setCriticalThreshold(e.target.value)}
                   />
                 </div>
-                <p className="text-text-disabled text-caption-sm font-mohave">
+                <p className="text-text-mute text-caption-sm font-mohave">
                   Leave empty to use tag defaults
                 </p>
               </div>

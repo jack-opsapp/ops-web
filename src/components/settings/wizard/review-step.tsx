@@ -78,10 +78,10 @@ export function ReviewStep({
         >
           <Check className="w-[24px] h-[24px] text-[#597794]" />
         </motion.div>
-        <p className="font-mohave text-body text-text-primary">
+        <p className="font-mohave text-body text-text">
           {t("wizard.review.success")}
         </p>
-        <p className="font-kosugi text-[11px] text-text-disabled mt-[6px]">
+        <p className="font-kosugi text-[11px] text-text-mute mt-[6px]">
           {t("wizard.review.elapsed").replace("{seconds}", String(elapsedSeconds))}
         </p>
       </motion.div>
@@ -96,16 +96,16 @@ export function ReviewStep({
       transition={{ duration: 0.3, ease: EASE_SMOOTH }}
       className="flex flex-col px-4"
     >
-      <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[8px]">
+      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
         {t("wizard.review.headline")}
       </h2>
 
       {/* Summary line */}
-      <p className="font-mohave text-body text-text-secondary mb-[4px]">
+      <p className="font-mohave text-body text-text-2 mb-[4px]">
         {t("wizard.review.summary").replace("{count}", String(taskTypes.length))}
       </p>
       {hasDependencies && (
-        <p className="font-kosugi text-[11px] text-text-disabled mb-[16px]">
+        <p className="font-kosugi text-[11px] text-text-mute mb-[16px]">
           {t("wizard.review.withDeps")}
         </p>
       )}
@@ -121,7 +121,7 @@ export function ReviewStep({
               className="w-[10px] h-[10px] rounded-sm shrink-0"
               style={{ backgroundColor: tt.color }}
             />
-            <span className="font-mohave text-body-sm text-text-primary flex-1">
+            <span className="font-mohave text-body-sm text-text flex-1">
               {tt.name}
             </span>
           </div>
@@ -131,7 +131,7 @@ export function ReviewStep({
       {/* Mini dependency timeline */}
       {hasDependencies && dependencyTimeline && dependencyTimeline.length > 1 && (
         <div className="mb-[24px]">
-          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest mb-[6px] block">
+          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[6px] block">
             {t("wizard.review.depOrder")}
           </span>
           <div className="flex items-center gap-[4px] flex-wrap">
@@ -142,17 +142,17 @@ export function ReviewStep({
                     className="w-[8px] h-[8px] rounded-sm shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-kosugi text-[10px] text-text-secondary whitespace-nowrap">
+                  <span className="font-kosugi text-[10px] text-text-2 whitespace-nowrap">
                     {item.name}
                   </span>
                   {item.overlapPercent > 0 && (
-                    <span className="font-mono text-[9px] text-text-disabled">
+                    <span className="font-mono text-[9px] text-text-mute">
                       {item.overlapPercent}%
                     </span>
                   )}
                 </div>
                 {i < dependencyTimeline.length - 1 && (
-                  <span className="text-text-disabled text-[10px]">&rarr;</span>
+                  <span className="text-text-mute text-[10px]">&rarr;</span>
                 )}
               </div>
             ))}
@@ -166,7 +166,7 @@ export function ReviewStep({
           type="button"
           onClick={onBack}
           disabled={status === "creating"}
-          className="flex items-center gap-[6px] text-text-disabled hover:text-text-secondary font-mohave text-body-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-[6px] text-text-mute hover:text-text-2 font-mohave text-body-sm transition-colors disabled:opacity-50"
         >
           <ArrowLeft className="w-[14px] h-[14px]" />
           {t("wizard.review.back")}

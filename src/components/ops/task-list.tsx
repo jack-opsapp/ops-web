@@ -194,8 +194,8 @@ function TaskRow({
       {/* Task name */}
       <p
         className={cn(
-          "font-mohave text-body text-text-primary flex-1 truncate",
-          isDone && "line-through text-text-tertiary"
+          "font-mohave text-body text-text flex-1 truncate",
+          isDone && "line-through text-text-3"
         )}
       >
         {title}
@@ -217,7 +217,7 @@ function TaskRow({
               />
             ))}
             {assignedMembers.length > 3 && (
-              <span className="font-mono text-[10px] text-text-tertiary pl-[4px]">
+              <span className="font-mono text-[10px] text-text-3 pl-[4px]">
                 +{assignedMembers.length - 3}
               </span>
             )}
@@ -242,7 +242,7 @@ function TaskRow({
         {hasStartDate ? (
           <span
             className={cn(
-              "font-mono text-data-sm text-text-secondary",
+              "font-mono text-data-sm text-text-2",
               isPastDue && !isDone && "text-ops-error"
             )}
           >
@@ -297,7 +297,7 @@ function TaskRow({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-[4px] text-text-disabled hover:text-text-tertiary transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+            className="p-[4px] text-text-mute hover:text-text-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreVertical className="w-[14px] h-[14px]" />
@@ -574,8 +574,8 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             className={cn(
               "font-mohave text-body-sm rounded-[3px] px-3 py-1.5 transition-colors",
               viewMode === "list"
-                ? "bg-background-card border border-border text-text-primary"
-                : "border border-border-subtle text-text-tertiary hover:text-text-secondary"
+                ? "bg-background-card border border-border text-text"
+                : "border border-border-subtle text-text-3 hover:text-text-2"
             )}
           >
             {t("taskList.list")}
@@ -585,7 +585,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               <TooltipTrigger asChild>
                 <button
                   disabled
-                  className="font-mohave text-body-sm rounded-[3px] px-3 py-1.5 border border-border-subtle text-text-disabled cursor-not-allowed"
+                  className="font-mohave text-body-sm rounded-[3px] px-3 py-1.5 border border-border-subtle text-text-mute cursor-not-allowed"
                 >
                   {t("taskList.calendar")}
                 </button>

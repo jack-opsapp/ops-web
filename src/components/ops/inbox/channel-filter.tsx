@@ -54,11 +54,11 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
               "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
               active === seg.value
                 ? "text-ops-accent bg-ops-accent-muted/20"
-                : "text-text-tertiary hover:text-text-primary hover:bg-background-input"
+                : "text-text-3 hover:text-text hover:bg-surface-input"
             )}
           >
             {seg.icon}
-            <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+            <span className="font-kosugi text-micro uppercase tracking-wider">
               {seg.label}
             </span>
           </button>

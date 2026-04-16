@@ -59,15 +59,15 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
       <div className="flex items-center justify-between mt-[4px]">
         {isAdded ? (
           <div className="flex items-center gap-[4px]">
-            <span className="font-mono text-[8px] text-text-disabled">{t("tray.card.added")}</span>
+            <span className="font-mono text-[8px] text-text-mute">{t("tray.card.added")}</span>
             {entry.allowMultiple && instanceCount > 1 && (
-              <span className="font-mono text-[8px] px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-disabled">
+              <span className="font-mono text-[8px] px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-mute">
                 {instanceCount}x
               </span>
             )}
           </div>
         ) : (
-          <span className="font-mono text-[8px] text-text-disabled">{t("tray.card.dragHint")}</span>
+          <span className="font-mono text-[8px] text-text-mute">{t("tray.card.dragHint")}</span>
         )}
 
         {canAddMore && (
@@ -81,7 +81,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
             className={cn(
               "w-[18px] h-[18px] rounded-md flex items-center justify-center border transition-all duration-150",
               isAdded
-                ? "bg-transparent text-text-disabled border-border/50 hover:bg-[rgba(255,255,255,0.06)]"
+                ? "bg-transparent text-text-mute border-border/50 hover:bg-[rgba(255,255,255,0.06)]"
                 : "bg-ops-accent/10 text-ops-accent border-ops-accent/20 hover:bg-ops-accent/20"
             )}
             title={`${t("tray.card.addTitle")} ${entry.label}`}

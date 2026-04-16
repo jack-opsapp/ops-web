@@ -46,7 +46,7 @@ export function ConversationItem({
         "w-full text-left px-2.5 py-2.5 border-l-2 cursor-pointer transition-colors",
         isActive
           ? "border-l-ops-accent bg-ops-accent-muted"
-          : "border-l-transparent hover:bg-background-input",
+          : "border-l-transparent hover:bg-surface-input",
         !hasUnread && !isActive && "opacity-50"
       )}
     >
@@ -60,7 +60,7 @@ export function ConversationItem({
               ? "bg-ops-amber-muted text-ops-amber"
               : isActive
                 ? "bg-ops-accent-muted text-ops-accent"
-                : "bg-background-input text-text-disabled"
+                : "bg-surface-input text-text-mute"
           )}
         >
           {conversation.avatarInitials}
@@ -72,7 +72,7 @@ export function ConversationItem({
             <span
               className={cn(
                 "font-mohave text-body-sm truncate",
-                isUnmatched ? "italic text-text-tertiary" : "text-text-primary",
+                isUnmatched ? "italic text-text-3" : "text-text",
                 hasUnread && "font-semibold"
               )}
             >
@@ -82,11 +82,11 @@ export function ConversationItem({
               {hasAutoDraft && (
                 <Sparkles className="w-[14px] h-[14px] text-[#597794]" />
               )}
-              <span className="font-kosugi text-micro-sm text-text-disabled">
+              <span className="font-kosugi text-micro text-text-mute">
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
-                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-ops-accent text-white font-kosugi text-micro-sm leading-none">
+                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-ops-accent text-white font-kosugi text-micro leading-none">
                   {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                 </span>
               )}
@@ -95,7 +95,7 @@ export function ConversationItem({
 
           {/* Project name */}
           {conversation.projectName && (
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase block mt-0.5 truncate">
+            <span className="font-kosugi text-micro text-text-mute uppercase block mt-0.5 truncate">
               {conversation.projectName}
             </span>
           )}
@@ -104,17 +104,17 @@ export function ConversationItem({
           <div className="flex items-center gap-1.5 mt-1">
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro-xs shrink-0",
+                "px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro shrink-0",
                 channelBadge.accent
                   ? "bg-ops-accent-muted text-ops-accent"
                   : channelBadge.warning
                     ? "bg-ops-amber-muted text-ops-amber"
-                    : "bg-background-input text-text-disabled"
+                    : "bg-surface-input text-text-mute"
               )}
             >
               {channelBadge.label}
             </span>
-            <span className="font-mohave text-caption-sm text-text-tertiary truncate">
+            <span className="font-mohave text-caption-sm text-text-3 truncate">
               {conversation.lastMessagePreview}
             </span>
           </div>

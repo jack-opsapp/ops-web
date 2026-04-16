@@ -283,11 +283,11 @@ export function ProjectSpreadsheet({
   if (displayProjects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-16">
-        <span className="font-mohave text-body-sm text-text-tertiary">
+        <span className="font-mohave text-body-sm text-text-3">
           {totalCount > 0 ? t("spreadsheet.empty.filtered") : t("spreadsheet.empty.none")}
         </span>
         {totalCount === 0 && (
-          <span className="font-mohave text-body-sm text-text-disabled">
+          <span className="font-mohave text-body-sm text-text-mute">
             {t("spreadsheet.empty.noneDesc")}
           </span>
         )}
@@ -358,7 +358,7 @@ export function ProjectSpreadsheet({
 
       {/* Footer */}
       <div className="px-2 py-1 flex justify-end">
-        <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
           {t("spreadsheet.footer.showing")
             .replace("{count}", String(displayProjects.length))
             .replace("{total}", String(totalCount))}
@@ -408,7 +408,7 @@ function ActionMenuItem({ label, onClick, danger }: { label: string; onClick: ()
         "flex items-center w-full px-2 py-1.5 rounded-[2px] transition-colors font-mohave text-body-sm",
         danger
           ? "text-[#93321A] hover:bg-[rgba(147,50,26,0.1)]"
-          : "text-text-secondary hover:bg-[rgba(255,255,255,0.06)]"
+          : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
       )}
     >
       {label}

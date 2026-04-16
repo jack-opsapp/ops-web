@@ -18,7 +18,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "flex cursor-pointer select-none items-center gap-1 rounded-sm px-1 py-[6px]",
-      "text-body-sm text-text-primary font-mohave",
+      "text-body-sm text-text font-mohave",
       "outline-none",
       "focus:bg-background-elevated",
       "data-[state=open]:bg-background-elevated",
@@ -28,7 +28,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <ChevronRight className="ml-auto h-[16px] w-[16px] text-text-tertiary" />
+    <ChevronRight className="ml-auto h-[16px] w-[16px] text-text-3" />
   </DropdownMenuPrimitive.SubTrigger>
 ));
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
@@ -80,9 +80,9 @@ const DropdownMenuItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex cursor-pointer select-none items-center gap-1 rounded-sm px-1 py-[6px]",
-      "text-body-sm text-text-primary font-mohave",
+      "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "focus:bg-background-elevated focus:text-text-primary",
+      "focus:bg-background-elevated focus:text-text",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
       inset && "pl-4",
       className
@@ -100,7 +100,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex cursor-pointer select-none items-center rounded-sm py-[6px] pl-4 pr-1",
-      "text-body-sm text-text-primary font-mohave",
+      "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
       "focus:bg-background-elevated",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
@@ -127,7 +127,7 @@ const DropdownMenuRadioItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex cursor-pointer select-none items-center rounded-sm py-[6px] pl-4 pr-1",
-      "text-body-sm text-text-primary font-mohave",
+      "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
       "focus:bg-background-elevated",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
@@ -152,7 +152,7 @@ const DropdownMenuLabel = React.forwardRef<
   <DropdownMenuPrimitive.Label
     ref={ref}
     className={cn(
-      "px-1 py-[6px] font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest",
+      "px-1 py-[6px] font-kosugi text-caption-sm text-text-3 uppercase tracking-widest",
       inset && "pl-4",
       className
     )}
@@ -175,7 +175,7 @@ DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
 
 const DropdownMenuShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
-    className={cn("ml-auto text-caption-sm text-text-tertiary tracking-widest font-mono", className)}
+    className={cn("ml-auto text-caption-sm text-text-3 tracking-widest font-mono", className)}
     {...props}
   />
 );

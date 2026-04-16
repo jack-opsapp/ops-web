@@ -115,21 +115,21 @@ export function AssignRoleModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="font-kosugi text-micro uppercase tracking-wider text-text-secondary">
+          <DialogTitle className="font-kosugi text-micro uppercase tracking-wider text-text-2">
             Assign role
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-3 py-2">
-          <div className="w-12 h-12 rounded-full border border-border-subtle bg-background-elevated flex items-center justify-center font-mohave text-body-lg text-text-primary">
+          <div className="w-12 h-12 rounded-full border border-border-subtle bg-background-elevated flex items-center justify-center font-mohave text-body-lg text-text">
             {firstName.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-mohave text-body-lg text-text-primary truncate">
+            <p className="font-mohave text-body-lg text-text truncate">
               {fullName}
             </p>
             {member.email && (
-              <p className="font-kosugi text-micro text-text-tertiary truncate">
+              <p className="font-kosugi text-micro text-text-3 truncate">
                 {member.email}
               </p>
             )}
@@ -146,7 +146,7 @@ export function AssignRoleModal({
         />
 
         <div className="flex flex-col gap-1 mt-2">
-          <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+          <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
             Role
           </label>
           <div className="flex flex-wrap items-center gap-1">
@@ -159,7 +159,7 @@ export function AssignRoleModal({
                   "px-1.5 py-[6px] rounded border font-mohave text-body-sm transition-all",
                   selectedRoleId === role.id
                     ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                    : "bg-background-input border-border text-text-tertiary hover:text-text-secondary"
+                    : "bg-surface-input border-border text-text-3 hover:text-text-2"
                 )}
               >
                 {role.name}
@@ -167,11 +167,11 @@ export function AssignRoleModal({
             ))}
           </div>
           {selectedRole?.description ? (
-            <p className="font-kosugi text-[10px] text-text-tertiary mt-[4px]">
+            <p className="font-kosugi text-[10px] text-text-3 mt-[4px]">
               {selectedRole.description}
             </p>
           ) : (
-            <p className="font-kosugi text-[10px] text-text-disabled mt-[4px]">
+            <p className="font-kosugi text-[10px] text-text-mute mt-[4px]">
               The role {firstName} receives when active on jobs.
             </p>
           )}

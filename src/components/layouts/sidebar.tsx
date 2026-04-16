@@ -134,9 +134,9 @@ function NavItemButton({
         "group relative flex items-center w-full h-[36px] rounded-[2px] transition-colors duration-150",
         isCollapsed ? "justify-center px-0" : "gap-1.5 px-1.5",
         item.gated
-          ? "text-text-disabled opacity-50 cursor-pointer hover:opacity-70"
+          ? "text-text-mute opacity-50 cursor-pointer hover:opacity-70"
           : [
-              "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]",
+              "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]",
               isActive && "text-ops-accent bg-[rgba(89,119,148,0.10)]",
             ]
       )}
@@ -145,10 +145,10 @@ function NavItemButton({
         className={cn(
           "shrink-0 w-[20px] h-[20px] transition-colors",
           item.gated
-            ? "text-text-disabled"
+            ? "text-text-mute"
             : isActive
               ? "text-ops-accent"
-              : "text-text-tertiary group-hover:text-text-secondary"
+              : "text-text-3 group-hover:text-text-2"
         )}
       />
       {!isCollapsed && (
@@ -299,11 +299,11 @@ export function Sidebar() {
               referrerPolicy="no-referrer"
             />
           ) : (
-            <Building2 className="w-[14px] h-[14px] text-text-tertiary" />
+            <Building2 className="w-[14px] h-[14px] text-text-3" />
           )}
         </div>
         {!effectiveCollapsed && (
-          <span className="font-mohave text-body text-text-primary truncate uppercase">
+          <span className="font-mohave text-body text-text truncate uppercase">
             {company?.name || t("companyFallback")}
           </span>
         )}
@@ -361,7 +361,7 @@ export function Sidebar() {
           />
           <span
             className={cn(
-              "font-mono text-[10px] text-text-disabled select-none transition-opacity duration-200",
+              "font-mono text-[10px] text-text-mute select-none transition-opacity duration-200",
               effectiveCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 delay-150"
             )}
           >
@@ -391,7 +391,7 @@ export function Sidebar() {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="font-mohave text-body-sm text-text-secondary">
+                  <span className="font-mohave text-body-sm text-text-2">
                     {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                 )}
@@ -399,7 +399,7 @@ export function Sidebar() {
 
               {!effectiveCollapsed && (
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="font-mohave text-body-sm text-text-primary truncate">
+                  <p className="font-mohave text-body-sm text-text truncate">
                     {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : t("userFallback")}
                   </p>
                 </div>
@@ -409,19 +409,19 @@ export function Sidebar() {
 
           <DropdownMenuContent side="top" align={effectiveCollapsed ? "center" : "start"} sideOffset={8}>
             <DropdownMenuItem onClick={() => router.push("/settings")}>
-              <Settings className="w-[16px] h-[16px] text-text-tertiary" />
+              <Settings className="w-[16px] h-[16px] text-text-3" />
               Settings
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => window.open("https://opsapp.co", "_blank")}>
-              <Globe className="w-[16px] h-[16px] text-text-tertiary" />
+              <Globe className="w-[16px] h-[16px] text-text-3" />
               OPS Website
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => window.open("https://learn.opsapp.co", "_blank")}>
-              <GraduationCap className="w-[16px] h-[16px] text-text-tertiary" />
+              <GraduationCap className="w-[16px] h-[16px] text-text-3" />
               Courses
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => window.open("#", "_blank")}>
-              <Smartphone className="w-[16px] h-[16px] text-text-tertiary" />
+              <Smartphone className="w-[16px] h-[16px] text-text-3" />
               Download iOS App
             </DropdownMenuItem>
             <DropdownMenuSeparator />

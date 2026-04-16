@@ -86,15 +86,15 @@ function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
         isDragging && "opacity-40"
       )}
     >
-      <Maximize2 className="w-[14px] h-[14px] text-text-disabled" />
-      <span className="font-mohave text-body-sm text-text-secondary">{t("tray.addSpacer")}</span>
+      <Maximize2 className="w-[14px] h-[14px] text-text-mute" />
+      <span className="font-mohave text-body-sm text-text-2">{t("tray.addSpacer")}</span>
       <button
         onClick={(e) => {
           e.stopPropagation();
           onAdd();
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="w-[18px] h-[18px] rounded-md flex items-center justify-center border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-disabled hover:text-text-secondary transition-all ml-auto"
+        className="w-[18px] h-[18px] rounded-md flex items-center justify-center border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-mute hover:text-text-2 transition-all ml-auto"
         title={t("tray.addSpacer")}
       >
         <Plus className="w-[10px] h-[10px]" />
@@ -285,7 +285,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               className="flex items-center gap-[6px] ml-auto mr-3"
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider select-none">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider select-none">
                 {t("tray.gap")}
               </span>
               <div className="flex items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
@@ -299,7 +299,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                         "px-[8px] py-[4px] font-mono text-[10px] transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
                         isActive
                           ? "bg-ops-accent-muted text-ops-accent"
-                          : "text-text-disabled hover:text-text-secondary"
+                          : "text-text-mute hover:text-text-2"
                       )}
                       title={`${WIDGET_GAP_VALUES[gapId]}px`}
                     >
@@ -315,7 +315,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               <button
                 onClick={onCancel}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="px-3 py-[5px] rounded-[4px] font-mohave text-body-sm text-text-secondary border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-text-primary bg-[rgba(10,10,10,0.5)] backdrop-blur-sm transition-all"
+                className="px-3 py-[5px] rounded-[4px] font-mohave text-body-sm text-text-2 border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-text bg-[rgba(10,10,10,0.5)] backdrop-blur-sm transition-all"
               >
                 {t("tray.cancel")}
               </button>
@@ -361,16 +361,16 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             {/* Header row */}
             <div className="flex items-center justify-between px-3 pb-[6px] shrink-0">
               <div className="flex items-center gap-[8px]">
-                <h2 className="font-mohave text-body-lg text-text-primary font-medium">
+                <h2 className="font-mohave text-body-lg text-text font-medium">
                   {t("tray.title")}
                 </h2>
-                <span className="font-mono text-[10px] text-text-disabled">
+                <span className="font-mono text-[10px] text-text-mute">
                   {totalActiveCount} {t("tray.active")}
                 </span>
               </div>
               <button
                 onClick={onClose}
-                className="p-[4px] rounded-sm text-text-disabled hover:text-text-secondary transition-colors"
+                className="p-[4px] rounded-sm text-text-mute hover:text-text-2 transition-colors"
               >
                 <X className="w-[16px] h-[16px]" />
               </button>
@@ -379,13 +379,13 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             {/* Search input */}
             <div className="px-3 pb-[8px] shrink-0">
               <div className="relative">
-                <Search className="absolute left-[8px] top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-text-disabled" />
+                <Search className="absolute left-[8px] top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-text-mute" />
                 <input
                   type="text"
                   placeholder={t("tray.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
+                  className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -393,7 +393,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             {/* Scrollable body — category rows with horizontal card scrolls */}
             <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-2 scrollbar-hide">
               {visibleCategories.length === 0 ? (
-                <p className="font-mohave text-body-sm text-text-disabled py-3 text-center">
+                <p className="font-mohave text-body-sm text-text-mute py-3 text-center">
                   {t("tray.noResults")}
                 </p>
               ) : (
@@ -404,10 +404,10 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       <div key={category}>
                         {/* Category label */}
                         <div className="flex items-center gap-[6px] mb-[6px]">
-                          <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
+                          <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest">
                             {CATEGORY_LABELS[category]}
                           </span>
-                          <span className="font-mono text-[9px] text-text-disabled">
+                          <span className="font-mono text-[9px] text-text-mute">
                             {available.length + inUse.length}
                           </span>
                         </div>
@@ -430,10 +430,10 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                         {inUse.length > 0 && (
                           <>
                             <div className="flex items-center gap-[6px] mb-[4px] mt-[2px]">
-                              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest">
+                              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest">
                                 {t("tray.alreadyInUse")}
                               </span>
-                              <span className="font-mono text-[8px] text-text-disabled">
+                              <span className="font-mono text-[8px] text-text-mute">
                                 {inUse.length}
                               </span>
                             </div>
@@ -461,7 +461,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               <button
                 onClick={resetWidgetInstances}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="flex items-center gap-[6px] font-mohave text-body-sm text-text-disabled hover:text-text-secondary transition-colors w-full justify-center py-[4px]"
+                className="flex items-center gap-[6px] font-mohave text-body-sm text-text-mute hover:text-text-2 transition-colors w-full justify-center py-[4px]"
               >
                 <RotateCcw className="w-[12px] h-[12px]" />
                 {t("tray.resetToDefaults")}

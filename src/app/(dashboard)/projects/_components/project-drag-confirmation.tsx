@@ -36,10 +36,10 @@ export function ProjectDragConfirmation({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-mohave text-body font-medium text-text-primary mb-2">
+        <h3 className="font-mohave text-body font-medium text-text mb-2">
           {t("drag.confirmTitle")}
         </h3>
-        <p className="font-mohave text-body-sm text-text-secondary mb-4 leading-relaxed">
+        <p className="font-mohave text-body-sm text-text-2 mb-4 leading-relaxed">
           {t("drag.confirmMessage")}
         </p>
 
@@ -50,7 +50,7 @@ export function ProjectDragConfirmation({
             onChange={(e) => setDontShowAgain(e.target.checked)}
             className="w-4 h-4 rounded-[2px] border border-[rgba(255,255,255,0.15)] bg-transparent accent-[#597794]"
           />
-          <span className="font-mohave text-body-sm text-text-tertiary">
+          <span className="font-mohave text-body-sm text-text-3">
             {t("drag.dontShowAgain")}
           </span>
         </label>
@@ -58,7 +58,7 @@ export function ProjectDragConfirmation({
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
+            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             Cancel
           </button>
@@ -67,7 +67,7 @@ export function ProjectDragConfirmation({
               if (dontShowAgain) setFirstDragConfirmed();
               onConfirm();
             }}
-            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text-primary bg-[rgba(89,119,148,0.2)] hover:bg-[rgba(89,119,148,0.3)] border border-[rgba(89,119,148,0.3)] transition-colors duration-150"
+            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text bg-[rgba(89,119,148,0.2)] hover:bg-[rgba(89,119,148,0.3)] border border-[rgba(89,119,148,0.3)] transition-colors duration-150"
           >
             {t("drag.confirmAction")}
           </button>

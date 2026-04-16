@@ -112,7 +112,7 @@ export function NotificationCardFull({
             e.stopPropagation();
             onDismiss(notification.id);
           }}
-          className="absolute top-[8px] right-[8px] p-[2px] text-text-disabled hover:text-text-secondary transition-colors duration-150"
+          className="absolute top-[8px] right-[8px] p-[2px] text-text-mute hover:text-text-2 transition-colors duration-150"
           aria-label="Dismiss"
         >
           <X className="w-[12px] h-[12px]" />
@@ -121,17 +121,17 @@ export function NotificationCardFull({
 
       {/* Row 1: Title + timestamp */}
       <div className="flex items-center gap-[8px] pr-[20px]">
-        <span className="font-mohave text-body-sm text-text-primary text-left flex-1">
+        <span className="font-mohave text-body-sm text-text text-left flex-1">
           {displayTitle}
         </span>
-        <span className="font-mono text-[10px] text-text-disabled shrink-0">
+        <span className="font-mono text-[10px] text-text-mute shrink-0">
           {formatTimestamp(notification.createdAt)}
         </span>
       </div>
 
       {/* Row 2: Body */}
       {displayBody && (
-        <p className="font-mohave text-[12px] text-text-secondary text-left line-clamp-2 mt-[2px]">
+        <p className="font-mohave text-[12px] text-text-2 text-left line-clamp-2 mt-[2px]">
           {displayBody}
         </p>
       )}

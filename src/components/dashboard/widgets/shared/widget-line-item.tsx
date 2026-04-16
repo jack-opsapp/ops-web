@@ -93,12 +93,12 @@ export function WidgetLineItem({
 
       {/* Text content */}
       <div className="flex-1 min-w-0">
-        <p className="font-mohave text-caption-sm text-text-primary truncate">
+        <p className="font-mohave text-caption-sm text-text truncate">
           {primary}
         </p>
         {secondary && (
           typeof secondary === "string" ? (
-            <span className="font-kosugi text-micro-sm text-text-disabled truncate block">
+            <span className="font-kosugi text-micro text-text-mute truncate block">
               {secondary}
             </span>
           ) : (
@@ -110,7 +110,7 @@ export function WidgetLineItem({
       {/* Metric */}
       {metric &&
         (typeof metric === "string" ? (
-          <span className="font-mono text-micro-sm text-text-secondary shrink-0 ml-1">
+          <span className="font-mono text-micro text-text-2 shrink-0 ml-1">
             {metric}
           </span>
         ) : (
@@ -195,7 +195,7 @@ function LineItemIndicatorEl({
     case "avatar":
       return (
         <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-background-elevated flex items-center justify-center">
-          <span className="font-kosugi text-[8px] text-text-tertiary uppercase">
+          <span className="font-kosugi text-[8px] text-text-3 uppercase">
             {indicator.initials}
           </span>
         </div>

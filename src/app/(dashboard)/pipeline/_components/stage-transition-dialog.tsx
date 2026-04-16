@@ -70,11 +70,11 @@ function WonContent({
       <div className="space-y-2 py-2">
         {/* Final deal value */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest">
+          <label className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest">
             {t("transition.finalValue")}
           </label>
           <div className="relative">
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 font-mono text-[11px] text-text-tertiary">
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 font-mono text-[11px] text-text-3">
               $
             </span>
             <input
@@ -87,9 +87,9 @@ function WonContent({
                   : "0.00"
               }
               className={cn(
-                "w-full bg-background-input text-text-primary font-mono text-body",
+                "w-full bg-surface-input text-text font-mono text-body",
                 "pl-4 pr-1.5 py-1.5 rounded-lg border border-border",
-                "placeholder:text-text-tertiary",
+                "placeholder:text-text-3",
                 "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent"
               )}
             />
@@ -102,12 +102,12 @@ function WonContent({
             type="checkbox"
             checked={convertToProject}
             onChange={(e) => setConvertToProject(e.target.checked)}
-            className="w-[14px] h-[14px] rounded border-border bg-background-input accent-ops-accent"
+            className="w-[14px] h-[14px] rounded border-border bg-surface-input accent-ops-accent"
           />
-          <span className="font-kosugi text-[11px] text-text-secondary group-hover:text-text-primary transition-colors">
+          <span className="font-kosugi text-[11px] text-text-2 group-hover:text-text transition-colors">
             {t("transition.convertToProject")}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled">{t("transition.comingSoon")}</span>
+          <span className="font-kosugi text-[9px] text-text-mute">{t("transition.comingSoon")}</span>
         </label>
       </div>
 
@@ -161,18 +161,18 @@ function LostContent({
       <div className="space-y-2 py-2">
         {/* Loss reason */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest">
+          <label className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest">
             {t("transition.reason")}
           </label>
           <select
             value={lostReason}
             onChange={(e) => setLostReason(e.target.value)}
             className={cn(
-              "w-full bg-background-input text-text-primary font-mohave text-body",
+              "w-full bg-surface-input text-text font-mohave text-body",
               "px-1.5 py-1.5 rounded-lg border border-border",
               "focus:border-ops-accent focus:outline-none",
               "cursor-pointer",
-              !lostReason && "text-text-tertiary"
+              !lostReason && "text-text-3"
             )}
           >
             <option value="">{t("transition.selectReason")}</option>
@@ -186,7 +186,7 @@ function LostContent({
 
         {/* Notes */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest">
+          <label className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest">
             {t("transition.notes")}
           </label>
           <textarea
@@ -195,9 +195,9 @@ function LostContent({
             placeholder={t("transition.notesPlaceholder")}
             rows={3}
             className={cn(
-              "w-full bg-background-input text-text-primary font-mohave text-body-sm",
+              "w-full bg-surface-input text-text font-mohave text-body-sm",
               "px-1.5 py-1.5 rounded-lg border border-border resize-none",
-              "placeholder:text-text-tertiary",
+              "placeholder:text-text-3",
               "focus:border-ops-accent focus:outline-none"
             )}
           />

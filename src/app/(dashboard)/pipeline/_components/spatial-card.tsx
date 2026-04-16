@@ -197,10 +197,10 @@ export const SpatialCard = memo(function SpatialCard({
       >
         {/* Collapsed content — name + value */}
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mohave text-body-sm font-medium text-text-primary truncate">
+          <span className="font-mohave text-body-sm font-medium text-text truncate">
             {clientName}
           </span>
-          <span className="font-mohave text-body-sm text-text-secondary whitespace-nowrap">
+          <span className="font-mohave text-body-sm text-text-2 whitespace-nowrap">
             {opportunity.estimatedValue
               ? formatCurrency(opportunity.estimatedValue)
               : "$--"}

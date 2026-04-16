@@ -57,7 +57,7 @@ export function ReceiptLightbox({ imageUrl, onClose }: ReceiptLightboxProps) {
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center text-text-secondary hover:text-text-primary"
+        className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center text-text-2 hover:text-text"
         aria-label="Close"
       >
         <X className="h-5 w-5" />

@@ -71,7 +71,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
         {isConnected ? (
           <>
             {connection?.lastSyncAt && (
-              <div className="flex items-center gap-1.5 text-text-tertiary font-kosugi text-[11px]">
+              <div className="flex items-center gap-1.5 text-text-3 font-kosugi text-[11px]">
                 <Clock className="w-[12px] h-[12px]" />
                 {t("integrations.lastSynced")} {new Date(connection.lastSyncAt).toLocaleString()}
               </div>
@@ -79,8 +79,8 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
 
             <div className="flex items-center justify-between py-[6px]">
               <div>
-                <p className="font-mohave text-body text-text-primary">{t("accounting.syncEnabled")}</p>
-                <p className="font-kosugi text-[11px] text-text-disabled">{t("accounting.syncEnabledDesc")}</p>
+                <p className="font-mohave text-body text-text">{t("accounting.syncEnabled")}</p>
+                <p className="font-kosugi text-[11px] text-text-mute">{t("accounting.syncEnabledDesc")}</p>
               </div>
               <button
                 onClick={() => {
@@ -178,23 +178,23 @@ function SyncHistoryCard() {
             <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
           </div>
         ) : !history || history.length === 0 ? (
-          <p className="font-kosugi text-[11px] text-text-disabled">{t("accounting.noSyncHistory")}</p>
+          <p className="font-kosugi text-[11px] text-text-mute">{t("accounting.noSyncHistory")}</p>
         ) : (
           <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
             {history.map((entry) => {
               const StatusIcon = STATUS_ICONS[entry.status] ?? CheckCircle2;
               return (
                 <div key={entry.id} className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
-                  <StatusIcon className={cn("w-[14px] h-[14px] mt-0.5 shrink-0", STATUS_COLORS[entry.status] ?? "text-text-tertiary")} />
+                  <StatusIcon className={cn("w-[14px] h-[14px] mt-0.5 shrink-0", STATUS_COLORS[entry.status] ?? "text-text-3")} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mohave text-body-sm text-text-primary capitalize">{entry.provider}</span>
-                      <span className="font-kosugi text-[10px] text-text-disabled">
+                      <span className="font-mohave text-body-sm text-text capitalize">{entry.provider}</span>
+                      <span className="font-kosugi text-[10px] text-text-mute">
                         {new Date(entry.timestamp).toLocaleString()}
                       </span>
                     </div>
                     {entry.details && (
-                      <p className="font-kosugi text-[11px] text-text-tertiary truncate">{entry.details}</p>
+                      <p className="font-kosugi text-[11px] text-text-3 truncate">{entry.details}</p>
                     )}
                   </div>
                 </div>

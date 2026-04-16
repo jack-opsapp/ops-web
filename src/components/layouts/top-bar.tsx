@@ -77,7 +77,7 @@ function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => 
         "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
         "border border-[rgba(255,255,255,0.06)]",
         "transition-all duration-150",
-        status === "offline" ? "text-ops-error" : "text-text-tertiary"
+        status === "offline" ? "text-ops-error" : "text-text-3"
       )}
       title={label}
     >
@@ -154,7 +154,7 @@ export function TopBar() {
           onClick={openMobile}
           className={cn(
             "md:hidden p-2 rounded-[4px]",
-            "text-text-tertiary hover:text-text-secondary",
+            "text-text-3 hover:text-text-2",
             "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
             "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)]",
             "transition-all duration-150"
@@ -171,16 +171,16 @@ export function TopBar() {
               /* Custom parent crumbs (set by detail pages) */
               parentCrumbs.map((crumb, i) => (
                 <div key={i} className="flex items-center gap-[6px]">
-                  {i > 0 && <span className="text-text-disabled font-mono text-body-sm">/</span>}
+                  {i > 0 && <span className="text-text-mute font-mono text-body-sm">/</span>}
                   {crumb.href ? (
                     <button
                       onClick={() => router.push(crumb.href!)}
-                      className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors uppercase tracking-wider"
+                      className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className="font-mohave text-body-sm text-text-tertiary uppercase tracking-wider">
+                    <span className="font-mohave text-body-sm text-text-3 uppercase tracking-wider">
                       {crumb.label}
                     </span>
                   )}
@@ -190,20 +190,20 @@ export function TopBar() {
               /* Auto-generated: parent route title */
               <button
                 onClick={() => router.push(parentRoute)}
-                className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors uppercase tracking-wider"
+                className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
               >
                 {rootTitle}
               </button>
             )}
-            <span className="text-text-disabled font-mono text-body-sm">/</span>
-            <span className="font-mohave text-heading text-text-primary uppercase tracking-wider truncate">
+            <span className="text-text-mute font-mono text-body-sm">/</span>
+            <span className="font-mohave text-heading text-text uppercase tracking-wider truncate">
               {entityName || segments[segments.length - 1]}
             </span>
           </div>
         ) : (
           /* Simple title for top-level routes */
           rootTitle && (
-            <h1 className="font-mohave text-heading text-text-primary uppercase tracking-wider">
+            <h1 className="font-mohave text-heading text-text uppercase tracking-wider">
               {rootTitle}
             </h1>
           )
@@ -224,7 +224,7 @@ export function TopBar() {
                 "flex items-center justify-center h-[40px] w-[40px] rounded-[4px]",
                 "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
                 "border border-[rgba(255,255,255,0.06)]",
-                "text-text-tertiary hover:border-[rgba(255,255,255,0.14)] hover:text-text-secondary",
+                "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
                 "transition-all duration-150 animate-fade-in",
                 isUndoing && "opacity-50 pointer-events-none"
               )}
@@ -246,7 +246,7 @@ export function TopBar() {
                   border: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <span className="font-kosugi text-micro-sm text-text-secondary uppercase tracking-wider">
+                <span className="font-kosugi text-micro text-text-2 uppercase tracking-wider">
                   {t("undo.tooltip").replace("{label}", topEntry.label)}
                 </span>
               </div>
@@ -258,7 +258,7 @@ export function TopBar() {
             "flex items-center gap-[6px] h-[40px] px-2 rounded-[4px]",
             "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
             "border border-[rgba(255,255,255,0.06)]",
-            "text-text-tertiary hover:border-[rgba(255,255,255,0.14)] hover:text-text-secondary",
+            "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
             "transition-all duration-150 cursor-pointer",
             "min-w-0 w-[140px] sm:w-[200px] shrink"
           )}
@@ -276,7 +276,7 @@ export function TopBar() {
           <Search className="w-[16px] h-[16px] shrink-0" />
           <span className="font-mohave text-body-sm hidden sm:inline">{t("search.placeholder")}</span>
           {showShortcutHints && (
-            <kbd className="ml-auto font-mono text-[10px] text-text-disabled bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
+            <kbd className="ml-auto font-mono text-[10px] text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
               {t("search.shortcut")}
             </kbd>
           )}

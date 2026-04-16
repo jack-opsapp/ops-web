@@ -243,7 +243,7 @@ export default function CalendarPage() {
             {isLoading && (
               <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
                 <Loader2 className="w-[32px] h-[32px] text-ops-accent animate-spin" />
-                <p className="font-mohave text-body-sm text-text-tertiary">
+                <p className="font-mohave text-body-sm text-text-3">
                   {t("loading")}
                 </p>
               </div>

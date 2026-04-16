@@ -97,24 +97,24 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-baseline justify-between">
-            <span className={`font-mono text-data-lg font-bold leading-none ${isLoading ? "text-text-disabled" : lastPayment ? "text-status-success" : "text-text-disabled"}`}>
+            <span className={`font-mono text-data-lg font-bold leading-none ${isLoading ? "text-text-mute" : lastPayment ? "text-status-success" : "text-text-mute"}`}>
               {isLoading ? "—" : lastPayment ? formatLocaleCurrency(lastPayment.total, getDateLocale(locale), 2) : "$0"}
             </span>
             {onNavigate && (
               <button
                 onClick={() => onNavigate("/accounting")}
-                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             )}
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("payments.lastPayment")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.latest") ?? "Latest"} />
           {!isLoading && lastPayment && (
-            <span className="font-mohave text-caption-sm text-text-secondary truncate mt-0.5">
+            <span className="font-mohave text-caption-sm text-text-2 truncate mt-0.5">
               {lastPayment.client?.name ?? t("payments.unknownClient")}
             </span>
           )}
@@ -132,22 +132,22 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("payments.title")}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
+          <span className="font-mono text-micro text-text-3">
             {isLoading ? "..." : t("payments.total").replace("{count}", String(paidInvoices.length))}
           </span>
         </div>
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
+            <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+            <span className="font-mono text-[11px] text-text-mute ml-1">
               {t("payments.loadingPayments")}
             </span>
           </div>
         ) : paidInvoices.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-disabled py-2">
+          <p className="font-mohave text-body-sm text-text-mute py-2">
             {t("payments.noPaymentsReceived")}
           </p>
         ) : expanded ? (
@@ -169,11 +169,11 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
                       secondary={`${invoice.invoiceNumber} · ${formatRelativeDate(invoice.paidAt, locale, t)}`}
                       metric={
                         <span className="flex items-center gap-1">
-                          <span className="font-mono text-micro-sm text-status-success font-medium">
+                          <span className="font-mono text-micro text-status-success font-medium">
                             {formatLocaleCurrency(invoice.amountPaid, getDateLocale(locale), 2)}
                           </span>
                           {pctPaid < 100 && (
-                            <span className="font-mono text-micro-sm text-text-disabled">
+                            <span className="font-mono text-micro text-text-mute">
                               {t("payments.ofInvoice") ?? "of"} {formatCompactCurrency(invoice.total)} ({pctPaid}%)
                             </span>
                           )}
@@ -216,11 +216,11 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
                       secondary={`${invoice.invoiceNumber} · ${formatRelativeDate(invoice.paidAt, locale, t)}`}
                       metric={
                         <span className="flex items-center gap-1">
-                          <span className="font-mono text-micro-sm text-status-success font-medium">
+                          <span className="font-mono text-micro text-status-success font-medium">
                             {formatLocaleCurrency(invoice.amountPaid, getDateLocale(locale), 2)}
                           </span>
                           {pctPaid < 100 && (
-                            <span className="font-mono text-micro-sm text-text-disabled">
+                            <span className="font-mono text-micro text-text-mute">
                               {t("payments.ofInvoice") ?? "of"} {formatCompactCurrency(invoice.total)} ({pctPaid}%)
                             </span>
                           )}

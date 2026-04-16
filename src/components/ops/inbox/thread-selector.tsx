@@ -91,8 +91,8 @@ export function ThreadSelector({
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-[5px] rounded-[3px] border max-w-[220px]",
             "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]",
-            "border-border-subtle text-text-secondary",
-            "hover:bg-background-input transition-colors cursor-pointer"
+            "border-border-subtle text-text-2",
+            "hover:bg-surface-input transition-colors cursor-pointer"
           )}
         >
           <span className="font-mohave text-caption-sm truncate">
@@ -100,7 +100,7 @@ export function ThreadSelector({
           </span>
           <ChevronDown
             className={cn(
-              "w-3 h-3 text-text-disabled shrink-0 transition-transform duration-150",
+              "w-3 h-3 text-text-mute shrink-0 transition-transform duration-150",
               dropdownOpen && "rotate-180"
             )}
           />
@@ -121,7 +121,7 @@ export function ThreadSelector({
                     "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors cursor-pointer",
                     isActive
                       ? "bg-ops-accent-muted/20 text-ops-accent"
-                      : "text-text-secondary hover:bg-background-input"
+                      : "text-text-2 hover:bg-surface-input"
                   )}
                 >
                   {isActive && <Check className="w-3 h-3 shrink-0" />}
@@ -156,7 +156,7 @@ export function ThreadSelector({
                   "px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
                   isActive
                     ? "text-ops-accent bg-ops-accent-muted/20"
-                    : "text-text-tertiary hover:text-text-primary hover:bg-background-input"
+                    : "text-text-3 hover:text-text hover:bg-surface-input"
                 )}
               >
                 <span className="font-mohave text-caption-sm">

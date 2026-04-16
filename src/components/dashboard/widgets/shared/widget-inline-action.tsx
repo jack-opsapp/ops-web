@@ -41,7 +41,7 @@ export function WidgetInlineAction(props: WidgetInlineActionProps) {
   const triggerButton = (
     <button
       onClick={handleSingleClick}
-      className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+      className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
       title={!isMulti ? (props as SingleAction).label : undefined}
     >
       <Icon className="w-[14px] h-[14px]" />
@@ -68,8 +68,8 @@ export function WidgetInlineAction(props: WidgetInlineActionProps) {
                 }}
                 className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-[rgba(255,255,255,0.04)] transition-colors rounded-sm text-left"
               >
-                <ActionIcon className="w-[14px] h-[14px] text-text-tertiary shrink-0" />
-                <span className="font-kosugi text-micro-sm text-text-secondary">
+                <ActionIcon className="w-[14px] h-[14px] text-text-3 shrink-0" />
+                <span className="font-kosugi text-micro text-text-2">
                   {action.label}
                 </span>
               </button>

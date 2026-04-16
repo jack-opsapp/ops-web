@@ -145,12 +145,12 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-1.5">
-        <Mail className="w-[16px] h-[16px] text-text-tertiary" />
-        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text-primary">
+        <Mail className="w-[16px] h-[16px] text-text-3" />
+        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
           {t("emailScan.title")}
         </span>
       </div>
-      <p className="font-mohave text-body-sm text-text-secondary">
+      <p className="font-mohave text-body-sm text-text-2">
         {t("emailScan.description")}
       </p>
 
@@ -198,14 +198,14 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
         <div className="flex gap-2">
           <button
             onClick={startScan}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
           >
             <Mail className="w-[14px] h-[14px] text-[#597794]" />
             {t("emailScan.start")}
           </button>
           <button
             onClick={onSkip}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.06)] bg-transparent hover:bg-[rgba(255,255,255,0.04)] text-text-disabled font-mohave text-body-sm transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.06)] bg-transparent hover:bg-[rgba(255,255,255,0.04)] text-text-mute font-mohave text-body-sm transition-colors"
           >
             {t("emailScan.skip")}
           </button>
@@ -223,16 +223,16 @@ function ComingSoonState() {
   return (
     <div className="flex flex-col items-start gap-3 py-8">
       <div className="flex items-center gap-2">
-        <Lock className="w-[20px] h-[20px] text-text-disabled" />
-        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text-primary">
+        <Lock className="w-[20px] h-[20px] text-text-mute" />
+        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
           {t("page.comingSoon")}
         </h2>
       </div>
-      <p className="font-mohave text-body-sm text-text-secondary max-w-[480px]">
+      <p className="font-mohave text-body-sm text-text-2 max-w-[480px]">
         {t("page.comingSoonDesc")}
       </p>
       <button
-        className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-secondary font-mohave text-body-sm transition-colors cursor-not-allowed opacity-60"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm transition-colors cursor-not-allowed opacity-60"
         disabled
       >
         {t("page.requestAccess")}
@@ -319,18 +319,18 @@ export default function AiSetupPage() {
       <div className="flex items-center gap-2">
         <button
           onClick={() => router.push("/settings?tab=integrations")}
-          className="flex items-center justify-center w-[32px] h-[32px] rounded-md hover:bg-[rgba(255,255,255,0.06)] text-text-disabled hover:text-text-secondary transition-colors"
+          className="flex items-center justify-center w-[32px] h-[32px] rounded-md hover:bg-[rgba(255,255,255,0.06)] text-text-mute hover:text-text-2 transition-colors"
         >
           <ChevronLeft className="w-[18px] h-[18px]" />
         </button>
         <div className="flex items-center gap-1.5">
           <Brain className="w-[18px] h-[18px] text-[#597794]" />
-          <h1 className="font-mohave text-title font-semibold uppercase tracking-wide text-text-primary">
+          <h1 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
             {t("page.title")}
           </h1>
         </div>
       </div>
-      <p className="font-mohave text-body-sm text-text-secondary pl-[42px]">
+      <p className="font-mohave text-body-sm text-text-2 pl-[42px]">
         {t("page.subtitle")}
       </p>
 
@@ -370,7 +370,7 @@ export default function AiSetupPage() {
                         ? "bg-[#597794] text-white"
                         : isPast
                           ? "bg-[rgba(157,181,130,0.2)] text-[#9DB582] cursor-pointer"
-                          : "bg-[rgba(255,255,255,0.06)] text-text-disabled cursor-not-allowed"
+                          : "bg-[rgba(255,255,255,0.06)] text-text-mute cursor-not-allowed"
                     )}
                   >
                     {step.label}

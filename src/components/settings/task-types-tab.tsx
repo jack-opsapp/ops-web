@@ -60,13 +60,13 @@ function CrewPicker({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-[6px] px-1.5 py-[8px] bg-background-input border border-border rounded font-mohave text-body-sm text-text-primary text-left"
+        className="w-full flex items-center gap-[6px] px-1.5 py-[8px] bg-surface-input border border-border rounded font-mohave text-body-sm text-text text-left"
       >
-        <Users className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+        <Users className="w-[14px] h-[14px] text-text-mute shrink-0" />
         {selectedNames.length > 0 ? (
           <span className="truncate">{selectedNames.join(", ")}</span>
         ) : (
-          <span className="text-text-disabled">{t("taskTypes.crewPlaceholder")}</span>
+          <span className="text-text-mute">{t("taskTypes.crewPlaceholder")}</span>
         )}
       </button>
       {open && (
@@ -83,7 +83,7 @@ function CrewPicker({
                   "w-full flex items-center gap-1 px-1.5 py-[8px] text-left font-mohave text-body-sm transition-colors",
                   selected
                     ? "bg-ops-accent-muted text-ops-accent"
-                    : "text-text-primary hover:bg-[rgba(255,255,255,0.04)]"
+                    : "text-text hover:bg-[rgba(255,255,255,0.04)]"
                 )}
               >
                 <div
@@ -99,7 +99,7 @@ function CrewPicker({
             );
           })}
           {members.length === 0 && (
-            <p className="px-1.5 py-[8px] font-mohave text-body-sm text-text-disabled">
+            <p className="px-1.5 py-[8px] font-mohave text-body-sm text-text-mute">
               {t("taskTypes.noMembers")}
             </p>
           )}
@@ -189,18 +189,18 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
   if (isLoading) {
     return (
       <div className="flex items-center gap-[6px] py-[4px]">
-        <Loader2 className="w-[14px] h-[14px] text-text-disabled animate-spin" />
-        <span className="font-mohave text-body-sm text-text-disabled">{t("taskTypes.loadingTemplates")}</span>
+        <Loader2 className="w-[14px] h-[14px] text-text-mute animate-spin" />
+        <span className="font-mohave text-body-sm text-text-mute">{t("taskTypes.loadingTemplates")}</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-1">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         {t("taskTypes.taskTemplates")}
       </label>
-      <p className="font-kosugi text-[11px] text-text-disabled">
+      <p className="font-kosugi text-[11px] text-text-mute">
         {t("taskTypes.templateHelper")}
       </p>
 
@@ -211,7 +211,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
               key={template.id}
               className="flex items-center gap-1 py-[6px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
             >
-              <GripVertical className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+              <GripVertical className="w-[14px] h-[14px] text-text-mute shrink-0" />
               {editingId === template.id ? (
                 <>
                   <Input
@@ -249,12 +249,12 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                   <button
                     type="button"
                     onClick={() => startEdit(template)}
-                    className="flex-1 text-left font-mohave text-body-sm text-text-primary hover:text-ops-accent transition-colors"
+                    className="flex-1 text-left font-mohave text-body-sm text-text hover:text-ops-accent transition-colors"
                   >
                     {template.title}
                   </button>
                   {template.estimatedHours != null && (
-                    <span className="flex items-center gap-[2px] font-mono text-[10px] text-text-disabled shrink-0">
+                    <span className="flex items-center gap-[2px] font-mono text-[10px] text-text-mute shrink-0">
                       <Clock className="w-[10px] h-[10px]" />
                       {template.estimatedHours}h
                     </span>
@@ -263,7 +263,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(template.id)}
-                    className="text-text-disabled hover:text-ops-error shrink-0"
+                    className="text-text-mute hover:text-ops-error shrink-0"
                   >
                     <Trash2 className="w-[14px] h-[14px]" />
                   </Button>
@@ -335,15 +335,15 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
           className="w-[12px] h-[12px] rounded-full shrink-0"
           style={{ backgroundColor: taskType.color }}
         />
-        <h4 className="font-mohave text-body text-text-primary flex-1">{taskType.display}</h4>
+        <h4 className="font-mohave text-body text-text flex-1">{taskType.display}</h4>
         {taskType.isDefault && (
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
             {t("taskTypes.default")}
           </span>
         )}
         <svg
           className={cn(
-            "w-[14px] h-[14px] text-text-disabled transition-transform duration-200",
+            "w-[14px] h-[14px] text-text-mute transition-transform duration-200",
             expanded && "rotate-180"
           )}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -357,7 +357,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
         <div className="px-2 pb-2 space-y-2 border-t border-[rgba(255,255,255,0.04)]">
           {/* Section: Default Crew */}
           <div className="space-y-1 pt-1.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               {t("taskTypes.defaultCrew")}
             </label>
             <CrewPicker
@@ -436,7 +436,7 @@ export function TaskTypesTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="font-mohave text-body-sm text-text-secondary">
+          <p className="font-mohave text-body-sm text-text-2">
             {t("taskTypes.description")}
           </p>
 
@@ -451,7 +451,7 @@ export function TaskTypesTab() {
                 autoFocus
               />
               <div className="flex flex-col gap-0.5">
-                <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                   {t("taskTypes.color")}
                 </label>
                 <input
@@ -487,7 +487,7 @@ export function TaskTypesTab() {
             <TaskTypesWizard onComplete={() => { setShowWizard(false); setForceWizard(false); }} />
           ) : activeTypes.length === 0 ? (
             <div className="flex flex-col items-start gap-1.5 py-2">
-              <p className="font-mohave text-body-sm text-text-tertiary">
+              <p className="font-mohave text-body-sm text-text-3">
                 {t("taskTypes.emptyState")}
               </p>
               <Button

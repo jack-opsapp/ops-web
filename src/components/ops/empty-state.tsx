@@ -25,14 +25,14 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
       )}
     >
       {icon && (
-        <div className="text-text-disabled shrink-0 mt-[2px]" aria-hidden="true">
+        <div className="text-text-mute shrink-0 mt-[2px]" aria-hidden="true">
           {icon}
         </div>
       )}
       <div className="flex flex-col items-start gap-0.5">
-        <h3 className="font-mohave text-body-lg text-text-secondary">{title}</h3>
+        <h3 className="font-mohave text-body-lg text-text-2">{title}</h3>
         {description && (
-          <p className="font-mohave text-body-sm text-text-tertiary max-w-[360px]">
+          <p className="font-mohave text-body-sm text-text-3 max-w-[360px]">
             {description}
           </p>
         )}

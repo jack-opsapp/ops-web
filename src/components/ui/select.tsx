@@ -15,13 +15,13 @@ const SelectTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-7 w-full items-center justify-between gap-1",
-      "bg-background-input text-text-primary font-mohave text-body",
+      "bg-surface-input text-text font-mohave text-body",
       "px-1.5 py-1.5 rounded-sm",
       "border border-border",
       "transition-all duration-150",
       "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
       "disabled:cursor-not-allowed disabled:opacity-40",
-      "placeholder:text-text-tertiary",
+      "placeholder:text-text-3",
       "[&>span]:truncate",
       className
     )}
@@ -29,7 +29,7 @@ const SelectTrigger = React.forwardRef<
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-[16px] w-[16px] text-text-tertiary shrink-0" />
+      <ChevronDown className="h-[16px] w-[16px] text-text-3 shrink-0" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -44,7 +44,7 @@ const SelectScrollUpButton = React.forwardRef<
     className={cn("flex cursor-default items-center justify-center py-0.5", className)}
     {...props}
   >
-    <ChevronUp className="h-[16px] w-[16px] text-text-tertiary" />
+    <ChevronUp className="h-[16px] w-[16px] text-text-3" />
   </SelectPrimitive.ScrollUpButton>
 ));
 SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
@@ -58,7 +58,7 @@ const SelectScrollDownButton = React.forwardRef<
     className={cn("flex cursor-default items-center justify-center py-0.5", className)}
     {...props}
   >
-    <ChevronDown className="h-[16px] w-[16px] text-text-tertiary" />
+    <ChevronDown className="h-[16px] w-[16px] text-text-3" />
   </SelectPrimitive.ScrollDownButton>
 ));
 SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
@@ -104,7 +104,7 @@ const SelectLabel = React.forwardRef<
   <SelectPrimitive.Label
     ref={ref}
     className={cn(
-      "px-1 py-[6px] font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest",
+      "px-1 py-[6px] font-kosugi text-caption-sm text-text-3 uppercase tracking-widest",
       className
     )}
     {...props}
@@ -121,9 +121,9 @@ const SelectItem = React.forwardRef<
     className={cn(
       "relative flex w-full cursor-pointer select-none items-center",
       "rounded-sm py-[6px] pl-4 pr-1",
-      "text-body-sm text-text-primary font-mohave",
+      "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "focus:bg-background-elevated focus:text-text-primary",
+      "focus:bg-background-elevated focus:text-text",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
       className
     )}

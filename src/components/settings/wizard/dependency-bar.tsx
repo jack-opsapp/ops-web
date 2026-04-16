@@ -111,17 +111,17 @@ export function DependencyBar({
           {...attributes}
           {...listeners}
         >
-          <GripVertical className="w-[14px] h-[14px] text-text-disabled" />
+          <GripVertical className="w-[14px] h-[14px] text-text-mute" />
         </button>
 
         {/* Task name */}
-        <span className="font-mohave text-body-sm text-text-primary truncate flex-1 pr-[8px]">
+        <span className="font-mohave text-body-sm text-text truncate flex-1 pr-[8px]">
           {name}
         </span>
 
         {/* Overlap percentage label */}
         {!isLast && overlapPercent > 0 && (
-          <span className="font-mono text-[9px] text-text-disabled pr-[8px] shrink-0">
+          <span className="font-mono text-[9px] text-text-mute pr-[8px] shrink-0">
             {overlapPercent}% {t("wizard.timeline.overlap")}
           </span>
         )}

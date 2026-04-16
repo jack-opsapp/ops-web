@@ -50,7 +50,7 @@ function WelcomeContent() {
     <main className="min-h-screen bg-background flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-[420px] flex flex-col gap-6">
         <div className="flex justify-center">
-          <span className="font-mohave text-2xl font-bold tracking-wider text-text-primary">
+          <span className="font-mohave text-2xl font-bold tracking-wider text-text">
             OPS
           </span>
         </div>
@@ -75,10 +75,10 @@ function WelcomeContent() {
           variants={blockVariants}
           className="text-left"
         >
-          <h1 className="font-mohave text-display font-bold uppercase text-text-primary tracking-tight leading-none">
+          <h1 className="font-mohave text-display font-bold uppercase text-text tracking-tight leading-none">
             You&apos;re in.
           </h1>
-          <p className="font-mohave text-body-lg text-text-secondary mt-2">
+          <p className="font-mohave text-body-lg text-text-2 mt-2">
             Welcome to {companyName}.
           </p>
         </motion.div>
@@ -88,7 +88,7 @@ function WelcomeContent() {
           initial="hidden"
           animate="visible"
           variants={blockVariants}
-          className="font-mohave text-body-sm text-text-secondary leading-relaxed"
+          className="font-mohave text-body-sm text-text-2 leading-relaxed"
         >
           OPS runs on iOS. Get the app now, or finish setting up in your browser.
         </motion.p>
@@ -104,7 +104,7 @@ function WelcomeContent() {
             href={appStoreUrl}
             target="_blank"
             rel="noopener"
-            className="bg-ops-accent hover:bg-ops-accent-hover text-text-primary font-kosugi text-button uppercase tracking-wider rounded-sm px-6 py-3 w-full inline-flex items-center justify-center gap-2 transition-colors"
+            className="bg-ops-accent hover:bg-ops-accent-hover text-text font-kosugi text-button uppercase tracking-wider rounded-sm px-6 py-3 w-full inline-flex items-center justify-center gap-2 transition-colors"
             animate={pulseOn ? { opacity: [0.6, 1] } : undefined}
             transition={{ duration: 0.4, ease: EASE_SMOOTH }}
           >
@@ -113,7 +113,7 @@ function WelcomeContent() {
           </motion.a>
           <Link
             href="/employee-setup?fromInvite=1"
-            className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary hover:text-text-secondary transition-colors text-center inline-flex items-center justify-center gap-1"
+            className="font-kosugi text-micro uppercase tracking-wider text-text-3 hover:text-text-2 transition-colors text-center inline-flex items-center justify-center gap-1"
           >
             Continue on web
             <ArrowRight className="w-[12px] h-[12px]" />

@@ -56,10 +56,10 @@ export function SpatialFloatingToolbar({
         <>
           <ToolbarAction onClick={onReviewEmails}>
             <Mail className="w-[13px] h-[13px] text-ops-accent" />
-            <span className="font-kosugi text-micro-sm text-ops-accent uppercase tracking-wider">
+            <span className="font-kosugi text-micro text-ops-accent uppercase tracking-wider">
               {t("gmail.reviewEmails")}
             </span>
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-ops-accent/30 bg-ops-accent-muted font-kosugi text-micro-xs text-ops-accent">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-ops-accent/30 bg-ops-accent-muted font-kosugi text-micro text-ops-accent">
               {reviewCount > 99 ? "99+" : reviewCount}
             </span>
           </ToolbarAction>
@@ -70,7 +70,7 @@ export function SpatialFloatingToolbar({
       {/* Canvas tools */}
       <ToolbarAction onClick={handleFitAll}>
         <Maximize2 className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+        <span className="font-kosugi text-micro uppercase tracking-wider">
           {t("spatial.fitAll")}
         </span>
       </ToolbarAction>
@@ -79,7 +79,7 @@ export function SpatialFloatingToolbar({
 
       <ToolbarAction onClick={onAddLead}>
         <Plus className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+        <span className="font-kosugi text-micro uppercase tracking-wider">
           {t("spatial.newLead")}
         </span>
       </ToolbarAction>
@@ -88,7 +88,7 @@ export function SpatialFloatingToolbar({
 
       <ToolbarAction onClick={toggleArchiveTray} isActive={isArchiveTrayOpen}>
         <Archive className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+        <span className="font-kosugi text-micro uppercase tracking-wider">
           {t("spatial.archivedDeals")}
         </span>
       </ToolbarAction>
@@ -97,7 +97,7 @@ export function SpatialFloatingToolbar({
 
       <ToolbarAction onClick={toggleDiscardTray} isActive={isDiscardTrayOpen}>
         <Trash2 className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+        <span className="font-kosugi text-micro uppercase tracking-wider">
           {t("spatial.discardedDeals")}
         </span>
       </ToolbarAction>
@@ -122,7 +122,7 @@ function ToolbarAction({
         "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
           ? "text-ops-accent bg-ops-accent-muted/20"
-          : "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]"
+          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
       )}
       onClick={onClick}
     >

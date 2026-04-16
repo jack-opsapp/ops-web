@@ -29,13 +29,13 @@ export function SettingsSection({
           open && "border-b border-border"
         )}
       >
-        <Icon className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
-        <span className="font-mohave text-body text-text-primary flex-1 text-left">
+        <Icon className="w-[16px] h-[16px] text-text-3 shrink-0" />
+        <span className="font-mohave text-body text-text flex-1 text-left">
           {title}
         </span>
         <ChevronDown
           className={cn(
-            "w-[16px] h-[16px] text-text-disabled transition-transform duration-300 ease-out",
+            "w-[16px] h-[16px] text-text-mute transition-transform duration-300 ease-out",
             open && "rotate-180"
           )}
         />

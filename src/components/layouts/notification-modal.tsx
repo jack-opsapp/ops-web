@@ -150,21 +150,21 @@ export function NotificationModal() {
             >
             {/* Header */}
             <div className="flex items-center justify-between px-[12px] py-[10px] border-b border-[rgba(255,255,255,0.08)] shrink-0">
-              <h2 id="notif-modal-title" className="font-mohave text-body-lg text-text-primary font-medium text-left">
+              <h2 id="notif-modal-title" className="font-mohave text-body-lg text-text font-medium text-left">
                 {t("notifications.title")}
               </h2>
               <div className="flex items-center gap-[8px]">
                 {hasDismissible && (
                   <button
                     onClick={handleDismissAll}
-                    className="font-kosugi text-[10px] uppercase tracking-wider text-text-disabled hover:text-text-secondary transition-colors duration-150"
+                    className="font-kosugi text-[10px] uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors duration-150"
                   >
                     {t("notifications.dismissAll")}
                   </button>
                 )}
                 <button
                   onClick={closeModal}
-                  className="p-[4px] text-text-disabled hover:text-text-secondary transition-colors duration-150"
+                  className="p-[4px] text-text-mute hover:text-text-2 transition-colors duration-150"
                   aria-label="Close"
                 >
                   <X className="w-[14px] h-[14px]" />
@@ -176,11 +176,11 @@ export function NotificationModal() {
             <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
               {sorted.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4 gap-2">
-                  <BellOff className="w-[28px] h-[28px] text-text-disabled" />
-                  <p className="font-kosugi text-[11px] text-text-disabled uppercase tracking-widest text-center">
+                  <BellOff className="w-[28px] h-[28px] text-text-mute" />
+                  <p className="font-kosugi text-[11px] text-text-mute uppercase tracking-widest text-center">
                     {t("notifications.empty")}
                   </p>
-                  <p className="font-mohave text-body-sm text-text-disabled text-center">
+                  <p className="font-mohave text-body-sm text-text-mute text-center">
                     {t("notifications.emptyHint")}
                   </p>
                 </div>
@@ -190,7 +190,7 @@ export function NotificationModal() {
                     <div key={group.label}>
                       {/* Group label */}
                       <div className="px-[12px] pt-[10px] pb-[4px]">
-                        <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-tertiary">
+                        <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-3">
                           {group.label}
                         </span>
                       </div>

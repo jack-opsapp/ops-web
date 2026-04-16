@@ -19,7 +19,7 @@ const Command = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-full w-full flex-col overflow-hidden",
-      "bg-background-panel text-text-primary font-mohave",
+      "bg-background-panel text-text font-mohave",
       className
     )}
     {...props}
@@ -44,7 +44,7 @@ function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
           className={cn(
             "[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:py-[6px]",
             "[&_[cmdk-group-heading]]:font-kosugi [&_[cmdk-group-heading]]:text-caption-sm",
-            "[&_[cmdk-group-heading]]:text-text-tertiary [&_[cmdk-group-heading]]:uppercase",
+            "[&_[cmdk-group-heading]]:text-text-3 [&_[cmdk-group-heading]]:uppercase",
             "[&_[cmdk-group-heading]]:tracking-widest"
           )}
         >
@@ -62,13 +62,13 @@ const CommandInput = React.forwardRef<
   }
 >(({ className, onClear, ...props }, ref) => (
   <div className="flex items-center border-b border-border px-2" cmdk-input-wrapper="">
-    <Search className="mr-1 h-[18px] w-[18px] shrink-0 text-text-tertiary" />
+    <Search className="mr-1 h-[18px] w-[18px] shrink-0 text-text-3" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
         "flex h-7 w-full bg-transparent py-1.5",
-        "font-mohave text-body text-text-primary",
-        "placeholder:text-text-tertiary",
+        "font-mohave text-body text-text",
+        "placeholder:text-text-3",
         "outline-none",
         "disabled:cursor-not-allowed disabled:opacity-40",
         className
@@ -79,7 +79,7 @@ const CommandInput = React.forwardRef<
       <button
         type="button"
         onClick={onClear}
-        className="ml-1 text-text-tertiary hover:text-text-primary transition-colors"
+        className="ml-1 text-text-3 hover:text-text transition-colors"
         aria-label="Clear search"
       >
         <X className="h-[16px] w-[16px]" />
@@ -108,7 +108,7 @@ const CommandEmpty = React.forwardRef<
   <CommandPrimitive.Empty
     ref={ref}
     className={cn(
-      "py-4 text-center text-body-sm text-text-tertiary font-mohave",
+      "py-4 text-center text-body-sm text-text-3 font-mohave",
       className
     )}
     {...props}
@@ -126,7 +126,7 @@ const CommandGroup = React.forwardRef<
       "overflow-hidden py-0.5",
       "[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:py-[6px]",
       "[&_[cmdk-group-heading]]:font-kosugi [&_[cmdk-group-heading]]:text-caption-sm",
-      "[&_[cmdk-group-heading]]:text-text-tertiary [&_[cmdk-group-heading]]:uppercase",
+      "[&_[cmdk-group-heading]]:text-text-3 [&_[cmdk-group-heading]]:uppercase",
       "[&_[cmdk-group-heading]]:tracking-widest",
       className
     )}
@@ -156,9 +156,9 @@ const CommandItem = React.forwardRef<
     className={cn(
       "relative flex cursor-pointer select-none items-center gap-1",
       "rounded-sm px-1 py-[8px]",
-      "text-body-sm text-text-primary font-mohave",
+      "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
-      "data-[selected=true]:bg-background-elevated data-[selected=true]:text-text-primary",
+      "data-[selected=true]:bg-background-elevated data-[selected=true]:text-text",
       "data-[selected=true]:shadow-[inset_2px_0_0_0_#417394]",
       "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
       className
@@ -171,7 +171,7 @@ CommandItem.displayName = CommandPrimitive.Item.displayName;
 const CommandShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
     className={cn(
-      "ml-auto text-caption-sm text-text-tertiary tracking-widest font-mono",
+      "ml-auto text-caption-sm text-text-3 tracking-widest font-mono",
       "px-[6px] py-[2px] rounded-sm bg-background-elevated border border-border-subtle",
       className
     )}

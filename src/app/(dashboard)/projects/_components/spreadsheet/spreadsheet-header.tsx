@@ -62,7 +62,7 @@ export function SpreadsheetHeader({
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setShowColumnMenu(!showColumnMenu); }}
-                    className="flex items-center justify-center h-6 w-6 rounded-sm text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                    className="flex items-center justify-center h-6 w-6 rounded-sm text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                     aria-label="Toggle columns"
                   >
                     <Columns3 className="h-[13px] w-[13px]" />
@@ -92,8 +92,8 @@ export function SpreadsheetHeader({
                             className={cn(
                               "flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors",
                               isChecked
-                                ? "text-text-primary"
-                                : "text-text-disabled"
+                                ? "text-text"
+                                : "text-text-mute"
                             )}
                           >
                             <span className={cn(
@@ -124,8 +124,8 @@ export function SpreadsheetHeader({
               key={col.id}
               className={cn(
                 "px-1.5 py-1.5 text-left whitespace-nowrap",
-                "font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest",
-                col.sortable && "cursor-pointer select-none hover:text-text-secondary transition-colors"
+                "font-kosugi text-caption-sm text-text-3 uppercase tracking-widest",
+                col.sortable && "cursor-pointer select-none hover:text-text-2 transition-colors"
               )}
               style={{ width: col.width, minWidth: col.id === "title" ? col.width : undefined }}
               onClick={col.sortable ? () => onSort(col.id) : undefined}
@@ -133,7 +133,7 @@ export function SpreadsheetHeader({
               <span className="inline-flex items-center gap-0.5">
                 {t(`spreadsheet.columns.${col.header}`)}
                 {col.sortable && (
-                  <span className="text-text-disabled">
+                  <span className="text-text-mute">
                     {isSorted && sortDirection === "asc" ? (
                       <ArrowUp className="h-[13px] w-[13px] text-ops-accent" />
                     ) : isSorted && sortDirection === "desc" ? (

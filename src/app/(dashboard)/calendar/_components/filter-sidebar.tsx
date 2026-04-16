@@ -38,7 +38,7 @@ function FilterSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-background-elevated/30 transition-colors"
       >
-        <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
+        <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-[0.12em]">
           {title}
         </span>
         <div className="flex items-center gap-1.5">
@@ -48,9 +48,9 @@ function FilterSection({
             </span>
           )}
           {open ? (
-            <ChevronDown className="w-3 h-3 text-text-disabled" />
+            <ChevronDown className="w-3 h-3 text-text-mute" />
           ) : (
-            <ChevronRight className="w-3 h-3 text-text-disabled" />
+            <ChevronRight className="w-3 h-3 text-text-mute" />
           )}
         </div>
       </button>
@@ -113,17 +113,17 @@ function FilterCheckbox({
       )}
       {!avatar && (
         <div className="w-[18px] h-[18px] rounded-full bg-background-elevated shrink-0 flex items-center justify-center">
-          <span className="font-mono text-[8px] text-text-disabled">
+          <span className="font-mono text-[8px] text-text-mute">
             {label.charAt(0).toUpperCase()}
           </span>
         </div>
       )}
       <div className="flex flex-col min-w-0">
-        <span className="font-mohave text-body-sm text-text-secondary group-hover:text-text-primary transition-colors truncate">
+        <span className="font-mohave text-body-sm text-text-2 group-hover:text-text transition-colors truncate">
           {label}
         </span>
         {sublabel && (
-          <span className="font-mono text-[9px] text-text-disabled truncate">
+          <span className="font-mono text-[9px] text-text-mute truncate">
             {sublabel}
           </span>
         )}
@@ -210,7 +210,7 @@ export function FilterSidebar() {
     <div className="w-[260px] shrink-0 bg-background-panel border border-border rounded overflow-hidden flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-        <span className="font-mohave text-body-sm text-text-primary">
+        <span className="font-mohave text-body-sm text-text">
           {t("filter.title")}
         </span>
         <div className="flex items-center gap-1.5">
@@ -226,7 +226,7 @@ export function FilterSidebar() {
             onClick={toggleFilterSidebar}
             className="p-0.5 hover:bg-background-elevated/50 rounded transition-colors"
           >
-            <X className="w-3.5 h-3.5 text-text-disabled" />
+            <X className="w-3.5 h-3.5 text-text-mute" />
           </button>
         </div>
       </div>
@@ -251,7 +251,7 @@ export function FilterSidebar() {
               />
             ))}
             {teamMembers.length === 0 && (
-              <span className="font-mono text-[10px] text-text-disabled py-1">
+              <span className="font-mono text-[10px] text-text-mute py-1">
                 {t("filter.noTeamMembers")}
               </span>
             )}
@@ -284,13 +284,13 @@ export function FilterSidebar() {
         >
           <div className="mb-1.5">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-disabled" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-mute" />
               <input
                 type="text"
                 value={projectSearch}
                 onChange={(e) => setProjectSearch(e.target.value)}
                 placeholder={t("filter.searchProjects")}
-                className="w-full pl-[26px] pr-2 py-[5px] bg-background-elevated/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-ops-accent/40 transition-colors"
+                className="w-full pl-[26px] pr-2 py-[5px] bg-background-elevated/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text placeholder:text-text-mute focus:outline-none focus:border-ops-accent/40 transition-colors"
               />
             </div>
           </div>
@@ -305,7 +305,7 @@ export function FilterSidebar() {
               />
             ))}
             {projects.length === 0 && (
-              <span className="font-mono text-[10px] text-text-disabled py-1">
+              <span className="font-mono text-[10px] text-text-mute py-1">
                 {projectSearch ? t("filter.noMatchingProjects") : t("filter.noProjects")}
               </span>
             )}

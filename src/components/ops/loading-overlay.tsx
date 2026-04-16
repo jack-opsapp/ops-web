@@ -52,7 +52,7 @@ function LoadingOverlay({ message, className }: LoadingOverlayProps) {
       </div>
 
       {message && (
-        <p className="mt-2 font-mohave text-body-sm text-text-secondary animate-pulse-live">
+        <p className="mt-2 font-mohave text-body-sm text-text-2 animate-pulse-live">
           {message}
         </p>
       )}

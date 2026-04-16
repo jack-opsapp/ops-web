@@ -36,14 +36,14 @@ export function StepShell({
   return (
     <div className="w-full max-w-[640px] mx-auto">
       <div className="mb-4">
-        <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
           [{stepLabel} · {String(stepNumber).padStart(2, "0")}]
         </span>
       </div>
-      <h1 className="font-mohave text-[28px] leading-tight text-text-primary uppercase tracking-[0.02em] mb-2">
+      <h1 className="font-mohave text-[28px] leading-tight text-text uppercase tracking-[0.02em] mb-2">
         {title}
       </h1>
-      <p className="font-kosugi text-[14px] text-text-secondary leading-relaxed mb-6">
+      <p className="font-kosugi text-[14px] text-text-2 leading-relaxed mb-6">
         [{description}]
       </p>
       <div className="space-y-3">{children}</div>
@@ -97,7 +97,7 @@ export function OptionCard({
             <span
               className={cn(
                 "font-mohave text-[14px] uppercase tracking-[0.04em]",
-                selected ? "text-text-primary" : "text-text-secondary"
+                selected ? "text-text" : "text-text-2"
               )}
             >
               {title}
@@ -108,17 +108,17 @@ export function OptionCard({
               </span>
             )}
             {locked && (
-              <span className="font-kosugi text-[10px] uppercase tracking-[0.1em] text-text-tertiary flex items-center gap-1">
+              <span className="font-kosugi text-[10px] uppercase tracking-[0.1em] text-text-3 flex items-center gap-1">
                 <Lock className="w-[10px] h-[10px]" />
                 [{t("common.locked")}]
               </span>
             )}
           </div>
-          <p className="font-kosugi text-[12px] text-text-tertiary leading-relaxed">
+          <p className="font-kosugi text-[12px] text-text-3 leading-relaxed">
             {description}
           </p>
           {locked && lockedReason && (
-            <p className="font-kosugi text-[11px] text-text-tertiary mt-2 italic">
+            <p className="font-kosugi text-[11px] text-text-3 mt-2 italic">
               [{lockedReason}]
             </p>
           )}
@@ -160,11 +160,11 @@ export function Toggle({
       )}
     >
       <div className="flex-1 min-w-0 text-left">
-        <div className="font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]">
+        <div className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">
           {label}
         </div>
         {caption && (
-          <div className="font-kosugi text-[11px] text-text-tertiary mt-1">
+          <div className="font-kosugi text-[11px] text-text-3 mt-1">
             [{caption}]
           </div>
         )}
@@ -214,10 +214,10 @@ export function StepSlider({
   return (
     <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <div className="flex items-center justify-between mb-3">
-        <span className="font-mohave text-[13px] text-text-secondary uppercase tracking-[0.06em]">
+        <span className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em]">
           {label}
         </span>
-        <span className="font-kosugi text-[12px] text-text-primary">
+        <span className="font-kosugi text-[12px] text-text">
           [{valueLabel}]
         </span>
       </div>
@@ -245,10 +245,10 @@ export function PreviewPanel({
 }) {
   return (
     <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.50)]">
-      <div className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-2">
+      <div className="font-kosugi text-[10px] text-text-3 uppercase tracking-[0.12em] mb-2">
         [{label}]
       </div>
-      <div className="font-mono text-[12px] text-text-secondary whitespace-pre-wrap leading-relaxed">
+      <div className="font-mono text-[12px] text-text-2 whitespace-pre-wrap leading-relaxed">
         {children}
       </div>
     </div>
@@ -270,7 +270,7 @@ export function StepDropdown<T extends string | number>({
 }) {
   return (
     <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
-      <div className="font-mohave text-[13px] text-text-secondary uppercase tracking-[0.06em] mb-3">
+      <div className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em] mb-3">
         {label}
       </div>
       <select
@@ -283,7 +283,7 @@ export function StepDropdown<T extends string | number>({
         className={cn(
           "w-full min-h-[56px] px-3 rounded-[4px]",
           "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]",
-          "font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]",
+          "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
           "outline-none focus:border-[#597794] transition-colors",
           "motion-reduce:transition-none"
         )}

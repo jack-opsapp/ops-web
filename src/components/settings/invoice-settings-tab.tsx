@@ -151,7 +151,7 @@ export function InvoiceSettingsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-[20px] h-[20px] text-text-tertiary animate-spin" />
+        <Loader2 className="w-[20px] h-[20px] text-text-3 animate-spin" />
       </div>
     );
   }
@@ -161,10 +161,10 @@ export function InvoiceSettingsTab() {
       {/* Header + Save */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-mohave text-body-lg text-text-primary uppercase">
+          <h2 className="font-mohave text-body-lg text-text uppercase">
             {t("invoiceSettings.title")}
           </h2>
-          <p className="font-kosugi text-[13px] text-text-secondary mt-0.5">
+          <p className="font-kosugi text-[13px] text-text-2 mt-0.5">
             {t("invoiceSettings.subtitle")}
           </p>
         </div>
@@ -175,7 +175,7 @@ export function InvoiceSettingsTab() {
             flex items-center gap-2 px-4 rounded-[4px] font-mohave text-body-sm uppercase transition-colors min-h-[56px]
             ${dirty
               ? "bg-[rgba(89,119,148,0.15)] text-[#597794] hover:bg-[rgba(89,119,148,0.25)]"
-              : "bg-[rgba(255,255,255,0.03)] text-text-disabled cursor-not-allowed"
+              : "bg-[rgba(255,255,255,0.03)] text-text-mute cursor-not-allowed"
             }
           `}
         >
@@ -190,10 +190,10 @@ export function InvoiceSettingsTab() {
 
       {/* Default Payment Terms */}
       <div className="space-y-2">
-        <label className="font-mohave text-body-sm text-text-primary uppercase block">
+        <label className="font-mohave text-body-sm text-text uppercase block">
           {t("invoiceSettings.paymentTerms")}
         </label>
-        <p className="font-kosugi text-[12px] text-text-tertiary">
+        <p className="font-kosugi text-[12px] text-text-3">
           {t("invoiceSettings.paymentTermsDesc")}
         </p>
         <div className="flex flex-wrap gap-2 mt-2">
@@ -205,7 +205,7 @@ export function InvoiceSettingsTab() {
                 px-4 rounded-[4px] font-mohave text-body-sm transition-colors min-h-[56px]
                 ${config.default_payment_terms === opt.value
                   ? "bg-[rgba(89,119,148,0.15)] text-[#597794] border border-[#597794]"
-                  : "bg-[rgba(255,255,255,0.03)] text-text-secondary border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
+                  : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
                 }
               `}
             >
@@ -217,10 +217,10 @@ export function InvoiceSettingsTab() {
 
       {/* Default Tax Rate */}
       <div className="space-y-2">
-        <label className="font-mohave text-body-sm text-text-primary uppercase block">
+        <label className="font-mohave text-body-sm text-text uppercase block">
           {t("invoiceSettings.taxRate")}
         </label>
-        <p className="font-kosugi text-[12px] text-text-tertiary">
+        <p className="font-kosugi text-[12px] text-text-3">
           {t("invoiceSettings.taxRateDesc")}
         </p>
         <div className="flex items-center gap-2 mt-2">
@@ -238,22 +238,22 @@ export function InvoiceSettingsTab() {
             min={0}
             max={100}
             step={0.01}
-            className="w-[120px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text-primary outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+            className="w-[120px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
           />
-          <span className="font-kosugi text-[13px] text-text-tertiary">%</span>
+          <span className="font-kosugi text-[13px] text-text-3">%</span>
         </div>
       </div>
 
       {/* High-Value Threshold */}
       <div className="space-y-2">
-        <label className="font-mohave text-body-sm text-text-primary uppercase block">
+        <label className="font-mohave text-body-sm text-text uppercase block">
           {t("invoiceSettings.highValueThreshold")}
         </label>
-        <p className="font-kosugi text-[12px] text-text-tertiary">
+        <p className="font-kosugi text-[12px] text-text-3">
           {t("invoiceSettings.highValueThresholdDesc")}
         </p>
         <div className="flex items-center gap-2 mt-2">
-          <span className="font-kosugi text-[13px] text-text-tertiary">$</span>
+          <span className="font-kosugi text-[13px] text-text-3">$</span>
           <input
             type="number"
             value={config.high_value_threshold}
@@ -267,7 +267,7 @@ export function InvoiceSettingsTab() {
             }
             min={0}
             step={100}
-            className="w-[160px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text-primary outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+            className="w-[160px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
           />
         </div>
       </div>
@@ -299,10 +299,10 @@ export function InvoiceSettingsTab() {
       {/* ── Payment Reminders Section ── */}
       <div className="border-t border-[rgba(255,255,255,0.06)] pt-8 space-y-6">
         <div>
-          <h3 className="font-mohave text-body-lg text-text-primary uppercase">
+          <h3 className="font-mohave text-body-lg text-text uppercase">
             {t("invoiceSettings.reminders")}
           </h3>
-          <p className="font-kosugi text-[13px] text-text-secondary mt-0.5">
+          <p className="font-kosugi text-[13px] text-text-2 mt-0.5">
             {t("invoiceSettings.remindersDesc")}
           </p>
         </div>
@@ -319,7 +319,7 @@ export function InvoiceSettingsTab() {
         {reminder.enabled && (
           <>
             <div className="space-y-3">
-              <label className="font-mohave text-body-sm text-text-primary uppercase block">
+              <label className="font-mohave text-body-sm text-text uppercase block">
                 {t("invoiceSettings.reminderSchedule")}
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -330,7 +330,7 @@ export function InvoiceSettingsTab() {
                   { key: "invoiceSettings.level4Days", index: 3 },
                 ].map(({ key, index }) => (
                   <div key={index}>
-                    <span className="font-kosugi text-[11px] text-text-tertiary block mb-1">
+                    <span className="font-kosugi text-[11px] text-text-3 block mb-1">
                       {t(key)}
                     </span>
                     <div className="flex items-center gap-2">
@@ -342,9 +342,9 @@ export function InvoiceSettingsTab() {
                         }
                         min={1}
                         max={365}
-                        className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text-primary outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+                        className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
                       />
-                      <span className="font-kosugi text-[12px] text-text-tertiary">
+                      <span className="font-kosugi text-[12px] text-text-3">
                         {t("invoiceSettings.days")}
                       </span>
                     </div>
@@ -355,7 +355,7 @@ export function InvoiceSettingsTab() {
 
             {/* Max reminders per invoice */}
             <div className="space-y-2">
-              <label className="font-mohave text-body-sm text-text-primary uppercase block">
+              <label className="font-mohave text-body-sm text-text uppercase block">
                 {t("invoiceSettings.maxReminders")}
               </label>
               <div className="flex flex-wrap gap-2 mt-1">
@@ -367,7 +367,7 @@ export function InvoiceSettingsTab() {
                       w-[56px] rounded-[4px] font-mono text-body-sm transition-colors min-h-[56px]
                       ${reminder.max_reminders === n
                         ? "bg-[rgba(89,119,148,0.15)] text-[#597794] border border-[#597794]"
-                        : "bg-[rgba(255,255,255,0.03)] text-text-secondary border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
+                        : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
                       }
                     `}
                   >
@@ -387,10 +387,10 @@ export function InvoiceSettingsTab() {
 
             {/* Late payment threshold */}
             <div className="space-y-2">
-              <label className="font-mohave text-body-sm text-text-primary uppercase block">
+              <label className="font-mohave text-body-sm text-text uppercase block">
                 {t("invoiceSettings.lateThreshold")}
               </label>
-              <p className="font-kosugi text-[12px] text-text-tertiary">
+              <p className="font-kosugi text-[12px] text-text-3">
                 {t("invoiceSettings.lateThresholdDesc")}
               </p>
               <div className="flex items-center gap-2 mt-2">
@@ -407,9 +407,9 @@ export function InvoiceSettingsTab() {
                   }
                   min={0}
                   max={100}
-                  className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text-primary outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+                  className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
                 />
-                <span className="font-kosugi text-[13px] text-text-tertiary">
+                <span className="font-kosugi text-[13px] text-text-3">
                   {t("invoiceSettings.lateThresholdSuffix")}
                 </span>
               </div>
@@ -437,10 +437,10 @@ function ToggleSetting({
   return (
     <div className="flex items-start gap-4">
       <div className="flex-1 min-w-0">
-        <span className="font-mohave text-body-sm text-text-primary uppercase block">
+        <span className="font-mohave text-body-sm text-text uppercase block">
           {label}
         </span>
-        <p className="font-kosugi text-[12px] text-text-tertiary mt-0.5">
+        <p className="font-kosugi text-[12px] text-text-3 mt-0.5">
           {description}
         </p>
       </div>

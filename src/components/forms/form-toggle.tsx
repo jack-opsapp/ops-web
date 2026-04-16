@@ -37,12 +37,12 @@ function FormToggle<T extends FieldValues = FieldValues>({
           <div className="flex flex-col gap-[2px]">
             <label
               htmlFor={fieldId}
-              className="font-mohave text-body text-text-primary cursor-pointer"
+              className="font-mohave text-body text-text cursor-pointer"
             >
               {title}
             </label>
             {subtitle && (
-              <span className="font-mohave text-caption-sm text-text-tertiary">
+              <span className="font-mohave text-caption-sm text-text-3">
                 {subtitle}
               </span>
             )}

@@ -90,7 +90,7 @@ export function BookingRateWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("bookingRate.title") ?? "Bookings"}
           </CardTitle>
         </CardHeader>
@@ -107,8 +107,8 @@ export function BookingRateWidget({
       return (
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("bookingRate.title") ?? "Bookings"}
             </span>
           </div>
@@ -120,15 +120,15 @@ export function BookingRateWidget({
         <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">0</span>
-              <button onClick={() => onNavigate("/projects")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <span className="font-mono text-data-lg font-bold text-text-mute leading-none">0</span>
+              <button onClick={() => onNavigate("/projects")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("bookingRate.title") ?? "Bookings"}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("bookingRate.noProjects") ?? "No projects yet"}
             </span>
           </div>
@@ -138,12 +138,12 @@ export function BookingRateWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("bookingRate.title") ?? "Bookings"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("bookingRate.noProjects") ?? "No projects yet"}
             </span>
           </div>
@@ -157,10 +157,10 @@ export function BookingRateWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className="font-mono text-display font-bold leading-none text-text-primary">
+          <span className="font-mono text-display font-bold leading-none text-text">
             {animatedCount}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("bookingRate.title") ?? "Bookings"}
           </span>
           <WidgetTrendContext
@@ -185,18 +185,18 @@ export function BookingRateWidget({
           <div className="h-full flex flex-col p-3">
             {/* Row 1: Hero number + tiny nav icon */}
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              <span className="font-mono text-data-lg font-bold leading-none text-text">
                 {animatedCount}
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
-                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             {/* Row 2: Title */}
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("bookingRate.title") ?? "Bookings"}
             </span>
             {/* Row 3: Trend indicator */}
@@ -222,14 +222,14 @@ export function BookingRateWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("bookingRate.title") ?? "Bookings"}
           </span>
         </div>
 
         {/* HERO */}
         <div className="flex items-baseline gap-2 mb-1">
-          <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
+          <span className={`font-mono ${heroClass} font-bold text-text leading-none`}>
             {animatedCount}
           </span>
         </div>
@@ -287,7 +287,7 @@ export function BookingRateWidget({
                       }}
                     >
                       {barH >= 24 && (
-                        <span className="font-mono text-micro-sm font-medium" style={{ color: WT.accent }}>
+                        <span className="font-mono text-micro font-medium" style={{ color: WT.accent }}>
                           {m.count}
                         </span>
                       )}
@@ -299,7 +299,7 @@ export function BookingRateWidget({
             {/* Month labels */}
             <div className="flex gap-[4px] mt-1">
               {bookings.months.map((m, i) => (
-                <span key={i} className="flex-1 text-center font-kosugi text-micro-sm text-text-disabled uppercase">
+                <span key={i} className="flex-1 text-center font-kosugi text-micro text-text-mute uppercase">
                   {m.label}
                 </span>
               ))}

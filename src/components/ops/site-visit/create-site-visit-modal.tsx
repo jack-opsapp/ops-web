@@ -233,7 +233,7 @@ export function CreateSiteVisitModal({
 
           {/* Assignees */}
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest flex items-center gap-[6px]">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest flex items-center gap-[6px]">
               <Users className="w-[14px] h-[14px]" /> Assignees
             </label>
             <div className="flex flex-wrap gap-1">
@@ -249,8 +249,8 @@ export function CreateSiteVisitModal({
                       "flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border transition-all",
                       "font-mohave text-body-sm",
                       selected
-                        ? "bg-ops-accent-muted border-ops-accent text-text-primary"
-                        : "bg-background-input border-border text-text-tertiary hover:text-text-secondary hover:border-border-medium"
+                        ? "bg-ops-accent-muted border-ops-accent text-text"
+                        : "bg-surface-input border-border text-text-3 hover:text-text-2 hover:border-border-medium"
                     )}
                   >
                     <span

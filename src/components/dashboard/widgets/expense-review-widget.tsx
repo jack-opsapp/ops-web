@@ -200,10 +200,10 @@ export function ExpenseReviewWidget({
           className="h-full flex flex-col pt-3 cursor-pointer"
           onClick={() => openReviewList()}
         >
-          <span className={`font-mono ${count.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${count > 0 ? "text-text-primary" : "text-text-disabled"}`}>
+          <span className={`font-mono ${count.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${count > 0 ? "text-text" : "text-text-mute"}`}>
             {count}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseReview.pendingReview") ?? "Pending Review"}
           </span>
           {overdueCount > 0 && (
@@ -227,28 +227,28 @@ export function ExpenseReviewWidget({
           onClick={() => openReviewList()}
         >
           <div className="flex items-baseline justify-between">
-            <span className={`font-mono text-data-lg font-bold leading-none ${count > 0 ? "text-text-primary" : "text-text-disabled"}`}>
+            <span className={`font-mono text-data-lg font-bold leading-none ${count > 0 ? "text-text" : "text-text-mute"}`}>
               {formatCompactCurrency(totalPending)}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); openReviewList(); }}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseReview.title") ?? "Expense Review"}
           </span>
           {count > 0 ? (
-            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+            <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
               {count} {t("expenseReview.batchesPendingCount") ?? "batches"}
               {overdueCount > 0 && (
                 <span style={{ color: WT.error }}> · {overdueCount} {t("expenseReview.overdue") ?? "overdue"}</span>
               )}
             </span>
           ) : (
-            <span className="font-mohave text-caption-sm text-text-disabled mt-0.5 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-0.5 truncate">
               {t("expenseReview.noBatches") ?? "No batches pending"}
             </span>
           )}
@@ -263,7 +263,7 @@ export function ExpenseReviewWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("expenseReview.title") ?? "Expense Review"}
           </span>
         </div>
@@ -271,11 +271,11 @@ export function ExpenseReviewWidget({
         {/* Hero */}
         <div className="mb-2">
           <div className="flex items-baseline gap-2">
-            <span className={`font-mono text-display font-bold leading-none ${count > 0 ? "text-text-primary" : "text-text-disabled"}`}>
+            <span className={`font-mono text-display font-bold leading-none ${count > 0 ? "text-text" : "text-text-mute"}`}>
               {formatCompactCurrency(totalPending)}
             </span>
             {count > 0 && (
-              <span className="font-mono text-micro-sm text-text-disabled">
+              <span className="font-mono text-micro text-text-mute">
                 {count} {t("expenseReview.batchesPendingCount") ?? "batches"}
               </span>
             )}
@@ -300,7 +300,7 @@ export function ExpenseReviewWidget({
                 const complianceColor = complianceColorToken === "error" ? WT.error : complianceColorToken === "warning" ? WT.warning : null;
 
                 const secondary = requireReceipt && missingReceipts > 0 ? (
-                  <span className="font-kosugi text-micro-sm text-text-disabled truncate">
+                  <span className="font-kosugi text-micro text-text-mute truncate">
                     {batch.batchNumber} · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span>
                   </span>
                 ) : batch.batchNumber;
@@ -360,13 +360,13 @@ export function ExpenseReviewWidget({
                             if (e.key === "Escape") { setRejectingBatchId(null); setRejectNote(""); }
                           }}
                           placeholder={t("expenseReview.rejectNote") ?? "What needs fixing?"}
-                          className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text-primary placeholder:text-text-disabled outline-none focus:border-ops-accent transition-colors"
+                          className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-ops-accent transition-colors"
                           autoFocus
                         />
                         <button
                           onClick={() => handleQuickReject(batch.id)}
                           disabled={!rejectNote.trim() || quickReject.isPending}
-                          className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-disabled hover:text-ops-accent disabled:opacity-30 transition-colors"
+                          className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-mute hover:text-ops-accent disabled:opacity-30 transition-colors"
                         >
                           <Send className="w-3 h-3" />
                         </button>
@@ -379,7 +379,7 @@ export function ExpenseReviewWidget({
               {/* Approved section — LG only */}
               {showActions(size) && approvedBatches.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-subtle">
-                  <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
+                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-1 block">
                     Approved
                   </span>
                   {approvedBatches.map((batch, i) => {
@@ -406,7 +406,7 @@ export function ExpenseReviewWidget({
               {/* Rejected section — LG only */}
               {showActions(size) && rejectedBatches.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-subtle">
-                  <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
+                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-1 block">
                     Rejected
                   </span>
                   {rejectedBatches.map((batch, i) => {
@@ -443,7 +443,7 @@ export function ExpenseReviewWidget({
         {/* Footer */}
         <button
           onClick={() => openReviewList()}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          className="mt-auto pt-2 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
         >
           {t("expenseReview.viewAll") ?? "View All"}
         </button>

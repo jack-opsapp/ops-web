@@ -124,15 +124,15 @@ export function TaskListWidget({
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+          <span className="font-mono text-data-lg font-bold leading-none text-text">
             {isLoading ? "—" : todayTasks.length}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("taskList.title") ?? "Task List"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
           {!isLoading && nextTask && (
-            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+            <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
               {t("taskList.next") ?? "Next"}: {nextTask.customTitle || nextTask.taskType?.display || "Task"}
             </span>
           )}
@@ -161,10 +161,10 @@ export function TaskListWidget({
       <div className="flex items-center gap-3 pb-2 border-b border-border-subtle">
         {/* Unscheduled */}
         <div className="flex-1 flex flex-col items-center py-1">
-          <span className="font-mono text-data-sm font-bold text-text-secondary">
+          <span className="font-mono text-data-sm font-bold text-text-2">
             {heroCounts.unscheduled}
           </span>
-          <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider">
             {t("taskList.unscheduledCount") ?? "Unscheduled"}
           </span>
         </div>
@@ -173,7 +173,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold" style={{ color: WT.accent }}>
             {heroCounts.today}
           </span>
-          <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider">
             {t("taskList.todayCount") ?? "Today"}
           </span>
         </div>
@@ -182,7 +182,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold" style={{ color: heroCounts.overdue > 0 ? WT.error : "var(--text-disabled)" }}>
             {heroCounts.overdue}
           </span>
-          <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider">
             {t("taskList.overdueCount") ?? "Overdue"}
           </span>
         </div>
@@ -196,14 +196,14 @@ export function TaskListWidget({
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
               {t("taskList.title") ?? "Task List"}
             </span>
             {viewToggle}
           </div>
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">{t("taskList.loading")}</span>
+            <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+            <span className="font-mono text-[11px] text-text-mute ml-1">{t("taskList.loading")}</span>
           </div>
         </div>
       </Card>
@@ -217,7 +217,7 @@ export function TaskListWidget({
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
               {t("taskList.title") ?? "Task List"}
             </span>
             {viewToggle}
@@ -239,7 +239,7 @@ export function TaskListWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("taskList.title") ?? "Task List"}
           </span>
           {viewToggle}
@@ -291,7 +291,7 @@ export function TaskListWidget({
           {/* Overdue section */}
           {showDetail(size) && overdueTasks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border-subtle">
-              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest block mb-1" style={{ color: WT.error }}>
+              <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest block mb-1" style={{ color: WT.error }}>
                 {t("taskList.overdue") ?? "Overdue"}
               </span>
               <AnimatePresence>
@@ -434,12 +434,12 @@ function TaskRow({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <p className={cn(
-          "font-mohave text-body-sm text-text-primary truncate transition-all duration-200",
-          isDone && "line-through text-text-disabled"
+          "font-mohave text-body-sm text-text truncate transition-all duration-200",
+          isDone && "line-through text-text-mute"
         )}>
           {displayTitle}
         </p>
-        <span className="font-kosugi text-micro-sm text-text-disabled truncate block">
+        <span className="font-kosugi text-micro text-text-mute truncate block">
           {secondaryText}
         </span>
       </div>
@@ -447,14 +447,14 @@ function TaskRow({
       {/* Time metric (only when secondary already has client/project context) */}
       {(clientName || projectName) && (
         <span className={cn(
-          "font-mono text-micro-sm text-text-secondary shrink-0 ml-1",
-          isDone && "text-text-disabled"
+          "font-mono text-micro text-text-2 shrink-0 ml-1",
+          isDone && "text-text-mute"
         )}>
           {timeDisplay}
         </span>
       )}
 
-      <ChevronRight className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+      <ChevronRight className="w-[12px] h-[12px] text-text-mute opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
     </motion.div>
   );
 }

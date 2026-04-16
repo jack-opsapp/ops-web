@@ -76,19 +76,19 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
     <div className="flex items-center gap-3 px-1 shrink-0">
       {/* Today / This Week counts */}
       <div className="flex items-center gap-[6px]">
-        <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
+        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-widest">
           {t("stats.today")}
         </span>
-        <span className="font-mono text-data-sm text-text-primary">
+        <span className="font-mono text-data-sm text-text">
           {stats.todayCount}
         </span>
       </div>
       <div className="w-[1px] h-[16px] bg-border-subtle" />
       <div className="flex items-center gap-[6px]">
-        <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
+        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-widest">
           {t("stats.thisWeek")}
         </span>
-        <span className="font-mono text-data-sm text-text-primary">
+        <span className="font-mono text-data-sm text-text">
           {stats.weekCount}
         </span>
       </div>
@@ -121,10 +121,10 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
                 className="w-[8px] h-[8px] rounded-full"
                 style={{ backgroundColor: colors.border }}
               />
-              <span className="font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+              <span className="font-kosugi text-[9px] text-text-3 uppercase tracking-wider">
                 {type}
               </span>
-              <span className="font-mono text-[10px] text-text-disabled">
+              <span className="font-mono text-[10px] text-text-mute">
                 {count}
               </span>
             </div>

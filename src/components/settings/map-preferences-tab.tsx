@@ -22,7 +22,7 @@ export function MapPreferencesTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Map className="w-[16px] h-[16px] text-text-secondary" />
+            <Map className="w-[16px] h-[16px] text-text-2" />
             <CardTitle>{t("map.title")}</CardTitle>
           </div>
         </CardHeader>
@@ -30,8 +30,8 @@ export function MapPreferencesTab() {
           {/* Zoom Level Slider */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <p className="font-mohave text-body text-text-primary">{t("map.defaultZoom")}</p>
-              <span className="font-kosugi text-[11px] text-text-tertiary">{mapDefaultZoom}x</span>
+              <p className="font-mohave text-body text-text">{t("map.defaultZoom")}</p>
+              <span className="font-kosugi text-[11px] text-text-3">{mapDefaultZoom}x</span>
             </div>
             <input
               type="range"
@@ -47,7 +47,7 @@ export function MapPreferencesTab() {
               onTouchEnd={() => toast.success(`${t("map.toast.zoomSet")} ${mapDefaultZoom}x`)}
               className="w-full accent-ops-accent"
             />
-            <div className="flex justify-between font-kosugi text-[10px] text-text-disabled">
+            <div className="flex justify-between font-kosugi text-[10px] text-text-mute">
               <span>{t("map.zoomOut")}</span>
               <span>{t("map.zoomIn")}</span>
             </div>
@@ -56,8 +56,8 @@ export function MapPreferencesTab() {
           {/* Traffic Toggle */}
           <div className="flex items-center justify-between py-[6px]">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("map.showTraffic")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">{t("map.showTrafficDesc")}</p>
+              <p className="font-mohave text-body text-text">{t("map.showTraffic")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute">{t("map.showTrafficDesc")}</p>
             </div>
             <button
               onClick={() => {
@@ -82,8 +82,8 @@ export function MapPreferencesTab() {
           {/* Crew Labels Toggle */}
           <div className="flex items-center justify-between py-[6px]">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("map.showCrewLabels")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">{t("map.showCrewLabelsDesc")}</p>
+              <p className="font-mohave text-body text-text">{t("map.showCrewLabels")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute">{t("map.showCrewLabelsDesc")}</p>
             </div>
             <button
               onClick={() => {

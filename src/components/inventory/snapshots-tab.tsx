@@ -22,7 +22,7 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
     return (
       <tr>
         <td colSpan={6} className="pl-8 py-2">
-          <span className="font-kosugi text-caption text-text-disabled">
+          <span className="font-kosugi text-caption text-text-mute">
             Loading snapshot items...
           </span>
         </td>
@@ -34,7 +34,7 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
     return (
       <tr>
         <td colSpan={6} className="pl-8 py-2">
-          <span className="font-kosugi text-caption text-text-disabled">
+          <span className="font-kosugi text-caption text-text-mute">
             No items in this snapshot.
           </span>
         </td>
@@ -49,19 +49,19 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Item Name
                 </th>
-                <th className="text-right px-2 py-1 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-right px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Quantity
                 </th>
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   Unit
                 </th>
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   SKU
                 </th>
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
+                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   Tags
                 </th>
               </tr>
@@ -73,27 +73,27 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
                   className="border-b border-border last:border-b-0"
                 >
                   <td className="px-2 py-1">
-                    <span className="font-mohave text-body text-text-primary">
+                    <span className="font-mohave text-body text-text">
                       {si.name}
                     </span>
                   </td>
                   <td className="px-2 py-1 text-right">
-                    <span className="font-mono text-data-sm text-text-primary">
+                    <span className="font-mono text-data-sm text-text">
                       {si.quantity}
                     </span>
                   </td>
                   <td className="px-2 py-1 hidden sm:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-secondary">
+                    <span className="font-kosugi text-caption-sm text-text-2">
                       {si.unitDisplay || "\u2014"}
                     </span>
                   </td>
                   <td className="px-2 py-1 hidden md:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-tertiary">
+                    <span className="font-kosugi text-caption-sm text-text-3">
                       {si.sku || "\u2014"}
                     </span>
                   </td>
                   <td className="px-2 py-1 hidden lg:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-tertiary truncate block max-w-[200px]">
+                    <span className="font-kosugi text-caption-sm text-text-3 truncate block max-w-[200px]">
                       {si.tagsString || "\u2014"}
                     </span>
                   </td>
@@ -169,7 +169,7 @@ export function SnapshotsTab() {
     <div className="space-y-3">
       {/* Section header */}
       <div className="flex items-center justify-between">
-        <span className="font-mohave text-body-sm text-text-tertiary uppercase tracking-widest">
+        <span className="font-mohave text-body-sm text-text-3 uppercase tracking-widest">
           [ SNAPSHOTS ]
         </span>
         <Button
@@ -186,7 +186,7 @@ export function SnapshotsTab() {
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-kosugi text-caption text-text-disabled">
+          <span className="font-kosugi text-caption text-text-mute">
             Loading snapshots...
           </span>
         </div>
@@ -206,19 +206,19 @@ export function SnapshotsTab() {
             <thead>
               <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
                 <th className="w-[32px] px-1 py-1.5" />
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Date
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   Created By
                 </th>
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Items
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   Type
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   Notes
                 </th>
               </tr>
@@ -277,7 +277,7 @@ function SnapshotRow({
         {/* Chevron */}
         <td className="px-1 py-1.5 text-center">
           <ChevronRight
-            className={`w-[14px] h-[14px] text-text-tertiary transition-transform duration-150 ${
+            className={`w-[14px] h-[14px] text-text-3 transition-transform duration-150 ${
               isExpanded ? "rotate-90" : ""
             }`}
           />
@@ -285,21 +285,21 @@ function SnapshotRow({
 
         {/* Date */}
         <td className="px-2 py-1.5">
-          <span className="font-mohave text-body text-text-primary">
+          <span className="font-mohave text-body text-text">
             {formatSnapshotDate(snapshot.createdAt)}
           </span>
         </td>
 
         {/* Created By */}
         <td className="px-2 py-1.5 hidden sm:table-cell">
-          <span className="font-kosugi text-caption-sm text-text-secondary">
+          <span className="font-kosugi text-caption-sm text-text-2">
             {createdByLabel}
           </span>
         </td>
 
         {/* Items */}
         <td className="px-2 py-1.5 text-right">
-          <span className="font-mono text-data-sm text-text-primary">
+          <span className="font-mono text-data-sm text-text">
             {snapshot.itemCount}
           </span>
         </td>
@@ -315,7 +315,7 @@ function SnapshotRow({
 
         {/* Notes */}
         <td className="px-2 py-1.5 hidden lg:table-cell">
-          <span className="font-kosugi text-caption-sm text-text-tertiary truncate block max-w-[200px]">
+          <span className="font-kosugi text-caption-sm text-text-3 truncate block max-w-[200px]">
             {snapshot.notes || "\u2014"}
           </span>
         </td>

@@ -85,7 +85,7 @@ export function MapColumnsStep({
                   className="text-left p-2 border-b border-border"
                 >
                   <div className="flex flex-col gap-1.5">
-                    <span className="font-mohave text-body-sm text-text-secondary truncate max-w-[160px]">
+                    <span className="font-mohave text-body-sm text-text-2 truncate max-w-[160px]">
                       {header}
                     </span>
                     <Select
@@ -124,7 +124,7 @@ export function MapColumnsStep({
                 {headers.map((_, colIndex) => (
                   <td
                     key={colIndex}
-                    className="p-2 font-mohave text-body-sm text-text-tertiary truncate max-w-[160px]"
+                    className="p-2 font-mohave text-body-sm text-text-3 truncate max-w-[160px]"
                   >
                     {row[colIndex] ?? ""}
                   </td>
@@ -135,7 +135,7 @@ export function MapColumnsStep({
         </table>
       </div>
 
-      <p className="font-mohave text-caption-sm text-text-disabled">
+      <p className="font-mohave text-caption-sm text-text-mute">
         Showing first {previewRows.length} of {rows.length} rows
       </p>
     </div>

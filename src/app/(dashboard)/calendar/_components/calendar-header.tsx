@@ -105,7 +105,7 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
         >
           <ChevronLeft className="w-[18px] h-[18px]" />
         </Button>
-        <span className="font-mohave text-body-lg text-text-primary min-w-[160px] md:min-w-[220px] text-left select-none">
+        <span className="font-mohave text-body-lg text-text min-w-[160px] md:min-w-[220px] text-left select-none">
           {headerTitle}
         </span>
         <Button
@@ -181,13 +181,13 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
         {/* Keyboard hints */}
         <div className="hidden xl:flex items-center gap-[3px] ml-[4px]">
-          <kbd className="font-mono text-[9px] text-text-disabled bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-[9px] text-text-mute bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
             T
           </kbd>
-          <kbd className="font-mono text-[9px] text-text-disabled bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-[9px] text-text-mute bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
             M
           </kbd>
-          <kbd className="font-mono text-[9px] text-text-disabled bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-[9px] text-text-mute bg-background-panel px-[5px] py-[2px] rounded-sm border border-border-subtle">
             D
           </kbd>
         </div>

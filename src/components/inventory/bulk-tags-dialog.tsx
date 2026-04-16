@@ -98,7 +98,7 @@ export function BulkTagsDialog({
 
         <div className="flex flex-col gap-2 py-2">
           {tags.length === 0 ? (
-            <p className="text-text-tertiary text-body-sm font-mohave text-center py-3">
+            <p className="text-text-3 text-body-sm font-mohave text-center py-3">
               No tags available. Create tags in the Tags &amp; Units tab.
             </p>
           ) : (
@@ -114,8 +114,8 @@ export function BulkTagsDialog({
                       "text-body-sm font-mohave text-left",
                       "transition-colors duration-100",
                       isSelected
-                        ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-                        : "text-text-secondary hover:bg-[rgba(255,255,255,0.04)]"
+                        ? "bg-[rgba(255,255,255,0.08)] text-text"
+                        : "text-text-2 hover:bg-[rgba(255,255,255,0.04)]"
                     )}
                     onClick={() => toggleTag(tag.id)}
                   >

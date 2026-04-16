@@ -164,8 +164,8 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-4">
-        <Loader2 className={cn("w-[14px] h-[14px] text-text-disabled", !prefersReducedMotion && "animate-spin")} />
-        <span className="font-mohave text-body-sm text-text-disabled">
+        <Loader2 className={cn("w-[14px] h-[14px] text-text-mute", !prefersReducedMotion && "animate-spin")} />
+        <span className="font-mohave text-body-sm text-text-mute">
           {t("loading")}
         </span>
       </div>
@@ -216,7 +216,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
           <CurrentIcon className="w-[14px] h-[14px] text-[#597794]" />
-          <span className="font-mohave text-body-sm text-text-secondary font-medium uppercase tracking-wide">
+          <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
             {t("status.title")}
           </span>
         </div>
@@ -236,13 +236,13 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
               />
             ))}
           </div>
-          <span className="font-mohave text-body-sm text-text-primary font-semibold">
+          <span className="font-mohave text-body-sm text-text font-semibold">
             {t(`status.level.${currentLevelConfig.key}`)}
           </span>
         </div>
 
         {/* Description */}
-        <p className="font-mohave text-caption-sm text-text-disabled mb-2">
+        <p className="font-mohave text-caption-sm text-text-mute mb-2">
           [{t(`status.level.${currentLevelConfig.key}.description`)}]
         </p>
 
@@ -258,7 +258,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
                 }}
               />
             </div>
-            <span className="font-mohave text-[11px] text-text-disabled mt-0.5 block">
+            <span className="font-mohave text-[11px] text-text-mute mt-0.5 block">
               {progressLabel}
             </span>
           </div>
@@ -267,12 +267,12 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         {/* What's next */}
         {nextLevelConfig && (
           <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
-            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block mb-0.5">
+            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-0.5">
               {t("status.whatsNext")}
             </span>
             <div className="flex items-start gap-1.5">
-              <ArrowRight className="w-[10px] h-[10px] text-text-disabled mt-0.5 shrink-0" />
-              <span className="font-mohave text-caption-sm text-text-disabled">
+              <ArrowRight className="w-[10px] h-[10px] text-text-mute mt-0.5 shrink-0" />
+              <span className="font-mohave text-caption-sm text-text-mute">
                 {t(`status.whatsNext.${currentLevelConfig.key}`)}
               </span>
             </div>
@@ -285,7 +285,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <Zap className="w-[14px] h-[14px] text-[#597794]" />
-            <span className="font-mohave text-body-sm text-text-secondary font-medium uppercase tracking-wide">
+            <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
               {t("autoDraft.title")}
             </span>
           </div>
@@ -319,12 +319,12 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
           </button>
         </div>
 
-        <p className="font-mohave text-caption-sm text-text-disabled">
+        <p className="font-mohave text-caption-sm text-text-mute">
           [{t("autoDraft.description")}]
         </p>
 
         {data.confidence <= 0.75 && (
-          <p className="font-kosugi text-[10px] text-text-disabled mt-1">
+          <p className="font-kosugi text-[10px] text-text-mute mt-1">
             [{t("autoDraft.requiresConfidence")}]
           </p>
         )}

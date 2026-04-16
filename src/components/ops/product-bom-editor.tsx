@@ -104,10 +104,10 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
   if (activeInventory.length === 0) {
     return (
       <div className={cn("space-y-1", className)}>
-        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
           Materials / BOM
         </p>
-        <p className="font-kosugi text-[10px] text-text-disabled">
+        <p className="font-kosugi text-[10px] text-text-mute">
           [add inventory items first to define a material recipe]
         </p>
       </div>
@@ -117,18 +117,18 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center justify-between">
-        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
           Materials / BOM
         </p>
-        <span className="font-kosugi text-[10px] text-text-disabled">
+        <span className="font-kosugi text-[10px] text-text-mute">
           [per 1 {productUnit ?? "unit"}]
         </span>
       </div>
 
       {isLoading ? (
-        <p className="font-kosugi text-[10px] text-text-disabled">loading...</p>
+        <p className="font-kosugi text-[10px] text-text-mute">loading...</p>
       ) : rows.length === 0 ? (
-        <p className="font-kosugi text-[10px] text-text-disabled">
+        <p className="font-kosugi text-[10px] text-text-mute">
           [no materials — this product does not deduct inventory]
         </p>
       ) : (
@@ -141,7 +141,7 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
               <select
                 value={row.inventoryItemId}
                 onChange={(e) => updateRow(idx, { inventoryItemId: e.target.value })}
-                className="bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body-sm text-text-primary"
+                className="bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body-sm text-text"
               >
                 <option value="">Select item...</option>
                 {activeInventory.map((i) => (
@@ -168,7 +168,7 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
               />
               <button
                 onClick={() => removeRow(idx)}
-                className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                className="p-1 rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                 aria-label="Remove material"
               >
                 <Trash2 className="w-[14px] h-[14px]" />
@@ -183,7 +183,7 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
           variant="ghost"
           size="sm"
           onClick={addRow}
-          className="gap-1 text-text-tertiary"
+          className="gap-1 text-text-3"
         >
           <Plus className="w-[12px] h-[12px]" />
           Add material

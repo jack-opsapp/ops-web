@@ -87,15 +87,15 @@ function PhotoCard({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="font-mohave text-body-sm text-text-primary font-medium truncate">
+            <span className="font-mohave text-body-sm text-text font-medium truncate">
               {displayName}
             </span>
-            <span className="font-mohave text-body-sm text-text-disabled shrink-0">
+            <span className="font-mohave text-body-sm text-text-mute shrink-0">
               {timeAgo}
             </span>
           </div>
           {photo.caption && (
-            <p className="font-mohave text-body-sm text-text-secondary mt-0.5 line-clamp-3">
+            <p className="font-mohave text-body-sm text-text-2 mt-0.5 line-clamp-3">
               {photo.caption}
             </p>
           )}
@@ -205,7 +205,7 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
           placeholder={t("photoFeed.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-3 py-1.5 text-text-primary placeholder:text-text-disabled w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
+          className="font-mohave text-body-sm bg-background-card border border-border rounded-[3px] px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
         />
       </div>
 

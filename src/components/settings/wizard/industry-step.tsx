@@ -59,10 +59,10 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="flex flex-col justify-center min-h-[320px] px-4"
       >
-        <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[8px]">
+        <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
           {t("wizard.industry.headlineKnown")}
         </h2>
-        <p className="font-mohave text-body text-text-secondary max-w-[400px] mb-[32px]">
+        <p className="font-mohave text-body text-text-2 max-w-[400px] mb-[32px]">
           {t("wizard.industry.bodyKnown").replace("{industries}", displayIndustries)}
         </p>
 
@@ -70,7 +70,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
           <button
             type="button"
             onClick={() => onNext(company.industries)}
-            className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text-primary font-mohave text-body-sm transition-colors"
+            className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors"
           >
             {t("wizard.industry.confirm")}
             <ArrowRight className="w-[14px] h-[14px]" />
@@ -78,7 +78,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
           <button
             type="button"
             onClick={() => setShowPicker(true)}
-            className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] text-text-disabled hover:text-text-secondary font-mohave text-body-sm transition-colors"
+            className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] text-text-mute hover:text-text-2 font-mohave text-body-sm transition-colors"
           >
             {t("wizard.industry.change")}
           </button>
@@ -97,12 +97,12 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className="flex flex-col justify-center min-h-[320px] px-4"
     >
-      <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[8px]">
+      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
         {hasIndustries
           ? t("wizard.industry.headlineKnown")
           : t("wizard.industry.headlineUnknown")}
       </h2>
-      <p className="font-mohave text-body text-text-secondary max-w-[400px] mb-[24px]">
+      <p className="font-mohave text-body text-text-2 max-w-[400px] mb-[24px]">
         {t("wizard.industry.bodyUnknown")}
       </p>
 
@@ -115,13 +115,13 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
             backdropFilter: "blur(20px) saturate(1.2)",
           }}
         >
-          <Search className="w-[14px] h-[14px] text-text-disabled flex-shrink-0" />
+          <Search className="w-[14px] h-[14px] text-text-mute flex-shrink-0" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("wizard.industry.searchPlaceholder")}
-            className="flex-1 bg-transparent text-text-primary font-mohave text-body-sm placeholder:text-text-disabled outline-none"
+            className="flex-1 bg-transparent text-text font-mohave text-body-sm placeholder:text-text-mute outline-none"
           />
         </div>
       </div>
@@ -134,10 +134,10 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
               key={industry}
               type="button"
               onClick={() => removeTag(industry)}
-              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded border border-[rgba(89,119,148,0.3)] bg-[rgba(89,119,148,0.12)] text-text-primary font-kosugi text-[11px] transition-colors hover:bg-[rgba(89,119,148,0.2)]"
+              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded border border-[rgba(89,119,148,0.3)] bg-[rgba(89,119,148,0.12)] text-text font-kosugi text-[11px] transition-colors hover:bg-[rgba(89,119,148,0.2)]"
             >
               {industry}
-              <X className="w-[10px] h-[10px] text-text-secondary" />
+              <X className="w-[10px] h-[10px] text-text-2" />
             </button>
           ))}
         </div>
@@ -187,7 +187,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
               </div>
               <span
                 className={`font-mohave text-body-sm ${
-                  isSelected ? "text-text-primary" : "text-text-secondary"
+                  isSelected ? "text-text" : "text-text-2"
                 }`}
               >
                 {industry}
@@ -197,7 +197,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         })}
         {filtered.length === 0 && (
           <div className="px-[12px] py-[16px] text-center">
-            <span className="font-kosugi text-[11px] text-text-disabled">
+            <span className="font-kosugi text-[11px] text-text-mute">
               No trades found
             </span>
           </div>
@@ -209,7 +209,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         type="button"
         disabled={selected.length === 0}
         onClick={() => onNext(selected)}
-        className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text-primary font-mohave text-body-sm transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors disabled:opacity-40 disabled:pointer-events-none"
       >
         {t("wizard.industry.continue")}
         <ArrowRight className="w-[14px] h-[14px]" />

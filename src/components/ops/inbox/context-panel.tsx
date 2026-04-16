@@ -140,11 +140,11 @@ async function fetchClientContext(
 function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
     <div className="flex items-center gap-1.5 mb-1.5">
-      <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider">
+      <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
         {label}
       </span>
       {count !== undefined && (
-        <span className="font-kosugi text-micro-sm text-text-disabled/60">
+        <span className="font-kosugi text-micro text-text-mute/60">
           {count}
         </span>
       )}
@@ -154,7 +154,7 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <p className="font-mohave text-caption-sm text-text-disabled/50 italic px-2 py-1.5">
+    <p className="font-mohave text-caption-sm text-text-mute/50 italic px-2 py-1.5">
       No {label.toLowerCase()}
     </p>
   );
@@ -255,10 +255,10 @@ export function ContextPanel({
           <div className="w-[320px] h-full flex flex-col overflow-y-auto scrollbar-hide">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-border-subtle">
-              <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                 {t("context.toggle")}
               </span>
-              <button onClick={onClose} className="text-text-disabled hover:text-text-secondary transition-colors">
+              <button onClick={onClose} className="text-text-mute hover:text-text-2 transition-colors">
                 <X className="w-[14px] h-[14px]" />
               </button>
             </div>
@@ -266,17 +266,17 @@ export function ContextPanel({
             {/* Unmatched state */}
             {conversation?.type === "unmatched" && (
               <div className="p-3 space-y-2">
-                <p className="font-mohave text-body text-text-primary">
+                <p className="font-mohave text-body text-text">
                   {conversation.displayName}
                 </p>
                 <div className="space-y-1">
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors">
-                    <UserPlus className="w-[12px] h-[12px] text-text-tertiary" />
-                    <span className="font-kosugi text-micro text-text-secondary uppercase">{t("unmatched.createClient")}</span>
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors">
+                    <UserPlus className="w-[12px] h-[12px] text-text-3" />
+                    <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.createClient")}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors">
-                    <Link className="w-[12px] h-[12px] text-text-tertiary" />
-                    <span className="font-kosugi text-micro text-text-secondary uppercase">{t("unmatched.linkToClient")}</span>
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors">
+                    <Link className="w-[12px] h-[12px] text-text-3" />
+                    <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.linkToClient")}</span>
                   </button>
                 </div>
               </div>
@@ -287,7 +287,7 @@ export function ContextPanel({
               <div className="p-3 space-y-4">
                 {isLoading ? (
                   <div className="space-y-3 animate-pulse">
-                    <div className="h-[18px] w-[120px] rounded bg-background-input" />
+                    <div className="h-[18px] w-[120px] rounded bg-surface-input" />
                     <div className="h-[14px] w-[180px] rounded bg-border-subtle" />
                     <div className="h-[14px] w-[140px] rounded bg-border-subtle" />
                   </div>
@@ -295,13 +295,13 @@ export function ContextPanel({
                   <>
                     {/* Name + primary contact */}
                     <div>
-                      <p className="font-mohave text-body text-text-primary font-semibold">
+                      <p className="font-mohave text-body text-text font-semibold">
                         {context.name}
                       </p>
                       {context.phone && (
                         <a
                           href={`tel:${context.phone}`}
-                          className="flex items-center gap-1.5 mt-1.5 text-text-secondary hover:text-text-primary transition-colors"
+                          className="flex items-center gap-1.5 mt-1.5 text-text-2 hover:text-text transition-colors"
                         >
                           <Phone className="w-[11px] h-[11px]" />
                           <span className="font-mohave text-body-sm">{context.phone}</span>
@@ -309,8 +309,8 @@ export function ContextPanel({
                       )}
                       {context.email && (
                         <div className="flex items-center gap-1.5 mt-1">
-                          <Mail className="w-[11px] h-[11px] text-text-tertiary" />
-                          <span className="font-mohave text-body-sm text-text-secondary">{context.email}</span>
+                          <Mail className="w-[11px] h-[11px] text-text-3" />
+                          <span className="font-mohave text-body-sm text-text-2">{context.email}</span>
                         </div>
                       )}
                     </div>
@@ -325,23 +325,23 @@ export function ContextPanel({
                           {contacts.map((c, i) => (
                             <div
                               key={c.email || i}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors"
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors"
                             >
                               <div className="w-[24px] h-[24px] rounded-full bg-background-card border border-border-subtle flex items-center justify-center shrink-0">
-                                <Users className="w-[10px] h-[10px] text-text-disabled" />
+                                <Users className="w-[10px] h-[10px] text-text-mute" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="font-mohave text-caption-sm text-text-secondary truncate">
+                                <p className="font-mohave text-caption-sm text-text-2 truncate">
                                   {c.name}
                                 </p>
                                 <div className="flex items-center gap-1.5">
                                   {c.title && (
-                                    <span className="font-kosugi text-micro-sm text-ops-accent uppercase tracking-wider">
+                                    <span className="font-kosugi text-micro text-ops-accent uppercase tracking-wider">
                                       {c.title}
                                     </span>
                                   )}
                                   {c.email && (
-                                    <span className="font-mohave text-micro-sm text-text-disabled truncate">
+                                    <span className="font-mohave text-micro text-text-mute truncate">
                                       {c.title && <>&middot; </>}{c.email}
                                     </span>
                                   )}
@@ -383,13 +383,13 @@ export function ContextPanel({
                             <button
                               key={p.id}
                               onClick={() => router.push(`/projects/${p.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors text-left"
                             >
-                              <FolderKanban className="w-[11px] h-[11px] text-text-disabled shrink-0" />
-                              <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
+                              <FolderKanban className="w-[11px] h-[11px] text-text-mute shrink-0" />
+                              <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
                                 {p.title}
                               </span>
-                              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                              <span className="font-kosugi text-micro text-text-mute uppercase">
                                 {p.status}
                               </span>
                             </button>
@@ -409,13 +409,13 @@ export function ContextPanel({
                             <button
                               key={e.id}
                               onClick={() => router.push(`/estimates/${e.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors text-left"
                             >
-                              <FileText className="w-[11px] h-[11px] text-text-disabled shrink-0" />
-                              <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
+                              <FileText className="w-[11px] h-[11px] text-text-mute shrink-0" />
+                              <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
                                 {e.title || "Untitled"}
                               </span>
-                              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                              <span className="font-kosugi text-micro text-text-mute uppercase">
                                 {e.status}
                               </span>
                             </button>
@@ -435,13 +435,13 @@ export function ContextPanel({
                             <button
                               key={inv.id}
                               onClick={() => router.push(`/invoices/${inv.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-background-input transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors text-left"
                             >
-                              <Receipt className="w-[11px] h-[11px] text-text-disabled shrink-0" />
-                              <span className="font-mohave text-body-sm text-text-secondary truncate flex-1">
+                              <Receipt className="w-[11px] h-[11px] text-text-mute shrink-0" />
+                              <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
                                 {inv.subject || "Untitled"}
                               </span>
-                              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                              <span className="font-kosugi text-micro text-text-mute uppercase">
                                 {inv.status}
                               </span>
                             </button>
@@ -454,10 +454,10 @@ export function ContextPanel({
                     <div className="pt-2 border-t border-border-subtle">
                       <button
                         onClick={() => router.push(`/clients/${conversation?.clientId}`)}
-                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors"
+                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors"
                       >
-                        <ExternalLink className="w-[11px] h-[11px] text-text-tertiary" />
-                        <span className="font-kosugi text-micro text-text-secondary uppercase">
+                        <ExternalLink className="w-[11px] h-[11px] text-text-3" />
+                        <span className="font-kosugi text-micro text-text-2 uppercase">
                           {t("context.viewClient")}
                         </span>
                       </button>
@@ -500,7 +500,7 @@ function ImageThumbnail({
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-end p-1.5">
           <button
             onClick={() => onGoToThread(image.threadId)}
-            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-background-card/90 border border-border-subtle text-text-secondary hover:text-ops-accent transition-colors cursor-pointer"
+            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-background-card/90 border border-border-subtle text-text-2 hover:text-ops-accent transition-colors cursor-pointer"
           >
             <ArrowRight className="w-[10px] h-[10px] shrink-0" />
             <span className="font-kosugi text-[9px] uppercase tracking-wider truncate">

@@ -185,7 +185,7 @@ export function PipelineCard({
     const day = formatShortDay(followUpDate);
     return {
       text: t("card.followUpDate").replace("{date}", day),
-      colorClass: "text-text-tertiary",
+      colorClass: "text-text-3",
     };
   }, [followUpDate, followUpOverdue, followUpToday, t]);
 
@@ -247,12 +247,12 @@ export function PipelineCard({
         {/* Line 1: Client name + value */}
         <div className="flex items-center justify-between gap-[8px]">
           <div className="flex items-center gap-[6px] min-w-0 flex-1">
-            <span className="font-mohave text-body-sm font-medium text-text-primary truncate">
+            <span className="font-mohave text-body-sm font-medium text-text truncate">
               {clientName}
             </span>
           </div>
 
-          <span className="shrink-0 font-mohave text-body-sm text-text-secondary">
+          <span className="shrink-0 font-mohave text-body-sm text-text-2">
             {opportunity.estimatedValue
               ? formatCurrency(opportunity.estimatedValue)
               : "--"}
@@ -263,15 +263,15 @@ export function PipelineCard({
         <div className="flex items-center gap-0 mt-[2px]">
           {followUpStatus && (
             <>
-              <span className={cn("font-kosugi text-micro-sm", followUpStatus.colorClass)}>
+              <span className={cn("font-kosugi text-micro", followUpStatus.colorClass)}>
                 {followUpStatus.text}
               </span>
-              <span className="font-kosugi text-micro-sm text-text-disabled mx-[6px]">
+              <span className="font-kosugi text-micro text-text-mute mx-[6px]">
                 ·
               </span>
             </>
           )}
-          <span className="font-kosugi text-micro-sm text-text-tertiary">
+          <span className="font-kosugi text-micro text-text-3">
             {daysText}
           </span>
         </div>
@@ -302,7 +302,7 @@ export function PipelineCard({
                 }
                 className={cn(
                   "p-[3px] rounded-[2px] cursor-pointer",
-                  "text-text-disabled hover:text-text-primary",
+                  "text-text-mute hover:text-text",
                   "hover:bg-[rgba(255,255,255,0.10)]",
                   "transition-all duration-150",
                   // Desktop: hidden until hover. Mobile: always visible.
@@ -328,7 +328,7 @@ export function PipelineCard({
                 }
                 className={cn(
                   "p-[3px] rounded-[2px] cursor-pointer",
-                  "text-text-disabled hover:text-text-primary",
+                  "text-text-mute hover:text-text",
                   "hover:bg-[rgba(255,255,255,0.10)]",
                   "transition-all duration-150",
                   // Desktop: hidden until hover. Mobile: always visible.
@@ -359,7 +359,7 @@ export function PipelineCard({
                 className="flex flex-col gap-[2px]"
               >
                 {opportunity.contactName && (
-                  <span className="font-mohave text-body-sm text-text-secondary">
+                  <span className="font-mohave text-body-sm text-text-2">
                     {opportunity.contactName}
                   </span>
                 )}
@@ -368,7 +368,7 @@ export function PipelineCard({
                     <a
                       href={`tel:${opportunity.contactPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-kosugi text-micro-sm text-[#597794] hover:text-text-primary transition-colors"
+                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#597794] hover:text-text transition-colors"
                     >
                       <Phone className="w-[12px] h-[12px]" />
                       {opportunity.contactPhone}
@@ -378,7 +378,7 @@ export function PipelineCard({
                     <a
                       href={`mailto:${opportunity.contactEmail}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-kosugi text-micro-sm text-[#597794] hover:text-text-primary transition-colors"
+                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#597794] hover:text-text transition-colors"
                     >
                       <Mail className="w-[12px] h-[12px]" />
                       {opportunity.contactEmail}
@@ -395,19 +395,19 @@ export function PipelineCard({
                   className="flex items-center gap-[8px]"
                 >
                   <div className="flex items-center gap-[4px]">
-                    <Mail className="w-[11px] h-[11px] text-text-disabled" />
-                    <span className="font-kosugi text-micro-sm text-text-tertiary">
+                    <Mail className="w-[11px] h-[11px] text-text-mute" />
+                    <span className="font-kosugi text-micro text-text-3">
                       {opportunity.correspondenceCount} email{opportunity.correspondenceCount !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <span className="text-text-disabled font-kosugi text-micro-sm">·</span>
-                  <span className="font-kosugi text-micro-sm text-text-disabled">
+                  <span className="text-text-mute font-kosugi text-micro">·</span>
+                  <span className="font-kosugi text-micro text-text-mute">
                     {opportunity.inboundCount} in / {opportunity.outboundCount} out
                   </span>
                   {(opportunity.lastInboundAt || opportunity.lastOutboundAt) && (
                     <>
-                      <span className="text-text-disabled font-kosugi text-micro-sm">·</span>
-                      <span className="font-kosugi text-micro-sm text-text-disabled">
+                      <span className="text-text-mute font-kosugi text-micro">·</span>
+                      <span className="font-kosugi text-micro text-text-mute">
                         last {formatTimeAgo(
                           opportunity.lastInboundAt && opportunity.lastOutboundAt
                             ? (opportunity.lastInboundAt > opportunity.lastOutboundAt
@@ -443,7 +443,7 @@ export function PipelineCard({
               {/* Last activity */}
               {lastActivityText && (
                 <motion.div variants={contentVariants} custom={2}>
-                  <span className="font-kosugi text-micro-sm text-text-disabled">
+                  <span className="font-kosugi text-micro text-text-mute">
                     {lastActivityText}
                   </span>
                 </motion.div>
@@ -457,7 +457,7 @@ export function PipelineCard({
                     e.stopPropagation();
                     onOpenDetail();
                   }}
-                  className="font-mohave text-body-sm text-[#597794] hover:text-text-primary transition-colors cursor-pointer"
+                  className="font-mohave text-body-sm text-[#597794] hover:text-text transition-colors cursor-pointer"
                 >
                   {t("card.viewDetails")}
                 </button>

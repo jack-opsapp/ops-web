@@ -456,9 +456,9 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>
           <div className="flex flex-col items-center gap-1 py-2">
-            <Search className="w-[24px] h-[24px] text-text-disabled" />
+            <Search className="w-[24px] h-[24px] text-text-mute" />
             <span>No results found</span>
-            <span className="text-[11px] text-text-disabled">
+            <span className="text-[11px] text-text-mute">
               Try a different search term
             </span>
           </div>
@@ -476,10 +476,10 @@ export function CommandPalette() {
                     onSelect={() => navigate(`/projects/${p.id}`)}
                     forceMount
                   >
-                    <FolderKanban className="w-[16px] h-[16px] text-text-tertiary" />
+                    <FolderKanban className="w-[16px] h-[16px] text-text-3" />
                     <span className="truncate">{p.title}</span>
                     {p.address && (
-                      <span className="ml-auto text-[11px] text-text-disabled truncate max-w-[180px]">
+                      <span className="ml-auto text-[11px] text-text-mute truncate max-w-[180px]">
                         {p.address}
                       </span>
                     )}
@@ -496,10 +496,10 @@ export function CommandPalette() {
                     onSelect={() => navigate(`/clients/${c.id}`)}
                     forceMount
                   >
-                    <Users className="w-[16px] h-[16px] text-text-tertiary" />
+                    <Users className="w-[16px] h-[16px] text-text-3" />
                     <span className="truncate">{c.name}</span>
                     {c.email && (
-                      <span className="ml-auto text-[11px] text-text-disabled truncate max-w-[180px]">
+                      <span className="ml-auto text-[11px] text-text-mute truncate max-w-[180px]">
                         {c.email}
                       </span>
                     )}
@@ -516,7 +516,7 @@ export function CommandPalette() {
                     onSelect={() => navigate(`/projects/${t.projectId}`)}
                     forceMount
                   >
-                    <ClipboardList className="w-[16px] h-[16px] text-text-tertiary" />
+                    <ClipboardList className="w-[16px] h-[16px] text-text-3" />
                     <span className="truncate">{t.customTitle || "Untitled Task"}</span>
                   </CommandItem>
                 ))}
@@ -533,7 +533,7 @@ export function CommandPalette() {
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-tertiary" />
+              <action.icon className="w-[16px] h-[16px] text-text-3" />
               <span>{action.label}</span>
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
@@ -551,7 +551,7 @@ export function CommandPalette() {
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-tertiary" />
+              <action.icon className="w-[16px] h-[16px] text-text-3" />
               <span>{action.label}</span>
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
@@ -569,7 +569,7 @@ export function CommandPalette() {
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-tertiary" />
+              <action.icon className="w-[16px] h-[16px] text-text-3" />
               <span>{action.label}</span>
             </CommandItem>
           ))}
@@ -584,7 +584,7 @@ export function CommandPalette() {
               value={[action.label, ...(action.keywords || [])].join(" ")}
               onSelect={action.onSelect}
             >
-              <action.icon className="w-[16px] h-[16px] text-text-tertiary" />
+              <action.icon className="w-[16px] h-[16px] text-text-3" />
               <span>{action.label}</span>
               {action.shortcut && (
                 <CommandShortcut>{action.shortcut}</CommandShortcut>
@@ -595,7 +595,7 @@ export function CommandPalette() {
       </CommandList>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-2 py-1 border-t border-border text-text-disabled">
+      <div className="flex items-center justify-between px-2 py-1 border-t border-border text-text-mute">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-[4px]">
             <kbd className="font-mono text-[10px] px-[4px] py-[1px] rounded bg-background-elevated border border-border-subtle">

@@ -118,7 +118,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     default:
       return (
         <div className="h-full rounded-lg bg-background-card border border-border p-2 flex items-center justify-center">
-          <span className="font-mono text-[9px] text-text-disabled">{typeId}</span>
+          <span className="font-mono text-[9px] text-text-mute">{typeId}</span>
         </div>
       );
   }
@@ -173,8 +173,8 @@ export function WidgetPreview({ typeId }: WidgetPreviewProps) {
                 className={cn(
                   "px-[6px] py-[1px] rounded-sm font-mono text-[8px] border transition-all duration-150",
                   isSelected
-                    ? "bg-ops-accent-muted border-ops-accent text-text-primary"
-                    : "border-transparent text-text-disabled hover:text-text-secondary"
+                    ? "bg-ops-accent-muted border-ops-accent text-text"
+                    : "border-transparent text-text-mute hover:text-text-2"
                 )}
               >
                 {WIDGET_SIZE_LABELS[s]}
@@ -202,7 +202,7 @@ export function WidgetPreview({ typeId }: WidgetPreviewProps) {
       </div>
 
       {/* Label */}
-      <p className="font-mohave text-[11px] text-text-secondary leading-tight mt-[4px] truncate">
+      <p className="font-mohave text-[11px] text-text-2 leading-tight mt-[4px] truncate">
         {entry.label}
       </p>
     </div>

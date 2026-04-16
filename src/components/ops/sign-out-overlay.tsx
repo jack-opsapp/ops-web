@@ -125,7 +125,7 @@ export function SignOutOverlay() {
             >
               {/* Label row */}
               <div className="flex items-center justify-between mb-1.5">
-                <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.15em]">
+                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-[0.15em]">
                   {line.label}
                 </span>
                 <span

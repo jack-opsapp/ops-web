@@ -92,7 +92,7 @@ export function PreviewStep({
     <div className="flex flex-col gap-4 py-4">
       {/* Summary */}
       <div className="flex items-center gap-2">
-        <p className="font-mohave text-body text-text-primary">
+        <p className="font-mohave text-body text-text">
           {previewItems.length} item{previewItems.length !== 1 ? "s" : ""} ready
           to import
         </p>
@@ -108,22 +108,22 @@ export function PreviewStep({
         <table className="w-full border-collapse">
           <thead className="sticky top-0 bg-background-primary z-10">
             <tr>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                 Name
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                 Qty
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                 Unit
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                 SKU
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                 Tags
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
                 Description
               </th>
               <th className="w-8 p-2 border-b border-border" />
@@ -142,7 +142,7 @@ export function PreviewStep({
                       : "hover:bg-[rgba(255,255,255,0.02)]"
                   )}
                 >
-                  <td className="p-2 font-mohave text-body-sm text-text-primary">
+                  <td className="p-2 font-mohave text-body-sm text-text">
                     <div className="flex items-center gap-1.5">
                       {item.name}
                       {isDuplicate && (
@@ -152,26 +152,26 @@ export function PreviewStep({
                       )}
                     </div>
                   </td>
-                  <td className="p-2 font-mohave text-body-sm text-text-secondary">
+                  <td className="p-2 font-mohave text-body-sm text-text-2">
                     {item.quantity}
                   </td>
-                  <td className="p-2 font-mohave text-body-sm text-text-secondary">
+                  <td className="p-2 font-mohave text-body-sm text-text-2">
                     {item.unit || "—"}
                   </td>
-                  <td className="p-2 font-mohave text-body-sm text-text-secondary">
+                  <td className="p-2 font-mohave text-body-sm text-text-2">
                     {item.sku || "—"}
                   </td>
-                  <td className="p-2 font-mohave text-body-sm text-text-secondary">
+                  <td className="p-2 font-mohave text-body-sm text-text-2">
                     {item.tags || "—"}
                   </td>
-                  <td className="p-2 font-mohave text-body-sm text-text-secondary truncate max-w-[200px]">
+                  <td className="p-2 font-mohave text-body-sm text-text-2 truncate max-w-[200px]">
                     {item.description || "—"}
                   </td>
                   <td className="p-2">
                     <button
                       type="button"
                       onClick={() => removeRow(item._key)}
-                      className="text-text-tertiary hover:text-ops-error transition-colors"
+                      className="text-text-3 hover:text-ops-error transition-colors"
                       title="Remove row"
                     >
                       <X className="h-4 w-4" />
@@ -185,7 +185,7 @@ export function PreviewStep({
       </div>
 
       {previewItems.length === 0 && (
-        <p className="font-mohave text-body-sm text-text-disabled text-center py-4">
+        <p className="font-mohave text-body-sm text-text-mute text-center py-4">
           No items to import. Go back and adjust your configuration.
         </p>
       )}

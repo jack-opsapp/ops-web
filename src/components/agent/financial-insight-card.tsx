@@ -42,7 +42,7 @@ function Section({
 }) {
   return (
     <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
-      <h3 className="font-mohave text-[13px] text-text-tertiary uppercase tracking-wider mb-3">
+      <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider mb-3">
         {title}
       </h3>
       {children}
@@ -72,10 +72,10 @@ function CollapsibleSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 min-h-[56px] text-left"
       >
-        <h3 className="font-mohave text-[13px] text-text-tertiary uppercase tracking-wider">
+        <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {title}
         </h3>
-        <span className="flex items-center gap-1 font-kosugi text-[11px] text-text-tertiary">
+        <span className="flex items-center gap-1 font-kosugi text-[11px] text-text-3">
           {open ? hideLabel : showLabel}
           {open ? (
             <ChevronUp className="w-[14px] h-[14px]" />
@@ -114,7 +114,7 @@ function StatBox({
 }) {
   return (
     <div className="flex-1 min-w-[100px] rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-3">
-      <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+      <span className="font-kosugi text-[11px] text-text-3 uppercase block">
         [{label}]
       </span>
       <span
@@ -168,7 +168,7 @@ function BarChart({
                 title={barLabel ? barLabel(d.value) : `${d.value}`}
               />
             </div>
-            <span className="font-kosugi text-[9px] text-text-tertiary truncate w-full text-center">
+            <span className="font-kosugi text-[9px] text-text-3 truncate w-full text-center">
               {d.label}
             </span>
           </div>
@@ -200,8 +200,8 @@ function ProjectionBar({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-[11px] text-text-tertiary">{label}</span>
-        <span className="font-mono text-[11px] text-text-secondary">
+        <span className="font-kosugi text-[11px] text-text-3">{label}</span>
+        <span className="font-mono text-[11px] text-text-2">
           {fmtCurrency(expected + pipeline, loc)}
         </span>
       </div>
@@ -237,7 +237,7 @@ function HeatmapCell({ month, index }: { month: string; index: number }) {
         style={{ backgroundColor: `rgba(89, 119, 148, ${alpha})` }}
         title={`${month}: ${index}%`}
       />
-      <span className="font-kosugi text-[9px] text-text-tertiary">{month}</span>
+      <span className="font-kosugi text-[9px] text-text-3">{month}</span>
     </div>
   );
 }
@@ -321,7 +321,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
 
     return (
       <div className="flex items-center gap-4 mt-2 flex-wrap">
-        <span className="font-mono text-[11px] text-text-secondary">
+        <span className="font-mono text-[11px] text-text-2">
           {fmtCurrency(data.cashflow.outstanding, locale)} {t("financial.cashflow.outstanding").toLowerCase()}
         </span>
         {data.cashflow.overdue > 0 && (
@@ -391,15 +391,15 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           {/* Metrics row */}
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+              <span className="font-kosugi text-[11px] text-text-3 uppercase block">
                 [{t("financial.revenue.avgMonthly")}]
               </span>
-              <span className="font-mono text-[14px] text-text-primary font-medium">
+              <span className="font-mono text-[14px] text-text font-medium">
                 {fmtCurrency(data.revenue.avg_monthly, locale)}
               </span>
             </div>
             <div>
-              <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+              <span className="font-kosugi text-[11px] text-text-3 uppercase block">
                 [{t("financial.revenue.pipelineValue")}]
               </span>
               <span className="font-mono text-[14px] text-[#C4A868] font-medium">
@@ -408,7 +408,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             </div>
             {data.revenue.yoy_change !== null && (
               <div>
-                <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+                <span className="font-kosugi text-[11px] text-text-3 uppercase block">
                   [{t("financial.revenue.yoyChange")}]
                 </span>
                 <span className="flex items-center gap-1 font-mono text-[14px] font-medium" style={{
@@ -429,11 +429,11 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#597794" }} />
-              <span className="font-kosugi text-[10px] text-text-tertiary">{t("financial.revenue.actual")}</span>
+              <span className="font-kosugi text-[10px] text-text-3">{t("financial.revenue.actual")}</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#59779466" }} />
-              <span className="font-kosugi text-[10px] text-text-tertiary">{t("financial.revenue.projected")}</span>
+              <span className="font-kosugi text-[10px] text-text-3">{t("financial.revenue.projected")}</span>
             </div>
           </div>
         </div>
@@ -478,11 +478,11 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#597794" }} />
-              <span className="font-kosugi text-[10px] text-text-tertiary">{t("financial.cashflow.expected")}</span>
+              <span className="font-kosugi text-[10px] text-text-3">{t("financial.cashflow.expected")}</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#59779466" }} />
-              <span className="font-kosugi text-[10px] text-text-tertiary">{t("financial.cashflow.pipeline")}</span>
+              <span className="font-kosugi text-[10px] text-text-3">{t("financial.cashflow.pipeline")}</span>
             </div>
           </div>
         </div>
@@ -499,16 +499,16 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-[rgba(255,255,255,0.06)]">
-                  <th className="font-kosugi text-[11px] text-text-tertiary uppercase pb-2 pr-3">
+                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2 pr-3">
                     [{t("financial.pricing.service")}]
                   </th>
-                  <th className="font-kosugi text-[11px] text-text-tertiary uppercase pb-2 pr-3">
+                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2 pr-3">
                     [{t("financial.pricing.winRate")}]
                   </th>
-                  <th className="font-kosugi text-[11px] text-text-tertiary uppercase pb-2 pr-3">
+                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2 pr-3">
                     [{t("financial.pricing.avgPrice")}]
                   </th>
-                  <th className="font-kosugi text-[11px] text-text-tertiary uppercase pb-2">
+                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2">
                     [{t("financial.pricing.suggestion")}]
                   </th>
                 </tr>
@@ -523,13 +523,13 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
 
                   return (
                     <tr key={i} className="border-b border-[rgba(255,255,255,0.04)]">
-                      <td className="font-mohave text-[13px] text-text-primary py-2 pr-3">
+                      <td className="font-mohave text-[13px] text-text py-2 pr-3">
                         {svc.service}
                       </td>
                       <td className="font-mono text-[13px] py-2 pr-3" style={{ color: winColor }}>
                         {fmtPct(svc.win_rate)}
                       </td>
-                      <td className="font-mono text-[13px] text-text-secondary py-2 pr-3">
+                      <td className="font-mono text-[13px] text-text-2 py-2 pr-3">
                         {fmtCurrency(svc.avg_win_price, locale)}
                       </td>
                       <td className="font-kosugi text-[11px] py-2" style={{ color: winColor }}>
@@ -567,7 +567,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             <div className="flex items-center gap-4 flex-wrap">
               {data.seasonal.peak_months.length > 0 && (
                 <div>
-                  <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+                  <span className="font-kosugi text-[11px] text-text-3 uppercase block">
                     [{t("financial.seasonal.peakMonths")}]
                   </span>
                   <span className="font-mohave text-[13px] text-[#A5B368]">
@@ -577,7 +577,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
               )}
               {data.seasonal.slow_months.length > 0 && (
                 <div>
-                  <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+                  <span className="font-kosugi text-[11px] text-text-3 uppercase block">
                     [{t("financial.seasonal.slowMonths")}]
                   </span>
                   <span className="font-mohave text-[13px] text-[#C4A868]">
@@ -590,13 +590,13 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             {/* Service patterns */}
             {data.seasonal.service_patterns.length > 0 && (
               <div>
-                <span className="font-kosugi text-[11px] text-text-tertiary uppercase block mb-1">
+                <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-1">
                   [{t("financial.seasonal.servicePatterns")}]
                 </span>
                 <div className="space-y-1">
                   {data.seasonal.service_patterns.map((sp, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="font-mohave text-[12px] text-text-secondary">
+                      <span className="font-mohave text-[12px] text-text-2">
                         {sp.service}
                       </span>
                       <span className="font-kosugi text-[11px] text-[#A5B368]">

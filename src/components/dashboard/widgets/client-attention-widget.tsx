@@ -488,12 +488,12 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
             <span
               className={cn(
                 "font-mono text-data-lg font-bold leading-none",
-                isLoading ? "text-text-disabled" : count > 0 ? "text-ops-error" : "text-status-success"
+                isLoading ? "text-text-mute" : count > 0 ? "text-ops-error" : "text-status-success"
               )}
             >
               {isLoading ? "—" : count}
             </span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("clientAttention.title")}
             </span>
             {!isLoading && count > 0 && (
@@ -501,7 +501,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {(categoryCounts["past-due-invoice"] ?? 0) > 0 && (
                   <span className="flex items-center gap-0.5">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: WT.error }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                    <span className="font-kosugi text-micro text-text-mute uppercase">
                       {categoryCounts["past-due-invoice"]} {t("clientAttention.overdue")}
                     </span>
                   </span>
@@ -509,7 +509,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {((categoryCounts["unassigned-tasks"] ?? 0) + (categoryCounts["unscheduled-tasks"] ?? 0)) > 0 && (
                   <span className="flex items-center gap-0.5">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: WT.warning }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                    <span className="font-kosugi text-micro text-text-mute uppercase">
                       {(categoryCounts["unassigned-tasks"] ?? 0) + (categoryCounts["unscheduled-tasks"] ?? 0)} {t("clientAttention.tasks")}
                     </span>
                   </span>
@@ -517,7 +517,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {((categoryCounts["stale-quoting"] ?? 0) + (categoryCounts["estimate-no-response"] ?? 0)) > 0 && (
                   <span className="flex items-center gap-0.5">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: WT.accent }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                    <span className="font-kosugi text-micro text-text-mute uppercase">
                       {(categoryCounts["stale-quoting"] ?? 0) + (categoryCounts["estimate-no-response"] ?? 0)} {t("clientAttention.staleQuotes")}
                     </span>
                   </span>
@@ -525,7 +525,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
               </div>
             )}
             {!isLoading && count === 0 && (
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-0.5">
+              <span className="font-kosugi text-micro text-text-mute uppercase mt-0.5">
                 {t("clientAttention.allGood")}
               </span>
             )}
@@ -545,13 +545,13 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("clientAttention.title")}
           </span>
           <span
             className={cn(
               "font-mono text-micro uppercase",
-              isLoading ? "text-text-tertiary" : count > 0 ? "text-ops-error" : "text-text-tertiary"
+              isLoading ? "text-text-3" : count > 0 ? "text-ops-error" : "text-text-3"
             )}
           >
             {isLoading
@@ -567,14 +567,14 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
               <span className="font-mono text-data-lg font-bold text-ops-error leading-none">
                 {count}
               </span>
-              <span className="font-kosugi text-micro text-text-tertiary uppercase ml-1">
+              <span className="font-kosugi text-micro text-text-3 uppercase ml-1">
                 {t("clientAttention.needAttention")}
               </span>
               <div className="flex items-center gap-2 mt-0.5">
                 {(categoryCounts["past-due-invoice"] ?? 0) > 0 && (
                   <span className="flex items-center gap-0.5">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: WT.error }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                    <span className="font-kosugi text-micro text-text-mute uppercase">
                       {categoryCounts["past-due-invoice"]} {t("clientAttention.overdue")}
                     </span>
                   </span>
@@ -582,7 +582,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {((categoryCounts["unassigned-tasks"] ?? 0) + (categoryCounts["unscheduled-tasks"] ?? 0)) > 0 && (
                   <span className="flex items-center gap-0.5">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: WT.warning }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                    <span className="font-kosugi text-micro text-text-mute uppercase">
                       {(categoryCounts["unassigned-tasks"] ?? 0) + (categoryCounts["unscheduled-tasks"] ?? 0)} {t("clientAttention.tasks")}
                     </span>
                   </span>
@@ -590,7 +590,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
                 {((categoryCounts["stale-quoting"] ?? 0) + (categoryCounts["estimate-no-response"] ?? 0)) > 0 && (
                   <span className="flex items-center gap-0.5">
                     <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: WT.accent }} />
-                    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                    <span className="font-kosugi text-micro text-text-mute uppercase">
                       {(categoryCounts["stale-quoting"] ?? 0) + (categoryCounts["estimate-no-response"] ?? 0)} {t("clientAttention.staleQuotes")}
                     </span>
                   </span>
@@ -605,7 +605,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           <ScrollFade>
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
-                <span className="font-mono text-[11px] text-text-disabled">
+                <span className="font-mono text-[11px] text-text-mute">
                   {t("clientAttention.loading")}
                 </span>
               </div>

@@ -142,7 +142,7 @@ export function SharePortalButton({
           <div className="space-y-2 pt-1">
             {/* Email input */}
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                 Client Email
               </label>
               <Input
@@ -159,22 +159,22 @@ export function SharePortalButton({
             {/* Context info */}
             {context && (context.estimateId || context.invoiceId || context.projectId) && (
               <div className="px-1.5 py-1 rounded bg-[rgba(255,255,255,0.03)] border border-border-subtle">
-                <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                   Linked to:
                 </span>
                 <div className="flex items-center gap-1 mt-[2px]">
                   {context.estimateId && (
-                    <span className="font-mono text-[11px] text-text-tertiary">
+                    <span className="font-mono text-[11px] text-text-3">
                       Estimate
                     </span>
                   )}
                   {context.invoiceId && (
-                    <span className="font-mono text-[11px] text-text-tertiary">
+                    <span className="font-mono text-[11px] text-text-3">
                       Invoice
                     </span>
                   )}
                   {context.projectId && (
-                    <span className="font-mono text-[11px] text-text-tertiary">
+                    <span className="font-mono text-[11px] text-text-3">
                       Project
                     </span>
                   )}

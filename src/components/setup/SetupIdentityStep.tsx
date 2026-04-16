@@ -39,8 +39,8 @@ function SelectorButton({
         "px-2 py-1.5 rounded-sm border transition-all duration-150 whitespace-nowrap cursor-pointer text-center",
         "font-mohave text-body-sm uppercase min-h-[56px] min-w-[56px] flex-1",
         selected
-          ? "bg-[rgba(255,255,255,0.10)] border-[rgba(255,255,255,0.30)] text-text-primary"
-          : "bg-transparent border-[rgba(255,255,255,0.08)] text-text-tertiary hover:border-[rgba(255,255,255,0.18)] hover:text-text-secondary"
+          ? "bg-[rgba(255,255,255,0.10)] border-[rgba(255,255,255,0.30)] text-text"
+          : "bg-transparent border-[rgba(255,255,255,0.08)] text-text-3 hover:border-[rgba(255,255,255,0.18)] hover:text-text-2"
       )}
     >
       {label}
@@ -156,7 +156,7 @@ function IndustryDropdown({
 
   return (
     <div ref={dropdownRef} className="relative" onKeyDown={handleKeyDown}>
-      <label className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em] mb-1 block">
+      <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
         INDUSTRY
       </label>
       <button
@@ -167,18 +167,18 @@ function IndustryDropdown({
         aria-controls={open ? listboxId : undefined}
         className={cn(
           "w-full flex items-center justify-between",
-          "bg-background-input text-text-primary font-mohave text-body",
+          "bg-surface-input text-text font-mohave text-body",
           "px-2 py-1.5 rounded-sm min-h-[56px]",
           "border border-[rgba(255,255,255,0.08)]",
           "transition-all duration-150",
           "focus:border-ops-accent focus:outline-none",
-          value.length === 0 && "text-text-disabled"
+          value.length === 0 && "text-text-mute"
         )}
       >
         <span className="truncate">{displayText || "Select industries"}</span>
         <ChevronDown
           className={cn(
-            "w-5 h-5 text-text-tertiary transition-transform flex-shrink-0",
+            "w-5 h-5 text-text-3 transition-transform flex-shrink-0",
             open && "rotate-180"
           )}
           aria-hidden="true"
@@ -191,13 +191,13 @@ function IndustryDropdown({
           {value.filter((v) => v !== "Other").map((ind) => (
             <span
               key={ind}
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-secondary uppercase"
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 uppercase"
             >
               {ind}
               <button
                 type="button"
                 onClick={() => toggleOption(ind)}
-                className="text-text-disabled hover:text-text-primary transition-colors ml-0.5"
+                className="text-text-mute hover:text-text transition-colors ml-0.5"
                 aria-label={`Remove ${ind}`}
               >
                 &times;
@@ -212,7 +212,7 @@ function IndustryDropdown({
           {/* Search */}
           <div className="p-1.5 border-b border-[rgba(255,255,255,0.08)]">
             <div className="relative">
-              <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" aria-hidden="true" />
+              <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-3" aria-hidden="true" />
               <input
                 ref={searchInputRef}
                 value={search}
@@ -226,7 +226,7 @@ function IndustryDropdown({
                 aria-activedescendant={
                   highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
                 }
-                className="w-full bg-background-input text-text-primary font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-ops-accent focus:outline-none placeholder:text-text-disabled placeholder:font-kosugi min-h-[48px]"
+                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-ops-accent focus:outline-none placeholder:text-text-mute placeholder:font-kosugi min-h-[48px]"
               />
             </div>
           </div>
@@ -254,19 +254,19 @@ function IndustryDropdown({
                     "w-full flex items-center justify-between px-2 py-1.5 text-left min-h-[56px]",
                     "font-mohave text-body-sm transition-colors border-b border-[rgba(255,255,255,0.04)]",
                     isSelected
-                      ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text"
                       : highlightedIndex === index
-                        ? "bg-[rgba(255,255,255,0.05)] text-text-primary"
-                        : "text-text-secondary hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary"
+                        ? "bg-[rgba(255,255,255,0.05)] text-text"
+                        : "text-text-2 hover:bg-[rgba(255,255,255,0.04)] hover:text-text"
                   )}
                 >
                   <span>{ind}</span>
-                  {isSelected && <Check className="w-4 h-4 text-text-primary" aria-hidden="true" />}
+                  {isSelected && <Check className="w-4 h-4 text-text" aria-hidden="true" />}
                 </button>
               );
             })}
             {filtered.length === 0 && (
-              <p className="px-2 py-2 font-kosugi text-caption-sm text-text-disabled" role="status">
+              <p className="px-2 py-2 font-kosugi text-caption-sm text-text-mute" role="status">
                 [no industries match &quot;{search}&quot;]
               </p>
             )}
@@ -316,10 +316,10 @@ export function IdentityStep1({
   return (
     <div className="w-full">
       <div className="mb-3">
-        <h2 className="font-mohave text-heading text-text-primary uppercase">
+        <h2 className="font-mohave text-heading text-text uppercase">
           ABOUT YOU
         </h2>
-        <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5">
+        <p className="font-kosugi text-caption-sm text-text-3 mt-0.5">
           [the name behind the operation]
         </p>
       </div>
@@ -336,14 +336,14 @@ export function IdentityStep1({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-[rgba(255,255,255,0.06)]">
-              <span className="font-mohave text-body text-text-tertiary">
+              <span className="font-mohave text-body text-text-3">
                 {initials || "?"}
               </span>
             </div>
           )}
         </div>
         {avatarUrl && (
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             Imported from your sign-in account
           </p>
         )}
@@ -408,10 +408,10 @@ export function IdentityStep2({
   return (
     <div className="w-full">
       <div className="mb-3">
-        <h2 className="font-mohave text-heading text-text-primary uppercase">
+        <h2 className="font-mohave text-heading text-text uppercase">
           YOUR COMPANY
         </h2>
-        <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5">
+        <p className="font-kosugi text-caption-sm text-text-3 mt-0.5">
           [this shapes your command center]
         </p>
       </div>
@@ -432,7 +432,7 @@ export function IdentityStep2({
 
         {/* Company Size */}
         <div role="group" aria-label="Team Size">
-          <label className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em] mb-1 block">
+          <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
             TEAM SIZE
           </label>
           <div className="flex gap-1 overflow-x-auto scrollbar-none">
@@ -449,7 +449,7 @@ export function IdentityStep2({
 
         {/* Years in Business */}
         <div role="group" aria-label="Years in Business">
-          <label className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em] mb-1 block">
+          <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
             YEARS IN BUSINESS
           </label>
           <div className="flex gap-1 overflow-x-auto scrollbar-none">
@@ -466,7 +466,7 @@ export function IdentityStep2({
 
         {/* Weather Dependent */}
         <div role="group" aria-label="Weather Dependent">
-          <label className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em] mb-1 block">
+          <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
             WEATHER-DEPENDENT?
           </label>
           <div className="flex gap-1">

@@ -172,24 +172,24 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <div className="w-[22px] h-[22px] rounded-full bg-background-elevated flex items-center justify-center shrink-0">
-            <span className="font-kosugi text-[8px] text-text-tertiary uppercase">
+            <span className="font-kosugi text-[8px] text-text-3 uppercase">
               {state.title.slice(0, 2)}
             </span>
           </div>
-          <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+          <span className="font-mohave text-[13px] font-semibold text-text truncate">
             {state.title}
           </span>
         </div>
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
             onClick={() => minimizePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             onClick={() => closePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -199,10 +199,10 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       {/* ── Info strip ── */}
       <div className="px-3 py-1.5 border-b border-[rgba(255,255,255,0.06)] shrink-0">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[11px] text-text-secondary">
+          <span className="font-mono text-[11px] text-text-2">
             {formatCompactCurrency(totalAmount)}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled">
+          <span className="font-kosugi text-[9px] text-text-mute">
             · {memberExpenses.length} {memberExpenses.length === 1 ? (t("expenseTracker.popover.item") ?? "item") : (t("expenseTracker.popover.items") ?? "items")}
           </span>
         </div>
@@ -212,7 +212,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {memberExpenses.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               {t("expenseTracker.popover.noExpenses") ?? "No expenses"}
             </span>
           </div>
@@ -227,17 +227,17 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
               }}
             >
               <div className="flex-1 min-w-0">
-                <p className="font-mohave text-body-sm text-text-primary truncate">
+                <p className="font-mohave text-body-sm text-text truncate">
                   {expense.merchantName ?? expense.description ?? (t("expenseTracker.popover.untitled") ?? "Untitled")}
                 </p>
-                <p className="font-kosugi text-[10px] text-text-disabled truncate">
+                <p className="font-kosugi text-[10px] text-text-mute truncate">
                   {expense.categoryName ?? "\u2014"}
                   {expense.expenseDate && (
                     <> · {new Date(expense.expenseDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</>
                   )}
                 </p>
               </div>
-              <span className="font-mono text-[12px] text-text-primary shrink-0">
+              <span className="font-mono text-[12px] text-text shrink-0">
                 {formatCompactCurrency(expense.amount)}
               </span>
             </div>
@@ -252,7 +252,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
             router.push("/accounting");
             closePopover(state.id);
           }}
-          className="flex items-center gap-1 font-mohave text-[11px] text-text-disabled hover:text-ops-accent transition-colors"
+          className="flex items-center gap-1 font-mohave text-[11px] text-text-mute hover:text-ops-accent transition-colors"
         >
           {t("expenseTracker.viewAll") ?? "View Expenses"}
           <ArrowUpRight className="w-[10px] h-[10px]" />

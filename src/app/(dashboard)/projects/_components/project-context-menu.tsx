@@ -143,7 +143,7 @@ export function ProjectContextMenu({
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ background: PROJECT_STATUS_COLORS[status] }}
                 />
-                <span className="font-mohave text-body-sm text-text-secondary">
+                <span className="font-mohave text-body-sm text-text-2">
                   {getProjectStatusDisplayName(status)}
                 </span>
               </button>
@@ -198,13 +198,13 @@ function MenuItem({
       className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors duration-100 ${
         destructive
           ? "text-[#93321A] hover:bg-[rgba(147,50,26,0.1)]"
-          : "text-text-secondary hover:bg-[rgba(255,255,255,0.06)] hover:text-text-primary"
+          : "text-text-2 hover:bg-[rgba(255,255,255,0.06)] hover:text-text"
       }`}
     >
       {icon}
       <span className="font-mohave text-body-sm flex-1">{label}</span>
       {hasSubmenu && (
-        <span className="text-text-disabled text-[10px]">▸</span>
+        <span className="text-text-mute text-[10px]">▸</span>
       )}
     </button>
   );

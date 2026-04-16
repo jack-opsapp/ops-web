@@ -39,7 +39,7 @@ export function SpreadsheetCellTextarea({ value, canEdit, onCommit }: Spreadshee
           if (e.key === "Escape") { setEditing(false); setDraft(value ?? ""); }
         }}
         rows={3}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mohave text-body-sm text-text-primary focus:outline-none resize-none"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mohave text-body-sm text-text focus:outline-none resize-none"
       />
     );
   }

@@ -30,8 +30,8 @@ export function DetailPopoverTabBar({ popoverId, activeTab }: DetailPopoverTabBa
           className={cn(
             "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
             tab === activeTab
-              ? "text-text-primary"
-              : "text-text-disabled hover:text-text-secondary"
+              ? "text-text"
+              : "text-text-mute hover:text-text-2"
           )}
         >
           {t(TAB_KEYS[tab])}

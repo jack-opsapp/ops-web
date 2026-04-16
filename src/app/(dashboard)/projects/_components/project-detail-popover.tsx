@@ -241,20 +241,20 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
                 ] ?? statusColor,
             }}
           />
-          <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+          <span className="font-mohave text-[13px] font-semibold text-text truncate">
             {state.title}
           </span>
         </div>
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
             onClick={() => minimizePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             onClick={() => closePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -266,14 +266,14 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
         {/* Row 1: Client address */}
         <div className="flex items-center gap-2 min-w-0">
           {project?.address ? (
-            <div className="flex items-center gap-1 text-text-tertiary min-w-0">
+            <div className="flex items-center gap-1 text-text-3 min-w-0">
               <MapPin className="w-2.5 h-2.5 shrink-0" />
               <span className="font-kosugi text-[10px] truncate">
                 {project.address}
               </span>
             </div>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               {t("detail.noAddress")}
             </span>
           )}
@@ -287,14 +287,14 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
           >
             {statusName}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled">
+          <span className="font-kosugi text-[9px] text-text-mute">
             · {daysInStatus}d
           </span>
           {canManage && (
             <div className="relative ml-auto">
               <button
                 onClick={handleOverflowToggle}
-                className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
               >
                 <MoreHorizontal className="w-3 h-3" />
               </button>
@@ -307,7 +307,7 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
                         setShowOverflowMenu(false);
                         onAddTask(state.id);
                       }}
-                      className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                      className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                     >
                       <ListPlus className="w-3 h-3 shrink-0" />
                       {t("taskList.addTask")}
@@ -319,7 +319,7 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
                         setShowOverflowMenu(false);
                         onRecordPayment(state.id);
                       }}
-                      className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                      className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                     >
                       <DollarSign className="w-3 h-3 shrink-0" />
                       Record Payment
@@ -333,7 +333,7 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
                       setShowOverflowMenu(false);
                       onArchive(state.id);
                     }}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                   >
                     <Archive className="w-3 h-3 shrink-0" />
                     Archive
@@ -360,13 +360,13 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
       {/* ── Delete confirmation ── */}
       {showDeleteConfirm && (
         <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)] shrink-0">
-          <p className="font-kosugi text-[11px] text-text-secondary mb-2">
+          <p className="font-kosugi text-[11px] text-text-2 mb-2">
             Permanently delete this project? This cannot be undone.
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 px-2 py-1.5 font-mohave text-[11px] uppercase tracking-[0.5px] text-text-secondary rounded-[2px] border border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+              className="flex-1 px-2 py-1.5 font-mohave text-[11px] uppercase tracking-[0.5px] text-text-2 rounded-[2px] border border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
             >
               Cancel
             </button>
@@ -392,8 +392,8 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
             className={cn(
               "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
               tab.id === state.activeTab
-                ? "text-text-primary"
-                : "text-text-disabled hover:text-text-secondary"
+                ? "text-text"
+                : "text-text-mute hover:text-text-2"
             )}
           >
             {tab.label}
@@ -415,21 +415,21 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
         )}
         {state.activeTab === "tasks" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               Tasks tab — coming soon
             </span>
           </div>
         )}
         {state.activeTab === "financial" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               Financial tab — coming soon
             </span>
           </div>
         )}
         {state.activeTab === "photos" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               Photos tab — coming soon
             </span>
           </div>
@@ -485,7 +485,7 @@ function ProjectOverviewTab({
     <div className="flex flex-col gap-4">
       {/* Status */}
       <div>
-        <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
           Status
         </span>
         <div className="flex items-center gap-2 mt-1">
@@ -493,7 +493,7 @@ function ProjectOverviewTab({
             className="w-2 h-2 rounded-full"
             style={{ background: statusColor }}
           />
-          <span className="font-mohave text-body-sm text-text-primary">
+          <span className="font-mohave text-body-sm text-text">
             {getProjectStatusDisplayName(project.status)}
           </span>
         </div>
@@ -502,10 +502,10 @@ function ProjectOverviewTab({
       {/* Client */}
       {clientName && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Client
           </span>
-          <p className="font-mohave text-body-sm text-text-primary mt-1">
+          <p className="font-mohave text-body-sm text-text mt-1">
             {clientName}
           </p>
         </div>
@@ -514,10 +514,10 @@ function ProjectOverviewTab({
       {/* Address */}
       {project.address && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Address
           </span>
-          <p className="font-mohave text-body-sm text-text-primary mt-1">
+          <p className="font-mohave text-body-sm text-text mt-1">
             {project.address}
           </p>
         </div>
@@ -526,10 +526,10 @@ function ProjectOverviewTab({
       {/* Dates */}
       {(startDate || endDate) && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Dates
           </span>
-          <p className="font-mohave text-body-sm text-text-primary mt-1">
+          <p className="font-mohave text-body-sm text-text mt-1">
             {startDate && endDate
               ? `${startDate} → ${endDate}`
               : (startDate ?? endDate)}
@@ -540,10 +540,10 @@ function ProjectOverviewTab({
       {/* Description */}
       {project.projectDescription && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Description
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {project.projectDescription}
           </p>
         </div>
@@ -552,10 +552,10 @@ function ProjectOverviewTab({
       {/* Notes */}
       {project.notes && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Notes
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {project.notes}
           </p>
         </div>

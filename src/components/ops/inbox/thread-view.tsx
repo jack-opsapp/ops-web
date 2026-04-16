@@ -96,33 +96,33 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
       <div className="flex items-center gap-1.5 mb-2">
         {/* Direction indicator */}
         {isOutbound ? (
-          <ArrowUpRight className="w-[13px] h-[13px] text-text-disabled shrink-0" />
+          <ArrowUpRight className="w-[13px] h-[13px] text-text-mute shrink-0" />
         ) : (
-          <ArrowDownLeft className="w-[13px] h-[13px] text-text-disabled shrink-0" />
+          <ArrowDownLeft className="w-[13px] h-[13px] text-text-mute shrink-0" />
         )}
 
         {/* Sender name */}
-        <span className="font-mohave text-body-sm text-text-primary font-semibold truncate">
+        <span className="font-mohave text-body-sm text-text font-semibold truncate">
           {senderName}
         </span>
 
         {/* Sender email */}
-        <span className="font-mohave text-body-sm text-text-disabled truncate hidden sm:inline">
+        <span className="font-mohave text-body-sm text-text-mute truncate hidden sm:inline">
           &lt;{senderEmail}&gt;
         </span>
 
         {/* Attachments indicator */}
         {message.hasAttachments && message.attachmentCount > 0 && (
           <span className="flex items-center gap-0.5 shrink-0">
-            <Paperclip className="w-[11px] h-[11px] text-text-disabled" />
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <Paperclip className="w-[11px] h-[11px] text-text-mute" />
+            <span className="font-kosugi text-[10px] text-text-mute">
               {message.attachmentCount}
             </span>
           </span>
         )}
 
         {/* Timestamp */}
-        <span className="ml-auto shrink-0 font-kosugi text-caption-sm text-text-disabled">
+        <span className="ml-auto shrink-0 font-kosugi text-caption-sm text-text-mute">
           {formatMessageTime(message.createdAt)}
         </span>
       </div>
@@ -130,8 +130,8 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
       {/* Recipients (if outbound) */}
       {isOutbound && message.toEmails.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase">To:</span>
-          <span className="font-mohave text-body-sm text-text-disabled truncate">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase">To:</span>
+          <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.toEmails.join(", ")}
           </span>
         </div>
@@ -140,17 +140,17 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
       {/* CC */}
       {message.ccEmails.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase">Cc:</span>
-          <span className="font-mohave text-body-sm text-text-disabled truncate">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase">Cc:</span>
+          <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.ccEmails.join(", ")}
           </span>
         </div>
       )}
 
       {/* Body */}
-      <div className="font-mohave text-body-sm text-text-secondary whitespace-pre-wrap leading-relaxed break-words">
+      <div className="font-mohave text-body-sm text-text-2 whitespace-pre-wrap leading-relaxed break-words">
         {body || (
-          <span className="italic text-text-disabled">No message content available.</span>
+          <span className="italic text-text-mute">No message content available.</span>
         )}
       </div>
     </div>
@@ -184,16 +184,16 @@ function AllMailMessageBubble({
     >
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="font-mohave text-body-sm text-text-primary font-semibold truncate">
+        <span className="font-mohave text-body-sm text-text font-semibold truncate">
           {message.fromName || message.from.split("@")[0]}
         </span>
-        <span className="font-mohave text-body-sm text-text-disabled truncate hidden sm:inline">
+        <span className="font-mohave text-body-sm text-text-mute truncate hidden sm:inline">
           &lt;{message.from}&gt;
         </span>
         {message.hasAttachments && (
-          <Paperclip className="w-[11px] h-[11px] text-text-disabled shrink-0" />
+          <Paperclip className="w-[11px] h-[11px] text-text-mute shrink-0" />
         )}
-        <span className="ml-auto shrink-0 font-kosugi text-caption-sm text-text-disabled">
+        <span className="ml-auto shrink-0 font-kosugi text-caption-sm text-text-mute">
           {formatMessageTime(message.date)}
         </span>
       </div>
@@ -201,25 +201,25 @@ function AllMailMessageBubble({
       {/* Recipients */}
       {message.to.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase">To:</span>
-          <span className="font-mohave text-body-sm text-text-disabled truncate">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase">To:</span>
+          <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.to.join(", ")}
           </span>
         </div>
       )}
       {message.cc.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase">Cc:</span>
-          <span className="font-mohave text-body-sm text-text-disabled truncate">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase">Cc:</span>
+          <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.cc.join(", ")}
           </span>
         </div>
       )}
 
       {/* Body */}
-      <div className="font-mohave text-body-sm text-text-secondary whitespace-pre-wrap leading-relaxed break-words">
+      <div className="font-mohave text-body-sm text-text-2 whitespace-pre-wrap leading-relaxed break-words">
         {message.bodyText || (
-          <span className="italic text-text-disabled">No message content available.</span>
+          <span className="italic text-text-mute">No message content available.</span>
         )}
       </div>
     </div>
@@ -298,15 +298,15 @@ export function ThreadView({
           className="shrink-0 p-1 rounded-[4px] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           title={t("thread.back")}
         >
-          <ArrowLeft className="w-[16px] h-[16px] text-text-tertiary" />
+          <ArrowLeft className="w-[16px] h-[16px] text-text-3" />
         </button>
 
         <div className="flex-1 min-w-0">
-          <h2 className="font-mohave text-body text-text-primary truncate">
+          <h2 className="font-mohave text-body text-text truncate">
             {subject}
           </h2>
           {opportunityTitle && (
-            <p className="font-kosugi text-caption-sm text-text-disabled uppercase truncate">
+            <p className="font-kosugi text-caption-sm text-text-mute uppercase truncate">
               {opportunityTitle}
             </p>
           )}
@@ -355,7 +355,7 @@ export function ThreadView({
                   inReplyTo: replyMessageId,
                 });
               }}
-              className="shrink-0 text-text-tertiary"
+              className="shrink-0 text-text-3"
               title={t("thread.reply")}
             >
               <Reply className="w-[14px] h-[14px]" />
@@ -366,7 +366,7 @@ export function ThreadView({
               variant="ghost"
               size="sm"
               onClick={() => markUnread.mutate(threadId)}
-              className="shrink-0 text-text-tertiary"
+              className="shrink-0 text-text-3"
               title={t("thread.markUnread")}
             >
               <EyeOff className="w-[14px] h-[14px]" />
@@ -384,7 +384,7 @@ export function ThreadView({
               {t("thread.aiSummary")}
             </span>
           </div>
-          <p className="font-mohave text-body-sm text-text-secondary leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 leading-relaxed">
             {aiSummary}
           </p>
         </div>

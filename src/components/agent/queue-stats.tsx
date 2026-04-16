@@ -56,14 +56,14 @@ export const QueueStatsRibbon = memo(function QueueStatsRibbon({
             "bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] saturate-[1.2]"
           )}
         >
-          <span className="font-kosugi text-[11px] text-text-tertiary uppercase block">
+          <span className="font-kosugi text-[11px] text-text-3 uppercase block">
             [{cell.label}]
           </span>
           <span
             className={cn(
               "font-mohave text-[24px] leading-tight mt-1 block",
               isLoading && "animate-pulse",
-              cell.accent ? "text-[#597794]" : "text-text-primary"
+              cell.accent ? "text-[#597794]" : "text-text"
             )}
           >
             {isLoading ? "--" : cell.value}

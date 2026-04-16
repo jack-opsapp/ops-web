@@ -55,7 +55,7 @@ export function ProjectDeductionsTab({ project }: Props) {
 
   if (isLoading) {
     return (
-      <p className="font-kosugi text-caption text-text-disabled">
+      <p className="font-kosugi text-caption text-text-mute">
         Loading deductions...
       </p>
     );
@@ -64,7 +64,7 @@ export function ProjectDeductionsTab({ project }: Props) {
   if (deductions.length === 0) {
     return (
       <div className="border border-border rounded p-6 text-center">
-        <p className="font-kosugi text-caption text-text-disabled">
+        <p className="font-kosugi text-caption text-text-mute">
           [no inventory movements yet — deductions post automatically when tasks complete]
         </p>
       </div>
@@ -74,10 +74,10 @@ export function ProjectDeductionsTab({ project }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="font-mohave text-heading-sm uppercase tracking-wider text-text-primary">
+        <h3 className="font-mohave text-heading-sm uppercase tracking-wider text-text">
           Inventory Movements
         </h3>
-        <span className="font-kosugi text-caption-sm text-text-tertiary">
+        <span className="font-kosugi text-caption-sm text-text-3">
           [{deductions.length} record{deductions.length !== 1 ? "s" : ""}]
         </span>
       </div>
@@ -86,25 +86,25 @@ export function ProjectDeductionsTab({ project }: Props) {
         <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Date
               </th>
-              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Item
               </th>
-              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Task
               </th>
-              <th className="text-right px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-right px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Qty
               </th>
-              <th className="text-right px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-right px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Before → After
               </th>
-              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Reason
               </th>
-              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <th className="text-left px-3 py-2 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 By
               </th>
             </tr>
@@ -125,33 +125,33 @@ export function ProjectDeductionsTab({ project }: Props) {
                     isReversal && "opacity-70"
                   )}
                 >
-                  <td className="px-3 py-1.5 font-mono text-data-sm text-text-tertiary whitespace-nowrap">
+                  <td className="px-3 py-1.5 font-mono text-data-sm text-text-3 whitespace-nowrap">
                     {format(d.deductedAt, "MMM d, HH:mm")}
                   </td>
-                  <td className="px-3 py-1.5 font-mohave text-body text-text-primary">
+                  <td className="px-3 py-1.5 font-mohave text-body text-text">
                     {item?.name ?? "—"}
                   </td>
-                  <td className="px-3 py-1.5 font-kosugi text-caption text-text-secondary truncate max-w-[200px]">
+                  <td className="px-3 py-1.5 font-kosugi text-caption text-text-2 truncate max-w-[200px]">
                     {taskTitle ?? "—"}
                   </td>
                   <td className="px-3 py-1.5 text-right font-mono text-data-sm">
                     <span
                       className={cn(
-                        isReversal ? "text-status-success" : "text-text-primary",
-                        isSkipped && "text-text-disabled"
+                        isReversal ? "text-status-success" : "text-text",
+                        isSkipped && "text-text-mute"
                       )}
                     >
                       {isReversal ? "+" : isSkipped ? "" : "-"}
                       {d.quantityDeducted}
                     </span>
                   </td>
-                  <td className="px-3 py-1.5 text-right font-mono text-data-sm text-text-tertiary whitespace-nowrap">
+                  <td className="px-3 py-1.5 text-right font-mono text-data-sm text-text-3 whitespace-nowrap">
                     {d.previousQuantity} → {d.newQuantity}
                   </td>
-                  <td className="px-3 py-1.5 font-kosugi text-caption text-text-secondary">
+                  <td className="px-3 py-1.5 font-kosugi text-caption text-text-2">
                     {REASON_LABEL[d.reason]}
                   </td>
-                  <td className="px-3 py-1.5 font-kosugi text-caption text-text-tertiary truncate max-w-[120px]">
+                  <td className="px-3 py-1.5 font-kosugi text-caption text-text-3 truncate max-w-[120px]">
                     {byName ?? "—"}
                   </td>
                 </tr>

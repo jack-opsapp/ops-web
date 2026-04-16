@@ -160,13 +160,13 @@ const roleStyleConfig: Record<
   },
   crew: {
     icon: HardHat,
-    color: "text-text-secondary",
+    color: "text-text-2",
     bg: "bg-background-elevated",
     borderColor: "border-l-[#555555]",
   },
   unassigned: {
     icon: HardHat,
-    color: "text-text-disabled",
+    color: "text-text-mute",
     bg: "bg-background-elevated",
     borderColor: "border-l-[#333333]",
   },
@@ -220,7 +220,7 @@ function RoleSelector({
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating z-50 animate-scale-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
-          <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-widest">
             {t("team.changeRole")}
           </span>
         </div>
@@ -239,7 +239,7 @@ function RoleSelector({
                 "flex items-center gap-1 w-full px-1.5 py-[8px] transition-colors font-mohave text-body-sm",
                 isActive
                   ? "bg-ops-accent-muted text-ops-accent"
-                  : "text-text-secondary hover:text-text-secondary hover:bg-background-elevated"
+                  : "text-text-2 hover:text-text-2 hover:bg-background-elevated"
               )}
             >
               <Icon className="w-[14px] h-[14px]" />
@@ -316,7 +316,7 @@ function TeamMemberCard({
               <span
                 className={cn(
                   "font-mohave text-body-lg",
-                  isInactive ? "text-text-disabled" : "text-ops-accent"
+                  isInactive ? "text-text-mute" : "text-ops-accent"
                 )}
                 style={
                   member.userColor && !isInactive
@@ -341,7 +341,7 @@ function TeamMemberCard({
               <h3
                 className={cn(
                   "font-mohave text-card-title truncate",
-                  isInactive ? "text-text-disabled" : "text-text-primary"
+                  isInactive ? "text-text-mute" : "text-text"
                 )}
               >
                 {member.name}
@@ -360,7 +360,7 @@ function TeamMemberCard({
                   setMenuOpen(!menuOpen);
                   setShowRoleSelector(false);
                 }}
-                className="p-[6px] rounded text-text-tertiary hover:text-text-secondary hover:bg-background-elevated transition-colors"
+                className="p-[6px] rounded text-text-3 hover:text-text-2 hover:bg-background-elevated transition-colors"
               >
                 <MoreVertical className="w-[16px] h-[16px]" />
               </button>
@@ -375,7 +375,7 @@ function TeamMemberCard({
                       onClick={() => {
                         setShowRoleSelector(true);
                       }}
-                      className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors font-mohave text-body-sm"
+                      className="flex items-center gap-1 w-full px-1.5 py-[8px] text-text-2 hover:text-text hover:bg-background-elevated transition-colors font-mohave text-body-sm"
                     >
                       <UserCog className="w-[14px] h-[14px]" />
                       {t("team.changeRole")}
@@ -414,7 +414,7 @@ function TeamMemberCard({
 
         {/* Contact info */}
         <div className="mt-1.5 space-y-[6px]">
-          <div className="flex items-center gap-[6px] text-text-tertiary">
+          <div className="flex items-center gap-[6px] text-text-3">
             <Mail className="w-[13px] h-[13px] shrink-0" />
             <a
               href={`mailto:${member.email}`}
@@ -424,7 +424,7 @@ function TeamMemberCard({
             </a>
           </div>
           {member.phone && (
-            <div className="flex items-center gap-[6px] text-text-tertiary">
+            <div className="flex items-center gap-[6px] text-text-3">
               <Phone className="w-[13px] h-[13px] shrink-0" />
               <a
                 href={`tel:${member.phone}`}
@@ -438,8 +438,8 @@ function TeamMemberCard({
 
         {/* Last active */}
         <div className="flex items-center gap-[6px] mt-1.5 pt-1 border-t border-border-subtle">
-          <Clock className="w-[12px] h-[12px] text-text-disabled" />
-          <span className="font-mono text-[10px] text-text-disabled">
+          <Clock className="w-[12px] h-[12px] text-text-mute" />
+          <span className="font-mono text-[10px] text-text-mute">
             {formatLastActive(member.lastActive)}
           </span>
         </div>
@@ -614,11 +614,11 @@ export default function TeamPage() {
         <LoadingSkeleton />
       ) : filteredTeam.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">
-          <Users className="w-[48px] h-[48px] text-text-disabled mb-2" />
-          <h3 className="font-mohave text-heading text-text-primary">
+          <Users className="w-[48px] h-[48px] text-text-mute mb-2" />
+          <h3 className="font-mohave text-heading text-text">
             {searchQuery ? t("team.noResults") : t("team.empty")}
           </h3>
-          <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
+          <p className="font-kosugi text-caption text-text-3 mt-0.5">
             {searchQuery
               ? t("team.noResultsHelper")
               : t("team.emptyHelper")}
@@ -720,8 +720,8 @@ export default function TeamPage() {
           {crew.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <HardHat className="w-[14px] h-[14px] text-text-secondary" />
-                <h2 className="font-kosugi text-caption-bold text-text-secondary uppercase tracking-widest">
+                <HardHat className="w-[14px] h-[14px] text-text-2" />
+                <h2 className="font-kosugi text-caption-bold text-text-2 uppercase tracking-widest">
                   {t("team.sections.crew")}
                 </h2>
                 <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-60">
@@ -747,8 +747,8 @@ export default function TeamPage() {
           {unassigned.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <HardHat className="w-[14px] h-[14px] text-text-disabled" />
-                <h2 className="font-kosugi text-caption-bold text-text-disabled uppercase tracking-widest">
+                <HardHat className="w-[14px] h-[14px] text-text-mute" />
+                <h2 className="font-kosugi text-caption-bold text-text-mute uppercase tracking-widest">
                   {t("team.sections.unassigned")}
                 </h2>
                 <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-40">

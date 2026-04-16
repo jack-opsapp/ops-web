@@ -98,7 +98,7 @@ function TaskTypeDropdown({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Task Type
       </label>
       <div className="relative">
@@ -108,7 +108,7 @@ function TaskTypeDropdown({
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           className={cn(
             "flex items-center justify-between w-full",
-            "bg-background-input border rounded-sm",
+            "bg-surface-input border rounded-sm",
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
             open ? "border-ops-accent" : error ? "border-status-error" : "border-border",
@@ -121,14 +121,14 @@ function TaskTypeDropdown({
                 className="w-[10px] h-[10px] rounded-full shrink-0"
                 style={{ backgroundColor: selected.color }}
               />
-              <span className="text-text-primary">{selected.display}</span>
+              <span className="text-text">{selected.display}</span>
             </span>
           ) : (
-            <span className="text-text-tertiary">Select type</span>
+            <span className="text-text-3">Select type</span>
           )}
           <ChevronDown
             className={cn(
-              "w-[16px] h-[16px] text-text-tertiary transition-transform duration-150",
+              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
               open && "rotate-180"
             )}
           />
@@ -138,7 +138,7 @@ function TaskTypeDropdown({
           <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[200px] overflow-y-auto">
             {taskTypes.length === 0 ? (
               <div className="px-1.5 py-1">
-                <p className="font-mohave text-body-sm text-text-tertiary">
+                <p className="font-mohave text-body-sm text-text-3">
                   No task types available
                 </p>
               </div>
@@ -156,8 +156,8 @@ function TaskTypeDropdown({
                     "hover:bg-[rgba(255,255,255,0.05)] transition-colors",
                     "font-mohave text-body-sm",
                     value === tt.id
-                      ? "text-text-primary"
-                      : "text-text-secondary"
+                      ? "text-text"
+                      : "text-text-2"
                   )}
                 >
                   <span
@@ -196,7 +196,7 @@ function StatusDropdown({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Status
       </label>
       <div className="relative">
@@ -206,7 +206,7 @@ function StatusDropdown({
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           className={cn(
             "flex items-center justify-between w-full",
-            "bg-background-input border border-border rounded-sm",
+            "bg-surface-input border border-border rounded-sm",
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
             open && "border-ops-accent",
@@ -218,11 +218,11 @@ function StatusDropdown({
               className="w-[8px] h-[8px] rounded-full shrink-0"
               style={{ backgroundColor: TASK_STATUS_COLORS[value] }}
             />
-            <span className="text-text-primary">{value}</span>
+            <span className="text-text">{value}</span>
           </span>
           <ChevronDown
             className={cn(
-              "w-[16px] h-[16px] text-text-tertiary transition-transform duration-150",
+              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
               open && "rotate-180"
             )}
           />
@@ -242,7 +242,7 @@ function StatusDropdown({
                   "w-full flex items-center gap-[6px] px-1.5 py-1 text-left",
                   "hover:bg-[rgba(255,255,255,0.05)] transition-colors",
                   "font-mohave text-body-sm",
-                  value === s ? "text-text-primary" : "text-text-secondary"
+                  value === s ? "text-text" : "text-text-2"
                 )}
               >
                 <span
@@ -287,7 +287,7 @@ function TeamMemberDropdown({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Team Members
       </label>
       <div className="relative">
@@ -297,12 +297,12 @@ function TeamMemberDropdown({
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           className={cn(
             "flex items-center justify-between w-full",
-            "bg-background-input border border-border rounded-sm",
+            "bg-surface-input border border-border rounded-sm",
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
             open && "border-ops-accent",
             "focus:border-ops-accent focus:outline-none",
-            count > 0 ? "text-text-primary" : "text-text-tertiary"
+            count > 0 ? "text-text" : "text-text-3"
           )}
         >
           {count === 0 ? (
@@ -333,7 +333,7 @@ function TeamMemberDropdown({
           )}
           <ChevronDown
             className={cn(
-              "w-[16px] h-[16px] text-text-tertiary transition-transform duration-150",
+              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
               open && "rotate-180"
             )}
           />
@@ -343,7 +343,7 @@ function TeamMemberDropdown({
           <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[240px] overflow-y-auto">
             {members.length === 0 ? (
               <div className="px-1.5 py-1">
-                <p className="font-mohave text-body-sm text-text-tertiary">
+                <p className="font-mohave text-body-sm text-text-3">
                   No team members available
                 </p>
               </div>
@@ -374,7 +374,7 @@ function TeamMemberDropdown({
                     <span
                       className={cn(
                         "flex-1 font-mohave text-body-sm",
-                        isSelected ? "text-text-primary" : "text-text-secondary"
+                        isSelected ? "text-text" : "text-text-2"
                       )}
                     >
                       {fullName}
@@ -423,11 +423,11 @@ function DependencySection({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         {t("taskForm.dependencies")}
       </label>
       {activeDeps.length === 0 ? (
-        <p className="font-mohave text-body-sm text-text-disabled">{t("taskForm.noDependencies")}</p>
+        <p className="font-mohave text-body-sm text-text-mute">{t("taskForm.noDependencies")}</p>
       ) : (
         <div className="space-y-1">
           {activeDeps.map((dep, i) => (
@@ -439,12 +439,12 @@ function DependencySection({
                     const next = activeDeps.filter((_, idx) => idx !== i);
                     onOverridesChange(next.length > 0 ? next : null);
                   }}
-                  className="text-text-disabled hover:text-ops-error p-0.5"
+                  className="text-text-mute hover:text-ops-error p-0.5"
                 >
                   <X className="w-[12px] h-[12px]" />
                 </button>
               )}
-              <span className="font-mohave text-body-sm text-text-primary">
+              <span className="font-mohave text-body-sm text-text">
                 {t("taskForm.afterTask")} {resolveTaskTypeName(dep.depends_on_task_type_id)}
               </span>
               {showOverride ? (
@@ -458,10 +458,10 @@ function DependencySection({
                     next[i] = { ...next[i], overlap_percentage: Number(e.target.value) };
                     onOverridesChange(next);
                   }}
-                  className="w-[50px] font-mono text-data-sm bg-background-card border border-border rounded-[2px] px-1.5 py-0.5 text-text-primary outline-none focus:border-ops-accent"
+                  className="w-[50px] font-mono text-data-sm bg-background-card border border-border rounded-[2px] px-1.5 py-0.5 text-text outline-none focus:border-ops-accent"
                 />
               ) : (
-                <span className="font-mohave text-body-sm text-text-tertiary">
+                <span className="font-mohave text-body-sm text-text-3">
                   ({overlapLabel(dep.overlap_percentage)})
                 </span>
               )}
@@ -611,13 +611,13 @@ function TaskForm({
     >
       {/* Form Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-mohave text-body-lg text-text-primary">
+        <h3 className="font-mohave text-body-lg text-text">
           {isEditMode ? t("taskForm.title.edit") : t("taskForm.title.create")}
         </h3>
         <button
           type="button"
           onClick={handleCancel}
-          className="p-[4px] text-text-tertiary hover:text-text-primary transition-colors"
+          className="p-[4px] text-text-3 hover:text-text transition-colors"
         >
           <X className="w-[18px] h-[18px]" />
         </button>

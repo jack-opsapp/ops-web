@@ -296,7 +296,7 @@ export function CommsConfigWizard() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2
           className={cn(
-            "w-[18px] h-[18px] text-text-tertiary",
+            "w-[18px] h-[18px] text-text-3",
             !reduceMotion && "animate-spin"
           )}
         />
@@ -398,7 +398,7 @@ export function CommsConfigWizard() {
               className={cn(
                 "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
                 "border border-[rgba(255,255,255,0.12)] bg-transparent",
-                "font-mohave text-[14px] text-text-secondary uppercase tracking-[0.04em]",
+                "font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 "hover:border-[rgba(255,255,255,0.24)]",
                 "disabled:opacity-30 disabled:cursor-not-allowed"
@@ -413,7 +413,7 @@ export function CommsConfigWizard() {
               className={cn(
                 "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
                 "border border-[#597794] bg-[#597794]",
-                "font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]",
+                "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
               )}
@@ -456,7 +456,7 @@ function ProgressBar({ step }: { step: number }) {
                 <span
                   className={cn(
                     "font-kosugi text-[9px] tracking-[0.1em]",
-                    current ? "text-text-primary" : "text-text-tertiary"
+                    current ? "text-text" : "text-text-3"
                   )}
                 >
                   {String(segStep).padStart(2, "0")}
@@ -501,13 +501,13 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
               className="w-[32px] h-[32px] rounded-[4px] shrink-0 flex items-center justify-center bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
               aria-hidden="true"
             >
-              <Icon className="w-[16px] h-[16px] text-text-secondary" />
+              <Icon className="w-[16px] h-[16px] text-text-2" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-mohave text-[13px] text-text-primary uppercase tracking-[0.04em]">
+              <div className="font-mohave text-[13px] text-text uppercase tracking-[0.04em]">
                 {t(`step1.types.${key}.title`)}
               </div>
-              <div className="font-kosugi text-[11px] text-text-tertiary mt-1">
+              <div className="font-kosugi text-[11px] text-text-3 mt-1">
                 [{t(`step1.types.${key}.caption`)}]
               </div>
             </div>
@@ -515,7 +515,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
         ))}
       </div>
       <div className="mt-4 p-3 rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
-        <p className="font-kosugi text-[12px] text-text-secondary">
+        <p className="font-kosugi text-[12px] text-text-2">
           [{t("step1.estimate")}]
         </p>
       </div>
@@ -527,7 +527,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
           className={cn(
             "flex items-center gap-2 min-h-[56px] px-6 rounded-[8px]",
             "border border-[#597794] bg-[#597794]",
-            "font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
           )}
@@ -703,7 +703,7 @@ function StepAppointmentConfirmation({
 
       {showConfirmModeSubQ && (
         <div className="pt-3 space-y-2">
-          <div className="font-mohave text-[12px] text-text-tertiary uppercase tracking-[0.08em]">
+          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em]">
             {t("step3.subQ.confirmMode")}
           </div>
           {confirmModes.map((m) => (
@@ -736,7 +736,7 @@ function StepAppointmentConfirmation({
 
       {showDelaySubQ && (
         <div className="pt-3">
-          <div className="font-mohave text-[12px] text-text-tertiary uppercase tracking-[0.08em] mb-2">
+          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em] mb-2">
             {t("step3.subQ.sendDelay")}
           </div>
           <StepSlider
@@ -756,7 +756,7 @@ function StepAppointmentConfirmation({
 
       {showRescheduleSubQ && (
         <div className="pt-3 space-y-2">
-          <div className="font-mohave text-[12px] text-text-tertiary uppercase tracking-[0.08em]">
+          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em]">
             {t("step3.subQ.rescheduleBehavior")}
           </div>
           {rescheduleOptions
@@ -906,7 +906,7 @@ function StepPaymentReminder({
       />
       {value.enabled && (
         <>
-          <div className="font-mohave text-[12px] text-text-tertiary uppercase tracking-[0.08em] pt-2">
+          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em] pt-2">
             {t("step5.preset")}
           </div>
           {presets.map((p) => (
@@ -1016,11 +1016,11 @@ function StepInvoiceCover({
       {value.enabled && (
         <>
           <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
-            <div className="font-mohave text-[13px] text-text-secondary uppercase tracking-[0.06em] mb-2">
+            <div className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em] mb-2">
               {t("step6.threshold")}
             </div>
             <div className="flex items-center gap-3">
-              <span className="font-kosugi text-[12px] text-text-tertiary">
+              <span className="font-kosugi text-[12px] text-text-3">
                 $
               </span>
               <input
@@ -1031,10 +1031,10 @@ function StepInvoiceCover({
                 onChange={(e) =>
                   onChange({ threshold: Math.max(0, Number(e.target.value) || 0) })
                 }
-                className="flex-1 min-h-[48px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text-primary outline-none focus:border-[#597794] transition-colors motion-reduce:transition-none"
+                className="flex-1 min-h-[48px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[#597794] transition-colors motion-reduce:transition-none"
               />
             </div>
-            <div className="font-kosugi text-[11px] text-text-tertiary mt-2">
+            <div className="font-kosugi text-[11px] text-text-3 mt-2">
               [{t("step6.thresholdHint")}]
             </div>
           </div>
@@ -1105,7 +1105,7 @@ function StepRescheduleRequest({
             valueLabel={`${Math.round(value.min_confidence * 100)}%`}
             onChange={(pct) => onChange({ min_confidence: pct / 100 })}
           />
-          <p className="font-kosugi text-[11px] text-text-tertiary">
+          <p className="font-kosugi text-[11px] text-text-3">
             [{t("step7.confidenceHint")}]
           </p>
 
@@ -1215,7 +1215,7 @@ function StepCategories({ t }: { t: T }) {
         />
       ) : (
         <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)]">
-          <p className="font-kosugi text-[12px] text-text-tertiary">
+          <p className="font-kosugi text-[12px] text-text-3">
             [{t("step9.noConnection")}]
           </p>
         </div>
@@ -1318,19 +1318,19 @@ function StepSummary({
             className="flex items-center justify-between gap-3 min-h-[56px] px-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2]"
           >
             <div className="flex items-center gap-2">
-              <Check className="w-[14px] h-[14px] text-text-secondary" />
-              <span className="font-mohave text-[13px] text-text-secondary uppercase tracking-[0.04em]">
+              <Check className="w-[14px] h-[14px] text-text-2" />
+              <span className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.04em]">
                 {t(row.labelKey)}
               </span>
             </div>
-            <span className="font-kosugi text-[12px] text-text-primary">
+            <span className="font-kosugi text-[12px] text-text">
               [{row.value}]
             </span>
           </div>
         ))}
       </div>
 
-      <p className="font-kosugi text-[12px] text-text-tertiary pt-2">
+      <p className="font-kosugi text-[12px] text-text-3 pt-2">
         [{t("step10.reminder")}]
       </p>
 
@@ -1342,7 +1342,7 @@ function StepSummary({
           className={cn(
             "flex-1 min-h-[56px] px-5 rounded-[8px]",
             "border border-[rgba(255,255,255,0.12)] bg-transparent",
-            "font-mohave text-[14px] text-text-secondary uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:border-[rgba(255,255,255,0.24)]",
             "disabled:opacity-50"
@@ -1357,7 +1357,7 @@ function StepSummary({
           className={cn(
             "flex-1 flex items-center justify-center gap-2 min-h-[56px] px-5 rounded-[8px]",
             "border border-[#597794] bg-[#597794]",
-            "font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]",
             "disabled:opacity-50"
@@ -1395,7 +1395,7 @@ function AutonomyPicker({
     : ["off", "draft_to_queue"];
   return (
     <div className="space-y-2 pt-2">
-      <div className="font-mohave text-[12px] text-text-tertiary uppercase tracking-[0.08em]">
+      <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em]">
         {t("autonomyPicker.label")}
       </div>
       {levels.map((lv) => (

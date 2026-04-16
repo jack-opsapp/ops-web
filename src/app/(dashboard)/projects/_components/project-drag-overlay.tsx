@@ -48,12 +48,12 @@ export function ProjectDragOverlay({
           }}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mohave text-body-sm font-medium text-text-primary truncate">
+            <span className="font-mohave text-body-sm font-medium text-text truncate">
               {primaryLabel}
             </span>
           </div>
           {clientName && (
-            <div className="font-mohave text-[11px] text-text-tertiary mt-[2px] truncate">
+            <div className="font-mohave text-[11px] text-text-3 mt-[2px] truncate">
               {clientName}
             </div>
           )}
@@ -69,7 +69,7 @@ export function ProjectDragOverlay({
               padding: "2px 8px",
             }}
           >
-            <span className="font-kosugi text-micro-sm text-text-primary">
+            <span className="font-kosugi text-micro text-text">
               +{batchCount - 1}
             </span>
           </div>

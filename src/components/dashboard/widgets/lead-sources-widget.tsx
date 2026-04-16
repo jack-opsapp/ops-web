@@ -214,7 +214,7 @@ function MultiLineTrendChart({
         {/* Y-axis labels (HTML — not stretched) */}
         <div className="flex flex-col justify-between shrink-0 pr-1" style={{ width: `${yLabelWidth}px`, height: `${chartHeight}px` }}>
           {yLabels.slice().reverse().map((val) => (
-            <span key={val} className="font-mono text-[9px] text-text-disabled text-right leading-none">
+            <span key={val} className="font-mono text-[9px] text-text-mute text-right leading-none">
               {val}
             </span>
           ))}
@@ -305,7 +305,7 @@ function MultiLineTrendChart({
             {labels.map((label, i) => (
               <span
                 key={i}
-                className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider"
+                className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider"
                 style={{ width: i === 0 ? "auto" : i === labels.length - 1 ? "auto" : undefined, textAlign: i === 0 ? "left" : i === labels.length - 1 ? "right" : "center", flex: i === 0 || i === labels.length - 1 ? "0 0 auto" : "1" }}
               >
                 {label}
@@ -468,7 +468,7 @@ export function LeadSourcesWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("leadSources.title") ?? "Lead Sources"}
           </CardTitle>
         </CardHeader>
@@ -485,8 +485,8 @@ export function LeadSourcesWidget({
       return (
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
           </div>
@@ -498,15 +498,15 @@ export function LeadSourcesWidget({
         <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">0</span>
-              <button onClick={() => onNavigate("/pipeline")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <span className="font-mono text-data-lg font-bold text-text-mute leading-none">0</span>
+              <button onClick={() => onNavigate("/pipeline")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("leadSources.noSources") ?? "No lead sources yet"}
             </span>
           </div>
@@ -516,12 +516,12 @@ export function LeadSourcesWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("leadSources.title") ?? "Lead Sources"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">0</span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("leadSources.noSources") ?? "No lead sources yet"}
             </span>
           </div>
@@ -536,13 +536,13 @@ export function LeadSourcesWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className="font-mono text-display font-bold leading-none text-text-primary">
+          <span className="font-mono text-display font-bold leading-none text-text">
             {top.count}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("leadSources.title") ?? "Lead Sources"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+          <span className="font-kosugi text-micro text-text-mute uppercase">
             {top.label}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.allTime") ?? "All Time"} />
@@ -608,12 +608,12 @@ export function LeadSourcesWidget({
         <div className="h-full flex flex-col p-3">
           {/* Hero row with arrow at top-right */}
           <div className="flex items-start justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {sourceData.total}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
@@ -621,7 +621,7 @@ export function LeadSourcesWidget({
           <div className="flex-1 flex min-w-0">
           {/* Text content */}
           <div className="flex-1 flex flex-col min-w-0">
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
             {/* Top 3 sources with color dots */}
@@ -632,10 +632,10 @@ export function LeadSourcesWidget({
                     className="w-[5px] h-[5px] rounded-full shrink-0"
                     style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
                   />
-                  <span className="font-mohave text-[10px] text-text-secondary truncate">
+                  <span className="font-mohave text-[10px] text-text-2 truncate">
                     {s.label}
                   </span>
-                  <span className="font-mono text-[9px] text-text-tertiary shrink-0">
+                  <span className="font-mono text-[9px] text-text-3 shrink-0">
                     {s.count}
                   </span>
                 </div>
@@ -692,8 +692,8 @@ export function LeadSourcesWidget({
             onMouseLeave={() => setTooltip((prev) => ({ ...prev, visible: false }))}
           >
             <div className="flex items-center justify-between mb-[2px]">
-              <span className="font-mohave text-caption-sm text-text-secondary">{s.label}</span>
-              <span className="font-mono text-micro text-text-tertiary">{s.count}</span>
+              <span className="font-mohave text-caption-sm text-text-2">{s.label}</span>
+              <span className="font-mono text-micro text-text-3">{s.count}</span>
             </div>
             <div className="rounded-sm overflow-hidden" style={{ height: `${barHeight}px`, backgroundColor: WT.faint }}>
               <div
@@ -717,10 +717,10 @@ export function LeadSourcesWidget({
         <div className="h-full flex flex-col p-3">
           {/* HEADER */}
           <div className="flex items-center justify-between mb-2">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
               {t("leadSources.title") ?? "Lead Sources"}
             </span>
-            <span className="font-mono text-micro text-text-tertiary">
+            <span className="font-mono text-micro text-text-3">
               {sourceData.total} {t("leadSources.total") ?? "total"}
             </span>
           </div>
@@ -772,7 +772,7 @@ export function LeadSourcesWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("leadSources.title") ?? "Lead Sources"}
           </span>
           <div className="flex items-center gap-1">
@@ -808,7 +808,7 @@ export function LeadSourcesWidget({
             anchor="above"
           >
             <div className="mb-1">
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 {monthLabels[crosshair.monthIndex] ?? ""}
               </span>
             </div>

@@ -199,17 +199,17 @@ export function InvoiceDetailPanel({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="font-mohave text-body-sm text-text-secondary uppercase">
+                <span className="font-mohave text-body-sm text-text-2 uppercase">
                   {(batch.submitter?.firstName?.[0] ?? "") +
                     (batch.submitter?.lastName?.[0] ?? "")}
                 </span>
               )}
             </div>
             <div>
-              <h3 className="font-mohave text-body text-text-primary uppercase">
+              <h3 className="font-mohave text-body text-text uppercase">
                 {displayName}
               </h3>
-              <p className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+              <p className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
                 {batch.batchNumber} · {periodDisplay}
               </p>
             </div>
@@ -230,24 +230,24 @@ export function InvoiceDetailPanel({
         {/* Metrics row */}
         <div className="flex gap-4">
           <div>
-            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
+            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
               TOTAL
             </span>
-            <span className="font-mono text-data text-text-primary">
+            <span className="font-mono text-data text-text">
               {formatCurrency(totalAmount)}
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
+            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
               EXPENSES
             </span>
-            <span className="font-mono text-data text-text-primary">
+            <span className="font-mono text-data text-text">
               {expenses.length}
             </span>
           </div>
           {flagCount > 0 && (
             <div>
-              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
+              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
                 FLAGGED
               </span>
               <span className="font-mono text-data text-[#C4A868] flex items-center gap-1">
@@ -263,7 +263,7 @@ export function InvoiceDetailPanel({
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-[20px] h-[20px] text-text-disabled animate-spin" />
+            <Loader2 className="w-[20px] h-[20px] text-text-mute animate-spin" />
           </div>
         ) : (
           <ExpenseLineItemTable
@@ -284,7 +284,7 @@ export function InvoiceDetailPanel({
               {/* Remove all flags text link */}
               <button
                 onClick={handleRemoveAllFlags}
-                className="font-kosugi text-[10px] text-text-tertiary hover:text-text-secondary uppercase tracking-wider transition-colors"
+                className="font-kosugi text-[10px] text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
               >
                 REMOVE ALL FLAGS
               </button>
@@ -301,7 +301,7 @@ export function InvoiceDetailPanel({
               {/* Reject — dimmed when no flags */}
               <button
                 disabled
-                className="flex-1 px-4 py-2 rounded border border-border text-text-disabled font-kosugi text-caption-sm uppercase tracking-wider cursor-not-allowed"
+                className="flex-1 px-4 py-2 rounded border border-border text-text-mute font-kosugi text-caption-sm uppercase tracking-wider cursor-not-allowed"
               >
                 REJECT
               </button>

@@ -64,10 +64,10 @@ export function InventoryTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Package className="w-[16px] h-[16px] text-text-secondary" />
+            <Package className="w-[16px] h-[16px] text-text-2" />
             <CardTitle>{t("inventory.unitsTitle")}</CardTitle>
           </div>
-          <p className="font-kosugi text-[11px] text-text-disabled mt-1">
+          <p className="font-kosugi text-[11px] text-text-mute mt-1">
             {t("inventory.unitsDescription")}
           </p>
         </CardHeader>
@@ -93,7 +93,7 @@ export function InventoryTab() {
 
           {/* Unit list */}
           {sortedUnits.length === 0 ? (
-            <p className="font-kosugi text-[11px] text-text-disabled py-4 text-center">
+            <p className="font-kosugi text-[11px] text-text-mute py-4 text-center">
               {t("inventory.noUnits")}
             </p>
           ) : (
@@ -101,10 +101,10 @@ export function InventoryTab() {
               {sortedUnits.map((unit) => (
                 <div
                   key={unit.id}
-                  className="flex items-center justify-between px-2 py-1.5 rounded border border-border bg-background-input"
+                  className="flex items-center justify-between px-2 py-1.5 rounded border border-border bg-surface-input"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-mohave text-body text-text-primary">{unit.display}</span>
+                    <span className="font-mohave text-body text-text">{unit.display}</span>
                     {unit.isDefault && (
                       <span className="font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-1.5 py-0.5 rounded">
                         {t("inventory.default")}
@@ -114,7 +114,7 @@ export function InventoryTab() {
                   <button
                     onClick={() => handleDelete(unit.id, unit.display)}
                     disabled={deleteUnit.isPending}
-                    className="text-text-disabled hover:text-red-400 transition-colors p-1"
+                    className="text-text-mute hover:text-red-400 transition-colors p-1"
                   >
                     <Trash2 className="w-[14px] h-[14px]" />
                   </button>

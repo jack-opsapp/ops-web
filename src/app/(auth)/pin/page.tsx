@@ -84,7 +84,7 @@ export default function PinPage() {
       <h1 className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none mb-1">
         {t("ops")}
       </h1>
-      <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.3em] mb-5">
+      <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mb-5">
         {t("pin.title")}
       </p>
 
@@ -137,7 +137,7 @@ export default function PinPage() {
                 disabled={pin.length === 0 || isVerifying}
                 className={cn(
                   "h-[64px] rounded flex items-center justify-center",
-                  "text-text-tertiary hover:text-text-secondary hover:bg-background-elevated",
+                  "text-text-3 hover:text-text-2 hover:bg-background-elevated",
                   "transition-all duration-150 active:scale-95",
                   "disabled:opacity-30 disabled:pointer-events-none"
                 )}
@@ -155,7 +155,7 @@ export default function PinPage() {
               className={cn(
                 "h-[64px] rounded flex items-center justify-center",
                 "bg-background-card border border-border-subtle",
-                "font-mohave text-[28px] text-text-primary",
+                "font-mohave text-[28px] text-text",
                 "hover:bg-background-elevated hover:border-border-medium hover:shadow-glow-accent",
                 "transition-all duration-150 active:scale-95",
                 "disabled:opacity-50 disabled:pointer-events-none"
@@ -169,7 +169,7 @@ export default function PinPage() {
 
       {/* Forgot PIN */}
       <button
-        className="mt-3 font-mohave text-body-sm text-text-tertiary hover:text-ops-accent transition-colors underline underline-offset-4"
+        className="mt-3 font-mohave text-body-sm text-text-3 hover:text-ops-accent transition-colors underline underline-offset-4"
         onClick={() => {
           localStorage.removeItem("ops-pin");
           toast.success(t("pin.cleared"));

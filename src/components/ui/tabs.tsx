@@ -29,10 +29,10 @@ const TabsTrigger = React.forwardRef<
     className={cn(
       "inline-flex items-center justify-center whitespace-nowrap",
       "px-2 pb-1.5 pt-1",
-      "font-mohave text-body-sm text-text-secondary",
+      "font-mohave text-body-sm text-text-2",
       "border-b-2 border-transparent -mb-px",
       "transition-all duration-150",
-      "hover:text-text-primary",
+      "hover:text-text",
       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-0",
       "disabled:pointer-events-none disabled:opacity-40",
       "data-[state=active]:text-ops-accent data-[state=active]:border-b-ops-accent",

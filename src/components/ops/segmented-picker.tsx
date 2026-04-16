@@ -79,8 +79,8 @@ export function SegmentedPicker<T extends string = string>({
               "relative flex items-center justify-center gap-[6px] transition-colors duration-200",
               iconOnly ? "px-[10px] py-[8px]" : "px-1.5 py-[8px]",
               isActive
-                ? "text-text-primary"
-                : "text-text-tertiary hover:text-text-secondary"
+                ? "text-text"
+                : "text-text-3 hover:text-text-2"
             )}
           >
             {Icon && <Icon className="w-[16px] h-[16px]" />}

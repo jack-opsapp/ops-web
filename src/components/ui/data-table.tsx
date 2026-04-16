@@ -218,9 +218,9 @@ function DataTableInner<T>(
                   key={col.id}
                   className={cn(
                     "px-1.5 py-1 text-left",
-                    "font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest",
+                    "font-kosugi text-caption-sm text-text-3 uppercase tracking-widest",
                     "whitespace-nowrap",
-                    col.sortable && "cursor-pointer select-none hover:text-text-secondary transition-colors"
+                    col.sortable && "cursor-pointer select-none hover:text-text-2 transition-colors"
                   )}
                   style={col.width ? { width: col.width } : undefined}
                   onClick={col.sortable ? () => handleSort(col.id) : undefined}
@@ -235,7 +235,7 @@ function DataTableInner<T>(
                   <span className="inline-flex items-center gap-0.5">
                     {col.header}
                     {col.sortable && (
-                      <span className="text-text-disabled">
+                      <span className="text-text-mute">
                         {sortColumn === col.id && sortDirection === "asc" ? (
                           <ArrowUp className="h-[14px] w-[14px] text-ops-accent" />
                         ) : sortColumn === col.id && sortDirection === "desc" ? (
@@ -258,7 +258,7 @@ function DataTableInner<T>(
             ) : data.length === 0 ? (
               <tr>
                 <td colSpan={totalCols} className="py-6 text-center">
-                  <div className="flex flex-col items-center gap-1 text-text-tertiary">
+                  <div className="flex flex-col items-center gap-1 text-text-3">
                     {emptyIcon}
                     <span className="font-mohave text-body-sm">{emptyMessage}</span>
                   </div>
@@ -292,7 +292,7 @@ function DataTableInner<T>(
                         key={col.id}
                         className={cn(
                           "px-1.5 py-1.5",
-                          "text-body-sm text-text-primary",
+                          "text-body-sm text-text",
                           col.mono && "font-mono text-data-sm"
                         )}
                       >
@@ -309,7 +309,7 @@ function DataTableInner<T>(
 
       {/* Loading indicator */}
       {loading && (
-        <div className="flex items-center justify-center gap-1 py-1 text-text-tertiary">
+        <div className="flex items-center justify-center gap-1 py-1 text-text-3">
           <Loader2 className="h-[16px] w-[16px] animate-spin" />
           <span className="text-caption-sm font-mohave">Loading data...</span>
         </div>
@@ -318,7 +318,7 @@ function DataTableInner<T>(
       {/* Pagination */}
       {onPageChange && totalPages > 1 && (
         <div className="flex items-center justify-between gap-1 pt-0.5">
-          <span className="text-caption-sm text-text-tertiary font-mono">
+          <span className="text-caption-sm text-text-3 font-mono">
             Page {page} of {totalPages} ({total} records)
           </span>
           <div className="flex items-center gap-0.5">

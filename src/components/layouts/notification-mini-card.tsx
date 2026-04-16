@@ -91,7 +91,7 @@ export function NotificationMiniCard({
       }}
     >
       {/* Title */}
-      <span className="font-mohave text-[12px] text-text-primary truncate flex-1 text-left">
+      <span className="font-mohave text-[12px] text-text truncate flex-1 text-left">
         {displayTitle}
       </span>
 
@@ -109,7 +109,7 @@ export function NotificationMiniCard({
             e.stopPropagation();
             onDismiss(notification.id);
           }}
-          className="shrink-0 p-[2px] text-text-disabled hover:text-text-secondary transition-colors duration-150"
+          className="shrink-0 p-[2px] text-text-mute hover:text-text-2 transition-colors duration-150"
           aria-label="Dismiss"
         >
           <X className="w-[12px] h-[12px]" />

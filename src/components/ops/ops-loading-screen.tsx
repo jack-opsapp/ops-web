@@ -105,7 +105,7 @@ export function OpsLoadingScreen({
       {showText && (
         <span
           className={cn(
-            "font-kosugi text-[10px] uppercase tracking-[0.3em] text-text-disabled",
+            "font-kosugi text-[10px] uppercase tracking-[0.3em] text-text-mute",
             !prefersReducedMotion && "ops-loading-text"
           )}
         >

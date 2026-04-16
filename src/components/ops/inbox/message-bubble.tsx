@@ -46,11 +46,11 @@ function AttachmentImage({
   if (error) {
     return (
       <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-[3px] bg-background-card border border-border-subtle">
-        <ImageIcon className="w-3.5 h-3.5 text-text-disabled" />
-        <span className="font-mohave text-caption-sm text-text-disabled truncate">
+        <ImageIcon className="w-3.5 h-3.5 text-text-mute" />
+        <span className="font-mohave text-caption-sm text-text-mute truncate">
           {attachment.filename}
         </span>
-        <span className="font-kosugi text-micro-sm text-text-disabled">
+        <span className="font-kosugi text-micro text-text-mute">
           {formatFileSize(attachment.size)}
         </span>
       </div>
@@ -65,7 +65,7 @@ function AttachmentImage({
       >
         {!loaded && (
           <div className="w-[200px] h-[120px] bg-background-card animate-pulse flex items-center justify-center">
-            <ImageIcon className="w-5 h-5 text-text-disabled" />
+            <ImageIcon className="w-5 h-5 text-text-mute" />
           </div>
         )}
         <img
@@ -88,7 +88,7 @@ function AttachmentImage({
         >
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-border-subtle bg-background-card text-text-secondary font-kosugi text-micro-sm uppercase tracking-wider hover:bg-background-input hover:text-text-primary transition-colors cursor-pointer"
+            className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-border-subtle bg-background-card text-text-2 font-kosugi text-micro uppercase tracking-wider hover:bg-surface-input hover:text-text transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             Close
@@ -126,12 +126,12 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
             "px-3 py-2.5",
             isOutbound
               ? "bg-ops-accent-muted rounded-[3px_3px_1px_3px]"
-              : "bg-background-input rounded-[3px_3px_3px_1px]"
+              : "bg-surface-input rounded-[3px_3px_3px_1px]"
           )}
         >
-          <p className="font-mohave text-body-sm text-text-secondary whitespace-pre-wrap break-words">
+          <p className="font-mohave text-body-sm text-text-2 whitespace-pre-wrap break-words">
             {message.content || (
-              <span className="italic text-text-disabled">No message content available.</span>
+              <span className="italic text-text-mute">No message content available.</span>
             )}
           </p>
 
@@ -154,8 +154,8 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
           {/* Non-image attachment indicator */}
           {hasNonImageAttachments && (
             <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border-subtle">
-              <Paperclip className="w-3 h-3 text-text-disabled" />
-              <span className="font-kosugi text-micro-sm text-text-disabled">
+              <Paperclip className="w-3 h-3 text-text-mute" />
+              <span className="font-kosugi text-micro text-text-mute">
                 {nonImageAttachments.length || message.attachmentCount} attachment
                 {(nonImageAttachments.length || message.attachmentCount) > 1 ? "s" : ""}
               </span>
@@ -169,12 +169,12 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
             "flex items-center gap-1.5 mt-0.5 px-1",
             isOutbound ? "justify-end" : "justify-start"
           )}>
-            <span className="font-kosugi text-micro-sm text-text-disabled">
+            <span className="font-kosugi text-micro text-text-mute">
               {formatTime(message.timestamp)}
             </span>
             {!isOutbound && message.senderEmail && (
-              <span className="font-kosugi text-micro-sm text-text-disabled truncate max-w-[200px]">
-                <span className="text-text-disabled/50 mx-0.5">&middot;</span>
+              <span className="font-kosugi text-micro text-text-mute truncate max-w-[200px]">
+                <span className="text-text-mute/50 mx-0.5">&middot;</span>
                 {message.senderEmail}
               </span>
             )}

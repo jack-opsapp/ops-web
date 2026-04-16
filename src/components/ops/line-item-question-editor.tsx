@@ -104,7 +104,7 @@ function OptionsEditor({ options, onChange, answerType }: OptionsEditorProps) {
 
   return (
     <div className="space-y-1">
-      <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+      <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
         Options
       </p>
 
@@ -114,7 +114,7 @@ function OptionsEditor({ options, onChange, answerType }: OptionsEditorProps) {
           {options.map((opt, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded bg-background-elevated border border-border text-body-sm text-text-secondary font-mohave"
+              className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded bg-background-elevated border border-border text-body-sm text-text-2 font-mohave"
             >
               {answerType === "color" && (
                 <span
@@ -128,7 +128,7 @@ function OptionsEditor({ options, onChange, answerType }: OptionsEditorProps) {
               <button
                 type="button"
                 onClick={() => removeOption(i)}
-                className="text-text-disabled hover:text-ops-error transition-colors"
+                className="text-text-mute hover:text-ops-error transition-colors"
               >
                 <X className="w-[10px] h-[10px]" />
               </button>
@@ -224,7 +224,7 @@ function QuestionForm({ initial, onSubmit, onCancel, submitLabel }: QuestionForm
 
       {/* Answer type */}
       <div className="flex flex-col gap-0.5">
-        <p className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <p className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           Answer Type
         </p>
         <Select value={answerType} onValueChange={handleAnswerTypeChange}>
@@ -235,7 +235,7 @@ function QuestionForm({ initial, onSubmit, onCancel, submitLabel }: QuestionForm
             {ANSWER_TYPES.map((at) => (
               <SelectItem key={at.value} value={at.value}>
                 <span className="flex items-center gap-[6px]">
-                  <at.icon className="w-[14px] h-[14px] text-text-tertiary" />
+                  <at.icon className="w-[14px] h-[14px] text-text-3" />
                   {at.label}
                 </span>
               </SelectItem>
@@ -255,7 +255,7 @@ function QuestionForm({ initial, onSubmit, onCancel, submitLabel }: QuestionForm
 
       {/* Required toggle */}
       <div className="flex items-center justify-between py-[4px]">
-        <span className="font-mohave text-body-sm text-text-secondary">Required</span>
+        <span className="font-mohave text-body-sm text-text-2">Required</span>
         <button
           type="button"
           onClick={() => setIsRequired(!isRequired)}
@@ -368,8 +368,8 @@ export function LineItemQuestionEditor({
     <div className="space-y-1">
       {/* Header */}
       <div className="flex items-center gap-[6px]">
-        <HelpCircle className="w-[14px] h-[14px] text-text-tertiary" />
-        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+        <HelpCircle className="w-[14px] h-[14px] text-text-3" />
+        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
           Client Questions ({questions.length})
         </span>
       </div>
@@ -406,7 +406,7 @@ export function LineItemQuestionEditor({
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-[6px]">
-                    <p className="font-mohave text-body-sm text-text-primary truncate">
+                    <p className="font-mohave text-body-sm text-text truncate">
                       {question.questionText}
                     </p>
                     {question.isRequired && (
@@ -417,12 +417,12 @@ export function LineItemQuestionEditor({
                   </div>
 
                   <div className="flex items-center gap-[6px] mt-[2px]">
-                    <typeConfig.icon className="w-[11px] h-[11px] text-text-disabled" />
-                    <span className="font-kosugi text-[10px] text-text-disabled">
+                    <typeConfig.icon className="w-[11px] h-[11px] text-text-mute" />
+                    <span className="font-kosugi text-[10px] text-text-mute">
                       {typeConfig.label}
                     </span>
                     {question.options.length > 0 && (
-                      <span className="font-kosugi text-[10px] text-text-disabled">
+                      <span className="font-kosugi text-[10px] text-text-mute">
                         -- {question.options.length} option{question.options.length !== 1 ? "s" : ""}
                       </span>
                     )}
@@ -434,7 +434,7 @@ export function LineItemQuestionEditor({
                       {question.options.slice(0, 6).map((opt, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded bg-background-elevated text-[10px] text-text-tertiary font-kosugi border border-[rgba(255,255,255,0.06)]"
+                          className="inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded bg-background-elevated text-[10px] text-text-3 font-kosugi border border-[rgba(255,255,255,0.06)]"
                         >
                           {question.answerType === "color" && (
                             <span
@@ -448,7 +448,7 @@ export function LineItemQuestionEditor({
                         </span>
                       ))}
                       {question.options.length > 6 && (
-                        <span className="text-[10px] text-text-disabled font-kosugi">
+                        <span className="text-[10px] text-text-mute font-kosugi">
                           +{question.options.length - 6} more
                         </span>
                       )}
@@ -461,7 +461,7 @@ export function LineItemQuestionEditor({
                   <button
                     type="button"
                     onClick={() => setEditingId(question.id)}
-                    className="p-[4px] rounded text-text-disabled hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                    className="p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
                     title="Edit question"
                   >
                     <Pencil className="w-[13px] h-[13px]" />
@@ -469,7 +469,7 @@ export function LineItemQuestionEditor({
                   <button
                     type="button"
                     onClick={() => handleDelete(question.id)}
-                    className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                    className="p-[4px] rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                     title="Delete question"
                   >
                     <Trash2 className="w-[13px] h-[13px]" />
@@ -493,7 +493,7 @@ export function LineItemQuestionEditor({
           variant="ghost"
           size="sm"
           onClick={() => setIsAdding(true)}
-          className="gap-1 text-text-tertiary"
+          className="gap-1 text-text-3"
         >
           <Plus className="w-[14px] h-[14px]" />
           Add Question

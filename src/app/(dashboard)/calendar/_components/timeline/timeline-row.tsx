@@ -86,10 +86,10 @@ export function TimelineRow({
 
         {/* Name + Role */}
         <div className="flex flex-col min-w-0">
-          <span className="font-mohave font-semibold text-[13px] text-text-primary truncate leading-tight">
+          <span className="font-mohave font-semibold text-[13px] text-text truncate leading-tight">
             {fullName}
           </span>
-          <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-secondary leading-tight">
+          <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-2 leading-tight">
             {roleLabel}
           </span>
         </div>

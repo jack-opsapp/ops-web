@@ -682,7 +682,7 @@ function PipelineSkeleton() {
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
-          <p className="font-kosugi text-caption-sm text-text-tertiary">
+          <p className="font-kosugi text-caption-sm text-text-3">
             {t("loading")}
           </p>
         </div>
@@ -719,7 +719,7 @@ function PipelineSkeleton() {
                   >
                     {stage.name}
                   </h3>
-                  <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
+                  <span className="font-mono text-[11px] text-text-mute bg-background-elevated px-[6px] py-[2px] rounded-sm">
                     --
                   </span>
                 </div>
@@ -1409,10 +1409,10 @@ export default function PipelinePage() {
                 <Mail className="w-[16px] h-[16px] text-[#597794]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-mohave text-body text-text-primary">
+                <p className="font-mohave text-body text-text">
                   {t("gmail.connectBanner")}
                 </p>
-                <p className="font-kosugi text-[11px] text-text-disabled">
+                <p className="font-kosugi text-[11px] text-text-mute">
                   {t("gmail.connectDesc")}
                 </p>
               </div>
@@ -1433,7 +1433,7 @@ export default function PipelinePage() {
                 </Button>
                 <button
                   onClick={() => setGmailBannerDismissed(true)}
-                  className="p-[6px] text-text-disabled hover:text-text-tertiary transition-colors"
+                  className="p-[6px] text-text-mute hover:text-text-3 transition-colors"
                   title={t("gmail.dismiss")}
                 >
                   <X className="w-[14px] h-[14px]" />

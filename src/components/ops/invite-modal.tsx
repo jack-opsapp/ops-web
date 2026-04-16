@@ -264,28 +264,28 @@ export function InviteModal({
           {/* Company code */}
           {companyCode && (
             <div className="flex flex-col gap-0.5">
-              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                 {t("team.companyCode")}
               </label>
               <div className="flex items-center gap-1">
                 <div className="flex-1 flex items-center gap-1 px-1.5 py-[8px] rounded-sm border border-border bg-background-elevated">
-                  <span className="font-mono text-body-sm text-text-primary tracking-wider">
+                  <span className="font-mono text-body-sm text-text tracking-wider">
                     {companyCode}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={handleCopyCode}
-                  className="p-[8px] rounded-sm border border-border bg-background-input hover:bg-background-elevated transition-colors"
+                  className="p-[8px] rounded-sm border border-border bg-surface-input hover:bg-background-elevated transition-colors"
                 >
                   {codeCopied ? (
                     <Check className="w-[14px] h-[14px] text-status-success" />
                   ) : (
-                    <Copy className="w-[14px] h-[14px] text-text-tertiary" />
+                    <Copy className="w-[14px] h-[14px] text-text-3" />
                   )}
                 </button>
               </div>
-              <p className="font-kosugi text-[10px] text-text-disabled">
+              <p className="font-kosugi text-[10px] text-text-mute">
                 {t("team.companyCodeHint")}
               </p>
             </div>
@@ -309,7 +309,7 @@ export function InviteModal({
                   "flex items-center gap-[6px] px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all",
                   inviteMode === mode.id
                     ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                    : "bg-background-input border-border text-text-tertiary hover:text-text-secondary"
+                    : "bg-surface-input border-border text-text-3 hover:text-text-2"
                 )}
               >
                 <mode.icon className="w-[14px] h-[14px]" />
@@ -325,12 +325,12 @@ export function InviteModal({
 
           {/* Multi-entry input with chips */}
           <div>
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest mb-0.5 block">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest mb-0.5 block">
               {inviteMode === "email" ? t("team.emailAddress") : t("team.phoneNumber")}
             </label>
             <div
               className={cn(
-                "flex flex-wrap items-center gap-[6px] p-1 rounded-sm border bg-background-input min-h-[40px]",
+                "flex flex-wrap items-center gap-[6px] p-1 rounded-sm border bg-surface-input min-h-[40px]",
                 "border-border focus-within:border-ops-accent transition-colors"
               )}
             >
@@ -342,7 +342,7 @@ export function InviteModal({
                   {entry}
                   <button
                     onClick={() => removeEntry(entry)}
-                    className="hover:text-text-primary transition-colors"
+                    className="hover:text-text transition-colors"
                   >
                     <X className="w-[10px] h-[10px]" />
                   </button>
@@ -360,17 +360,17 @@ export function InviteModal({
                       : t("team.phonePlaceholder")
                     : t("team.addMore")
                 }
-                className="flex-1 min-w-[120px] bg-transparent outline-none font-mohave text-body-sm text-text-primary placeholder:text-text-disabled"
+                className="flex-1 min-w-[120px] bg-transparent outline-none font-mohave text-body-sm text-text placeholder:text-text-mute"
               />
             </div>
-            <p className="font-kosugi text-[10px] text-text-disabled mt-[4px]">
+            <p className="font-kosugi text-[10px] text-text-mute mt-[4px]">
               {t("team.multiInviteHint")}
             </p>
           </div>
 
           {/* RBAC Role picker */}
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               {t("team.assignRole")}
             </label>
             <div className="flex flex-wrap items-center gap-1">
@@ -383,7 +383,7 @@ export function InviteModal({
                     "px-1.5 py-[6px] rounded border font-mohave text-body-sm transition-all",
                     selectedRoleId === role.id
                       ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                      : "bg-background-input border-border text-text-tertiary hover:text-text-secondary"
+                      : "bg-surface-input border-border text-text-3 hover:text-text-2"
                   )}
                 >
                   {role.name}
@@ -392,11 +392,11 @@ export function InviteModal({
             </div>
             {/* Role description */}
             {selectedRole?.description ? (
-              <p className="font-kosugi text-[10px] text-text-tertiary mt-[2px]">
+              <p className="font-kosugi text-[10px] text-text-3 mt-[2px]">
                 {selectedRole.description}
               </p>
             ) : (
-              <p className="font-kosugi text-[10px] text-text-disabled">
+              <p className="font-kosugi text-[10px] text-text-mute">
                 {t("team.roleAssignHint")}
               </p>
             )}

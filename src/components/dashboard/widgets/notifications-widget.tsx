@@ -133,10 +133,10 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-display font-bold text-text-primary leading-none">
+          <span className="font-mono text-display font-bold text-text leading-none">
             {isLoading ? "—" : count}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("notifications.title")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.unread") ?? "Unread"} />
@@ -151,10 +151,10 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("notifications.title")}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
+          <span className="font-mono text-micro text-text-3">
             {sortLabel}
           </span>
         </div>
@@ -162,7 +162,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
         {/* Loading state */}
         {isLoading && (
           <div className="flex-1 flex items-center justify-center">
-            <p className="font-mohave text-body-sm text-text-disabled">
+            <p className="font-mohave text-body-sm text-text-mute">
               {t("notifications.loading")}
             </p>
           </div>
@@ -171,8 +171,8 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
         {/* Empty state */}
         {!isLoading && sorted.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center gap-2">
-            <Bell className="w-[20px] h-[20px] text-text-disabled" />
-            <p className="font-mohave text-body-sm text-text-disabled text-center">
+            <Bell className="w-[20px] h-[20px] text-text-mute" />
+            <p className="font-mohave text-body-sm text-text-mute text-center">
               {t("notifications.allClear")}
             </p>
           </div>
@@ -205,7 +205,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
                           e.stopPropagation();
                           dismissMutation.mutate(notification.id);
                         }}
-                        className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+                        className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
                       >
                         <X className="w-3 h-3" />
                       </button>

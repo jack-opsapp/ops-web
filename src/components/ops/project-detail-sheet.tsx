@@ -82,15 +82,15 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               {/* Address */}
               {project.address && (
                 <div className="flex items-start gap-[8px]">
-                  <MapPin className="w-[16px] h-[16px] text-text-tertiary mt-[2px] shrink-0" />
-                  <span className="font-mohave text-body-sm text-text-secondary">{project.address}</span>
+                  <MapPin className="w-[16px] h-[16px] text-text-3 mt-[2px] shrink-0" />
+                  <span className="font-mohave text-body-sm text-text-2">{project.address}</span>
                 </div>
               )}
 
               {/* Dates */}
               <div className="flex items-center gap-[8px]">
-                <CalendarDays className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
-                <span className="font-mono text-[12px] text-text-secondary">
+                <CalendarDays className="w-[16px] h-[16px] text-text-3 shrink-0" />
+                <span className="font-mono text-[12px] text-text-2">
                   {project.startDate
                     ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
@@ -115,28 +115,28 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               <div className="grid grid-cols-3 gap-1.5 pt-1">
                 <div className="bg-background-elevated rounded-lg p-1.5 text-center">
                   <ClipboardList className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
-                  <p className="font-mono text-body text-text-primary">{completedTasks}/{totalTasks}</p>
-                  <p className="font-kosugi text-[10px] text-text-disabled">Tasks</p>
+                  <p className="font-mono text-body text-text">{completedTasks}/{totalTasks}</p>
+                  <p className="font-kosugi text-[10px] text-text-mute">Tasks</p>
                 </div>
                 <div className="bg-background-elevated rounded-lg p-1.5 text-center">
                   <Users className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
-                  <p className="font-mono text-body text-text-primary">{project.teamMemberIds?.length ?? 0}</p>
-                  <p className="font-kosugi text-[10px] text-text-disabled">Team</p>
+                  <p className="font-mono text-body text-text">{project.teamMemberIds?.length ?? 0}</p>
+                  <p className="font-kosugi text-[10px] text-text-mute">Team</p>
                 </div>
                 <div className="bg-background-elevated rounded-lg p-1.5 text-center">
                   <CalendarDays className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
-                  <p className="font-mono text-body text-text-primary">
+                  <p className="font-mono text-body text-text">
                     {project.duration ? `${project.duration}d` : "—"}
                   </p>
-                  <p className="font-kosugi text-[10px] text-text-disabled">Duration</p>
+                  <p className="font-kosugi text-[10px] text-text-mute">Duration</p>
                 </div>
               </div>
 
               {/* Notes */}
               {project.notes && (
                 <div className="pt-1.5 border-t border-border-subtle">
-                  <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">Notes</p>
-                  <p className="font-mohave text-body-sm text-text-secondary whitespace-pre-wrap line-clamp-4">
+                  <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">Notes</p>
+                  <p className="font-mohave text-body-sm text-text-2 whitespace-pre-wrap line-clamp-4">
                     {project.notes}
                   </p>
                 </div>
@@ -145,7 +145,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               {/* Tasks preview */}
               {tasks && tasks.length > 0 && (
                 <div className="pt-1.5 border-t border-border-subtle">
-                  <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[6px]">Tasks</p>
+                  <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[6px]">Tasks</p>
                   <div className="space-y-[4px]">
                     {tasks.slice(0, 5).map((task) => (
                       <div
@@ -156,16 +156,16 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                           className="w-[8px] h-[8px] rounded-full shrink-0"
                           style={{ backgroundColor: task.taskColor || "#666" }}
                         />
-                        <span className="font-mohave text-body-sm text-text-primary truncate">
+                        <span className="font-mohave text-body-sm text-text truncate">
                           {task.customTitle || "Untitled"}
                         </span>
-                        <span className="ml-auto font-kosugi text-[10px] text-text-disabled shrink-0">
+                        <span className="ml-auto font-kosugi text-[10px] text-text-mute shrink-0">
                           {task.status}
                         </span>
                       </div>
                     ))}
                     {tasks.length > 5 && (
-                      <p className="font-kosugi text-[10px] text-text-disabled text-center py-[4px]">
+                      <p className="font-kosugi text-[10px] text-text-mute text-center py-[4px]">
                         +{tasks.length - 5} more
                       </p>
                     )}
@@ -188,7 +188,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               </div>
             </div>
           ) : (
-            <p className="font-mohave text-body text-text-tertiary text-center py-4">
+            <p className="font-mohave text-body text-text-3 text-center py-4">
               Project not found
             </p>
           )}

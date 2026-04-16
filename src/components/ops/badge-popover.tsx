@@ -146,8 +146,8 @@ export function MiniTeamPickerPopover({
                   className={cn(
                     "flex-1 font-mohave text-body-sm text-left",
                     isSelected
-                      ? "text-text-primary"
-                      : "text-text-secondary"
+                      ? "text-text"
+                      : "text-text-2"
                   )}
                 >
                   {getUserFullName(member)}

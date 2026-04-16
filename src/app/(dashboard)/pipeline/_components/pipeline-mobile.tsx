@@ -178,7 +178,7 @@ function SwipeableCard({
           className="absolute inset-0 flex items-center justify-end px-[12px] rounded-[4px] bg-[rgba(157,181,130,0.15)] border border-[rgba(157,181,130,0.3)]"
           style={{ opacity: advanceOpacity }}
         >
-          <span className="font-kosugi text-micro-sm text-[#9DB582]">
+          <span className="font-kosugi text-micro text-[#9DB582]">
             {t("mobile.swipeAdvance").replace(
               "{stage}",
               getStageDisplayName(next)
@@ -193,7 +193,7 @@ function SwipeableCard({
           className="absolute inset-0 flex items-center justify-start px-[12px] rounded-[4px] bg-[rgba(181,130,137,0.15)] border border-[rgba(181,130,137,0.3)]"
           style={{ opacity: retreatOpacity }}
         >
-          <span className="font-kosugi text-micro-sm text-[#B58289]">
+          <span className="font-kosugi text-micro text-[#B58289]">
             {t("mobile.swipeRetreat").replace(
               "{stage}",
               getStageDisplayName(prev)
@@ -346,10 +346,10 @@ export function PipelineMobile({
             {stageOpportunities.length === 0 ? (
               /* ── Empty state ───────────────────────────────────── */
               <div className="flex flex-col items-center justify-center py-[64px] gap-[8px]">
-                <span className="font-mohave text-body text-text-disabled">
+                <span className="font-mohave text-body text-text-mute">
                   {t("empty.noDeals")}
                 </span>
-                <span className="font-kosugi text-micro-sm text-text-disabled">
+                <span className="font-kosugi text-micro text-text-mute">
                   {t("empty.swipeHint")}
                 </span>
               </div>

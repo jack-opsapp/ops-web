@@ -19,10 +19,10 @@ interface ConversationListProps {
 function ConversationSkeleton() {
   return (
     <div className="px-2.5 py-2.5 flex items-start gap-1.5 animate-pulse">
-      <div className="w-[28px] h-[28px] rounded-full bg-background-input shrink-0" />
+      <div className="w-[28px] h-[28px] rounded-full bg-surface-input shrink-0" />
       <div className="flex-1 space-y-1.5">
         <div className="flex justify-between">
-          <div className="h-[14px] w-[100px] rounded bg-background-input" />
+          <div className="h-[14px] w-[100px] rounded bg-surface-input" />
           <div className="h-[12px] w-[24px] rounded bg-border-subtle" />
         </div>
         <div className="h-[12px] w-3/4 rounded bg-border-subtle" />
@@ -78,14 +78,14 @@ export function ConversationList({
     <div className="flex flex-col h-full" onKeyDown={handleKeyDown} tabIndex={0}>
       {/* Search */}
       <div className="p-2.5 border-b border-border-subtle">
-        <div className="flex items-center gap-1.5 bg-background-input border border-border-subtle rounded-[3px] px-2.5 py-[7px]">
-          <Search className="w-3.5 h-3.5 text-text-disabled shrink-0" />
+        <div className="flex items-center gap-1.5 bg-surface-input border border-border-subtle rounded-[3px] px-2.5 py-[7px]">
+          <Search className="w-3.5 h-3.5 text-text-mute shrink-0" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("search.placeholder")}
-            className="flex-1 bg-transparent text-body-sm font-mohave text-text-primary placeholder:text-text-placeholder placeholder:uppercase outline-none"
+            className="flex-1 bg-transparent text-body-sm font-mohave text-text placeholder:text-text-3 placeholder:uppercase outline-none"
           />
         </div>
       </div>
@@ -94,10 +94,10 @@ export function ConversationList({
       <div className="px-2.5 py-1.5">
         <button
           onClick={onNewMessage}
-          className="flex items-center justify-center gap-1 w-full py-[5px] rounded-[3px] border border-border-subtle bg-background-input hover:bg-background-card transition-colors"
+          className="flex items-center justify-center gap-1 w-full py-[5px] rounded-[3px] border border-border-subtle bg-surface-input hover:bg-background-card transition-colors"
         >
-          <Plus className="w-[12px] h-[12px] text-text-disabled" />
-          <span className="font-kosugi text-micro text-text-disabled uppercase tracking-[0.5px]">
+          <Plus className="w-[12px] h-[12px] text-text-mute" />
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-[0.5px]">
             {t("newMessage")}
           </span>
         </button>
@@ -116,11 +116,11 @@ export function ConversationList({
 
         {!isLoading && filtered.length === 0 && (
           <div className="px-4 py-8 text-left">
-            <p className="font-mohave text-body-sm text-text-disabled">
+            <p className="font-mohave text-body-sm text-text-mute">
               {searchQuery ? "No conversations match your search." : t("empty.title")}
             </p>
             {!searchQuery && (
-              <p className="font-kosugi text-caption-sm text-text-disabled mt-1">
+              <p className="font-kosugi text-caption-sm text-text-mute mt-1">
                 {t("empty.description")}
               </p>
             )}

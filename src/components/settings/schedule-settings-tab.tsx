@@ -133,7 +133,7 @@ export function ScheduleSettingsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-text-tertiary" />
+        <Loader2 className="w-5 h-5 animate-spin text-text-3" />
       </div>
     );
   }
@@ -143,10 +143,10 @@ export function ScheduleSettingsTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-mohave text-[16px] text-text-primary uppercase tracking-wider">
+          <h2 className="font-mohave text-[16px] text-text uppercase tracking-wider">
             {t("settings.title")}
           </h2>
-          <p className="font-kosugi text-[12px] text-text-tertiary mt-1">
+          <p className="font-kosugi text-[12px] text-text-3 mt-1">
             [{t("settings.description")}]
           </p>
         </div>
@@ -181,7 +181,7 @@ export function ScheduleSettingsTab() {
       {/* Optimization window */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
         <div className="flex items-center justify-between min-h-[56px]">
-          <span className="font-mohave text-[13px] text-text-secondary">
+          <span className="font-mohave text-[13px] text-text-2">
             {t("settings.optimizationWindow")}
           </span>
           <div className="flex items-center gap-2">
@@ -195,9 +195,9 @@ export function ScheduleSettingsTab() {
                 const v = Math.max(1, Math.min(7, Number(e.target.value) || 2));
                 update({ optimization_window_days: v });
               }}
-              className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text-primary text-right outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150"
+              className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150"
             />
-            <span className="font-kosugi text-[11px] text-text-tertiary min-w-[60px]">
+            <span className="font-kosugi text-[11px] text-text-3 min-w-[60px]">
               {t("settings.optimizationWindowSuffix")}
             </span>
           </div>
@@ -239,7 +239,7 @@ export function ScheduleSettingsTab() {
           <>
             {/* Climate zone */}
             <div className="flex items-center justify-between min-h-[56px]">
-              <span className="font-mohave text-[13px] text-text-secondary">
+              <span className="font-mohave text-[13px] text-text-2">
                 {t("settings.climateZone")}
               </span>
               <select
@@ -249,7 +249,7 @@ export function ScheduleSettingsTab() {
                     climate_zone: e.target.value as "northern" | "southern" | "auto",
                   })
                 }
-                className="h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mohave text-[13px] text-text-primary outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150 [color-scheme:dark]"
+                className="h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mohave text-[13px] text-text outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150 [color-scheme:dark]"
               >
                 <option value="auto">{t("settings.climateZone.auto")}</option>
                 <option value="northern">{t("settings.climateZone.northern")}</option>
@@ -259,14 +259,14 @@ export function ScheduleSettingsTab() {
 
             {/* Outdoor task types */}
             <div>
-              <span className="font-kosugi text-[11px] text-text-tertiary block mb-2">
+              <span className="font-kosugi text-[11px] text-text-3 block mb-2">
                 [{t("settings.outdoorTaskTypes")}]
               </span>
-              <p className="font-kosugi text-[11px] text-text-tertiary mb-2">
+              <p className="font-kosugi text-[11px] text-text-3 mb-2">
                 {t("settings.outdoorTaskTypesDesc")}
               </p>
               {taskTypes.length === 0 ? (
-                <p className="font-kosugi text-[12px] text-text-disabled py-2">
+                <p className="font-kosugi text-[12px] text-text-mute py-2">
                   {t("settings.noTaskTypes")}
                 </p>
               ) : (
@@ -292,11 +292,11 @@ export function ScheduleSettingsTab() {
                           className="w-[8px] h-[8px] rounded-full shrink-0"
                           style={{ backgroundColor: tt.color }}
                         />
-                        <span className="font-mohave text-[12px] text-text-primary">
+                        <span className="font-mohave text-[12px] text-text">
                           {tt.display}
                         </span>
                         {isSelected && (
-                          <X className="w-[12px] h-[12px] text-text-tertiary" />
+                          <X className="w-[12px] h-[12px] text-text-3" />
                         )}
                       </button>
                     );
@@ -325,7 +325,7 @@ function ToggleRow({
   return (
     <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
       <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
-        <span className="font-mohave text-[14px] text-text-primary">
+        <span className="font-mohave text-[14px] text-text">
           {label}
         </span>
         <ToggleSwitch checked={checked} onChange={onChange} />
@@ -350,10 +350,10 @@ function ToggleRowInline({
   return (
     <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
       <div>
-        <span className="font-mohave text-[13px] text-text-primary block">
+        <span className="font-mohave text-[13px] text-text block">
           {label}
         </span>
-        <span className="font-kosugi text-[11px] text-text-tertiary block">
+        <span className="font-kosugi text-[11px] text-text-3 block">
           {description}
         </span>
       </div>

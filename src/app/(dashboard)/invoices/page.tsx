@@ -245,7 +245,7 @@ export default function InvoicesPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-caption-sm text-text-tertiary">
+        <span className="font-kosugi text-caption-sm text-text-3">
           {filtered.length} invoice{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -276,11 +276,11 @@ export default function InvoicesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">
-          <Receipt className="w-[48px] h-[48px] text-text-disabled mb-2" />
-          <h3 className="font-mohave text-heading text-text-primary">
+          <Receipt className="w-[48px] h-[48px] text-text-mute mb-2" />
+          <h3 className="font-mohave text-heading text-text">
             {searchQuery || filterStatus !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.none")}
           </h3>
-          <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
+          <p className="font-kosugi text-caption text-text-3 mt-0.5">
             {searchQuery || filterStatus !== "all"
               ? t("invoices.empty.noMatch")
               : t("invoices.empty.helper")}
@@ -297,16 +297,16 @@ export default function InvoicesPage() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.number")}</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.client")}</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">{t("invoices.table.project")}</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">{t("invoices.table.date")}</th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">{t("invoices.table.due")}</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.total")}</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">{t("invoices.table.paid")}</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.balance")}</th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.status")}</th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.table.actions")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.table.number")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.table.client")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">{t("invoices.table.project")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">{t("invoices.table.date")}</th>
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">{t("invoices.table.due")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.table.total")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">{t("invoices.table.paid")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.table.balance")}</th>
+                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.table.status")}</th>
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.table.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -320,28 +320,28 @@ export default function InvoicesPage() {
                     <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
                   </td>
                   <td className="px-1.5 py-1">
-                    <span className="font-mohave text-body text-text-primary truncate block max-w-[160px]">
+                    <span className="font-mohave text-body text-text truncate block max-w-[160px]">
                       {invoice.clientId ? clientMap.get(invoice.clientId) ?? "--" : "--"}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden md:table-cell">
-                    <span className="font-mohave text-body-sm text-text-tertiary truncate block max-w-[160px]">
+                    <span className="font-mohave text-body-sm text-text-3 truncate block max-w-[160px]">
                       {invoice.projectId ? projectMap.get(invoice.projectId) ?? "--" : "--"}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
-                    <span className="font-mono text-data-sm text-text-tertiary">{formatDate(invoice.issueDate, locale)}</span>
+                    <span className="font-mono text-data-sm text-text-3">{formatDate(invoice.issueDate, locale)}</span>
                   </td>
                   <td className="px-1.5 py-1 hidden lg:table-cell">
                     <span className={cn(
                       "font-mono text-data-sm",
-                      invoice.status === InvoiceStatus.PastDue ? "text-ops-error" : "text-text-tertiary"
+                      invoice.status === InvoiceStatus.PastDue ? "text-ops-error" : "text-text-3"
                     )}>
                       {formatDate(invoice.dueDate, locale)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 text-right">
-                    <span className="font-mono text-data text-text-primary">{formatCurrency(invoice.total)}</span>
+                    <span className="font-mono text-data text-text">{formatCurrency(invoice.total)}</span>
                   </td>
                   <td className="px-1.5 py-1 text-right hidden sm:table-cell">
                     <span className="font-mono text-data-sm text-status-success">
@@ -351,7 +351,7 @@ export default function InvoicesPage() {
                   <td className="px-1.5 py-1 text-right">
                     <span className={cn(
                       "font-mono text-data",
-                      invoice.balanceDue > 0 ? "text-text-primary" : "text-status-success"
+                      invoice.balanceDue > 0 ? "text-text" : "text-status-success"
                     )}>
                       {formatCurrency(invoice.balanceDue)}
                     </span>
@@ -364,7 +364,7 @@ export default function InvoicesPage() {
                       <button
                         onClick={() => handleDownloadPdf(invoice.id)}
                         disabled={generatingPdfId === invoice.id}
-                        className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
+                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
                         title={t("invoices.actions.downloadPdf")}
                       >
                         {generatingPdfId === invoice.id ? (
@@ -376,7 +376,7 @@ export default function InvoicesPage() {
                       {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
                         <button
                           onClick={() => sendInvoice.mutate(invoice.id)}
-                          className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
                           title={t("invoices.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />
@@ -385,7 +385,7 @@ export default function InvoicesPage() {
                       {invoice.status !== InvoiceStatus.Paid && invoice.status !== InvoiceStatus.Void && can("invoices.record_payment") && (
                         <button
                           onClick={() => setPaymentInvoice(invoice)}
-                          className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-status-success hover:bg-status-success/10 transition-colors"
                           title={t("invoices.actions.recordPayment")}
                         >
                           <DollarSign className="w-[14px] h-[14px]" />
@@ -394,7 +394,7 @@ export default function InvoicesPage() {
                       {invoice.status !== InvoiceStatus.Void && invoice.status !== InvoiceStatus.Paid && can("invoices.void") && (
                         <button
                           onClick={() => voidInvoice.mutate(invoice.id)}
-                          className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          className="p-[4px] rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                           title={t("invoices.actions.void")}
                         >
                           <Ban className="w-[14px] h-[14px]" />
@@ -403,7 +403,7 @@ export default function InvoicesPage() {
                       {can("invoices.delete") && (
                         <button
                           onClick={() => deleteInvoice.mutate(invoice.id)}
-                          className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          className="p-[4px] rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                           title={t("invoices.actions.delete")}
                         >
                           <Trash2 className="w-[14px] h-[14px]" />
@@ -645,15 +645,15 @@ function InvoiceFormModal({
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.client")}</label>
-              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.client")}</label>
+              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 <option value="">Select client...</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.project")}</label>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.project")}</label>
+              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 <option value="">Select project (optional)...</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
@@ -663,41 +663,41 @@ function InvoiceFormModal({
           {/* Date + Terms + Due Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.date")}</label>
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.date")}</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.paymentTerms")}</label>
-              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.paymentTerms")}</label>
+              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.dueDate")}</label>
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.dueDate")}</label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
 
           {/* Deposit */}
           <div className="max-w-[200px] space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.deposit")}</label>
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.deposit")}</label>
             <Input type="number" min={0} step={0.01} value={depositAmount} onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)} />
           </div>
 
           {/* Line Items */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.lineItems")}</label>
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.lineItems")}</label>
             <LineItemEditor items={lineItems} onChange={setLineItems} products={products} />
           </div>
 
           {/* Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.notes")}</label>
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.notes")}</label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Payment instructions, thank you note..." rows={3} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.form.internalNotes")}</label>
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.internalNotes")}</label>
               <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder={t("invoices.form.internalNotes")} rows={3} />
             </div>
           </div>
@@ -759,21 +759,21 @@ function RecordPaymentModal({
         <div className="space-y-2 mt-2">
           <div className="bg-background-elevated rounded p-1.5 space-y-0.5">
             <div className="flex justify-between">
-              <span className="font-kosugi text-caption text-text-tertiary">{t("invoices.payment.invoice")}</span>
+              <span className="font-kosugi text-caption text-text-3">{t("invoices.payment.invoice")}</span>
               <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-kosugi text-caption text-text-tertiary">{t("invoices.payment.total")}</span>
-              <span className="font-mono text-data text-text-primary">{formatCurrency(invoice.total)}</span>
+              <span className="font-kosugi text-caption text-text-3">{t("invoices.payment.total")}</span>
+              <span className="font-mono text-data text-text">{formatCurrency(invoice.total)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-kosugi text-caption text-text-tertiary">{t("invoices.payment.balanceDue")}</span>
+              <span className="font-kosugi text-caption text-text-3">{t("invoices.payment.balanceDue")}</span>
               <span className="font-mono text-data text-ops-error">{formatCurrency(invoice.balanceDue)}</span>
             </div>
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.amount")}</label>
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.amount")}</label>
             <div className="flex gap-1">
               <Input type="number" min={0.01} step={0.01} value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} className="flex-1" />
               <Button variant="secondary" size="sm" onClick={() => setAmount(invoice.balanceDue)}>{t("invoices.payment.payInFull")}</Button>
@@ -782,12 +782,12 @@ function RecordPaymentModal({
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.date")}</label>
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.date")}</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.method")}</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.method")}</label>
+              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {Object.entries(paymentMethodLabels).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
@@ -796,12 +796,12 @@ function RecordPaymentModal({
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.reference")}</label>
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.reference")}</label>
             <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder="Check #, transaction ID..." />
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">{t("invoices.payment.notes")}</label>
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.notes")}</label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("invoices.payment.notes")} rows={2} />
           </div>
 

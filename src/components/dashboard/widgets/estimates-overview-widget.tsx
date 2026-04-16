@@ -159,15 +159,15 @@ export function EstimatesOverviewWidget({
     return (
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+          <span className="font-mono text-data-lg font-bold leading-none text-text">
             {isLoading ? "—" : filtered.length}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.pending") ?? "Pending"} />
           {!isLoading && (
-            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+            <span className="font-mono text-micro text-text-3 mt-0.5">
               {formatCurrency(totalValue, locale)}
             </span>
           )}
@@ -186,10 +186,10 @@ export function EstimatesOverviewWidget({
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
+          <span className="font-mono text-micro text-text-3">
             {isLoading
               ? "..."
               : `${filtered.length} \u00B7 ${formatCurrency(totalValue, locale)}`}
@@ -198,13 +198,13 @@ export function EstimatesOverviewWidget({
         <div className="flex-1 min-h-0 flex flex-col">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-micro-sm text-text-disabled ml-1">
+              <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+              <span className="font-mono text-micro text-text-mute ml-1">
                 {t("estimatesOverview.loadingEstimates")}
               </span>
             </div>
           ) : filtered.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-disabled py-2">
+            <p className="font-mohave text-body-sm text-text-mute py-2">
               {t("estimatesOverview.noEstimates").replace("{filter}", statusFilterLabel[filter].toLowerCase())}
             </p>
           ) : listExpanded ? (
@@ -313,7 +313,7 @@ function EstimateRow({
       disabled={sendState !== "idle"}
       className={cn(
         "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-        "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
+        "text-text-2 hover:text-ops-accent hover:bg-ops-accent/10",
         sendState === "sent" && "text-status-success"
       )}
       title={t("estimatesOverview.sendEstimate")}
@@ -326,7 +326,7 @@ function EstimateRow({
       ) : (
         <>
           <Send className="w-[12px] h-[12px]" />
-          <span className="font-mohave text-micro-sm">{t("estimatesOverview.send")}</span>
+          <span className="font-mohave text-micro">{t("estimatesOverview.send")}</span>
         </>
       )}
     </button>

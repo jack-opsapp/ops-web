@@ -49,10 +49,10 @@ export function NoteCard({
           size="sm"
           color={author?.userColor ?? undefined}
         />
-        <span className="font-mohave text-body-sm text-text-primary font-medium">
+        <span className="font-mohave text-body-sm text-text font-medium">
           {displayName}
         </span>
-        <span className="font-mono text-[11px] text-text-tertiary">
+        <span className="font-mono text-[11px] text-text-3">
           {timeAgo}
           {wasEdited && " (edited)"}
         </span>
@@ -61,7 +61,7 @@ export function NoteCard({
           <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="rounded p-1 text-text-tertiary hover:bg-white/10 transition">
+                <button className="rounded p-1 text-text-3 hover:bg-white/10 transition">
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
@@ -88,7 +88,7 @@ export function NoteCard({
       </div>
 
       {/* Content with rendered @mentions */}
-      <div className="px-4 py-3 font-mohave text-body text-text-secondary whitespace-pre-wrap">
+      <div className="px-4 py-3 font-mohave text-body text-text-2 whitespace-pre-wrap">
         <NoteContent content={note.content} />
       </div>
 
@@ -108,7 +108,7 @@ export function NoteCard({
               />
               {att.caption && (
                 <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
-                  <span className="text-xs text-text-primary line-clamp-2">
+                  <span className="text-xs text-text line-clamp-2">
                     {att.caption}
                   </span>
                 </div>

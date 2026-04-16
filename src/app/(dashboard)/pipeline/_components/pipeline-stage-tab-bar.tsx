@@ -73,13 +73,13 @@ export function PipelineStageTabBar({
               className={[
                 "flex flex-col items-center px-[10px] py-[6px] cursor-pointer",
                 "transition-colors duration-150 relative shrink-0",
-                isActive ? "text-text-primary" : "text-text-disabled",
+                isActive ? "text-text" : "text-text-mute",
               ].join(" ")}
               aria-selected={isActive}
               role="tab"
               type="button"
             >
-              <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+              <span className="font-kosugi text-micro uppercase tracking-wider">
                 {abbreviation}
               </span>
               <span className="font-mohave text-body-sm">{count}</span>

@@ -61,17 +61,17 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-text-tertiary"
+              className="text-text-3"
             >
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
           </div>
           <div>
-            <h2 className="font-mohave text-xl font-semibold text-text-primary uppercase tracking-wide">
+            <h2 className="font-mohave text-xl font-semibold text-text uppercase tracking-wide">
               AUTHENTICATION REQUIRED
             </h2>
-            <p className="font-kosugi text-[11px] text-text-tertiary mt-2">
+            <p className="font-kosugi text-[11px] text-text-3 mt-2">
               [you must be logged in to access this page]
             </p>
           </div>
@@ -84,7 +84,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
             </button>
             <button
               onClick={() => router.push("/register")}
-              className="w-full py-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded font-mohave text-[14px] font-medium text-text-secondary uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)]"
+              className="w-full py-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded font-mohave text-[14px] font-medium text-text-2 uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)]"
             >
               CREATE ACCOUNT
             </button>

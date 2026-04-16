@@ -177,17 +177,17 @@ export function TaskTypesStep({
       className="flex flex-col px-4"
     >
       {/* Headline */}
-      <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[8px]">
+      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
         {t("wizard.taskTypes.headline")}
       </h2>
 
       {/* Subtitle */}
-      <p className="font-mohave text-body text-text-secondary mb-[4px]">
+      <p className="font-mohave text-body text-text-2 mb-[4px]">
         {t("wizard.taskTypes.subtitle")}
       </p>
 
       {/* Color hint strip */}
-      <p className="font-kosugi text-[11px] text-text-disabled mb-[20px]">
+      <p className="font-kosugi text-[11px] text-text-mute mb-[20px]">
         {t("wizard.taskTypes.colorHint")}
       </p>
 
@@ -197,7 +197,7 @@ export function TaskTypesStep({
           <div key={group.industry}>
             {/* Industry header — only show if multiple industries selected */}
             {industries.length > 1 && (
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest mb-[6px] block">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[6px] block">
                 {group.industry}
               </span>
             )}
@@ -236,7 +236,7 @@ export function TaskTypesStep({
       <button
         type="button"
         onClick={addCustomType}
-        className="flex items-center gap-[6px] self-start px-[12px] py-[6px] mb-[20px] rounded border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] text-text-disabled hover:text-text-secondary font-mohave text-body-sm transition-colors"
+        className="flex items-center gap-[6px] self-start px-[12px] py-[6px] mb-[20px] rounded border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] text-text-mute hover:text-text-2 font-mohave text-body-sm transition-colors"
       >
         <Plus className="w-[14px] h-[14px]" />
         {t("wizard.taskTypes.addCustom")}
@@ -247,7 +247,7 @@ export function TaskTypesStep({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-[6px] text-text-disabled hover:text-text-secondary font-mohave text-body-sm transition-colors"
+          className="flex items-center gap-[6px] text-text-mute hover:text-text-2 font-mohave text-body-sm transition-colors"
         >
           <ArrowLeft className="w-[14px] h-[14px]" />
           {t("wizard.taskTypes.back")}
@@ -257,7 +257,7 @@ export function TaskTypesStep({
           type="button"
           onClick={handleContinue}
           disabled={enabledCount === 0}
-          className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text-primary font-mohave text-body-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors disabled:opacity-50"
         >
           {t("wizard.taskTypes.continue")}
           <ArrowRight className="w-[14px] h-[14px]" />
@@ -390,13 +390,13 @@ function TaskTypeCard({
                 if (e.key === "Enter") onCommitName(id);
                 if (e.key === "Escape") onCommitName(id);
               }}
-              className="w-full bg-transparent border-b border-[rgba(255,255,255,0.12)] font-mohave text-body-sm text-text-primary outline-none placeholder:text-text-disabled"
+              className="w-full bg-transparent border-b border-[rgba(255,255,255,0.12)] font-mohave text-body-sm text-text outline-none placeholder:text-text-mute"
             />
           ) : (
             <button
               type="button"
               onClick={() => onStartEdit(id)}
-              className="font-mohave text-body-sm text-text-primary truncate text-left w-full hover:text-white transition-colors"
+              className="font-mohave text-body-sm text-text truncate text-left w-full hover:text-white transition-colors"
             >
               {name || t("wizard.taskTypes.namePlaceholder")}
             </button>
@@ -406,12 +406,12 @@ function TaskTypeCard({
         {/* Badges */}
         <div className="flex items-center gap-[6px] shrink-0">
           {hoursLabel && (
-            <span className="font-mono text-[10px] text-text-disabled whitespace-nowrap">
+            <span className="font-mono text-[10px] text-text-mute whitespace-nowrap">
               {hoursLabel}
             </span>
           )}
           {alsoIn.length > 0 && (
-            <span className="font-kosugi text-[9px] text-text-disabled whitespace-nowrap">
+            <span className="font-kosugi text-[9px] text-text-mute whitespace-nowrap">
               {t("wizard.taskTypes.alsoIn").replace("{industries}", alsoIn.join(", "))}
             </span>
           )}

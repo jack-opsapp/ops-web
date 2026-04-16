@@ -115,9 +115,9 @@ function PlaceholderWidget({ typeId, label }: { typeId: string; label: string })
   const { t } = useDictionary("dashboard");
   return (
     <div className="h-full rounded-lg bg-background-card border border-border p-2 flex flex-col items-center justify-center">
-      <span className="font-mono text-micro text-text-disabled uppercase">{typeId}</span>
-      <span className="font-mohave text-body-sm text-text-tertiary mt-[4px]">{label}</span>
-      <span className="font-mono text-[9px] text-text-disabled mt-1">{t("widgets.comingSoon")}</span>
+      <span className="font-mono text-micro text-text-mute uppercase">{typeId}</span>
+      <span className="font-mohave text-body-sm text-text-3 mt-[4px]">{label}</span>
+      <span className="font-mono text-[9px] text-text-mute mt-1">{t("widgets.comingSoon")}</span>
     </div>
   );
 }
@@ -699,8 +699,8 @@ export default function DashboardPage() {
           className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center pointer-events-none"
           style={{ boxShadow: DRAG_GRABBED_SHADOW }}
         >
-          <span className="font-mohave text-[13px] text-text-primary">{entry.label}</span>
-          <span className="font-mono text-[9px] text-text-disabled mt-[2px]">{entry.description}</span>
+          <span className="font-mohave text-[13px] text-text">{entry.label}</span>
+          <span className="font-mono text-[9px] text-text-mute mt-[2px]">{entry.description}</span>
         </motion.div>
       );
     }
@@ -732,7 +732,7 @@ export default function DashboardPage() {
         <div className="animate-fade-in flex items-start justify-between gap-2 pointer-events-auto">
           <div>
             <p
-              className="font-mohave text-body-lg text-text-secondary tracking-wide"
+              className="font-mohave text-body-lg text-text-2 tracking-wide"
               style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
             >
               {contentReady ? (
@@ -745,7 +745,7 @@ export default function DashboardPage() {
               )}
             </p>
             <p
-              className={`font-kosugi text-caption-sm text-text-tertiary mt-0.5 uppercase transition-opacity duration-500 ${contentReady ? "opacity-100" : "opacity-0"}`}
+              className={`font-kosugi text-caption-sm text-text-3 mt-0.5 uppercase transition-opacity duration-500 ${contentReady ? "opacity-100" : "opacity-0"}`}
               style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
             >
               {t("greeting.subtitle")}
@@ -812,7 +812,7 @@ export default function DashboardPage() {
         {isCustomizing && !trayOpen && (
           <button
             onClick={() => setTrayOpen(true)}
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-secondary font-mohave text-body-sm hover:text-text-primary hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)] pointer-events-auto"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-2 font-mohave text-body-sm hover:text-text hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)] pointer-events-auto"
           >
             {t("widgets.openTray")}
           </button>

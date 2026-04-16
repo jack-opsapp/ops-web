@@ -85,7 +85,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
           "flex items-center gap-[6px] h-[30px] px-[10px]",
           "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
           "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "font-mohave text-body-sm text-text-primary",
+          "font-mohave text-body-sm text-text",
           "hover:border-[rgba(255,255,255,0.14)] transition-colors cursor-pointer",
           open && "border-[rgba(255,255,255,0.14)]"
         )}
@@ -101,7 +101,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "w-[12px] h-[12px] text-text-tertiary shrink-0 transition-transform duration-150",
+            "w-[12px] h-[12px] text-text-3 shrink-0 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -117,7 +117,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
             aria-selected={value === "all"}
             className={cn(
               DROPDOWN_ITEM,
-              value === "all" ? "text-text-primary" : "text-text-secondary"
+              value === "all" ? "text-text" : "text-text-2"
             )}
             onClick={() => {
               onChange("all");
@@ -136,7 +136,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
               aria-selected={value === stage}
               className={cn(
                 DROPDOWN_ITEM,
-                value === stage ? "text-text-primary" : "text-text-secondary"
+                value === stage ? "text-text" : "text-text-2"
               )}
               onClick={() => {
                 onChange(stage);
@@ -206,7 +206,7 @@ function AssigneeDropdown({
           "flex items-center gap-[6px] h-[30px] px-[10px]",
           "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
           "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "font-mohave text-body-sm text-text-primary",
+          "font-mohave text-body-sm text-text",
           "hover:border-[rgba(255,255,255,0.14)] transition-colors cursor-pointer",
           open && "border-[rgba(255,255,255,0.14)]"
         )}
@@ -216,7 +216,7 @@ function AssigneeDropdown({
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "w-[12px] h-[12px] text-text-tertiary shrink-0 transition-transform duration-150",
+            "w-[12px] h-[12px] text-text-3 shrink-0 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -232,7 +232,7 @@ function AssigneeDropdown({
             aria-selected={value === "all"}
             className={cn(
               DROPDOWN_ITEM,
-              value === "all" ? "text-text-primary" : "text-text-secondary"
+              value === "all" ? "text-text" : "text-text-2"
             )}
             onClick={() => {
               onChange("all");
@@ -250,7 +250,7 @@ function AssigneeDropdown({
               aria-selected={value === member.id}
               className={cn(
                 DROPDOWN_ITEM,
-                value === member.id ? "text-text-primary" : "text-text-secondary"
+                value === member.id ? "text-text" : "text-text-2"
               )}
               onClick={() => {
                 onChange(member.id);

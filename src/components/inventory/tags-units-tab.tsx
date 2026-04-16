@@ -79,7 +79,7 @@ export function TagsUnitsTab() {
       {/* ─── Tags Section ─────────────────────────────────────────────────────── */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
             [ TAGS ]
           </span>
           <Button
@@ -95,13 +95,13 @@ export function TagsUnitsTab() {
 
         {tagsLoading ? (
           <div className="flex items-center justify-center py-8">
-            <span className="font-kosugi text-caption text-text-disabled">
+            <span className="font-kosugi text-caption text-text-mute">
               Loading tags...
             </span>
           </div>
         ) : tags.length === 0 ? (
           <div className="py-6 text-center">
-            <span className="font-kosugi text-caption text-text-disabled">
+            <span className="font-kosugi text-caption text-text-mute">
               No tags yet. Create one to categorize inventory items.
             </span>
           </div>
@@ -110,19 +110,19 @@ export function TagsUnitsTab() {
             <table className="w-full min-w-[400px]">
               <thead>
                 <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                     Name
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Warning Threshold
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Critical Threshold
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                     Item Count
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest w-[80px]">
+                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
                     Actions
                   </th>
                 </tr>
@@ -134,26 +134,26 @@ export function TagsUnitsTab() {
                     className="border-b border-border-subtle last:border-b-0 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                   >
                     <td className="px-2 py-1.5">
-                      <span className="font-mohave text-body text-text-primary">
+                      <span className="font-mohave text-body text-text">
                         {tag.name}
                       </span>
                     </td>
                     <td className="px-2 py-1.5 text-right hidden sm:table-cell">
-                      <span className="font-mono text-data-sm text-text-secondary">
+                      <span className="font-mono text-data-sm text-text-2">
                         {tag.warningThreshold != null
                           ? tag.warningThreshold
                           : "\u2014"}
                       </span>
                     </td>
                     <td className="px-2 py-1.5 text-right hidden sm:table-cell">
-                      <span className="font-mono text-data-sm text-text-secondary">
+                      <span className="font-mono text-data-sm text-text-2">
                         {tag.criticalThreshold != null
                           ? tag.criticalThreshold
                           : "\u2014"}
                       </span>
                     </td>
                     <td className="px-2 py-1.5 text-right">
-                      <span className="font-mono text-data-sm text-text-tertiary">
+                      <span className="font-mono text-data-sm text-text-3">
                         {tagItemCounts.get(tag.id) ?? 0}
                       </span>
                     </td>
@@ -164,14 +164,14 @@ export function TagsUnitsTab() {
                             setEditTag(tag);
                             setShowTagForm(true);
                           }}
-                          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                          className="p-1 rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                           title="Edit tag"
                         >
                           <Pencil className="w-[14px] h-[14px]" />
                         </button>
                         <button
                           onClick={() => handleDeleteTag(tag)}
-                          className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          className="p-1 rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                           title="Delete tag"
                         >
                           <Trash2 className="w-[14px] h-[14px]" />
@@ -189,7 +189,7 @@ export function TagsUnitsTab() {
       {/* ─── Units Section ────────────────────────────────────────────────────── */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-tertiary">
+          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
             [ UNITS ]
           </span>
           <Button
@@ -205,13 +205,13 @@ export function TagsUnitsTab() {
 
         {unitsLoading ? (
           <div className="flex items-center justify-center py-8">
-            <span className="font-kosugi text-caption text-text-disabled">
+            <span className="font-kosugi text-caption text-text-mute">
               Loading units...
             </span>
           </div>
         ) : sortedUnits.length === 0 ? (
           <div className="py-6 text-center">
-            <span className="font-kosugi text-caption text-text-disabled">
+            <span className="font-kosugi text-caption text-text-mute">
               No units yet. Create one to track inventory measurements.
             </span>
           </div>
@@ -220,16 +220,16 @@ export function TagsUnitsTab() {
             <table className="w-full min-w-[400px]">
               <thead>
                 <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                     Display
                   </th>
-                  <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                  <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                     Default
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Sort Order
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest w-[80px]">
+                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
                     Actions
                   </th>
                 </tr>
@@ -241,7 +241,7 @@ export function TagsUnitsTab() {
                     className="border-b border-border-subtle last:border-b-0 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                   >
                     <td className="px-2 py-1.5">
-                      <span className="font-mohave text-body text-text-primary">
+                      <span className="font-mohave text-body text-text">
                         {unit.display}
                       </span>
                     </td>
@@ -254,7 +254,7 @@ export function TagsUnitsTab() {
                       )}
                     </td>
                     <td className="px-2 py-1.5 text-right hidden sm:table-cell">
-                      <span className="font-mono text-data-sm text-text-tertiary">
+                      <span className="font-mono text-data-sm text-text-3">
                         {unit.sortOrder}
                       </span>
                     </td>
@@ -263,7 +263,7 @@ export function TagsUnitsTab() {
                         {unit.isDefault ? (
                           <button
                             disabled
-                            className="p-1 rounded text-text-disabled opacity-40 cursor-not-allowed"
+                            className="p-1 rounded text-text-mute opacity-40 cursor-not-allowed"
                             title="Default units cannot be deleted"
                           >
                             <Trash2 className="w-[14px] h-[14px]" />
@@ -271,7 +271,7 @@ export function TagsUnitsTab() {
                         ) : (
                           <button
                             onClick={() => handleDeleteUnit(unit)}
-                            className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                            className="p-1 rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                             title="Delete unit"
                           >
                             <Trash2 className="w-[14px] h-[14px]" />

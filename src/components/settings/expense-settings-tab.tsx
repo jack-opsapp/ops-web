@@ -121,8 +121,8 @@ export function ExpenseSettingsTab() {
                 className={cn(
                   "flex-1 px-3 py-2 rounded border text-center font-mohave text-body transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   reviewFrequency === freq.id
-                    ? "bg-ops-accent-muted border-ops-accent text-text-primary"
-                    : "bg-background-input border-border text-text-secondary hover:border-border-medium"
+                    ? "bg-ops-accent-muted border-ops-accent text-text"
+                    : "bg-surface-input border-border text-text-2 hover:border-border-medium"
                 )}
               >
                 {freq.label}
@@ -139,11 +139,11 @@ export function ExpenseSettingsTab() {
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("expenses.autoApproveThreshold")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">{t("expenses.autoApproveDesc")}</p>
+              <p className="font-mohave text-body text-text">{t("expenses.autoApproveThreshold")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.autoApproveDesc")}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="font-mohave text-body text-text-tertiary">$</span>
+              <span className="font-mohave text-body text-text-3">$</span>
               <Input
                 type="number"
                 min={0}
@@ -160,11 +160,11 @@ export function ExpenseSettingsTab() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("expenses.adminApprovalThreshold")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">{t("expenses.adminApprovalDesc")}</p>
+              <p className="font-mohave text-body text-text">{t("expenses.adminApprovalThreshold")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.adminApprovalDesc")}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="font-mohave text-body text-text-tertiary">$</span>
+              <span className="font-mohave text-body text-text-3">$</span>
               <Input
                 type="number"
                 min={0}
@@ -188,8 +188,8 @@ export function ExpenseSettingsTab() {
         <CardContent className="space-y-2">
           <div className="flex items-center justify-between py-[6px]">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("expenses.requireReceipt")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">{t("expenses.requireReceiptDesc")}</p>
+              <p className="font-mohave text-body text-text">{t("expenses.requireReceipt")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.requireReceiptDesc")}</p>
             </div>
             <button
               disabled={!can("expenses.configure")}
@@ -210,8 +210,8 @@ export function ExpenseSettingsTab() {
 
           <div className="flex items-center justify-between py-[6px]">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("expenses.requireProject")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled">{t("expenses.requireProjectDesc")}</p>
+              <p className="font-mohave text-body text-text">{t("expenses.requireProject")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.requireProjectDesc")}</p>
             </div>
             <button
               disabled={!can("expenses.configure")}
@@ -238,13 +238,13 @@ export function ExpenseSettingsTab() {
           <CardTitle>{t("expenses.autoApproveRules")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             {t("expenses.autoApproveRulesDesc")}
           </p>
 
           {/* Rules list */}
           {rules.length === 0 && !showAddRule && (
-            <p className="font-kosugi text-caption-sm text-text-disabled py-2">
+            <p className="font-kosugi text-caption-sm text-text-mute py-2">
               {t("expenses.noRules")}
             </p>
           )}
@@ -270,7 +270,7 @@ export function ExpenseSettingsTab() {
                 </span>
 
                 {/* Threshold */}
-                <span className="font-mono text-data-sm text-text-primary">
+                <span className="font-mono text-data-sm text-text">
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
                     currency: "USD",
@@ -278,7 +278,7 @@ export function ExpenseSettingsTab() {
                 </span>
 
                 {/* Members */}
-                <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
                   {rule.appliesToAll
                     ? t("expenses.allMembers")
                     : `${rule.members.length} ${t("expenses.members").toLowerCase()}`}
@@ -322,7 +322,7 @@ export function ExpenseSettingsTab() {
                       onError: () => toast.error(t("expenses.toast.error")),
                     });
                   }}
-                  className="text-text-disabled hover:text-[#93321A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-text-disabled"
+                  className="text-text-mute hover:text-[#93321A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-text-mute"
                 >
                   <Trash2 className="w-[14px] h-[14px]" />
                 </button>
@@ -337,7 +337,7 @@ export function ExpenseSettingsTab() {
             can("expenses.configure") && (
               <button
                 onClick={() => setShowAddRule(true)}
-                className="font-kosugi text-caption-sm text-ops-accent hover:text-text-primary uppercase tracking-wider transition-colors"
+                className="font-kosugi text-caption-sm text-ops-accent hover:text-text uppercase tracking-wider transition-colors"
               >
                 {t("expenses.addRule")}
               </button>

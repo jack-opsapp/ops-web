@@ -112,13 +112,13 @@ function StageDistributionBar({ stages }: { stages: StageDistData[] }) {
                   className="w-[5px] h-[5px] rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="font-mohave text-body-sm text-text-primary">
+                <span className="font-mohave text-body-sm text-text">
                   {s.name}
                 </span>
-                <span className="font-mono text-[11px] text-text-tertiary">
+                <span className="font-mono text-[11px] text-text-3">
                   {s.count}
                 </span>
-                <span className="font-mohave text-body-sm text-text-disabled">
+                <span className="font-mohave text-body-sm text-text-mute">
                   {formatCurrency(s.value)}
                 </span>
               </div>
@@ -195,13 +195,13 @@ function WinRateRing({ rate }: { rate: number }) {
           textAnchor="middle"
           dominantBaseline="central"
           fill="currentColor"
-          className="text-text-primary"
+          className="text-text"
           style={{ fontSize: "13px", fontFamily: "Mohave, sans-serif" }}
         >
           {rate}%
         </text>
       </svg>
-      <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+      <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
         WIN RATE
       </span>
     </div>
@@ -372,7 +372,7 @@ export function PipelineMetricsBar({
       <div className="flex items-stretch">
         {/* 1. Pipeline Value */}
         <div className="flex flex-col justify-center px-4 py-[10px] shrink-0">
-          <span className="font-mohave text-[22px] leading-tight text-text-primary">
+          <span className="font-mohave text-[22px] leading-tight text-text">
             {isLoading ? (
               "--"
             ) : (
@@ -382,7 +382,7 @@ export function PipelineMetricsBar({
               />
             )}
           </span>
-          <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em] mt-[2px]">
+          <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em] mt-[2px]">
             {t("metrics.pipelineValue")}
           </span>
         </div>
@@ -405,12 +405,12 @@ export function PipelineMetricsBar({
                   className="w-[5px] h-[5px] rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="font-mono text-[12px] text-text-disabled min-w-[1ch] text-center">
+                <span className="font-mono text-[12px] text-text-mute min-w-[1ch] text-center">
                   {s.count}
                 </span>
               </div>
             ))}
-            <span className="font-kosugi text-[11px] text-text-disabled uppercase tracking-[0.08em] ml-auto hidden sm:inline">
+            <span className="font-kosugi text-[11px] text-text-mute uppercase tracking-[0.08em] ml-auto hidden sm:inline">
               {metrics.activeCount} {t("metrics.active").toLowerCase()}
             </span>
           </div>
@@ -447,12 +447,12 @@ export function PipelineMetricsBar({
                     : "var(--text-tertiary, #777)",
               }}
             />
-            <span className="font-mohave text-body-lg text-text-primary">
+            <span className="font-mohave text-body-lg text-text">
               {isLoading ? "--" : metrics.wonCount}
             </span>
           </div>
           {!isLoading && metrics.wonValue > 0 && (
-            <span className="font-mohave text-body-sm text-text-tertiary">
+            <span className="font-mohave text-body-sm text-text-3">
               {formatCurrency(metrics.wonValue)}
             </span>
           )}
@@ -467,12 +467,12 @@ export function PipelineMetricsBar({
             </div>
           )}
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+            <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
               {t("metrics.won")}
             </span>
             <ChevronDown
               className={cn(
-                "w-[10px] h-[10px] text-text-disabled transition-transform duration-200",
+                "w-[10px] h-[10px] text-text-mute transition-transform duration-200",
                 expandedPanel === "won" && "rotate-180"
               )}
             />
@@ -503,12 +503,12 @@ export function PipelineMetricsBar({
                     : "var(--text-tertiary, #777)",
               }}
             />
-            <span className="font-mohave text-body-lg text-text-primary">
+            <span className="font-mohave text-body-lg text-text">
               {isLoading ? "--" : metrics.lostCount}
             </span>
           </div>
           {!isLoading && metrics.lostValue > 0 && (
-            <span className="font-mohave text-body-sm text-text-tertiary">
+            <span className="font-mohave text-body-sm text-text-3">
               {formatCurrency(metrics.lostValue)}
             </span>
           )}
@@ -523,12 +523,12 @@ export function PipelineMetricsBar({
             </div>
           )}
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+            <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
               LOST
             </span>
             <ChevronDown
               className={cn(
-                "w-[10px] h-[10px] text-text-disabled transition-transform duration-200",
+                "w-[10px] h-[10px] text-text-mute transition-transform duration-200",
                 expandedPanel === "lost" && "rotate-180"
               )}
             />
@@ -559,17 +559,17 @@ export function PipelineMetricsBar({
                     : "var(--text-tertiary, #777)",
               }}
             />
-            <span className="font-mohave text-body-lg text-text-primary">
+            <span className="font-mohave text-body-lg text-text">
               {isLoading ? "--" : metrics.discardedCount}
             </span>
           </div>
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+            <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
               {t("metrics.discarded")}
             </span>
             <ChevronDown
               className={cn(
-                "w-[10px] h-[10px] text-text-disabled transition-transform duration-200",
+                "w-[10px] h-[10px] text-text-mute transition-transform duration-200",
                 expandedPanel === "discarded" && "rotate-180"
               )}
             />
@@ -612,10 +612,10 @@ export function PipelineMetricsBar({
                         className="w-[5px] h-[5px] rounded-full shrink-0"
                         style={{ backgroundColor: expandedColor }}
                       />
-                      <span className="font-mohave text-body-sm text-text-primary truncate max-w-[140px]">
+                      <span className="font-mohave text-body-sm text-text truncate max-w-[140px]">
                         {resolveName(deal)}
                       </span>
-                      <span className="font-mohave text-body-sm text-text-tertiary shrink-0">
+                      <span className="font-mohave text-body-sm text-text-3 shrink-0">
                         {deal.actualValue ?? deal.estimatedValue
                           ? formatCurrency(
                               deal.actualValue ?? deal.estimatedValue ?? 0
@@ -626,7 +626,7 @@ export function PipelineMetricsBar({
                   ))}
                 </div>
               ) : (
-                <span className="font-mohave text-body-sm text-text-disabled">
+                <span className="font-mohave text-body-sm text-text-mute">
                   {expandedPanel === "won"
                     ? "No won deals yet"
                     : expandedPanel === "lost"

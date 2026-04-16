@@ -53,7 +53,7 @@ class ErrorBoundary extends React.Component<
         <div
           className={cn(
             "flex min-h-[400px] flex-col justify-center gap-6 p-8",
-            "bg-background text-text-primary",
+            "bg-background text-text",
             this.props.className
           )}
           role="alert"
@@ -84,10 +84,10 @@ class ErrorBoundary extends React.Component<
 
           {/* Message */}
           <div className="flex flex-col gap-2">
-            <h2 className="font-mohave text-heading-md text-text-primary">
+            <h2 className="font-mohave text-heading-md text-text">
               Something went wrong
             </h2>
-            <p className="max-w-md font-mohave text-body-sm text-text-secondary">
+            <p className="max-w-md font-mohave text-body-sm text-text-2">
               An unexpected error occurred. You can try again or contact support
               if the problem persists.
             </p>
@@ -101,7 +101,7 @@ class ErrorBoundary extends React.Component<
                 "border border-border-primary bg-background-elevated"
               )}
             >
-              <p className="font-mono text-xs leading-relaxed text-text-tertiary break-all">
+              <p className="font-mono text-xs leading-relaxed text-text-3 break-all">
                 {this.state.error.message}
               </p>
             </div>

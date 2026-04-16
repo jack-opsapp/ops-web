@@ -157,7 +157,7 @@ export function ImportStep({ items, onDone }: ImportStepProps) {
       {/* Pre-import state */}
       {!importing && !result && (
         <>
-          <p className="font-mohave text-body text-text-primary text-center">
+          <p className="font-mohave text-body text-text text-center">
             Ready to import {total} item{total !== 1 ? "s" : ""} into your
             inventory
           </p>
@@ -175,13 +175,13 @@ export function ImportStep({ items, onDone }: ImportStepProps) {
       {/* Importing state */}
       {importing && (
         <>
-          <p className="font-mohave text-body text-text-primary">
+          <p className="font-mohave text-body text-text">
             Importing... {progress} of {total}
           </p>
           <div className="w-full max-w-md">
             <Progress value={progressPct} glow />
           </div>
-          <p className="font-mohave text-caption-sm text-text-tertiary">
+          <p className="font-mohave text-caption-sm text-text-3">
             Please do not close this page
           </p>
         </>
@@ -204,16 +204,16 @@ export function ImportStep({ items, onDone }: ImportStepProps) {
               <AlertCircle className="h-8 w-8 text-status-warning" />
             )}
 
-            <p className="font-mohave text-body-lg text-text-primary">
+            <p className="font-mohave text-body-lg text-text">
               Import Complete
             </p>
 
             <div className="flex flex-col items-center gap-1">
-              <p className="font-mohave text-body text-text-secondary">
+              <p className="font-mohave text-body text-text-2">
                 {result.imported} imported
               </p>
               {result.skipped > 0 && (
-                <p className="font-mohave text-body-sm text-text-tertiary">
+                <p className="font-mohave text-body-sm text-text-3">
                   {result.skipped} skipped (empty name)
                 </p>
               )}

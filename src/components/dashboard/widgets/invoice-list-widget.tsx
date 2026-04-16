@@ -139,21 +139,21 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {isLoading ? "—" : filtered.length}
             </span>
             <button
               onClick={() => navigate("/accounting")}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
           {!isLoading && (
-            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+            <span className="font-mono text-micro text-text-3 mt-0.5">
               {formatLocaleCurrency(totalAmount, getDateLocale(locale), 2)}
             </span>
           )}
@@ -167,7 +167,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
           <div className="flex items-center gap-1.5">
@@ -175,7 +175,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             <Popover>
               <PopoverTrigger asChild>
                 <button className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors">
-                  <ArrowUpDown className="w-[14px] h-[14px] text-text-disabled" />
+                  <ArrowUpDown className="w-[14px] h-[14px] text-text-mute" />
                 </button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-auto p-1 min-w-[100px]">
@@ -185,10 +185,10 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
                       key={opt.value}
                       onClick={() => setSortField(opt.value)}
                       className={cn(
-                        "font-kosugi text-micro-sm uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                        "font-kosugi text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
                         sortField === opt.value
                           ? "text-ops-accent bg-ops-accent/15"
-                          : "text-text-tertiary hover:text-text-secondary"
+                          : "text-text-3 hover:text-text-2"
                       )}
                     >
                       {t(opt.labelKey) ?? opt.fallback}
@@ -202,10 +202,10 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
 
         {/* Hero */}
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="font-mono text-display font-bold text-text-primary leading-none">
+          <span className="font-mono text-display font-bold text-text leading-none">
             {isLoading ? "—" : formatLocaleCurrency(totalAmount, getDateLocale(locale), 0)}
           </span>
-          <span className="font-mono text-micro-sm text-text-disabled">
+          <span className="font-mono text-micro text-text-mute">
             {filtered.length} {t("invoiceList.invoicesLower") ?? "invoices"}
           </span>
         </div>
@@ -213,13 +213,13 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
         <ScrollFade>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-              <span className="font-mono text-micro-sm text-text-disabled ml-1">
+              <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+              <span className="font-mono text-micro text-text-mute ml-1">
                 {t("invoiceList.loading")}
               </span>
             </div>
           ) : filtered.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-disabled py-2">
+            <p className="font-mohave text-body-sm text-text-mute py-2">
               {t("invoiceList.noInvoicesPrefix")} {t(STATUS_FILTER_LABEL_KEYS[filter]).toLowerCase()} {t("invoiceList.invoicesLower")}
             </p>
           ) : (
@@ -343,7 +343,7 @@ function InvoiceRow({
       disabled={sendState !== "idle"}
       className={cn(
         "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-        "text-text-secondary hover:text-ops-accent hover:bg-ops-accent/10",
+        "text-text-2 hover:text-ops-accent hover:bg-ops-accent/10",
         sendState === "sent" && "text-status-success"
       )}
       title={t("invoiceList.sendInvoice")}
@@ -356,7 +356,7 @@ function InvoiceRow({
       ) : (
         <>
           <Send className="w-[12px] h-[12px]" />
-          <span className="font-mohave text-micro-sm">{t("invoiceList.send")}</span>
+          <span className="font-mohave text-micro">{t("invoiceList.send")}</span>
         </>
       )}
     </button>

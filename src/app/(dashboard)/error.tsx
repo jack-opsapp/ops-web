@@ -33,12 +33,12 @@ export default function DashboardError({
         </div>
 
         {/* Title */}
-        <h2 className="font-mohave text-display text-text-primary uppercase tracking-wider text-center">
+        <h2 className="font-mohave text-display text-text uppercase tracking-wider text-center">
           Something broke
         </h2>
 
         {/* Subtitle */}
-        <p className="font-mohave text-body-sm text-text-tertiary text-center mt-1 max-w-[360px]">
+        <p className="font-mohave text-body-sm text-text-3 text-center mt-1 max-w-[360px]">
           An unexpected error occurred. You can retry or head back to the dashboard.
         </p>
 
@@ -48,12 +48,12 @@ export default function DashboardError({
             onClick={() => setShowDetails(!showDetails)}
             className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-[rgba(255,255,255,0.03)] transition-colors"
           >
-            <span className="font-kosugi text-caption-sm text-text-disabled uppercase tracking-widest">
+            <span className="font-kosugi text-caption-sm text-text-mute uppercase tracking-widest">
               Error Details
             </span>
             <ChevronDown
               className={cn(
-                "w-[14px] h-[14px] text-text-disabled transition-transform duration-200",
+                "w-[14px] h-[14px] text-text-mute transition-transform duration-200",
                 showDetails && "rotate-180"
               )}
             />
@@ -61,11 +61,11 @@ export default function DashboardError({
 
           {showDetails && (
             <div className="px-2 pb-2 border-t border-border-subtle animate-fade-in">
-              <p className="font-mono text-data-sm text-text-tertiary mt-1.5 break-all leading-relaxed">
+              <p className="font-mono text-data-sm text-text-3 mt-1.5 break-all leading-relaxed">
                 {error.message}
               </p>
               {error.digest && (
-                <p className="font-mono text-[10px] text-text-disabled mt-1">
+                <p className="font-mono text-[10px] text-text-mute mt-1">
                   DIGEST: {error.digest}
                 </p>
               )}
@@ -104,7 +104,7 @@ export default function DashboardError({
             height={9}
             className="select-none"
           />
-          <span className="font-mono text-[10px] text-text-disabled select-none">
+          <span className="font-mono text-[10px] text-text-mute select-none">
             ERROR BOUNDARY
           </span>
         </div>

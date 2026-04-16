@@ -384,7 +384,7 @@ function PipelineInlineActions({
           <PopoverTrigger asChild>
             <button
               onClick={(e) => e.stopPropagation()}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
               title={t("pipelineList.followUp") ?? "Follow Up"}
               aria-label={t("pipelineList.followUp") ?? "Follow Up"}
             >
@@ -393,7 +393,7 @@ function PipelineInlineActions({
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[260px] p-2">
             <textarea
-              className="w-full bg-transparent border border-border-subtle rounded-sm p-1.5 font-mohave text-caption-sm text-text-primary resize-none focus:outline-none focus:border-ops-accent/50"
+              className="w-full bg-transparent border border-border-subtle rounded-sm p-1.5 font-mohave text-caption-sm text-text resize-none focus:outline-none focus:border-ops-accent/50"
               rows={3}
               placeholder={
                 t("pipelineList.composePlaceholder") ??
@@ -403,7 +403,7 @@ function PipelineInlineActions({
               onChange={(e) => setComposeText(e.target.value)}
             />
             <div className="flex items-center justify-between mt-1">
-              <span className="font-kosugi text-micro-sm text-text-disabled">
+              <span className="font-kosugi text-micro text-text-mute">
                 {t("pipelineList.mergeHint") ??
                   "Use {{client_name}}, {{project_title}}"}
               </span>
@@ -426,7 +426,7 @@ function PipelineInlineActions({
                   "font-kosugi text-micro uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
                   composeText.trim() && !sending
                     ? "text-ops-accent hover:bg-ops-accent/15"
-                    : "text-text-disabled cursor-not-allowed"
+                    : "text-text-mute cursor-not-allowed"
                 )}
               >
                 {sending ? "..." : (t("pipelineList.send") ?? "Send")}
@@ -486,17 +486,17 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {isLoading ? "—" : filtered.length}
             </span>
             <button
               onClick={() => navigate("/pipeline")}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
           {!isLoading && rawOpportunities && (
@@ -507,7 +507,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             />
           )}
           {!isLoading && (
-            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+            <span className="font-mono text-micro text-text-3 mt-0.5">
               {formatCompactCurrency(totalValue)}
             </span>
           )}
@@ -544,10 +544,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
               {t(FILTER_LABEL_KEYS[filter])}
             </span>
-            <span className="font-mono text-micro text-text-tertiary">
+            <span className="font-mono text-micro text-text-3">
               {isLoading
                 ? "..."
                 : `${filtered.length} · ${formatCompactCurrency(totalValue)}`}
@@ -564,13 +564,13 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           <ScrollFade>
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-                <span className="font-mono text-micro-sm text-text-disabled ml-1">
+                <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+                <span className="font-mono text-micro text-text-mute ml-1">
                   {t("pipelineList.loading")}
                 </span>
               </div>
             ) : filtered.length === 0 ? (
-              <p className="font-mohave text-body-sm text-text-disabled py-2">
+              <p className="font-mohave text-body-sm text-text-mute py-2">
                 {t("pipelineList.empty")}
               </p>
             ) : (
@@ -588,10 +588,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           className="w-[8px] h-[8px] rounded-sm shrink-0"
                           style={{ backgroundColor: group.color }}
                         />
-                        <span className="font-kosugi text-micro-sm uppercase tracking-widest text-text-secondary">
+                        <span className="font-kosugi text-micro uppercase tracking-widest text-text-2">
                           {group.label}
                         </span>
-                        <span className="font-mono text-micro-sm text-text-disabled ml-auto">
+                        <span className="font-mono text-micro text-text-mute ml-auto">
                           {group.items.length}
                         </span>
                       </div>
@@ -658,10 +658,10 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
+          <span className="font-mono text-micro text-text-3">
             {isLoading
               ? "..."
               : `${filtered.length} · ${formatCompactCurrency(totalValue)}`}
@@ -677,13 +677,13 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
         )}
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-micro-sm text-text-disabled ml-1">
+            <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+            <span className="font-mono text-micro text-text-mute ml-1">
               {t("pipelineList.loading")}
             </span>
           </div>
         ) : filtered.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-disabled py-2">
+          <p className="font-mohave text-body-sm text-text-mute py-2">
             {t("pipelineList.empty")}
           </p>
         ) : (

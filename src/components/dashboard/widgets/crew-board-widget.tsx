@@ -136,7 +136,7 @@ export function CrewBoardWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <WidgetSkeleton variant="list" />
@@ -150,7 +150,7 @@ export function CrewBoardWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <WidgetEmptyState
@@ -173,7 +173,7 @@ export function CrewBoardWidget({
           >
             {animatedUtilization}%
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
@@ -195,13 +195,13 @@ export function CrewBoardWidget({
               onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
               className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("crewBoard.title") ?? "Crew"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-0.5">
+          <span className="font-kosugi text-micro text-text-mute uppercase mt-0.5">
             {t("crewBoard.utilization") ?? "Utilization"} · {crewData.members.length} {t("crewBoard.members") ?? "members"}
           </span>
         </div>
@@ -221,10 +221,10 @@ export function CrewBoardWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("crewBoard.title") ?? "Crew"}
           </span>
-          <span className="font-mono text-micro text-text-tertiary" style={{ color: avgColor }}>
+          <span className="font-mono text-micro text-text-3" style={{ color: avgColor }}>
             {crewData.avgUtilization}% avg
           </span>
         </div>
@@ -325,7 +325,7 @@ function CrewMemberRow({ m, i, isLg, isVisible, reducedMotion, onNavigate, t }: 
         secondary={`${m.todayCount} ${t("crewBoard.tasksToday") ?? "tasks today"}`}
         metric={
           availText ? (
-            <span className="font-mono text-micro-sm whitespace-nowrap" style={availColor ? { color: availColor } : undefined}>
+            <span className="font-mono text-micro whitespace-nowrap" style={availColor ? { color: availColor } : undefined}>
               {availText}
             </span>
           ) : undefined
@@ -373,7 +373,7 @@ function CrewMemberRow({ m, i, isLg, isVisible, reducedMotion, onNavigate, t }: 
             />
           ))}
           {m.todayAssigned.length > 3 && (
-            <span className="font-mono text-micro-sm text-text-disabled px-1">
+            <span className="font-mono text-micro text-text-mute px-1">
               +{m.todayAssigned.length - 3} {t("widgets.more") ?? "more"}
             </span>
           )}

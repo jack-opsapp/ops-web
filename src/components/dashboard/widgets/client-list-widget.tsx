@@ -232,22 +232,22 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {isLoading ? "—" : clients.length}
             </span>
             <button
               onClick={() => navigate("/clients")}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("clientList.title")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.active") ?? "Active"} />
           {!isLoading && mostRecent && (
-            <span className="font-mohave text-caption-sm text-text-tertiary truncate mt-0.5">
+            <span className="font-mohave text-caption-sm text-text-3 truncate mt-0.5">
               {t("clientList.latest")}: {mostRecent.name}
             </span>
           )}
@@ -273,7 +273,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
       <div className="h-full flex flex-col p-3">
         {/* HEADER: Title + Sort + New Client */}
         <div className="flex items-center justify-between mb-2 shrink-0">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("clientList.title")}
           </span>
           <div className="flex items-center gap-1">
@@ -285,7 +285,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
             />
             <button
               onClick={() => navigate("/clients/new")}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
               title={t("clientList.newClient") ?? "New Client"}
             >
               <Plus className="w-[14px] h-[14px]" />
@@ -297,26 +297,26 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
         {lgMetrics && isLg && (
           <div className="flex items-start gap-4 mb-2 shrink-0">
             <div>
-              <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+              <span className="font-mono text-data-lg font-bold text-text block leading-none">
                 {lgMetrics.total}
               </span>
-              <span className="font-kosugi text-micro text-text-tertiary uppercase">
+              <span className="font-kosugi text-micro text-text-3 uppercase">
                 {t("clientList.total")}
               </span>
             </div>
             <div>
-              <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+              <span className="font-mono text-data-lg font-bold text-text block leading-none">
                 {lgMetrics.activeThisMonth}
               </span>
-              <span className="font-kosugi text-micro text-text-tertiary uppercase">
+              <span className="font-kosugi text-micro text-text-3 uppercase">
                 {t("clientList.activeMonth")}
               </span>
             </div>
             <div>
-              <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+              <span className="font-mono text-data-lg font-bold text-text block leading-none">
                 {lgMetrics.newThisMonth}
               </span>
-              <span className="font-kosugi text-micro text-text-tertiary uppercase">
+              <span className="font-kosugi text-micro text-text-3 uppercase">
                 {t("clientList.newMonth")}
               </span>
             </div>
@@ -329,14 +329,14 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("clientList.search") ?? "Search clients..."}
-          className="w-full bg-background-input border border-border-input font-mohave text-caption-sm placeholder:text-text-placeholder rounded-sm px-2 py-1 outline-none focus:border-ops-accent/50 transition-colors mb-2 shrink-0"
+          className="w-full bg-surface-input border border-border-input font-mohave text-caption-sm placeholder:text-text-3 rounded-sm px-2 py-1 outline-none focus:border-ops-accent/50 transition-colors mb-2 shrink-0"
         />
 
         {/* CLIENT LIST */}
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-disabled animate-spin" />
-            <span className="font-mono text-[11px] text-text-disabled ml-1">
+            <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
+            <span className="font-mono text-[11px] text-text-mute ml-1">
               {t("clientList.loading")}
             </span>
           </div>
@@ -356,7 +356,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                 const financialMetric = outstanding > 0 ? (
                   <div className="flex flex-col items-end">
                     {revenue > 0 && (
-                      <span className="font-mono text-micro-sm text-text-secondary">
+                      <span className="font-mono text-micro text-text-2">
                         {formatCompactCurrency(revenue)}
                       </span>
                     )}
@@ -365,11 +365,11 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                     </span>
                   </div>
                 ) : revenue > 0 ? (
-                  <span className="font-mono text-micro-sm text-text-secondary">
+                  <span className="font-mono text-micro text-text-2">
                     {formatCompactCurrency(revenue)}
                   </span>
                 ) : (
-                  <span className="font-mono text-micro-sm text-text-disabled">
+                  <span className="font-mono text-micro text-text-mute">
                     {projCount} {projCount === 1 ? t("clientList.proj") : t("clientList.projs")}
                   </span>
                 );

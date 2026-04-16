@@ -57,10 +57,10 @@ export function UnifiedReplyBar({
           <button
             onClick={() => setShowChannelPicker((prev) => !prev)}
             className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-[3px] font-kosugi text-micro-sm uppercase tracking-wider cursor-pointer transition-colors",
+              "flex items-center gap-1.5 px-2 py-1 rounded-[3px] font-kosugi text-micro uppercase tracking-wider cursor-pointer transition-colors",
               channel === "portal"
                 ? "bg-ops-accent-muted text-ops-accent"
-                : "bg-background-input text-text-tertiary"
+                : "bg-surface-input text-text-3"
             )}
           >
             {channel === "portal" ? (
@@ -80,10 +80,10 @@ export function UnifiedReplyBar({
                     setChannel("portal");
                     setShowChannelPicker(false);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-background-input transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-surface-input transition-colors"
                 >
                   <MessageSquareText className="w-3.5 h-3.5 text-ops-accent" />
-                  <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
+                  <span className="font-kosugi text-micro text-text-2 uppercase">
                     {t("reply.viaPortal")}
                   </span>
                 </button>
@@ -94,10 +94,10 @@ export function UnifiedReplyBar({
                     setChannel("email");
                     setShowChannelPicker(false);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-background-input transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-surface-input transition-colors"
                 >
-                  <Mail className="w-3.5 h-3.5 text-text-tertiary" />
-                  <span className="font-kosugi text-micro-sm text-text-secondary uppercase">
+                  <Mail className="w-3.5 h-3.5 text-text-3" />
+                  <span className="font-kosugi text-micro text-text-2 uppercase">
                     {t("reply.viaEmail")}
                   </span>
                 </button>
@@ -114,12 +114,12 @@ export function UnifiedReplyBar({
           onKeyDown={handleKeyDown}
           placeholder={t("reply.placeholder")}
           disabled={isSending}
-          className="flex-1 bg-background-input border border-border-subtle rounded-[3px] px-3 py-2 font-mohave text-body-sm text-text-primary placeholder:text-text-placeholder outline-none disabled:opacity-50"
+          className="flex-1 bg-surface-input border border-border-subtle rounded-[3px] px-3 py-2 font-mohave text-body-sm text-text placeholder:text-text-3 outline-none disabled:opacity-50"
         />
 
         {/* Attach + Send */}
         <div className="flex items-center gap-1 shrink-0">
-          <button className="w-[28px] h-[28px] flex items-center justify-center rounded-[3px] text-text-disabled hover:text-text-secondary transition-colors">
+          <button className="w-[28px] h-[28px] flex items-center justify-center rounded-[3px] text-text-mute hover:text-text-2 transition-colors">
             <Paperclip className="w-[14px] h-[14px]" />
           </button>
           <button

@@ -114,17 +114,17 @@ function CardBack({
           onClick={onClose}
           className="absolute top-2 right-2 p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
         >
-          <X className="w-[14px] h-[14px] text-text-tertiary" />
+          <X className="w-[14px] h-[14px] text-text-3" />
         </button>
-        <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary shrink-0">
+        <span className="font-kosugi text-micro uppercase tracking-wider text-text-3 shrink-0">
           {content.title}
         </span>
         <ScrollFade className="flex-1 min-h-0 mt-1.5">
-          <p className="font-mohave text-caption-sm text-text-secondary leading-relaxed">
+          <p className="font-mohave text-caption-sm text-text-2 leading-relaxed">
             {content.description}
           </p>
         </ScrollFade>
-        <span className="font-mono text-micro-sm text-text-disabled mt-1 shrink-0">
+        <span className="font-mono text-micro text-text-mute mt-1 shrink-0">
           {content.dataSource}
         </span>
       </div>

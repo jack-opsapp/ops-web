@@ -39,7 +39,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-text-primary font-mohave antialiased">
+      <body className="min-h-screen bg-background text-text font-mohave antialiased">
         <Providers locale={locale}>
           {children}
           <Toaster />

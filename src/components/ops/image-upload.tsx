@@ -73,7 +73,7 @@ export function ImageUpload({
   return (
     <div className={cn("flex flex-col gap-0.5", className)}>
       {label && (
-        <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           {label}
         </label>
       )}
@@ -117,7 +117,7 @@ export function ImageUpload({
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center gap-[4px] text-text-disabled group-hover:text-text-tertiary transition-colors">
+          <div className="flex flex-col items-center gap-[4px] text-text-mute group-hover:text-text-3 transition-colors">
             <Upload className="w-[20px] h-[20px]" />
             <span className="font-kosugi text-[10px]">Upload</span>
           </div>
@@ -189,7 +189,7 @@ export function MultiImageUpload({
   return (
     <div className={cn("flex flex-col gap-0.5", className)}>
       {label && (
-        <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           {label}
         </label>
       )}
@@ -215,7 +215,7 @@ export function MultiImageUpload({
             className={cn(
               "w-[80px] h-[80px] rounded-lg border-2 border-dashed border-border",
               "flex flex-col items-center justify-center gap-[2px]",
-              "text-text-disabled hover:text-text-tertiary hover:border-ops-accent",
+              "text-text-mute hover:text-text-3 hover:border-ops-accent",
               "transition-colors cursor-pointer",
               isUploading && "pointer-events-none"
             )}

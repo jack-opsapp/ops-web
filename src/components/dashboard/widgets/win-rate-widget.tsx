@@ -159,7 +159,7 @@ export function WinRateWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("winRate.title") ?? "Win Rate"}
           </CardTitle>
         </CardHeader>
@@ -176,8 +176,8 @@ export function WinRateWidget({
       return (
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">--%</span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">--%</span>
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("winRate.title") ?? "Win Rate"}
             </span>
           </div>
@@ -189,15 +189,15 @@ export function WinRateWidget({
         <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">--%</span>
-              <button onClick={() => onNavigate("/estimates")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <span className="font-mono text-data-lg font-bold text-text-mute leading-none">--%</span>
+              <button onClick={() => onNavigate("/estimates")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("winRate.title") ?? "Win Rate"}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("winRate.noEstimates") ?? "No estimates"}
             </span>
           </div>
@@ -207,12 +207,12 @@ export function WinRateWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("winRate.title") ?? "Win Rate"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">--%</span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">--%</span>
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("winRate.noEstimates") ?? "No estimates in period"}
             </span>
           </div>
@@ -229,10 +229,10 @@ export function WinRateWidget({
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {animatedRate}%
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("winRate.title") ?? "Win Rate"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+          <span className="font-kosugi text-micro text-text-mute uppercase">
             {stats.won}/{stats.sent} {t("winRate.won") ?? "won"}
           </span>
         </div>
@@ -255,15 +255,15 @@ export function WinRateWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/estimates"); }}
-                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("winRate.title") ?? "Win Rate"}
             </span>
-            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+            <span className="font-mono text-micro text-text-3 mt-0.5">
               {stats.won}/{stats.won + stats.lost} {t("winRate.won") ?? "won"} · {stats.lost} {t("winRate.lost") ?? "lost"}
             </span>
           </div>
@@ -286,7 +286,7 @@ export function WinRateWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER — title + period picker */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("winRate.title") ?? "Win Rate"}
           </span>
           <WidgetPeriodPicker
@@ -362,7 +362,7 @@ export function WinRateWidget({
         {/* X-axis month labels for sparkline */}
         <div className="flex justify-between mb-3" style={{ marginLeft: `${ringSize + 16}px` }}>
           {monthLabels.map((label, i) => (
-            <span key={i} className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span key={i} className="font-kosugi text-micro text-text-mute uppercase">
               {label}
             </span>
           ))}
@@ -374,15 +374,15 @@ export function WinRateWidget({
             {/* Stat grid */}
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div>
-                <span className="font-kosugi text-micro text-text-disabled uppercase tracking-wider">{t("winRate.sent") ?? "Sent"}</span>
-                <p className="font-mono text-data text-text-primary font-medium">{stats.sent}</p>
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">{t("winRate.sent") ?? "Sent"}</span>
+                <p className="font-mono text-data text-text font-medium">{stats.sent}</p>
               </div>
               <div>
-                <span className="font-kosugi text-micro text-text-disabled uppercase tracking-wider">{t("winRate.won") ?? "Won"}</span>
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">{t("winRate.won") ?? "Won"}</span>
                 <p className="font-mono text-data text-status-success font-medium">{stats.won}</p>
               </div>
               <div>
-                <span className="font-kosugi text-micro text-text-disabled uppercase tracking-wider">{t("winRate.lost") ?? "Lost"}</span>
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">{t("winRate.lost") ?? "Lost"}</span>
                 <p className="font-mono text-data text-status-error font-medium">{stats.lost}</p>
               </div>
             </div>
@@ -390,10 +390,10 @@ export function WinRateWidget({
             {/* Avg deal size */}
             {stats.avgDealSize > 0 && (
               <div className="pt-2 border-t border-border-subtle">
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                <span className="font-kosugi text-micro text-text-mute uppercase">
                   {t("winRate.avgDealSize") ?? "Avg Deal Size"}
                 </span>
-                <p className="font-mono text-data-sm text-text-primary font-medium">
+                <p className="font-mono text-data-sm text-text font-medium">
                   {formatCompactCurrency(stats.avgDealSize)}
                 </p>
               </div>

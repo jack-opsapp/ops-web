@@ -44,7 +44,7 @@ export function BulkActionBar({
             {count}
           </span>
         </div>
-        <span className="font-mohave text-body-sm text-text-secondary whitespace-nowrap">
+        <span className="font-mohave text-body-sm text-text-2 whitespace-nowrap">
           {entityName}
           {count !== 1 ? "s" : ""} selected
         </span>
@@ -74,7 +74,7 @@ export function BulkActionBar({
       {/* Close / clear button */}
       <button
         onClick={clearSelection}
-        className="ml-0.5 p-[4px] rounded hover:bg-background-elevated text-text-disabled hover:text-text-tertiary transition-colors"
+        className="ml-0.5 p-[4px] rounded hover:bg-background-elevated text-text-mute hover:text-text-3 transition-colors"
         aria-label="Clear selection"
       >
         <X className="w-[14px] h-[14px]" />

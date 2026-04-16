@@ -61,7 +61,7 @@ function FormField<T extends FieldValues = FieldValues>({
               </p>
             )}
             {helperText && !errorMessage && (
-              <p className="text-caption-sm text-text-tertiary font-mohave">{helperText}</p>
+              <p className="text-caption-sm text-text-3 font-mohave">{helperText}</p>
             )}
           </div>
         );

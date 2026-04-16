@@ -15,22 +15,22 @@ function Toaster({ className, ...props }: ToasterProps) {
           toast: cn(
             "group toast",
             "bg-background-panel border border-border rounded shadow-floating",
-            "font-mohave text-body-sm text-text-primary",
+            "font-mohave text-body-sm text-text",
             "p-2 gap-1"
           ),
-          title: "text-text-primary font-mohave text-body-sm font-medium",
-          description: "text-text-secondary font-mohave text-caption-sm",
+          title: "text-text font-mohave text-body-sm font-medium",
+          description: "text-text-2 font-mohave text-caption-sm",
           actionButton: cn(
             "bg-ops-accent text-white font-mohave text-caption-sm",
             "rounded px-1.5 py-[4px]",
             "hover:bg-ops-accent-hover"
           ),
           cancelButton: cn(
-            "bg-transparent text-text-secondary font-mohave text-caption-sm",
+            "bg-transparent text-text-2 font-mohave text-caption-sm",
             "rounded px-1.5 py-[4px]",
-            "hover:text-text-primary hover:bg-background-elevated"
+            "hover:text-text hover:bg-background-elevated"
           ),
-          closeButton: "text-text-tertiary hover:text-text-primary",
+          closeButton: "text-text-3 hover:text-text",
           success: "border-status-success/30 shadow-[0_0_12px_rgba(74,222,128,0.15)]",
           error: "border-ops-error/30 shadow-glow-error",
           info: "border-ops-accent/30 shadow-glow-accent",

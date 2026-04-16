@@ -110,13 +110,13 @@ function Tooltip({ text }: { text: string }) {
         type="button"
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        className="text-text-disabled hover:text-text-tertiary transition-colors"
+        className="text-text-mute hover:text-text-3 transition-colors"
       >
         <HelpCircle className="w-[12px] h-[12px]" />
       </button>
       {show && (
         <div className="absolute top-full left-1/2 -translate-x-1/2 mt-[6px] z-50 px-[10px] py-[6px] bg-background-elevated border border-border rounded shadow-lg max-w-[220px] whitespace-normal">
-          <p className="font-kosugi text-[10px] text-text-secondary leading-tight">
+          <p className="font-kosugi text-[10px] text-text-2 leading-tight">
             {text}
           </p>
         </div>
@@ -179,20 +179,20 @@ function PaletteCard({
           {...listeners}
           className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/palette-card:opacity-100 transition-opacity"
         >
-          <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
+          <GripVertical className="w-[12px] h-[12px] text-text-mute" />
         </div>
       )}
       {(disabled || isGranted) && (
         <div className="shrink-0 w-[12px] h-[12px]" />
       )}
 
-      <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
+      <span className="font-kosugi text-[11px] text-text-2 flex-1 min-w-0 truncate">
         {label}
       </span>
 
       {/* Badge showing current tier if granted */}
       {isGranted && (
-        <span className="font-mono text-[9px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm shrink-0">
+        <span className="font-mono text-[9px] text-text-mute bg-background-elevated px-[6px] py-[2px] rounded-sm shrink-0">
           {grantedTier === "view"
             ? t("roles.tierViewOnly")
             : grantedTier === "manage"
@@ -203,7 +203,7 @@ function PaletteCard({
 
       {/* Plus indicator for ungranted */}
       {!isGranted && !disabled && (
-        <Plus className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover/palette-card:opacity-100 transition-opacity shrink-0" />
+        <Plus className="w-[12px] h-[12px] text-text-mute opacity-0 group-hover/palette-card:opacity-100 transition-opacity shrink-0" />
       )}
     </div>
   );
@@ -252,7 +252,7 @@ function PaletteCategoryHeader({
           !disabled && "cursor-grab active:cursor-grabbing"
         )}
       >
-        <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
           {label}
         </span>
       </div>
@@ -260,7 +260,7 @@ function PaletteCategoryHeader({
         <button
           type="button"
           onClick={onBulkAdd}
-          className="flex items-center gap-[2px] font-kosugi text-[9px] text-text-disabled hover:text-ops-accent transition-colors shrink-0"
+          className="flex items-center gap-[2px] font-kosugi text-[9px] text-text-mute hover:text-ops-accent transition-colors shrink-0"
         >
           <Plus className="w-[10px] h-[10px]" />
           {t("roles.bulkAddCategory")}
@@ -300,10 +300,10 @@ function PermissionPalette({
     >
       {/* Header */}
       <div className="mb-1">
-        <h3 className="font-mohave text-body-sm uppercase tracking-wider text-text-primary">
+        <h3 className="font-mohave text-body-sm uppercase tracking-wider text-text">
           {t("roles.palette")}
         </h3>
-        <p className="font-kosugi text-[10px] text-text-disabled mt-[2px]">
+        <p className="font-kosugi text-[10px] text-text-mute mt-[2px]">
           {t("roles.paletteHint")}
         </p>
       </div>
@@ -315,7 +315,7 @@ function PermissionPalette({
             "flex items-center justify-center py-[8px] mb-1 border border-dashed rounded transition-colors duration-150",
             isOver
               ? "border-ops-error bg-[rgba(255,80,80,0.08)] text-ops-error"
-              : "border-border text-text-disabled"
+              : "border-border text-text-mute"
           )}
         >
           <span className="font-kosugi text-[10px]">
@@ -415,11 +415,11 @@ function TierModuleCard({
           {...listeners}
           className="shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover/tier-card:opacity-100 transition-opacity"
         >
-          <GripVertical className="w-[12px] h-[12px] text-text-disabled" />
+          <GripVertical className="w-[12px] h-[12px] text-text-mute" />
         </div>
       )}
 
-      <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate">
+      <span className="font-kosugi text-[11px] text-text-2 flex-1 min-w-0 truncate">
         {label}
       </span>
 
@@ -446,7 +446,7 @@ function TierModuleCard({
                 "disabled:opacity-40 disabled:cursor-not-allowed",
                 currentScope === scope
                   ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                  : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                  : "bg-transparent text-text-mute border-border hover:text-text-3"
               )}
             >
               {scopeLabels[scope]}
@@ -460,7 +460,7 @@ function TierModuleCard({
         <button
           type="button"
           onClick={onRemove}
-          className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-disabled hover:text-ops-error transition-all"
+          className="shrink-0 opacity-0 group-hover/tier-card:opacity-100 text-text-mute hover:text-ops-error transition-all"
           title={t("roles.removePermission")}
         >
           <X className="w-[12px] h-[12px]" />
@@ -520,7 +520,7 @@ function TierColumn({
           >
             {tierLabel}
           </h3>
-          <span className="font-mono text-[11px] text-text-disabled bg-background-elevated px-[6px] py-[2px] rounded-sm">
+          <span className="font-mono text-[11px] text-text-mute bg-background-elevated px-[6px] py-[2px] rounded-sm">
             {modules.length}
           </span>
           <Tooltip text={tierTooltip} />
@@ -554,7 +554,7 @@ function TierColumn({
 
         {modules.length === 0 && (
           <div className="flex flex-col items-center justify-center h-[120px] border border-dashed border-border rounded gap-1">
-            <span className="font-kosugi text-[10px] text-text-disabled text-center px-1">
+            <span className="font-kosugi text-[10px] text-text-mute text-center px-1">
               {t("roles.noPermissionsGranted")}
             </span>
           </div>
@@ -764,10 +764,10 @@ function PermissionBoard({
       {/* Drag overlay */}
       <DragOverlay>
         {activeDragInfo ? (
-          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-kosugi text-[11px] text-text-primary">
+          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-kosugi text-[11px] text-text">
             {activeDragInfo.label}
             {activeDragInfo.type === "category" && (
-              <span className="ml-[6px] font-mono text-[9px] text-text-disabled">
+              <span className="ml-[6px] font-mono text-[9px] text-text-mute">
                 (category)
               </span>
             )}
@@ -836,7 +836,7 @@ function MobilePermissionEditor({
           {/* Category header */}
           <div className="flex items-center gap-1 mt-1.5 mb-0.5">
             <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
-            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider shrink-0">
+            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider shrink-0">
               {category.label}
             </span>
             <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
@@ -852,7 +852,7 @@ function MobilePermissionEditor({
                 key={mod.id}
                 className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
               >
-                <span className="font-kosugi text-[11px] text-text-secondary min-w-0 flex-1 truncate mr-1">
+                <span className="font-kosugi text-[11px] text-text-2 min-w-0 flex-1 truncate mr-1">
                   {mod.label}
                 </span>
 
@@ -871,7 +871,7 @@ function MobilePermissionEditor({
                         "disabled:opacity-40 disabled:cursor-not-allowed",
                         displayTier === tier
                           ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                          : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                          : "bg-transparent text-text-mute border-border hover:text-text-3"
                       )}
                     >
                       {tierLabels[tier]}
@@ -917,7 +917,7 @@ function DataScopeCard({
       </CardHeader>
       <CardContent>
         {eligibleModules.length === 0 ? (
-          <p className="font-kosugi text-[11px] text-text-disabled py-1">
+          <p className="font-kosugi text-[11px] text-text-mute py-1">
             {t("roles.noScopePermissions")}
           </p>
         ) : (
@@ -942,7 +942,7 @@ function DataScopeCard({
                   key={mod.id}
                   className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                 >
-                  <span className="font-kosugi text-[11px] text-text-secondary flex-1 min-w-0 truncate mr-1">
+                  <span className="font-kosugi text-[11px] text-text-2 flex-1 min-w-0 truncate mr-1">
                     {mod.label}
                   </span>
                   <div className="flex items-center gap-0 shrink-0">
@@ -959,7 +959,7 @@ function DataScopeCard({
                           "disabled:opacity-40 disabled:cursor-not-allowed",
                           currentScope === scope
                             ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                            : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                            : "bg-transparent text-text-mute border-border hover:text-text-3"
                         )}
                       >
                         {scopeLabels[scope]}
@@ -1331,7 +1331,7 @@ function RoleEditor({
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-[6px] font-mohave text-body-sm uppercase text-text-tertiary hover:text-text-primary transition-colors"
+          className="flex items-center gap-[6px] font-mohave text-body-sm uppercase text-text-3 hover:text-text transition-colors"
         >
           <ArrowLeft className="w-[14px] h-[14px]" />
           {t("roles.back")}
@@ -1353,7 +1353,7 @@ function RoleEditor({
       {/* Preset banner */}
       {isPreset && (
         <div className="flex items-center justify-between p-1.5 bg-[rgba(255,255,255,0.02)] border border-border rounded">
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             {t("roles.presetBanner")}
           </p>
           <Button
@@ -1405,7 +1405,7 @@ function RoleEditor({
                     "border transition-colors duration-150 rounded-l",
                     permViewMode === "board"
                       ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                      : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
                   {t("roles.permViewBoard")}
@@ -1418,7 +1418,7 @@ function RoleEditor({
                     "border transition-colors duration-150 rounded-r",
                     permViewMode === "list"
                       ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                      : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
                   {t("roles.permViewList")}
@@ -1432,8 +1432,8 @@ function RoleEditor({
           {isPreset && (
             <div className="flex items-center justify-between px-2 py-1.5 bg-[rgba(255,255,255,0.02)] border-b border-border">
               <div className="flex items-center gap-[6px]">
-                <Lock className="w-[14px] h-[14px] text-text-disabled shrink-0" />
-                <p className="font-kosugi text-[11px] text-text-disabled">
+                <Lock className="w-[14px] h-[14px] text-text-mute shrink-0" />
+                <p className="font-kosugi text-[11px] text-text-mute">
                   {t("roles.cannotEditPreset")}
                 </p>
               </div>
@@ -1528,7 +1528,7 @@ function RoleEditor({
             {showAddMember && (
               <div className="mb-1.5 p-1 bg-[rgba(255,255,255,0.02)] border border-border rounded animate-scale-in">
                 {unassignedMembers.length === 0 ? (
-                  <p className="font-kosugi text-[11px] text-text-disabled px-1 py-[6px]">
+                  <p className="font-kosugi text-[11px] text-text-mute px-1 py-[6px]">
                     {t("roles.allMembersAssigned")}
                   </p>
                 ) : (
@@ -1537,7 +1537,7 @@ function RoleEditor({
                       key={member.id}
                       type="button"
                       onClick={() => handleAssignMember(member.id)}
-                      className="w-full flex items-center gap-1 px-1 py-[6px] rounded font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                      className="w-full flex items-center gap-1 px-1 py-[6px] rounded font-mohave text-body-sm text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                     >
                       <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-ops-accent">
                         <span className="font-mohave text-[10px] text-ops-accent">
@@ -1553,7 +1553,7 @@ function RoleEditor({
 
             {/* Member list */}
             {assignedMembers.length === 0 ? (
-              <p className="font-kosugi text-[11px] text-text-disabled py-1">
+              <p className="font-kosugi text-[11px] text-text-mute py-1">
                 {t("roles.noMembersAssigned")}
               </p>
             ) : (
@@ -1572,10 +1572,10 @@ function RoleEditor({
                           </span>
                         </div>
                         <div>
-                          <p className="font-mohave text-body-sm text-text-primary">
+                          <p className="font-mohave text-body-sm text-text">
                             {fullName}
                           </p>
-                          <p className="font-mono text-[10px] text-text-disabled">
+                          <p className="font-mono text-[10px] text-text-mute">
                             {member.email ?? ""}
                           </p>
                         </div>
@@ -1583,7 +1583,7 @@ function RoleEditor({
                       <button
                         type="button"
                         onClick={() => handleRemoveMember(member.id)}
-                        className="flex items-center gap-[4px] font-kosugi text-[10px] text-text-disabled hover:text-ops-error transition-colors"
+                        className="flex items-center gap-[4px] font-kosugi text-[10px] text-text-mute hover:text-ops-error transition-colors"
                       >
                         <UserMinus className="w-[12px] h-[12px]" />
                         {t("roles.remove")}
@@ -1679,12 +1679,12 @@ function MemberDragCard({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-mohave text-body-sm text-text-primary truncate">{name}</p>
+        <p className="font-mohave text-body-sm text-text truncate">{name}</p>
         {email && (
-          <p className="font-mono text-[9px] text-text-disabled truncate">{email}</p>
+          <p className="font-mono text-[9px] text-text-mute truncate">{email}</p>
         )}
       </div>
-      <GripVertical className="w-[12px] h-[12px] text-text-disabled opacity-0 group-hover/member-card:opacity-100 transition-opacity shrink-0" />
+      <GripVertical className="w-[12px] h-[12px] text-text-mute opacity-0 group-hover/member-card:opacity-100 transition-opacity shrink-0" />
     </div>
   );
 }
@@ -1714,11 +1714,11 @@ function RoleAssignmentColumn({
         )}
         onClick={onClickHeader}
       >
-        {isPreset && <Lock className="w-[10px] h-[10px] text-text-disabled shrink-0" />}
-        <h3 className="font-mohave text-body-sm font-medium text-text-primary uppercase tracking-wider truncate flex-1">
+        {isPreset && <Lock className="w-[10px] h-[10px] text-text-mute shrink-0" />}
+        <h3 className="font-mohave text-body-sm font-medium text-text uppercase tracking-wider truncate flex-1">
           {roleName}
         </h3>
-        <span className="font-mono text-[10px] text-text-disabled shrink-0">
+        <span className="font-mono text-[10px] text-text-mute shrink-0">
           {members.length}
         </span>
       </div>
@@ -1746,7 +1746,7 @@ function RoleAssignmentColumn({
         ))}
         {members.length === 0 && (
           <div className="flex items-center justify-center h-[80px] border border-dashed border-border rounded">
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               —
             </span>
           </div>
@@ -1870,7 +1870,7 @@ function RolesAssignmentBoard({
 
   return (
     <div className="space-y-1">
-      <p className="font-kosugi text-[10px] text-text-disabled">
+      <p className="font-kosugi text-[10px] text-text-mute">
         {t("roles.boardHint")}
       </p>
       <DndContext
@@ -1904,7 +1904,7 @@ function RolesAssignmentBoard({
         {/* Drag overlay */}
         <DragOverlay>
           {activeMember ? (
-            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-mohave text-[11px] text-text-primary">
+            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-background-card border border-ops-accent rounded font-mohave text-[11px] text-text">
               {activeMember.name}
             </div>
           ) : null}
@@ -1947,14 +1947,14 @@ function RoleRow({
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
         {role.isPreset ? (
-          <Lock className="w-[12px] h-[12px] text-text-disabled shrink-0" />
+          <Lock className="w-[12px] h-[12px] text-text-mute shrink-0" />
         ) : (
           <div className="w-[12px] h-[12px] shrink-0" />
         )}
         <div className="min-w-0">
-          <p className="font-mohave text-body text-text-primary">{role.name}</p>
+          <p className="font-mohave text-body text-text">{role.name}</p>
           {role.description && (
-            <p className="font-kosugi text-[11px] text-text-disabled max-w-[350px]">
+            <p className="font-kosugi text-[11px] text-text-mute max-w-[350px]">
               {role.description}
             </p>
           )}
@@ -1962,7 +1962,7 @@ function RoleRow({
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        <span className="font-mono text-[10px] text-text-disabled mr-0.5">
+        <span className="font-mono text-[10px] text-text-mute mr-0.5">
           {memberCount}{" "}
           {memberCount === 1 ? t("roles.member") : t("roles.members")}
         </span>
@@ -1972,7 +1972,7 @@ function RoleRow({
             variant="ghost"
             size="sm"
             onClick={onEdit}
-            className="text-text-tertiary"
+            className="text-text-3"
           >
             {t("roles.edit")}
           </Button>
@@ -1982,7 +1982,7 @@ function RoleRow({
           variant="ghost"
           size="sm"
           onClick={onDuplicate}
-          className="text-text-tertiary gap-[4px]"
+          className="text-text-3 gap-[4px]"
         >
           <Copy className="w-[12px] h-[12px]" />
           {t("roles.duplicate")}
@@ -1995,7 +1995,7 @@ function RoleRow({
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-[6px] rounded hover:bg-background-elevated transition-colors"
           >
-            <MoreHorizontal className="w-[14px] h-[14px] text-text-tertiary" />
+            <MoreHorizontal className="w-[14px] h-[14px] text-text-3" />
           </button>
 
           {menuOpen && (
@@ -2011,7 +2011,7 @@ function RoleRow({
                     onEdit();
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors"
+                  className="w-full text-left px-1.5 py-[8px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-background-elevated transition-colors"
                 >
                   {role.isPreset
                     ? t("roles.viewPermissions")
@@ -2166,7 +2166,7 @@ export function RolesTab() {
                     "p-[5px] border transition-colors duration-150 rounded-l",
                     listMode === "rows"
                       ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                      : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
                   <List className="w-[14px] h-[14px]" />
@@ -2179,7 +2179,7 @@ export function RolesTab() {
                     "p-[5px] border transition-colors duration-150 rounded-r",
                     listMode === "board"
                       ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
-                      : "bg-transparent text-text-disabled border-border hover:text-text-tertiary"
+                      : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
                   <LayoutGrid className="w-[14px] h-[14px]" />
@@ -2199,7 +2199,7 @@ export function RolesTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <p className="font-kosugi text-[11px] text-text-disabled mb-1.5">
+          <p className="font-kosugi text-[11px] text-text-mute mb-1.5">
             {t("roles.subtitle")}
           </p>
 
@@ -2254,7 +2254,7 @@ export function RolesTab() {
               {/* Preset roles */}
               <div className="flex items-center gap-1.5 mt-1 mb-0.5">
                 <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
-                <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                   {t("roles.presets")}
                 </span>
                 <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
@@ -2273,14 +2273,14 @@ export function RolesTab() {
               {/* Custom roles */}
               <div className="flex items-center gap-1.5 mt-2 mb-0.5">
                 <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
-                <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                   {t("roles.customRoles")}
                 </span>
                 <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
               </div>
 
               {customRoles.length === 0 ? (
-                <p className="font-kosugi text-[11px] text-text-disabled py-2 text-center">
+                <p className="font-kosugi text-[11px] text-text-mute py-2 text-center">
                   {t("roles.noCustomRoles")}
                 </p>
               ) : (

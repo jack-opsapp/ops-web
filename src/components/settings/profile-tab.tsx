@@ -47,7 +47,7 @@ function PasswordInput({
           type="button"
           tabIndex={-1}
           onClick={() => setVisible((v) => !v)}
-          className="text-text-disabled hover:text-text-tertiary transition-colors cursor-pointer"
+          className="text-text-mute hover:text-text-3 transition-colors cursor-pointer"
         >
           {visible ? <EyeOff className="w-[14px] h-[14px]" /> : <Eye className="w-[14px] h-[14px]" />}
         </button>
@@ -86,8 +86,8 @@ function ChangePasswordSection() {
       <Card>
         <CardContent className="p-2">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-[18px] h-[18px] text-text-disabled shrink-0" />
-            <p className="font-mohave text-body-sm text-text-tertiary">
+            <ShieldCheck className="w-[18px] h-[18px] text-text-mute shrink-0" />
+            <p className="font-mohave text-body-sm text-text-3">
               {t("password.ssoNotice").replace("{provider}", providerName ?? "SSO")}
             </p>
           </div>
@@ -291,8 +291,8 @@ export function ProfileTab() {
               />
             </div>
             <div>
-              <h3 className="font-mohave text-card-title text-text-primary">{name || t("profile.defaultName")}</h3>
-              <p className="font-mono text-data-sm text-text-tertiary">{email}</p>
+              <h3 className="font-mohave text-card-title text-text">{name || t("profile.defaultName")}</h3>
+              <p className="font-mono text-data-sm text-text-3">{email}</p>
             </div>
           </div>
 
@@ -375,10 +375,10 @@ function ResetPasswordSection({ userEmail }: { userEmail: string | null }) {
       <CardContent className="p-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="font-mohave text-body-sm text-text-secondary">
+            <p className="font-mohave text-body-sm text-text-2">
               {t("password.reset.title")}
             </p>
-            <p className="font-mohave text-body-sm text-text-disabled mt-0.5">
+            <p className="font-mohave text-body-sm text-text-mute mt-0.5">
               {t("password.reset.description")}
             </p>
           </div>

@@ -33,10 +33,10 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
   },
   business: {
     icon: <Building2 className="w-[20px] h-[20px]" />,
-    accentClass: "text-text-primary",
+    accentClass: "text-text",
     borderClass: "border-border-medium hover:border-border-strong",
     glowClass: "hover:shadow-elevated",
-    badgeClass: "bg-text-primary/10 text-text-primary",
+    badgeClass: "bg-text-primary/10 text-text",
   },
 };
 
@@ -74,16 +74,16 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
           {display.icon}
         </div>
         <div>
-          <h3 className="font-mohave text-body-lg text-text-primary">{config.name}</h3>
+          <h3 className="font-mohave text-body-lg text-text">{config.name}</h3>
         </div>
       </div>
 
       {/* Price */}
       <div className="flex items-baseline gap-0.5 mb-2">
-        <span className="font-mono text-[36px] leading-none text-text-primary tracking-tight">
+        <span className="font-mono text-[36px] leading-none text-text tracking-tight">
           ${config.price}
         </span>
-        <span className="font-mohave text-body-sm text-text-tertiary">/mo</span>
+        <span className="font-mohave text-body-sm text-text-3">/mo</span>
       </div>
 
       {/* Seat count */}
@@ -96,7 +96,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
         {config.features.map((feature) => (
           <li key={feature} className="flex items-start gap-1">
             <Check className={cn("w-[14px] h-[14px] mt-[2px] shrink-0", display.accentClass)} />
-            <span className="font-mohave text-body-sm text-text-secondary">{feature}</span>
+            <span className="font-mohave text-body-sm text-text-2">{feature}</span>
           </li>
         ))}
       </ul>
@@ -126,7 +126,7 @@ export default function LockedPage() {
         <h1 className="font-bebas text-[56px] tracking-[0.2em] text-ops-accent leading-none">
           {t("ops")}
         </h1>
-        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-[0.3em] mt-0.5">
+        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mt-0.5">
           {t("commandCenter")}
         </p>
       </div>
@@ -140,10 +140,10 @@ export default function LockedPage() {
 
       {/* Heading */}
       <div className="text-center mb-1 max-w-[600px]">
-        <h2 className="font-mohave text-display text-text-primary mb-1">
+        <h2 className="font-mohave text-display text-text mb-1">
           {t("locked.title")}
         </h2>
-        <p className="font-mohave text-body text-text-secondary leading-relaxed">
+        <p className="font-mohave text-body text-text-2 leading-relaxed">
           {t("locked.description")}
         </p>
       </div>
@@ -151,7 +151,7 @@ export default function LockedPage() {
       {/* Divider */}
       <div className="w-full max-w-[800px] flex items-center gap-2 my-3">
         <div className="flex-1 h-px bg-border" />
-        <span className="font-kosugi text-[11px] uppercase tracking-[0.3em] text-text-tertiary">
+        <span className="font-kosugi text-[11px] uppercase tracking-[0.3em] text-text-3">
           {t("locked.selectPlan")}
         </span>
         <div className="flex-1 h-px bg-border" />
@@ -166,7 +166,7 @@ export default function LockedPage() {
 
       {/* Footer */}
       <div className="text-center space-y-1">
-        <p className="font-mohave text-body-sm text-text-tertiary">
+        <p className="font-mohave text-body-sm text-text-3">
           {t("locked.guarantee")}
         </p>
         <div className="flex items-center justify-center gap-2">
@@ -177,17 +177,17 @@ export default function LockedPage() {
             <Headphones className="w-[14px] h-[14px]" />
             {t("locked.contactSupport")}
           </a>
-          <span className="text-text-disabled">|</span>
+          <span className="text-text-mute">|</span>
           <a
             href="/login"
-            className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary underline underline-offset-4 transition-colors"
+            className="font-mohave text-body-sm text-text-3 hover:text-text-2 underline underline-offset-4 transition-colors"
           >
             {t("locked.differentAccount")}
           </a>
         </div>
 
         {/* System fingerprint for defense-tech aesthetic */}
-        <p className="font-mono text-[10px] text-text-disabled tracking-wider mt-2 opacity-40">
+        <p className="font-mono text-[10px] text-text-mute tracking-wider mt-2 opacity-40">
           {t("locked.sysMessage")}
         </p>
       </div>

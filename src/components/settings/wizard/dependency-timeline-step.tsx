@@ -78,10 +78,10 @@ export function DependencyTimelineStep({
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className="flex flex-col px-4"
     >
-      <h2 className="font-mohave text-[28px] font-bold text-text-primary tracking-tight uppercase mb-[4px]">
+      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[4px]">
         {t("wizard.timeline.headline")}
       </h2>
-      <p className="font-kosugi text-[11px] text-text-disabled mb-[20px]">
+      <p className="font-kosugi text-[11px] text-text-mute mb-[20px]">
         {t("wizard.timeline.subtitle")}
       </p>
 
@@ -115,7 +115,7 @@ export function DependencyTimelineStep({
       <button
         type="button"
         onClick={onDone}
-        className="self-end px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text-primary font-mohave text-body-sm transition-colors"
+        className="self-end px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors"
       >
         {t("wizard.timeline.done")}
       </button>

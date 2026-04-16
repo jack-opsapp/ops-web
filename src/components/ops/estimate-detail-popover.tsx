@@ -216,20 +216,20 @@ const EstimateDetailPopoverInstance = memo(
               className="w-1.5 h-1.5 rounded-[1px] shrink-0"
               style={{ backgroundColor: statusColor }}
             />
-            <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+            <span className="font-mohave text-[13px] font-semibold text-text truncate">
               {state.title}
             </span>
           </div>
           <div className="flex items-center gap-[2px] shrink-0 ml-2">
             <button
               onClick={() => minimizePopover(state.id)}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             >
               <Minus className="w-3 h-3" />
             </button>
             <button
               onClick={() => closePopover(state.id)}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -241,11 +241,11 @@ const EstimateDetailPopoverInstance = memo(
           {/* Row 1: Client name */}
           <div className="flex items-center gap-2 min-w-0">
             {clientName ? (
-              <span className="font-kosugi text-[10px] text-text-tertiary truncate">
+              <span className="font-kosugi text-[10px] text-text-3 truncate">
                 {clientName}
               </span>
             ) : (
-              <span className="font-kosugi text-[10px] text-text-disabled">
+              <span className="font-kosugi text-[10px] text-text-mute">
                 No client
               </span>
             )}
@@ -261,7 +261,7 @@ const EstimateDetailPopoverInstance = memo(
                 ? getEstimateStatusName(estimate.status)
                 : state.title}
             </span>
-            <span className="font-kosugi text-[9px] text-text-disabled">
+            <span className="font-kosugi text-[9px] text-text-mute">
               · {daysSinceIssued}d
             </span>
           </div>
@@ -276,8 +276,8 @@ const EstimateDetailPopoverInstance = memo(
               className={cn(
                 "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
                 tab.id === state.activeTab
-                  ? "text-text-primary"
-                  : "text-text-disabled hover:text-text-secondary"
+                  ? "text-text"
+                  : "text-text-mute hover:text-text-2"
               )}
             >
               {tab.label}
@@ -295,7 +295,7 @@ const EstimateDetailPopoverInstance = memo(
           )}
           {state.activeTab === "activity" && (
             <div className="flex items-center justify-center h-full">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              <span className="font-kosugi text-micro text-text-mute uppercase">
                 Activity — coming soon
               </span>
             </div>
@@ -370,10 +370,10 @@ function EstimateOverviewTab({
       {/* Title */}
       {estimate.title && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Title
           </span>
-          <p className="font-mohave text-body-sm text-text-primary mt-1">
+          <p className="font-mohave text-body-sm text-text mt-1">
             {estimate.title}
           </p>
         </div>
@@ -382,26 +382,26 @@ function EstimateOverviewTab({
       {/* Dates */}
       {(issueDateFormatted || expirationDateFormatted) && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Dates
           </span>
           <div className="flex flex-col gap-0.5 mt-1">
             {issueDateFormatted && (
               <div className="flex items-center gap-2">
-                <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wide w-16 shrink-0">
+                <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wide w-16 shrink-0">
                   Issued
                 </span>
-                <span className="font-mohave text-body-sm text-text-primary">
+                <span className="font-mohave text-body-sm text-text">
                   {issueDateFormatted}
                 </span>
               </div>
             )}
             {expirationDateFormatted && (
               <div className="flex items-center gap-2">
-                <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wide w-16 shrink-0">
+                <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wide w-16 shrink-0">
                   Expires
                 </span>
-                <span className="font-mohave text-body-sm text-text-primary">
+                <span className="font-mohave text-body-sm text-text">
                   {expirationDateFormatted}
                 </span>
               </div>
@@ -412,16 +412,16 @@ function EstimateOverviewTab({
 
       {/* Financial summary */}
       <div>
-        <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
           Financial
         </span>
         <div className="flex flex-col gap-0.5 mt-1">
           {/* Subtotal */}
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Subtotal
             </span>
-            <span className="font-mono text-body-sm text-text-primary">
+            <span className="font-mono text-body-sm text-text">
               {formatCurrency(estimate.subtotal)}
             </span>
           </div>
@@ -429,16 +429,16 @@ function EstimateOverviewTab({
           {/* Discount */}
           {hasDiscount && (
             <div className="flex items-center justify-between">
-              <span className="font-mohave text-body-sm text-text-secondary">
+              <span className="font-mohave text-body-sm text-text-2">
                 Discount
                 {estimate.discountType === DiscountType.Percentage &&
                   estimate.discountValue !== null && (
-                    <span className="text-text-disabled ml-1">
+                    <span className="text-text-mute ml-1">
                       ({estimate.discountValue}%)
                     </span>
                   )}
               </span>
-              <span className="font-mono text-body-sm text-text-primary">
+              <span className="font-mono text-body-sm text-text">
                 -{formatCurrency(estimate.discountAmount)}
               </span>
             </div>
@@ -447,15 +447,15 @@ function EstimateOverviewTab({
           {/* Tax */}
           {hasTax && (
             <div className="flex items-center justify-between">
-              <span className="font-mohave text-body-sm text-text-secondary">
+              <span className="font-mohave text-body-sm text-text-2">
                 Tax
                 {estimate.taxRate !== null && (
-                  <span className="text-text-disabled ml-1">
+                  <span className="text-text-mute ml-1">
                     ({estimate.taxRate}%)
                   </span>
                 )}
               </span>
-              <span className="font-mono text-body-sm text-text-primary">
+              <span className="font-mono text-body-sm text-text">
                 {formatCurrency(estimate.taxAmount)}
               </span>
             </div>
@@ -463,10 +463,10 @@ function EstimateOverviewTab({
 
           {/* Total */}
           <div className="flex items-center justify-between pt-1 border-t border-[rgba(255,255,255,0.06)]">
-            <span className="font-mohave text-body-sm font-semibold text-text-primary">
+            <span className="font-mohave text-body-sm font-semibold text-text">
               Total
             </span>
-            <span className="font-mono text-body-sm font-semibold text-text-primary">
+            <span className="font-mono text-body-sm font-semibold text-text">
               {formatCurrency(estimate.total)}
             </span>
           </div>
@@ -474,10 +474,10 @@ function EstimateOverviewTab({
           {/* Deposit */}
           {hasDeposit && (
             <div className="flex items-center justify-between pt-0.5">
-              <span className="font-mohave text-body-sm text-text-secondary">
+              <span className="font-mohave text-body-sm text-text-2">
                 Deposit required
               </span>
-              <span className="font-mono text-body-sm text-text-primary">
+              <span className="font-mono text-body-sm text-text">
                 {formatCurrency(estimate.depositAmount!)}
               </span>
             </div>
@@ -488,7 +488,7 @@ function EstimateOverviewTab({
       {/* Line items */}
       {sortedLineItems.length > 0 && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Line Items
           </span>
           <div className="flex flex-col gap-1.5 mt-1">
@@ -502,10 +502,10 @@ function EstimateOverviewTab({
       {/* Client message */}
       {estimate.clientMessage && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Client Message
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {estimate.clientMessage}
           </p>
         </div>
@@ -514,10 +514,10 @@ function EstimateOverviewTab({
       {/* Terms */}
       {estimate.terms && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Terms
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {estimate.terms}
           </p>
         </div>
@@ -532,20 +532,20 @@ function LineItemRow({ item }: { item: LineItem }) {
   return (
     <div className="flex items-start justify-between gap-2">
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="font-mohave text-body-sm text-text-primary truncate">
+        <span className="font-mohave text-body-sm text-text truncate">
           {item.name}
           {item.isOptional && (
-            <span className="font-mohave text-body-sm text-text-disabled ml-1">
+            <span className="font-mohave text-body-sm text-text-mute ml-1">
               (optional)
             </span>
           )}
         </span>
-        <span className="font-kosugi text-[9px] text-text-disabled">
+        <span className="font-kosugi text-[9px] text-text-mute">
           {item.quantity} {item.unit} x{" "}
           <span className="font-mono">{formatCurrency(item.unitPrice)}</span>
         </span>
       </div>
-      <span className="font-mono text-body-sm text-text-primary shrink-0">
+      <span className="font-mono text-body-sm text-text shrink-0">
         {formatCurrency(item.lineTotal)}
       </span>
     </div>

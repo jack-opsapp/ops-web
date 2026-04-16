@@ -48,7 +48,7 @@ export function SubscriptionBanner({ subscription }: SubscriptionBannerProps) {
       <span className="flex-1">{message}</span>
       <a
         href="/settings"
-        className="font-mohave text-body-sm underline underline-offset-2 hover:text-text-primary transition-colors shrink-0"
+        className="font-mohave text-body-sm underline underline-offset-2 hover:text-text transition-colors shrink-0"
       >
         {variant === "error" ? "Fix Payment" : "Upgrade"}
       </a>

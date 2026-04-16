@@ -214,7 +214,7 @@ export function PipelineCardActions({
             onClick={stop}
             onKeyDown={handleNoteKeyDown}
             placeholder={t("actions.notePlaceholder")}
-            className="flex-1 min-w-0 px-[6px] py-[4px] rounded-[3px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text-primary placeholder:text-text-placeholder focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+            className="flex-1 min-w-0 px-[6px] py-[4px] rounded-[3px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
           />
           <button
             onClick={(e) => {
@@ -224,7 +224,7 @@ export function PipelineCardActions({
               setShowNoteInput(false);
             }}
             disabled={!noteValue.trim()}
-            className="px-[6px] py-[4px] rounded-[3px] bg-ops-accent/20 text-ops-accent font-kosugi text-micro-xs uppercase tracking-wider hover:bg-ops-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="px-[6px] py-[4px] rounded-[3px] bg-ops-accent/20 text-ops-accent font-kosugi text-micro uppercase tracking-wider hover:bg-ops-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {t("spatial.confirm")}
           </button>
@@ -259,7 +259,7 @@ function ActionIcon({
         "p-[5px] rounded-[3px] transition-colors duration-150 cursor-pointer",
         isActive
           ? "text-ops-accent bg-ops-accent-muted/20"
-          : "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)]",
+          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)]",
         disabled && "opacity-40 pointer-events-none"
       )}
     >
@@ -342,9 +342,9 @@ function DropdownItem({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-[8px] w-full px-[8px] py-[5px] font-mohave text-caption-sm text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[3px] transition-colors cursor-pointer"
+      className="flex items-center gap-[8px] w-full px-[8px] py-[5px] font-mohave text-caption-sm text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[3px] transition-colors cursor-pointer"
     >
-      <span className="text-text-tertiary shrink-0">{icon}</span>
+      <span className="text-text-3 shrink-0">{icon}</span>
       {label}
     </button>
   );

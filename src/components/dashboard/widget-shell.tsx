@@ -171,7 +171,7 @@ export function WidgetShell({
       {!isSpacer && !isCustomizing && !isFlipped && (
         <button
           onClick={() => setIsFlipped(true)}
-          className="absolute top-[6px] left-[6px] z-10 w-[18px] h-[18px] flex items-center justify-center rounded-sm opacity-0 group-hover/widget:opacity-100 transition-opacity text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)]"
+          className="absolute top-[6px] left-[6px] z-10 w-[18px] h-[18px] flex items-center justify-center rounded-sm opacity-0 group-hover/widget:opacity-100 transition-opacity text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)]"
         >
           <Info className="w-[12px] h-[12px]" />
         </button>
@@ -216,8 +216,8 @@ export function WidgetShell({
                     className={cn(
                       "px-[8px] py-[2px] rounded-sm font-mono text-[10px] border transition-all duration-150",
                       isSelected
-                        ? "bg-ops-accent-muted border-ops-accent text-text-primary"
-                        : "border-transparent text-text-disabled"
+                        ? "bg-ops-accent-muted border-ops-accent text-text"
+                        : "border-transparent text-text-mute"
                     )}
                   >
                     {WIDGET_SIZE_LABELS[s]}
@@ -228,7 +228,7 @@ export function WidgetShell({
             {/* Remove button */}
             <button
               onClick={() => removeWidgetInstance(instanceId)}
-              className="p-[3px] rounded-sm text-text-disabled hover:text-ops-error transition-all duration-150"
+              className="p-[3px] rounded-sm text-text-mute hover:text-ops-error transition-all duration-150"
               title={`Remove ${entry?.label ?? "widget"}`}
             >
               <Trash2 className="w-[12px] h-[12px]" />

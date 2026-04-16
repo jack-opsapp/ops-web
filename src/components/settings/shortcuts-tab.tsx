@@ -45,8 +45,8 @@ export function ShortcutsTab() {
       {/* Toggle row — not in a card, just an inline control */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mohave text-body text-text-primary">{t("shortcuts.showShortcuts")}</p>
-          <p className="font-kosugi text-[11px] text-text-tertiary">
+          <p className="font-mohave text-body text-text">{t("shortcuts.showShortcuts")}</p>
+          <p className="font-kosugi text-[11px] text-text-3">
             {t("shortcuts.showShortcutsDesc")}
           </p>
         </div>
@@ -80,14 +80,14 @@ export function ShortcutsTab() {
                       key={shortcut.descKey}
                       className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                     >
-                      <span className="font-mohave text-body text-text-secondary">
+                      <span className="font-mohave text-body text-text-2">
                         {t(shortcut.descKey)}
                       </span>
                       <div className="flex items-center gap-[4px]">
                         {shortcut.keys.map((key, i) => (
                           <kbd
                             key={i}
-                            className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-[11px] text-text-tertiary"
+                            className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-[11px] text-text-3"
                           >
                             {key}
                           </kbd>
@@ -99,7 +99,7 @@ export function ShortcutsTab() {
               </Card>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             {t("shortcuts.footer")}
           </p>
         </>

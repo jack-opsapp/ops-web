@@ -131,10 +131,10 @@ function ExpenseRow({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <span className="font-mohave text-body-sm text-text-primary truncate block">
+          <span className="font-mohave text-body-sm text-text truncate block">
             {expense.merchantName ?? expense.description ?? t("batchPopover.untitled") ?? "Untitled"}
           </span>
-          <span className="font-kosugi text-[10px] text-text-disabled truncate block">
+          <span className="font-kosugi text-[10px] text-text-mute truncate block">
             {expense.categoryName ?? ""}
             {expense.categoryName && expense.expenseDate ? " · " : ""}
             {expense.expenseDate ? formatDate(expense.expenseDate) : ""}
@@ -142,7 +142,7 @@ function ExpenseRow({
         </div>
 
         {/* Amount */}
-        <span className="font-mono text-[12px] text-text-primary shrink-0">
+        <span className="font-mono text-[12px] text-text shrink-0">
           {formatCompactCurrency(expense.amount)}
         </span>
 
@@ -159,8 +159,8 @@ function ExpenseRow({
             className={cn(
               "w-5 h-5 flex items-center justify-center rounded-[2px] shrink-0 transition-colors",
               isFlagged
-                ? "text-status-warning hover:text-text-secondary"
-                : "text-text-disabled hover:text-status-warning"
+                ? "text-status-warning hover:text-text-2"
+                : "text-text-mute hover:text-status-warning"
             )}
             title={isFlagged ? (t("batchPopover.unflag") ?? "Remove flag") : (t("batchPopover.flagExpense") ?? "Flag for revision")}
           >
@@ -185,7 +185,7 @@ function ExpenseRow({
               }
             }}
             placeholder={t("batchPopover.flagComment") ?? "What needs fixing?"}
-            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text-primary placeholder:text-text-disabled outline-none focus:border-ops-accent transition-colors"
+            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-ops-accent transition-colors"
             autoFocus
           />
           <button
@@ -193,7 +193,7 @@ function ExpenseRow({
               if (flagComment.trim()) onFlagSubmit(expense.id, flagComment.trim());
             }}
             disabled={!flagComment.trim()}
-            className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-disabled hover:text-ops-accent disabled:opacity-30 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-mute hover:text-ops-accent disabled:opacity-30 transition-colors"
           >
             <Check className="w-3 h-3" />
           </button>
@@ -249,15 +249,15 @@ function SummaryTab({
     <div className="flex flex-col gap-4">
       {/* Category breakdown */}
       <div>
-        <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
           {t("batchPopover.summary") ?? "Summary"}
         </span>
         <div className="flex flex-col gap-2 mt-2">
           {categoryData.categories.map((cat) => (
             <div key={cat.name} className="flex flex-col gap-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-mohave text-body-sm text-text-secondary">{cat.name}</span>
-                <span className="font-mono text-[12px] text-text-primary">
+                <span className="font-mohave text-body-sm text-text-2">{cat.name}</span>
+                <span className="font-mono text-[12px] text-text">
                   {formatCompactCurrency(cat.amount)}
                 </span>
               </div>
@@ -283,7 +283,7 @@ function SummaryTab({
         const colorToken = rcColor === "error" ? WT.error : rcColor === "warning" ? WT.warning : WT.success;
         return (
           <div>
-            <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
               {t("batchPopover.receiptCoverage") ?? "Receipt coverage"}
             </span>
             <div className="flex items-center gap-2 mt-1">
@@ -531,7 +531,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
             className="w-1.5 h-1.5 rounded-[1px] shrink-0"
             style={{ backgroundColor: statusColor }}
           />
-          <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+          <span className="font-mohave text-[13px] font-semibold text-text truncate">
             {state.title}
           </span>
           {/* Urgency badge */}
@@ -554,13 +554,13 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
             onClick={() => minimizePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             onClick={() => closePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -572,11 +572,11 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         {/* Row 1: Submitter name */}
         <div className="flex items-center gap-2 min-w-0">
           {submitterName ? (
-            <span className="font-kosugi text-[10px] text-text-tertiary truncate">
+            <span className="font-kosugi text-[10px] text-text-3 truncate">
               {submitterName}
             </span>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-disabled">—</span>
+            <span className="font-kosugi text-[10px] text-text-mute">—</span>
           )}
         </div>
 
@@ -587,10 +587,10 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           </span>
           {batch && (
             <>
-              <span className="font-kosugi text-[9px] text-text-disabled">
+              <span className="font-kosugi text-[9px] text-text-mute">
                 · {formatPeriodRange(batch.periodStart, batch.periodEnd)}
               </span>
-              <span className="font-kosugi text-[9px] text-text-disabled">
+              <span className="font-kosugi text-[9px] text-text-mute">
                 · {expenses.length} {expenses.length === 1 ? "item" : "items"} · {formatCompactCurrency(batch.totalAmount ?? 0)}
               </span>
             </>
@@ -632,8 +632,8 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
             className={cn(
               "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
               tab.id === state.activeTab
-                ? "text-text-primary"
-                : "text-text-disabled hover:text-text-secondary"
+                ? "text-text"
+                : "text-text-mute hover:text-text-2"
             )}
           >
             {t(tab.labelKey) ?? tab.label}
@@ -672,7 +672,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
             </div>
           ) : (
             <div className="flex items-center justify-center h-full">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              <span className="font-kosugi text-micro text-text-mute uppercase">
                 {t("batchPopover.noExpenses") ?? "No expenses in batch"}
               </span>
             </div>
@@ -689,7 +689,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           <button
             onClick={handleApprove}
             disabled={approveBatch.isPending}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text-primary transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text transition-colors disabled:opacity-50"
           >
             <Check className="w-3 h-3" />
             {t("batchPopover.approveAll") ?? "Approve All"}
@@ -697,7 +697,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           <button
             onClick={handleSendRevisions}
             disabled={flaggedCount === 0 || rejectWithRevisions.isPending}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text-primary transition-colors disabled:opacity-30"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text transition-colors disabled:opacity-30"
           >
             <Send className="w-3 h-3" />
             {t("batchPopover.sendRevisions") ?? "Send Revisions"}
@@ -713,7 +713,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.06)] shrink-0">
           <button
             onClick={() => closePopover(state.id)}
-            className="flex items-center gap-1 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors"
+            className="flex items-center gap-1 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
           >
             {t("batchPopover.viewInAccounting") ?? "View in Accounting"}
             <ArrowUpRight className="w-3 h-3" />

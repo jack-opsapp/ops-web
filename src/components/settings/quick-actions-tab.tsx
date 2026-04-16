@@ -28,7 +28,7 @@ export function QuickActionsTab() {
 
   return (
     <div className="space-y-3 max-w-3xl">
-      <p className="font-kosugi text-[11px] text-text-tertiary">
+      <p className="font-kosugi text-[11px] text-text-3">
         Choose which actions appear in the quick-add menu. Long-press the FAB on desktop to reorder.
       </p>
 
@@ -47,8 +47,8 @@ export function QuickActionsTab() {
                   !isLast && "border-b border-[rgba(255,255,255,0.04)]"
                 )}
               >
-                <Icon className="w-[16px] h-[16px] text-text-secondary shrink-0" />
-                <span className="font-mohave text-[14px] text-text-primary flex-1">
+                <Icon className="w-[16px] h-[16px] text-text-2 shrink-0" />
+                <span className="font-mohave text-[14px] text-text flex-1">
                   {action.label}
                 </span>
                 <button
@@ -76,7 +76,7 @@ export function QuickActionsTab() {
 
       <button
         onClick={resetToDefaults}
-        className="font-kosugi text-[11px] text-text-disabled hover:text-text-tertiary transition-colors"
+        className="font-kosugi text-[11px] text-text-mute hover:text-text-3 transition-colors"
       >
         Reset to defaults
       </button>

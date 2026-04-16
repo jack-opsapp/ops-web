@@ -357,7 +357,7 @@ export function CalendarScheduler({
   if (!expanded && !alwaysExpanded) {
     return (
       <div className="flex flex-col gap-0.5">
-        <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           {label}
         </label>
         <button
@@ -365,21 +365,21 @@ export function CalendarScheduler({
           onClick={() => setExpanded(true)}
           className={cn(
             "w-full flex items-center gap-1.5 px-1.5 py-1.5",
-            "bg-background-input border border-border rounded-sm",
+            "bg-surface-input border border-border rounded-sm",
             "text-left transition-all duration-150",
             "hover:border-border-medium focus:border-ops-accent focus:outline-none"
           )}
         >
-          <CalendarIcon className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
+          <CalendarIcon className="w-[16px] h-[16px] text-text-3 shrink-0" />
           {hasSelection && selectedStart && selectedEnd ? (
             <div className="flex-1 min-w-0 flex items-center gap-[6px]">
-              <span className="font-mohave text-body text-text-primary">
+              <span className="font-mohave text-body text-text">
                 {formatDisplayDate(selectedStart)}
               </span>
-              <span className="font-mohave text-body-sm text-text-tertiary">
+              <span className="font-mohave text-body-sm text-text-3">
                 to
               </span>
-              <span className="font-mohave text-body text-text-primary">
+              <span className="font-mohave text-body text-text">
                 {formatDisplayDate(selectedEnd)}
               </span>
               <span className="font-mohave text-body-sm text-ops-accent ml-auto">
@@ -387,7 +387,7 @@ export function CalendarScheduler({
               </span>
             </div>
           ) : (
-            <span className="font-mohave text-body text-text-tertiary">
+            <span className="font-mohave text-body text-text-3">
               Tap to schedule
             </span>
           )}
@@ -400,7 +400,7 @@ export function CalendarScheduler({
 
   return (
     <div className="flex flex-col gap-1 animate-fade-in">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         {label}
       </label>
 
@@ -414,15 +414,15 @@ export function CalendarScheduler({
       >
         {/* Start */}
         <div className="flex-1 min-w-0">
-          <p className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest leading-none mb-[2px]">
+          <p className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest leading-none mb-[2px]">
             Start
           </p>
           <p
             className={cn(
               "font-mohave text-body-sm leading-tight",
               hasSelection || mode === "selecting"
-                ? "text-text-primary"
-                : "text-text-tertiary"
+                ? "text-text"
+                : "text-text-3"
             )}
           >
             {selectedStart && mode !== "idle"
@@ -435,19 +435,19 @@ export function CalendarScheduler({
         <ChevronRight
           className={cn(
             "w-[14px] h-[14px] shrink-0 mx-1",
-            hasSelection ? "text-ops-accent" : "text-text-tertiary"
+            hasSelection ? "text-ops-accent" : "text-text-3"
           )}
         />
 
         {/* End */}
         <div className="flex-1 min-w-0">
-          <p className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest leading-none mb-[2px]">
+          <p className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest leading-none mb-[2px]">
             End
           </p>
           <p
             className={cn(
               "font-mohave text-body-sm leading-tight",
-              hasSelection ? "text-text-primary" : "text-text-tertiary"
+              hasSelection ? "text-text" : "text-text-3"
             )}
           >
             {selectedEnd && hasSelection
@@ -458,13 +458,13 @@ export function CalendarScheduler({
 
         {/* Duration */}
         <div className="text-right shrink-0 ml-1">
-          <p className="font-kosugi text-[10px] text-text-secondary uppercase tracking-widest leading-none mb-[2px]">
+          <p className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest leading-none mb-[2px]">
             Duration
           </p>
           <p
             className={cn(
               "font-mohave text-body-sm leading-tight",
-              hasSelection ? "text-ops-accent" : "text-text-tertiary"
+              hasSelection ? "text-ops-accent" : "text-text-3"
             )}
           >
             {hasSelection && selectedStart && selectedEnd
@@ -485,7 +485,7 @@ export function CalendarScheduler({
           >
             <ChevronLeft className="w-[16px] h-[16px]" />
           </button>
-          <span className="font-mohave text-body font-semibold text-text-primary">
+          <span className="font-mohave text-body font-semibold text-text">
             {monthYearLabel(currentMonth)}
           </span>
           <button
@@ -502,7 +502,7 @@ export function CalendarScheduler({
           {WEEKDAY_LABELS.map((lbl, i) => (
             <div
               key={i}
-              className="text-center font-kosugi text-[10px] text-text-secondary uppercase tracking-widest py-[4px]"
+              className="text-center font-kosugi text-[10px] text-text-2 uppercase tracking-widest py-[4px]"
             >
               {lbl}
             </div>
@@ -531,7 +531,7 @@ export function CalendarScheduler({
           {detectedConflicts.map((c, i) => (
             <div key={i} className="flex items-start gap-2 mb-1 last:mb-0">
               <AlertTriangle className="w-[14px] h-[14px] text-financial-overdue shrink-0 mt-[2px]" />
-              <span className="font-mohave text-body-sm text-text-secondary">{c.message}</span>
+              <span className="font-mohave text-body-sm text-text-2">{c.message}</span>
             </div>
           ))}
         </div>
@@ -543,7 +543,7 @@ export function CalendarScheduler({
           <button
             type="button"
             onClick={() => setExpanded(false)}
-            className="font-mohave text-body-sm text-text-tertiary hover:text-text-secondary transition-colors"
+            className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors"
           >
             {hasSelection ? "Collapse" : "Cancel"}
           </button>
@@ -648,8 +648,8 @@ function DayCell({
           today
             ? "text-white"
             : inMonth
-              ? "text-text-primary"
-              : "text-text-tertiary"
+              ? "text-text"
+              : "text-text-3"
         )}
       >
         {date.getDate()}
@@ -667,7 +667,7 @@ function DayCell({
             />
           ))}
           {tasks.length > 2 && (
-            <span className="font-mohave text-[7px] text-text-tertiary leading-none text-center">
+            <span className="font-mohave text-[7px] text-text-3 leading-none text-center">
               +{tasks.length - 2}
             </span>
           )}

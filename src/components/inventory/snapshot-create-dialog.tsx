@@ -74,7 +74,7 @@ export function SnapshotCreateDialog({
           <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
             CREATE SNAPSHOT
           </DialogTitle>
-          <DialogDescription className="font-mohave text-body-sm text-text-tertiary">
+          <DialogDescription className="font-mohave text-body-sm text-text-3">
             Capture a point-in-time record of your current inventory.
           </DialogDescription>
         </DialogHeader>
@@ -82,7 +82,7 @@ export function SnapshotCreateDialog({
         <div className="space-y-3 mt-2">
           {/* Notes */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
               Notes (optional)
             </label>
             <Textarea

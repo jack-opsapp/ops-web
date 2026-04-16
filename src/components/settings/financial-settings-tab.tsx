@@ -102,7 +102,7 @@ export function FinancialSettingsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-text-tertiary" />
+        <Loader2 className="w-5 h-5 animate-spin text-text-3" />
       </div>
     );
   }
@@ -112,10 +112,10 @@ export function FinancialSettingsTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-mohave text-[16px] text-text-primary uppercase tracking-wider">
+          <h2 className="font-mohave text-[16px] text-text uppercase tracking-wider">
             {t("financial.settings.title")}
           </h2>
-          <p className="font-kosugi text-[12px] text-text-tertiary mt-1">
+          <p className="font-kosugi text-[12px] text-text-3 mt-1">
             [{t("financial.settings.description")}]
           </p>
         </div>
@@ -143,7 +143,7 @@ export function FinancialSettingsTab() {
       {/* Enable/disable toggle */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
         <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
-          <span className="font-mohave text-[14px] text-text-primary">
+          <span className="font-mohave text-[14px] text-text">
             {t("financial.settings.enableDigest")}
           </span>
           <button
@@ -168,7 +168,7 @@ export function FinancialSettingsTab() {
 
       {/* Alert thresholds */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
-        <h3 className="font-mohave text-[13px] text-text-tertiary uppercase tracking-wider">
+        <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {t("financial.settings.alertThresholds")}
         </h3>
 
@@ -215,7 +215,7 @@ export function FinancialSettingsTab() {
 
       {/* Pricing optimization */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
-        <h3 className="font-mohave text-[13px] text-text-tertiary uppercase tracking-wider">
+        <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {t("financial.settings.pricingTitle")}
         </h3>
 
@@ -272,7 +272,7 @@ function ThresholdInput({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 min-h-[56px]">
-      <span className="font-mohave text-[13px] text-text-secondary flex-1">
+      <span className="font-mohave text-[13px] text-text-2 flex-1">
         {label}
       </span>
       <div className="flex items-center gap-2">
@@ -285,9 +285,9 @@ function ThresholdInput({
             const v = Math.max(min, Math.min(max, Number(e.target.value) || min));
             onChange(v);
           }}
-          className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text-primary text-right outline-none focus:border-[#597794] transition-colors duration-150"
+          className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[#597794] transition-colors duration-150"
         />
-        <span className="font-kosugi text-[11px] text-text-tertiary min-w-[60px]">
+        <span className="font-kosugi text-[11px] text-text-3 min-w-[60px]">
           {suffix}
         </span>
       </div>

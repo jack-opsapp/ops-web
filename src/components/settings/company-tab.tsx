@@ -44,7 +44,7 @@ function IndustryPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Industries
       </label>
 
@@ -67,24 +67,24 @@ function IndustryPicker({
       )}
 
       {/* Search */}
-      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border border-border bg-background-input">
-        <Search className="w-[14px] h-[14px] text-text-disabled shrink-0" />
+      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border border-border bg-surface-input">
+        <Search className="w-[14px] h-[14px] text-text-mute shrink-0" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search trades..."
-          className="flex-1 bg-transparent text-text-primary font-mohave text-body-sm placeholder:text-text-disabled outline-none"
+          className="flex-1 bg-transparent text-text font-mohave text-body-sm placeholder:text-text-mute outline-none"
         />
         {search && (
-          <button type="button" onClick={() => setSearch("")} className="text-text-disabled hover:text-text-tertiary">
+          <button type="button" onClick={() => setSearch("")} className="text-text-mute hover:text-text-3">
             <X className="w-[12px] h-[12px]" />
           </button>
         )}
       </div>
 
       {/* Scrollable options grid */}
-      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded-sm border border-border bg-background-input/50 p-1">
+      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded-sm border border-border bg-surface-input/50 p-1">
         <div className="flex flex-wrap gap-[4px]">
           {filtered.map((ind) => {
             const isSelected = industries.includes(ind);
@@ -98,7 +98,7 @@ function IndustryPicker({
                   "px-[8px] py-[3px] rounded-sm font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
                     ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                    : "bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-[rgba(255,255,255,0.18)]"
+                    : "bg-transparent border-border text-text-3 hover:text-text-2 hover:border-[rgba(255,255,255,0.18)]"
                 )}
               >
                 {ind}
@@ -106,7 +106,7 @@ function IndustryPicker({
             );
           })}
           {filtered.length === 0 && (
-            <span className="font-kosugi text-[11px] text-text-disabled px-1 py-2">
+            <span className="font-kosugi text-[11px] text-text-mute px-1 py-2">
               No trades found
             </span>
           )}
@@ -216,7 +216,7 @@ export function CompanyTab() {
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.logo")}
             </label>
             <div className="flex items-center gap-1.5">
@@ -251,7 +251,7 @@ export function CompanyTab() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Building2 className="w-[24px] h-[24px] text-text-disabled" />
+                  <Building2 className="w-[24px] h-[24px] text-text-mute" />
                 )}
               </div>
               <Button
@@ -292,12 +292,12 @@ export function CompanyTab() {
           {/* Company Code (read-only) */}
           {company?.companyCode && (
             <div className="flex flex-col gap-0.5">
-              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                 {t("company.companyCode")}
               </label>
               <div className="flex items-center gap-1">
                 <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-sm border border-border bg-background-elevated">
-                  <span className="font-mono text-body-sm text-text-primary tracking-wider">
+                  <span className="font-mono text-body-sm text-text tracking-wider">
                     {company.companyCode}
                   </span>
                 </div>
@@ -309,23 +309,23 @@ export function CompanyTab() {
                     toast.success(t("company.toast.codeCopied"));
                     setTimeout(() => setCodeCopied(false), 2000);
                   }}
-                  className="p-[10px] rounded-sm border border-border bg-background-input hover:bg-background-elevated transition-colors"
+                  className="p-[10px] rounded-sm border border-border bg-surface-input hover:bg-background-elevated transition-colors"
                 >
                   {codeCopied ? (
                     <Check className="w-[16px] h-[16px] text-status-success" />
                   ) : (
-                    <Copy className="w-[16px] h-[16px] text-text-tertiary" />
+                    <Copy className="w-[16px] h-[16px] text-text-3" />
                   )}
                 </button>
               </div>
-              <p className="font-kosugi text-[10px] text-text-disabled">
+              <p className="font-kosugi text-[10px] text-text-mute">
                 {t("company.companyCodeHint")}
               </p>
             </div>
           )}
 
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.address")}
             </label>
             <div className="flex gap-1">
@@ -337,7 +337,7 @@ export function CompanyTab() {
                   if (addr) setCompanyAddress(addr);
                 }}
                 disabled={locating}
-                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-background-input text-text-tertiary hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Use my location"
                 aria-label="Auto-fill address from current location"
               >
@@ -355,7 +355,7 @@ export function CompanyTab() {
           </div>
           <Input label={t("company.website")} type="url" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} placeholder={t("company.websitePlaceholder")} />
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.description")}
             </label>
             <Textarea
@@ -366,12 +366,12 @@ export function CompanyTab() {
             />
           </div>
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.businessHours")}
             </label>
             <div className="flex items-center gap-1.5">
               <Input value={openHour} onChange={(e) => setOpenHour(e.target.value)} placeholder={t("company.hoursStartPlaceholder")} className="flex-1" />
-              <span className="font-mohave text-body text-text-tertiary shrink-0">to</span>
+              <span className="font-mohave text-body text-text-3 shrink-0">to</span>
               <Input value={closeHour} onChange={(e) => setCloseHour(e.target.value)} placeholder={t("company.hoursEndPlaceholder")} className="flex-1" />
             </div>
           </div>
@@ -388,7 +388,7 @@ export function CompanyTab() {
           {/* ── Company Size & Age — side by side ─────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                 Team Size
               </label>
               <div className="flex gap-1">
@@ -402,7 +402,7 @@ export function CompanyTab() {
                       "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                       companySize === opt
                         ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                        : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
+                        : "bg-transparent border-border text-text-3 hover:text-text-2"
                     )}
                   >
                     {opt}
@@ -412,7 +412,7 @@ export function CompanyTab() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                 Years in Business
               </label>
               <div className="flex gap-1">
@@ -432,7 +432,7 @@ export function CompanyTab() {
                       "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                       companyAge === opt.value
                         ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                        : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
+                        : "bg-transparent border-border text-text-3 hover:text-text-2"
                     )}
                   >
                     {opt.label}

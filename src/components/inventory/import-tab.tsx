@@ -143,7 +143,7 @@ export function ImportTab() {
                     ? "bg-ops-accent text-white"
                     : currentStep > step.number
                       ? "bg-ops-accent/30 text-ops-accent"
-                      : "bg-[rgba(255,255,255,0.07)] text-text-tertiary"
+                      : "bg-[rgba(255,255,255,0.07)] text-text-3"
                 )}
               >
                 {step.number}
@@ -153,10 +153,10 @@ export function ImportTab() {
                   "font-mohave text-caption-sm hidden sm:inline",
                   "transition-colors duration-200",
                   currentStep === step.number
-                    ? "text-text-primary"
+                    ? "text-text"
                     : currentStep > step.number
-                      ? "text-text-secondary"
-                      : "text-text-tertiary"
+                      ? "text-text-2"
+                      : "text-text-3"
                 )}
               >
                 {step.label}

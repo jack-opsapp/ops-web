@@ -58,18 +58,18 @@ function ProjectSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Project
       </label>
       <div className="relative">
         {selected ? (
-          <div className="flex items-center justify-between bg-background-input border border-border rounded-sm px-1.5 py-1.5">
+          <div className="flex items-center justify-between bg-surface-input border border-border rounded-sm px-1.5 py-1.5">
             <div className="min-w-0">
-              <span className="font-mohave text-body text-text-primary truncate block">
+              <span className="font-mohave text-body text-text truncate block">
                 {selected.title}
               </span>
               {selected.client?.name && (
-                <span className="font-mohave text-caption-sm text-text-tertiary truncate block">
+                <span className="font-mohave text-caption-sm text-text-3 truncate block">
                   {selected.client.name}
                 </span>
               )}
@@ -80,7 +80,7 @@ function ProjectSelector({
                 onChange(null);
                 setSearch("");
               }}
-              className="text-text-tertiary hover:text-text-secondary shrink-0 ml-1"
+              className="text-text-3 hover:text-text-2 shrink-0 ml-1"
             >
               <X className="w-[16px] h-[16px]" />
             </button>
@@ -102,7 +102,7 @@ function ProjectSelector({
               <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[240px] overflow-y-auto">
                 {filtered.length === 0 && !search.trim() ? (
                   <div className="px-1.5 py-1 text-left">
-                    <p className="font-mohave text-body-sm text-text-tertiary">
+                    <p className="font-mohave text-body-sm text-text-3">
                       No projects found
                     </p>
                   </div>
@@ -119,11 +119,11 @@ function ProjectSelector({
                         }}
                         className="w-full px-1.5 py-1 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                       >
-                        <span className="font-mohave text-body text-text-secondary hover:text-text-primary block truncate">
+                        <span className="font-mohave text-body text-text-2 hover:text-text block truncate">
                           {project.title}
                         </span>
                         {(project.client?.name || project.address) && (
-                          <span className="font-mohave text-caption-sm text-text-tertiary block truncate">
+                          <span className="font-mohave text-caption-sm text-text-3 block truncate">
                             {[project.client?.name, project.address]
                               .filter(Boolean)
                               .join(" \u00B7 ")}
@@ -135,7 +135,7 @@ function ProjectSelector({
                     {/* No matches for search term */}
                     {filtered.length === 0 && search.trim() && (
                       <div className="px-1.5 py-1 text-left">
-                        <p className="font-mohave text-body-sm text-text-tertiary">
+                        <p className="font-mohave text-body-sm text-text-3">
                           No matching projects
                         </p>
                       </div>
@@ -261,7 +261,7 @@ export function CreateTaskForm({ onSuccess, onCancel }: CreateTaskFormProps) {
         />
 
         {!projectId && (
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             Select a project to create a task for.
           </p>
         )}

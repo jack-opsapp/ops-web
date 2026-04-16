@@ -144,7 +144,7 @@ function BatchRow({
             <div className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
           ) : (
             <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-background-elevated flex items-center justify-center">
-              <span className="font-kosugi text-[8px] text-text-tertiary uppercase">
+              <span className="font-kosugi text-[8px] text-text-3 uppercase">
                 {submitterName.slice(0, 2)}
               </span>
             </div>
@@ -155,10 +155,10 @@ function BatchRow({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className="font-mohave text-caption-sm text-text-primary truncate">
+          <p className="font-mohave text-caption-sm text-text truncate">
             {submitterName || batch.batchNumber}
           </p>
-          <span className="font-kosugi text-micro-sm text-text-disabled truncate block">
+          <span className="font-kosugi text-micro text-text-mute truncate block">
             {batch.batchNumber} · {periodRange}
             {hasComplianceIssue && (
               <> · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span></>
@@ -167,7 +167,7 @@ function BatchRow({
         </div>
 
         {/* Amount */}
-        <span className="font-mono text-micro-sm text-text-secondary shrink-0">
+        <span className="font-mono text-micro text-text-2 shrink-0">
           {formatCompactCurrency(batch.totalAmount ?? 0)}
         </span>
 
@@ -190,14 +190,14 @@ function BatchRow({
           <div className="flex items-center gap-0.5 shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); onApprove(batch); }}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
               title={t("expenseReview.approve") ?? "Approve"}
             >
               <Check className="w-[14px] h-[14px]" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onReject(); }}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-disabled hover:text-text-secondary"
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
               title="Reject"
             >
               <X className="w-[14px] h-[14px]" />
@@ -218,13 +218,13 @@ function BatchRow({
               if (e.key === "Escape") { setRejectingBatchId(null); setRejectNote(""); }
             }}
             placeholder={t("expenseReview.rejectNote") ?? "What needs fixing?"}
-            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text-primary placeholder:text-text-disabled outline-none focus:border-ops-accent transition-colors"
+            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-ops-accent transition-colors"
             autoFocus
           />
           <button
             onClick={() => onQuickReject(batch.id)}
             disabled={!rejectNote.trim()}
-            className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-disabled hover:text-ops-accent disabled:opacity-30 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-mute hover:text-ops-accent disabled:opacity-30 transition-colors"
           >
             <Send className="w-3 h-3" />
           </button>
@@ -451,19 +451,19 @@ export function ExpenseReviewListPopover() {
           className="flex items-center justify-between px-3 py-2 border-b border-[rgba(255,255,255,0.06)] cursor-grab shrink-0"
           onMouseDown={handleDragStart}
         >
-          <span className="font-mohave text-[13px] font-semibold text-text-primary">
+          <span className="font-mohave text-[13px] font-semibold text-text">
             {t("expenseReview.title") ?? "Expense Review"}
           </span>
           <div className="flex items-center gap-[2px] shrink-0 ml-2">
             <button
               onClick={() => minimize()}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             >
               <Minus className="w-3 h-3" />
             </button>
             <button
               onClick={() => close()}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -474,10 +474,10 @@ export function ExpenseReviewListPopover() {
         <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)] shrink-0">
           <div className="flex items-baseline gap-3">
             <div>
-              <span className="font-mono text-[20px] font-bold text-text-primary leading-none">
+              <span className="font-mono text-[20px] font-bold text-text leading-none">
                 {formatCompactCurrency(totalPending)}
               </span>
-              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider ml-1">
+              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider ml-1">
                 pending
               </span>
             </div>
@@ -485,7 +485,7 @@ export function ExpenseReviewListPopover() {
               <span className="font-mono text-[14px] font-bold leading-none" style={{ color: WT.success }}>
                 {formatCompactCurrency(totalApproved)}
               </span>
-              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider ml-1">
+              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider ml-1">
                 approved
               </span>
             </div>
@@ -501,7 +501,7 @@ export function ExpenseReviewListPopover() {
                 "px-2 py-0.5 rounded-sm font-kosugi text-[10px] uppercase tracking-wider transition-colors shrink-0",
                 selectedPeriod === "all"
                   ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
-                  : "text-text-disabled hover:text-text-secondary border border-transparent"
+                  : "text-text-mute hover:text-text-2 border border-transparent"
               )}
             >
               ALL
@@ -514,7 +514,7 @@ export function ExpenseReviewListPopover() {
                   "px-2 py-0.5 rounded-sm font-kosugi text-[10px] uppercase tracking-wider transition-colors shrink-0",
                   selectedPeriod === key
                     ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
-                    : "text-text-disabled hover:text-text-secondary border border-transparent"
+                    : "text-text-mute hover:text-text-2 border border-transparent"
                 )}
               >
                 {getPeriodLabel(key)}
@@ -532,8 +532,8 @@ export function ExpenseReviewListPopover() {
               className={cn(
                 "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
                 tab.id === activeTab
-                  ? "text-text-primary"
-                  : "text-text-disabled hover:text-text-secondary"
+                  ? "text-text"
+                  : "text-text-mute hover:text-text-2"
               )}
             >
               {tab.label}
@@ -542,7 +542,7 @@ export function ExpenseReviewListPopover() {
               )}
             </button>
           ))}
-          <span className="ml-auto pr-3 font-mono text-[10px] text-text-disabled">
+          <span className="ml-auto pr-3 font-mono text-[10px] text-text-mute">
             {displayBatches.length} {displayBatches.length === 1 ? "batch" : "batches"}
           </span>
         </div>
@@ -583,7 +583,7 @@ export function ExpenseReviewListPopover() {
             })
           ) : (
             <div className="flex items-center justify-center h-full">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+              <span className="font-kosugi text-micro text-text-mute uppercase">
                 {activeTab === "needs-review"
                   ? (t("expenseReview.allCaughtUp") ?? "All caught up")
                   : "No history"}

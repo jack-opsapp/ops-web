@@ -209,7 +209,7 @@ export default function AgentQueuePage() {
         "min-h-[56px] px-3 rounded-[4px] font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
         active
           ? "bg-[rgba(89,119,148,0.15)] text-[#597794]"
-          : "bg-[rgba(255,255,255,0.03)] text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)]"
+          : "bg-[rgba(255,255,255,0.03)] text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
       )}
     >
       {label}
@@ -220,10 +220,10 @@ export default function AgentQueuePage() {
     <div className="flex flex-col h-full p-4 gap-4 overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div>
-        <h1 className="font-mohave text-[28px] text-text-primary uppercase leading-tight">
+        <h1 className="font-mohave text-[28px] text-text uppercase leading-tight">
           {t("title")}
         </h1>
-        <p className="font-kosugi text-[13px] text-text-tertiary mt-0.5">
+        <p className="font-kosugi text-[13px] text-text-3 mt-0.5">
           [{t("subtitle")}]
         </p>
       </div>
@@ -236,7 +236,7 @@ export default function AgentQueuePage() {
 
       {/* ── Filter Bar ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-1">
-        <Filter className="w-[14px] h-[14px] text-text-tertiary shrink-0 mx-2" />
+        <Filter className="w-[14px] h-[14px] text-text-3 shrink-0 mx-2" />
 
         {STATUS_OPTIONS.map((s) => (
           <FilterPill
@@ -275,7 +275,7 @@ export default function AgentQueuePage() {
         <div className="flex items-center">
           <button
             onClick={handleSelectAll}
-            className="flex items-center gap-1.5 text-text-tertiary hover:text-text-secondary transition-colors min-h-[56px] px-2"
+            className="flex items-center gap-1.5 text-text-3 hover:text-text-2 transition-colors min-h-[56px] px-2"
           >
             {allSelected ? (
               <CheckSquare className="w-[16px] h-[16px]" />
@@ -308,13 +308,13 @@ export default function AgentQueuePage() {
         {!isLoading && actions.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
             <div className="w-[48px] h-[48px] rounded-[8px] bg-[rgba(255,255,255,0.04)] flex items-center justify-center">
-              <Inbox className="w-[24px] h-[24px] text-text-disabled" />
+              <Inbox className="w-[24px] h-[24px] text-text-mute" />
             </div>
             <div className="text-center">
-              <p className="font-mohave text-body text-text-secondary uppercase">
+              <p className="font-mohave text-body text-text-2 uppercase">
                 {t("empty.title")}
               </p>
-              <p className="font-kosugi text-[13px] text-text-tertiary mt-1 max-w-[360px]">
+              <p className="font-kosugi text-[13px] text-text-3 mt-1 max-w-[360px]">
                 [{t("empty.description")}]
               </p>
             </div>
@@ -341,7 +341,7 @@ export default function AgentQueuePage() {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-[1500] border-t border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.90)] backdrop-blur-[24px] saturate-[1.3]">
           <div className="flex items-center justify-between gap-4 px-6 py-3 max-w-screen-xl mx-auto">
-            <span className="font-kosugi text-[13px] text-text-secondary">
+            <span className="font-kosugi text-[13px] text-text-2">
               [{selectedIds.size} {t("batch.selected")}]
             </span>
             <div className="flex items-center gap-2">

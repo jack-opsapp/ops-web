@@ -109,11 +109,11 @@ function FormRadioGroup<T extends FieldValues = FieldValues>({
                     </div>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-mohave text-body-sm text-text-primary">
+                    <span className="font-mohave text-body-sm text-text">
                       {option.label}
                     </span>
                     {option.description && (
-                      <span className="font-mohave text-caption-sm text-text-tertiary">
+                      <span className="font-mohave text-caption-sm text-text-3">
                         {option.description}
                       </span>
                     )}
@@ -130,7 +130,7 @@ function FormRadioGroup<T extends FieldValues = FieldValues>({
         </p>
       )}
       {helperText && !errorMessage && (
-        <p className="text-caption-sm text-text-tertiary font-mohave">{helperText}</p>
+        <p className="text-caption-sm text-text-3 font-mohave">{helperText}</p>
       )}
     </div>
   );

@@ -215,7 +215,7 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
         </div>
@@ -232,8 +232,8 @@ export function ExpenseTrackerWidget({
       return (
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("expenseTracker.title") ?? "Expenses"}
             </span>
           </div>
@@ -245,15 +245,15 @@ export function ExpenseTrackerWidget({
         <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">$0</span>
-              <button onClick={() => onNavigate("/accounting")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
+              <button onClick={() => onNavigate("/accounting")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("expenseTracker.title") ?? "Expenses"}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("expenseTracker.noExpenses") ?? "No expenses recorded"}
             </span>
           </div>
@@ -263,12 +263,12 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("expenseTracker.noExpenses") ?? "No expenses recorded"}
             </span>
           </div>
@@ -282,10 +282,10 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
+          <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text`}>
             {formatCompactCurrency(animatedTotal)}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           <WidgetTrendContext
@@ -307,21 +307,21 @@ export function ExpenseTrackerWidget({
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {formatCompactCurrency(animatedTotal)}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/accounting"); }}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           {topCat && (
-            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+            <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
               {topCat.name}: {formatCompactCurrency(topCat.amount)}
             </span>
           )}
@@ -347,14 +347,14 @@ export function ExpenseTrackerWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
         </div>
 
         {/* Hero */}
         <div className="mb-2">
-          <span className="font-mono text-display font-bold text-text-primary leading-none">
+          <span className="font-mono text-display font-bold text-text leading-none">
             {formatCompactCurrency(categoryData.total)}
           </span>
           <WidgetTrendContext
@@ -436,11 +436,11 @@ export function ExpenseTrackerWidget({
                   </div>
                   {/* Label + value beneath bar */}
                   <div className="flex items-center justify-between mt-[2px]">
-                    <span className="font-mohave text-micro-sm text-text-tertiary truncate">
+                    <span className="font-mohave text-micro text-text-3 truncate">
                       {cat.name}
                     </span>
                     <span
-                      className="font-mono text-micro-sm shrink-0"
+                      className="font-mono text-micro shrink-0"
                       style={{
                         color: dimmed ? "var(--color-text-disabled)" : "var(--color-text-secondary)",
                         transition: reducedMotion ? "none" : "color 200ms ease",
@@ -448,7 +448,7 @@ export function ExpenseTrackerWidget({
                     >
                       {formatCompactCurrency(displayAmount)}
                       {showActions(size) && (
-                        <span className="text-text-disabled ml-1">{displayPct}%</span>
+                        <span className="text-text-mute ml-1">{displayPct}%</span>
                       )}
                     </span>
                   </div>
@@ -494,8 +494,8 @@ export function ExpenseTrackerWidget({
                     secondary={`${member.count} ${member.count === 1 ? "expense" : "expenses"}`}
                     metric={
                       <span className="flex items-center gap-1">
-                        <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(member.amount)}</span>
-                        <span className="font-mono text-micro-sm text-text-disabled">{memberPct}%</span>
+                        <span className="font-mono text-micro text-text-2">{formatCompactCurrency(member.amount)}</span>
+                        <span className="font-mono text-micro text-text-mute">{memberPct}%</span>
                       </span>
                     }
                     index={i}
@@ -508,7 +508,7 @@ export function ExpenseTrackerWidget({
 
           return (
             <div className="mt-2 pt-2 border-t border-border-subtle shrink-0 flex flex-col">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase tracking-wider mb-1 block">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-1 block">
                 {t("expenseTracker.byTeamMember") ?? "By Team Member"}
               </span>
               {teamListExpanded ? (

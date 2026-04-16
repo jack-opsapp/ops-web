@@ -115,7 +115,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
           <button
             data-no-select
             onClick={(e) => { e.stopPropagation(); onOpenActionMenu(project.id, e); }}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="flex items-center justify-center w-6 h-6 rounded-sm text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <MoreHorizontal className="w-[14px] h-[14px]" />
           </button>
@@ -170,7 +170,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         );
 
       case "progress": {
-        if (totalTasks === 0) return <span className="font-mono text-data-sm text-text-tertiary">—</span>;
+        if (totalTasks === 0) return <span className="font-mono text-data-sm text-text-3">—</span>;
         const pct = (completedTasks / totalTasks) * 100;
         return (
           <div className="flex items-center gap-1.5">
@@ -180,7 +180,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                 style={{ width: `${pct}%`, backgroundColor: statusColor }}
               />
             </div>
-            <span className="font-mono text-data-sm text-text-secondary whitespace-nowrap">
+            <span className="font-mono text-data-sm text-text-2 whitespace-nowrap">
               {completedTasks}/{totalTasks}
             </span>
           </div>
@@ -193,23 +193,23 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
             <button
               data-no-select
               onClick={(e) => { e.stopPropagation(); onAddTask(project.id); }}
-              className="flex items-center gap-1 text-text-tertiary hover:text-ops-accent transition-colors"
+              className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors"
             >
               <Plus className="w-3 h-3" />
               <span className="font-mohave text-[11px]">Add task</span>
             </button>
           ) : (
-            <span className="font-mono text-data-sm text-text-tertiary">—</span>
+            <span className="font-mono text-data-sm text-text-3">—</span>
           );
         }
         return (
           <button
             data-no-select
             onClick={(e) => { e.stopPropagation(); onAddTask(project.id); }}
-            className="flex items-center gap-1 text-text-secondary hover:text-text-primary transition-colors"
+            className="flex items-center gap-1 text-text-2 hover:text-text transition-colors"
           >
             <span className="font-mono text-data-sm">{totalTasks}</span>
-            {canCreateTasks && <Plus className="w-2.5 h-2.5 text-text-disabled" />}
+            {canCreateTasks && <Plus className="w-2.5 h-2.5 text-text-mute" />}
           </button>
         );
       }
@@ -231,7 +231,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         );
 
       case "team": {
-        if (teamMembers.length === 0) return <span className="text-text-tertiary text-[11px]">—</span>;
+        if (teamMembers.length === 0) return <span className="text-text-3 text-[11px]">—</span>;
         const visible = teamMembers.slice(0, 4);
         const overflow = teamMembers.length - 4;
         return (
@@ -245,21 +245,21 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                 {m.avatarUrl ? (
                   <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-kosugi text-[7px] text-text-tertiary uppercase">
+                  <span className="font-kosugi text-[7px] text-text-3 uppercase">
                     {m.name.charAt(0)}
                   </span>
                 )}
               </div>
             ))}
             {overflow > 0 && (
-              <span className="ml-0.5 font-mono text-[10px] text-text-tertiary">+{overflow}</span>
+              <span className="ml-0.5 font-mono text-[10px] text-text-3">+{overflow}</span>
             )}
           </div>
         );
       }
 
       case "images": {
-        if (images.length === 0) return <span className="text-text-tertiary text-[11px]">—</span>;
+        if (images.length === 0) return <span className="text-text-3 text-[11px]">—</span>;
         const visibleImgs = images.slice(0, 3);
         const overflow = images.length - 3;
         return (
@@ -278,7 +278,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                 </div>
               ))}
               {overflow > 0 && (
-                <span className="ml-0.5 font-mono text-[10px] text-text-tertiary">+{overflow}</span>
+                <span className="ml-0.5 font-mono text-[10px] text-text-3">+{overflow}</span>
               )}
             </button>
 
@@ -309,17 +309,17 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
       }
 
       case "clientEmail":
-        return <span className="truncate text-text-secondary">{clientEmail || "—"}</span>;
+        return <span className="truncate text-text-2">{clientEmail || "—"}</span>;
 
       case "clientPhone":
-        return <span className="font-mono text-data-sm text-text-secondary">{clientPhone || "—"}</span>;
+        return <span className="font-mono text-data-sm text-text-2">{clientPhone || "—"}</span>;
 
       case "notes": {
         const text = project.notes;
-        if (!text) return <span className="text-text-tertiary text-[11px]">—</span>;
+        if (!text) return <span className="text-text-3 text-[11px]">—</span>;
         return (
           <span
-            className="font-mohave text-[11px] leading-[14px] text-text-secondary line-clamp-2 block"
+            className="font-mohave text-[11px] leading-[14px] text-text-2 line-clamp-2 block"
             title={text}
           >
             {text}
@@ -338,11 +338,11 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 
       case "pipeline":
         return project.opportunityId ? (
-          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-kosugi text-[9px] text-text-tertiary uppercase tracking-wider">
+          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-kosugi text-[9px] text-text-3 uppercase tracking-wider">
             Linked
           </span>
         ) : (
-          <span className="text-text-tertiary">—</span>
+          <span className="text-text-3">—</span>
         );
 
       case "daysInStatus":
@@ -357,7 +357,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         );
 
       case "created": {
-        if (!project.createdAt) return <span className="font-mono text-data-sm text-text-tertiary">—</span>;
+        if (!project.createdAt) return <span className="font-mono text-data-sm text-text-3">—</span>;
         const d = new Date(project.createdAt);
         const now = new Date();
         const month = d.toLocaleString("en-US", { month: "short" });
@@ -395,7 +395,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
             "px-1.5 py-1.5",
             col.id === "actions" && "w-[40px] px-1",
             col.mono && "font-mono text-data-sm",
-            !col.mono && col.id !== "actions" && "font-mohave text-body-sm text-text-primary",
+            !col.mono && col.id !== "actions" && "font-mohave text-body-sm text-text",
           )}
         >
           {renderCell(col.id)}

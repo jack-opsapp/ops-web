@@ -81,13 +81,13 @@ function ClientSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Client
       </label>
       <div className="relative">
         {selectedClient ? (
-          <div className="flex items-center justify-between bg-background-input border border-[rgba(255,255,255,0.2)] rounded px-1.5 py-1.5">
-            <span className="font-mohave text-body text-text-primary">
+          <div className="flex items-center justify-between bg-surface-input border border-[rgba(255,255,255,0.2)] rounded px-1.5 py-1.5">
+            <span className="font-mohave text-body text-text">
               {selectedClient.name}
             </span>
             <button
@@ -96,7 +96,7 @@ function ClientSelector({
                 onChange(null);
                 setClientSearch("");
               }}
-              className="text-text-tertiary hover:text-text-secondary"
+              className="text-text-3 hover:text-text-2"
             >
               <X className="w-[16px] h-[16px]" />
             </button>
@@ -119,7 +119,7 @@ function ClientSelector({
               <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating max-h-[200px] overflow-y-auto">
                 {filteredClients.length === 0 ? (
                   <div className="px-1.5 py-1 text-left">
-                    <p className="font-mohave text-body-sm text-text-tertiary">
+                    <p className="font-mohave text-body-sm text-text-3">
                       {clients.length === 0 ? "No clients found" : "No matching clients"}
                     </p>
                   </div>
@@ -133,7 +133,7 @@ function ClientSelector({
                         setShowDropdown(false);
                         setClientSearch("");
                       }}
-                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                     >
                       {client.name}
                     </button>
@@ -172,7 +172,7 @@ function TeamMemberSelector({
   if (isLoading) {
     return (
       <div className="flex flex-col gap-0.5">
-        <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           Team Members
         </label>
         <div className="flex flex-wrap gap-1">
@@ -190,10 +190,10 @@ function TeamMemberSelector({
   if (members.length === 0) {
     return (
       <div className="flex flex-col gap-0.5">
-        <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           Team Members
         </label>
-        <p className="font-mohave text-body-sm text-text-tertiary">
+        <p className="font-mohave text-body-sm text-text-3">
           No team members available
         </p>
       </div>
@@ -202,7 +202,7 @@ function TeamMemberSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Team Members
       </label>
       <div className="flex flex-wrap gap-1">
@@ -218,7 +218,7 @@ function TeamMemberSelector({
                 "flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
                 isSelected
                   ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                  : "bg-background-input border-[rgba(255,255,255,0.2)] text-text-tertiary hover:text-text-secondary"
+                  : "bg-surface-input border-[rgba(255,255,255,0.2)] text-text-3 hover:text-text-2"
               )}
             >
               <div
@@ -226,7 +226,7 @@ function TeamMemberSelector({
                   "w-[20px] h-[20px] rounded-full flex items-center justify-center text-[10px]",
                   isSelected
                     ? "bg-ops-accent text-white"
-                    : "bg-background-elevated text-text-tertiary"
+                    : "bg-background-elevated text-text-3"
                 )}
               >
                 {isSelected ? (
@@ -395,7 +395,7 @@ export function CreateProjectForm({
           control={control}
           render={({ field }) => (
             <div className="flex flex-col gap-0.5">
-              <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                 Status
               </label>
               <div className="flex items-center gap-1">
@@ -408,7 +408,7 @@ export function CreateProjectForm({
                       "px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all uppercase",
                       field.value === opt.value
                         ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                        : "bg-background-input border-[rgba(255,255,255,0.2)] text-text-tertiary hover:text-text-secondary"
+                        : "bg-surface-input border-[rgba(255,255,255,0.2)] text-text-3 hover:text-text-2"
                     )}
                   >
                     {opt.label}

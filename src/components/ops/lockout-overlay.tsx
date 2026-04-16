@@ -250,9 +250,9 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
   },
   business: {
     icon: <Building2 className="w-[16px] h-[16px]" />,
-    accentClass: "text-text-primary",
+    accentClass: "text-text",
     borderClass: "border-border-medium hover:border-border-strong",
-    badgeClass: "bg-text-primary/10 text-text-primary",
+    badgeClass: "bg-text-primary/10 text-text",
   },
 };
 
@@ -282,14 +282,14 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
         <div className={cn("p-0.5 rounded bg-background-elevated", display.accentClass)}>
           {display.icon}
         </div>
-        <h3 className="font-mohave text-body text-text-primary">{config.name}</h3>
+        <h3 className="font-mohave text-body text-text">{config.name}</h3>
       </div>
 
       <div className="flex items-baseline gap-0.5 mb-1.5">
-        <span className="font-mono text-[28px] leading-none text-text-primary tracking-tight">
+        <span className="font-mono text-[28px] leading-none text-text tracking-tight">
           ${config.price}
         </span>
-        <span className="font-mohave text-caption-sm text-text-tertiary">/mo</span>
+        <span className="font-mohave text-caption-sm text-text-3">/mo</span>
       </div>
 
       <div className={cn(
@@ -303,7 +303,7 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
         {config.features.slice(0, 3).map((feature) => (
           <li key={feature} className="flex items-start gap-0.5">
             <Check className={cn("w-[12px] h-[12px] mt-[2px] shrink-0", display.accentClass)} />
-            <span className="font-mohave text-caption-sm text-text-secondary">{feature}</span>
+            <span className="font-mohave text-caption-sm text-text-2">{feature}</span>
           </li>
         ))}
       </ul>
@@ -337,14 +337,14 @@ function AdminDisplay({
 
   return (
     <div className="flex items-center gap-1 mt-2 mb-3">
-      <span className="font-kosugi text-[11px] uppercase tracking-[0.15em] text-text-tertiary">
+      <span className="font-kosugi text-[11px] uppercase tracking-[0.15em] text-text-3">
         {t("lockout.adminLabel")}:
       </span>
-      <span className="font-mohave text-body text-text-primary font-medium">
+      <span className="font-mohave text-body text-text font-medium">
         {primaryAdmin.name}
       </span>
       {othersCount > 0 && (
-        <span className="font-mohave text-body-sm text-text-tertiary">
+        <span className="font-mohave text-body-sm text-text-3">
           (+{othersCount} {t("lockout.adminOthers")})
         </span>
       )}
@@ -368,10 +368,10 @@ function FooterLinks({ showDifferentAccount }: { showDifferentAccount?: boolean 
       </a>
       {showDifferentAccount && (
         <>
-          <span className="text-text-disabled text-[10px]">|</span>
+          <span className="text-text-mute text-[10px]">|</span>
           <a
             href="/login"
-            className="font-mohave text-caption-sm text-text-tertiary hover:text-text-secondary underline underline-offset-4 transition-colors"
+            className="font-mohave text-caption-sm text-text-3 hover:text-text-2 underline underline-offset-4 transition-colors"
           >
             {t("lockout.differentAccount")}
           </a>
@@ -471,17 +471,17 @@ export function LockoutOverlay() {
                   </div>
                 </div>
 
-                <h2 id="lockout-heading" className="font-mohave text-display text-text-primary mb-1">
+                <h2 id="lockout-heading" className="font-mohave text-display text-text mb-1">
                   {t("lockout.expiredAdmin.title")}
                 </h2>
-                <p className="font-mohave text-body text-text-secondary leading-relaxed">
+                <p className="font-mohave text-body text-text-2 leading-relaxed">
                   {t("lockout.expiredAdmin.body")}
                 </p>
 
                 {/* Divider */}
                 <div className="flex items-center gap-2 my-4">
                   <div className="flex-1 h-px bg-white/[0.06]" />
-                  <span className="font-kosugi text-[10px] uppercase tracking-[0.3em] text-text-tertiary">
+                  <span className="font-kosugi text-[10px] uppercase tracking-[0.3em] text-text-3">
                     {t("lockout.expiredAdmin.selectPlan")}
                   </span>
                   <div className="flex-1 h-px bg-white/[0.06]" />
@@ -494,13 +494,13 @@ export function LockoutOverlay() {
                   <CompactPricingCard tier="business" />
                 </div>
 
-                <p className="font-mohave text-caption-sm text-text-tertiary mb-1">
+                <p className="font-mohave text-caption-sm text-text-3 mb-1">
                   {t("lockout.guarantee")}
                 </p>
 
                 <FooterLinks />
 
-                <p className="font-mono text-[9px] text-text-disabled tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.expiredAdmin.sysMessage")}
                 </p>
               </>
@@ -515,10 +515,10 @@ export function LockoutOverlay() {
                   </div>
                 </div>
 
-                <h2 id="lockout-heading" className="font-mohave text-display text-text-primary mb-1">
+                <h2 id="lockout-heading" className="font-mohave text-display text-text mb-1">
                   {t("lockout.expiredMember.title")}
                 </h2>
-                <p className="font-mohave text-body text-text-secondary leading-relaxed">
+                <p className="font-mohave text-body text-text-2 leading-relaxed">
                   {t("lockout.expiredMember.body")}
                 </p>
 
@@ -536,7 +536,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks showDifferentAccount />
 
-                <p className="font-mono text-[9px] text-text-disabled tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.expiredMember.sysMessage")}
                 </p>
               </>
@@ -551,10 +551,10 @@ export function LockoutOverlay() {
                   </div>
                 </div>
 
-                <h2 id="lockout-heading" className="font-mohave text-display text-text-primary mb-1">
+                <h2 id="lockout-heading" className="font-mohave text-display text-text mb-1">
                   {t("lockout.unseatedAdmin.title")}
                 </h2>
-                <p className="font-mohave text-body text-text-secondary leading-relaxed">
+                <p className="font-mohave text-body text-text-2 leading-relaxed">
                   {t("lockout.unseatedAdmin.body")}
                 </p>
 
@@ -566,7 +566,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks />
 
-                <p className="font-mono text-[9px] text-text-disabled tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.unseatedAdmin.sysMessage")}
                 </p>
               </>
@@ -581,10 +581,10 @@ export function LockoutOverlay() {
                   </div>
                 </div>
 
-                <h2 id="lockout-heading" className="font-mohave text-display text-text-primary mb-1">
+                <h2 id="lockout-heading" className="font-mohave text-display text-text mb-1">
                   {t("lockout.unseated.title")}
                 </h2>
-                <p className="font-mohave text-body text-text-secondary leading-relaxed">
+                <p className="font-mohave text-body text-text-2 leading-relaxed">
                   {t("lockout.unseated.body")}
                 </p>
 
@@ -602,7 +602,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks showDifferentAccount />
 
-                <p className="font-mono text-[9px] text-text-disabled tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.unseated.sysMessage")}
                 </p>
               </>

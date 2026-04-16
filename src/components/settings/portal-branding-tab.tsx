@@ -511,7 +511,7 @@ export function PortalBrandingTab() {
             ))}
           </div>
         </div>
-        <p className="font-kosugi text-[11px] text-text-disabled mt-1.5">
+        <p className="font-kosugi text-[11px] text-text-mute mt-1.5">
           Live preview of your client portal. Changes update instantly.
         </p>
       </CardContent>
@@ -528,7 +528,7 @@ export function PortalBrandingTab() {
           <CardTitle>{t("portalBranding.logoTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="p-2 rounded border border-border bg-background-input flex items-center gap-2 min-h-[56px]">
+          <div className="p-2 rounded border border-border bg-surface-input flex items-center gap-2 min-h-[56px]">
             {company?.logoURL ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -537,14 +537,14 @@ export function PortalBrandingTab() {
                   alt="Company logo"
                   className="max-h-[40px] max-w-[120px] object-contain"
                 />
-                <span className="font-kosugi text-[11px] text-text-disabled">
+                <span className="font-kosugi text-[11px] text-text-mute">
                   Using your company logo
                 </span>
               </>
             ) : (
               <div className="flex items-center gap-1.5">
-                <Building2 className="w-[20px] h-[20px] text-text-disabled" />
-                <span className="font-kosugi text-[11px] text-text-disabled">
+                <Building2 className="w-[20px] h-[20px] text-text-mute" />
+                <span className="font-kosugi text-[11px] text-text-mute">
                   No company logo set — upload one in Company Details
                 </span>
               </div>
@@ -562,7 +562,7 @@ export function PortalBrandingTab() {
           {/* Suggested colors from logo */}
           {suggestedColors.length > 0 && (
             <div className="space-y-1">
-              <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+              <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                 Suggested from your logo
               </p>
               <div className="flex gap-1.5">
@@ -616,7 +616,7 @@ export function PortalBrandingTab() {
                   className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)]"
                   style={{ backgroundColor: color.hex }}
                 />
-                <span className="font-kosugi text-[10px] text-text-tertiary leading-tight">
+                <span className="font-kosugi text-[10px] text-text-3 leading-tight">
                   {color.name}
                 </span>
                 {accentColor === color.hex && (
@@ -646,7 +646,7 @@ export function PortalBrandingTab() {
               className="w-[140px] font-mono"
               error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
             />
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               Custom
             </span>
           </div>
@@ -673,12 +673,12 @@ export function PortalBrandingTab() {
                   "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
                   template === tmpl.id
                     ? "bg-ops-accent-muted border-ops-accent"
-                    : "bg-background-input border-border hover:border-border-medium"
+                    : "bg-surface-input border-border hover:border-border-medium"
                 )}
               >
                 <div>
-                  <p className="font-mohave text-body text-text-primary">{t(tmpl.labelKey)}</p>
-                  <p className="font-kosugi text-[11px] text-text-tertiary">{t(tmpl.descKey)}</p>
+                  <p className="font-mohave text-body text-text">{t(tmpl.labelKey)}</p>
+                  <p className="font-kosugi text-[11px] text-text-3">{t(tmpl.descKey)}</p>
                 </div>
                 {template === tmpl.id && (
                   <div className="w-[20px] h-[20px] rounded-full bg-ops-accent flex items-center justify-center shrink-0 ml-1">
@@ -714,19 +714,19 @@ export function PortalBrandingTab() {
                   "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   themeMode === mode.id
                     ? "bg-ops-accent-muted border-ops-accent"
-                    : "bg-background-input border-border hover:border-border-medium"
+                    : "bg-surface-input border-border hover:border-border-medium"
                 )}
               >
                 <mode.icon
                   className={cn(
                     "w-[20px] h-[20px]",
-                    themeMode === mode.id ? "text-ops-accent" : "text-text-tertiary"
+                    themeMode === mode.id ? "text-ops-accent" : "text-text-3"
                   )}
                 />
                 <span
                   className={cn(
                     "font-mohave text-body-sm",
-                    themeMode === mode.id ? "text-ops-accent" : "text-text-secondary"
+                    themeMode === mode.id ? "text-ops-accent" : "text-text-2"
                   )}
                 >
                   {mode.label}
@@ -734,7 +734,7 @@ export function PortalBrandingTab() {
               </button>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-disabled mt-1">
+          <p className="font-kosugi text-[11px] text-text-mute mt-1">
             {t("portalBranding.themeHelper")}
           </p>
         </CardContent>
@@ -767,7 +767,7 @@ export function PortalBrandingTab() {
           <CardTitle>{t("portalBranding.visibilityTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          <p className="font-kosugi text-[11px] text-text-disabled mb-2">
+          <p className="font-kosugi text-[11px] text-text-mute mb-2">
             {t("portalBranding.visibilityDesc")}
           </p>
 
@@ -780,7 +780,7 @@ export function PortalBrandingTab() {
             { key: "showDiscount" as const, labelKey: "portalBranding.discount", state: showDiscount, setter: setShowDiscount },
           ]).map(({ key, labelKey, state, setter }) => (
             <div key={key} className="flex items-center justify-between py-1.5">
-              <span className="font-mohave text-body-sm text-text-secondary">
+              <span className="font-mohave text-body-sm text-text-2">
                 {t(labelKey)}
               </span>
               <div className="flex rounded border border-border overflow-hidden">
@@ -801,7 +801,7 @@ export function PortalBrandingTab() {
                       "px-2 py-1 text-[11px] font-kosugi transition-all border-r last:border-r-0 border-border disabled:opacity-40 disabled:cursor-not-allowed",
                       state === opt.value
                         ? "bg-ops-accent-muted text-ops-accent"
-                        : "bg-background-input text-text-tertiary hover:text-text-secondary"
+                        : "bg-surface-input text-text-3 hover:text-text-2"
                     )}
                   >
                     {opt.label}
@@ -820,7 +820,7 @@ export function PortalBrandingTab() {
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between pt-1">
-        <p className="font-kosugi text-[11px] text-text-disabled">
+        <p className="font-kosugi text-[11px] text-text-mute">
           {isDirty
             ? t("portalBranding.unsavedChanges")
             : t("portalBranding.allSaved")}

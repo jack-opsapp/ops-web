@@ -87,7 +87,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
         {/* Email stats */}
         {opportunity.correspondenceCount > 0 ? (
           <div className="flex items-center justify-between">
-            <span className="font-kosugi text-micro-sm text-text-tertiary">
+            <span className="font-kosugi text-micro text-text-3">
               {t("spatial.emailCount").replace("{count}", String(opportunity.correspondenceCount))}
               {" · "}
               {t("spatial.emailInOut")
@@ -95,27 +95,27 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
                 .replace("{out}", String(opportunity.outboundCount))}
             </span>
             {lastCorrespondence && (
-              <span className="font-mono text-micro-xs text-text-disabled">
+              <span className="font-mono text-micro text-text-mute">
                 {formatTimeAgo(lastCorrespondence)}
               </span>
             )}
           </div>
         ) : (
-          <span className="font-kosugi text-micro-sm text-text-disabled">
+          <span className="font-kosugi text-micro text-text-mute">
             {t("spatial.noCorrespondence")}
           </span>
         )}
 
         {/* Days in stage + follow-up */}
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-micro-sm text-text-disabled">
+          <span className="font-kosugi text-micro text-text-mute">
             {t("spatial.daysInStage")
               .replace("{count}", String(days))
               .replace("{stage}", stageName)}
           </span>
           {followUp && (
             <span
-              className="font-mono text-micro-xs"
+              className="font-mono text-micro"
               style={{
                 color: isDateOverdue(followUp)
                   ? "#93321A"

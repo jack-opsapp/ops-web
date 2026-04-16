@@ -101,7 +101,7 @@ export function TagFormDialog({ open, onOpenChange, editTag }: TagFormDialogProp
         <div className="space-y-3 mt-2">
           {/* Name */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
               Name *
             </label>
             <Input
@@ -114,7 +114,7 @@ export function TagFormDialog({ open, onOpenChange, editTag }: TagFormDialogProp
           {/* Thresholds */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Warning Threshold
               </label>
               <Input
@@ -126,7 +126,7 @@ export function TagFormDialog({ open, onOpenChange, editTag }: TagFormDialogProp
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 Critical Threshold
               </label>
               <Input

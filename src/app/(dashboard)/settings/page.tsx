@@ -458,8 +458,8 @@ export default function SettingsPage() {
                     "relative flex items-center justify-center gap-[6px] px-1.5 py-[8px]",
                     "transition-colors duration-200 shrink-0",
                     isActive
-                      ? "text-text-primary"
-                      : "text-text-tertiary hover:text-text-secondary"
+                      ? "text-text"
+                      : "text-text-3 hover:text-text-2"
                   )}
                 >
                   <Icon className="w-[16px] h-[16px]" />
@@ -490,7 +490,7 @@ export default function SettingsPage() {
                           {i > 0 && (
                             <span
                               className={cn(
-                                "text-text-disabled text-[8px] mx-[2px] select-none",
+                                "text-text-mute text-[8px] mx-[2px] select-none",
                                 "transition-opacity duration-200",
                                 isActive ? "opacity-60" : "opacity-0"
                               )}
@@ -511,8 +511,8 @@ export default function SettingsPage() {
                               "px-1.5 py-[6px] font-kosugi text-[11px] whitespace-nowrap rounded-sm",
                               "transition-all duration-200 shrink-0",
                               activeSubTab === sub.id
-                                ? "text-text-primary bg-[rgba(255,255,255,0.06)]"
-                                : "text-text-disabled hover:text-text-tertiary"
+                                ? "text-text bg-[rgba(255,255,255,0.06)]"
+                                : "text-text-mute hover:text-text-3"
                             )}
                           >
                             {t(sub.labelKey)}

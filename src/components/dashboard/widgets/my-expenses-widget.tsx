@@ -76,7 +76,7 @@ function getBadgeClasses(status: ExpenseBatchStatus): string {
     case ExpenseBatchStatus.Rejected:
       return "text-ops-error bg-ops-error/15 border-ops-error/30";
     default:
-      return "text-text-disabled bg-text-disabled/15 border-text-disabled/30";
+      return "text-text-mute bg-text-disabled/15 border-text-disabled/30";
   }
 }
 
@@ -184,10 +184,10 @@ export function MyExpensesWidget({
     return (
       <Card className="h-full" ref={ref}>
         <div className="h-full flex flex-col pt-3 cursor-pointer" onClick={() => onNavigate("/accounting")}>
-          <span className={`font-mono ${heroVal.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${heroVal > 0 ? "text-text-primary" : "text-text-disabled"}`}>
+          <span className={`font-mono ${heroVal.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${heroVal > 0 ? "text-text" : "text-text-mute"}`}>
             {heroVal}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("myExpenses.title") ?? "My Expenses"}
           </span>
           {stats.revision > 0 && (
@@ -204,17 +204,17 @@ export function MyExpensesWidget({
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3 cursor-pointer" onClick={() => onNavigate("/accounting")}>
           <div className="flex items-baseline justify-between">
-            <span className={`font-mono text-data-lg font-bold leading-none ${batchCount > 0 ? "text-text-primary" : "text-text-disabled"}`}>
+            <span className={`font-mono text-data-lg font-bold leading-none ${batchCount > 0 ? "text-text" : "text-text-mute"}`}>
               {formatCompactCurrency(stats.total)}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/accounting"); }}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("myExpenses.title") ?? "My Expenses"}
           </span>
           {stats.revision > 0 ? (
@@ -222,11 +222,11 @@ export function MyExpensesWidget({
               {stats.revision} {t("myExpenses.needsRevision") ?? "need revision"}
             </span>
           ) : batchCount > 0 ? (
-            <span className="font-mohave text-caption-sm text-text-secondary mt-0.5 truncate">
+            <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
               {stats.approved} {t("myExpenses.approved") ?? "approved"} · {stats.pending} {t("myExpenses.pending") ?? "pending"}
             </span>
           ) : (
-            <span className="font-mohave text-caption-sm text-text-disabled mt-0.5 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-0.5 truncate">
               {t("myExpenses.noExpenses") ?? "No expenses submitted"}
             </span>
           )}
@@ -241,7 +241,7 @@ export function MyExpensesWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("myExpenses.title") ?? "My Expenses"}
           </span>
         </div>
@@ -249,11 +249,11 @@ export function MyExpensesWidget({
         {/* Hero */}
         <div className="mb-2">
           <div className="flex items-baseline gap-2">
-            <span className={`font-mono text-display font-bold leading-none ${batchCount > 0 ? "text-text-primary" : "text-text-disabled"}`}>
+            <span className={`font-mono text-display font-bold leading-none ${batchCount > 0 ? "text-text" : "text-text-mute"}`}>
               {formatCompactCurrency(stats.total)}
             </span>
             {batchCount > 0 && (
-              <span className="font-mono text-micro-sm text-text-disabled">
+              <span className="font-mono text-micro text-text-mute">
                 {batchCount} {batchCount === 1 ? "batch" : "batches"}
               </span>
             )}
@@ -289,11 +289,11 @@ export function MyExpensesWidget({
                 }
 
                 const secondary = hasComplianceIssue ? (
-                  <span className="font-kosugi text-micro-sm text-text-disabled truncate">
+                  <span className="font-kosugi text-micro text-text-mute truncate">
                     {secondaryParts} · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span>
                   </span>
                 ) : (overdueReview ? (
-                  <span className="font-kosugi text-micro-sm text-text-disabled truncate">
+                  <span className="font-kosugi text-micro text-text-mute truncate">
                     {secondaryParts}
                   </span>
                 ) : secondaryParts);
@@ -316,7 +316,7 @@ export function MyExpensesWidget({
                         >
                           {statusLabel}
                         </span>
-                        <span className="font-mono text-micro-sm text-text-secondary">
+                        <span className="font-mono text-micro text-text-2">
                           {formatCompactCurrency(batch.totalAmount ?? 0)}
                         </span>
                       </span>
@@ -360,7 +360,7 @@ export function MyExpensesWidget({
         {/* Footer */}
         <button
           onClick={() => onNavigate("/accounting")}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors text-left"
+          className="mt-auto pt-2 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
         >
           {t("myExpenses.viewAll") ?? "View All"}
         </button>

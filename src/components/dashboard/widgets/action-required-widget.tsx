@@ -256,7 +256,7 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <WidgetSkeleton variant="list" />
@@ -270,7 +270,7 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <WidgetEmptyState
@@ -293,7 +293,7 @@ export function ActionRequiredWidget({
             <PopoverTrigger asChild>
               <button className="text-left cursor-pointer">
                 <span
-                  className="font-mono text-display font-bold leading-none block text-text-primary"
+                  className="font-mono text-display font-bold leading-none block text-text"
                 >
                   {items.length}
                 </span>
@@ -312,8 +312,8 @@ export function ActionRequiredWidget({
                     >
                       <Icon className="w-[14px] h-[14px] shrink-0" style={{ color: config.color }} />
                       <div className="flex-1 min-w-0">
-                        <p className="font-mohave text-caption-sm text-text-primary truncate">{item.description}</p>
-                        <span className="font-mono text-micro-sm text-text-tertiary">{item.age}</span>
+                        <p className="font-mohave text-caption-sm text-text truncate">{item.description}</p>
+                        <span className="font-mono text-micro text-text-3">{item.age}</span>
                       </div>
                     </button>
                   );
@@ -321,7 +321,7 @@ export function ActionRequiredWidget({
               </div>
             </PopoverContent>
           </Popover>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <WidgetTrendContext
@@ -341,18 +341,18 @@ export function ActionRequiredWidget({
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number + nav icon */}
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {items.length}
             </span>
             <button
               onClick={() => onNavigate("/calendar")}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           {/* Row 3: Health indicator */}
@@ -371,12 +371,12 @@ export function ActionRequiredWidget({
                   <PopoverTrigger asChild>
                     <button className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
                       <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: config.color }} />
-                      <span className="font-mono text-micro-sm text-text-tertiary">{count}</span>
+                      <span className="font-mono text-micro text-text-3">{count}</span>
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="start" side="bottom" collisionPadding={8} className="w-auto p-1 min-w-[200px] max-w-[280px]">
                     <div className="px-2 py-1 border-b border-border-subtle mb-1">
-                      <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                      <span className="font-kosugi text-micro text-text-mute uppercase">
                         {t(config.labelKey) ?? type}
                       </span>
                     </div>
@@ -388,13 +388,13 @@ export function ActionRequiredWidget({
                           className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-[rgba(255,255,255,0.04)] transition-colors rounded-sm text-left"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-mohave text-caption-sm text-text-primary truncate">{item.description}</p>
+                            <p className="font-mohave text-caption-sm text-text truncate">{item.description}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             {item.amount !== undefined && (
-                              <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(item.amount)}</span>
+                              <span className="font-mono text-micro text-text-2">{formatCompactCurrency(item.amount)}</span>
                             )}
-                            <span className="font-mono text-micro-sm text-text-tertiary whitespace-nowrap">{item.age}</span>
+                            <span className="font-mono text-micro text-text-3 whitespace-nowrap">{item.age}</span>
                           </div>
                         </button>
                       ))}
@@ -465,11 +465,11 @@ export function ActionRequiredWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <span
-            className="font-mono text-micro-sm px-1.5 py-0.5 rounded-sm"
+            className="font-mono text-micro px-1.5 py-0.5 rounded-sm"
             style={{ backgroundColor: `${totalColor}20`, color: totalColor }}
           >
             {items.length}
@@ -488,7 +488,7 @@ export function ActionRequiredWidget({
                     <span className="font-mono text-data-sm font-bold" style={{ color: count > 0 ? config.color : "var(--text-disabled)" }}>
                       {count}
                     </span>
-                    <span className="font-kosugi text-[8px] text-text-disabled uppercase tracking-wider text-center leading-tight">
+                    <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider text-center leading-tight">
                       {t(config.labelKey) ?? type}
                     </span>
                   </div>
@@ -512,10 +512,10 @@ export function ActionRequiredWidget({
                   metric={
                     <div className="flex items-center gap-1">
                       {item.amount !== undefined && (
-                        <span className="font-mono text-micro-sm text-text-secondary">{formatCompactCurrency(item.amount)}</span>
+                        <span className="font-mono text-micro text-text-2">{formatCompactCurrency(item.amount)}</span>
                       )}
                       {!showDetail(size) && (
-                        <span className="font-mono text-micro-sm text-text-tertiary whitespace-nowrap">{item.age}</span>
+                        <span className="font-mono text-micro text-text-3 whitespace-nowrap">{item.age}</span>
                       )}
                     </div>
                   }

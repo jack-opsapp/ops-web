@@ -175,7 +175,7 @@ export function BacklogDepthWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
           <WidgetSkeleton variant="stat" />
@@ -189,7 +189,7 @@ export function BacklogDepthWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
           <WidgetEmptyState
@@ -214,10 +214,10 @@ export function BacklogDepthWidget({
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {displayWeeks}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+          <span className="font-kosugi text-micro text-text-mute uppercase">
             {t("backlogDepth.weeks") ?? "wk"}
           </span>
         </div>
@@ -240,11 +240,11 @@ export function BacklogDepthWidget({
               onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
               className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
-              <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+              <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
           {/* Row 3: Gauge bar + status label */}
@@ -266,7 +266,7 @@ export function BacklogDepthWidget({
               }}
             />
           </div>
-          <span className="font-kosugi text-micro-sm uppercase tracking-wider mt-1 block" style={{ color }}>
+          <span className="font-kosugi text-micro uppercase tracking-wider mt-1 block" style={{ color }}>
             {backlogLabel(backlog.weeks, t)}
           </span>
         </div>
@@ -281,10 +281,10 @@ export function BacklogDepthWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("backlogDepth.title") ?? "Backlog"}
           </span>
-          <span className="font-mono text-caption-sm text-text-secondary">
+          <span className="font-mono text-caption-sm text-text-2">
             {backlog.projectCount} {t("backlogDepth.projects") ?? "projects"}
           </span>
         </div>
@@ -295,8 +295,8 @@ export function BacklogDepthWidget({
             {displayWeeks}
           </span>
           <div className="flex flex-col">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">{t("backlogDepth.weeks") ?? "wk"}</span>
-            <span className="font-kosugi text-micro-sm uppercase" style={{ color }}>{backlogLabel(backlog.weeks, t)}</span>
+            <span className="font-kosugi text-micro text-text-mute uppercase">{t("backlogDepth.weeks") ?? "wk"}</span>
+            <span className="font-kosugi text-micro uppercase" style={{ color }}>{backlogLabel(backlog.weeks, t)}</span>
           </div>
         </div>
 
@@ -323,8 +323,8 @@ export function BacklogDepthWidget({
               />
             </div>
             <div className="flex items-center justify-between mt-1 mb-2">
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">0</span>
-              <span className="font-kosugi text-micro-sm text-text-disabled uppercase">10+ {t("backlogDepth.weeks") ?? "wk"}</span>
+              <span className="font-kosugi text-micro text-text-mute uppercase">0</span>
+              <span className="font-kosugi text-micro text-text-mute uppercase">10+ {t("backlogDepth.weeks") ?? "wk"}</span>
             </div>
 
             {/* Breakdown metric rows — flex-1 to fill vertical space */}
@@ -354,10 +354,10 @@ export function BacklogDepthWidget({
                       </div>
                       {/* Label + count beneath */}
                       <div className="flex items-center justify-between mt-[2px]">
-                        <span className="font-kosugi text-micro-sm text-text-tertiary uppercase tracking-wider">
+                        <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                           {metric.label}
                         </span>
-                        <span className="font-mono text-micro-sm font-bold" style={{ color: metric.color }}>
+                        <span className="font-mono text-micro font-bold" style={{ color: metric.color }}>
                           {metric.count}
                         </span>
                       </div>

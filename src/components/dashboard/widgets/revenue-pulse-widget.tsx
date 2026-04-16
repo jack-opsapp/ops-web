@@ -283,7 +283,7 @@ export function RevenuePulseWidget({
                 }}
               >
                 {barH >= 24 && (
-                  <span className="font-mono text-micro-sm font-semibold" style={{ color: WT.revenue }}>
+                  <span className="font-mono text-micro font-semibold" style={{ color: WT.revenue }}>
                     {formatCompactCurrency(m.amount)}
                   </span>
                 )}
@@ -301,7 +301,7 @@ export function RevenuePulseWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
         </div>
@@ -319,8 +319,8 @@ export function RevenuePulseWidget({
       return (
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("revenuePulse.title") ?? "Revenue"}
             </span>
           </div>
@@ -332,15 +332,15 @@ export function RevenuePulseWidget({
         <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">$0</span>
-              <button onClick={() => onNavigate("/invoices")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
+              <button onClick={() => onNavigate("/invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("revenuePulse.title") ?? "Revenue"}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("revenuePulse.noData") ?? "No payments received"}
             </span>
           </div>
@@ -350,12 +350,12 @@ export function RevenuePulseWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("revenuePulse.noData") ?? "No payments received"}
             </span>
           </div>
@@ -369,10 +369,10 @@ export function RevenuePulseWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className={`font-mono ${formatCompactCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}>
+          <span className={`font-mono ${formatCompactCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text`}>
             {formatCompactCurrency(animatedMtd)}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
           <WidgetTrendContext
@@ -406,17 +406,17 @@ export function RevenuePulseWidget({
         >
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+              <span className="font-mono text-data-lg font-bold leading-none text-text">
                 {formatCompactCurrency(animatedMtd)}
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=paid"); }}
-                className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-0.5">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-0.5">
               {t("revenuePulse.title") ?? "Revenue"}
             </span>
             <WidgetTrendContext
@@ -425,11 +425,11 @@ export function RevenuePulseWidget({
               delta={`${Math.abs(deltaPercent)}%`}
               comparison={t("trend.vsLastMonth") ?? "vs last month"}
             />
-            <span className="font-mono text-micro-sm text-text-tertiary mt-0.5">
+            <span className="font-mono text-micro text-text-3 mt-0.5">
               {t("revenuePulse.ytd") ?? "YTD"}: {formatCompactCurrency(monthlyData.ytd)}
             </span>
             {projection && (
-              <span className="font-mono text-micro-sm text-text-disabled mt-0.5">
+              <span className="font-mono text-micro text-text-mute mt-0.5">
                 {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
               </span>
             )}
@@ -450,7 +450,7 @@ export function RevenuePulseWidget({
           <div className="h-full flex flex-col p-3">
             {/* Header with period picker */}
             <div className="flex items-center justify-between mb-2">
-              <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+              <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
                 {t("revenuePulse.title") ?? "Revenue"}
               </span>
               <WidgetPeriodPicker
@@ -463,7 +463,7 @@ export function RevenuePulseWidget({
 
             {/* Hero — animated MTD + YTD beneath */}
             <div className="flex items-baseline gap-2">
-              <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
+              <span className={`font-mono ${heroClass} font-bold text-text leading-none`}>
                 {formatCompactCurrency(animatedMtd)}
               </span>
             </div>
@@ -474,13 +474,13 @@ export function RevenuePulseWidget({
               comparison={t("trend.vsLastMonth") ?? "vs last month"}
             />
             <div className="flex items-center gap-2 mt-0.5 mb-2">
-              <span className="font-mono text-micro-sm text-text-tertiary">
+              <span className="font-mono text-micro text-text-3">
                 {t("revenuePulse.ytdTotal") ?? "YTD"}: {formatCompactCurrency(monthlyData.ytd)}
               </span>
               {projection && (
                 <>
                   <span className="text-[rgba(255,255,255,0.12)]">·</span>
-                  <span className="font-mono text-micro-sm text-text-disabled">
+                  <span className="font-mono text-micro text-text-mute">
                     {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
                   </span>
                 </>
@@ -503,7 +503,7 @@ export function RevenuePulseWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER with period picker */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("revenuePulse.title") ?? "Revenue"}
           </span>
           <WidgetPeriodPicker
@@ -516,7 +516,7 @@ export function RevenuePulseWidget({
 
         {/* HERO — animated MTD */}
         <div className="flex items-baseline gap-2 mb-1">
-          <span className={`font-mono ${heroClass} font-bold text-text-primary leading-none`}>
+          <span className={`font-mono ${heroClass} font-bold text-text leading-none`}>
             {formatCompactCurrency(animatedMtd)}
           </span>
         </div>
@@ -530,7 +530,7 @@ export function RevenuePulseWidget({
           {projection && (
             <>
               <span className="text-[rgba(255,255,255,0.12)]">·</span>
-              <span className="font-mono text-micro-sm text-text-disabled">
+              <span className="font-mono text-micro text-text-mute">
                 {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
               </span>
             </>
@@ -573,18 +573,18 @@ export function RevenuePulseWidget({
         {/* Bottom summary: MTD vs YTD */}
         <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border-subtle">
           <div>
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               {t("revenuePulse.mtdRevenue") ?? "MTD"}
             </span>
-            <p className="font-mono text-data-sm text-text-primary font-medium">
+            <p className="font-mono text-data-sm text-text font-medium">
               {formatCompactCurrency(monthlyData.mtd)}
             </p>
           </div>
           <div className="text-right">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               {t("revenuePulse.ytdTotal") ?? "YTD Total"}
             </span>
-            <p className="font-mono text-data-sm text-text-primary font-medium">
+            <p className="font-mono text-data-sm text-text font-medium">
               {formatCompactCurrency(monthlyData.ytd)}
             </p>
           </div>

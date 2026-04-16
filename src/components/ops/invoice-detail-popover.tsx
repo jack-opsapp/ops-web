@@ -226,20 +226,20 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
             className="w-1.5 h-1.5 rounded-[1px] shrink-0"
             style={{ backgroundColor: statusColor }}
           />
-          <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+          <span className="font-mohave text-[13px] font-semibold text-text truncate">
             {state.title}
           </span>
         </div>
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
             onClick={() => minimizePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             onClick={() => closePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -251,11 +251,11 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         {/* Row 1: Client name */}
         <div className="flex items-center gap-2 min-w-0">
           {clientName ? (
-            <span className="font-kosugi text-[10px] text-text-tertiary truncate">
+            <span className="font-kosugi text-[10px] text-text-3 truncate">
               {clientName}
             </span>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               No client
             </span>
           )}
@@ -272,7 +272,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
               : state.title}
           </span>
           {invoice && (
-            <span className="font-kosugi text-[9px] text-text-disabled">
+            <span className="font-kosugi text-[9px] text-text-mute">
               · {getDaysSinceIssued(invoice)}d
             </span>
           )}
@@ -288,8 +288,8 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
             className={cn(
               "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
               tab.id === state.activeTab
-                ? "text-text-primary"
-                : "text-text-disabled hover:text-text-secondary"
+                ? "text-text"
+                : "text-text-mute hover:text-text-2"
             )}
           >
             {tab.label}
@@ -310,7 +310,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         )}
         {state.activeTab === "activity" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               Activity — coming soon
             </span>
           </div>
@@ -356,26 +356,26 @@ function InvoiceOverviewTab({
       {/* Dates */}
       {(issueDate || dueDate) && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Dates
           </span>
           <div className="flex flex-col gap-1 mt-1">
             {issueDate && (
               <div className="flex items-center justify-between">
-                <span className="font-mohave text-body-sm text-text-secondary">
+                <span className="font-mohave text-body-sm text-text-2">
                   Issued
                 </span>
-                <span className="font-mohave text-body-sm text-text-primary">
+                <span className="font-mohave text-body-sm text-text">
                   {issueDate}
                 </span>
               </div>
             )}
             {dueDate && (
               <div className="flex items-center justify-between">
-                <span className="font-mohave text-body-sm text-text-secondary">
+                <span className="font-mohave text-body-sm text-text-2">
                   Due
                 </span>
-                <span className="font-mohave text-body-sm text-text-primary">
+                <span className="font-mohave text-body-sm text-text">
                   {dueDate}
                 </span>
               </div>
@@ -386,59 +386,59 @@ function InvoiceOverviewTab({
 
       {/* Financial summary */}
       <div>
-        <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
           Summary
         </span>
         <div className="flex flex-col gap-1 mt-1">
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Subtotal
             </span>
-            <span className="font-mono text-[12px] text-text-primary">
+            <span className="font-mono text-[12px] text-text">
               {formatCurrency(invoice.subtotal)}
             </span>
           </div>
           {invoice.discountAmount > 0 && (
             <div className="flex items-center justify-between">
-              <span className="font-mohave text-body-sm text-text-secondary">
+              <span className="font-mohave text-body-sm text-text-2">
                 Discount
               </span>
-              <span className="font-mono text-[12px] text-text-primary">
+              <span className="font-mono text-[12px] text-text">
                 -{formatCurrency(invoice.discountAmount)}
               </span>
             </div>
           )}
           {invoice.taxAmount > 0 && (
             <div className="flex items-center justify-between">
-              <span className="font-mohave text-body-sm text-text-secondary">
+              <span className="font-mohave text-body-sm text-text-2">
                 Tax
               </span>
-              <span className="font-mono text-[12px] text-text-primary">
+              <span className="font-mono text-[12px] text-text">
                 {formatCurrency(invoice.taxAmount)}
               </span>
             </div>
           )}
           <div className="flex items-center justify-between border-t border-[rgba(255,255,255,0.06)] pt-1">
-            <span className="font-mohave text-body-sm text-text-primary font-bold">
+            <span className="font-mohave text-body-sm text-text font-bold">
               Total
             </span>
-            <span className="font-mono text-[12px] text-text-primary font-bold">
+            <span className="font-mono text-[12px] text-text font-bold">
               {formatCurrency(invoice.total)}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Amount Paid
             </span>
-            <span className="font-mono text-[12px] text-text-primary">
+            <span className="font-mono text-[12px] text-text">
               {formatCurrency(invoice.amountPaid)}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Balance Due
             </span>
-            <span className="font-mono text-[12px] text-text-primary">
+            <span className="font-mono text-[12px] text-text">
               {formatCurrency(invoice.balanceDue)}
             </span>
           </div>
@@ -448,7 +448,7 @@ function InvoiceOverviewTab({
       {/* Line items */}
       {sortedLineItems.length > 0 && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Line Items
           </span>
           <div className="flex flex-col gap-2 mt-1">
@@ -462,30 +462,30 @@ function InvoiceOverviewTab({
       {/* Subject / notes */}
       {invoice.subject && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Subject
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {invoice.subject}
           </p>
         </div>
       )}
       {invoice.clientMessage && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Message
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {invoice.clientMessage}
           </p>
         </div>
       )}
       {invoice.internalNotes && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Internal Notes
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {invoice.internalNotes}
           </p>
         </div>
@@ -500,14 +500,14 @@ function LineItemRow({ item }: { item: LineItem }) {
   return (
     <div className="flex items-start justify-between gap-2 py-1 border-b border-[rgba(255,255,255,0.04)] last:border-b-0">
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="font-mohave text-body-sm text-text-primary truncate">
+        <span className="font-mohave text-body-sm text-text truncate">
           {item.name}
         </span>
-        <span className="font-mono text-[10px] text-text-disabled">
+        <span className="font-mono text-[10px] text-text-mute">
           {item.quantity} x {formatCurrency(item.unitPrice)}
         </span>
       </div>
-      <span className="font-mono text-[12px] text-text-primary shrink-0">
+      <span className="font-mono text-[12px] text-text shrink-0">
         {formatCurrency(item.lineTotal)}
       </span>
     </div>
@@ -524,7 +524,7 @@ function InvoicePaymentsTab({
   if (!payments || payments.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+        <span className="font-kosugi text-micro text-text-mute uppercase">
           No payments recorded
         </span>
       </div>
@@ -552,21 +552,21 @@ function PaymentRow({ payment }: { payment: Payment }) {
     <div className="flex flex-col gap-1 py-2 border-b border-[rgba(255,255,255,0.04)] last:border-b-0">
       <div className="flex items-center justify-between">
         {date && (
-          <span className="font-mohave text-body-sm text-text-secondary">
+          <span className="font-mohave text-body-sm text-text-2">
             {date}
           </span>
         )}
-        <span className="font-mono text-[12px] text-text-primary">
+        <span className="font-mono text-[12px] text-text">
           {formatCurrency(payment.amount)}
         </span>
       </div>
       {methodName && (
-        <span className="font-mohave text-[11px] text-text-tertiary">
+        <span className="font-mohave text-[11px] text-text-3">
           {methodName}
         </span>
       )}
       {payment.referenceNumber && (
-        <span className="font-mono text-[10px] text-text-disabled">
+        <span className="font-mono text-[10px] text-text-mute">
           {payment.referenceNumber}
         </span>
       )}

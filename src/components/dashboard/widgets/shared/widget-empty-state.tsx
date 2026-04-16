@@ -39,14 +39,14 @@ export function WidgetEmptyState({
           : `opacity ${WIDGET_DURATION_FAST}ms ${WIDGET_EASE_CSS}`,
       }}
     >
-      {Icon && <Icon className="w-2 h-2 text-text-disabled" />}
-      <span className="font-mohave text-caption-sm text-text-disabled text-center">
+      {Icon && <Icon className="w-2 h-2 text-text-mute" />}
+      <span className="font-mohave text-caption-sm text-text-mute text-center">
         {message}
       </span>
       {cta && (
         <button
           onClick={cta.onClick}
-          className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary hover:text-text-secondary transition-colors mt-0.5"
+          className="font-kosugi text-micro uppercase tracking-wider text-text-3 hover:text-text-2 transition-colors mt-0.5"
         >
           {cta.label}
         </button>

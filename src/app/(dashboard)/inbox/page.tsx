@@ -129,7 +129,7 @@ export default function InboxPage() {
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="font-mohave text-body text-text-disabled">
+            <p className="font-mohave text-body text-text-mute">
               {t("empty.title")}
             </p>
           </div>

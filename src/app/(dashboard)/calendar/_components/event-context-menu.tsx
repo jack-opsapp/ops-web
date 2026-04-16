@@ -281,7 +281,7 @@ export function EventContextMenu({
               className="w-[8px] h-[8px] rounded-full shrink-0"
               style={{ backgroundColor: colors.border }}
             />
-            <span className="font-mohave text-body-sm text-text-primary truncate">
+            <span className="font-mohave text-body-sm text-text truncate">
               {event.title}
             </span>
           </div>
@@ -400,11 +400,11 @@ function ContextMenuItem({
         "font-mohave text-body-sm",
         destructive
           ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
-          : "text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)]",
+          : "text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)]",
         focused &&
           (destructive
             ? "bg-red-500/10 text-red-300"
-            : "bg-[rgba(255,255,255,0.05)] text-text-primary")
+            : "bg-[rgba(255,255,255,0.05)] text-text")
       )}
     >
       {children}

@@ -142,7 +142,7 @@ export function TopClientsWidget({
     return (
       <Card className="h-full">
         <div className="pb-1 pt-2 px-3">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("topClients.title") ?? "Top Clients"}
           </span>
         </div>
@@ -158,11 +158,11 @@ export function TopClientsWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("topClients.title") ?? "Top Clients"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mohave text-caption-sm text-text-disabled">
+            <span className="font-mohave text-caption-sm text-text-mute">
               {t("topClients.noData") ?? "No client data yet"}
             </span>
           </div>
@@ -176,10 +176,10 @@ export function TopClientsWidget({
     return (
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
-          <span className="font-mono text-display font-bold leading-none text-text-primary">
+          <span className="font-mono text-display font-bold leading-none text-text">
             {rankedClients.length}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("topClients.title") ?? "Top Clients"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
@@ -203,22 +203,22 @@ export function TopClientsWidget({
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {rankedClients.length}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/clients"); }}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("topClients.title") ?? "Top Clients"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
           {topClient && (
-            <span className="font-mohave text-caption-sm text-text-secondary truncate mt-0.5">
+            <span className="font-mohave text-caption-sm text-text-2 truncate mt-0.5">
               #1: {topClient.client.name} · {metric === "projects" ? `${topRevenue}` : formatCompactCurrency(topRevenue)}
             </span>
           )}
@@ -249,7 +249,7 @@ export function TopClientsWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("topClients.title") ?? "Top Clients"}
           </span>
         </div>
@@ -271,7 +271,7 @@ export function TopClientsWidget({
                   style={widgetLineItemStyle(i, isVisible, reducedMotion)}
                 >
                   {/* Rank number */}
-                  <span className="font-mono text-micro text-text-tertiary w-[14px] shrink-0">
+                  <span className="font-mono text-micro text-text-3 w-[14px] shrink-0">
                     {i + 1}
                   </span>
 

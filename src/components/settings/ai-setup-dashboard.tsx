@@ -164,7 +164,7 @@ export function AiSetupDashboard({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-[20px] h-[20px] text-text-disabled animate-spin" />
+        <Loader2 className="w-[20px] h-[20px] text-text-mute animate-spin" />
       </div>
     );
   }
@@ -211,14 +211,14 @@ export function AiSetupDashboard({
       {/* Title */}
       <div className="flex items-center gap-1.5">
         <Brain className="w-[16px] h-[16px] text-[#597794]" />
-        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text-primary">
+        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
           {t("dashboard.title")}
         </span>
       </div>
 
       {/* Knowledge Stats */}
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.08em]">
+        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("dashboard.stats.title")}
         </span>
         <div className="grid grid-cols-4 gap-1.5">
@@ -249,12 +249,12 @@ export function AiSetupDashboard({
               className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]"
             >
               <div className="flex items-center gap-1 mb-[2px]">
-                <stat.icon className="w-[10px] h-[10px] text-text-disabled" />
-                <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                <stat.icon className="w-[10px] h-[10px] text-text-mute" />
+                <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                   {stat.label}
                 </span>
               </div>
-              <span className="font-mohave text-[18px] font-semibold text-text-primary">
+              <span className="font-mohave text-[18px] font-semibold text-text">
                 {stat.value}
               </span>
             </div>
@@ -264,7 +264,7 @@ export function AiSetupDashboard({
 
       {/* Readiness Indicators */}
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.08em]">
+        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("dashboard.readiness.title")}
         </span>
         <div className="space-y-[6px]">
@@ -296,8 +296,8 @@ export function AiSetupDashboard({
                 className="flex items-center justify-between px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
               >
                 <div className="flex items-center gap-1.5">
-                  <item.icon className="w-[14px] h-[14px] text-text-disabled" />
-                  <span className="font-mohave text-body-sm text-text-primary">
+                  <item.icon className="w-[14px] h-[14px] text-text-mute" />
+                  <span className="font-mohave text-body-sm text-text">
                     {item.label}
                   </span>
                 </div>
@@ -321,7 +321,7 @@ export function AiSetupDashboard({
 
       {/* Quick Actions */}
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.08em]">
+        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("dashboard.actions.title")}
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -336,21 +336,21 @@ export function AiSetupDashboard({
           )}
           <button
             onClick={onRescanEmails}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-secondary font-mohave text-[13px] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-2 font-mohave text-[13px] transition-colors"
           >
             <RotateCcw className="w-[12px] h-[12px]" />
             {t("dashboard.actions.rescan")}
           </button>
           <button
             onClick={onRemine}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-secondary font-mohave text-[13px] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-2 font-mohave text-[13px] transition-colors"
           >
             <Database className="w-[12px] h-[12px]" />
             {t("dashboard.actions.remine")}
           </button>
           <button
             onClick={onReinterview}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-secondary font-mohave text-[13px] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-2 font-mohave text-[13px] transition-colors"
           >
             <Brain className="w-[12px] h-[12px]" />
             {t("dashboard.actions.reinterview")}
@@ -361,7 +361,7 @@ export function AiSetupDashboard({
       {/* Next Steps */}
       {nextSteps.length > 0 && (
         <div className="space-y-1.5">
-          <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.08em]">
+          <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
             {t("dashboard.nextSteps.title")}
           </span>
           <div className="space-y-[4px]">
@@ -371,7 +371,7 @@ export function AiSetupDashboard({
                 className="flex items-start gap-1.5 px-2 py-1 rounded border border-[rgba(255,255,255,0.04)] bg-[rgba(255,255,255,0.02)]"
               >
                 <ChevronRight className="w-[12px] h-[12px] text-[#597794] mt-[2px] shrink-0" />
-                <span className="font-mohave text-[13px] text-text-secondary">
+                <span className="font-mohave text-[13px] text-text-2">
                   {step}
                 </span>
               </div>

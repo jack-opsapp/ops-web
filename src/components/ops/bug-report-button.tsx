@@ -272,12 +272,12 @@ export function BugReportButton() {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-[rgba(255,255,255,0.08)]">
-              <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-secondary">
+              <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-2">
                 {t("bugReport.title")}
               </span>
               <button
                 onClick={handleClose}
-                className="p-1 text-text-disabled hover:text-text-secondary transition-colors duration-150"
+                className="p-1 text-text-mute hover:text-text-2 transition-colors duration-150"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -288,7 +288,7 @@ export function BugReportButton() {
               {formState === "success" ? (
                 <div className="flex flex-col items-center justify-center py-4 gap-2">
                   <CheckCircle2 className="w-5 h-5 text-ops-accent" />
-                  <p className="font-mohave text-body-sm text-text-secondary text-left">
+                  <p className="font-mohave text-body-sm text-text-2 text-left">
                     {t("bugReport.submitted")}
                   </p>
                 </div>
@@ -296,7 +296,7 @@ export function BugReportButton() {
                 <>
                   {/* Title input */}
                   <div>
-                    <label className="font-kosugi text-[9px] uppercase tracking-wider text-text-tertiary mb-1 block">
+                    <label className="font-kosugi text-[9px] uppercase tracking-wider text-text-3 mb-1 block">
                       {t("bugReport.whatHappened")}
                     </label>
                     <input
@@ -305,9 +305,9 @@ export function BugReportButton() {
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder={t("bugReport.titlePlaceholder")}
                       className={cn(
-                        "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text-primary",
+                        "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
                         "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                        "placeholder:text-text-disabled",
+                        "placeholder:text-text-mute",
                         "focus:outline-none focus:border-ops-accent/40",
                         "transition-colors duration-150"
                       )}
@@ -323,7 +323,7 @@ export function BugReportButton() {
 
                   {/* Description textarea */}
                   <div>
-                    <label className="font-kosugi text-[9px] uppercase tracking-wider text-text-tertiary mb-1 block">
+                    <label className="font-kosugi text-[9px] uppercase tracking-wider text-text-3 mb-1 block">
                       {t("bugReport.details")}
                     </label>
                     <textarea
@@ -332,9 +332,9 @@ export function BugReportButton() {
                       placeholder={t("bugReport.detailsPlaceholder")}
                       rows={3}
                       className={cn(
-                        "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text-primary resize-none",
+                        "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
                         "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                        "placeholder:text-text-disabled",
+                        "placeholder:text-text-mute",
                         "focus:outline-none focus:border-ops-accent/40",
                         "transition-colors duration-150"
                       )}
@@ -343,7 +343,7 @@ export function BugReportButton() {
 
                   {/* Auto-captured context */}
                   <div className="space-y-1.5">
-                    <p className="font-kosugi text-[9px] text-text-disabled tracking-wider">
+                    <p className="font-kosugi text-[9px] text-text-mute tracking-wider">
                       {t("bugReport.autoCapture")}
                     </p>
                     {screenshotBlob && (
@@ -360,7 +360,7 @@ export function BugReportButton() {
                         <span
                           className={cn(
                             "font-kosugi text-[9px] tracking-wider uppercase text-left",
-                            includeScreenshot ? "text-ops-accent" : "text-text-disabled"
+                            includeScreenshot ? "text-ops-accent" : "text-text-mute"
                           )}
                         >
                           {includeScreenshot
@@ -408,7 +408,7 @@ export function BugReportButton() {
                       "transition-all duration-150",
                       title.trim() && formState !== "submitting"
                         ? "bg-ops-accent/20 text-ops-accent border border-ops-accent/30 hover:bg-ops-accent/30"
-                        : "bg-[rgba(255,255,255,0.04)] text-text-disabled border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
+                        : "bg-[rgba(255,255,255,0.04)] text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
                     )}
                   >
                     {formState === "submitting" ? (
@@ -450,11 +450,11 @@ export function BugReportButton() {
         title={t("bugReport.title")}
       >
         {capturingScreenshot ? (
-          <Loader2 className="w-[13px] h-[13px] text-text-disabled animate-spin" />
+          <Loader2 className="w-[13px] h-[13px] text-text-mute animate-spin" />
         ) : (
-          <Bug className="w-[13px] h-[13px] text-text-disabled" />
+          <Bug className="w-[13px] h-[13px] text-text-mute" />
         )}
-        <span className="font-kosugi text-[9px] text-text-disabled tracking-wider uppercase select-none">
+        <span className="font-kosugi text-[9px] text-text-mute tracking-wider uppercase select-none">
           {t("bugReport.label")}
         </span>
       </motion.button>

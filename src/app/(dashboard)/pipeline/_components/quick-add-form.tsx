@@ -85,9 +85,9 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
         value={contactName}
         onChange={(e) => handleContactNameChange(e.target.value)}
         className={cn(
-          "w-full bg-background-input text-text-primary font-mohave text-body-sm",
+          "w-full bg-surface-input text-text font-mohave text-body-sm",
           "px-1 py-[5px] rounded border border-border",
-          "placeholder:text-text-tertiary",
+          "placeholder:text-text-3",
           "focus:border-ops-accent focus:outline-none"
         )}
       />
@@ -99,9 +99,9 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
         value={title}
         onChange={(e) => handleTitleChange(e.target.value)}
         className={cn(
-          "w-full bg-background-input text-text-primary font-mohave text-body-sm",
+          "w-full bg-surface-input text-text font-mohave text-body-sm",
           "px-1 py-[5px] rounded border border-border",
-          "placeholder:text-text-tertiary",
+          "placeholder:text-text-3",
           "focus:border-ops-accent focus:outline-none"
         )}
       />
@@ -113,9 +113,9 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
         value={estimatedValue}
         onChange={(e) => setEstimatedValue(e.target.value)}
         className={cn(
-          "w-full bg-background-input text-text-primary font-mono text-[11px]",
+          "w-full bg-surface-input text-text font-mono text-[11px]",
           "px-1 py-[5px] rounded border border-border",
-          "placeholder:text-text-tertiary",
+          "placeholder:text-text-3",
           "focus:border-ops-accent focus:outline-none"
         )}
       />
@@ -126,7 +126,7 @@ export function QuickAddForm({ onSubmit, onCancel }: QuickAddFormProps) {
           onClick={onCancel}
           className={cn(
             "p-[4px] rounded",
-            "text-text-disabled hover:text-text-tertiary hover:bg-[rgba(255,255,255,0.06)]",
+            "text-text-mute hover:text-text-3 hover:bg-[rgba(255,255,255,0.06)]",
             "transition-colors"
           )}
           title={t("quickAdd.cancel")}

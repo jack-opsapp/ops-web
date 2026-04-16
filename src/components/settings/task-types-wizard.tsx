@@ -181,7 +181,7 @@ export function TaskTypesWizard({ onComplete }: TaskTypesWizardProps) {
     <div className="w-full">
       {/* Step indicator */}
       <div className="px-4 pt-4 pb-2">
-        <span className="font-kosugi text-[11px] text-text-disabled">
+        <span className="font-kosugi text-[11px] text-text-mute">
           Step {step} of {TOTAL_STEPS}
         </span>
       </div>

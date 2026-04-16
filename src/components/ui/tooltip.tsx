@@ -18,7 +18,7 @@ const TooltipContent = React.forwardRef<
         "z-50 overflow-hidden",
         "bg-[rgba(13,13,13,0.6)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
         "px-1.5 py-[6px]",
-        "font-mohave text-caption-sm text-text-primary",
+        "font-mohave text-caption-sm text-text",
         "animate-scale-in",
         className
       )}

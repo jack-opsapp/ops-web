@@ -61,7 +61,7 @@ const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
     return (
       <div className={cn("relative", className)}>
         <Search
-          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-text-tertiary pointer-events-none"
+          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-text-3 pointer-events-none"
           aria-hidden="true"
         />
         <input
@@ -71,11 +71,11 @@ const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
           onChange={handleChange}
           placeholder={placeholder}
           className={cn(
-            "w-full bg-background-input text-text-primary font-mohave text-body",
+            "w-full bg-surface-input text-text font-mohave text-body",
             "pl-5 pr-5 py-1.5 rounded-lg",
             "border border-border",
             "transition-all duration-150",
-            "placeholder:text-text-tertiary",
+            "placeholder:text-text-3",
             "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent"
           )}
           aria-label={placeholder}
@@ -87,7 +87,7 @@ const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
             onClick={handleClear}
             className={cn(
               "absolute right-1.5 top-1/2 -translate-y-1/2",
-              "text-text-tertiary hover:text-text-primary",
+              "text-text-3 hover:text-text",
               "transition-colors duration-150",
               "p-[2px] rounded-sm"
             )}

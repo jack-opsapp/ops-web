@@ -80,7 +80,7 @@ export function ClientCommsSettingsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-[18px] h-[18px] animate-spin motion-reduce:animate-none text-text-tertiary" />
+        <Loader2 className="w-[18px] h-[18px] animate-spin motion-reduce:animate-none text-text-3" />
       </div>
     );
   }
@@ -143,10 +143,10 @@ export function ClientCommsSettingsTab() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h2 className="font-mohave text-[16px] text-text-primary uppercase tracking-[0.04em]">
+          <h2 className="font-mohave text-[16px] text-text uppercase tracking-[0.04em]">
             {t("settings.title")}
           </h2>
-          <p className="font-kosugi text-[12px] text-text-tertiary mt-1">
+          <p className="font-kosugi text-[12px] text-text-3 mt-1">
             [
             {configuredAt
               ? t("settings.configuredOn").replace("{{date}}", configuredAt)
@@ -160,7 +160,7 @@ export function ClientCommsSettingsTab() {
           className={cn(
             "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
             "border border-[#597794] bg-[#597794]",
-            "font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
           )}
@@ -179,10 +179,10 @@ export function ClientCommsSettingsTab() {
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="font-mohave text-[13px] text-text-tertiary uppercase tracking-[0.06em]">
+                <div className="font-mohave text-[13px] text-text-3 uppercase tracking-[0.06em]">
                   {section.title}
                 </div>
-                <div className="font-kosugi text-[13px] text-text-primary mt-1">
+                <div className="font-kosugi text-[13px] text-text mt-1">
                   {section.summary}
                 </div>
               </div>
@@ -196,7 +196,7 @@ export function ClientCommsSettingsTab() {
                 className={cn(
                   "min-h-[44px] px-4 rounded-[4px]",
                   "border border-[rgba(255,255,255,0.12)] bg-transparent",
-                  "font-mohave text-[12px] text-text-secondary uppercase tracking-[0.06em]",
+                  "font-mohave text-[12px] text-text-2 uppercase tracking-[0.06em]",
                   "transition-colors duration-150 motion-reduce:transition-none",
                   "hover:border-[rgba(255,255,255,0.24)]"
                 )}

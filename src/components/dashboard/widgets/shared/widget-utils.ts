@@ -76,7 +76,7 @@ type StatusColors = { text: string; bg: string; border: string };
 
 const INVOICE_STATUS_COLORS: Record<string, StatusColors> = {
   [InvoiceStatus.Draft]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
@@ -106,12 +106,12 @@ const INVOICE_STATUS_COLORS: Record<string, StatusColors> = {
     border: "border-status-success/30",
   },
   [InvoiceStatus.Void]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
   [InvoiceStatus.WrittenOff]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
@@ -119,7 +119,7 @@ const INVOICE_STATUS_COLORS: Record<string, StatusColors> = {
 
 const ESTIMATE_STATUS_COLORS: Record<string, StatusColors> = {
   [EstimateStatus.Draft]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
@@ -149,7 +149,7 @@ const ESTIMATE_STATUS_COLORS: Record<string, StatusColors> = {
     border: "border-ops-error/30",
   },
   [EstimateStatus.Expired]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
@@ -159,7 +159,7 @@ const ESTIMATE_STATUS_COLORS: Record<string, StatusColors> = {
     border: "border-status-success/30",
   },
   [EstimateStatus.Superseded]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
@@ -268,14 +268,14 @@ const OPPORTUNITY_STAGE_COLORS: Record<string, StatusColors> = {
     border: "border-ops-error/30",
   },
   [OpportunityStage.Discarded]: {
-    text: "text-text-disabled",
+    text: "text-text-mute",
     bg: "bg-text-disabled/15",
     border: "border-text-disabled/30",
   },
 };
 
 const DEFAULT_STATUS_COLORS: StatusColors = {
-  text: "text-text-disabled",
+  text: "text-text-mute",
   bg: "bg-text-disabled/15",
   border: "border-text-disabled/30",
 };

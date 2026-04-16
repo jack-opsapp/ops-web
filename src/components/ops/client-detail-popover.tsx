@@ -207,20 +207,20 @@ const ClientDetailPopoverInstance = memo(function ClientDetailPopoverInstance({
             className="w-1.5 h-1.5 rounded-[1px] shrink-0"
             style={{ backgroundColor: state.color }}
           />
-          <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+          <span className="font-mohave text-[13px] font-semibold text-text truncate">
             {state.title}
           </span>
         </div>
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
             onClick={() => minimizePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             onClick={() => closePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -231,23 +231,23 @@ const ClientDetailPopoverInstance = memo(function ClientDetailPopoverInstance({
       <div className="px-3 py-1.5 border-b border-[rgba(255,255,255,0.06)] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {client?.email ? (
-            <div className="flex items-center gap-1 text-text-tertiary min-w-0">
+            <div className="flex items-center gap-1 text-text-3 min-w-0">
               <Mail className="w-2.5 h-2.5 shrink-0" />
               <span className="font-kosugi text-[10px] truncate">
                 {client.email}
               </span>
             </div>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               No email
             </span>
           )}
           {client?.phoneNumber && (
             <>
-              <span className="font-kosugi text-[9px] text-text-disabled">
+              <span className="font-kosugi text-[9px] text-text-mute">
                 ·
               </span>
-              <div className="flex items-center gap-1 text-text-tertiary min-w-0">
+              <div className="flex items-center gap-1 text-text-3 min-w-0">
                 <Phone className="w-2.5 h-2.5 shrink-0" />
                 <span className="font-kosugi text-[10px] truncate">
                   {client.phoneNumber}
@@ -267,8 +267,8 @@ const ClientDetailPopoverInstance = memo(function ClientDetailPopoverInstance({
             className={cn(
               "px-3 py-2 font-mohave text-[11px] uppercase tracking-[0.5px] transition-colors relative",
               tab.id === state.activeTab
-                ? "text-text-primary"
-                : "text-text-disabled hover:text-text-secondary"
+                ? "text-text"
+                : "text-text-mute hover:text-text-2"
             )}
           >
             {tab.label}
@@ -292,7 +292,7 @@ const ClientDetailPopoverInstance = memo(function ClientDetailPopoverInstance({
         )}
         {state.activeTab === "activity" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               Activity — coming soon
             </span>
           </div>
@@ -334,7 +334,7 @@ function ClientOverviewTab({
   if (!client) {
     return (
       <div className="flex items-center justify-center h-full">
-        <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+        <span className="font-kosugi text-micro text-text-mute uppercase">
           Loading...
         </span>
       </div>
@@ -354,14 +354,14 @@ function ClientOverviewTab({
       {/* Contact — Email */}
       {client.email && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Email
           </span>
           <div className="flex items-center gap-1.5 mt-1">
-            <Mail className="w-3 h-3 text-text-tertiary shrink-0" />
+            <Mail className="w-3 h-3 text-text-3 shrink-0" />
             <a
               href={`mailto:${client.email}`}
-              className="font-mohave text-body-sm text-text-primary hover:text-ops-accent transition-colors"
+              className="font-mohave text-body-sm text-text hover:text-ops-accent transition-colors"
             >
               {client.email}
             </a>
@@ -372,14 +372,14 @@ function ClientOverviewTab({
       {/* Contact — Phone */}
       {client.phoneNumber && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Phone
           </span>
           <div className="flex items-center gap-1.5 mt-1">
-            <Phone className="w-3 h-3 text-text-tertiary shrink-0" />
+            <Phone className="w-3 h-3 text-text-3 shrink-0" />
             <a
               href={`tel:${client.phoneNumber}`}
-              className="font-mohave text-body-sm text-text-primary hover:text-ops-accent transition-colors"
+              className="font-mohave text-body-sm text-text hover:text-ops-accent transition-colors"
             >
               {client.phoneNumber}
             </a>
@@ -390,12 +390,12 @@ function ClientOverviewTab({
       {/* Address */}
       {client.address && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Address
           </span>
           <div className="flex items-center gap-1.5 mt-1">
-            <MapPin className="w-3 h-3 text-text-tertiary shrink-0" />
-            <p className="font-mohave text-body-sm text-text-primary">
+            <MapPin className="w-3 h-3 text-text-3 shrink-0" />
+            <p className="font-mohave text-body-sm text-text">
               {client.address}
             </p>
           </div>
@@ -405,10 +405,10 @@ function ClientOverviewTab({
       {/* Notes */}
       {client.notes && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Notes
           </span>
-          <p className="font-mohave text-body-sm text-text-secondary mt-1 leading-relaxed">
+          <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
             {client.notes}
           </p>
         </div>
@@ -417,10 +417,10 @@ function ClientOverviewTab({
       {/* Member since */}
       {memberSince && (
         <div>
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Member Since
           </span>
-          <p className="font-mohave text-body-sm text-text-primary mt-1">
+          <p className="font-mohave text-body-sm text-text mt-1">
             {memberSince}
           </p>
         </div>
@@ -435,7 +435,7 @@ function ClientProjectsTab({ projects }: { projects: Project[] }) {
   if (projects.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+        <span className="font-kosugi text-micro text-text-mute uppercase">
           No projects
         </span>
       </div>
@@ -457,10 +457,10 @@ function ClientProjectsTab({ projects }: { projects: Project[] }) {
             }}
           />
           <div className="flex flex-col min-w-0">
-            <span className="font-mohave text-body-sm text-text-primary truncate">
+            <span className="font-mohave text-body-sm text-text truncate">
               {project.title}
             </span>
-            <span className="font-kosugi text-micro-xs text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               {getStatusName(project.status)}
             </span>
           </div>
@@ -498,7 +498,7 @@ function ClientFinancialTab({ invoices }: { invoices: Invoice[] }) {
   if (invoices.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+        <span className="font-kosugi text-micro text-text-mute uppercase">
           No invoices
         </span>
       </div>
@@ -510,26 +510,26 @@ function ClientFinancialTab({ invoices }: { invoices: Invoice[] }) {
       {/* Summary metrics */}
       <div className="grid grid-cols-3 gap-2">
         <div className="flex flex-col gap-0.5">
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Invoiced
           </span>
-          <span className="font-mono text-[11px] text-text-primary">
+          <span className="font-mono text-[11px] text-text">
             {formatCurrency(summary.totalInvoiced)}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Paid
           </span>
-          <span className="font-mono text-[11px] text-text-primary">
+          <span className="font-mono text-[11px] text-text">
             {formatCurrency(summary.amountPaid)}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="font-kosugi text-micro-xs text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             Outstanding
           </span>
-          <span className="font-mono text-[11px] text-text-primary">
+          <span className="font-mono text-[11px] text-text">
             {formatCurrency(summary.outstanding)}
           </span>
         </div>
@@ -554,15 +554,15 @@ function ClientFinancialTab({ invoices }: { invoices: Invoice[] }) {
                 }}
               />
               <div className="flex flex-col min-w-0">
-                <span className="font-mono text-[11px] text-text-primary truncate">
+                <span className="font-mono text-[11px] text-text truncate">
                   {invoice.invoiceNumber}
                 </span>
-                <span className="font-kosugi text-micro-xs text-text-disabled uppercase">
+                <span className="font-kosugi text-micro text-text-mute uppercase">
                   {getInvoiceStatusLabel(invoice.status)}
                 </span>
               </div>
             </div>
-            <span className="font-mono text-[11px] text-text-primary shrink-0 ml-2">
+            <span className="font-mono text-[11px] text-text shrink-0 ml-2">
               {formatCurrency(invoice.total)}
             </span>
           </div>

@@ -224,7 +224,7 @@ export default function EstimatesPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-caption-sm text-text-tertiary">
+        <span className="font-kosugi text-caption-sm text-text-3">
           {filtered.length} estimate{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -255,11 +255,11 @@ export default function EstimatesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">
-          <FileText className="w-[48px] h-[48px] text-text-disabled mb-2" />
-          <h3 className="font-mohave text-heading text-text-primary">
+          <FileText className="w-[48px] h-[48px] text-text-mute mb-2" />
+          <h3 className="font-mohave text-heading text-text">
             {searchQuery || filterStatus !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.none")}
           </h3>
-          <p className="font-kosugi text-caption text-text-tertiary mt-0.5">
+          <p className="font-kosugi text-caption text-text-3 mt-0.5">
             {searchQuery || filterStatus !== "all"
               ? t("estimates.empty.noMatch")
               : t("estimates.empty.helper")}
@@ -276,28 +276,28 @@ export default function EstimatesPage() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.number")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.client")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   {t("estimates.table.project")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("estimates.table.date")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   {t("estimates.table.expiry")}
                 </th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.total")}
                 </th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.status")}
                 </th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.actions")}
                 </th>
               </tr>
@@ -315,27 +315,27 @@ export default function EstimatesPage() {
                     </span>
                   </td>
                   <td className="px-1.5 py-1">
-                    <span className="font-mohave text-body text-text-primary truncate block max-w-[160px]">
+                    <span className="font-mohave text-body text-text truncate block max-w-[160px]">
                       {estimate.clientId ? clientMap.get(estimate.clientId) ?? "--" : "--"}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden md:table-cell">
-                    <span className="font-mohave text-body-sm text-text-tertiary truncate block max-w-[160px]">
+                    <span className="font-mohave text-body-sm text-text-3 truncate block max-w-[160px]">
                       {estimate.projectId ? projectMap.get(estimate.projectId) ?? "--" : "--"}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden sm:table-cell">
-                    <span className="font-mono text-data-sm text-text-tertiary">
+                    <span className="font-mono text-data-sm text-text-3">
                       {formatDate(estimate.issueDate, locale)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 hidden lg:table-cell">
-                    <span className="font-mono text-data-sm text-text-tertiary">
+                    <span className="font-mono text-data-sm text-text-3">
                       {formatDate(estimate.expirationDate, locale)}
                     </span>
                   </td>
                   <td className="px-1.5 py-1 text-right">
-                    <span className="font-mono text-data text-text-primary">
+                    <span className="font-mono text-data text-text">
                       {formatCurrency(estimate.total)}
                     </span>
                   </td>
@@ -347,7 +347,7 @@ export default function EstimatesPage() {
                       <button
                         onClick={() => handleDownloadPdf(estimate.id)}
                         disabled={generatingPdfId === estimate.id}
-                        className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
+                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
                         title={t("estimates.actions.downloadPdf")}
                       >
                         {generatingPdfId === estimate.id ? (
@@ -359,7 +359,7 @@ export default function EstimatesPage() {
                       {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
                         <button
                           onClick={() => setSendingEstimate(estimate)}
-                          className="p-[4px] rounded text-text-tertiary hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
                           title={t("estimates.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />
@@ -368,7 +368,7 @@ export default function EstimatesPage() {
                       {(estimate.status === EstimateStatus.Approved || estimate.status === EstimateStatus.Sent) && can("estimates.convert") && (
                         <button
                           onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
-                          className="p-[4px] rounded text-text-tertiary hover:text-status-success hover:bg-status-success/10 transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-status-success hover:bg-status-success/10 transition-colors"
                           title={t("estimates.actions.convertToInvoice")}
                         >
                           <ArrowRightLeft className="w-[14px] h-[14px]" />
@@ -377,7 +377,7 @@ export default function EstimatesPage() {
                       {can("estimates.delete") && (
                         <button
                           onClick={() => deleteEstimate.mutate(estimate.id)}
-                          className="p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                          className="p-[4px] rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                           title={t("estimates.actions.delete")}
                         >
                           <Trash2 className="w-[14px] h-[14px]" />
@@ -652,13 +652,13 @@ function EstimateFormModal({
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.client")}
               </label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
                 <option value="">Select client...</option>
                 {clients.map((c) => (
@@ -667,13 +667,13 @@ function EstimateFormModal({
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.project")}
               </label>
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+                className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
                 <option value="">Select project (optional)...</option>
                 {projects.map((p) => (
@@ -686,7 +686,7 @@ function EstimateFormModal({
           {/* Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.date")}
               </label>
               <Input
@@ -696,7 +696,7 @@ function EstimateFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.validUntil")}
               </label>
               <Input
@@ -709,7 +709,7 @@ function EstimateFormModal({
 
           {/* Line Items */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
               {t("estimates.form.lineItems")}
             </label>
             <LineItemEditor
@@ -722,7 +722,7 @@ function EstimateFormModal({
           {/* Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.notes")}
               </label>
               <Textarea
@@ -733,7 +733,7 @@ function EstimateFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.internalNotes")}
               </label>
               <Textarea
@@ -747,7 +747,7 @@ function EstimateFormModal({
 
           {/* T&C */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
               {t("estimates.form.terms")}
             </label>
             <Textarea

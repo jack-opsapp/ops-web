@@ -486,7 +486,7 @@ export default function SetupPage() {
           <button
             onClick={handleBack}
             aria-label="Back to company information"
-            className="flex items-center gap-0.5 px-2 min-h-[56px] min-w-[56px] rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-secondary font-mohave text-body-sm uppercase hover:border-[rgba(255,255,255,0.18)] transition-colors"
+            className="flex items-center gap-0.5 px-2 min-h-[56px] min-w-[56px] rounded-sm bg-[rgba(10,10,10,0.70)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm uppercase hover:border-[rgba(255,255,255,0.18)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
@@ -494,7 +494,7 @@ export default function SetupPage() {
           <button
             onClick={handleLogout}
             aria-label="Log out"
-            className="flex items-center gap-1 px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-disabled hover:text-text-tertiary transition-colors"
+            className="flex items-center gap-1 px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-mute hover:text-text-3 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
             Log out
@@ -502,7 +502,7 @@ export default function SetupPage() {
           <button
             onClick={handleSkip}
             aria-label="Skip questionnaire and go to dashboard"
-            className="px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-disabled hover:text-text-tertiary transition-colors"
+            className="px-2 min-h-[56px] font-mohave text-body-sm uppercase text-text-mute hover:text-text-3 transition-colors"
           >
             Skip
           </button>
@@ -512,7 +512,7 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-3 min-h-[56px] rounded-sm bg-ops-accent border border-ops-accent text-text-primary font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-colors"
+              className="px-3 min-h-[56px] rounded-sm bg-ops-accent border border-ops-accent text-text font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-colors"
             >
               Launch
             </button>
@@ -540,13 +540,13 @@ export default function SetupPage() {
                   border: "1px solid rgba(255, 255, 255, 0.08)",
                 }}
               >
-                <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.2em]">
+                <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.2em]">
                   All questions answered
                 </span>
                 <button
                   onClick={handleLaunchFromStarfield}
                   aria-label="Launch your personalized dashboard"
-                  className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text-primary transition-all duration-300 overflow-hidden"
+                  className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text transition-all duration-300 overflow-hidden"
                   style={{
                     background: "rgba(89, 119, 148, 0.12)",
                     border: "1px solid rgba(89, 119, 148, 0.4)",
@@ -561,7 +561,7 @@ export default function SetupPage() {
                     }}
                   />
                 </button>
-                <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.1em]">
+                <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-[0.1em]">
                   Your dashboard is ready
                 </p>
               </motion.div>
@@ -602,7 +602,7 @@ export default function SetupPage() {
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="font-mohave text-display-lg text-text-primary tracking-[0.25em] uppercase mb-4 focus:outline-none"
+        className="font-mohave text-display-lg text-text tracking-[0.25em] uppercase mb-4 focus:outline-none"
       >
         OPS
       </h1>
@@ -612,7 +612,7 @@ export default function SetupPage() {
         {/* Progress bar + step label */}
         <div className="mb-3">
           <div className="mb-1">
-            <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
+            <span className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]">
               STEP {stepNum} OF 2
             </span>
           </div>
@@ -671,7 +671,7 @@ export default function SetupPage() {
             onClick={handleBack}
             disabled={phase === "identity"}
             aria-label={phase === "company" ? "Back to personal information" : "Back"}
-            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-secondary hover:text-text-primary disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
+            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-2 hover:text-text disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
@@ -680,7 +680,7 @@ export default function SetupPage() {
           <button
             onClick={handleNext}
             aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text-primary px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover transition-all duration-150"
           >
             Next
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
@@ -693,7 +693,7 @@ export default function SetupPage() {
         <button
           onClick={handleLogout}
           aria-label="Log out"
-          className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[44px]"
+          className="flex items-center gap-1 font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[44px]"
         >
           <LogOut className="w-3 h-3" />
           Log out
@@ -702,7 +702,7 @@ export default function SetupPage() {
         <button
           onClick={handleSkip}
           aria-label="Skip setup and go to dashboard"
-          className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[44px]"
+          className="font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[44px]"
         >
           Skip
         </button>

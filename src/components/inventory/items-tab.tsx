@@ -271,7 +271,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
       <div className="flex flex-col sm:flex-row gap-2">
         {/* Search */}
         <div className="relative flex-1 max-w-[320px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-text-tertiary" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-text-3" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -378,7 +378,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-kosugi text-caption text-text-disabled">
+          <span className="font-kosugi text-caption text-text-mute">
             Loading inventory...
           </span>
         </div>
@@ -420,27 +420,27 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                   />
                 </th>
                 {/* Name */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Name
                 </th>
                 {/* Quantity */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Quantity
                 </th>
                 {/* Status */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   Status
                 </th>
                 {/* Tags */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   Tags
                 </th>
                 {/* SKU */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   SKU
                 </th>
                 {/* Actions */}
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest w-[100px]">
+                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[100px]">
                   Actions
                 </th>
               </tr>
@@ -474,11 +474,11 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                     {/* Name + Description */}
                     <td className="px-2 py-1.5">
                       <div>
-                        <span className="font-mohave text-body text-text-primary block">
+                        <span className="font-mohave text-body text-text block">
                           {item.name}
                         </span>
                         {item.description && (
-                          <span className="font-kosugi text-[10px] text-text-disabled truncate block max-w-[300px]">
+                          <span className="font-kosugi text-[10px] text-text-mute truncate block max-w-[300px]">
                             {item.description}
                           </span>
                         )}
@@ -487,7 +487,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
 
                     {/* Quantity */}
                     <td className="px-2 py-1.5">
-                      <span className="font-mono text-data-sm text-text-primary">
+                      <span className="font-mono text-data-sm text-text">
                         {item.quantity} {unitDisplay}
                       </span>
                     </td>
@@ -501,7 +501,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                     <td className="px-2 py-1.5 hidden md:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {tagIds.length === 0 ? (
-                          <span className="font-kosugi text-[10px] text-text-disabled">
+                          <span className="font-kosugi text-[10px] text-text-mute">
                             —
                           </span>
                         ) : (
@@ -515,7 +515,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                                   "inline-flex items-center",
                                   "px-1 py-[1px] rounded-sm",
                                   "bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)]",
-                                  "font-mohave text-[10px] text-text-secondary uppercase tracking-wider"
+                                  "font-mohave text-[10px] text-text-2 uppercase tracking-wider"
                                 )}
                               >
                                 {tagName}
@@ -528,7 +528,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
 
                     {/* SKU */}
                     <td className="px-2 py-1.5 hidden sm:table-cell">
-                      <span className="font-kosugi text-caption-sm text-text-tertiary">
+                      <span className="font-kosugi text-caption-sm text-text-3">
                         {item.sku || "—"}
                       </span>
                     </td>
@@ -539,7 +539,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                         {isOfficeOrAdmin && (
                           <button
                             onClick={() => setEditItem(item)}
-                            className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                            className="p-1 rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                             title="Edit item"
                           >
                             <Pencil className="w-[14px] h-[14px]" />
@@ -547,7 +547,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                         )}
                         <button
                           onClick={() => setAdjustItem(item)}
-                          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                          className="p-1 rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                           title="Adjust quantity"
                         >
                           <SlidersHorizontal className="w-[14px] h-[14px]" />
@@ -558,7 +558,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                               setSelectedIds(new Set([item.id]));
                               setShowBulkDeleteConfirm(true);
                             }}
-                            className="p-1 rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+                            className="p-1 rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors"
                             title="Delete item"
                           >
                             <Trash2 className="w-[14px] h-[14px]" />

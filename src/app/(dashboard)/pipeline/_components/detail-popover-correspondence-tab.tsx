@@ -144,27 +144,27 @@ function MessageBubble({
               isOut ? "bg-[#6889A8]" : "bg-[#8BA87C]"
             )}
           />
-          <Mail className="w-2.5 h-2.5 text-text-disabled shrink-0" />
+          <Mail className="w-2.5 h-2.5 text-text-mute shrink-0" />
           <span
             className={cn(
               "font-mohave text-[12px] font-medium truncate",
-              isOut ? "text-[#8BAAC4]" : "text-text-primary"
+              isOut ? "text-[#8BAAC4]" : "text-text"
             )}
           >
             {isOut ? t("detail.you") : senderName(msg.fromEmail)}
           </span>
-          <span className="font-mono text-[9px] text-text-disabled ml-auto shrink-0">
+          <span className="font-mono text-[9px] text-text-mute ml-auto shrink-0">
             {formatMessageTime(ts, locale)}
           </span>
         </div>
 
         {/* Content */}
         {msg.content ? (
-          <p className="font-kosugi text-[11px] text-text-secondary leading-[1.6] whitespace-pre-wrap break-words">
+          <p className="font-kosugi text-[11px] text-text-2 leading-[1.6] whitespace-pre-wrap break-words">
             {msg.content}
           </p>
         ) : msg.subject ? (
-          <p className="font-kosugi text-[11px] text-text-disabled italic">
+          <p className="font-kosugi text-[11px] text-text-mute italic">
             {msg.subject}
           </p>
         ) : null}
@@ -187,7 +187,7 @@ function MessageBubble({
               </button>
             ))}
             {images.length > 4 && (
-              <span className="font-mono text-[9px] text-text-disabled self-center ml-0.5">
+              <span className="font-mono text-[9px] text-text-mute self-center ml-0.5">
                 +{images.length - 4}
               </span>
             )}
@@ -197,8 +197,8 @@ function MessageBubble({
         {/* Non-image attachments */}
         {files.length > 0 && (
           <div className="flex items-center gap-1 mt-1.5">
-            <Paperclip className="w-3 h-3 text-text-disabled" />
-            <span className="font-mono text-[9px] text-text-disabled">
+            <Paperclip className="w-3 h-3 text-text-mute" />
+            <span className="font-mono text-[9px] text-text-mute">
               {files.length} file{files.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -228,12 +228,12 @@ function ThreadPicker({
           className={cn(
             "shrink-0 px-2 py-1 rounded-[3px] font-mohave text-[11px] transition-colors max-w-[180px] truncate",
             thread.id === activeId
-              ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-              : "text-text-disabled hover:text-text-tertiary hover:bg-[rgba(255,255,255,0.03)]"
+              ? "bg-[rgba(255,255,255,0.08)] text-text"
+              : "text-text-mute hover:text-text-3 hover:bg-[rgba(255,255,255,0.03)]"
           )}
         >
           {thread.subject}
-          <span className="font-mono text-[9px] text-text-disabled ml-1">
+          <span className="font-mono text-[9px] text-text-mute ml-1">
             {thread.messages.length}
           </span>
         </button>
@@ -269,8 +269,8 @@ export function DetailPopoverCorrespondenceTab({
   if (threads.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
-        <Mail className="w-5 h-5 text-text-disabled mb-2" />
-        <span className="font-kosugi text-[11px] text-text-disabled">
+        <Mail className="w-5 h-5 text-text-mute mb-2" />
+        <span className="font-kosugi text-[11px] text-text-mute">
           {t("detail.noEmailsYet")}
         </span>
       </div>
@@ -291,7 +291,7 @@ export function DetailPopoverCorrespondenceTab({
             className="flex items-center gap-2 py-2"
           >
             <div className="flex-1 border-t border-[rgba(255,255,255,0.05)]" />
-            <span className="font-mono text-[9px] text-text-disabled uppercase shrink-0">
+            <span className="font-mono text-[9px] text-text-mute uppercase shrink-0">
               {dateSeparatorLabel(d, locale)}
             </span>
             <div className="flex-1 border-t border-[rgba(255,255,255,0.05)]" />

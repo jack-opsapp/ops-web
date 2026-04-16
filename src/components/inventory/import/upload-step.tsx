@@ -146,12 +146,12 @@ export function UploadStep({ onParsed }: UploadStepProps) {
             : "border-border hover:border-border-strong"
         )}
       >
-        <Upload className="h-8 w-8 text-text-tertiary" />
+        <Upload className="h-8 w-8 text-text-3" />
         <div className="text-center">
-          <p className="font-mohave text-body text-text-primary">
+          <p className="font-mohave text-body text-text">
             Drag and drop your CSV file here
           </p>
-          <p className="font-mohave text-body-sm text-text-tertiary mt-1">
+          <p className="font-mohave text-body-sm text-text-3 mt-1">
             or click to browse files
           </p>
         </div>
@@ -176,7 +176,7 @@ export function UploadStep({ onParsed }: UploadStepProps) {
       />
 
       {fileName && !error && (
-        <p className="font-mohave text-body-sm text-text-secondary">
+        <p className="font-mohave text-body-sm text-text-2">
           Selected: {fileName}
         </p>
       )}

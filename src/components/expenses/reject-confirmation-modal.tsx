@@ -106,10 +106,10 @@ export function RejectConfirmationModal({
         >
           {/* ── Header ──────────────────────────────────────────────────── */}
           <div className="flex flex-col gap-1">
-            <h2 className="font-mohave text-body text-text-primary uppercase text-left">
+            <h2 className="font-mohave text-body text-text uppercase text-left">
               {displayName}
             </h2>
-            <span className="font-kosugi text-caption-sm text-text-tertiary text-left">
+            <span className="font-kosugi text-caption-sm text-text-3 text-left">
               {periodDisplay}
             </span>
             {flaggedCount > 0 && (
@@ -127,7 +127,7 @@ export function RejectConfirmationModal({
                 <div key={expense.id} className="flex flex-col gap-1.5">
                   {/* Row: date + merchant | amount */}
                   <div className="flex items-center justify-between">
-                    <span className="font-kosugi text-caption-sm text-text-secondary text-left">
+                    <span className="font-kosugi text-caption-sm text-text-2 text-left">
                       {expense.expenseDate
                         ? formatDate(expense.expenseDate)
                         : "No date"}
@@ -135,7 +135,7 @@ export function RejectConfirmationModal({
                         ? ` \u2014 ${expense.merchantName}`
                         : ""}
                     </span>
-                    <span className="font-mono text-data-sm text-text-primary shrink-0 ml-3">
+                    <span className="font-mono text-data-sm text-text shrink-0 ml-3">
                       {formatCurrency(expense.amount)}
                     </span>
                   </div>
@@ -144,8 +144,8 @@ export function RejectConfirmationModal({
                   <textarea
                     className={cn(
                       "w-full bg-[rgba(255,255,255,0.04)] border border-border rounded p-2",
-                      "font-kosugi text-caption-sm text-text-secondary text-left",
-                      "placeholder:text-text-tertiary resize-none",
+                      "font-kosugi text-caption-sm text-text-2 text-left",
+                      "placeholder:text-text-3 resize-none",
                       "focus:outline-none focus:border-[rgba(255,255,255,0.30)]"
                     )}
                     rows={2}
@@ -159,7 +159,7 @@ export function RejectConfirmationModal({
                   {/* Unflag button */}
                   <button
                     type="button"
-                    className="font-kosugi text-[10px] text-text-tertiary hover:text-text-secondary uppercase text-left self-start transition-colors duration-150"
+                    className="font-kosugi text-[10px] text-text-3 hover:text-text-2 uppercase text-left self-start transition-colors duration-150"
                     onClick={() => onUnflag(expense.id)}
                   >
                     UNFLAG
@@ -171,14 +171,14 @@ export function RejectConfirmationModal({
 
           {/* ── Review notes ────────────────────────────────────────────── */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase text-left">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase text-left">
               REVIEW NOTES (OPTIONAL)
             </label>
             <textarea
               className={cn(
                 "w-full bg-[rgba(255,255,255,0.04)] border border-border rounded p-2",
-                "font-kosugi text-caption-sm text-text-secondary text-left",
-                "placeholder:text-text-tertiary resize-none",
+                "font-kosugi text-caption-sm text-text-2 text-left",
+                "placeholder:text-text-3 resize-none",
                 "focus:outline-none focus:border-[rgba(255,255,255,0.30)]"
               )}
               rows={2}
@@ -189,7 +189,7 @@ export function RejectConfirmationModal({
           </div>
 
           {/* ── Context line ────────────────────────────────────────────── */}
-          <p className="font-kosugi text-caption-sm text-text-tertiary text-left">
+          <p className="font-kosugi text-caption-sm text-text-3 text-left">
             {cleanCount} expense{cleanCount !== 1 ? "s" : ""} will be approved.{" "}
             {flaggedCount} will be returned for revision.
           </p>
@@ -199,7 +199,7 @@ export function RejectConfirmationModal({
             <button
               type="button"
               className={cn(
-                "bg-transparent border border-border text-text-tertiary hover:text-text-secondary",
+                "bg-transparent border border-border text-text-3 hover:text-text-2",
                 "font-kosugi text-caption-sm uppercase px-4 py-2 rounded",
                 "transition-colors duration-150"
               )}

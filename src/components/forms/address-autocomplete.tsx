@@ -64,7 +64,7 @@ function AddressAutocomplete<T extends FieldValues = FieldValues>({
       <div className="relative flex gap-1">
         <div className="relative flex-1">
           <MapPin
-            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-text-tertiary pointer-events-none"
+            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-text-3 pointer-events-none"
             aria-hidden="true"
           />
           <input
@@ -73,11 +73,11 @@ function AddressAutocomplete<T extends FieldValues = FieldValues>({
             placeholder={placeholder}
             {...register(name)}
             className={cn(
-              "w-full bg-background-input text-text-primary font-mohave text-body",
+              "w-full bg-surface-input text-text font-mohave text-body",
               "pl-5 pr-1.5 py-1.5 rounded",
               "border border-border",
               "transition-all duration-150",
-              "placeholder:text-text-tertiary",
+              "placeholder:text-text-3",
               "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
               "disabled:cursor-not-allowed disabled:opacity-40",
               errorMessage && "border-ops-error focus:border-ops-error focus:shadow-glow-error",
@@ -97,8 +97,8 @@ function AddressAutocomplete<T extends FieldValues = FieldValues>({
           disabled={locating}
           className={cn(
             "flex items-center justify-center w-[36px] shrink-0 rounded",
-            "border border-border bg-background-input",
-            "text-text-tertiary hover:text-ops-accent hover:border-ops-accent",
+            "border border-border bg-surface-input",
+            "text-text-3 hover:text-ops-accent hover:border-ops-accent",
             "transition-colors duration-150",
             "disabled:opacity-40 disabled:cursor-not-allowed"
           )}
@@ -118,7 +118,7 @@ function AddressAutocomplete<T extends FieldValues = FieldValues>({
         </p>
       )}
       {helperText && !errorMessage && (
-        <p id={`${fieldId}-helper`} className="text-caption-sm text-text-tertiary font-mohave">
+        <p id={`${fieldId}-helper`} className="text-caption-sm text-text-3 font-mohave">
           {helperText}
         </p>
       )}

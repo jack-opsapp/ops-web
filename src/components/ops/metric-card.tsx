@@ -28,7 +28,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         ? "text-status-success"
         : trend?.direction === "down"
           ? "text-ops-error"
-          : "text-text-tertiary";
+          : "text-text-3";
 
     return (
       <Card
@@ -38,18 +38,18 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
       >
         {/* Header row: label + icon */}
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+          <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
             {label}
           </span>
           {icon && (
-            <div className="text-text-disabled" aria-hidden="true">
+            <div className="text-text-mute" aria-hidden="true">
               {icon}
             </div>
           )}
         </div>
 
         {/* Value */}
-        <div className="font-mono text-data-lg text-text-primary tracking-wider">{value}</div>
+        <div className="font-mono text-data-lg text-text tracking-wider">{value}</div>
 
         {/* Trend */}
         {trend && (

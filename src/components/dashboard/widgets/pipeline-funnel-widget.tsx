@@ -141,7 +141,7 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </CardTitle>
         </CardHeader>
@@ -157,14 +157,14 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className={`font-mono ${compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded} font-bold text-text-disabled leading-none`}>
+            <span className={`font-mono ${compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded} font-bold text-text-mute leading-none`}>
               0
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("pipelineFunnel.noProjects") ?? "No active projects"}
             </span>
           </div>
@@ -194,10 +194,10 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
-          <span className="font-mono text-display font-bold leading-none text-text-primary">
+          <span className="font-mono text-display font-bold leading-none text-text">
             {totalProjects}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
           {weightedPipeline ? (
@@ -217,14 +217,14 @@ export function PipelineFunnelWidget({
         <div className="h-full flex p-3">
           {/* Left: Hero + Title */}
           <div className="flex flex-col shrink-0">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {totalProjects}
             </span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("pipelineFunnel.title") ?? "Pipeline"}
             </span>
             {weightedPipeline && (
-              <span className="font-mono text-micro-sm text-text-disabled mt-0.5">
+              <span className="font-mono text-micro text-text-mute mt-0.5">
                 {formatCompactCurrency(weightedPipeline.totalWeighted)}
               </span>
             )}
@@ -253,7 +253,7 @@ export function PipelineFunnelWidget({
             onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
             className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors self-start shrink-0"
           >
-            <ArrowUpRight className="w-2.5 h-2.5 text-text-disabled" />
+            <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
           </button>
         </div>
       </Card>
@@ -315,7 +315,7 @@ export function PipelineFunnelWidget({
             </div>
             {!isWide && (
               <div className="flex items-center gap-1 ml-2 whitespace-nowrap shrink-0">
-                <span className="font-mohave text-micro text-text-secondary">{t(stage.i18nKey)}</span>
+                <span className="font-mohave text-micro text-text-2">{t(stage.i18nKey)}</span>
                 <span className="font-mono text-micro font-medium" style={{ color: stage.color }}>{stage.count}</span>
               </div>
             )}
@@ -338,23 +338,23 @@ export function PipelineFunnelWidget({
         <div className="h-full flex flex-col p-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-1">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
               {t("pipelineFunnel.title") ?? "Pipeline"}
             </span>
           </div>
 
           {/* Hero */}
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="font-mono text-display font-bold text-text-primary leading-none">
+            <span className="font-mono text-display font-bold text-text leading-none">
               {totalProjects}
             </span>
-            <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+            <span className="font-kosugi text-micro text-text-mute uppercase">
               {t("trend.active") ?? "Active"}
             </span>
             {weightedPipeline && (
               <>
                 <span className="text-[rgba(255,255,255,0.12)]">·</span>
-                <span className="font-mono text-micro-sm text-text-disabled">
+                <span className="font-mono text-micro text-text-mute">
                   {formatCompactCurrency(weightedPipeline.totalWeighted)}
                 </span>
               </>
@@ -379,11 +379,11 @@ export function PipelineFunnelWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header row: title + weighted value */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
           {weightedPipeline && (
-            <span className="font-mono text-micro-sm text-text-disabled">
+            <span className="font-mono text-micro text-text-mute">
               {t("pipelineFunnel.weighted") ?? "Weighted"}: {formatCompactCurrency(weightedPipeline.totalWeighted)}
             </span>
           )}
@@ -391,10 +391,10 @@ export function PipelineFunnelWidget({
 
         {/* Hero */}
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="font-mono text-display font-bold text-text-primary leading-none">
+          <span className="font-mono text-display font-bold text-text leading-none">
             {totalProjects}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+          <span className="font-kosugi text-micro text-text-mute uppercase">
             {t("trend.active") ?? "Active"}
           </span>
         </div>
@@ -434,13 +434,13 @@ export function PipelineFunnelWidget({
                       className="w-[6px] h-[6px] rounded-[1px] shrink-0"
                       style={{ backgroundColor: d.color }}
                     />
-                    <span className="font-mohave text-caption-sm text-text-secondary">
+                    <span className="font-mohave text-caption-sm text-text-2">
                       {d.label}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-micro-sm text-text-primary font-medium">{d.count}</span>
-                    <span className="font-mono text-micro-sm text-text-disabled w-[32px] text-right">{d.pct}%</span>
+                    <span className="font-mono text-micro text-text font-medium">{d.count}</span>
+                    <span className="font-mono text-micro text-text-mute w-[32px] text-right">{d.pct}%</span>
                   </div>
                 </div>
               ))}

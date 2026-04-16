@@ -74,7 +74,7 @@ export default function CommsConfigPage() {
   if (checking) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-[18px] h-[18px] text-text-tertiary animate-spin motion-reduce:animate-none" />
+        <Loader2 className="w-[18px] h-[18px] text-text-3 animate-spin motion-reduce:animate-none" />
       </div>
     );
   }

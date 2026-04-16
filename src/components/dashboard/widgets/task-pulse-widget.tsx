@@ -216,7 +216,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <WidgetSkeleton variant="horizontal-bars" />
@@ -230,7 +230,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <WidgetEmptyState
@@ -279,9 +279,9 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
         {segmentEntries.map((seg) => {
           if (seg.count === 0) return null;
           return (
-            <span key={seg.key} className="font-mono text-micro-sm whitespace-nowrap" style={{ color: seg.rawColor }}>
+            <span key={seg.key} className="font-mono text-micro whitespace-nowrap" style={{ color: seg.rawColor }}>
               {seg.count} {seg.label.toLowerCase()}
-              {seg.key !== "upcoming" && <span className="text-text-disabled mx-0.5">·</span>}
+              {seg.key !== "upcoming" && <span className="text-text-mute mx-0.5">·</span>}
             </span>
           );
         })}
@@ -295,11 +295,11 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3">
           <span
-            className="font-mono text-display font-bold leading-none text-text-primary"
+            className="font-mono text-display font-bold leading-none text-text"
           >
             {hasOverdue ? segments.overdue : segments.total}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <WidgetTrendContext
@@ -318,11 +318,11 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number */}
-          <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+          <span className="font-mono text-data-lg font-bold leading-none text-text">
             {segments.total}
           </span>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           {/* Row 3: Health indicator */}
@@ -350,11 +350,11 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
       <div className="h-full flex flex-col px-3 py-2">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <span
-            className="font-mono text-micro-sm px-1.5 py-0.5 rounded-sm"
+            className="font-mono text-micro px-1.5 py-0.5 rounded-sm"
             style={{
               backgroundColor: hasOverdue ? `${WT.error}20` : `${WT.accent}20`,
               color: hasOverdue ? WT.error : WT.accent,

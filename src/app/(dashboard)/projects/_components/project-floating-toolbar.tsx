@@ -147,7 +147,7 @@ export function ProjectFloatingToolbar({
         isActive={showSearch || searchQuery.length > 0}
       >
         <Search className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+        <span className="font-kosugi text-micro uppercase tracking-wider">
           {t("toolbar.search").replace("...", "")}
         </span>
       </ToolbarAction>
@@ -165,7 +165,7 @@ export function ProjectFloatingToolbar({
               onSearchChange("");
             }
           }}
-          className="w-[160px] px-2 py-[3px] rounded-sm font-mohave text-[12px] text-text-primary bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] placeholder:text-text-disabled focus:outline-none focus:border-[rgba(89,119,148,0.3)]"
+          className="w-[160px] px-2 py-[3px] rounded-sm font-mohave text-[12px] text-text bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] placeholder:text-text-mute focus:outline-none focus:border-[rgba(89,119,148,0.3)]"
         />
       )}
 
@@ -175,11 +175,11 @@ export function ProjectFloatingToolbar({
       <div className="relative" ref={filterMenuRef}>
         <ToolbarAction onClick={() => setShowFilterMenu(!showFilterMenu)} isActive={showFilterMenu || hasActiveFilter}>
           <SlidersHorizontal className="w-[13px] h-[13px]" />
-          <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+          <span className="font-kosugi text-micro uppercase tracking-wider">
             Filter
           </span>
           {hasActiveFilter && (
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-ops-accent/30 bg-ops-accent-muted font-kosugi text-micro-xs text-ops-accent">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-ops-accent/30 bg-ops-accent-muted font-kosugi text-micro text-ops-accent">
               {(selectedMemberId ? 1 : 0) + (selectedClientId ? 1 : 0)}
             </span>
           )}
@@ -195,13 +195,13 @@ export function ProjectFloatingToolbar({
             }}
           >
             <div>
-              <span className="font-kosugi text-[9px] uppercase tracking-widest text-text-disabled">
+              <span className="font-kosugi text-[9px] uppercase tracking-widest text-text-mute">
                 {t("toolbar.allMembers")}
               </span>
               <select
                 value={selectedMemberId ?? ""}
                 onChange={(e) => onMemberFilterChange(e.target.value || null)}
-                className="w-full mt-1 px-2 py-1.5 rounded-[2px] font-mohave text-[12px] text-text-secondary bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
+                className="w-full mt-1 px-2 py-1.5 rounded-[2px] font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
               >
                 <option value="">All</option>
                 {teamMembers.map((m) => (
@@ -210,13 +210,13 @@ export function ProjectFloatingToolbar({
               </select>
             </div>
             <div>
-              <span className="font-kosugi text-[9px] uppercase tracking-widest text-text-disabled">
+              <span className="font-kosugi text-[9px] uppercase tracking-widest text-text-mute">
                 {t("toolbar.allClients")}
               </span>
               <select
                 value={selectedClientId ?? ""}
                 onChange={(e) => onClientFilterChange(e.target.value || null)}
-                className="w-full mt-1 px-2 py-1.5 rounded-[2px] font-mohave text-[12px] text-text-secondary bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
+                className="w-full mt-1 px-2 py-1.5 rounded-[2px] font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
               >
                 <option value="">All</option>
                 {clients.map((c) => (
@@ -231,7 +231,7 @@ export function ProjectFloatingToolbar({
                   onClientFilterChange(null);
                   setShowFilterMenu(false);
                 }}
-                className="w-full px-2 py-1.5 rounded-[2px] font-kosugi text-micro-sm text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
+                className="w-full px-2 py-1.5 rounded-[2px] font-kosugi text-micro text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
               >
                 Clear filters
               </button>
@@ -245,14 +245,14 @@ export function ProjectFloatingToolbar({
       {/* ── SHARED: Archived + Closed ── */}
       <ToolbarAction onClick={onArchivedToggle} isActive={isArchivedActive}>
         <Archive className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+        <span className="font-kosugi text-micro uppercase tracking-wider">
           Archived
         </span>
       </ToolbarAction>
 
       {viewMode === "spreadsheet" && (
         <ToolbarAction onClick={onClosedToggle} isActive={isClosedActive}>
-          <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+          <span className="font-kosugi text-micro uppercase tracking-wider">
             Closed
           </span>
         </ToolbarAction>
@@ -265,7 +265,7 @@ export function ProjectFloatingToolbar({
         <>
           <ToolbarAction onClick={handleFitAll}>
             <Maximize2 className="w-[13px] h-[13px]" />
-            <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+            <span className="font-kosugi text-micro uppercase tracking-wider">
               Fit All
             </span>
           </ToolbarAction>
@@ -273,7 +273,7 @@ export function ProjectFloatingToolbar({
           <div className="relative" ref={sortMenuRef}>
             <ToolbarAction onClick={() => setShowSortMenu(!showSortMenu)} isActive={showSortMenu}>
               <ArrowUpDown className="w-[13px] h-[13px]" />
-              <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+              <span className="font-kosugi text-micro uppercase tracking-wider">
                 {t("toolbar.sort")}
               </span>
             </ToolbarAction>
@@ -295,10 +295,10 @@ export function ProjectFloatingToolbar({
                       "flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors",
                       sortBy === opt.value
                         ? "text-ops-accent bg-ops-accent-muted/20"
-                        : "text-text-secondary hover:bg-[rgba(255,255,255,0.06)]"
+                        : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
                     )}
                   >
-                    <span className="font-kosugi text-micro-sm">{opt.label}</span>
+                    <span className="font-kosugi text-micro">{opt.label}</span>
                   </button>
                 ))}
               </div>
@@ -320,7 +320,7 @@ export function ProjectFloatingToolbar({
             <>
               <div className="relative" ref={bulkStatusMenuRef}>
                 <ToolbarAction onClick={() => setShowBulkStatusMenu(!showBulkStatusMenu)} isActive={showBulkStatusMenu}>
-                  <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+                  <span className="font-kosugi text-micro uppercase tracking-wider">
                     {t("spreadsheet.bulk.changeStatus")}
                   </span>
                 </ToolbarAction>
@@ -337,7 +337,7 @@ export function ProjectFloatingToolbar({
                       <button
                         key={s}
                         onClick={() => { onBulkChangeStatus(s); setShowBulkStatusMenu(false); }}
-                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PROJECT_STATUS_COLORS[s] }} />
                         <span className="font-mohave text-body-sm">{getProjectStatusDisplayName(s)}</span>
@@ -348,7 +348,7 @@ export function ProjectFloatingToolbar({
               </div>
 
               <ToolbarAction onClick={onBulkArchive}>
-                <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+                <span className="font-kosugi text-micro uppercase tracking-wider">
                   {t("spreadsheet.bulk.archive")}
                 </span>
               </ToolbarAction>
@@ -360,7 +360,7 @@ export function ProjectFloatingToolbar({
               onClick={onBulkDelete}
               className="flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer text-[#93321A] hover:text-[#b5423a] hover:bg-[rgba(147,50,26,0.1)]"
             >
-              <span className="font-kosugi text-micro-sm uppercase tracking-wider">
+              <span className="font-kosugi text-micro uppercase tracking-wider">
                 {t("spreadsheet.bulk.delete")}
               </span>
             </button>
@@ -368,7 +368,7 @@ export function ProjectFloatingToolbar({
 
           <button
             onClick={onBulkClear}
-            className="flex items-center gap-1 px-[8px] py-[5px] rounded-sm text-text-tertiary hover:text-text-primary transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-[8px] py-[5px] rounded-sm text-text-3 hover:text-text transition-colors cursor-pointer"
           >
             <X className="w-3 h-3" />
           </button>
@@ -405,7 +405,7 @@ function ToolbarAction({
         "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
           ? "text-ops-accent bg-ops-accent-muted/20"
-          : "text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]"
+          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
       )}
       onClick={onClick}
     >

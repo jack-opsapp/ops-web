@@ -77,7 +77,7 @@ export function ScheduleOverview() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-4 h-4 animate-spin text-text-tertiary" />
+        <Loader2 className="w-4 h-4 animate-spin text-text-3" />
       </div>
     );
   }
@@ -85,7 +85,7 @@ export function ScheduleOverview() {
   if (!health || !health.enabled) {
     return (
       <div className="px-4 py-6">
-        <p className="font-kosugi text-[12px] text-text-tertiary text-left">
+        <p className="font-kosugi text-[12px] text-text-3 text-left">
           {t("dashboard.noData")}
         </p>
       </div>
@@ -107,8 +107,8 @@ export function ScheduleOverview() {
       value: t("dashboard.crewUtilizationValue")
         .replace("{{active}}", String(health.activeMembers))
         .replace("{{total}}", String(health.totalMembers)),
-      color: "text-text-secondary",
-      iconColor: "text-text-tertiary",
+      color: "text-text-2",
+      iconColor: "text-text-3",
     },
     {
       icon: AlertTriangle,
@@ -119,8 +119,8 @@ export function ScheduleOverview() {
               .replace("{{count}}", String(health.conflictCount))
               .replace("{{plural}}", pluralS(health.conflictCount))
           : t("dashboard.noConflicts"),
-      color: health.conflictCount > 0 ? "text-[#C4A868]" : "text-text-secondary",
-      iconColor: health.conflictCount > 0 ? "text-[#C4A868]" : "text-text-tertiary",
+      color: health.conflictCount > 0 ? "text-[#C4A868]" : "text-text-2",
+      iconColor: health.conflictCount > 0 ? "text-[#C4A868]" : "text-text-3",
     },
     {
       icon: UserX,
@@ -132,9 +132,9 @@ export function ScheduleOverview() {
               .replace("{{plural}}", pluralS(health.unassignedCount))
           : t("dashboard.allAssigned"),
       color:
-        health.unassignedCount > 0 ? "text-[#C4A868]" : "text-text-secondary",
+        health.unassignedCount > 0 ? "text-[#C4A868]" : "text-text-2",
       iconColor:
-        health.unassignedCount > 0 ? "text-[#C4A868]" : "text-text-tertiary",
+        health.unassignedCount > 0 ? "text-[#C4A868]" : "text-text-3",
     },
     {
       icon: CloudRain,
@@ -148,11 +148,11 @@ export function ScheduleOverview() {
       color:
         health.weatherRiskCount > 0
           ? "text-[#C4A868]"
-          : "text-text-secondary",
+          : "text-text-2",
       iconColor:
         health.weatherRiskCount > 0
           ? "text-[#C4A868]"
-          : "text-text-tertiary",
+          : "text-text-3",
     },
     {
       icon: health.pendingSuggestions > 0 ? Sparkles : CheckCircle2,
@@ -164,8 +164,8 @@ export function ScheduleOverview() {
               .replace("{{plural}}", pluralS(health.pendingSuggestions))
           : t("dashboard.optimized"),
       // Reserve accent for the single footer CTA link — keep this row neutral
-      color: "text-text-secondary",
-      iconColor: "text-text-tertiary",
+      color: "text-text-2",
+      iconColor: "text-text-3",
     },
   ];
 
@@ -173,10 +173,10 @@ export function ScheduleOverview() {
     <motion.div {...motionProps} className="h-full flex flex-col">
       {/* Header */}
       <div className="px-4 pt-3 pb-2">
-        <h3 className="font-mohave text-[14px] text-text-primary uppercase tracking-wider">
+        <h3 className="font-mohave text-[14px] text-text uppercase tracking-wider">
           {t("dashboard.title")}
         </h3>
-        <p className="font-kosugi text-[11px] text-text-tertiary mt-0.5">
+        <p className="font-kosugi text-[11px] text-text-3 mt-0.5">
           [{t("dashboard.subtitle")}]
         </p>
       </div>
@@ -193,7 +193,7 @@ export function ScheduleOverview() {
               >
                 <Icon className={cn("w-[14px] h-[14px] shrink-0", row.iconColor)} />
                 <div className="flex-1 min-w-0">
-                  <span className="font-kosugi text-[11px] text-text-tertiary block">
+                  <span className="font-kosugi text-[11px] text-text-3 block">
                     {row.label}
                   </span>
                   <span className={cn("font-mohave text-[13px] block truncate", row.color)}>

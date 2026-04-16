@@ -39,8 +39,8 @@ export function ExpenseFilters({
           className={cn(
             "px-3 py-1 rounded font-mohave text-body-sm uppercase transition-colors flex items-center gap-1.5",
             activeTab === "review"
-              ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-              : "text-text-tertiary hover:text-text-secondary"
+              ? "bg-[rgba(255,255,255,0.08)] text-text"
+              : "text-text-3 hover:text-text-2"
           )}
         >
           NEEDS REVIEW
@@ -55,8 +55,8 @@ export function ExpenseFilters({
           className={cn(
             "px-3 py-1 rounded font-mohave text-body-sm uppercase transition-colors",
             activeTab === "history"
-              ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-              : "text-text-tertiary hover:text-text-secondary"
+              ? "bg-[rgba(255,255,255,0.08)] text-text"
+              : "text-text-3 hover:text-text-2"
           )}
         >
           HISTORY
@@ -73,8 +73,8 @@ export function ExpenseFilters({
               className={cn(
                 "px-2.5 py-1 rounded font-kosugi text-[11px] uppercase tracking-wider whitespace-nowrap shrink-0 transition-colors border",
                 activePeriod === period
-                  ? "bg-[rgba(255,255,255,0.08)] text-text-primary border-[rgba(255,255,255,0.15)]"
-                  : "text-text-tertiary border-transparent hover:text-text-secondary hover:border-border"
+                  ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.15)]"
+                  : "text-text-3 border-transparent hover:text-text-2 hover:border-border"
               )}
             >
               {formatPeriodDisplay(period)}

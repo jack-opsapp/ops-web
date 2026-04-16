@@ -86,18 +86,18 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
         {/* Header: Avatar + Name + Company */}
         <div className="flex items-center gap-1.5">
           <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-            <span className="font-mohave text-body-lg text-text-secondary">
+            <span className="font-mohave text-body-lg text-text-2">
               {getInitials(client.name) || "?"}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-mohave text-card-title text-text-primary truncate">
+            <h3 className="font-mohave text-card-title text-text truncate">
               {client.name}
             </h3>
             {client.company && (
               <div className="flex items-center gap-[4px]">
-                <Building2 className="w-[11px] h-[11px] text-text-disabled shrink-0" />
-                <p className="font-kosugi text-[10px] text-text-tertiary truncate">
+                <Building2 className="w-[11px] h-[11px] text-text-mute shrink-0" />
+                <p className="font-kosugi text-[10px] text-text-3 truncate">
                   {client.company}
                 </p>
               </div>
@@ -108,19 +108,19 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
         {/* Contact info */}
         <div className="space-y-[6px]">
           {client.phone && (
-            <div className="flex items-center gap-[6px] text-text-tertiary">
+            <div className="flex items-center gap-[6px] text-text-3">
               <Phone className="w-[13px] h-[13px] shrink-0" />
               <span className="font-mono text-data-sm">{client.phone}</span>
             </div>
           )}
           {client.email && (
-            <div className="flex items-center gap-[6px] text-text-tertiary">
+            <div className="flex items-center gap-[6px] text-text-3">
               <Mail className="w-[13px] h-[13px] shrink-0" />
               <span className="font-mono text-[11px] truncate">{client.email}</span>
             </div>
           )}
           {client.address && (
-            <div className="flex items-center gap-[6px] text-text-tertiary">
+            <div className="flex items-center gap-[6px] text-text-3">
               <MapPin className="w-[13px] h-[13px] shrink-0" />
               <span className="font-mohave text-body-sm truncate">{client.address}</span>
             </div>
@@ -130,7 +130,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
         {/* Footer: Projects + SubClients */}
         <div className="flex items-center justify-between pt-[6px] border-t border-border-subtle">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-[4px] text-text-tertiary">
+            <div className="flex items-center gap-[4px] text-text-3">
               <FolderKanban className="w-[13px] h-[13px]" />
               <span className="font-mono text-[11px]">
                 {client.projectCount} {String(client.projectCount) === "1" ? t("card.project") : t("card.projects")}
@@ -143,7 +143,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
                 e.stopPropagation();
                 setExpanded(!expanded);
               }}
-              className="flex items-center gap-[3px] text-text-tertiary hover:text-ops-accent transition-colors"
+              className="flex items-center gap-[3px] text-text-3 hover:text-ops-accent transition-colors"
             >
               <Users className="w-[12px] h-[12px]" />
               <span className="font-mono text-[10px]">{client.subClients.length}</span>
@@ -163,16 +163,16 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
           className="border-t border-border-subtle bg-background-elevated/50 px-2 py-1.5 space-y-1 animate-slide-up"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-widest">
+          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest">
             {t("card.subClients")}
           </span>
           {client.subClients.map((sc) => (
             <div key={sc.id} className="flex items-center justify-between py-[4px]">
               <div className="min-w-0">
-                <p className="font-mohave text-body-sm text-text-secondary truncate">
+                <p className="font-mohave text-body-sm text-text-2 truncate">
                   {sc.name}
                   {sc.title && (
-                    <span className="text-text-disabled ml-[6px] font-kosugi text-[10px]">
+                    <span className="text-text-mute ml-[6px] font-kosugi text-[10px]">
                       {sc.title}
                     </span>
                   )}
@@ -180,7 +180,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {sc.phone && (
-                  <span className="font-mono text-[10px] text-text-disabled">{sc.phone}</span>
+                  <span className="font-mono text-[10px] text-text-mute">{sc.phone}</span>
                 )}
               </div>
             </div>
@@ -209,16 +209,16 @@ function ClientTableRow({
       <td className="px-1.5 py-1">
         <div className="flex items-center gap-1">
           <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               {getInitials(client.name) || "?"}
             </span>
           </div>
           <div className="min-w-0">
-            <span className="font-mohave text-body text-text-primary block truncate">
+            <span className="font-mohave text-body text-text block truncate">
               {client.name}
             </span>
             {client.company && (
-              <span className="font-kosugi text-[10px] text-text-disabled block truncate">
+              <span className="font-kosugi text-[10px] text-text-mute block truncate">
                 {client.company}
               </span>
             )}
@@ -227,25 +227,25 @@ function ClientTableRow({
       </td>
       {/* Email */}
       <td className="px-1.5 py-1 hidden md:table-cell">
-        <span className="font-mono text-data-sm text-text-tertiary truncate block max-w-[200px]">
+        <span className="font-mono text-data-sm text-text-3 truncate block max-w-[200px]">
           {client.email || "--"}
         </span>
       </td>
       {/* Phone */}
       <td className="px-1.5 py-1 hidden sm:table-cell">
-        <span className="font-mono text-data-sm text-text-tertiary">
+        <span className="font-mono text-data-sm text-text-3">
           {client.phone || "--"}
         </span>
       </td>
       {/* Address */}
       <td className="px-1.5 py-1 hidden lg:table-cell">
-        <span className="font-mohave text-body-sm text-text-tertiary truncate block max-w-[180px]">
+        <span className="font-mohave text-body-sm text-text-3 truncate block max-w-[180px]">
           {client.address || "--"}
         </span>
       </td>
       {/* Projects */}
       <td className="px-1.5 py-1 text-center">
-        <span className="font-mono text-data-sm text-text-secondary">
+        <span className="font-mono text-data-sm text-text-2">
           {client.projectCount}
         </span>
       </td>
@@ -256,7 +256,7 @@ function ClientTableRow({
             {client.subClients.length}
           </Badge>
         ) : (
-          <span className="font-mono text-[11px] text-text-disabled">--</span>
+          <span className="font-mono text-[11px] text-text-mute">--</span>
         )}
       </td>
     </tr>
@@ -459,12 +459,12 @@ export default function ClientsPage() {
       ) : filteredClients.length === 0 && !searchQuery && filterMode === "all" ? (
         /* Empty state - no clients at all */
         <div className="flex items-start gap-2 py-3 px-3 border-l-2 border-l-[rgba(255,255,255,0.08)]">
-          <Users className="w-[20px] h-[20px] text-text-disabled shrink-0 mt-[2px]" />
+          <Users className="w-[20px] h-[20px] text-text-mute shrink-0 mt-[2px]" />
           <div className="flex flex-col items-start gap-0.5">
-            <h3 className="font-mohave text-body-lg text-text-secondary">
+            <h3 className="font-mohave text-body-lg text-text-2">
               {t("empty.title")}
             </h3>
-            <p className="font-mohave text-body-sm text-text-tertiary max-w-[360px]">
+            <p className="font-mohave text-body-sm text-text-3 max-w-[360px]">
               {t("empty.description")}
             </p>
             <Button
@@ -480,12 +480,12 @@ export default function ClientsPage() {
       ) : filteredClients.length === 0 ? (
         /* Empty state - filtered/searched with no results */
         <div className="flex items-start gap-2 py-3 px-3 border-l-2 border-l-[rgba(255,255,255,0.08)]">
-          <Search className="w-[20px] h-[20px] text-text-disabled shrink-0 mt-[2px]" />
+          <Search className="w-[20px] h-[20px] text-text-mute shrink-0 mt-[2px]" />
           <div>
-            <h3 className="font-mohave text-body-lg text-text-secondary">
+            <h3 className="font-mohave text-body-lg text-text-2">
               {t("empty.noMatch")}
             </h3>
-            <p className="font-mohave text-body-sm text-text-tertiary">
+            <p className="font-mohave text-body-sm text-text-3">
               {t("empty.noMatchDesc")}
             </p>
           </div>
@@ -508,22 +508,22 @@ export default function ClientsPage() {
           <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("table.client")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden md:table-cell">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   {t("table.email")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("table.phone")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden lg:table-cell">
+                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   {t("table.address")}
                 </th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("table.projects")}
                 </th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest hidden sm:table-cell">
+                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("table.contacts")}
                 </th>
               </tr>

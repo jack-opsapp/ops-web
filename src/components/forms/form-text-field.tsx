@@ -49,11 +49,11 @@ function FormTextField<T extends FieldValues = FieldValues>({
         id={fieldId}
         {...register(name)}
         className={cn(
-          "w-full bg-background-input text-text-primary font-mohave text-body",
+          "w-full bg-surface-input text-text font-mohave text-body",
           "px-1.5 py-1.5 rounded-lg",
           "border border-border",
           "transition-all duration-150",
-          "placeholder:text-text-tertiary",
+          "placeholder:text-text-3",
           "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
           "disabled:cursor-not-allowed disabled:opacity-40",
           errorMessage && "border-ops-error focus:border-ops-error focus:shadow-glow-error",
@@ -71,7 +71,7 @@ function FormTextField<T extends FieldValues = FieldValues>({
         </p>
       )}
       {helperText && !errorMessage && (
-        <p id={`${fieldId}-helper`} className="text-caption-sm text-text-tertiary font-mohave">
+        <p id={`${fieldId}-helper`} className="text-caption-sm text-text-3 font-mohave">
           {helperText}
         </p>
       )}

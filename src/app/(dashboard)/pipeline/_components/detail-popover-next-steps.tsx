@@ -155,8 +155,8 @@ function evaluateSignals(
 const COLOR_MAP = {
   error: "text-ops-error",
   amber: "text-ops-amber",
-  secondary: "text-text-secondary",
-  disabled: "text-text-disabled",
+  secondary: "text-text-2",
+  disabled: "text-text-mute",
 } as const;
 
 interface DetailPopoverNextStepsProps {
@@ -210,8 +210,8 @@ export function DetailPopoverNextSteps({
     <div className="px-3 py-1.5 border-b border-[rgba(255,255,255,0.06)] shrink-0">
       {!primary ? (
         <div className="flex items-center gap-1.5">
-          <CheckCircle className="w-3 h-3 text-text-disabled shrink-0" />
-          <span className="font-kosugi text-[11px] text-text-disabled">
+          <CheckCircle className="w-3 h-3 text-text-mute shrink-0" />
+          <span className="font-kosugi text-[11px] text-text-mute">
             {t("detail.noPendingActions")}
           </span>
         </div>
@@ -236,7 +236,7 @@ export function DetailPopoverNextSteps({
                 <button
                   onClick={() => handleComplete(primary.followUpId!)}
                   disabled={completeFollowUp.isPending}
-                  className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-disabled hover:text-status-success hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                  className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-mute hover:text-status-success hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                 >
                   <Check className="w-2.5 h-2.5" />
                 </button>
@@ -245,7 +245,7 @@ export function DetailPopoverNextSteps({
               {remaining.length > 0 && (
                 <button
                   onClick={() => setExpanded((prev) => !prev)}
-                  className="font-mono text-[9px] text-text-disabled hover:text-text-tertiary px-1 transition-colors"
+                  className="font-mono text-[9px] text-text-mute hover:text-text-3 px-1 transition-colors"
                 >
                   +{remaining.length} {t("detail.moreFollowUps")}
                 </button>
@@ -273,7 +273,7 @@ export function DetailPopoverNextSteps({
                     <button
                       onClick={() => handleComplete(signal.followUpId!)}
                       disabled={completeFollowUp.isPending}
-                      className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-disabled hover:text-status-success hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                      className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-mute hover:text-status-success hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                     >
                       <Check className="w-2.5 h-2.5" />
                     </button>

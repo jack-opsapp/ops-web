@@ -17,7 +17,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest"
+            className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest"
           >
             {label}
           </label>
@@ -25,11 +25,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           id={textareaId}
           className={cn(
-            "w-full bg-background-input text-text-primary font-mohave text-body",
+            "w-full bg-surface-input text-text font-mohave text-body",
             "px-1.5 py-1.5 rounded-sm",
             "border border-border",
             "transition-all duration-150",
-            "placeholder:text-text-tertiary",
+            "placeholder:text-text-3",
             "focus:border-ops-accent focus:outline-none focus:shadow-glow-accent",
             "disabled:cursor-not-allowed disabled:opacity-40",
             "min-h-[80px] resize-y",
@@ -49,7 +49,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           </p>
         )}
         {helperText && !error && (
-          <p id={`${textareaId}-helper`} className="text-caption-sm text-text-tertiary font-mohave">
+          <p id={`${textareaId}-helper`} className="text-caption-sm text-text-3 font-mohave">
             {helperText}
           </p>
         )}

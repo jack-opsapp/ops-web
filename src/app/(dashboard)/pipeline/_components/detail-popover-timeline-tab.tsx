@@ -178,29 +178,29 @@ function DetailCard({ node }: { node: TimelineNode }) {
   return (
     <div className="absolute left-full top-0 ml-2 z-10 w-[200px] bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-2.5 pointer-events-none">
       {node.subject && (
-        <p className="font-mohave text-[12px] text-text-primary mb-1 truncate">
+        <p className="font-mohave text-[12px] text-text mb-1 truncate">
           {node.subject}
         </p>
       )}
       {node.content && (
-        <p className="font-kosugi text-[11px] text-text-tertiary leading-relaxed line-clamp-3">
+        <p className="font-kosugi text-[11px] text-text-3 leading-relaxed line-clamp-3">
           {node.content}
         </p>
       )}
       {node.durationMinutes != null && node.durationMinutes > 0 && (
-        <span className="font-mono text-[9px] text-text-disabled mt-1 block">
+        <span className="font-mono text-[9px] text-text-mute mt-1 block">
           {node.durationMinutes}min
         </span>
       )}
       {node.outcome && (
-        <p className="font-kosugi text-[10px] text-text-tertiary mt-1">
+        <p className="font-kosugi text-[10px] text-text-3 mt-1">
           {node.outcome}
         </p>
       )}
       {node.attachmentCount != null && node.attachmentCount > 0 && (
         <div className="flex items-center gap-1 mt-1">
-          <Paperclip className="w-2.5 h-2.5 text-text-disabled" />
-          <span className="font-mono text-[9px] text-text-disabled">
+          <Paperclip className="w-2.5 h-2.5 text-text-mute" />
+          <span className="font-mono text-[9px] text-text-mute">
             {node.attachmentCount}
           </span>
         </div>
@@ -232,8 +232,8 @@ export function DetailPopoverTimelineTab({
   if (nodes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
-        <Clock className="w-5 h-5 text-text-disabled mb-2" />
-        <span className="font-kosugi text-[11px] text-text-disabled">
+        <Clock className="w-5 h-5 text-text-mute mb-2" />
+        <span className="font-kosugi text-[11px] text-text-mute">
           {t("detail.noActivityYet")}
         </span>
       </div>
@@ -259,7 +259,7 @@ export function DetailPopoverTimelineTab({
                     style={{ backgroundColor: node.color }}
                   />
                 </div>
-                <span className="font-kosugi text-[10px] text-text-disabled truncate">
+                <span className="font-kosugi text-[10px] text-text-mute truncate">
                   {node.label}
                 </span>
               </div>
@@ -286,7 +286,7 @@ export function DetailPopoverTimelineTab({
                 <Icon className="w-[9px] h-[9px]" style={{ color: node.color }} />
               </div>
 
-              <span className="font-mohave text-[12px] text-text-primary truncate">
+              <span className="font-mohave text-[12px] text-text truncate">
                 {node.label}
               </span>
 

@@ -216,26 +216,26 @@ export const DetailPopover = memo(function DetailPopover({
             className="w-1.5 h-1.5 rounded-[1px] shrink-0"
             style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? "#BCBCBC" }}
           />
-          <span className="font-mohave text-[13px] font-semibold text-text-primary truncate">
+          <span className="font-mohave text-[13px] font-semibold text-text truncate">
             {titleText}
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           {opportunity.estimatedValue != null && (
-            <span className="font-mono text-[11px] text-text-secondary">
+            <span className="font-mono text-[11px] text-text-2">
               {formatCurrency(opportunity.estimatedValue)}
             </span>
           )}
           <div className="flex items-center gap-[2px]">
             <button
               onClick={() => minimizePopover(popoverState.id)}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             >
               <Minus className="w-3 h-3" />
             </button>
             <button
               onClick={() => closePopover(popoverState.id)}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -250,7 +250,7 @@ export const DetailPopover = memo(function DetailPopover({
           {opportunity.contactPhone && (
             <a
               href={`tel:${opportunity.contactPhone}`}
-              className="flex items-center gap-1 text-text-tertiary hover:text-ops-accent transition-colors shrink-0"
+              className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors shrink-0"
             >
               <Phone className="w-2.5 h-2.5" />
               <span className="font-kosugi text-[10px] whitespace-nowrap">
@@ -264,7 +264,7 @@ export const DetailPopover = memo(function DetailPopover({
           {opportunity.contactEmail && (
             <a
               href={`mailto:${opportunity.contactEmail}`}
-              className="flex items-center gap-1 text-text-tertiary hover:text-ops-accent transition-colors min-w-0"
+              className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors min-w-0"
             >
               <Mail className="w-2.5 h-2.5 shrink-0" />
               <span className="font-kosugi text-[10px] truncate">
@@ -273,7 +273,7 @@ export const DetailPopover = memo(function DetailPopover({
             </a>
           )}
           {!opportunity.contactPhone && !opportunity.contactEmail && (
-            <span className="font-kosugi text-[10px] text-text-disabled">
+            <span className="font-kosugi text-[10px] text-text-mute">
               {t("detail.noContact")}
             </span>
           )}
@@ -287,14 +287,14 @@ export const DetailPopover = memo(function DetailPopover({
           >
             {stageName}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled">
+          <span className="font-kosugi text-[9px] text-text-mute">
             · {daysInStage}{t("detail.daysInStage")}
           </span>
           {canManage && active && (
             <div className="relative ml-auto">
               <button
                 onClick={handleStageMenuToggle}
-                className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
               >
                 <MoreHorizontal className="w-3 h-3" />
               </button>
@@ -303,21 +303,21 @@ export const DetailPopover = memo(function DetailPopover({
                 <div className="absolute top-full right-0 mt-1 z-50 min-w-[150px] bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-1">
                   <button
                     onClick={() => { setShowStageMenu(false); onAdvanceStage(); }}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                   >
                     <ChevronRight className="w-3 h-3 shrink-0" />
                     {t("detail.advance")}
                   </button>
                   <button
                     onClick={() => { setShowStageMenu(false); onMarkWon(); }}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                   >
                     <Trophy className="w-3 h-3 shrink-0" />
                     {t("detail.won")}
                   </button>
                   <button
                     onClick={() => { setShowStageMenu(false); onMarkLost(); }}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                   >
                     <XCircle className="w-3 h-3 shrink-0" />
                     {t("detail.lost")}
@@ -325,7 +325,7 @@ export const DetailPopover = memo(function DetailPopover({
                   <div className="border-t border-[rgba(255,255,255,0.06)] my-0.5" />
                   <button
                     onClick={() => { setShowStageMenu(false); onArchive(); }}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-secondary hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
+                    className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
                   >
                     <Archive className="w-3 h-3 shrink-0" />
                     {t("actions.archive")}
@@ -345,7 +345,7 @@ export const DetailPopover = memo(function DetailPopover({
 
         {/* Summary */}
         {opportunity.aiSummary && (
-          <p className="font-kosugi text-[10px] text-text-disabled leading-[1.6] mt-1.5">
+          <p className="font-kosugi text-[10px] text-text-mute leading-[1.6] mt-1.5">
             {opportunity.aiSummary}
           </p>
         )}
@@ -354,13 +354,13 @@ export const DetailPopover = memo(function DetailPopover({
       {/* ── Delete confirmation ── */}
       {showDeleteConfirm && (
         <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)] shrink-0">
-          <p className="font-kosugi text-[11px] text-text-secondary mb-2">
+          <p className="font-kosugi text-[11px] text-text-2 mb-2">
             {t("actions.deleteConfirm")}
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 px-2 py-1.5 font-mohave text-[11px] uppercase tracking-[0.5px] text-text-secondary rounded-[2px] border border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+              className="flex-1 px-2 py-1.5 font-mohave text-[11px] uppercase tracking-[0.5px] text-text-2 rounded-[2px] border border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.04)] transition-colors"
             >
               {t("transition.cancel")}
             </button>

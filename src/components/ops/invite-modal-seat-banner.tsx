@@ -49,7 +49,7 @@ export function InviteModalSeatBanner({
                 ? "All seats in use"
                 : `${seatsRemaining} seats remaining — ${invitesQueued} invites queued`}
             </p>
-            <p className="font-mohave text-body-sm text-text-secondary leading-relaxed mt-1">
+            <p className="font-mohave text-body-sm text-text-2 leading-relaxed mt-1">
               {isFull
                 ? "New members will join but won't have access until you shift seats or upgrade."
                 : `${deficit} new member${deficit > 1 ? "s" : ""} will join without a seat. Shift seats or upgrade your plan to give them access.`}

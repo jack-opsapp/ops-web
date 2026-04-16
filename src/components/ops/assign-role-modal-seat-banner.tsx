@@ -38,7 +38,7 @@ export function AssignRoleModalSeatBanner({
           <p className="font-kosugi text-micro uppercase tracking-wider text-status-warning">
             {isFull ? "Unseated — no seats left" : "Unseated"}
           </p>
-          <p className="font-mohave text-body-sm text-text-secondary leading-relaxed mt-1">
+          <p className="font-mohave text-body-sm text-text-2 leading-relaxed mt-1">
             {isFull
               ? `${firstName} joined your crew but can't access OPS until you shift a seat or upgrade your plan.`
               : `${firstName} is ready to work but hasn't been assigned a seat.`}
@@ -49,7 +49,7 @@ export function AssignRoleModalSeatBanner({
               <button
                 type="button"
                 onClick={onManageSeats}
-                className="font-kosugi text-micro uppercase tracking-wider text-text-secondary hover:text-text-primary transition-colors"
+                className="font-kosugi text-micro uppercase tracking-wider text-text-2 hover:text-text transition-colors"
               >
                 Manage seats
               </button>

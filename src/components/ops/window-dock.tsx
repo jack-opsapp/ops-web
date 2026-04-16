@@ -26,7 +26,7 @@ export function WindowDock() {
           className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-full bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] shadow-floating cursor-pointer hover:border-ops-accent transition-all"
           onClick={() => restoreWindow(win.id)}
         >
-          <span className="font-mohave text-[11px] text-text-secondary uppercase tracking-wider">
+          <span className="font-mohave text-[11px] text-text-2 uppercase tracking-wider">
             {win.title}
           </span>
           <button
@@ -34,7 +34,7 @@ export function WindowDock() {
               e.stopPropagation();
               closeWindow(win.id);
             }}
-            className="w-[16px] h-[16px] rounded-full flex items-center justify-center text-text-disabled hover:text-ops-error transition-colors"
+            className="w-[16px] h-[16px] rounded-full flex items-center justify-center text-text-mute hover:text-ops-error transition-colors"
           >
             <X className="w-[10px] h-[10px]" />
           </button>
@@ -51,7 +51,7 @@ export function WindowDock() {
             className="w-[6px] h-[6px] rounded-[2px] shrink-0"
             style={{ backgroundColor: p.stageColor ?? "#597794" }}
           />
-          <span className="font-mohave text-[11px] text-text-secondary uppercase tracking-wider truncate max-w-[120px]">
+          <span className="font-mohave text-[11px] text-text-2 uppercase tracking-wider truncate max-w-[120px]">
             {p.title}
           </span>
           <button
@@ -59,7 +59,7 @@ export function WindowDock() {
               e.stopPropagation();
               closePopover(p.id);
             }}
-            className="w-[16px] h-[16px] rounded-full flex items-center justify-center text-text-disabled hover:text-ops-error transition-colors"
+            className="w-[16px] h-[16px] rounded-full flex items-center justify-center text-text-mute hover:text-ops-error transition-colors"
           >
             <X className="w-[10px] h-[10px]" />
           </button>

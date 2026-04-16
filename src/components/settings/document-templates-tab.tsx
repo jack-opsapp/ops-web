@@ -388,7 +388,7 @@ export function DocumentTemplatesTab() {
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
-            <p className="font-kosugi text-[11px] text-text-disabled text-center py-2">
+            <p className="font-kosugi text-[11px] text-text-mute text-center py-2">
               {t("templates.emptyState")}
             </p>
           ) : (
@@ -401,14 +401,14 @@ export function DocumentTemplatesTab() {
                     "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left",
                     selectedId === tmpl.id
                       ? "bg-ops-accent-muted border-ops-accent"
-                      : "bg-background-input border-border hover:border-border-medium"
+                      : "bg-surface-input border-border hover:border-border-medium"
                   )}
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="font-mohave text-body text-text-primary truncate">
+                    <p className="font-mohave text-body text-text truncate">
                       {tmpl.name}
                     </p>
-                    <span className="font-kosugi text-[10px] text-text-tertiary px-1 py-0.5 rounded bg-background-elevated shrink-0 uppercase">
+                    <span className="font-kosugi text-[10px] text-text-3 px-1 py-0.5 rounded bg-background-elevated shrink-0 uppercase">
                       {tmpl.documentType}
                     </span>
                     {tmpl.isDefault && (
@@ -444,7 +444,7 @@ export function DocumentTemplatesTab() {
               />
 
               <div>
-                <p className="font-mohave text-body-sm text-text-secondary mb-0.5">
+                <p className="font-mohave text-body-sm text-text-2 mb-0.5">
                   Document Type
                 </p>
                 <div className="flex gap-1">
@@ -456,7 +456,7 @@ export function DocumentTemplatesTab() {
                         "flex-1 py-[8px] rounded border transition-all font-mohave text-body-sm text-center",
                         documentType === opt.id
                           ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                          : "bg-background-input border-border text-text-secondary hover:border-border-medium"
+                          : "bg-surface-input border-border text-text-2 hover:border-border-medium"
                       )}
                     >
                       {t(opt.labelKey)}
@@ -467,10 +467,10 @@ export function DocumentTemplatesTab() {
 
               <div className="flex items-center justify-between pt-0.5">
                 <div>
-                  <p className="font-mohave text-body-sm text-text-primary">
+                  <p className="font-mohave text-body-sm text-text">
                     {t("templates.setAsDefault")}
                   </p>
-                  <p className="font-kosugi text-[11px] text-text-disabled">
+                  <p className="font-kosugi text-[11px] text-text-mute">
                     {t("templates.autoApply")} {documentType === "both" ? "invoices & estimates" : `${documentType}s`}
                   </p>
                 </div>
@@ -491,7 +491,7 @@ export function DocumentTemplatesTab() {
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 {FIELD_LABELS.map(({ key, labelKey }) => (
                   <div key={key} className="flex items-center justify-between py-0.5">
-                    <span className="font-mohave text-body-sm text-text-secondary">
+                    <span className="font-mohave text-body-sm text-text-2">
                       {t(labelKey)}
                     </span>
                     <Switch
@@ -513,14 +513,14 @@ export function DocumentTemplatesTab() {
               <CardTitle>{t("templates.brandingOverrides")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="font-kosugi text-[11px] text-text-disabled">
+              <p className="font-kosugi text-[11px] text-text-mute">
                 {t("templates.brandingHelper")}
               </p>
 
               {/* Accent Color Override */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mohave text-body-sm text-text-secondary">
+                  <span className="font-mohave text-body-sm text-text-2">
                     {t("templates.accentColor")}
                   </span>
                   <Switch
@@ -546,7 +546,7 @@ export function DocumentTemplatesTab() {
                             className="w-[14px] h-[14px] rounded-full border border-[rgba(255,255,255,0.2)]"
                             style={{ backgroundColor: preset.value }}
                           />
-                          <span className="font-mohave text-[11px] text-text-secondary">
+                          <span className="font-mohave text-[11px] text-text-2">
                             {t(preset.labelKey)}
                           </span>
                         </button>
@@ -574,7 +574,7 @@ export function DocumentTemplatesTab() {
               {/* Logo Override */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mohave text-body-sm text-text-secondary">
+                  <span className="font-mohave text-body-sm text-text-2">
                     {t("templates.logo")}
                   </span>
                   <Switch
@@ -596,7 +596,7 @@ export function DocumentTemplatesTab() {
               {/* Template Override */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mohave text-body-sm text-text-secondary">
+                  <span className="font-mohave text-body-sm text-text-2">
                     {t("templates.templateStyle")}
                   </span>
                   <Switch
@@ -614,7 +614,7 @@ export function DocumentTemplatesTab() {
                           "flex-1 py-[8px] rounded border transition-all font-mohave text-body-sm text-center",
                           templateChoice === tmpl.id
                             ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                            : "bg-background-input border-border text-text-secondary hover:border-border-medium"
+                            : "bg-surface-input border-border text-text-2 hover:border-border-medium"
                         )}
                       >
                         {t(tmpl.labelKey)}
@@ -627,7 +627,7 @@ export function DocumentTemplatesTab() {
               {/* Theme Mode Override */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mohave text-body-sm text-text-secondary">
+                  <span className="font-mohave text-body-sm text-text-2">
                     {t("templates.themeMode")}
                   </span>
                   <Switch
@@ -648,19 +648,19 @@ export function DocumentTemplatesTab() {
                           "flex items-center justify-center gap-[6px] py-[8px] rounded border transition-all",
                           themeMode === mode.id
                             ? "bg-ops-accent-muted border-ops-accent"
-                            : "bg-background-input border-border hover:border-border-medium"
+                            : "bg-surface-input border-border hover:border-border-medium"
                         )}
                       >
                         <mode.icon
                           className={cn(
                             "w-[16px] h-[16px]",
-                            themeMode === mode.id ? "text-ops-accent" : "text-text-tertiary"
+                            themeMode === mode.id ? "text-ops-accent" : "text-text-3"
                           )}
                         />
                         <span
                           className={cn(
                             "font-mohave text-body-sm",
-                            themeMode === mode.id ? "text-ops-accent" : "text-text-secondary"
+                            themeMode === mode.id ? "text-ops-accent" : "text-text-2"
                           )}
                         >
                           {mode.label}
@@ -687,7 +687,7 @@ export function DocumentTemplatesTab() {
               {t("templates.deleteTemplate")}
             </Button>
             <div className="flex items-center gap-1.5">
-              <p className="font-kosugi text-[11px] text-text-disabled">
+              <p className="font-kosugi text-[11px] text-text-mute">
                 {isDirty ? t("templates.unsavedChanges") : t("templates.saved")}
               </p>
               <Button

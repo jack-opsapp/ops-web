@@ -171,19 +171,19 @@ export function LineItemEditor({
       {/* Header */}
       <div className="hidden sm:grid grid-cols-[18px_1fr_80px_100px_60px_60px_16px_36px] gap-1 px-1">
         <span />
-        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
           Name
         </span>
-        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest text-right">
+        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-right">
           Qty
         </span>
-        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest text-right">
+        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-right">
           Price
         </span>
-        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest text-center">
+        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-center">
           Tax
         </span>
-        <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest text-right">
+        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-right">
           Amount
         </span>
         <span />
@@ -208,8 +208,8 @@ export function LineItemEditor({
                   <button
                     onClick={() => toggleExpand(item.id)}
                     className={cn(
-                      "p-0.5 rounded text-text-disabled hover:text-text-secondary transition-all",
-                      expanded && "rotate-90 text-text-secondary"
+                      "p-0.5 rounded text-text-mute hover:text-text-2 transition-all",
+                      expanded && "rotate-90 text-text-2"
                     )}
                     aria-label={expanded ? "Collapse materials" : "Expand materials"}
                   >
@@ -226,7 +226,7 @@ export function LineItemEditor({
                     onChange={(e) => {
                       if (e.target.value) selectProduct(item.id, e.target.value);
                     }}
-                    className="w-full bg-transparent border border-border rounded px-1 py-0.5 font-kosugi text-[10px] text-text-tertiary"
+                    className="w-full bg-transparent border border-border rounded px-1 py-0.5 font-kosugi text-[10px] text-text-3"
                   >
                     <option value="">Select product/service...</option>
                     {products.map((p) => (
@@ -276,7 +276,7 @@ export function LineItemEditor({
 
               {/* Amount (computed) */}
               <div className="flex items-center justify-end h-[36px]">
-                <span className="font-mono text-data-sm text-text-primary">
+                <span className="font-mono text-data-sm text-text">
                   {formatCurrency(computed.lineTotal)}
                 </span>
               </div>
@@ -298,7 +298,7 @@ export function LineItemEditor({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[260px]">
                       <div className="space-y-1">
-                        <p className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+                        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
                           Stock
                         </p>
                         {stock.materials.map((m) => (
@@ -306,7 +306,7 @@ export function LineItemEditor({
                             key={m.inventoryItemId}
                             className="flex items-center justify-between gap-3"
                           >
-                            <span className="font-mohave text-body-sm text-text-primary truncate">
+                            <span className="font-mohave text-body-sm text-text truncate">
                               {m.inventoryItemName}
                             </span>
                             <span
@@ -332,7 +332,7 @@ export function LineItemEditor({
                 {onEditQuestions && (
                   <button
                     onClick={() => onEditQuestions(item.id)}
-                    className="relative p-[4px] rounded text-text-disabled hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                    className="relative p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
                     title="Edit questions"
                   >
                     <HelpCircle className="w-[14px] h-[14px]" />
@@ -347,7 +347,7 @@ export function LineItemEditor({
                   onClick={() => removeItem(item.id)}
                   disabled={items.length <= 1}
                   className={cn(
-                    "p-[4px] rounded text-text-disabled hover:text-ops-error hover:bg-ops-error-muted transition-colors",
+                    "p-[4px] rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors",
                     items.length <= 1 && "opacity-30 cursor-not-allowed"
                   )}
                 >
@@ -360,7 +360,7 @@ export function LineItemEditor({
             {expanded && item.productId && (
               <div className="border-t border-border pt-1.5 pb-1 pl-[22px] pr-1">
                 {isTempId ? (
-                  <p className="font-kosugi text-[10px] text-text-disabled">
+                  <p className="font-kosugi text-[10px] text-text-mute">
                     [save estimate to override materials on this line item]
                   </p>
                 ) : (
@@ -382,7 +382,7 @@ export function LineItemEditor({
         variant="ghost"
         size="sm"
         onClick={addItem}
-        className="gap-1 text-text-tertiary"
+        className="gap-1 text-text-3"
       >
         <Plus className="w-[14px] h-[14px]" />
         Add Line Item
@@ -391,22 +391,22 @@ export function LineItemEditor({
       {/* Totals */}
       <div className="border-t border-border pt-1.5 space-y-0.5">
         <div className="flex justify-between">
-          <span className="font-kosugi text-caption text-text-tertiary">Subtotal</span>
-          <span className="font-mono text-data text-text-secondary">
+          <span className="font-kosugi text-caption text-text-3">Subtotal</span>
+          <span className="font-mono text-data text-text-2">
             {formatCurrency(totals.subtotal)}
           </span>
         </div>
         {totals.tax > 0 && (
           <div className="flex justify-between">
-            <span className="font-kosugi text-caption text-text-tertiary">Tax</span>
-            <span className="font-mono text-data text-text-secondary">
+            <span className="font-kosugi text-caption text-text-3">Tax</span>
+            <span className="font-mono text-data text-text-2">
               {formatCurrency(totals.tax)}
             </span>
           </div>
         )}
         <div className="flex justify-between pt-0.5 border-t border-border">
-          <span className="font-mohave text-body-lg text-text-primary uppercase">Total</span>
-          <span className="font-mono text-data-lg text-text-primary">
+          <span className="font-mohave text-body-lg text-text uppercase">Total</span>
+          <span className="font-mono text-data-lg text-text">
             {formatCurrency(totals.total)}
           </span>
         </div>

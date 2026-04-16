@@ -75,24 +75,24 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
               sizes="32px"
             />
           ) : (
-            <span className="flex h-full w-full items-center justify-center font-mohave text-caption-sm text-text-secondary select-none">
+            <span className="flex h-full w-full items-center justify-center font-mohave text-caption-sm text-text-2 select-none">
               {getInitials(batch)}
             </span>
           )}
         </div>
 
-        <span className="font-mohave text-body text-text-primary truncate">
+        <span className="font-mohave text-body text-text truncate">
           {displayName}
         </span>
       </div>
 
       {/* Row 2 — Invoice number */}
-      <span className="font-kosugi text-caption-sm text-text-tertiary uppercase">
+      <span className="font-kosugi text-caption-sm text-text-3 uppercase">
         {batch.batchNumber}
       </span>
 
       {/* Row 3 — Total amount */}
-      <span className="font-mohave text-body-lg text-text-primary">
+      <span className="font-mohave text-body-lg text-text">
         {formatCurrency(batch.totalAmount ?? 0)}
       </span>
 
@@ -100,7 +100,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
       <div className="flex items-center gap-1">
         {/* Status pill */}
         <span
-          className="inline-flex items-center rounded-full px-1.5 py-[2px] font-kosugi text-micro-sm uppercase tracking-wider"
+          className="inline-flex items-center rounded-full px-1.5 py-[2px] font-kosugi text-micro uppercase tracking-wider"
           style={{
             backgroundColor: `${statusColor}26`,
             color: statusColor,
@@ -111,7 +111,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
 
         {/* Amendment indicator */}
         {hasAmendment && (
-          <span className="inline-flex items-center rounded-full px-1.5 py-[2px] font-kosugi text-micro-sm uppercase tracking-wider bg-ops-amber-muted text-ops-amber">
+          <span className="inline-flex items-center rounded-full px-1.5 py-[2px] font-kosugi text-micro uppercase tracking-wider bg-ops-amber-muted text-ops-amber">
             +A{batch.amendmentNumber}
           </span>
         )}

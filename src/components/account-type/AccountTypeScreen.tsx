@@ -218,14 +218,14 @@ export function AccountTypeScreen() {
       <div className="relative z-10 flex flex-col items-center justify-end flex-1 pb-12 px-6 pointer-events-none">
         {/* Welcome + Header — stacked at top with safe spacing */}
         <div className="absolute top-0 left-0 right-0 pt-6 sm:pt-8 px-6 text-center space-y-2">
-          <p className="font-kosugi text-[11px] text-text-disabled tracking-wider">
+          <p className="font-kosugi text-[11px] text-text-mute tracking-wider">
             [welcome,{" "}
-            <span className="text-text-secondary">{displayName}</span>]
+            <span className="text-text-2">{displayName}</span>]
           </p>
-          <h1 className="font-mohave text-[22px] sm:text-[28px] font-semibold uppercase tracking-wide text-text-primary leading-tight">
+          <h1 className="font-mohave text-[22px] sm:text-[28px] font-semibold uppercase tracking-wide text-text leading-tight">
             HOW ARE YOU USING OPS?
           </h1>
-          <p className="font-kosugi text-[11px] sm:text-[12px] text-text-tertiary">
+          <p className="font-kosugi text-[11px] sm:text-[12px] text-text-3">
             [choose one to get started]
           </p>
         </div>
@@ -242,7 +242,7 @@ export function AccountTypeScreen() {
               className="w-full max-w-[400px] pointer-events-auto"
             >
               {/* Typewriter headline — full text rendered invisibly to reserve height */}
-              <p className="font-mohave text-[20px] font-semibold text-text-primary uppercase tracking-wide text-center mb-4 relative">
+              <p className="font-mohave text-[20px] font-semibold text-text uppercase tracking-wide text-center mb-4 relative">
                 <span className="invisible" aria-hidden="true">
                   {content.headline}
                 </span>
@@ -267,7 +267,7 @@ export function AccountTypeScreen() {
                     }}
                   >
                     <div className="w-1 h-1 bg-text-tertiary shrink-0" />
-                    <span className="font-mohave text-[14px] text-text-secondary">
+                    <span className="font-mohave text-[14px] text-text-2">
                       {feature}
                     </span>
                   </div>
@@ -281,7 +281,7 @@ export function AccountTypeScreen() {
                   style={{ animationDelay: "200ms" }}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <label className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-widest">
+                    <label className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest">
                       crew code
                     </label>
                     <button
@@ -301,7 +301,7 @@ export function AccountTypeScreen() {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="text-text-disabled hover:text-text-tertiary transition-colors"
+                        className="text-text-mute hover:text-text-3 transition-colors"
                       >
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 16v-4" />
@@ -311,7 +311,7 @@ export function AccountTypeScreen() {
                       {/* Info tooltip */}
                       {showCodeInfo && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[rgba(20,20,20,0.95)] border border-[rgba(255,255,255,0.1)] rounded text-left z-50 backdrop-blur-sm">
-                          <p className="font-mohave text-[12px] text-text-secondary leading-relaxed">
+                          <p className="font-mohave text-[12px] text-text-2 leading-relaxed">
                             Your crew code is in your invite email or text
                             message. Your admin can also find it in organization
                             settings.
@@ -335,7 +335,7 @@ export function AccountTypeScreen() {
                       }}
                       placeholder="Enter code"
                       maxLength={20}
-                      className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded px-4 py-3 font-mohave text-[16px] font-medium text-text-primary tracking-widest uppercase outline-none transition-colors focus:border-ops-accent placeholder:text-text-disabled placeholder:tracking-wide placeholder:normal-case"
+                      className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded px-4 py-3 font-mohave text-[16px] font-medium text-text tracking-widest uppercase outline-none transition-colors focus:border-ops-accent placeholder:text-text-mute placeholder:tracking-wide placeholder:normal-case"
                     />
                     <button
                       onClick={validateCode}
@@ -364,10 +364,10 @@ export function AccountTypeScreen() {
                           .toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-mohave text-[14px] font-semibold text-text-primary">
+                        <p className="font-mohave text-[14px] font-semibold text-text">
                           {companyPreview.name}
                         </p>
-                        <p className="font-kosugi text-[10px] text-text-tertiary">
+                        <p className="font-kosugi text-[10px] text-text-3">
                           [you&apos;ll join as unassigned until a role is set]
                         </p>
                       </div>

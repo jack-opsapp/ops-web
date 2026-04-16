@@ -135,17 +135,17 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
-          <Database className="w-[16px] h-[16px] text-text-tertiary" />
-          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text-primary">
+          <Database className="w-[16px] h-[16px] text-text-3" />
+          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
-        <p className="font-mohave text-body-sm text-text-secondary">
+        <p className="font-mohave text-body-sm text-text-2">
           {t("mining.description")}
         </p>
         <button
           onClick={startMining}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
         >
           <Database className="w-[14px] h-[14px] text-[#597794]" />
           {t("mining.start")}
@@ -161,7 +161,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <Loader2 className="w-[16px] h-[16px] text-[#597794] animate-spin" />
-          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text-primary">
+          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
@@ -199,7 +199,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <AlertTriangle className="w-[16px] h-[16px] text-[#93321A]" />
-          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text-primary">
+          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
@@ -210,7 +210,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
         </div>
         <button
           onClick={startMining}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text-primary font-mohave text-body-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
         >
           <RotateCcw className="w-[14px] h-[14px]" />
           Retry
@@ -225,7 +225,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
         <CheckCircle className="w-[16px] h-[16px] text-[#9DB582]" />
-        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text-primary">
+        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
           {t("mining.complete")}
         </span>
       </div>
@@ -234,34 +234,34 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
         <div className="grid grid-cols-3 gap-1.5">
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
-              <DollarSign className="w-[11px] h-[11px] text-text-disabled" />
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <DollarSign className="w-[11px] h-[11px] text-text-mute" />
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 {t("mining.pricingFacts")}
               </span>
             </div>
-            <span className="font-mohave text-[18px] font-semibold text-text-primary">
+            <span className="font-mohave text-[18px] font-semibold text-text">
               {stats.pricingFacts}
             </span>
           </div>
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
-              <Users className="w-[11px] h-[11px] text-text-disabled" />
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <Users className="w-[11px] h-[11px] text-text-mute" />
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 {t("mining.clientRelationships")}
               </span>
             </div>
-            <span className="font-mohave text-[18px] font-semibold text-text-primary">
+            <span className="font-mohave text-[18px] font-semibold text-text">
               {stats.clientRelationships}
             </span>
           </div>
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
-              <TrendingUp className="w-[11px] h-[11px] text-text-disabled" />
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <TrendingUp className="w-[11px] h-[11px] text-text-mute" />
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 {t("mining.seasonalPatterns")}
               </span>
             </div>
-            <span className="font-mohave text-[18px] font-semibold text-text-primary">
+            <span className="font-mohave text-[18px] font-semibold text-text">
               {stats.seasonalPatterns}
             </span>
           </div>
@@ -278,7 +278,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
 
       <button
         onClick={startMining}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-secondary font-mohave text-[13px] transition-colors"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-2 font-mohave text-[13px] transition-colors"
       >
         <RotateCcw className="w-[12px] h-[12px]" />
         {t("mining.remine")}

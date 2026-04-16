@@ -95,20 +95,20 @@ function ClientSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
         Existing Client
       </label>
       <div className="relative">
         {selected ? (
-          <div className="flex items-center justify-between bg-background-input border border-[rgba(255,255,255,0.2)] rounded px-1.5 py-1.5">
-            <span className="font-mohave text-body text-text-primary">{selected.name}</span>
+          <div className="flex items-center justify-between bg-surface-input border border-[rgba(255,255,255,0.2)] rounded px-1.5 py-1.5">
+            <span className="font-mohave text-body text-text">{selected.name}</span>
             <button
               type="button"
               onClick={() => {
                 onChange(null);
                 setSearch("");
               }}
-              className="text-text-tertiary hover:text-text-secondary"
+              className="text-text-3 hover:text-text-2"
             >
               <X className="w-[16px] h-[16px]" />
             </button>
@@ -130,7 +130,7 @@ function ClientSelector({
               <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating max-h-[200px] overflow-y-auto">
                 {filtered.length === 0 ? (
                   <div className="px-1.5 py-1 text-left">
-                    <p className="font-mohave text-body-sm text-text-tertiary">No matching clients</p>
+                    <p className="font-mohave text-body-sm text-text-3">No matching clients</p>
                   </div>
                 ) : (
                   filtered.map((client) => (
@@ -142,7 +142,7 @@ function ClientSelector({
                         setShowDropdown(false);
                         setSearch("");
                       }}
-                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-secondary hover:text-text-primary hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                     >
                       {client.name}
                     </button>
@@ -272,7 +272,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
       {/* Contact Info */}
       <div className="space-y-2">
-        <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <span className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           Contact
         </span>
         <Input
@@ -313,7 +313,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
       {/* Deal Details */}
       <div className="space-y-2 pt-1 border-t border-[rgba(255,255,255,0.15)]">
-        <span className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+        <span className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
           Deal Details
         </span>
 
@@ -325,12 +325,12 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               Source
             </label>
             <select
               {...register("source")}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select source...</option>
               {sourceOptions.map((s) => (
@@ -341,12 +341,12 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
             </select>
           </div>
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
               Priority
             </label>
             <select
               {...register("priority")}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select priority...</option>
               {priorityOptions.map((p) => (

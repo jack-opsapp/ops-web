@@ -28,19 +28,19 @@ export function TaskTypeNudgeBanner({ variant = "inline" }: TaskTypeNudgeBannerP
 
   return (
     <div className="flex items-center gap-2 px-3 py-[8px] rounded-md bg-[rgba(89,119,148,0.08)] border border-[rgba(89,119,148,0.15)]">
-      <p className="flex-1 font-mohave text-body-sm text-text-secondary">
+      <p className="flex-1 font-mohave text-body-sm text-text-2">
         {t("wizard.nudge.message")}
       </p>
       <button
         onClick={() => router.push("/settings?tab=task-types&wizard=true")}
-        className="flex items-center gap-[4px] px-2 py-[4px] rounded font-mohave text-body-sm text-ops-accent hover:text-text-primary transition-colors shrink-0"
+        className="flex items-center gap-[4px] px-2 py-[4px] rounded font-mohave text-body-sm text-ops-accent hover:text-text transition-colors shrink-0"
       >
         {t("wizard.nudge.cta")}
         <ArrowRight className="w-[12px] h-[12px]" />
       </button>
       <button
         onClick={handleDismiss}
-        className="p-[2px] text-text-disabled hover:text-text-secondary transition-colors shrink-0"
+        className="p-[2px] text-text-mute hover:text-text-2 transition-colors shrink-0"
       >
         <X className="w-[12px] h-[12px]" />
       </button>

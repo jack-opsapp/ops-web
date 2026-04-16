@@ -93,7 +93,7 @@ function FormSelect<T extends FieldValues = FieldValues>({
         </p>
       )}
       {helperText && !errorMessage && (
-        <p id={`${fieldId}-helper`} className="text-caption-sm text-text-tertiary font-mohave">
+        <p id={`${fieldId}-helper`} className="text-caption-sm text-text-3 font-mohave">
           {helperText}
         </p>
       )}

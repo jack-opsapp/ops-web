@@ -120,7 +120,7 @@ function RelationshipSelect({
 
   return (
     <div className="relative">
-      <label className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em] mb-1 block">
+      <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
         RELATIONSHIP
       </label>
       <button
@@ -128,18 +128,18 @@ function RelationshipSelect({
         onClick={() => setOpen(!open)}
         className={cn(
           "w-full flex items-center justify-between",
-          "bg-background-input text-text-primary font-mohave text-body",
+          "bg-surface-input text-text font-mohave text-body",
           "px-2 py-1.5 rounded-sm min-h-[56px]",
           "border border-[rgba(255,255,255,0.08)]",
           "transition-all duration-150",
           "focus:border-ops-accent focus:outline-none",
-          !value && "text-text-disabled"
+          !value && "text-text-mute"
         )}
       >
         <span>{value || "Select relationship"}</span>
         <ChevronDown
           className={cn(
-            "w-5 h-5 text-text-tertiary transition-transform flex-shrink-0",
+            "w-5 h-5 text-text-3 transition-transform flex-shrink-0",
             open && "rotate-180"
           )}
         />
@@ -159,12 +159,12 @@ function RelationshipSelect({
                 "w-full text-left px-2 min-h-[56px] flex items-center",
                 "font-mohave text-body-sm transition-colors border-b border-[rgba(255,255,255,0.04)]",
                 value === r
-                  ? "bg-[rgba(255,255,255,0.08)] text-text-primary"
-                  : "text-text-secondary hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary"
+                  ? "bg-[rgba(255,255,255,0.08)] text-text"
+                  : "text-text-2 hover:bg-[rgba(255,255,255,0.04)] hover:text-text"
               )}
             >
               <span className="flex-1">{r}</span>
-              {value === r && <Check className="w-4 h-4 text-text-primary" />}
+              {value === r && <Check className="w-4 h-4 text-text" />}
             </button>
           ))}
         </div>
@@ -303,7 +303,7 @@ export default function EmployeeSetupPage() {
   return (
     <div className="w-full max-w-[480px] mx-auto">
       {/* Logo */}
-      <h1 className="font-mohave text-display-lg text-text-primary tracking-[0.25em] uppercase mb-4">
+      <h1 className="font-mohave text-display-lg text-text tracking-[0.25em] uppercase mb-4">
         OPS
       </h1>
 
@@ -312,10 +312,10 @@ export default function EmployeeSetupPage() {
         {/* Progress header */}
         <div className="p-3 pb-0">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mohave text-caption-sm text-text-tertiary uppercase tracking-[0.08em]">
+            <span className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]">
               STEP {currentStep + 1} OF {STEPS.length}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em]">
+            <span className="font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em]">
               {step.label}
             </span>
           </div>
@@ -341,10 +341,10 @@ export default function EmployeeSetupPage() {
         <div className="p-3 animate-fade-in" key={step.id}>
           {step.id === "profile" && (
             <>
-              <h2 className="font-mohave text-heading text-text-primary uppercase">
+              <h2 className="font-mohave text-heading text-text uppercase">
                 YOUR PROFILE
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
                 [confirm your name and add a photo]
               </p>
 
@@ -394,10 +394,10 @@ export default function EmployeeSetupPage() {
 
           {step.id === "phone" && (
             <>
-              <h2 className="font-mohave text-heading text-text-primary uppercase">
+              <h2 className="font-mohave text-heading text-text uppercase">
                 PHONE NUMBER
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
                 [helps your team reach you in the field]
               </p>
               <Input
@@ -413,10 +413,10 @@ export default function EmployeeSetupPage() {
 
           {step.id === "emergency" && (
             <>
-              <h2 className="font-mohave text-heading text-text-primary uppercase">
+              <h2 className="font-mohave text-heading text-text uppercase">
                 EMERGENCY CONTACT
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
                 [optional — recommended for field safety]
               </p>
               <div className="space-y-2">
@@ -462,10 +462,10 @@ export default function EmployeeSetupPage() {
 
           {step.id === "notifications" && (
             <>
-              <h2 className="font-mohave text-heading text-text-primary uppercase">
+              <h2 className="font-mohave text-heading text-text uppercase">
                 NOTIFICATIONS
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-tertiary mt-0.5 mb-3">
+              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
                 [how you want to hear about updates]
               </p>
 
@@ -473,10 +473,10 @@ export default function EmployeeSetupPage() {
                 {/* Push notifications row */}
                 <div className="flex items-center justify-between min-h-[56px] border-b border-[rgba(255,255,255,0.08)]">
                   <div>
-                    <p className="font-mohave text-body text-text-primary">
+                    <p className="font-mohave text-body text-text">
                       PUSH NOTIFICATIONS
                     </p>
-                    <p className="font-kosugi text-caption-sm text-text-disabled">
+                    <p className="font-kosugi text-caption-sm text-text-mute">
                       [schedule changes, task assignments]
                     </p>
                   </div>
@@ -495,10 +495,10 @@ export default function EmployeeSetupPage() {
                 {/* Email notifications row */}
                 <div className="flex items-center justify-between min-h-[56px]">
                   <div>
-                    <p className="font-mohave text-body text-text-primary">
+                    <p className="font-mohave text-body text-text">
                       EMAIL NOTIFICATIONS
                     </p>
-                    <p className="font-kosugi text-caption-sm text-text-disabled">
+                    <p className="font-kosugi text-caption-sm text-text-mute">
                       [weekly summaries, important alerts]
                     </p>
                   </div>
@@ -523,7 +523,7 @@ export default function EmployeeSetupPage() {
           <button
             onClick={handleBack}
             disabled={currentStep === 0 || isSaving}
-            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-secondary hover:text-text-primary disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
+            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-2 hover:text-text disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
@@ -532,7 +532,7 @@ export default function EmployeeSetupPage() {
           <button
             onClick={handleNext}
             disabled={!isStepValid() || isSaving}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text-primary px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
           >
             {isSaving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -556,7 +556,7 @@ export default function EmployeeSetupPage() {
         <button
           onClick={handleLogout}
           aria-label="Log out"
-          className="flex items-center gap-1 font-mohave text-caption-sm text-text-disabled uppercase tracking-[0.08em] hover:text-text-tertiary transition-colors min-h-[44px]"
+          className="flex items-center gap-1 font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[44px]"
         >
           <LogOut className="w-3 h-3" />
           Log out

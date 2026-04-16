@@ -180,15 +180,15 @@ export function ConfirmScheduleButton({
         )}
       >
         {busy ? (
-          <Loader2 className="w-[16px] h-[16px] text-text-secondary motion-reduce:animate-none animate-spin" />
+          <Loader2 className="w-[16px] h-[16px] text-text-2 motion-reduce:animate-none animate-spin" />
         ) : (
-          <CheckCircle2 className="w-[16px] h-[16px] text-text-primary" />
+          <CheckCircle2 className="w-[16px] h-[16px] text-text" />
         )}
         <span className="flex flex-col items-start leading-tight">
-          <span className="font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]">
+          <span className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">
             {t("confirmButton.labelConfirmed")}
           </span>
-          <span className="font-kosugi text-[11px] text-text-tertiary">
+          <span className="font-kosugi text-[11px] text-text-3">
             [{caption}]
           </span>
         </span>
@@ -207,12 +207,12 @@ export function ConfirmScheduleButton({
           className
         )}
       >
-        <Timer className="w-[16px] h-[16px] text-text-tertiary" />
+        <Timer className="w-[16px] h-[16px] text-text-3" />
         <span className="flex flex-col items-start leading-tight">
-          <span className="font-mohave text-[14px] text-text-secondary uppercase tracking-[0.04em]">
+          <span className="font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]">
             {t("confirmButton.labelAutoPending")}
           </span>
-          <span className="font-kosugi text-[11px] text-text-tertiary">
+          <span className="font-kosugi text-[11px] text-text-3">
             [{t("confirmButton.captionAutoIn").replace(
               "{{hours}}",
               String(graceRemainingHours)
@@ -246,10 +246,10 @@ export function ConfirmScheduleButton({
         <Circle className="w-[16px] h-[16px] text-[#597794]" />
       )}
       <span className="flex flex-col items-start leading-tight">
-        <span className="font-mohave text-[14px] text-text-primary uppercase tracking-[0.04em]">
+        <span className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">
           {t("confirmButton.labelTentative")}
         </span>
-        <span className="font-kosugi text-[11px] text-text-tertiary">
+        <span className="font-kosugi text-[11px] text-text-3">
           [{t("confirmButton.captionTentative")}]
         </span>
       </span>

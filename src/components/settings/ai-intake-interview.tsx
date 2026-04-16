@@ -75,10 +75,10 @@ function ProgressBar() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-[11px] uppercase tracking-[0.08em] text-text-tertiary">
+        <span className="font-kosugi text-[11px] uppercase tracking-[0.08em] text-text-3">
           {t("interview.progress")}
         </span>
-        <span className="font-mohave text-body-sm text-text-secondary">
+        <span className="font-mohave text-body-sm text-text-2">
           {overall.completed}/{overall.total}
         </span>
       </div>
@@ -114,7 +114,7 @@ function ProgressBar() {
               <span
                 className={cn(
                   "font-kosugi text-[9px] uppercase tracking-[0.06em] block",
-                  isActive ? "text-text-secondary" : "text-text-disabled"
+                  isActive ? "text-text-2" : "text-text-mute"
                 )}
               >
                 {t(CATEGORY_I18N[cat])}
@@ -161,7 +161,7 @@ function MessageBubble({ message, reduced }: { message: ChatMessage; reduced: bo
         <p
           className={cn(
             "text-body-sm whitespace-pre-wrap",
-            isAgent ? "font-mohave text-text-primary" : "font-mohave text-text-primary"
+            isAgent ? "font-mohave text-text" : "font-mohave text-text"
           )}
         >
           {message.content}
@@ -190,7 +190,7 @@ function FactFlash({ fact, reduced }: { fact: ExtractedFactDisplay; reduced: boo
         <span className="font-kosugi text-[10px] text-[#9DB582] uppercase tracking-wider">
           {t("interview.factLearned")}
         </span>
-        <p className="font-mohave text-[13px] text-text-secondary leading-tight mt-[1px]">
+        <p className="font-mohave text-[13px] text-text-2 leading-tight mt-[1px]">
           {fact.content}
         </p>
       </div>
@@ -208,7 +208,7 @@ function ThinkingIndicator({ reduced }: { reduced: boolean }) {
     <motion.div variants={variants} initial="initial" animate="animate" exit="exit">
       <div className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] w-fit">
         <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
-        <span className="font-kosugi text-[12px] text-text-tertiary">
+        <span className="font-kosugi text-[12px] text-text-3">
           {t("interview.thinking")}
         </span>
       </div>
@@ -224,22 +224,22 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
-        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text-primary">
+        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
           {t("intro.title")}
         </h2>
-        <p className="font-mohave text-body-sm text-text-secondary leading-relaxed max-w-[520px]">
+        <p className="font-mohave text-body-sm text-text-2 leading-relaxed max-w-[520px]">
           {t("intro.description")}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-tertiary uppercase tracking-[0.08em]">
+        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("intro.whatItDoes")}
         </span>
         {["bullet1", "bullet2", "bullet3", "bullet4"].map((key) => (
           <div key={key} className="flex items-start gap-1.5">
             <ChevronRight className="w-[14px] h-[14px] text-[#597794] mt-[2px] shrink-0" />
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               {t(`intro.${key}`)}
             </span>
           </div>
@@ -254,7 +254,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
           <Brain className="w-[16px] h-[16px]" />
           {t("intro.startSetup")}
         </button>
-        <span className="font-kosugi text-[11px] text-text-disabled">
+        <span className="font-kosugi text-[11px] text-text-mute">
           {t("intro.estimatedTime")}
         </span>
       </div>
@@ -283,10 +283,10 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
   return (
     <div className="space-y-4 py-3">
       <div className="space-y-1">
-        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text-primary">
+        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
           {t("interview.summary.title")}
         </h2>
-        <p className="font-mohave text-body-sm text-text-secondary">
+        <p className="font-mohave text-body-sm text-text-2">
           {t("interview.summary.description")}
         </p>
       </div>
@@ -294,12 +294,12 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
       {/* Stats */}
       <div className="flex gap-3">
         <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
-          <span className="font-mohave text-[20px] font-semibold text-text-primary">{totalFacts}</span>
-          <span className="font-kosugi text-[10px] text-text-tertiary uppercase">{t("interview.summary.factsLearned")}</span>
+          <span className="font-mohave text-[20px] font-semibold text-text">{totalFacts}</span>
+          <span className="font-kosugi text-[10px] text-text-3 uppercase">{t("interview.summary.factsLearned")}</span>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
-          <span className="font-mohave text-[20px] font-semibold text-text-primary">{totalEntities}</span>
-          <span className="font-kosugi text-[10px] text-text-tertiary uppercase">{t("interview.summary.entitiesCreated")}</span>
+          <span className="font-mohave text-[20px] font-semibold text-text">{totalEntities}</span>
+          <span className="font-kosugi text-[10px] text-text-3 uppercase">{t("interview.summary.entitiesCreated")}</span>
         </div>
         {profileSeeded && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-[rgba(157,181,130,0.2)] bg-[rgba(157,181,130,0.06)]">
@@ -313,7 +313,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
       <div className="space-y-2">
         {[...factsByCategory.entries()].map(([category, facts]) => (
           <div key={category} className="space-y-[4px]">
-            <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-[0.08em]">
+            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-[0.08em]">
               {category.replace(/_/g, " ")}
             </span>
             {facts.map((fact) => (
@@ -322,7 +322,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
                 className="flex items-start gap-1 px-1.5 py-[4px] rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
               >
                 <CheckCircle className="w-[11px] h-[11px] text-[#9DB582] mt-[3px] shrink-0" />
-                <span className="font-mohave text-[13px] text-text-secondary leading-tight">
+                <span className="font-mohave text-[13px] text-text-2 leading-tight">
                   {fact.content}
                 </span>
               </div>
@@ -342,7 +342,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
         </button>
         <button
           onClick={onEdit}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-secondary font-mohave text-body-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm transition-colors"
         >
           <RotateCcw className="w-[14px] h-[14px]" />
           {t("interview.summary.edit")}
@@ -572,7 +572,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
               className={cn(
                 "w-full resize-none rounded-md px-3 py-2",
                 "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)]",
-                "font-mohave text-body-sm text-text-primary placeholder:text-text-disabled",
+                "font-mohave text-body-sm text-text placeholder:text-text-mute",
                 "focus:outline-none focus:border-[#597794]",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 "transition-colors"
@@ -603,7 +603,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
               className={cn(
                 "flex items-center justify-center w-[40px] h-[28px] rounded-md",
                 "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]",
-                "hover:bg-[rgba(255,255,255,0.06)] text-text-disabled",
+                "hover:bg-[rgba(255,255,255,0.06)] text-text-mute",
                 "disabled:opacity-30 disabled:cursor-not-allowed",
                 "transition-colors"
               )}
@@ -614,7 +614,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
           </div>
         </div>
         {currentQuestion?.isEmailSample && (
-          <p className="font-kosugi text-[10px] text-text-disabled mt-[4px]">
+          <p className="font-kosugi text-[10px] text-text-mute mt-[4px]">
             Paste emails separated by --- or one at a time. Shift+Enter for new lines.
           </p>
         )}

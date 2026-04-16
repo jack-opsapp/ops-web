@@ -194,11 +194,11 @@ export const ProjectCard = memo(function ProjectCard({
       >
         {/* Line 1: Primary label + value */}
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mohave text-body-sm font-medium text-text-primary truncate">
+          <span className="font-mohave text-body-sm font-medium text-text truncate">
             {primaryLabel}
           </span>
           {canViewAccounting && projectValue > 0 && (
-            <span className="font-mohave text-body-sm text-text-secondary whitespace-nowrap">
+            <span className="font-mohave text-body-sm text-text-2 whitespace-nowrap">
               {formatCompactCurrency(projectValue)}
             </span>
           )}
@@ -206,7 +206,7 @@ export const ProjectCard = memo(function ProjectCard({
 
         {/* Line 2: Client name */}
         {clientName && (
-          <div className="font-mohave text-[11px] text-text-tertiary mt-[2px] truncate">
+          <div className="font-mohave text-[11px] text-text-3 mt-[2px] truncate">
             {clientName}
           </div>
         )}

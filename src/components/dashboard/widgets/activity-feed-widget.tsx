@@ -251,18 +251,18 @@ export function ActivityWidget({
           <span
             className={`font-mono text-data-lg font-bold leading-none ${
               isLoading
-                ? "text-text-disabled"
+                ? "text-text-mute"
                 : count > 0
-                  ? "text-text-primary"
-                  : "text-text-disabled"
+                  ? "text-text"
+                  : "text-text-mute"
             }`}
           >
             {isLoading ? "—" : count}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("activity.title")}
           </span>
-          <span className="font-kosugi text-micro-sm text-text-disabled uppercase mt-0.5 truncate">
+          <span className="font-kosugi text-micro text-text-mute uppercase mt-0.5 truncate">
             {isLoading
               ? "..."
               : activities && activities.length > 0
@@ -361,10 +361,10 @@ export function ActivityWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("activity.title")}
           </span>
-          <span className="font-mono text-micro text-text-tertiary">
+          <span className="font-mono text-micro text-text-3">
             {isLoading ? "..." : `${count} ${t("activity.events")}`}
           </span>
         </div>
@@ -374,27 +374,27 @@ export function ActivityWidget({
           <WidgetHeroCollapse collapsed={heroCollapsed} collapsedHeight="0px" expandedHeight="50px">
             <div className="flex items-start gap-4 mb-2">
               <div>
-                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                <span className="font-mono text-data-lg font-bold text-text block leading-none">
                   {lgMetrics.todayCount}
                 </span>
-                <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                <span className="font-kosugi text-micro text-text-3 uppercase">
                   {t("activity.todayCount")}
                 </span>
               </div>
               <div>
-                <span className="font-mono text-data-lg font-bold text-text-primary block leading-none">
+                <span className="font-mono text-data-lg font-bold text-text block leading-none">
                   {lgMetrics.activeUsers}
                 </span>
-                <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                <span className="font-kosugi text-micro text-text-3 uppercase">
                   {t("activity.activeUsers")}
                 </span>
               </div>
               {lgMetrics.mostActiveProjectName && (
                 <div className="min-w-0">
-                  <span className="font-mohave text-caption-sm text-text-primary block truncate leading-none">
+                  <span className="font-mohave text-caption-sm text-text block truncate leading-none">
                     {lgMetrics.mostActiveProjectName}
                   </span>
-                  <span className="font-kosugi text-micro text-text-tertiary uppercase">
+                  <span className="font-kosugi text-micro text-text-3 uppercase">
                     {t("activity.mostActive")}
                   </span>
                 </div>
@@ -407,12 +407,12 @@ export function ActivityWidget({
         <div className="flex-1 min-h-0 flex flex-col" ref={scrollContainerRef}>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <span className="font-mono text-[11px] text-text-disabled">
+              <span className="font-mono text-[11px] text-text-mute">
                 {t("activity.loading")}
               </span>
             </div>
           ) : !activities || activities.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-disabled py-2">
+            <p className="font-mohave text-body-sm text-text-mute py-2">
               {t("activity.empty")}
             </p>
           ) : listExpanded ? (

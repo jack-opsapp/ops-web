@@ -144,7 +144,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="p-[4px] rounded text-text-disabled hover:text-text-secondary transition-colors"
+      className="p-[4px] rounded text-text-mute hover:text-text-2 transition-colors"
       title="Copy"
     >
       {copied ? (
@@ -259,8 +259,8 @@ export default function ClientDetailPage() {
   if (!clientData || clientAccessDenied) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <h2 className="font-mohave text-display text-text-primary">Client Not Found</h2>
-        <p className="font-kosugi text-caption text-text-tertiary mt-1">
+        <h2 className="font-mohave text-display text-text">Client Not Found</h2>
+        <p className="font-kosugi text-caption text-text-3 mt-1">
           This client may have been deleted or doesn&apos;t exist.
         </p>
         <Button className="mt-3" onClick={() => router.push("/clients")}>
@@ -382,7 +382,7 @@ export default function ClientDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
             <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-              <span className="font-mohave text-display text-text-secondary">
+              <span className="font-mohave text-display text-text-2">
                 {getInitials(clientData.name) || "?"}
               </span>
             </div>
@@ -394,7 +394,7 @@ export default function ClientDetailPage() {
                   className="font-mohave text-display-lg h-auto py-[4px] px-1"
                 />
               ) : (
-                <h1 className="font-mohave text-display-lg text-text-primary">
+                <h1 className="font-mohave text-display-lg text-text">
                   {clientData.name}
                 </h1>
               )}
@@ -407,7 +407,7 @@ export default function ClientDetailPage() {
                 />
               )}
               {!isEditing && (
-                <p className="font-kosugi text-caption-sm text-text-tertiary mt-[2px]">
+                <p className="font-kosugi text-caption-sm text-text-3 mt-[2px]">
                   {clientProjects.length} {t("card.projects")}
                   {clientData.createdAt && (
                     <>
@@ -515,7 +515,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center gap-1 flex-1 min-w-0">
                       <a
                         href={`tel:${clientData.phoneNumber}`}
-                        className="font-mono text-data-sm text-text-primary hover:text-ops-accent transition-colors"
+                        className="font-mono text-data-sm text-text hover:text-ops-accent transition-colors"
                       >
                         {clientData.phoneNumber}
                       </a>
@@ -544,7 +544,7 @@ export default function ClientDetailPage() {
                           if (addr) setEditAddress(addr);
                         }}
                         disabled={locating}
-                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-background-input text-text-tertiary hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40"
+                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40"
                         title="Use my location"
                       >
                         {locating ? (
@@ -556,7 +556,7 @@ export default function ClientDetailPage() {
                     </div>
                   ) : (
                     <div className="flex items-start gap-1 flex-1 min-w-0">
-                      <span className="font-mohave text-body-sm text-text-secondary flex-1">
+                      <span className="font-mohave text-body-sm text-text-2 flex-1">
                         {clientData.address}
                       </span>
                       <div className="flex items-center gap-[2px] shrink-0">
@@ -566,7 +566,7 @@ export default function ClientDetailPage() {
                             href={mapUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-[4px] rounded text-text-disabled hover:text-ops-accent transition-colors"
+                            className="p-[4px] rounded text-text-mute hover:text-ops-accent transition-colors"
                             title="Open in Maps"
                           >
                             <Navigation className="w-[13px] h-[13px]" />
@@ -584,7 +584,7 @@ export default function ClientDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-[6px]">
-                <StickyNote className="w-[14px] h-[14px] text-text-tertiary" />
+                <StickyNote className="w-[14px] h-[14px] text-text-3" />
                 <CardTitle>{t("detail.notes")}</CardTitle>
               </div>
             </CardHeader>
@@ -597,11 +597,11 @@ export default function ClientDetailPage() {
                   className="min-h-[100px]"
                 />
               ) : clientData.notes ? (
-                <p className="font-mohave text-body-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                <p className="font-mohave text-body-sm text-text-2 leading-relaxed whitespace-pre-wrap">
                   {clientData.notes}
                 </p>
               ) : (
-                <p className="font-mohave text-body-sm text-text-disabled italic">
+                <p className="font-mohave text-body-sm text-text-mute italic">
                   {t("detail.noNotes")}
                 </p>
               )}
@@ -613,7 +613,7 @@ export default function ClientDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-[6px]">
-                  <Users className="w-[14px] h-[14px] text-text-tertiary" />
+                  <Users className="w-[14px] h-[14px] text-text-3" />
                   <CardTitle>{t("detail.subClients")}</CardTitle>
                   {subClients.length > 0 && (
                     <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
@@ -621,7 +621,7 @@ export default function ClientDetailPage() {
                     </Badge>
                   )}
                   {subClientsLoading && (
-                    <Loader2 className="w-[12px] h-[12px] text-text-disabled animate-spin" />
+                    <Loader2 className="w-[12px] h-[12px] text-text-mute animate-spin" />
                   )}
                 </div>
                 {can("clients.edit") && (
@@ -660,7 +660,7 @@ export default function ClientDetailPage() {
               )}
 
               {subClients.length === 0 && !showAddSubClient ? (
-                <p className="font-mohave text-body-sm text-text-disabled italic">
+                <p className="font-mohave text-body-sm text-text-mute italic">
                   {t("detail.noSubClients")}
                 </p>
               ) : (
@@ -673,16 +673,16 @@ export default function ClientDetailPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
                           <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-                            <span className="font-mohave text-[11px] text-text-secondary">
+                            <span className="font-mohave text-[11px] text-text-2">
                               {getInitials(sc.name)}
                             </span>
                           </div>
                           <div className="min-w-0">
-                            <p className="font-mohave text-body-sm text-text-primary truncate">
+                            <p className="font-mohave text-body-sm text-text truncate">
                               {sc.name}
                             </p>
                             {sc.title && (
-                              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                                 {sc.title}
                               </span>
                             )}
@@ -694,7 +694,7 @@ export default function ClientDetailPage() {
                           {sc.phoneNumber && (
                             <a
                               href={`tel:${sc.phoneNumber}`}
-                              className="font-mono text-[10px] text-text-tertiary hover:text-ops-accent transition-colors"
+                              className="font-mono text-[10px] text-text-3 hover:text-ops-accent transition-colors"
                             >
                               {sc.phoneNumber}
                             </a>
@@ -711,7 +711,7 @@ export default function ClientDetailPage() {
                         {can("clients.delete") && (
                           <button
                             onClick={() => handleDeleteSubClient(sc.id)}
-                            className="p-[3px] rounded text-text-disabled opacity-0 group-hover:opacity-100 hover:text-ops-error transition-all"
+                            className="p-[3px] rounded text-text-mute opacity-0 group-hover:opacity-100 hover:text-ops-error transition-all"
                             title="Remove sub-client"
                           >
                             <Trash2 className="w-[12px] h-[12px]" />
@@ -733,7 +733,7 @@ export default function ClientDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-[6px]">
-                  <FolderKanban className="w-[14px] h-[14px] text-text-tertiary" />
+                  <FolderKanban className="w-[14px] h-[14px] text-text-3" />
                   <CardTitle>{t("detail.activeProjects")}</CardTitle>
                   {activeProjects.length > 0 && (
                     <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
@@ -741,7 +741,7 @@ export default function ClientDetailPage() {
                     </Badge>
                   )}
                   {projectsLoading && (
-                    <Loader2 className="w-[12px] h-[12px] text-text-disabled animate-spin" />
+                    <Loader2 className="w-[12px] h-[12px] text-text-mute animate-spin" />
                   )}
                 </div>
               </div>
@@ -749,11 +749,11 @@ export default function ClientDetailPage() {
             <CardContent>
               {!projectsLoading && activeProjects.length === 0 ? (
                 <div className="text-left py-4">
-                  <FolderKanban className="w-[36px] h-[36px] text-text-disabled mx-auto mb-1" />
-                  <p className="font-mohave text-body text-text-tertiary">
+                  <FolderKanban className="w-[36px] h-[36px] text-text-mute mx-auto mb-1" />
+                  <p className="font-mohave text-body text-text-3">
                     {t("detail.noActiveProjects")}
                   </p>
-                  <p className="font-kosugi text-caption-sm text-text-disabled mt-[4px]">
+                  <p className="font-kosugi text-caption-sm text-text-mute mt-[4px]">
                     {t("detail.createProjectHelper")}
                   </p>
                 </div>
@@ -768,19 +768,19 @@ export default function ClientDetailPage() {
                         className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/50 hover:bg-background-elevated cursor-pointer transition-all group"
                       >
                         <div className="flex items-center gap-1 min-w-0">
-                          <FolderKanban className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
-                          <span className="font-mohave text-body text-text-primary truncate">
+                          <FolderKanban className="w-[16px] h-[16px] text-text-3 shrink-0" />
+                          <span className="font-mohave text-body text-text truncate">
                             {project.title}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {project.teamMemberIds && project.teamMemberIds.length > 0 && (
-                            <span className="font-mono text-[10px] text-text-disabled">
+                            <span className="font-mono text-[10px] text-text-mute">
                               {project.teamMemberIds.length} crew
                             </span>
                           )}
                           {project.startDate && (
-                            <span className="font-mono text-[10px] text-text-disabled">
+                            <span className="font-mono text-[10px] text-text-mute">
                               {new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                                 month: "short",
                                 day: "numeric",
@@ -790,7 +790,7 @@ export default function ClientDetailPage() {
                           <span className={cn("ops-badge", status.color, status.bg)}>
                             {status.label}
                           </span>
-                          <ExternalLink className="w-[14px] h-[14px] text-text-disabled opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ExternalLink className="w-[14px] h-[14px] text-text-mute opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                       </div>
                     );
@@ -805,8 +805,8 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-[6px]">
-                  <FolderKanban className="w-[14px] h-[14px] text-text-disabled" />
-                  <CardTitle className="text-text-tertiary">{t("detail.completedProjects")}</CardTitle>
+                  <FolderKanban className="w-[14px] h-[14px] text-text-mute" />
+                  <CardTitle className="text-text-3">{t("detail.completedProjects")}</CardTitle>
                   <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-60">
                     {completedProjects.length}
                   </Badge>
@@ -823,8 +823,8 @@ export default function ClientDetailPage() {
                         className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/30 hover:bg-background-elevated cursor-pointer transition-all opacity-70 hover:opacity-100"
                       >
                         <div className="flex items-center gap-1 min-w-0">
-                          <FolderKanban className="w-[16px] h-[16px] text-text-disabled shrink-0" />
-                          <span className="font-mohave text-body text-text-tertiary truncate">
+                          <FolderKanban className="w-[16px] h-[16px] text-text-mute shrink-0" />
+                          <span className="font-mohave text-body text-text-3 truncate">
                             {project.title}
                           </span>
                         </div>

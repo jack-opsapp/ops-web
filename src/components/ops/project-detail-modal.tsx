@@ -97,7 +97,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                     <InfoRow
                       label="Phone"
                       value={
-                        <a href={`tel:${resolvedClient.phoneNumber}`} className="text-text-primary hover:text-ops-accent">
+                        <a href={`tel:${resolvedClient.phoneNumber}`} className="text-text hover:text-ops-accent">
                           {resolvedClient.phoneNumber}
                         </a>
                       }
@@ -109,7 +109,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                   )}
                 </>
               ) : (
-                <p className="font-mohave text-body-sm text-text-tertiary">No client assigned</p>
+                <p className="font-mohave text-body-sm text-text-3">No client assigned</p>
               )}
             </CardContent>
           </Card>
@@ -124,7 +124,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                 <>
                   <div className="flex items-start gap-1">
                     <MapPin className="w-[16px] h-[16px] text-ops-accent shrink-0 mt-[2px]" />
-                    <p className="font-mohave text-body text-text-primary">{project.address}</p>
+                    <p className="font-mohave text-body text-text">{project.address}</p>
                   </div>
                   {mapQuery && (
                     <a
@@ -139,7 +139,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                   )}
                 </>
               ) : (
-                <p className="font-mohave text-body-sm text-text-tertiary">No address set</p>
+                <p className="font-mohave text-body-sm text-text-3">No address set</p>
               )}
             </CardContent>
           </Card>
@@ -161,10 +161,10 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                         color={member.userColor ?? undefined}
                       />
                       <div>
-                        <p className="font-mohave text-body-sm text-text-primary">
+                        <p className="font-mohave text-body-sm text-text">
                           {getUserFullName(member)}
                         </p>
-                        <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                        <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
                           {member.role}
                         </span>
                       </div>
@@ -172,11 +172,11 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                   ))}
                 </div>
               ) : project.teamMemberIds.length > 0 ? (
-                <p className="font-mohave text-body-sm text-text-tertiary">
+                <p className="font-mohave text-body-sm text-text-3">
                   {project.teamMemberIds.length} team member{project.teamMemberIds.length !== 1 ? "s" : ""} assigned
                 </p>
               ) : (
-                <p className="font-mohave text-body-sm text-text-tertiary">No team members assigned</p>
+                <p className="font-mohave text-body-sm text-text-3">No team members assigned</p>
               )}
             </CardContent>
           </Card>
@@ -189,8 +189,8 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
             <CardContent className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Start</span>
-                  <p className="font-mono text-data-sm text-text-primary">
+                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">Start</span>
+                  <p className="font-mono text-data-sm text-text">
                     {project.startDate
                       ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                           weekday: "short",
@@ -203,8 +203,8 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                 </div>
                 <div className="h-[1px] flex-1 bg-border-subtle" />
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">End</span>
-                  <p className="font-mono text-data-sm text-text-primary">
+                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">End</span>
+                  <p className="font-mono text-data-sm text-text">
                     {project.endDate
                       ? new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
                           weekday: "short",
@@ -218,16 +218,16 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
               </div>
               {project.projectDescription && (
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Description</span>
-                  <p className="font-mohave text-body-sm text-text-secondary mt-[4px]">
+                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">Description</span>
+                  <p className="font-mohave text-body-sm text-text-2 mt-[4px]">
                     {project.projectDescription}
                   </p>
                 </div>
               )}
               {project.notes && (
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">Notes</span>
-                  <p className="font-mohave text-body-sm text-text-secondary mt-[4px]">
+                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">Notes</span>
+                  <p className="font-mohave text-body-sm text-text-2 mt-[4px]">
                     {project.notes}
                   </p>
                 </div>

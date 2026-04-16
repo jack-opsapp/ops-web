@@ -42,10 +42,10 @@ export default function TestingGroundsPage() {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-56px)]">
         <div className="text-center">
-          <h1 className="font-mohave text-display text-text-primary mb-2">
+          <h1 className="font-mohave text-display text-text mb-2">
             Access Denied
           </h1>
-          <p className="font-kosugi text-body-sm text-text-tertiary">
+          <p className="font-kosugi text-body-sm text-text-3">
             You need the &quot;testing-grounds&quot; permission to access this page.
           </p>
         </div>
@@ -58,10 +58,10 @@ export default function TestingGroundsPage() {
   if (mode === "idle") {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-56px)] gap-6">
-        <h1 className="font-mohave text-display text-text-primary">
+        <h1 className="font-mohave text-display text-text">
           Testing Grounds
         </h1>
-        <p className="font-kosugi text-body-sm text-text-tertiary max-w-md text-center">
+        <p className="font-kosugi text-body-sm text-text-3 max-w-md text-center">
           Isolated canvas for testing setup starfield and launch animations.
         </p>
         <div className="flex gap-3">
@@ -79,18 +79,18 @@ export default function TestingGroundsPage() {
                 setMode("launch");
               }
             }}
-            className="px-4 py-2 rounded-lg bg-background-card border border-border text-text-secondary font-mohave text-body hover:border-border-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-background-card border border-border text-text-2 font-mohave text-body hover:border-border-medium transition-colors"
           >
             Launch Animation {answeredCount < 4 ? `(need ${4 - answeredCount} more)` : ""}
           </button>
           <button
             onClick={resetAnswers}
-            className="px-4 py-2 rounded-lg bg-background-card border border-border text-text-tertiary font-mohave text-body hover:border-border-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-background-card border border-border text-text-3 font-mohave text-body hover:border-border-medium transition-colors"
           >
             Reset
           </button>
         </div>
-        <p className="font-mono text-[10px] text-text-disabled">
+        <p className="font-mono text-[10px] text-text-mute">
           {answeredCount}/{STARFIELD_QUESTIONS.length} questions answered
         </p>
       </div>
@@ -110,7 +110,7 @@ export default function TestingGroundsPage() {
         />
         {/* Controls overlay */}
         <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <span className="font-mono text-[10px] text-text-disabled self-center mr-2">
+          <span className="font-mono text-[10px] text-text-mute self-center mr-2">
             {answeredCount}/{STARFIELD_QUESTIONS.length} answered
           </span>
           {answeredCount >= 4 && (
@@ -123,7 +123,7 @@ export default function TestingGroundsPage() {
           )}
           <button
             onClick={() => setMode("idle")}
-            className="px-3 py-1.5 rounded-lg bg-background-card border border-border text-text-secondary font-mohave text-body-sm hover:border-border-medium transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-background-card border border-border text-text-2 font-mohave text-body-sm hover:border-border-medium transition-colors"
           >
             Exit
           </button>
@@ -144,7 +144,7 @@ export default function TestingGroundsPage() {
       <div className="absolute top-4 right-4 z-10">
         <button
           onClick={() => setMode("idle")}
-          className="px-3 py-1.5 rounded-lg bg-background-card border border-border text-text-secondary font-mohave text-body-sm hover:border-border-medium transition-colors"
+          className="px-3 py-1.5 rounded-lg bg-background-card border border-border text-text-2 font-mohave text-body-sm hover:border-border-medium transition-colors"
         >
           Exit
         </button>

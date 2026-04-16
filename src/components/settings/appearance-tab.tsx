@@ -53,17 +53,17 @@ export function AppearanceTab() {
                   "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all",
                   themeOpt.id === "dark"
                     ? "bg-ops-accent-muted border-ops-accent"
-                    : "bg-background-input border-border hover:border-border-medium opacity-50"
+                    : "bg-surface-input border-border hover:border-border-medium opacity-50"
                 )}
               >
-                <themeOpt.icon className={cn("w-[20px] h-[20px]", themeOpt.id === "dark" ? "text-ops-accent" : "text-text-tertiary")} />
-                <span className={cn("font-mohave text-body-sm", themeOpt.id === "dark" ? "text-ops-accent" : "text-text-secondary")}>
+                <themeOpt.icon className={cn("w-[20px] h-[20px]", themeOpt.id === "dark" ? "text-ops-accent" : "text-text-3")} />
+                <span className={cn("font-mohave text-body-sm", themeOpt.id === "dark" ? "text-ops-accent" : "text-text-2")}>
                   {themeOpt.label}
                 </span>
               </button>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-disabled mt-1">
+          <p className="font-kosugi text-[11px] text-text-mute mt-1">
             {t("appearance.lightComingSoonDesc")}
           </p>
         </CardContent>
@@ -98,7 +98,7 @@ export function AppearanceTab() {
                   )}
                   style={{ backgroundColor: color.hex }}
                 />
-                <span className="font-mohave text-body-sm text-text-secondary truncate">{color.name}</span>
+                <span className="font-mohave text-body-sm text-text-2 truncate">{color.name}</span>
                 {isActive && (
                   <Check className="w-[12px] h-[12px] text-ops-accent absolute right-[6px] shrink-0" />
                 )}
@@ -128,7 +128,7 @@ export function AppearanceTab() {
                   "flex-1 py-[8px] rounded border font-mohave text-body-sm transition-all",
                   fontSize === size.id
                     ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
-                    : "bg-background-input border-border text-text-tertiary hover:text-text-secondary"
+                    : "bg-surface-input border-border text-text-3 hover:text-text-2"
                 )}
               >
                 {sizeLabel} ({size.scale})
@@ -143,8 +143,8 @@ export function AppearanceTab() {
         <CardContent className="p-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-mohave text-body text-text-primary">{t("appearance.compact")}</p>
-              <p className="font-kosugi text-[11px] text-text-tertiary">
+              <p className="font-mohave text-body text-text">{t("appearance.compact")}</p>
+              <p className="font-kosugi text-[11px] text-text-3">
                 {t("appearance.compactDesc")}
               </p>
             </div>

@@ -167,14 +167,14 @@ export function SpatialContextMenu({
                       style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
                     />
                     <span
-                      className="font-kosugi text-micro-sm uppercase tracking-widest"
+                      className="font-kosugi text-micro uppercase tracking-widest"
                       style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
                     >
                       in {getStageDisplayName(contextMenu.stage as OpportunityStage)}
                     </span>
                   </>
                 ) : (
-                  <span className="font-kosugi text-micro-sm uppercase tracking-widest text-text-disabled">
+                  <span className="font-kosugi text-micro uppercase tracking-widest text-text-mute">
                     all stages
                   </span>
                 )}
@@ -209,7 +209,7 @@ export function SpatialContextMenu({
                     </p>
                     <div className="flex gap-1">
                       <button
-                        className="font-kosugi text-micro-sm text-text-primary px-2 py-0.5 rounded-[2px] bg-[#93321A] cursor-pointer"
+                        className="font-kosugi text-micro text-text px-2 py-0.5 rounded-[2px] bg-[#93321A] cursor-pointer"
                         onClick={() =>
                           handleItemClick(() =>
                             onDelete(contextMenu.targetCardId!)
@@ -219,7 +219,7 @@ export function SpatialContextMenu({
                         {t("spatial.confirm")}
                       </button>
                       <button
-                        className="font-kosugi text-micro-sm text-text-tertiary px-2 py-0.5 cursor-pointer"
+                        className="font-kosugi text-micro text-text-3 px-2 py-0.5 cursor-pointer"
                         onClick={() => setConfirmingDelete(null)}
                       >
                         {t("spatial.cancel")}
@@ -366,18 +366,18 @@ function MenuItem({
       className="w-full flex items-center gap-2 px-3 h-8 hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer"
       onClick={onClick}
     >
-      <span className={destructive ? "text-ops-error" : "text-text-tertiary"}>
+      <span className={destructive ? "text-ops-error" : "text-text-3"}>
         {icon}
       </span>
       <span
         className={`font-mohave text-body-sm flex-1 text-left ${
-          destructive ? "text-ops-error" : "text-text-primary"
+          destructive ? "text-ops-error" : "text-text"
         }`}
       >
         {label}
       </span>
       {hasSubmenu && (
-        <ArrowRight className="w-3 h-3 text-text-tertiary" />
+        <ArrowRight className="w-3 h-3 text-text-3" />
       )}
     </button>
   );

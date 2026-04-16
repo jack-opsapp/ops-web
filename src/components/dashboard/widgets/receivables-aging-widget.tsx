@@ -133,7 +133,7 @@ export function ReceivablesAgingWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
         </div>
@@ -150,8 +150,8 @@ export function ReceivablesAgingWidget({
       return (
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("receivablesAging.title") ?? "Receivables"}
             </span>
           </div>
@@ -163,15 +163,15 @@ export function ReceivablesAgingWidget({
         <Card className="h-full p-0">
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-data-lg font-bold text-text-disabled leading-none">$0</span>
-              <button onClick={() => onNavigate("/invoices")} className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
+              <button onClick={() => onNavigate("/invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("receivablesAging.title") ?? "Receivables"}
             </span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1 truncate">
+            <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("receivablesAging.allCurrent") ?? "All invoices current"}
             </span>
           </div>
@@ -181,12 +181,12 @@ export function ReceivablesAgingWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="font-mono text-display font-bold text-text-disabled leading-none">$0</span>
-            <span className="font-mohave text-caption-sm text-text-disabled mt-1">
+            <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
+            <span className="font-mohave text-caption-sm text-text-mute mt-1">
               {t("receivablesAging.allCurrent") ?? "All invoices current"}
             </span>
           </div>
@@ -201,11 +201,11 @@ export function ReceivablesAgingWidget({
       <Card className="h-full">
         <div className="h-full flex flex-col pt-3" ref={ref}>
           <span
-            className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text-primary`}
+            className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text`}
           >
             {formatCompactCurrency(animatedTotal)}
           </span>
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
           <WidgetTrendContext
@@ -225,18 +225,18 @@ export function ReceivablesAgingWidget({
         <div className="h-full flex flex-col p-3">
           {/* Row 1: Hero number + tiny nav icon */}
           <div className="flex items-baseline justify-between">
-            <span className="font-mono text-data-lg font-bold leading-none text-text-primary">
+            <span className="font-mono text-data-lg font-bold leading-none text-text">
               {formatCompactCurrency(animatedTotal)}
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/invoices?status=past_due"); }}
-              className="p-0.5 rounded-sm text-text-disabled hover:text-text-secondary hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-tertiary uppercase tracking-wider mt-1">
+          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
           {/* Row 3: Health indicator */}
@@ -304,17 +304,17 @@ export function ReceivablesAgingWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-tertiary">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
             {t("receivablesAging.title") ?? "Receivables"}
           </span>
         </div>
 
         {/* Hero */}
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="font-mono text-display font-bold text-text-primary leading-none">
+          <span className="font-mono text-display font-bold text-text leading-none">
             {formatCompactCurrency(aging.totalAmount)}
           </span>
-          <span className="font-mono text-micro-sm text-text-disabled">
+          <span className="font-mono text-micro text-text-mute">
             {aging.totalCount} {t("receivablesAging.invoicesLabel") ?? "invoices"}
           </span>
         </div>
@@ -366,11 +366,11 @@ export function ReceivablesAgingWidget({
                       overflow: "hidden",
                     }}
                   >
-                    <span className="font-mono text-micro-sm font-medium" style={{ color: bucket.color }}>
+                    <span className="font-mono text-micro font-medium" style={{ color: bucket.color }}>
                       {formatCompactCurrency(bucket.amount)}
                     </span>
                   </div>
-                  <span className="font-kosugi text-micro-sm text-text-disabled mt-1 uppercase">
+                  <span className="font-kosugi text-micro text-text-mute mt-1 uppercase">
                     {t(bucket.labelKey) ?? bucket.fallback}
                   </span>
                 </div>
@@ -382,7 +382,7 @@ export function ReceivablesAgingWidget({
           {showActions(size) && totalCombined > 0 && (
             <div className="mt-3 pt-2 border-t border-border-subtle">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+                <span className="font-kosugi text-micro text-text-mute uppercase">
                   {t("receivablesAging.collected") ?? "Collected"} {t("receivablesAging.vsOutstanding") ?? "vs Outstanding"}
                 </span>
               </div>
@@ -412,11 +412,11 @@ export function ReceivablesAgingWidget({
               <div className="flex items-center justify-between mt-1">
                 <div className="flex items-center gap-1">
                   <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: WT.success }} />
-                  <span className="font-mono text-micro text-text-secondary">{formatCompactCurrency(collectedAmount)}</span>
+                  <span className="font-mono text-micro text-text-2">{formatCompactCurrency(collectedAmount)}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: heroColor }} />
-                  <span className="font-mono text-micro text-text-secondary">{formatCompactCurrency(aging.totalAmount)}</span>
+                  <span className="font-mono text-micro text-text-2">{formatCompactCurrency(aging.totalAmount)}</span>
                 </div>
               </div>
             </div>

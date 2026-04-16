@@ -148,13 +148,13 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
         {/* Client + Project */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
               {t("estimates.form.client")}
             </label>
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select client...</option>
               {clients.map((c) => (
@@ -165,13 +165,13 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
             </select>
           </div>
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
               {t("estimates.form.project")}
             </label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text-primary"
+              className="w-full bg-background-elevated border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
             >
               <option value="">Select project (optional)...</option>
               {projects.map((p) => (
@@ -201,7 +201,7 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
 
         {/* Line Items */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-caption-sm text-text-tertiary uppercase tracking-widest">
+          <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
             {t("estimates.form.lineItems")}
           </label>
           <LineItemEditor items={lineItems} onChange={setLineItems} products={products} />

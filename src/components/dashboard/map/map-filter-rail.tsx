@@ -85,8 +85,8 @@ export function MapFilterRail() {
           "bg-[rgba(18,18,18,0.85)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
         )}
       >
-        <Map className="w-[12px] h-[12px] text-text-disabled" />
-        <span className="font-kosugi text-[9px] text-text-disabled tracking-wider uppercase select-none">
+        <Map className="w-[12px] h-[12px] text-text-mute" />
+        <span className="font-kosugi text-[9px] text-text-mute tracking-wider uppercase select-none">
           MAP
         </span>
       </div>
@@ -110,8 +110,8 @@ export function MapFilterRail() {
             onClick={() => setView(f.value)}
             className={cn(
               "relative flex items-center gap-1.5 rounded px-2 py-1 transition-all duration-150",
-              "text-text-tertiary hover:text-text-primary",
-              isActive && "text-text-primary"
+              "text-text-3 hover:text-text",
+              isActive && "text-text"
             )}
             title={f.label}
           >
@@ -143,8 +143,8 @@ export function MapFilterRail() {
             className={cn(
               "flex items-center gap-1.5 rounded px-2 py-1 transition-all duration-150",
               showCrew
-                ? "text-text-primary"
-                : "text-text-disabled hover:text-text-tertiary"
+                ? "text-text"
+                : "text-text-mute hover:text-text-3"
             )}
             title="CREW"
           >
@@ -161,14 +161,14 @@ export function MapFilterRail() {
       <div className="flex items-center gap-0.5">
         <button
           onClick={handleZoomIn}
-          className="flex items-center justify-center rounded px-1.5 py-1 text-text-tertiary hover:text-text-primary transition-colors duration-150"
+          className="flex items-center justify-center rounded px-1.5 py-1 text-text-3 hover:text-text transition-colors duration-150"
           title="Zoom in"
         >
           <Plus className="w-[14px] h-[14px]" />
         </button>
         <button
           onClick={handleZoomOut}
-          className="flex items-center justify-center rounded px-1.5 py-1 text-text-tertiary hover:text-text-primary transition-colors duration-150"
+          className="flex items-center justify-center rounded px-1.5 py-1 text-text-3 hover:text-text transition-colors duration-150"
           title="Zoom out"
         >
           <Minus className="w-[14px] h-[14px]" />

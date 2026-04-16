@@ -199,14 +199,14 @@ export function FeatureAccessModal({
         {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1 text-text-tertiary hover:text-text-primary transition-colors z-10"
+          className="absolute top-3 right-3 p-1 text-text-3 hover:text-text transition-colors z-10"
         >
           <X className="w-[16px] h-[16px]" />
         </button>
 
         <div className="p-4 space-y-3">
           {/* Header */}
-          <h2 className="font-mohave text-lg text-text-primary pr-6">
+          <h2 className="font-mohave text-lg text-text pr-6">
             Get Early Access to {featureLabel}
           </h2>
 
@@ -214,10 +214,10 @@ export function FeatureAccessModal({
           {success && (
             <div className="flex flex-col items-center gap-2 py-4">
               <CheckCircle2 className="w-[40px] h-[40px] text-status-success" />
-              <p className="font-mohave text-body text-text-primary text-center">
+              <p className="font-mohave text-body text-text text-center">
                 {"You're on the list!"}
               </p>
-              <p className="font-kosugi text-caption text-text-secondary text-center">
+              <p className="font-kosugi text-caption text-text-2 text-center">
                 {"We'll review your request and get back to you."}
               </p>
               <Button variant="secondary" onClick={onClose} className="mt-2">
@@ -230,10 +230,10 @@ export function FeatureAccessModal({
           {!success && alreadyRequested && (
             <div className="flex flex-col items-center gap-2 py-4">
               <CheckCircle2 className="w-[40px] h-[40px] text-ops-accent" />
-              <p className="font-mohave text-body text-text-primary text-center">
+              <p className="font-mohave text-body text-text text-center">
                 {"You've already requested access to"} {featureLabel}.
               </p>
-              <p className="font-kosugi text-caption text-text-secondary text-center">
+              <p className="font-kosugi text-caption text-text-2 text-center">
                 {"We'll be in touch!"}
               </p>
               <Button variant="secondary" onClick={onClose} className="mt-2">
@@ -245,7 +245,7 @@ export function FeatureAccessModal({
           {/* ─── Request Form ─── */}
           {!success && !alreadyRequested && (
             <>
-              <p className="font-kosugi text-caption text-text-secondary">
+              <p className="font-kosugi text-caption text-text-2">
                 {profileComplete
                   ? "This feature is currently in development. Want to be added to the pre-release testing list?"
                   : "To request access, please complete your company information below."}
@@ -254,20 +254,20 @@ export function FeatureAccessModal({
               {/* User info (read-only) */}
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-kosugi text-caption-sm text-text-disabled uppercase w-[60px]">Name</span>
-                  <span className="font-mohave text-body-sm text-text-primary">
+                  <span className="font-kosugi text-caption-sm text-text-mute uppercase w-[60px]">Name</span>
+                  <span className="font-mohave text-body-sm text-text">
                     {currentUser ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim() : "—"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-kosugi text-caption-sm text-text-disabled uppercase w-[60px]">Email</span>
-                  <span className="font-mohave text-body-sm text-text-primary">
+                  <span className="font-kosugi text-caption-sm text-text-mute uppercase w-[60px]">Email</span>
+                  <span className="font-mohave text-body-sm text-text">
                     {currentUser?.email ?? "—"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-kosugi text-caption-sm text-text-disabled uppercase w-[60px]">Company</span>
-                  <span className="font-mohave text-body-sm text-text-primary">
+                  <span className="font-kosugi text-caption-sm text-text-mute uppercase w-[60px]">Company</span>
+                  <span className="font-mohave text-body-sm text-text">
                     {company?.name ?? "—"}
                   </span>
                 </div>
@@ -277,7 +277,7 @@ export function FeatureAccessModal({
               <div className="space-y-2 pt-1 border-t border-border">
                 {/* Industries */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                  <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                     Industry {industries.length === 0 && <span className="text-ops-error">*</span>}
                   </label>
                   <div className="flex flex-wrap gap-1">
@@ -290,7 +290,7 @@ export function FeatureAccessModal({
                           "px-2 py-0.5 rounded-sm text-caption font-mohave transition-colors border",
                           industries.includes(ind)
                             ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                            : "bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-text-tertiary"
+                            : "bg-transparent border-border text-text-3 hover:text-text-2 hover:border-text-tertiary"
                         )}
                       >
                         {ind}
@@ -301,7 +301,7 @@ export function FeatureAccessModal({
 
                 {/* Company Size */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                  <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                     Company Size {!companySize && <span className="text-ops-error">*</span>}
                   </label>
                   <div className="flex gap-1">
@@ -314,7 +314,7 @@ export function FeatureAccessModal({
                           "flex-1 px-2 py-1 rounded-sm text-caption font-mohave transition-colors border",
                           companySize === opt
                             ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                            : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
+                            : "bg-transparent border-border text-text-3 hover:text-text-2"
                         )}
                       >
                         {opt}
@@ -325,7 +325,7 @@ export function FeatureAccessModal({
 
                 {/* Company Age */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-kosugi text-caption-sm text-text-secondary uppercase tracking-widest">
+                  <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
                     Company Age {!companyAge && <span className="text-ops-error">*</span>}
                   </label>
                   <div className="flex gap-1 flex-wrap">
@@ -338,7 +338,7 @@ export function FeatureAccessModal({
                           "px-2 py-1 rounded-sm text-caption font-mohave transition-colors border",
                           companyAge === opt
                             ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
-                            : "bg-transparent border-border text-text-tertiary hover:text-text-secondary"
+                            : "bg-transparent border-border text-text-3 hover:text-text-2"
                         )}
                       >
                         {opt}

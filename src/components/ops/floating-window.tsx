@@ -82,20 +82,20 @@ export function FloatingWindow({ window: win, children }: FloatingWindowProps) {
         className="flex items-center justify-between px-1.5 py-1 border-b border-[rgba(255,255,255,0.1)] cursor-move shrink-0"
         onMouseDown={handleMouseDown}
       >
-        <h3 className="font-mohave text-body-sm text-text-primary uppercase tracking-wider truncate">
+        <h3 className="font-mohave text-body-sm text-text uppercase tracking-wider truncate">
           {win.title}
         </h3>
         <div className="flex items-center gap-[2px] shrink-0">
           <button
             onClick={() => minimizeWindow(win.id)}
-            className="w-[24px] h-[24px] rounded flex items-center justify-center text-text-tertiary hover:text-text-secondary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-[24px] h-[24px] rounded flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             title="Minimize"
           >
             <Minus className="w-[14px] h-[14px]" />
           </button>
           <button
             onClick={() => closeWindow(win.id)}
-            className="w-[24px] h-[24px] rounded flex items-center justify-center text-text-tertiary hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-[24px] h-[24px] rounded flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
             title="Close"
           >
             <X className="w-[14px] h-[14px]" />

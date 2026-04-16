@@ -30,7 +30,7 @@ export function WidgetPeriodPicker({
       <Popover>
         <PopoverTrigger asChild>
           <button className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors">
-            <CalendarDays className="w-[14px] h-[14px] text-text-disabled" />
+            <CalendarDays className="w-[14px] h-[14px] text-text-mute" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-auto p-1 min-w-[100px]">
@@ -40,10 +40,10 @@ export function WidgetPeriodPicker({
                 key={opt.value}
                 onClick={() => onChange(opt.value)}
                 className={cn(
-                  "font-kosugi text-micro-sm uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                  "font-kosugi text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
                   value === opt.value
                     ? "text-ops-accent bg-ops-accent/15"
-                    : "text-text-tertiary hover:text-text-secondary"
+                    : "text-text-3 hover:text-text-2"
                 )}
               >
                 {opt.label}

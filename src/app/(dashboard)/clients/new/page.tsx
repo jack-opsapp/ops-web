@@ -161,15 +161,15 @@ export default function NewClientPage() {
         </Button>
         <div className="flex items-center gap-1.5">
           <div className="w-[40px] h-[40px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-            <span className="font-mohave text-body-lg text-text-secondary">
+            <span className="font-mohave text-body-lg text-text-2">
               {initials}
             </span>
           </div>
           <div>
-            <h1 className="font-mohave text-display text-text-primary tracking-wide">
+            <h1 className="font-mohave text-display text-text tracking-wide">
               {t("new.heading")}
             </h1>
-            <p className="font-kosugi text-caption-sm text-text-tertiary">
+            <p className="font-kosugi text-caption-sm text-text-3">
               {t("new.subtitle")}
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function NewClientPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-[6px]">
-              <User className="w-[14px] h-[14px] text-text-tertiary" />
+              <User className="w-[14px] h-[14px] text-text-3" />
               <CardTitle>{t("new.basicInfo")}</CardTitle>
             </div>
           </CardHeader>
@@ -215,7 +215,7 @@ export default function NewClientPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-[6px]">
-              <Phone className="w-[14px] h-[14px] text-text-tertiary" />
+              <Phone className="w-[14px] h-[14px] text-text-3" />
               <CardTitle>{t("new.contactDetails")}</CardTitle>
             </div>
           </CardHeader>
@@ -249,7 +249,7 @@ export default function NewClientPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-[6px]">
-              <StickyNote className="w-[14px] h-[14px] text-text-tertiary" />
+              <StickyNote className="w-[14px] h-[14px] text-text-3" />
               <CardTitle>{t("new.notes")}</CardTitle>
             </div>
           </CardHeader>
@@ -263,7 +263,7 @@ export default function NewClientPage() {
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-1">
-          <p className="font-kosugi text-caption-sm text-text-disabled">
+          <p className="font-kosugi text-caption-sm text-text-mute">
             * Required field
           </p>
           <div className="flex items-center gap-1">

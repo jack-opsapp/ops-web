@@ -145,7 +145,7 @@ export function BulkQuantityDialog({
           {/* Delta preview */}
           <div
             className={cn(
-              "text-text-secondary font-mono text-body-sm",
+              "text-text-2 font-mono text-body-sm",
               "py-1.5 px-1.5",
               "bg-[rgba(255,255,255,0.03)] rounded-sm border border-[rgba(255,255,255,0.06)]"
             )}
@@ -153,7 +153,7 @@ export function BulkQuantityDialog({
             Delta:{" "}
             <span
               className={cn(
-                "text-text-primary",
+                "text-text",
                 delta > 0 && "text-ops-green",
                 delta < 0 && "text-ops-error"
               )}

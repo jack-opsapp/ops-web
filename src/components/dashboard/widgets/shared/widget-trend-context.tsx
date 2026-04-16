@@ -58,13 +58,13 @@ export function WidgetTrendContext(props: WidgetTrendContextProps) {
         />
         {delta && delta !== "0%" && (
           <span
-            className="font-mono text-micro-sm font-medium"
+            className="font-mono text-micro font-medium"
             style={arrowColor ? { color: arrowColor } : undefined}
           >
             {delta}
           </span>
         )}
-        <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+        <span className="font-kosugi text-micro text-text-mute uppercase">
           {comparison}
         </span>
       </div>
@@ -80,7 +80,7 @@ export function WidgetTrendContext(props: WidgetTrendContextProps) {
           style={{ backgroundColor: color }}
         />
         <span
-          className="font-kosugi text-micro-sm uppercase"
+          className="font-kosugi text-micro uppercase"
           style={{ color }}
         >
           {label}
@@ -91,7 +91,7 @@ export function WidgetTrendContext(props: WidgetTrendContextProps) {
 
   // snapshot
   return (
-    <span className="font-kosugi text-micro-sm text-text-disabled uppercase">
+    <span className="font-kosugi text-micro text-text-mute uppercase">
       {props.label}
     </span>
   );

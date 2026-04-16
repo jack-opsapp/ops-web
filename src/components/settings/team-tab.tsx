@@ -153,7 +153,7 @@ function MemberActions({
           onClick={() => setMenuOpen(!menuOpen)}
           className="p-[6px] rounded hover:bg-background-elevated transition-colors"
         >
-          <MoreHorizontal className="w-[16px] h-[16px] text-text-tertiary" />
+          <MoreHorizontal className="w-[16px] h-[16px] text-text-3" />
         </button>
 
         {menuOpen && (
@@ -163,7 +163,7 @@ function MemberActions({
               {/* Role section — only visible with team.assign_roles */}
               {canAssignRoles && (
                 <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
-                  <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
+                  <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
                   {ROLES.map((role) => (
                     <button
                       key={role.id}
@@ -175,7 +175,7 @@ function MemberActions({
                         "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                         member.role === role.id
                           ? "text-ops-accent bg-ops-accent-muted"
-                          : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                          : "text-text-2 hover:text-text hover:bg-background-elevated"
                       )}
                     >
                       {t(role.labelKey)}
@@ -191,7 +191,7 @@ function MemberActions({
                     handleToggleSeat();
                     setMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-secondary hover:text-text-primary hover:bg-background-elevated transition-colors border-b border-[rgba(255,255,255,0.04)]"
+                  className="w-full flex items-center gap-1 px-1.5 py-[8px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-background-elevated transition-colors border-b border-[rgba(255,255,255,0.04)]"
                 >
                   <Armchair className="w-[14px] h-[14px]" />
                   {isSeated ? t("team.removeSeat") : t("team.assignSeat")}
@@ -320,7 +320,7 @@ function PendingInvitesCard() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-1.5">
-          <Clock className="w-[14px] h-[14px] text-text-tertiary" />
+          <Clock className="w-[14px] h-[14px] text-text-3" />
           <CardTitle>{t("team.pendingInvites")} ({activeInvitations.length})</CardTitle>
         </div>
       </CardHeader>
@@ -340,20 +340,20 @@ function PendingInvitesCard() {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className="w-[32px] h-[32px] rounded-full bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] flex items-center justify-center shrink-0">
                     {inv.email ? (
-                      <Mail className="w-[14px] h-[14px] text-text-disabled" />
+                      <Mail className="w-[14px] h-[14px] text-text-mute" />
                     ) : (
-                      <Phone className="w-[14px] h-[14px] text-text-disabled" />
+                      <Phone className="w-[14px] h-[14px] text-text-mute" />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-mono text-[12px] text-text-primary truncate">
+                    <p className="font-mono text-[12px] text-text truncate">
                       {inv.email ?? inv.phone ?? "—"}
                     </p>
                     <div className="flex items-center gap-[6px]">
-                      <span className="font-kosugi text-[9px] text-text-disabled">
+                      <span className="font-kosugi text-[9px] text-text-mute">
                         {t("team.pendingInvitesSent")} {formatSentDate(inv.createdAt)}
                       </span>
-                      <span className="font-kosugi text-[9px] text-text-disabled">
+                      <span className="font-kosugi text-[9px] text-text-mute">
                         {t("team.pendingInvitesExpires")} {formatRelativeDate(inv.expiresAt)}
                       </span>
                     </div>
@@ -369,7 +369,7 @@ function PendingInvitesCard() {
                       className={cn(
                         "flex items-center gap-[4px] px-[6px] py-[3px] rounded-sm text-left transition-colors",
                         "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] hover:bg-background-elevated",
-                        inv.roleName ? "text-text-secondary" : "text-text-disabled"
+                        inv.roleName ? "text-text-2" : "text-text-mute"
                       )}
                     >
                       <span className="font-kosugi text-[10px] uppercase tracking-wider">
@@ -383,7 +383,7 @@ function PendingInvitesCard() {
                         <div className="fixed inset-0 z-30" onClick={() => setRoleMenuOpen(null)} />
                         <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-background-card border border-border rounded-lg shadow-lg overflow-hidden">
                           <div className="px-1.5 py-[6px]">
-                            <p className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider mb-[4px]">
+                            <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">
                               {t("team.pendingInvitesChangeRole")}
                             </p>
                             {/* None / unassigned option */}
@@ -393,7 +393,7 @@ function PendingInvitesCard() {
                                 "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                 !inv.roleId
                                   ? "text-ops-accent bg-ops-accent-muted"
-                                  : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                                  : "text-text-2 hover:text-text hover:bg-background-elevated"
                               )}
                             >
                               {t("team.pendingInvitesNoRole")}
@@ -406,7 +406,7 @@ function PendingInvitesCard() {
                                   "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                   inv.roleId === role.id
                                     ? "text-ops-accent bg-ops-accent-muted"
-                                    : "text-text-secondary hover:text-text-primary hover:bg-background-elevated"
+                                    : "text-text-2 hover:text-text hover:bg-background-elevated"
                                 )}
                               >
                                 {role.name}
@@ -423,7 +423,7 @@ function PendingInvitesCard() {
                     onClick={() => setConfirmRevoke(inv.id)}
                     className="p-[6px] rounded hover:bg-background-elevated transition-colors group"
                   >
-                    <Trash2 className="w-[14px] h-[14px] text-text-disabled group-hover:text-ops-error transition-colors" />
+                    <Trash2 className="w-[14px] h-[14px] text-text-mute group-hover:text-ops-error transition-colors" />
                   </button>
                 </div>
               </div>
@@ -521,8 +521,8 @@ export function TeamTab() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mohave text-body text-text-secondary">{t("team.activeSeats")}</span>
-            <span className="font-mono text-data text-text-primary">
+            <span className="font-mohave text-body text-text-2">{t("team.activeSeats")}</span>
+            <span className="font-mono text-data text-text">
               {seatedCount} / {maxSeats}
             </span>
           </div>
@@ -549,7 +549,7 @@ export function TeamTab() {
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="w-[14px] h-[14px] text-text-tertiary cursor-help" />
+                      <Info className="w-[14px] h-[14px] text-text-3 cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[240px]">
                       <p className="font-kosugi text-[11px]">{t("team.trialTooltip")}</p>
@@ -592,7 +592,7 @@ export function TeamTab() {
             </div>
           ) : activeMembers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-4 gap-1.5">
-              <p className="font-mohave text-body-sm text-text-tertiary">
+              <p className="font-mohave text-body-sm text-text-3">
                 {t("team.emptyState")}
               </p>
               {canManage && (
@@ -628,14 +628,14 @@ export function TeamTab() {
                       />
                       <div>
                         <div className="flex items-center gap-[6px]">
-                          <p className="font-mohave text-body text-text-primary">{fullName}</p>
+                          <p className="font-mohave text-body text-text">{fullName}</p>
                           {isCurrentUser && (
-                            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                            <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                               {t("team.you")}
                             </span>
                           )}
                         </div>
-                        <p className="font-mono text-[10px] text-text-disabled">
+                        <p className="font-mono text-[10px] text-text-mute">
                           {member.email ?? "No email"}
                         </p>
                       </div>
@@ -656,7 +656,7 @@ export function TeamTab() {
                               {member.isCompanyAdmin && (
                                 <Shield className="w-[14px] h-[14px] text-ops-amber" />
                               )}
-                              <span className="font-kosugi text-[10px] text-text-tertiary uppercase tracking-wider">
+                              <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
                                 {member.isCompanyAdmin ? t("team.roleAdmin") : member.role || t("team.roleCrew")}
                               </span>
                             </Link>
@@ -709,8 +709,8 @@ export function TeamTab() {
                         size="sm"
                       />
                       <div>
-                        <p className="font-mohave text-body text-text-tertiary">{fullName}</p>
-                        <p className="font-mono text-[10px] text-text-disabled">
+                        <p className="font-mohave text-body text-text-3">{fullName}</p>
+                        <p className="font-mono text-[10px] text-text-mute">
                           {member.email ?? "No email"}
                         </p>
                       </div>

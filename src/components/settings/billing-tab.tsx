@@ -58,12 +58,12 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
   return (
     <div className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0">
       <div className="flex items-center gap-1.5">
-        <CreditCard className="w-[20px] h-[20px] text-text-secondary" />
+        <CreditCard className="w-[20px] h-[20px] text-text-2" />
         <div>
-          <p className="font-mohave text-body text-text-primary">
+          <p className="font-mohave text-body text-text">
             {brandDisplay} {t("billing.endingIn")} {method.last4}
           </p>
-          <p className="font-kosugi text-[11px] text-text-disabled">
+          <p className="font-kosugi text-[11px] text-text-mute">
             {t("billing.expires")} {String(method.expMonth).padStart(2, "0")}/{method.expYear}
           </p>
         </div>
@@ -77,7 +77,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
         <button
           onClick={() => onRemove(method.id)}
           disabled={isRemoving}
-          className="p-[4px] rounded hover:bg-background-elevated transition-colors text-text-disabled hover:text-red-400"
+          className="p-[4px] rounded hover:bg-background-elevated transition-colors text-text-mute hover:text-red-400"
           title="Remove card"
         >
           {isRemoving ? (
@@ -136,7 +136,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
-      <div className="bg-background-input border border-border rounded-lg p-1.5">
+      <div className="bg-surface-input border border-border rounded-lg p-1.5">
         <CardElement
           options={{
             style: {
@@ -175,13 +175,13 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
   const styles: Record<string, string> = {
     paid: "text-status-success bg-status-success/10",
     open: "text-ops-amber bg-ops-amber/10",
-    draft: "text-text-disabled bg-background-elevated",
-    void: "text-text-disabled bg-background-elevated",
+    draft: "text-text-mute bg-background-elevated",
+    void: "text-text-mute bg-background-elevated",
     uncollectible: "text-ops-error bg-ops-error-muted",
   };
 
   const s = status ?? "unknown";
-  const className = styles[s] ?? "text-text-disabled bg-background-elevated";
+  const className = styles[s] ?? "text-text-mute bg-background-elevated";
   const statusLabels: Record<string, string> = {
     paid: t("billing.paid"),
     open: t("billing.open"),
@@ -255,12 +255,12 @@ export function BillingTab() {
           ) : (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 py-2">
-                <CreditCard className="w-[24px] h-[24px] text-text-disabled" />
+                <CreditCard className="w-[24px] h-[24px] text-text-mute" />
                 <div>
-                  <p className="font-mohave text-body text-text-secondary">
+                  <p className="font-mohave text-body text-text-2">
                     {t("billing.noPaymentMethod")}
                   </p>
-                  <p className="font-kosugi text-[11px] text-text-disabled">
+                  <p className="font-kosugi text-[11px] text-text-mute">
                     {t("billing.addPaymentHelper")}
                   </p>
                 </div>
@@ -309,12 +309,12 @@ export function BillingTab() {
                   className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                 >
                   <div className="flex items-center gap-1.5">
-                    <FileText className="w-[16px] h-[16px] text-text-tertiary shrink-0" />
+                    <FileText className="w-[16px] h-[16px] text-text-3 shrink-0" />
                     <div>
-                      <p className="font-mohave text-body-sm text-text-primary">
+                      <p className="font-mohave text-body-sm text-text">
                         {invoice.number ?? "Invoice"}
                       </p>
-                      <p className="font-kosugi text-[10px] text-text-disabled">
+                      <p className="font-kosugi text-[10px] text-text-mute">
                         {invoice.date
                           ? new Date(invoice.date).toLocaleDateString(getDateLocale(locale), {
                               month: "short",
@@ -326,7 +326,7 @@ export function BillingTab() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="font-mono text-body-sm text-text-primary">
+                    <span className="font-mono text-body-sm text-text">
                       ${invoice.amount.toFixed(2)}
                     </span>
                     <InvoiceStatusBadge status={invoice.status} />
@@ -347,7 +347,7 @@ export function BillingTab() {
                         rel="noopener noreferrer"
                         className="p-[4px] rounded hover:bg-background-elevated transition-colors"
                       >
-                        <Download className="w-[14px] h-[14px] text-text-tertiary" />
+                        <Download className="w-[14px] h-[14px] text-text-3" />
                       </a>
                     )}
                   </div>
@@ -356,9 +356,9 @@ export function BillingTab() {
             </div>
           ) : (
             <div className="flex flex-col items-center py-3">
-              <FileText className="w-[32px] h-[32px] text-text-disabled mb-1" />
-              <p className="font-mohave text-body text-text-tertiary">{t("billing.noBillingHistory")}</p>
-              <p className="font-kosugi text-[11px] text-text-disabled mt-0.5">
+              <FileText className="w-[32px] h-[32px] text-text-mute mb-1" />
+              <p className="font-mohave text-body text-text-3">{t("billing.noBillingHistory")}</p>
+              <p className="font-kosugi text-[11px] text-text-mute mt-0.5">
                 {t("billing.invoicesHelper")}
               </p>
             </div>

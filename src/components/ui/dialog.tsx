@@ -51,7 +51,7 @@ const DialogContent = React.forwardRef<
           className={cn(
             "absolute right-2 top-2",
             "rounded-sm p-0.5",
-            "text-text-tertiary hover:text-text-primary",
+            "text-text-3 hover:text-text",
             "transition-colors duration-150",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
@@ -84,7 +84,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("font-mohave text-heading text-text-primary", className)}
+    className={cn("font-mohave text-heading text-text", className)}
     {...props}
   />
 ));
@@ -96,7 +96,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-body-sm text-text-secondary font-mohave", className)}
+    className={cn("text-body-sm text-text-2 font-mohave", className)}
     {...props}
   />
 ));

@@ -825,17 +825,17 @@ export function EmailSetupWizard({
         <div className="px-3 pt-3 pb-0 shrink-0">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <DialogTitle className="font-mohave text-heading text-text-primary text-left">
+              <DialogTitle className="font-mohave text-heading text-text text-left">
                 Email Setup
               </DialogTitle>
-              <DialogDescription className="font-mohave text-body-sm text-text-secondary text-left">
+              <DialogDescription className="font-mohave text-body-sm text-text-2 text-left">
                 Connect, configure, and import your email pipeline
               </DialogDescription>
             </div>
             <button
               onClick={() => onOpenChange(false)}
               aria-label="Close"
-              className="p-[6px] rounded-sm text-text-tertiary hover:text-text-primary transition-colors"
+              className="p-[6px] rounded-sm text-text-3 hover:text-text transition-colors"
             >
               <X className="w-[18px] h-[18px]" />
             </button>
@@ -881,7 +881,7 @@ export function EmailSetupWizard({
                           ? "bg-ops-accent/20 text-ops-accent"
                           : isActive
                             ? "bg-ops-accent/10 text-ops-accent"
-                            : "bg-transparent text-text-disabled"
+                            : "bg-transparent text-text-mute"
                       }`}
                     >
                       {isComplete ? (
@@ -893,10 +893,10 @@ export function EmailSetupWizard({
                     <span
                       className={`font-kosugi text-[10px] uppercase tracking-wider hidden sm:block transition-colors ${
                         isActive
-                          ? "text-text-primary"
+                          ? "text-text"
                           : isComplete
                             ? "text-ops-accent"
-                            : "text-text-disabled"
+                            : "text-text-mute"
                       }`}
                     >
                       {step.label}
@@ -1027,13 +1027,13 @@ export function EmailSetupWizard({
             </Button>
             <button
               onClick={skipWizard}
-              className="font-kosugi text-[10px] text-text-disabled hover:text-text-secondary transition-colors px-[6px] py-[4px]"
+              className="font-kosugi text-[10px] text-text-mute hover:text-text-2 transition-colors px-[6px] py-[4px]"
             >
               Skip
             </button>
           </div>
 
-          <span className="font-kosugi text-[10px] text-text-disabled">
+          <span className="font-kosugi text-[10px] text-text-mute">
             {stepIndex + 1} / {STEPS.length}
           </span>
 
@@ -1111,7 +1111,7 @@ function StepConnect({
       className="space-y-2"
     >
       <motion.div variants={staggerItem}>
-        <p className="font-mohave text-body text-text-primary text-left">
+        <p className="font-mohave text-body text-text text-left">
           Connect your Gmail account to automatically capture leads and client
           communications in your pipeline.
         </p>
@@ -1119,8 +1119,8 @@ function StepConnect({
 
       {connectionsLoading ? (
         <motion.div variants={staggerItem} className="flex items-center gap-[8px] py-3">
-          <Loader2 className="w-[18px] h-[18px] text-text-disabled animate-spin" />
-          <span className="font-mohave text-body-sm text-text-disabled">
+          <Loader2 className="w-[18px] h-[18px] text-text-mute animate-spin" />
+          <span className="font-mohave text-body-sm text-text-mute">
             Checking connections...
           </span>
         </motion.div>
@@ -1138,7 +1138,7 @@ function StepConnect({
                 <span className="font-mono text-data-sm text-[#6B8F71] block truncate">
                   {conn.email}
                 </span>
-                <span className="font-kosugi text-[10px] text-text-disabled uppercase">
+                <span className="font-kosugi text-[10px] text-text-mute uppercase">
                   {conn.type} account connected
                 </span>
               </div>
@@ -1161,14 +1161,14 @@ function StepConnect({
               <Mail className="w-[20px] h-[20px] text-ops-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="font-mohave text-body text-text-primary block">
+              <span className="font-mohave text-body text-text block">
                 Connect Company Gmail
               </span>
-              <span className="font-kosugi text-[10px] text-text-disabled">
+              <span className="font-kosugi text-[10px] text-text-mute">
                 Shared inbox for your whole team
               </span>
             </div>
-            <ExternalLink className="w-[16px] h-[16px] text-text-disabled group-hover:text-ops-accent transition-colors shrink-0" />
+            <ExternalLink className="w-[16px] h-[16px] text-text-mute group-hover:text-ops-accent transition-colors shrink-0" />
           </button>
 
           <button
@@ -1183,25 +1183,25 @@ function StepConnect({
             className="w-full flex items-center gap-2 px-2 py-2 border border-border-subtle rounded hover:border-border transition-colors group text-left"
           >
             <div className="w-[40px] h-[40px] rounded bg-background-card flex items-center justify-center shrink-0">
-              <Mail className="w-[20px] h-[20px] text-text-disabled group-hover:text-text-secondary transition-colors" />
+              <Mail className="w-[20px] h-[20px] text-text-mute group-hover:text-text-2 transition-colors" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="font-mohave text-body text-text-secondary block">
+              <span className="font-mohave text-body text-text-2 block">
                 Connect Personal Gmail
               </span>
-              <span className="font-kosugi text-[10px] text-text-disabled">
+              <span className="font-kosugi text-[10px] text-text-mute">
                 Your individual email only
               </span>
             </div>
-            <ExternalLink className="w-[16px] h-[16px] text-text-disabled shrink-0" />
+            <ExternalLink className="w-[16px] h-[16px] text-text-mute shrink-0" />
           </button>
         </motion.div>
       )}
 
       <motion.div variants={staggerItem}>
         <div className="flex items-start gap-[8px] px-1.5 py-1 rounded bg-background-card border border-border-subtle">
-          <Shield className="w-[14px] h-[14px] text-text-disabled mt-[2px] shrink-0" />
-          <p className="font-kosugi text-[10px] text-text-disabled leading-relaxed text-left">
+          <Shield className="w-[14px] h-[14px] text-text-mute mt-[2px] shrink-0" />
+          <p className="font-kosugi text-[10px] text-text-mute leading-relaxed text-left">
             OPS uses read-only access. We never send, delete, or modify your
             emails. You can revoke access at any time.
           </p>
@@ -1245,7 +1245,7 @@ function StepHowItWorks() {
       className="space-y-2"
     >
       <motion.div variants={staggerItem}>
-        <p className="font-mohave text-body text-text-primary text-left">
+        <p className="font-mohave text-body text-text text-left">
           Your inbox becomes your pipeline. Here&apos;s how it works.
         </p>
       </motion.div>
@@ -1261,11 +1261,11 @@ function StepHowItWorks() {
               <div className="w-[24px] h-[24px] rounded-sm bg-ops-accent/10 flex items-center justify-center">
                 <f.icon className="w-[13px] h-[13px] text-ops-accent" />
               </div>
-              <span className="font-mohave text-body-sm text-text-primary font-medium text-left">
+              <span className="font-mohave text-body-sm text-text font-medium text-left">
                 {f.title}
               </span>
             </div>
-            <p className="font-kosugi text-[10px] text-text-disabled leading-relaxed text-left">
+            <p className="font-kosugi text-[10px] text-text-mute leading-relaxed text-left">
               {f.desc}
             </p>
           </motion.div>
@@ -1278,14 +1278,14 @@ function StepHowItWorks() {
         className="flex items-center justify-between px-2 py-1.5 bg-background-card rounded border border-border-subtle"
       >
         {[
-          { label: "Email arrives", color: "text-text-secondary" },
+          { label: "Email arrives", color: "text-text-2" },
           { label: "Filtered", color: "text-ops-accent" },
           { label: "Matched", color: "text-[#9DB582]" },
           { label: "Pipeline", color: "text-[#C4A868]" },
         ].map((step, i) => (
           <div key={step.label} className="flex items-center gap-[6px]">
             {i > 0 && (
-              <ArrowRight className="w-[12px] h-[12px] text-text-disabled" />
+              <ArrowRight className="w-[12px] h-[12px] text-text-mute" />
             )}
             <span className={`font-kosugi text-[10px] uppercase tracking-wider ${step.color}`}>
               {step.label}
@@ -1332,7 +1332,7 @@ function StepScan({
       className="space-y-2"
     >
       <motion.div variants={staggerItem}>
-        <p className="font-mohave text-body text-text-primary text-left">
+        <p className="font-mohave text-body text-text text-left">
           {scanComplete
             ? "Here's what we found in your last 30 days."
             : "We'll scan your last 30 days of email to suggest the best filters."}
@@ -1344,12 +1344,12 @@ function StepScan({
           {connectionEmail && (
             <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded bg-background-card border border-border-subtle w-full">
               <Mail className="w-[14px] h-[14px] text-ops-accent shrink-0" />
-              <span className="font-mono text-data-sm text-text-secondary truncate">
+              <span className="font-mono text-data-sm text-text-2 truncate">
                 {connectionEmail}
               </span>
             </div>
           )}
-          <p className="font-kosugi text-[10px] text-text-disabled text-left">
+          <p className="font-kosugi text-[10px] text-text-mute text-left">
             AI analyzes sender info, subjects, and snippets to classify emails. No email content is stored.
           </p>
         </motion.div>
@@ -1365,7 +1365,7 @@ function StepScan({
             <Search className="absolute inset-0 m-auto w-[20px] h-[20px] text-ops-accent" />
           </div>
 
-          <span className="font-mohave text-body-sm text-text-primary">
+          <span className="font-mohave text-body-sm text-text">
             {scanProgress.message || "Scanning emails..."}
           </span>
 
@@ -1384,14 +1384,14 @@ function StepScan({
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 {scanProgress.stage === "pending" && "Initializing"}
                 {scanProgress.stage === "listing" && "Scanning inbox"}
                 {scanProgress.stage === "fetching" && "Reading emails"}
                 {scanProgress.stage === "pre_filtering" && "Pre-filtering"}
                 {scanProgress.stage === "classifying" && "AI analyzing"}
               </span>
-              <span className="font-mono text-[10px] text-text-disabled">
+              <span className="font-mono text-[10px] text-text-mute">
                 {stageToPercent(scanProgress.stage, scanProgress.current, scanProgress.total)}%
               </span>
             </div>
@@ -1435,8 +1435,8 @@ function StepScan({
                       isDone
                         ? "text-ops-accent"
                         : isActive
-                          ? "text-text-secondary"
-                          : "text-text-disabled/40"
+                          ? "text-text-2"
+                          : "text-text-mute/40"
                     }`}
                   >
                     {s.label}
@@ -1446,7 +1446,7 @@ function StepScan({
             })}
           </div>
 
-          <span className="font-kosugi text-[10px] text-text-disabled/60 mt-1">
+          <span className="font-kosugi text-[10px] text-text-mute/60 mt-1">
             You can close this window &mdash; we&apos;ll let you know when it&apos;s done.
           </span>
         </motion.div>
@@ -1465,10 +1465,10 @@ function StepScan({
           {/* Stats row */}
           <motion.div variants={staggerItem} className="grid grid-cols-3 gap-1">
             <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
-              <span className="font-mono text-data-lg text-text-primary block">
+              <span className="font-mono text-data-lg text-text block">
                 {scannedEmails.length}
               </span>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 Emails scanned
               </span>
             </div>
@@ -1476,15 +1476,15 @@ function StepScan({
               <span className="font-mono text-data-lg text-[#9DB582] block">
                 {importCount}
               </span>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 To import
               </span>
             </div>
             <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
-              <span className="font-mono text-data-lg text-text-secondary block">
+              <span className="font-mono text-data-lg text-text-2 block">
                 {filterCount}
               </span>
-              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                 Filtered out
               </span>
             </div>
@@ -1493,7 +1493,7 @@ function StepScan({
           {/* AI summary */}
           {scanSummary && (
             <motion.div variants={staggerItem}>
-              <p className="font-mohave text-body-sm text-text-secondary text-left leading-relaxed">
+              <p className="font-mohave text-body-sm text-text-2 text-left leading-relaxed">
                 {scanSummary}
               </p>
             </motion.div>
@@ -1758,7 +1758,7 @@ function StepFilters({
       className="space-y-2"
     >
       <motion.div variants={staggerItem}>
-        <p className="font-mohave text-body text-text-primary text-left">
+        <p className="font-mohave text-body text-text text-left">
           Configure which emails make it into your pipeline.
         </p>
       </motion.div>
@@ -1809,10 +1809,10 @@ function StepFilters({
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="font-mohave text-body-sm text-text-primary block">
+                <span className="font-mohave text-body-sm text-text block">
                   Block newsletters & notifications
                 </span>
-                <span className="font-kosugi text-[10px] text-text-disabled">
+                <span className="font-kosugi text-[10px] text-text-mute">
                   60+ pre-configured domains
                 </span>
               </div>
@@ -1822,14 +1822,14 @@ function StepFilters({
           {/* Blocked domains chips */}
           {filters.excludeDomains.length > 0 && (
             <motion.div variants={staggerItem}>
-              <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px] text-left">
+              <label className="font-kosugi text-[10px] text-text-mute block mb-[4px] text-left">
                 Blocked domains ({filters.excludeDomains.length})
               </label>
               <div className="flex flex-wrap gap-[4px]">
                 {filters.excludeDomains.slice(0, 12).map((d) => (
                   <span
                     key={d}
-                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-disabled"
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-mute"
                   >
                     {d}
                     <button
@@ -1848,7 +1848,7 @@ function StepFilters({
                   </span>
                 ))}
                 {filters.excludeDomains.length > 12 && (
-                  <span className="font-kosugi text-[10px] text-text-disabled px-[6px] py-[2px]">
+                  <span className="font-kosugi text-[10px] text-text-mute px-[6px] py-[2px]">
                     +{filters.excludeDomains.length - 12} more
                   </span>
                 )}
@@ -1859,14 +1859,14 @@ function StepFilters({
           {/* Blocked addresses chips */}
           {(filters.excludeAddresses?.length ?? 0) > 0 && (
             <motion.div variants={staggerItem}>
-              <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px] text-left">
+              <label className="font-kosugi text-[10px] text-text-mute block mb-[4px] text-left">
                 Blocked addresses ({filters.excludeAddresses.length})
               </label>
               <div className="flex flex-wrap gap-[4px]">
                 {filters.excludeAddresses.slice(0, 8).map((a) => (
                   <span
                     key={a}
-                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-disabled"
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-mute"
                   >
                     {a}
                     <button
@@ -1885,7 +1885,7 @@ function StepFilters({
                   </span>
                 ))}
                 {filters.excludeAddresses.length > 8 && (
-                  <span className="font-kosugi text-[10px] text-text-disabled px-[6px] py-[2px]">
+                  <span className="font-kosugi text-[10px] text-text-mute px-[6px] py-[2px]">
                     +{filters.excludeAddresses.length - 8} more
                   </span>
                 )}
@@ -1896,14 +1896,14 @@ function StepFilters({
           {/* Subject keywords chips */}
           {(filters.excludeSubjectKeywords?.length ?? 0) > 0 && (
             <motion.div variants={staggerItem}>
-              <label className="font-kosugi text-[10px] text-text-disabled block mb-[4px] text-left">
+              <label className="font-kosugi text-[10px] text-text-mute block mb-[4px] text-left">
                 Subject keywords ({filters.excludeSubjectKeywords.length})
               </label>
               <div className="flex flex-wrap gap-[4px]">
                 {filters.excludeSubjectKeywords.slice(0, 8).map((k) => (
                   <span
                     key={k}
-                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-disabled"
+                    className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-sm bg-background-card border border-border-subtle font-mono text-[10px] text-text-mute"
                   >
                     {k}
                     <button
@@ -1922,7 +1922,7 @@ function StepFilters({
                   </span>
                 ))}
                 {filters.excludeSubjectKeywords.length > 8 && (
-                  <span className="font-kosugi text-[10px] text-text-disabled px-[6px] py-[2px]">
+                  <span className="font-kosugi text-[10px] text-text-mute px-[6px] py-[2px]">
                     +{filters.excludeSubjectKeywords.length - 8} more
                   </span>
                 )}
@@ -1937,14 +1937,14 @@ function StepFilters({
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowBuilder(true)}
-                className="gap-[4px] font-kosugi text-[11px] text-text-disabled hover:text-ops-accent"
+                className="gap-[4px] font-kosugi text-[11px] text-text-mute hover:text-ops-accent"
               >
                 <Plus className="w-[12px] h-[12px]" />
                 Add custom filter rules
               </Button>
             ) : (
               <div className="space-y-[6px]">
-                <label className="font-kosugi text-[10px] text-text-disabled block text-left">
+                <label className="font-kosugi text-[10px] text-text-mute block text-left">
                   Custom exclusion rules
                 </label>
                 <EmailFilterBuilder
@@ -1987,10 +1987,10 @@ function StepFilters({
               className="shrink-0 flex items-center gap-[6px] px-2 py-1 rounded border border-border-subtle bg-background-card hover:bg-background-elevated transition-colors text-left"
             >
               <BarChart3 className="w-[12px] h-[12px] text-ops-accent shrink-0" />
-              <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                 Show filter pipeline
               </span>
-              <ChevronDown className="w-[10px] h-[10px] text-text-disabled ml-auto" />
+              <ChevronDown className="w-[10px] h-[10px] text-text-mute ml-auto" />
             </button>
           )}
 
@@ -2005,12 +2005,12 @@ function StepFilters({
                 <span className="font-mono text-data-sm text-[#9DB582]">
                   {importCount}
                 </span>
-                <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider">
+                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
                   emails to import
                 </span>
               </div>
               <ChevronDown
-                className={`w-[12px] h-[12px] text-text-disabled transition-transform duration-200 ${
+                className={`w-[12px] h-[12px] text-text-mute transition-transform duration-200 ${
                   emailsExpanded ? "" : "-rotate-90"
                 }`}
               />
@@ -2029,7 +2029,7 @@ function StepFilters({
               >
                 {importedByDomain.length === 0 ? (
                   <div className="flex items-center justify-center py-4">
-                    <span className="font-mohave text-body-sm text-text-disabled">
+                    <span className="font-mohave text-body-sm text-text-mute">
                       No emails pass current filters
                     </span>
                   </div>
@@ -2045,11 +2045,11 @@ function StepFilters({
                         className="w-full flex items-center gap-[8px] px-2 py-[5px] hover:bg-background-elevated transition-colors text-left border-b border-border-subtle/50"
                       >
                         <ChevronDown
-                          className={`w-[10px] h-[10px] text-text-disabled shrink-0 transition-transform duration-200 ${
+                          className={`w-[10px] h-[10px] text-text-mute shrink-0 transition-transform duration-200 ${
                             expandedImportDomain === domain ? "" : "-rotate-90"
                           }`}
                         />
-                        <span className="font-mono text-[10px] text-text-primary flex-1 truncate">
+                        <span className="font-mono text-[10px] text-text flex-1 truncate">
                           {domain}
                         </span>
                         <span className="font-mono text-[10px] text-[#9DB582] shrink-0">
@@ -2065,11 +2065,11 @@ function StepFilters({
                               className="flex items-center gap-[6px] py-[2px]"
                             >
                               <div className="flex-1 min-w-0 text-left">
-                                <span className="font-mohave text-[10px] text-text-secondary block truncate">
+                                <span className="font-mohave text-[10px] text-text-2 block truncate">
                                   {email.subject || "(no subject)"}
                                 </span>
                               </div>
-                              <span className="font-kosugi text-[8px] text-text-disabled shrink-0">
+                              <span className="font-kosugi text-[8px] text-text-mute shrink-0">
                                 {new Date(email.date).toLocaleDateString(
                                   undefined,
                                   { month: "short", day: "numeric" },
@@ -2078,7 +2078,7 @@ function StepFilters({
                             </div>
                           ))}
                           {emails.length > 15 && (
-                            <span className="font-kosugi text-[9px] text-text-disabled block py-[2px]">
+                            <span className="font-kosugi text-[9px] text-text-mute block py-[2px]">
                               +{emails.length - 15} more
                             </span>
                           )}
@@ -2326,7 +2326,7 @@ function StepReview({
       className="space-y-2"
     >
       <motion.div variants={staggerItem}>
-        <p className="font-mohave text-body text-text-primary text-left">
+        <p className="font-mohave text-body text-text text-left">
           Review the clients and leads that will be created from your emails.
         </p>
       </motion.div>
@@ -2334,10 +2334,10 @@ function StepReview({
       {/* Stats row */}
       <motion.div variants={staggerItem} className="grid grid-cols-4 gap-1">
         <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
-          <span className="font-mono text-data-lg text-text-primary block">
+          <span className="font-mono text-data-lg text-text block">
             {activeContacts.length}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
             New clients
           </span>
         </div>
@@ -2345,7 +2345,7 @@ function StepReview({
           <span className="font-mono text-data-lg text-[#C4A868] block">
             {leadCount}
           </span>
-          <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
             Leads
           </span>
         </div>
@@ -2354,7 +2354,7 @@ function StepReview({
             <span className="font-mono text-data-lg text-ops-accent block">
               {companyCount}
             </span>
-            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+            <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
               Companies
             </span>
           </div>
@@ -2364,17 +2364,17 @@ function StepReview({
             <span className="font-mono text-data-lg text-[#FFB432] block">
               {existingCount}
             </span>
-            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+            <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
               Existing
             </span>
           </div>
         )}
         {companyCount === 0 && existingCount === 0 && (
           <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
-            <span className="font-mono text-data-lg text-text-secondary block">
+            <span className="font-mono text-data-lg text-text-2 block">
               {clientOnlyCount}
             </span>
-            <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+            <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
               Client only
             </span>
           </div>
@@ -2385,7 +2385,7 @@ function StepReview({
       <motion.div variants={staggerItem}>
         <div className="flex items-start gap-[6px] px-1.5 py-1 rounded bg-[rgba(196,168,104,0.08)] border border-[rgba(196,168,104,0.15)]">
           <Zap className="w-[12px] h-[12px] text-[#C4A868] mt-[2px] shrink-0" />
-          <p className="font-kosugi text-[10px] text-text-secondary leading-relaxed text-left">
+          <p className="font-kosugi text-[10px] text-text-2 leading-relaxed text-left">
             Leads are auto-created for inquiries within the last 2 weeks.
             {companyCount > 0 && " Multiple people from the same domain are grouped as a company."}
             {existingCount > 0 && " Existing clients are flagged in orange."}
@@ -2399,7 +2399,7 @@ function StepReview({
           <div className="max-h-[320px] overflow-y-auto scrollbar-hide">
             {contacts.length === 0 ? (
               <div className="flex items-center justify-center py-6">
-                <span className="font-mohave text-body-sm text-text-disabled">
+                <span className="font-mohave text-body-sm text-text-mute">
                   No contacts found in imported emails
                 </span>
               </div>
@@ -2457,7 +2457,7 @@ function StepReview({
                           {editingName === contact.key ? (
                             <input
                               autoFocus
-                              className="font-mohave text-body-sm text-text-primary bg-transparent border-b border-ops-accent outline-none px-0 py-0 w-[180px]"
+                              className="font-mohave text-body-sm text-text bg-transparent border-b border-ops-accent outline-none px-0 py-0 w-[180px]"
                               defaultValue={contact.name}
                               onClick={(e) => e.stopPropagation()}
                               onBlur={(e) => {
@@ -2477,7 +2477,7 @@ function StepReview({
                             />
                           ) : (
                             <>
-                              <span className="font-mohave text-body-sm text-text-primary truncate">
+                              <span className="font-mohave text-body-sm text-text truncate">
                                 {contact.name}
                               </span>
                               <button
@@ -2485,7 +2485,7 @@ function StepReview({
                                   e.stopPropagation();
                                   setEditingName(contact.key);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 hover:!opacity-100 text-text-disabled hover:text-ops-accent transition-all p-[2px]"
+                                className="opacity-0 group-hover:opacity-100 hover:!opacity-100 text-text-mute hover:text-ops-accent transition-all p-[2px]"
                                 style={{ opacity: isExpanded ? 1 : undefined }}
                               >
                                 <Pencil className="w-[10px] h-[10px]" />
@@ -2508,7 +2508,7 @@ function StepReview({
                               title={contact.createLead ? "Click to remove lead" : "Click to create lead"}
                             >
                               <span className={`font-kosugi text-[8px] uppercase tracking-wider ${
-                                contact.createLead ? "text-[#C4A868]" : "text-text-disabled"
+                                contact.createLead ? "text-[#C4A868]" : "text-text-mute"
                               }`}>
                                 {contact.createLead ? "Lead" : "Client"}
                               </span>
@@ -2524,7 +2524,7 @@ function StepReview({
                             </span>
                           )}
                         </div>
-                        <span className="font-mono text-[10px] text-text-disabled block truncate">
+                        <span className="font-mono text-[10px] text-text-mute block truncate">
                           {contact.isCompanyGroup
                             ? `${contact.domain} · ${contact.subContacts?.length ?? 0} people`
                             : contact.fromEmail}
@@ -2539,10 +2539,10 @@ function StepReview({
                       {/* Email count + date + chevron */}
                       <div className="flex items-center gap-[6px] shrink-0">
                         <div className="text-right">
-                          <span className="font-mono text-[10px] text-text-secondary block">
+                          <span className="font-mono text-[10px] text-text-2 block">
                             {contact.emailCount} email{contact.emailCount !== 1 ? "s" : ""}
                           </span>
-                          <span className="font-kosugi text-[8px] text-text-disabled block">
+                          <span className="font-kosugi text-[8px] text-text-mute block">
                             {contact.firstInquiryDate.toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
@@ -2550,7 +2550,7 @@ function StepReview({
                           </span>
                         </div>
                         <ChevronDown
-                          className={`w-[12px] h-[12px] text-text-disabled transition-transform duration-200 ${
+                          className={`w-[12px] h-[12px] text-text-mute transition-transform duration-200 ${
                             isExpanded ? "" : "-rotate-90"
                           }`}
                         />
@@ -2570,7 +2570,7 @@ function StepReview({
                           {/* Sub-contacts list for company groups */}
                           {contact.isCompanyGroup && contact.subContacts && (
                             <div className="space-y-[2px]">
-                              <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                                 People
                               </span>
                               {contact.subContacts.map((sub) => (
@@ -2579,14 +2579,14 @@ function StepReview({
                                   className="flex items-center justify-between px-1.5 py-[3px] rounded bg-background-card border border-border-subtle text-left"
                                 >
                                   <div className="min-w-0">
-                                    <span className="font-mohave text-[11px] text-text-primary block truncate">
+                                    <span className="font-mohave text-[11px] text-text block truncate">
                                       {sub.name}
                                     </span>
-                                    <span className="font-mono text-[9px] text-text-disabled block truncate">
+                                    <span className="font-mono text-[9px] text-text-mute block truncate">
                                       {sub.fromEmail}
                                     </span>
                                   </div>
-                                  <span className="font-mono text-[9px] text-text-disabled shrink-0">
+                                  <span className="font-mono text-[9px] text-text-mute shrink-0">
                                     {sub.emailCount} email{sub.emailCount !== 1 ? "s" : ""}
                                   </span>
                                 </div>
@@ -2598,7 +2598,7 @@ function StepReview({
                           {contact.recentEmails.length > 0 ? (
                             <div className="space-y-[4px]">
                               {contact.isCompanyGroup && (
-                                <span className="font-kosugi text-[9px] text-text-disabled uppercase tracking-wider">
+                                <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
                                   Recent emails
                                 </span>
                               )}
@@ -2608,10 +2608,10 @@ function StepReview({
                                   className="px-1.5 py-1 rounded bg-background-card border border-border-subtle text-left"
                                 >
                                   <div className="flex items-center justify-between gap-[8px] mb-[2px]">
-                                    <span className="font-mohave text-[11px] text-text-primary truncate flex-1">
+                                    <span className="font-mohave text-[11px] text-text truncate flex-1">
                                       {email.subject}
                                     </span>
-                                    <span className="font-kosugi text-[8px] text-text-disabled shrink-0">
+                                    <span className="font-kosugi text-[8px] text-text-mute shrink-0">
                                       {new Date(email.date).toLocaleDateString(undefined, {
                                         month: "short",
                                         day: "numeric",
@@ -2619,7 +2619,7 @@ function StepReview({
                                     </span>
                                   </div>
                                   {email.snippet && (
-                                    <p className="font-kosugi text-[9px] text-text-disabled leading-relaxed line-clamp-2">
+                                    <p className="font-kosugi text-[9px] text-text-mute leading-relaxed line-clamp-2">
                                       {email.snippet}
                                     </p>
                                   )}
@@ -2627,7 +2627,7 @@ function StepReview({
                               ))}
                             </div>
                           ) : (
-                            <span className="font-kosugi text-[9px] text-text-disabled">
+                            <span className="font-kosugi text-[9px] text-text-mute">
                               No email previews available
                             </span>
                           )}
@@ -2644,7 +2644,7 @@ function StepReview({
 
       {/* Contact count summary */}
       <motion.div variants={staggerItem} className="pt-1">
-        <p className="font-kosugi text-[10px] text-text-disabled text-left">
+        <p className="font-kosugi text-[10px] text-text-mute text-left">
           {activeContacts.length} contact{activeContacts.length !== 1 ? "s" : ""} will be created
           {leadCount > 0 && `, ${leadCount} as pipeline lead${leadCount !== 1 ? "s" : ""}`}
           . Press Next to choose your import range and start.
@@ -2692,14 +2692,14 @@ function StepImport({
       className="space-y-2"
     >
       <motion.div variants={staggerItem}>
-        <p className="font-mohave text-body text-text-primary text-left">
+        <p className="font-mohave text-body text-text text-left">
           Choose how far back to import, then we&apos;ll start processing.
         </p>
       </motion.div>
 
       {/* Time range */}
       <motion.div variants={staggerItem} className="space-y-1">
-        <label className="font-kosugi text-[10px] text-text-disabled block text-left uppercase tracking-wider">
+        <label className="font-kosugi text-[10px] text-text-mute block text-left uppercase tracking-wider">
           Import range
         </label>
         <div className="flex flex-wrap gap-[6px]">
@@ -2715,7 +2715,7 @@ function StepImport({
               className={`px-1.5 py-[6px] rounded border font-kosugi text-[11px] transition-all ${
                 !useCustom && importDays === p.days
                   ? "border-ops-accent bg-ops-accent/10 text-ops-accent"
-                  : "border-border-subtle text-text-secondary hover:border-border"
+                  : "border-border-subtle text-text-2 hover:border-border"
               }`}
             >
               {p.label}
@@ -2727,7 +2727,7 @@ function StepImport({
             className={`px-1.5 py-[6px] rounded border font-kosugi text-[11px] transition-all ${
               useCustom
                 ? "border-ops-accent bg-ops-accent/10 text-ops-accent"
-                : "border-border-subtle text-text-secondary hover:border-border"
+                : "border-border-subtle text-text-2 hover:border-border"
             }`}
           >
             Custom
@@ -2746,7 +2746,7 @@ function StepImport({
               onChange={(e) => setCustomDate(e.target.value)}
               max={new Date().toISOString().split("T")[0]}
               disabled={importStarted}
-              className="bg-background-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text-primary"
+              className="bg-surface-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text"
             />
           </motion.div>
         )}
@@ -2757,31 +2757,31 @@ function StepImport({
         variants={staggerItem}
         className="px-2 py-1.5 rounded border border-border-subtle bg-background-card space-y-[6px] text-left"
       >
-        <span className="font-kosugi text-[10px] text-text-disabled uppercase tracking-wider block">
+        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
           Import summary
         </span>
         <div className="space-y-[4px]">
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Time range
             </span>
-            <span className="font-mono text-data-sm text-text-primary">
+            <span className="font-mono text-data-sm text-text">
               {useCustom && customDate
                 ? `Since ${customDate}`
                 : `Last ${importDays} days`}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Active filters
             </span>
-            <span className="font-mono text-data-sm text-text-primary">
+            <span className="font-mono text-data-sm text-text">
               {ruleCount} rule{ruleCount !== 1 ? "s" : ""}
               {filters.usePresetBlocklist ? " + preset blocklist" : ""}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="font-mohave text-body-sm text-text-secondary">
+            <span className="font-mohave text-body-sm text-text-2">
               Auto-sync after import
             </span>
             <span className="font-mono text-data-sm text-[#9DB582]">
