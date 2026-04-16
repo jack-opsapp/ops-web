@@ -14,9 +14,9 @@ const config: Config = {
         ops: {
           // Primary accent - driven by CSS variable (default: Steel Blue)
           accent: {
-            DEFAULT: "rgb(var(--ops-accent-rgb, 65 115 148) / <alpha-value>)",
-            hover: "var(--ops-accent-hover, #4d83a6)",
-            muted: "var(--ops-accent-muted, rgba(65, 115, 148, 0.15))",
+            DEFAULT: "rgb(var(--ops-accent-rgb, 111 148 176) / <alpha-value>)",
+            hover: "var(--ops-accent-hover, #82a8c4)",
+            muted: "var(--ops-accent-muted, rgba(111, 148, 176, 0.15))",
           },
           // Secondary accent - Amber/Gold (active state ONLY)
           amber: {
@@ -54,8 +54,9 @@ const config: Config = {
           status: "#1D1D1D",
         },
 
-        // === Text System (pure grey — OPSStyle) ===
+        // === Text System ===
         text: {
+          // Legacy tokens (kept during migration)
           primary: "#E5E5E5",
           secondary: "#A7A7A7",
           tertiary: "#777777",
@@ -63,6 +64,11 @@ const config: Config = {
           inactive: "#878787",
           placeholder: "#999999",
           inverse: "#000000",
+          // Command Deck spec tokens (WCAG AA verified vs #000)
+          DEFAULT: "#EDEDED",        // 18.8:1 AAA — primary body, hero, names
+          "2": "#B5B5B5",            // 10.3:1 AAA — secondary values, ghost buttons, links
+          "3": "#8A8A8A",            // 5.4:1 AA — labels, metadata, subtitles
+          mute: "#6A6A6A",           // 3.4:1 AA large — decorative only: // slashes, separators
         },
 
         // === Border System (iOS uses 20% default — OPSStyle) ===
@@ -109,6 +115,20 @@ const config: Config = {
           cost: "#B58289",
           receivables: "#D4A574",
           overdue: "#93321A",
+        },
+
+        // === Neutral Fills (non-interactive data: bars, tracks, skeletons) ===
+        fill: {
+          neutral: "rgba(255, 255, 255, 0.14)",
+          "neutral-dim": "rgba(255, 255, 255, 0.06)",
+        },
+
+        // === Surface Interaction (hover, active, toggle states) ===
+        surface: {
+          hover: "rgba(255, 255, 255, 0.05)",
+          "hover-subtle": "rgba(255, 255, 255, 0.03)",
+          active: "rgba(255, 255, 255, 0.08)",
+          input: "rgba(255, 255, 255, 0.04)",
         },
       },
 
@@ -172,6 +192,11 @@ const config: Config = {
         md: "5px",
         lg: "8px",
         xl: "12px",
+        // Command Deck spec named radii
+        panel: "10px",
+        modal: "12px",
+        chip: "4px",
+        bar: "2px",
       },
 
       // === Box Shadow (subtle elevation, no glows) ===
@@ -228,9 +253,9 @@ const config: Config = {
           "100%": { transform: "translateX(350%)" },
         },
         "glow-flash": {
-          "0%": { boxShadow: "0 0 0 0 rgba(65, 115, 148, 0)" },
-          "20%": { boxShadow: "0 0 12px 2px rgba(65, 115, 148, 0.4)" },
-          "100%": { boxShadow: "0 0 0 0 rgba(65, 115, 148, 0)" },
+          "0%": { boxShadow: "0 0 0 0 rgba(111, 148, 176, 0)" },
+          "20%": { boxShadow: "0 0 12px 2px rgba(111, 148, 176, 0.4)" },
+          "100%": { boxShadow: "0 0 0 0 rgba(111, 148, 176, 0)" },
         },
       },
       animation: {
